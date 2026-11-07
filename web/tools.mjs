@@ -70,7 +70,8 @@ export const KEPT = {
   databases: [["azurkit-stamp", "Your image's check (its files' sha256)"],
               ["azurkit-snapshot", "The engine's quick start (no image in it)"],
               ["azurkit-content", "Installed community content"],
-              ["azurkit-dress", "Dressed characters (each build's, so the same one builds again quickly)"]],
+              ["azurkit-dress", "Dressed characters (each build's, so the same one builds again quickly)"],
+              ["azurkit-variants", "Your saved variants (Export keeps a copy of one)"]],
 };
 
 const el = (tag, props = {}, ...children) => {

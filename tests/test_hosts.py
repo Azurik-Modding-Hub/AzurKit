@@ -1258,6 +1258,91 @@ def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browse
             server.close()
 
 
+def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks_one_on_your_image(
+        browser, tmp_path, monkeypatch, usa_iso):
+    """Step 4.6c in the app's page: New on keylord, then Save as, writes ``variants/mine/recipe.json`` in the user
+    data folder in Modkit's format, which the Models view's Custom group lists; Export writes ``mine.zip`` into the
+    Downloads folder (never over one there); Delete (after a yes) and Import by path take it out and back, and a
+    network share is refused before it is read. Check with game data waits for the image (D979); with one, it dresses
+    the variant in the engine and draws it, and opening another variant meanwhile drops the Check, that one shown as
+    it ships, unchecked. A Build of a variant with unsaved edits asks first, and a no starts nothing."""
+    from tests.test_site import VARIANTS_ASKED, VARIANTS_ROW, VARIANTS_TYPE, _variants_shown
+
+    _home(monkeypatch, tmp_path / "home")
+    monkeypatch.delenv("AZURKIT_ISO", raising=False)   # no image until the test picks one
+    monkeypatch.delenv("AZURKIT_ISO_EUROPE", raising=False)
+    data = Path(platformdirs.user_data_dir("AzurKit", appauthor=False))
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.click(page, "var-new")
+        _page.until(page, "() => document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')")
+        page.evaluate("() => document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]').click()")
+        shown = _variants_shown(page, status="unsaved: Save as keeps it")
+        assert shown["check"] == [True, "Choose your image first (1.)"] and shown["status"].endswith(
+            "Choose your image first (1.) to check it")
+        page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
+        _page.click(page, "var-save-as")
+        _variants_shown(page, status="· saved ·")
+        folder = data / "variants" / "mine"
+        assert json.loads((folder / "recipe.json").read_text(encoding="utf-8")) == {"mine": {"base": "keylord",
+                                                                                             "mode": "own"}}
+        _page.click(page, "char-view-model")
+        _page.until(page, "() => document.querySelector('#char-custom button[data-model=\"mine\"]')", 120)
+        _page.click(page, "char-view-variants")
+        zipped = Path(platformdirs.user_downloads_dir()) / "mine.zip"
+        for said in ("Saved ", "exists: choose another name"):
+            _page.click(page, "var-export")
+            assert said in _page.until(page, f"() => document.getElementById('status').textContent.includes("
+                                             f"{json.dumps(said)}) && document.getElementById('status').textContent", 60)
+        with zipfile.ZipFile(zipped) as z:
+            assert z.namelist() == ["mine/recipe.json"]
+        _page.click(page, "var-delete")
+        _page.until(page, VARIANTS_ASKED)
+        _page.click(page, "var-ask-yes")
+        _page.until(page, "() => !azurkit.variants.state.list.yours.length", 60)
+        assert not folder.exists()
+        for path, said in (("//server/mine.zip", "a network share is never read"), (str(zipped), "Imported mine")):
+            page.evaluate(VARIANTS_TYPE, ["var-import-path", path])
+            _page.click(page, "var-import-use")
+            _page.until(page, f"() => document.getElementById('status').textContent.includes({json.dumps(said)})", 60)
+        assert (folder / "recipe.json").is_file()
+        _page.fill(page, "iso-path", str(usa_iso))
+        _page.until(page, "() => !document.getElementById('var-check').disabled", 120)
+        _page.click(page, "var-check")
+        page.evaluate(VARIANTS_ROW, "beamlord")
+        beam = _variants_shown(page, status="built in")
+        assert beam["status"].endswith("· built in · not checked") and not beam["check"][0]
+        _page.until(page, "() => document.getElementById('var-picture-note').textContent.includes('as it ships')", 60)
+        page.evaluate(VARIANTS_ROW, "mine")
+        _variants_shown(page, status="· saved ·")
+        time.sleep(1)
+        assert page.evaluate("() => document.getElementById('var-status').textContent").endswith("· not checked")
+        _page.click(page, "var-check")
+        assert _variants_shown(page, status="checked: it builds")["status"].startswith("recipe ")
+        assert "as it builds" in page.evaluate("() => document.getElementById('var-picture-note').textContent")
+        assert page.evaluate("""() => { const g = document.getElementById('var-front').getContext('2d');
+            return g.getImageData(0, 0, 160, 160).data.some((x, i) => i % 4 === 3 && x); }""")
+        page.evaluate(VARIANTS_TYPE, ["var-scale", "1.5"])
+        _variants_shown(page, status="unsaved edits")
+        _page.click(page, "char-view-model")
+        page.evaluate("() => document.querySelector('#char-custom button[data-model=\"mine\"]').click()")
+        _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'mine' && azurkit.characters.character()")
+        _page.click(page, "build")
+        assert _page.until(page, VARIANTS_ASKED) == ("mine has unsaved edits in the Variants view, and a build uses its "
+                                                     "saved recipe. Build without them?")
+        _page.click(page, "var-ask-no")
+        assert page.evaluate("() => azurkit.building") is False
+        _page.check_csp(page)
+    finally:
+        server.close()
+
+
 def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(browser, tmp_path, monkeypatch):
     """D980, past 1 s an op shows where it is: a launch whose server had run ``SLOW_LAUNCH`` by its ``host.json``
     answer (``age``; Step 4.4ci56: a launch on a busy computer passed 1 s with nothing shown) shows its stages on the

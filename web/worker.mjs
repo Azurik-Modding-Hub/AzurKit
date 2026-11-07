@@ -26,8 +26,11 @@
 //      hashed here, sdk.files), {type: "open", call, build} (another File: an AzurKit build's recipe, sdk.open_build of
 //      the files it changed), {type: "mods_file", call, text | recipe | preset} (sdk.mods_file) and {type:
 //      "plan_spoiler", call, plan} (sdk.spoiler), and the Data tab's {type: "data" | "data_edit", call, given}
-//      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image). A message with a File
-//      (file) has the image checked first, once a File (prime).
+//      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image), and the Variants view's
+//      {type: "variants" | "variant_open" | ... (VARIANTS), call, given, file?, data?} (sdk.variants ...: data an
+//      Import's bytes; file the image, for a Check and the calls on its dress) and {type: "library", folders} (what
+//      this browser keeps of your variants, written as the engine's library, ./variants, whole). A
+//      message with a File (file) has the image checked first, once a File (prime).
 // Out: {type: "native", kernel?, twin?} (the reach calls each path answered since the last, before the answer they
 //      went into), {type: "ready", catalog, version, commit, start, cold?} (start: "snapshot" or "cold", load()'s;
 //      cold: why a kept snapshot wasn't started from), {type: "progress", stage, label, done, total, percent} (core/progress.py's
@@ -108,6 +111,12 @@ const refusal = (error) => {
   return { refused: lastLine(error) };
 };
 
+// The Variants view's (Step 4.6c): its library's calls, then Check with game data and Step 4.6b's calls on its dress
+// and on a base species; each reads the loader, so numpy loads first. The engine's VARIANTS (ENGINE) holds the same.
+const VARIANTS = ["variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
+                  "variant_export", "variant_check", "variant_colours", "variant_preview", "variant_rows", "export_pngs",
+                  "base_bones", "own_sounds", "kit_throw", "move_sources"];
+
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
 // as their place in the heap where they are a bytes object's (placed), else as a Uint8Array of their own through the
@@ -130,6 +139,10 @@ from azurkit.tools import characters
 from azurkit.tools.characters import pool
 
 PIECE = "/tmp/azurkit-piece"
+VARIANTS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
+            "variant_export", "variant_check", "variant_colours", "variant_preview", "variant_rows", "export_pngs",
+            "base_bones", "own_sounds", "kit_throw", "move_sources")   # the Variants view's calls: the page's VARIANTS
+BARRED = ("variant_check", "variant_rows", "export_pngs")   # their steps posted: the bar moves while the page waits
 
 
 def handed(value):
@@ -192,6 +205,35 @@ def kept(files, installed):
         (content.ROOT / path).write_bytes(data)
     content.ROOT.mkdir(parents=True, exist_ok=True)
     (content.ROOT / content.INSTALLED).write_text(json.dumps(installed), encoding="utf-8")
+    return dropped
+
+
+def library(folders):
+    """What this browser keeps of your variants (IndexedDB, which any script of the site's origin may write) written
+    as the engine's library, ./variants (library.root() here: no user data folder), whole, the folders there before
+    removed: each folder only where its name is a variant's and each file only where its path lies inside it (no
+    "..", no absolute or empty part). The reasons the others were left out, each naming its folder or path. Written
+    here, not by the library's module, which loads numpy: each worker writes it as it starts."""
+    import re
+    import shutil
+    import sys
+    from pathlib import Path
+
+    root, dropped = Path("variants"), []
+    shutil.rmtree(root, ignore_errors=True)
+    if (held := sys.modules.get("azurkit.tools.characters.library")) is not None:
+        held._parsed.clear()   # a recipe read before is read again
+    for name, files in folders.items():
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", str(name)) or not isinstance(files, dict):
+            dropped.append(f"kept variant {name!r}: not a variant's folder")
+            continue
+        for path, data in files.items():
+            parts = str(path).split("/")
+            if chr(92) in path or ":" in path or any(part in ("", ".", "..") for part in parts):   # a backslash
+                dropped.append(f"kept variant {name!r}: {path!r} is no file inside its folder")
+                continue
+            (root / name / path).parent.mkdir(parents=True, exist_ok=True)
+            (root / name / path).write_bytes(bytes(data))
     return dropped
 
 
@@ -267,6 +309,20 @@ def engine(request):
     if request.type == "content":
         return js({"dropped": kept(request.files, json.loads(JSON.stringify(getattr(request, "installed", None))
                                                              or "null"))})
+    if request.type == "library":   # through to_py: each file a memoryview
+        return js({"dropped": library(request.folders.to_py())})
+    if request.type in VARIANTS:   # through JSON: a null is None; an Import's bytes beside it
+        try:
+            given = getattr(request, "given", None)
+            given = (json.loads(JSON.stringify(given)) if given is not None else None) or {}
+            if getattr(request, "data", None) is not None:
+                given["data"] = request.data.to_bytes()
+            if mounted := getattr(request, "iso", None):
+                given["iso"] = mounted
+            call = getattr(sdk, request.type)
+            return js(call(given, progress=progressed) if request.type in BARRED else call(given))
+        except (OSError, ValueError) as exc:
+            return js({"refused": str(exc)})
     if request.type == "restore":
         out = sdk.restore(json.loads(JSON.stringify(request.setup)) if request.setup else request.setup)
         if out.get("randomizer", {}).get("on") is True:   # its logic read before the page is ready, as the app's
@@ -934,7 +990,8 @@ const numpy = (loaded) => dead ? Promise.reject(new Error(dead))
     messageCallback: () => {}, errorCallback: () => {} })).finally(() => { calling = null; })
     .then(() => void (loaded.numpied = true));
 const CHARACTER = ["pickers", "preview", "match", "content_check"];
-const needsNumpy = (data) => data.type === "warm" || CHARACTER.includes(data.type) || data.character || data.recipe?.character
+const needsNumpy = (data) => data.type === "warm" || CHARACTER.includes(data.type) || VARIANTS.includes(data.type)
+  || data.character || data.recipe?.character
   || data.given?.character
   || data.setup?.character || data.type === "decode" || data.type === "mods_file" && (
     data.preset?.layers?.some((layer) => layer.tool === "characters") || typeof data.text === "string" && (
@@ -945,6 +1002,12 @@ const needsNumpy = (data) => data.type === "warm" || CHARACTER.includes(data.typ
 // list, the sha256 installed.json holds for it); one that fails is left out with a line naming it, never written.
 function content({ engine }, { files, installed }) {
   for (const why of engine({ type: "content", files, installed }).dropped) console.warn(`AzurKit left out ${why}`);
+}
+
+// The engine's library (./variants): what this browser keeps of your variants, written whole once per worker and after
+// each change the page keeps (a Save, an Import, a Delete); a folder or file that isn't one is left out, named.
+function library({ engine }, { folders }) {
+  for (const why of engine({ type: "library", folders }).dropped) console.warn(`AzurKit left out ${why}`);
 }
 
 // A Characters tab's call, the image mounted for it (none picked: no image).
@@ -1157,7 +1220,7 @@ try {
   self.onmessage = ({ data }) => {
     if (data?.type === "held") return letGo();   // the page holds the last build file now
     if (!["warm", "build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
-          ...CHARACTER, ...TOOLS, ...DATA].includes(data?.type)) return;
+          "library", ...CHARACTER, ...TOOLS, ...DATA, ...VARIANTS].includes(data?.type)) return;
     if (data.file && typeof data.id === "string" && !ids.has(data.file)) ids.set(data.file, data.id);   // read before
     const aside = !data.file && ["content", ...CHARACTER].includes(data.type);
     if (aside && checking && !behind && loaded.numpied) return handle(data);
@@ -1181,7 +1244,8 @@ try {
     try {
       if (data.type === "warm") return void loaded.engine(data);
       if (data.type === "content") return content(loaded, data);
-      if (CHARACTER.includes(data.type)) {   // answered whatever happens: the page waits on it
+      if (data.type === "library") return library(loaded, data);
+      if (CHARACTER.includes(data.type) || VARIANTS.includes(data.type)) {   // answered whatever happens: the page waits
         try {
           return character(loaded, data);
         } catch (error) {

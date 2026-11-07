@@ -160,6 +160,12 @@ OPS = {op.id: op for op in (
               "(its openers)", "tracker"),
     Op("A85", "the Tracker view with no plan: Map ready (the vanilla game's spots)", "tracker"),   # Step 4.4u3
     Op("A86", "a level's map with no plan, picked on Map", "tracker", first=False),
+    Op("A87", "the Variants view, first open (the built-ins, 3 of yours)", "characters"),   # Step 4.6c: the Variants view
+    Op("A88", "Save, after a Body edit", "characters", first=False),
+    Op("A89", "New from this on booblord (her files copied)", "characters", first=False, content=True),
+    Op("A90", "Import a variant's zip", "characters", first=False),
+    Op("A91", "Export a variant's zip (the Downloads folder)", "characters", first=False),
+    Op("A92", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -170,8 +176,8 @@ OPS = {op.id: op for op in (
     Op("A44", "Undo (the view again)", "build", first=False),
     Op("A45", "Build, defaults and 100 data edits", "build", head_start=True),
     Op("A46", "Load a mods file of 1,000 data edits, its view", "build"),
-    Op("A87", "Data tab, All files… opened (the image's .xbr files)", "build", first=False),   # Step 4.6h
-    Op("A88", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False),
+    Op("A120", "Data tab, All files… opened (the image's .xbr files)", "build", first=False),   # Step 4.6h
+    Op("A121", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False),
     Op("A94", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
     Op("A47", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("A48", "Verify every file, first", "image", bar=True),
@@ -225,6 +231,12 @@ OPS = {op.id: op for op in (
     Op("S22", "a level's map", "tracker", first=False),
     Op("S70", "the Tracker view with no plan: Map ready (the vanilla game's spots)", "tracker"),   # Step 4.4u3: S19's
     Op("S71", "a level's map with no plan, picked on Map", "tracker", first=False),
+    Op("S73", "the Variants view, first open (the built-ins, 3 of yours)", "characters"),   # Step 4.6c: the Variants view
+    Op("S74", "Save, after a Body edit", "characters", first=False),
+    Op("S75", "New from this on booblord (her files copied)", "characters", first=False, content=True),
+    Op("S76", "Import a variant's zip", "characters", first=False),
+    Op("S77", "Export a variant's zip (the browser's download)", "characters", first=False, browser_bar=DOWNLOAD_BAR),
+    Op("S78", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True),
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
@@ -242,8 +254,8 @@ OPS = {op.id: op for op in (
     Op("S37", "Undo (the view again)", "build", first=False),
     Op("S38", "Build, defaults and 100 data edits", "build", head_start=True),
     Op("S39", "Load a mods file of 1,000 data edits, its view", "build"),
-    Op("S73", "Data tab, All files… opened (the image's .xbr files)", "build", first=False),   # Step 4.6h
-    Op("S74", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False),
+    Op("S120", "Data tab, All files… opened (the image's .xbr files)", "build", first=False),   # Step 4.6h
+    Op("S121", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False),
     Op("S80", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
     Op("S40", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("S41", "Verify every file, first", "image", bar=True),
@@ -2098,7 +2110,7 @@ def app_data(d: Driver, app: App, ctx) -> None:
     engine process with the randomizer's logic it reads ahead (from a checkout 1.1-2.8 s, against 0.12 s once read)."""
     p = app.launch(d, ctx, None)
     _data(d, p, ("A39", "A40", "A41", "A42", "A43", "A44", None, "A46", "A94"), None)
-    _files(d, p, ("A87", "A88"), lambda: d.act(p, None, typed("iso-path", str(d.iso)), USA, 900, change=True))
+    _files(d, p, ("A120", "A121"), lambda: d.act(p, None, typed("iso-path", str(d.iso)), USA, 900, change=True))
     app.quit(p)
     if not d.need("A45"):
         return
@@ -2116,7 +2128,136 @@ def app_data(d: Driver, app: App, ctx) -> None:
 def site_data(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
     _data(d, p, ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S80"), lambda: _pick(d, p, None))
-    _files(d, p, ("S73", "S74"), lambda: _pick(d, p, None))
+    _files(d, p, ("S120", "S121"), lambda: _pick(d, p, None))
+    d.leave(p)
+
+
+# The Variants view (Step 4.6c): its status line once the open recipe is read, and once it reads saved.
+VAR_READ = ("(() => { const v = azurkit.variants?.state; return Boolean(v?.list && v.read && !v.reading "
+            "&& /^recipe /.test(document.getElementById('var-status').textContent)); })()")
+VAR_OPENED = f"() => {VAR_READ} && azurkit.variants.state.list.yours.length >= 3"
+VAR_SAVED = f"() => {VAR_READ} && document.getElementById('var-status').textContent.includes('· saved ·')"
+VAR_EDITED = f"() => {VAR_READ} && document.getElementById('var-status').textContent.includes('unsaved edits')"
+VAR_CHECKED = (f"() => {VAR_READ} && /checked: it builds|the check refused it/.test("
+               "document.getElementById('var-status').textContent)")
+VAR_ASKED = "() => document.getElementById('var-ask').open && document.getElementById('var-ask-name')"
+YOURS = (("mine_a", "keylord"), ("mine_b", "golem"), ("mine_c", "town_female_2"))
+
+
+def _recipe_file(d: Driver, name: str, base: str = "keylord") -> Path:
+    """A recipe.json alone holding ``name`` (an Import takes one), in the run's scratch."""
+    out = d.scratch / "variants" / f"{name}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({name: {"base": base, "mode": "own"}}), encoding="utf-8")
+    return out
+
+
+def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], object], exported: Callable[[str], None],
+                 booblord: Callable[[], None]) -> None:
+    """The Variants view's ops after its open, on one of yours: Save after a Body edit; Import (``imported``: a new
+    name's recipe.json each sample) and Export (``exported``, the op timed by it); New from this on booblord (her files
+    copied, once ``booblord()`` installed her) and Check of each copy (the image picked), each a new copy."""
+    save, new_from, imported_op, exported_op, check = ops
+    n = 0
+    while d.need(save):
+        n += 1
+        d.act(p, None, typed("var-scale", str(1 + n / 10)), VAR_EDITED, 600)
+        d.act(p, save, click("var-save"), VAR_SAVED, 600)
+    while d.need(imported_op):
+        n += 1
+        file = _recipe_file(d, f"imported_{n}")
+        d.act(p, imported_op, lambda: imported(file), VAR_SAVED + f" && azurkit.variants.state.name === 'imported_{n}'", 600)
+    while d.need(exported_op):
+        exported(exported_op)
+    if not d.needed((new_from, check)):
+        return
+    booblord()
+    p.wait("() => document.querySelector('#var-items button[data-name=\"booblord\"]')", 600)
+    while d.needed((new_from, check)):
+        d.act(p, None, "() => document.querySelector('#var-items button[data-name=\"booblord\"]').click()",
+              "() => azurkit.variants.state.name === 'booblord' && " + VAR_READ, 600)
+        d.act(p, None, click("var-from"), VAR_ASKED, 60)
+        d.act(p, new_from, click("var-ask-yes"), VAR_SAVED + " && azurkit.variants.state.name.startsWith('booblord_')",
+              1800)
+        if d.need(check):
+            p.wait("() => !document.getElementById('var-check').disabled", 600)
+            d.act(p, check, click("var-check"), VAR_CHECKED, 3600)
+
+
+def app_variants(d: Driver, app: App, ctx) -> None:
+    """The Variants view in the app (Step 4.6c): three of yours in its library, as a Modkit player keeps them (A87);
+    then A88-A92 (:func:`_variant_ops`): Import by path, Export into the Downloads folder."""
+    library = app.home / "Library" / "Application Support" / "AzurKit" / "variants"
+    for name, base in YOURS:
+        (library / name).mkdir(parents=True, exist_ok=True)
+        (library / name / "recipe.json").write_text(json.dumps({name: {"base": base, "mode": "own"}}), encoding="utf-8")
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA, 900)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES)
+    d.act(p, "A87", click("char-view-variants"), VAR_OPENED, 600)
+
+    def imported(file: Path) -> None:
+        p.js(typed("var-import-path", str(file)))
+        p.js(click("var-import-use"))
+
+    def exported(op: str) -> None:
+        out = Path(app.home) / "Downloads" / f"{p.js('() => azurkit.variants.state.name')}.zip"
+        out.unlink(missing_ok=True)
+        d.act(p, op, click("var-export"), "() => /^Saved /.test(document.getElementById('status').textContent)", 600)
+        out.unlink(missing_ok=True)
+
+    def booblord() -> None:
+        p.js(click("char-view-model"))
+        p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
+        d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
+              """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 1800)
+        p.js(click("char-view-variants"))
+
+    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92"), imported, exported, booblord)
+    app.quit(p)
+
+
+def site_variants(d: Driver, ctx, url: str) -> None:
+    """The Variants view on the site (Step 4.6c): three of yours imported, then a new page opens it (S73: the library
+    this browser keeps, handed to its engine as the page starts); S74-S78 (:func:`_variant_ops`): Import picks a
+    file, Export is the browser's download (its page part to the download's start)."""
+    p = _site_page(d, ctx, url, None)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES_LISTED, 600)
+    d.act(p, None, click("char-view-variants"), f"() => {VAR_READ}", 600)
+    for name, base in YOURS:
+        file = _recipe_file(d, name, base)
+        d.act(p, None, lambda: p.page.set_input_files("#var-import", str(file)),
+              VAR_SAVED + f" && azurkit.variants.state.name === '{name}'", 600)
+    d.leave(p)
+    p = _site_page(d, ctx, url + "?again", None)
+    _pick(d, p, None)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES_LISTED, 600)
+    d.act(p, "S73", click("char-view-variants"), VAR_OPENED, 600)
+
+    def exported(op: str) -> None:
+        t0 = p.now()
+        with p.page.expect_download(timeout=600_000) as caught:
+            p.js(click("var-export"))
+        started = p.now()
+        caught.value.path()
+        t1 = p.now()
+        d.ev += p.events()
+        d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, None, (started - t0) / 1000)
+        caught.value.delete()
+
+    def booblord() -> None:
+        p.js(click("char-view-model"))
+        p.wait("() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
+        d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
+              """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')
+                   && !azurkit.characters.state.installing""", 1800)
+        p.js(click("char-view-variants"))
+
+    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78"),
+                 lambda file: p.page.set_input_files("#var-import", str(file)), exported, booblord)
     d.leave(p)
 
 
@@ -2138,7 +2279,8 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-reshape-pictures": ("app", ("A59", "A60", "A61"), app_reshape_pictures),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-plan": ("app", ("A97",), app_plan),
-    "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A87", "A88", "A94"), app_data),
+    "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A120", "A121", "A94"), app_data),
+    "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92"), app_variants),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17", "S64"),
                    site_start),
@@ -2158,7 +2300,8 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-ahead-stale": ("site", ("S59",), site_ahead_stale),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-plan": ("site", ("S83",), site_plan),
-    "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S73", "S74", "S80"), site_data),
+    "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S120", "S121", "S80"), site_data),
+    "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78"), site_variants),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)

@@ -36,14 +36,18 @@ export function where(source, here) {
     : `${source} is no https address: the site reads an https one.`);
 }
 
-// keeper(db): this browser's keeping of what the site installed (the last manifest read, installed.json's record and
-// the files), in IndexedDB's "azurkit-content" (the Characters tab's since Step 4.3d), opened on first use.
-export function keeper(db = globalThis.indexedDB) {
+// keeper(db, name): this browser's keeping of what the site installed (the last manifest read, installed.json's record
+// and the files), in IndexedDB's "azurkit-content" (the Characters tab's since Step 4.3d), opened on first use; with
+// name another database of one store, as the Variants view keeps your variants in "azurkit-variants" (Step 4.6c).
+export function keeper(db = globalThis.indexedDB, name = "azurkit-content") {
   let opened = null;
   const open = () => opened ??= new Promise((done, fail) => {
-    const request = db.open("azurkit-content", 1);
+    const request = db.open(name, 1);
     request.onupgradeneeded = () => request.result.createObjectStore("kept");
-    request.onsuccess = () => done(request.result);
+    request.onsuccess = () => {   // a Clear's delete of it never waits on this page (it closes, then reload)
+      request.result.onversionchange = () => request.result.close();
+      done(request.result);
+    };
     request.onerror = () => fail(request.error);
   });
   const run = async (mode, act) => {

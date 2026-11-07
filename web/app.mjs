@@ -59,6 +59,7 @@ import { hold, letGo, sweep, written } from "./outputs.mjs";
 import { player } from "./play.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
+import { variantsView } from "./variants.mjs";
 import { canon, workers } from "./workers.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -243,7 +244,10 @@ const LABELS = { build: "Building", save: "Saving", save_check: "Saving", vanill
                  mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
                  storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit",
                  play: "Starting xemu", attach: "Attaching to xemu", tray: "Reading xemu's disc", logs: "Opening the log",
-                 flat: READYING };
+                 variants: "Reading your variants", variant_open: "Opening the variant", variant_read: "Reading the recipe",
+                 variant_save: "Saving the variant", variant_delete: "Deleting the variant",
+                 variant_import: "Importing the variant", variant_export: "Exporting the variant",
+                 variant_check: "Checking with game data", flat: READYING };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other from its
 // first record, else after 1 s. Shown from the click too: Track this seed's plan and a plan file's spoiler (the logic's
 // read), and the site's Save's check, which is over when it is: no later Build, Cancel, pick or engine's ready ends it
@@ -344,11 +348,12 @@ function unchecked() {
 // promise of it). A click whose key is B's finished job takes its answer; one B is still working on follows B's records.
 // The key holds everything an answer reads: the recipe, the picked File (by identity: a new pick is a new key), what this
 // browser keeps installed and the engine's version.
-const SMALL = new Set(["pickers", "tracker", "data", "data_edit"]);   // an ask B answers while F builds
+const SMALL = new Set(["pickers", "tracker", "data", "data_edit", "variants", "variant_open", "variant_read",
+                       "variant_save", "variant_delete", "variant_import", "variant_export"]);   // an ask B answers while F builds
 const ASIDE = new Set(["content", "pickers", "content_check"]);   // sent no image, B answers while F runs anything: an
                                                                   // Install's list never waits for a check (Step 4.3r4m)
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
-  let calls = 0, content = null, engine = null, picks = 0, warmed = false;
+  let calls = 0, content = null, engine = null, picks = 0, warmed = false, library = 0;
   let starting = null;   // the ask a loading F's start records show on, answered at its ready or its stop
   const picked = new WeakMap();
   const start = (role) => {
@@ -422,7 +427,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     : `The engine stopped (${data.message || "out of memory?"}): try again, or use the desktop app`;
   const key = (what) => {
     try {
-      return canon({ ...what, installed: content?.installed ?? null, code: engine?.[1] ?? null });
+      return canon({ ...what, installed: content?.installed ?? null, library, code: engine?.[1] ?? null });
     } catch {
       return null;   // a recipe no key holds: no work ahead, and the click asks F
     }
@@ -516,6 +521,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       pool.share({ type: "content", ...content });
       ahead();
     },
+    library: (folders) => {   // your variants as this browser keeps them: the engine's library, whole (each change)
+      library++;
+      pool.share({ type: "library", folders });
+      ahead();
+    },
     cancel: () => {
       pool.cancel();
       setTimeout(sweep, 1000);   // a stopped job's build file, once its lock is gone
@@ -600,6 +610,7 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     call: (type, body) => followed(type, post(`api/${type}`, type === "install" ? { ...body, gen: ++state.gen } : body))
       .catch((error) => ({ refused: `The app's engine didn't answer (${error.message}): restart AzurKit` })),
     content: () => {},   // the app's engine reads its content folder itself
+    library: () => {},   // and its library of your variants
     // remembering is a convenience; not keepalive: a plan and its marks may pass keepalive's 64 KiB
     tracked: (kept) => post("api/tracked", { tracker: kept }).catch(() => {}),
     cancel: () => {
@@ -855,6 +866,7 @@ function pick(id) {
     askRando(null, 0);
   }
   if (id === "characters" && state.characters) state.characters.open();
+  if (id === "characters" && state.variants && state.charPane === "variants") state.variants.open();
   if (id === "data" && state.data) state.data.open();   // the Patches tab's ticks may have changed: its ⚠ marks
   if (id === "tools" && state.tools) state.tools.open();
   for (const tab of $("tabs").children) tab.setAttribute("aria-selected", String(tab.dataset.tab === id));
@@ -1141,7 +1153,15 @@ function ready(catalog, version, commit) {
                              handoff: state.engine.content });
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
                                     image: () => state.file, packs: chosen, changed: state.changed, shared,
-                                    settled: ahead, busy: () => state.building || state.saving });
+                                    settled: ahead, busy: () => state.building || state.saving,
+                                    edit: (name) => {
+                                      charPane("variants", false);
+                                      state.variants.edit(name);
+                                    } });
+    state.variants = variantsView({ root: $("variants"), call: state.engine.call, app: state.app, say,
+                                    image: () => state.file, packs: chosen, share: state.engine.library,
+                                    dialog: state.dialogs ? (kind, path) => state.engine.choose(kind, path) : null,
+                                    changed: () => state.characters.relist() });
     state.community = communityGroup({ root: $("packs"), call: state.engine.call, shared, say, catalog,
                                        settled: () => { tally(); lock(); } });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
@@ -1166,7 +1186,7 @@ function ready(catalog, version, commit) {
     launched(2);
     if (!state.pending && state.remembered != null) {
       state.restoring = true;   // a remembered community pack is read from what the site hands its engine first
-      return (state.remembered.community ? shared.ready : Promise.resolve())
+      return Promise.all([state.remembered.community ? shared.ready : null, state.variants.ready])   // yours worn too
         .then(() => state.engine.restore(state.remembered));
     }
   }
@@ -1473,6 +1493,7 @@ function pickInApp(host) {
     state.tools?.imaged();
     state.replace?.imaged();
     state.saves?.imaged();
+    state.variants?.imaged();
   };
   picked();
   $("iso-path").addEventListener("input", picked);
@@ -1977,6 +1998,16 @@ function randoPane(view) {
   ahead();
 }
 
+// The Characters tab's two views: the models, and the Variants editor (Step 4.6c).
+function charPane(view, opening = true) {
+  state.charPane = view;
+  for (const id of ["model", "variants"]) $(`char-view-${id}`).setAttribute("aria-selected", String(id === view));
+  $("char-model").hidden = view !== "model";
+  $("variants").hidden = view !== "variants";
+  if (view === "variants" && opening) state.variants?.open();
+  if (view === "model") state.characters?.open();
+}
+
 // Track this seed: the Settings view's seed and settings (their share string, with the Patches tab's movement
 // sliders, so the plan is the one a build of them makes) planned by the engine, then tracked.
 async function trackSeed() {
@@ -2192,6 +2223,7 @@ async function main() {
       state.tools?.imaged();
       state.replace?.imaged();
       state.saves?.imaged();
+      state.variants?.imaged();
     });
   }
 
@@ -2220,13 +2252,16 @@ async function main() {
     $("load-build").hidden = true;
     load(state.opened, "your build");
   });
-  $("build").addEventListener("click", () => {
+  $("build").addEventListener("click", async () => {
     const randomizer = randoRecipe(), character = state.characters.character();
     if (randomizer && !randomizer.seed && !randomizer.plan) {
       return say("Type a seed on the Randomizer tab, or press New", true);
     }
     if (state.characters.refused()) return say(state.characters.refused(), true);
     if (state.community.waiting()) return say("Reading the community packs: try again in a moment", true);
+    const unsaved = state.variants.unsaved();   // a build reads a variant's saved recipe: its edits asked about first
+    if (unsaved && character?.species === unsaved && !await state.variants.ask(
+      `${unsaved} has unsaved edits in the Variants view, and a build uses its saved recipe. Build without them?`)) return;
     forget();
     if (!state.app) state.ready = false;   // until the site's engine answers: then kept, or replaced
     busy(true);
@@ -2239,6 +2274,7 @@ async function main() {
                        { ...extras(), ...(state.app ? {} : state.replace.picked()) });
   });
   randoEvents(changed);
+  for (const view of ["model", "variants"]) $(`char-view-${view}`).addEventListener("click", () => charPane(view));
   $("cancel").addEventListener("click", () => {
     if (!state.app) state.ready = false;
     state.engine.cancel();

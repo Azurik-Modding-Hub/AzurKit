@@ -123,8 +123,10 @@ type="button" disabled>◀ World map</button> <button id="map-fit" type="button"
 </div>
 </section>
 <section id="characters" class="rando chars" role="tabpanel" data-tab="characters" aria-label="Characters" hidden>
-<h2>2. Choose a character</h2>
-<div class="chars-cols">
+<h2>2. Choose a character <span class="views" role="tablist" aria-label="The Characters tab's views"><button
+id="char-view-model" type="button" role="tab" aria-selected="true">Models</button><button id="char-view-variants"
+type="button" role="tab" aria-selected="false">Variants</button></span></h2>
+<div class="chars-cols" id="char-model">
 <div class="chars-list">
 <p class="rando-row"><input type="search" id="char-filter" placeholder="Search the models" aria-label="Search the models"
 spellcheck="false" autocomplete="off"> <label class="on" title="Pickups, keys and statues: one rigid body with no moves of
@@ -137,6 +139,8 @@ tested</span></h3>
 <p class="rando-row"><label class="field">Content from <input type="text" id="char-source" spellcheck="false"
 autocomplete="off"></label> <button id="char-source-reset" type="button">Reset</button></p>
 <p id="char-content-note" class="note"></p>
+<h3>Custom <span class="note">your own variants: make them in the Variants view</span></h3>
+<div id="char-custom"><p class="note">None saved yet.</p></div>
 </div>
 <div class="chars-info">
 <p id="char-previews" class="previews"><canvas id="char-front" width="160" height="160" aria-label="The model from the front"></canvas><canvas
@@ -165,9 +169,11 @@ type="checkbox" id="char-height"> garret4's height</label></p>
 <div id="char-numbers"></div>
 <p id="char-g4-note" class="note"></p>
 <p id="char-refused" class="warn" hidden></p>
-<p class="rando-row"><button id="char-reset" type="button" title="Back to this model's defaults: its sliders, options and weapon. You stay on it.">Reset</button></p>
+<p class="rando-row"><button id="char-reset" type="button" title="Back to this model's defaults: its sliders, options and weapon. You stay on it.">Reset</button>
+<button id="char-edit" type="button" title="Open this variant in the Variants view" hidden>Edit…</button></p>
 </div>
 </div>
+<div id="variants" class="variants" hidden><select id="var-mode"></select></div>
 </section>
 <section id="data" class="data" role="tabpanel" data-tab="data" aria-label="Data" hidden></section>
 <section id="tools" class="tools" role="tabpanel" data-tab="tools" aria-label="Tools" hidden></section>

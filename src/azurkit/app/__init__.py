@@ -118,6 +118,15 @@ The Data tab's calls (Step 4.7a): ``POST api/data`` ``{"given"}`` gives a
 view of config.xbr's cells (``sdk.data``: the vanilla file AzurKit ships,
 no image) and ``api/data_edit`` ``{"given"}`` checks a cell's edit into the
 recipe's ``xbr`` operations (``sdk.data_edit``); the page keeps them.
+The Variants view's calls (Step 4.6c): ``POST api/variants``,
+``api/variant_open``, ``api/variant_read``, ``api/variant_save`` and
+``api/variant_delete`` ``{"given"}`` (``sdk.variants`` ...: the list, and
+your variants in ``variants`` in the user data folder, where Modkit keeps
+them), ``api/variant_import`` ``{"path"}`` (an Export's zip or a
+recipe.json, read by path) and ``api/variant_export`` ``{"name", "out"}``
+(the zip written to ``out``, else the Downloads folder);
+``api/variant_check`` and Step 4.6b's calls on the dress it keeps run in
+the engine (:data:`EDITED`), its bar in ``api/progress``.
 The Tools tab's calls (Step 4.7c): ``POST api/info`` ``{"iso"}`` says what
 the image is (``sdk.image_info``), ``api/verify_all`` ``{"iso"}`` checks
 every file of it (``sdk.verify_all``: only what its kept check hasn't
@@ -200,7 +209,8 @@ reads past them): Firefox aborts every connection that carried no byte in the 5 
 changes (``network.http.network-changed.timeout``), and a call that sent nothing until its answer lost it, a plan's or
 a spoiler's of seconds, tens on a slow runner ("NetworkError"; a Mac's IPv6 changed every 1-8 min here, Step 4.4ci36)."""
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
-SAVES = ("out", "spoiler", "settings", "extract", "mods", "report", "saves")   # the kinds of save the save dialog chooses for
+VARIANT_FILES = ("Variants (*.zip;*.json)",)   # the Variants view's Import (an Export's zip, or a recipe.json alone)
+SAVES = ("out", "spoiler", "settings", "extract", "mods", "report", "saves", "variant")   # the kinds of save the save dialog chooses for
 UNFILTERED = ("replacement", "folder", "xemu")   # the open dialog's kinds that take any file (xemu: its .app or program)
 MODS = "AzurKit mods.json"   # the Tools tab's mods file, by default (web/tools.mjs's)
 NEVER_CLEARED = (".iso", ".xiso")   # an image AzurKit's Clear never removes, wherever it is (SEC-10)
@@ -1047,6 +1057,40 @@ class Server(http.server.ThreadingHTTPServer):
             if isinstance(gen := body.get("gen"), int):
                 self.slots.change(gen)
 
+    def edited(self, job: str, body: dict) -> dict:
+        """``api/variant_check`` and the Variants editor's calls that stand on
+        the dress it keeps (Step 4.6b's ``variant_colours``,
+        ``variant_preview``, ``variant_rows``, ``export_pngs``): the engine's,
+        followed by its line; a build ahead stops at its next record, as no
+        dress runs beside it."""
+        given = body.get("given")
+        name = given.get("name") if isinstance(given, dict) else None
+        first = record("dress", f"Checking {name} with game data" if isinstance(name, str) else None)
+        with self.follow(job, first) as report, self.slots.turn():
+            self.slots.offer("build", self.slots.gen, None, None)
+            return self.engine.call(job, given, progress=lambda step: report(step | {"label": first["label"]}))
+
+    def variant_import(self, body: dict) -> dict:
+        """``api/variant_import``: ``{"path"}``, an Export's zip or a
+        recipe.json the player picked, read (a share or device path refused
+        before it is opened, ``edits.files.source``; past ``library.MOST``
+        bytes refused unread) and made a variant of theirs (``sdk.variant_import``)."""
+        from azurkit.tools.characters import library
+
+        file = _path(replaced.source(str(body.get("path") or "")), "variant's file")
+        if file.stat().st_size > library.MOST:
+            raise ValueError(f"import: {file.name} is past the {library.MOST:,} B a variant's file holds")
+        return sdk.variant_import({"data": file.read_bytes()})
+
+    def variant_export(self, body: dict) -> dict:
+        """``api/variant_export``: ``{"name", "out"}``, the variant's zip
+        (``sdk.variant_export``) written to ``out``, else under its name in
+        the Downloads folder (:meth:`writable`): ``{"out", "size",
+        "unshareable"}``."""
+        made = sdk.variant_export({"name": body.get("name")})
+        out = self.writable(_path(body["out"], "zip") if body.get("out") else _downloads() / made["name"], "variant")
+        return _written(out, made["zip"]) | {"unshareable": made["unshareable"]}
+
     def art(self, body: dict) -> dict:
         """``api/art``: the tracker's shipped pictures
         (:meth:`.art.Drawing.status`)."""
@@ -1162,7 +1206,8 @@ class Server(http.server.ThreadingHTTPServer):
         else:
             picked = self.window.create_file_dialog(
                 webview.FileDialog.FOLDER if body.get("kind") == "folder" else webview.FileDialog.OPEN, directory=folder,
-                **({} if body.get("kind") in UNFILTERED else {"file_types": IMAGES}))
+                **({} if body.get("kind") in UNFILTERED else
+                   {"file_types": VARIANT_FILES if body.get("kind") == "variant_file" else IMAGES}))
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
         if picked and body.get("kind") in SAVES:
@@ -1265,6 +1310,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/open": lambda body: {"preset": sdk.open_build(str(_path(body.get("iso"), "build")), whole=False)},
                 "/api/mods_file": self.server.mods_file, "/api/report": self.server.report,
                 "/api/plan_spoiler": self.server.plan_spoiler, "/api/storage": self.server.storage,
+                **{f"/api/{name}": (lambda name: lambda body: getattr(sdk, name)(body.get("given")))(name)
+                   for name in VARIANT_CALLS},
+                **{f"/api/{job}": (lambda job: lambda body: self.server.edited(job, body))(job) for job in EDITED},
+                "/api/variant_import": self.server.variant_import, "/api/variant_export": self.server.variant_export,
                 "/api/cancel": lambda body: self.server.cancel()}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose
@@ -1321,6 +1370,13 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, *args) -> None:   # the token is in the first request's line
         pass
+
+
+VARIANT_CALLS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "base_bones",
+                 "own_sounds", "kit_throw", "move_sources")
+"""The Variants view's calls the server answers itself (``api/<name>`` ``{"given"}``: ``sdk.<name>``)."""
+EDITED = ("variant_check", "variant_colours", "variant_preview", "variant_rows", "export_pngs")
+"""Those the engine answers, the dress a Check keeps there serving the ones after it (:meth:`Server.edited`)."""
 
 
 def _vanilla(body: dict) -> dict:

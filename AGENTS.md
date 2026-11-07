@@ -94,6 +94,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     its origin behind it),
     so `_page.check_csp` after a WebKit screenshot fails. The status line
     says only the page's own refusals (`web/app.mjs`'s `refusal`).
+  - WebKit refuses each `<select>` a script makes (its own inline style,
+    CSP's `style-src-attr`, raised from the script's file), so the page's
+    selects are parsed from `index.html`, the Variants view's Gameplay box
+    too (Step 4.6c); their options may be made by script.
   - A page's files come from a server of a process of its own
     (`tests/_page.py`'s `Served`, `tests/_static.py`: `test_site.Site`, its
     bare page and `test_service_worker.Host`), never through the test's own
@@ -1439,6 +1443,33 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     site a detailed variant's dress (booblord's) may run out of wasm
     memory; the page then says to use the app. 4.4 waits until every site
     build fits the capped profile's 6 GiB (D1021: no use-the-app fallback).
+  - **The Variants view** (Step 4.6c, `web/variants.mjs`; Modkit's
+    Variants page, D372, D480, D1087): the Characters tab's second view
+    beside Models (`char-view-*`, as the Randomizer tab's Settings and
+    Tracker). The list (built-ins, community ones marked, then yours, a
+    refused one marked), New (a species from `web/picker.mjs` in the
+    page's own dialog), New from this, Save, Save as, Delete (after a
+    yes), Import and Export (a zip; the site's download, the app's
+    Downloads folder or save dialog), Gameplay, the Body and JSON tabs,
+    Check with game data (greyed with D979's line until an image; its bar
+    the bottom bar's) and the status line (sha12, grade, saved, checked);
+    the engine decides every recipe (`sdk.variants`, `variant_open`,
+    `variant_read`, `variant_save`, `variant_delete`, `variant_import`,
+    `variant_export`, `variant_check`). Unsaved edits are asked about in
+    the page's own dialog (`#var-ask`, on the body: a Build's question
+    comes from any tab) before another opens and before a Build of that
+    variant, and the site's `beforeunload` asks before the page goes. The
+    app keeps your variants in its library (`api/variant_*`; Clear leaves
+    them: they are your work, Modkit's folder too); the site keeps them
+    in IndexedDB's `azurkit-variants` (`content.keeper`'s, which closes on
+    a delete's version change so Clear never waits on the page), hands
+    them to each worker as `{type: "library"}` (the worker's own
+    `library()` writes `./variants` whole, numpy unloaded: once a worker
+    and after each change; the view's calls load numpy first), and the
+    work ahead's key counts each handoff. The Models view lists yours as
+    its Custom group (`#char-custom`) with Edit… on a chosen variant.
+    `tests/test_variant_library.py`, `test_site.py` and `test_hosts.py`
+    hold it; `tests/_perf.py`'s A87-A92 and S73-S78 time it.
   - **The Data tab** (Step 4.7a, `web/data.mjs`; D986, Modkit's Game Data
     editor): config.xbr's cells before an image (`sdk.data`, from the
     vanilla file `tools/data` ships): the Player, Critter, Item, Armor and
@@ -1466,7 +1497,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     table shows and edits as config.xbr's (its asks carry the image: the
     app's path, the site's File mounted). `tests/test_data.py`,
     `test_site.py` and `test_hosts.py` hold it; `tests/_perf.py`'s A39-A46,
-    A87, A88, A94, S32-S39, S73, S74 and S80 time it.
+    A94, A120, A121, S32-S39, S80, S120 and S121 time it.
   - **The Tools tab** (Step 4.7c, `web/tools.mjs`; D919's list): **your
     image** (`sdk.image_info`: its release, size and kind, vanilla with how
     much of it the gate checked, an AzurKit build with its version and

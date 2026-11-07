@@ -18,7 +18,9 @@
 // tab's own search box and list. A reshape's pictures (D1011) are keyed on the name and its shapes: the nearest shape
 // the page holds (what ships, or one it has drawn) shows at once marked Preview, and the exact one, drawn from the dress
 // a build of it makes, replaces it; a build never reads a picture. The engine keeps the last reshape's dress, so its
-// pictures and its build make one dress between them, whichever comes first (sdk._reshape_kept).
+// pictures and its build make one dress between them, whichever comes first (sdk._reshape_kept). Your own variants
+// (sdk.pickers' custom: the library's folders) follow as the Custom group, a refused one marked with its refusal; Edit…
+// on a chosen variant opens it in the Variants view (web/variants.mjs, Step 4.6c).
 import { option as pickerOption, picker } from "./picker.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -51,8 +53,9 @@ const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data),
 // characters({call, app, host, say, image, packs, changed, shared, settled}): call is the engine's (the site's worker, the
 // app's api), image() the picked image (the site's File, the app's path), packs() the Patches tab's ticks (a dress
 // stands on them), changed() runs when the tab's choice changes (the page remembers it) and shared is the page's one
-// community content path (web/content.mjs: Content from, the list, Install and Update, what the site keeps).
-export function characters({ call, app, host, say, image, packs, changed, shared, settled, busy }) {
+// community content path (web/content.mjs: Content from, the list, Install and Update, what the site keeps); edit(name)
+// opens a variant in the Variants view.
+export function characters({ call, app, host, say, image, packs, changed, shared, settled, busy, edit = () => {} }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, choice: 0, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
               shown: null, pictures: new Map(), shipped: new Map(), wanted: null, dressing: false, settling: null,
@@ -258,6 +261,15 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     });
     $("char-community").replaceChildren(...groups.length ? groups
       : [el("p", { className: "note", textContent: c.why ? "None read yet." : "None listed." })]);
+    const mine = (view.custom?.variants ?? []).filter((v) => !filter || v.name.includes(filter)).map((v) => {
+      if (!v.refusal) return row(v.name, `${v.name}  (variant of ${v.base})`, v.colour);
+      const refused = el("button", { type: "button", className: "model refused", textContent: `${v.name} (refused)`,
+                                     title: v.refusal, disabled: true });
+      refused.dataset.model = v.name;
+      return refused;
+    });
+    $("char-custom").replaceChildren(...mine.length ? mine : [el("p", { className: "note", textContent: "None saved yet." })]);
+    $("char-edit").hidden = !chosen.variant;
     $("char-name").textContent = chosen.name + (chosen.community ? "  · community" : "");
     $("char-info").replaceChildren(...chosen.info.map(([label, text, colour, tip]) => {
       const value = el("td", { textContent: text });
@@ -601,6 +613,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     }
     render();
   });
+  $("char-edit").addEventListener("click", () => c.view?.chosen.variant && edit(c.view.chosen.name));
   $("char-source").value = c.source;
   $("char-source").addEventListener("change", () => source($("char-source").value.trim() || fallback()));
   $("char-source-reset").addEventListener("click", () => source(fallback()));
@@ -652,6 +665,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     setup: character,
     refused: () => c.view?.asked === JSON.stringify(c.character) ? c.view.chosen.refused : null,
     waiting: () => c.opened && c.view?.asked !== JSON.stringify(c.character),   // Build's recipe is its answer's
+    relist: () => c.opened && ask(),   // your variants changed: the Custom group (and the model worn) asked again
     state: c,
   };
 }

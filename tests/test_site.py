@@ -44,6 +44,7 @@ import time
 import types
 import urllib.parse
 import warnings
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -5840,3 +5841,129 @@ def test_two_real_engine_workers_plan_a_seed_alike_and_a_change_drops_bs_plan_mi
         page.evaluate("() => smoke.pool.close()")
     finally:
         context.close()
+
+
+VARIANTS_SHOWN = """() => { const v = azurkit.variants.state, $ = (id) => document.getElementById(id);
+    return v.read && v.readFor === JSON.stringify(v.recipe, (_, x) => x && typeof x === "object" && !Array.isArray(x)
+        ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, x[k]])) : x) && !v.reading && {
+        status: $("var-status").textContent, name: $("var-name").textContent, kind: v.kind,
+        rows: [...document.querySelectorAll("#var-items button[data-kind]")].map((b) => [b.dataset.kind, b.dataset.name]),
+        check: [$("var-check").disabled, $("var-check").title], json: $("var-json-note").textContent }; }"""
+VARIANTS_TYPE = """([id, text]) => { const box = document.getElementById(id); box.value = text;
+    box.dispatchEvent(new Event("input", { bubbles: true })); }"""
+VARIANTS_ROW = "(name) => document.querySelector(`#var-items button[data-name=\"${name}\"]`).click()"
+VARIANTS_ASKED = "() => document.getElementById('var-ask').open && document.getElementById('var-ask-text').textContent"
+
+
+def _variants_shown(page, *, status: str = "", name: str | None = None) -> dict:
+    """The Variants view once its recipe is read (and its status line holds ``status``, ``name`` open)."""
+    return _page.until(page, f"() => {{ const s = ({VARIANTS_SHOWN})(); return s && s.status.includes({json.dumps(status)}) "
+                             f"&& ({json.dumps(name)} === null || s.name === {json.dumps(name)}) && s; }}", 120)
+
+
+def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_and_asks_before_edits_go(
+        browser, site, tmp_path):
+    """Step 4.6c on the site (Modkit's Variants page; D372, D480, D1087), no image picked: the Variants view lists
+    the built-ins and opens beamlord as a recipe from it, its sha, grade and "built in" in the status line, Check
+    with game data greyed with D979's line; an edit reads "built in: Save as keeps your edits"; Save as a species', a
+    built-in's or a malformed name is refused by name, nothing kept; Save as "mine" keeps its own copy (listed under
+    Yours, and in the Models view's Custom group); a refused value is named and Save writes nothing; the JSON tab's
+    Apply keeps the old recipe on a refusal or a new base, saying why, and takes a good one; leaving unsaved edits is
+    asked about (a no stays); New from this offers mine_2; Export downloads the engine's zip; Delete (after a yes)
+    and Import take it out and back; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which
+    the Tools tab's Storage names and Clear removes. No CSP violation, no request but GETs of the site's files."""
+    from azurkit.tools.characters import _player_variants, picker
+
+    beam = _player_variants.builtins()["beamlord"]
+    unseen, grade = "Not yet tested", picker.GRADE_WORDS[sdk._grade(beam)]
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        page.evaluate(VARIANTS_ROW, "beamlord")
+        shown = _variants_shown(page, status=beam.sha)
+        assert (shown["status"], shown["check"]) == (
+            f"recipe {beam.sha} · {grade} · built in · Choose your image first (1.) to check it",
+            [True, "Choose your image first (1.)"])
+        assert [r for r in shown["rows"] if r[0] == "built-in"] == [["built-in", n] for n in _player_variants.builtins()]
+        page.evaluate(VARIANTS_TYPE, ["var-title", "My beam"])
+        assert _variants_shown(page, status="edits")["status"].startswith(f"recipe {beam.sha} · {unseen} · built in: "
+                                                                          "Save as keeps your edits")
+        for name, why in (("keylord", "a species has that name"), ("booblord", "a built-in variant has that name"),
+                          ("My Beam", "a lower-case letter")):
+            page.evaluate(VARIANTS_TYPE, ["var-as", name])
+            _page.click(page, "var-save-as")
+            _page.until(page, "() => document.getElementById('var-status').textContent.startsWith('refused: ') "
+                              f"&& document.getElementById('var-status').title.includes({json.dumps(why)})", 60)
+        assert page.evaluate("() => Object.keys(azurkit.variants.state.folders ?? {})") == []
+        page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
+        _page.click(page, "var-save-as")
+        shown = _variants_shown(page, status="· saved ·", name="mine")
+        assert (shown["kind"], ["yours", "mine"] in shown["rows"]) == ("yours", True)
+        kept = "() => new TextDecoder().decode(azurkit.variants.state.folders.mine['recipe.json'])"
+        before = page.evaluate(kept)
+        page.evaluate(VARIANTS_TYPE, ["var-scale", "big"])
+        assert "scale" in _variants_shown(page, status="refused: ")["status"]
+        _page.click(page, "var-save")
+        _page.until(page, "() => /^Not saved: .*scale/.test(document.getElementById('status').textContent)", 60)
+        assert page.evaluate(kept) == before
+        page.evaluate(VARIANTS_TYPE, ["var-scale", "1.5"])
+        _variants_shown(page, status="unsaved edits")
+        _page.click(page, "var-save")
+        _variants_shown(page, status="· saved ·")
+        assert json.loads(page.evaluate(kept))["mine"]["scale"] == 1.5
+        _page.click(page, "var-tab-json")
+        for text, why in (('{"base": "keylord", "scale": "big"}', "Kept the old recipe: "),
+                          (json.dumps({"base": "golem"}), f"Kept the old recipe: the base is {beam.base}, fixed once "
+                                                          "chosen: New makes another"), ("[1", "Kept the old recipe: not JSON")):
+            page.evaluate("(text) => { document.getElementById('var-text').value = text; }", text)
+            _page.click(page, "var-apply")
+            assert _page.until(page, f"() => document.getElementById('var-json-note').textContent.startsWith({json.dumps(why)})"
+                                     " && document.getElementById('var-json-note').textContent"), text
+        _page.click(page, "var-revert")   # the recipe as it is, again
+        recipe = json.loads(page.evaluate("() => document.getElementById('var-text').value"))
+        page.evaluate("(text) => { document.getElementById('var-text').value = text; }", json.dumps({**recipe, "scale": 2}))
+        _page.click(page, "var-apply")
+        assert _variants_shown(page, status="unsaved edits")["json"] == "Every field, as the recipe file holds it."
+        page.evaluate(VARIANTS_ROW, "beamlord")
+        assert _page.until(page, VARIANTS_ASKED) == "Leave mine and lose its unsaved edits?"
+        _page.click(page, "var-ask-no")
+        _page.click(page, "var-save")
+        _variants_shown(page, status="· saved ·", name="mine")
+        _page.click(page, "char-view-model")
+        _page.until(page, "() => document.querySelector('#char-custom button[data-model=\"mine\"]')", 120)
+        _page.click(page, "char-view-variants")
+        _page.click(page, "var-from")
+        _page.until(page, VARIANTS_ASKED)
+        assert page.evaluate("() => document.getElementById('var-ask-name').value") == "mine_2"
+        _page.click(page, "var-ask-yes")
+        _variants_shown(page, status="· saved ·", name="mine_2")
+        with page.expect_download(timeout=120_000) as caught:
+            _page.click(page, "var-export")
+        assert caught.value.suggested_filename == "mine_2.zip"
+        zipped = tmp_path / "mine_2.zip"
+        caught.value.save_as(zipped)
+        with zipfile.ZipFile(zipped) as z:
+            assert json.loads(z.read("mine_2/recipe.json")) == {"mine_2": {**recipe, "scale": 2}}
+        _page.click(page, "var-delete")
+        assert _page.until(page, VARIANTS_ASKED) == "Delete mine_2: its folder and every file in it?"
+        _page.click(page, "var-ask-yes")
+        _page.until(page, "() => !azurkit.variants.state.list.yours.some((e) => e.name === 'mine_2') "
+                          "&& !('mine_2' in azurkit.variants.state.folders)", 60)
+        _page.pick(page, "#var-import", zipped)
+        _variants_shown(page, status="· saved ·", name="mine_2")
+        _page.check_csp(page)
+        again = served.open()
+        _page.click(again, "tab-characters")
+        _page.click(again, "char-view-variants")
+        assert [r for r in _variants_shown(again)["rows"] if r[0] == "yours"] == [["yours", "mine"], ["yours", "mine_2"]]
+        _page.click(again, "tab-tools")
+        _page.until(again, "() => [...document.querySelectorAll('#tools td')].some((td) => td.textContent === "
+                           "'Your saved variants (Export keeps a copy of one)')", 60)
+        _page.click(again, "tools-clear")
+        _page.until(again, "() => indexedDB.databases().then((dbs) => !dbs.some((db) => db.name === 'azurkit-variants'))", 60)
+        assert served.stray() == []
+    finally:
+        served.close()
