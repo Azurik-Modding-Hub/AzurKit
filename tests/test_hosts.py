@@ -2292,9 +2292,10 @@ def test_a_second_launch_of_the_app_hashes_no_image_it_checked_and_dresses_no_bo
     stores (``serve``'s), each launch works them out again."""
     from azurkit.app import swapcache
     from azurkit.tools import characters
+    from azurkit.tools.characters import parts
 
-    monkeypatch.setattr(gate, "STAMPS", None)
-    monkeypatch.setattr(characters, "CACHE", None)
+    for module, name in ((gate, "STAMPS"), (characters, "CACHE"), (parts, "STORE")):   # install() sets each
+        monkeypatch.setattr(module, name, None)
     hashed, dressed, digests, dress = [], [], sdk._digests, sdk._dress
     monkeypatch.setattr(sdk, "_digests", lambda *args: hashed.append(1) or digests(*args))
     monkeypatch.setattr(sdk, "_dress", lambda recipe: dressed.append(1) or dress(recipe))
