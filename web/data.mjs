@@ -11,15 +11,21 @@
 // edit wins: the build says so). Revert (a cell), Reset table, Undo, Redo, Clear edits and the count of edits. The edits
 // are the recipe's xbr set operations, which this tab keeps (ops(), load(ops)) and the page builds with, remembers and
 // links; byte edits a mods file brought list read-only, removable. The tab needs no image: its line says the edits join
-// each build, which waits for the image (D979). The engine decides everything shown (sdk.data, sdk.data_edit): this
-// page sends the tab's choices and draws what comes back. Text only (textContent), no eval.
-import { picker } from "./picker.mjs";
+// each build, which waits for the image (D979). All files… under the tables' list (Step 4.6h, Modkit's): every .xbr of
+// the picked image, config.xbr first, each opening to its keyed tables read from the image (only config.xbr holds any
+// in a vanilla image), the search box narrowing them too; a table there shows and edits as any other (another file's
+// asks carry the image). It waits for the image, greyed with its line (D979). The engine decides everything shown
+// (sdk.data, sdk.data_edit): this page sends the tab's choices and draws what comes back. Text only (textContent), no
+// eval.
+import { option, picker } from "./picker.mjs";
 
 const VIEWS = [["player", "Player"], ["critter", "Critters"], ["item", "Items"], ["armor", "Armor"],
                ["weapon", "Weapons"], ["tables", "All tables"], ["changes", "Changes"]];
 const UNCHANGED = "Nothing changed yet: edit a cell, or load a mods file in the Tools tab.";
 const WRITTEN = "A ticked pack's slider also writes this cell; your edit wins, and the build says so.";
 const BUILDS = "Your edits join each build, after the packs";
+const CONFIG = "gamedata/config.xbr";
+const FILES_WAIT = "Pick your image (1.) to list its files.";
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children);
@@ -27,14 +33,16 @@ const el = (tag, props = {}, ...children) => {
 };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-// dataTab({ call, root, say, packs, changed, image }): call is the engine's (the site's worker, the app's api), root
-// the tab's panel, say(text) the page's status line, packs() the Patches tab's ticks (the engine marks the cells they
-// write), changed(ops) runs when the edits change (the page builds with them and remembers them) and image() the
-// picked image, if any. The page calls open() each time the tab shows (the ticks may have changed), ops() for a
-// build's recipe, load(ops) when a mods file, a link or the remembered setup brings edits, and imaged() on each pick.
-export function dataTab({ call, root, say, packs, changed, image }) {
-  const d = { ops: [], undo: [], redo: [], index: null, view: "player", chosen: {}, table: null, answer: null,
-              ticket: 0, changedOnly: false, sort: null, opened: false };
+// dataTab({ call, root, say, packs, changed, image, app }): call is the engine's (the site's worker, the app's api),
+// root the tab's panel, say(text) the page's status line, packs() the Patches tab's ticks (the engine marks the cells
+// they write), changed(ops) runs when the edits change (the page builds with them and remembers them), image() the
+// picked image, if any, and app whether the host is the app (its image a path, the site's a File). The page calls
+// open() each time the tab shows (the ticks may have changed), ops() for a build's recipe, load(ops) when a mods file,
+// a link or the remembered setup brings edits, and imaged() on each pick.
+export function dataTab({ call, root, say, packs, changed, image, app = false }) {
+  const d = { ops: [], undo: [], redo: [], index: null, view: "player", chosen: {}, table: null, file: null,
+              answer: null, ticket: 0, changedOnly: false, sort: null, opened: false,
+              files: null, listing: 0, tablesOf: {}, openFiles: new Set() };
   const tabs = VIEWS.map(([id, label]) => {
     const button = el("button", { type: "button", textContent: label });
     button.setAttribute("role", "tab");
@@ -52,7 +60,8 @@ export function dataTab({ call, root, say, packs, changed, image }) {
   };
   const undo = button("Undo", () => step(d.undo, d.redo));
   const redo = button("Redo", () => step(d.redo, d.undo));
-  const reset = button("Reset table", () => commit(d.ops.filter((op) => op.op !== "set" || op.table !== d.table)));
+  const ofTable = (op) => op.op === "set" && op.table === d.table && op.file === (d.file ?? CONFIG);   // the shown one's
+  const reset = button("Reset table", () => commit(d.ops.filter((op) => !ofTable(op))));
   const clear = button("Clear edits", () => commit([]));
   const only = el("input", { type: "checkbox" });
   only.addEventListener("change", () => {
@@ -66,14 +75,29 @@ export function dataTab({ call, root, say, packs, changed, image }) {
   const body = el("div", { className: "data-view" });
   const note = el("p", { className: "note data-note" });
   const builds = el("p", { className: "note data-builds" });
+  // All files…: its line (what it waits for, its listing, a refusal) and the files, each a row opening to its tables.
+  const filesLine = el("p", { className: "note" });
+  const filesList = el("div", { className: "data-file-list" });
+  const files = el("details", { className: "data-files" }, el("summary", { textContent: "All files…" }), filesLine,
+                   filesList);
+  pick.element.append(files);
+  const search = pick.element.querySelector(".picker-search input");
   const imaged = () => {
     builds.textContent = image() ? `${BUILDS}.` : `${BUILDS}: pick your image (1.) to build.`;
+    d.files = null;   // another image's files: asked again
+    d.tablesOf = {};
+    if (files.open && image()) listFiles();
+    else drawFiles();
+    if (d.file && d.view === "tables" && d.answer) show();
   };
-  imaged();
   root.replaceChildren(bar, builds,
                        el("div", { className: "data-body" }, pick.element, el("div", {}, others, body, note)));
 
-  const ask = (what, given = {}) => call("data", { given: { what, ops: d.ops, packs: packs(), ...given } });
+  // An ask of another file than config.xbr reads it from the image: the app's by its path, the site's File mounted.
+  const imaging = (given) => app ? { given: { ...given, iso: image() } } : { file: image(), given };
+  const ask = (what, given = {}) => given.file && given.file !== CONFIG
+    ? call("data", imaging({ what, ops: d.ops, ...given }))
+    : call("data", { given: { what, ops: d.ops, packs: packs(), ...given } });
   const refused = (reply) => {
     if (!("refused" in reply)) return false;
     say(reply.refused);
@@ -94,7 +118,7 @@ export function dataTab({ call, root, say, packs, changed, image }) {
     d.view = view;
     for (const [id, b] of tabs) b.setAttribute("aria-selected", String(id === view));
     pick.element.hidden = view === "player" || view === "changes";
-    onlyLabel.hidden = reset.hidden = view !== "tables";
+    onlyLabel.hidden = reset.hidden = files.hidden = view !== "tables";
     if (!d.index) return;
     const entries = view === "tables"
       ? d.index.tables.map((t) => ({ name: t.name, label: `${t.label} (${t.name})`, group: t.category,
@@ -103,13 +127,14 @@ export function dataTab({ call, root, say, packs, changed, image }) {
         name: e.name, label: e.label ?? e.name, group: e.group,
         title: e.info.map(([label, text]) => `${label}: ${text}`).join("\n") }));
     const first = view === "tables" ? d.table ?? entries[0]?.name : d.chosen[view] ?? entries[0]?.name;
-    pick.set(entries, first);
+    pick.set(entries, view === "tables" && d.file ? null : first);
     show(first);
   };
-  const chosen = (name) => {
-    if (d.view === "tables") d.table = name;
+  const chosen = (name, file = null) => {
+    if (d.view === "tables") [d.table, d.file] = [name, file === CONFIG ? null : file];
     else d.chosen[d.view] = name;
-    pick.choose(name);
+    pick.choose(d.view === "tables" && d.file ? null : name);
+    drawFiles();
     show(name);
   };
   // Ask the engine for the view or grid; an answer to an older ask is dropped.
@@ -117,12 +142,75 @@ export function dataTab({ call, root, say, packs, changed, image }) {
     const mine = ++d.ticket;
     if (d.view === "tables") d.table = name;
     else if (d.view !== "player" && d.view !== "changes") d.chosen[d.view] = name;
-    const reply = d.view === "tables" ? await ask("table", { table: name })
+    const reply = d.view === "tables" ? await ask("table", { table: name, ...d.file ? { file: d.file } : {} })
       : await ask("view", { kind: d.view, name: d.view === "player" || d.view === "changes" ? null : name });
     if (mine !== d.ticket || refused(reply)) return;
     d.answer = reply;
     draw();
   };
+
+  // All files…: the image's files, asked each time it opens (the search narrows them by file or table name), and a
+  // file's keyed tables, asked each time its row opens (only config.xbr's need no image).
+  const listFiles = async () => {
+    const ticket = ++d.listing;
+    d.files = null;
+    drawFiles();
+    const reply = await call("data", imaging({ what: "files" }));
+    if (ticket !== d.listing) return;
+    d.files = "refused" in reply ? reply : reply.files;
+    drawFiles();
+  };
+  const openFile = async (file) => {
+    delete d.tablesOf[file];
+    drawFiles();
+    const reply = await ask("tables", { file });
+    d.tablesOf[file] = "refused" in reply ? reply : reply.tables;
+    drawFiles();
+  };
+  const drawFiles = () => {
+    files.classList.toggle("waits", !image());
+    const rows = [];
+    filesLine.textContent = !image() ? FILES_WAIT : !d.files ? "Listing your image's files…" : d.files.refused ?? "";
+    const wanted = search.value.trim().toLowerCase();
+    for (const { file } of image() && Array.isArray(d.files) ? d.files : []) {
+      const name = file.replace(/^gamedata\//, ""), got = d.tablesOf[file];
+      const named = !wanted || name.toLowerCase().includes(wanted);
+      const hits = Array.isArray(got) ? got.filter((t) => named || t.name.toLowerCase().includes(wanted)) : [];
+      if (!named && !hits.length) continue;
+      const open = d.openFiles.has(file);
+      const row = el("button", { type: "button", className: "data-file", textContent: `${open ? "▾" : "▸"} ${name}` });
+      row.dataset.file = file;
+      rows.push(row);
+      if (!open) continue;
+      if (got === undefined || got.refused || !got.length) {
+        rows.push(el("p", { className: got?.refused ? "refused" : "note",
+                            textContent: got === undefined ? "Reading its tables…" : got.refused ?? "(no keyed tables)" }));
+        continue;
+      }
+      for (const t of hits) {
+        const entry = option({ name: t.name, label: `${t.changed ? "● " : ""}${t.name}`,
+                               title: `${t.cols} entities, ${t.rows} properties` },
+                             (d.file ?? CONFIG) === file ? d.table : null);
+        entry.dataset.file = file;
+        rows.push(entry);
+      }
+    }
+    filesList.replaceChildren(...rows);
+  };
+  files.addEventListener("toggle", () => {
+    if (files.open && image()) listFiles();
+  });
+  search.addEventListener("input", drawFiles);
+  filesList.addEventListener("click", (event) => {
+    const row = event.target.closest?.("button");
+    if (!row) return;
+    const { file, name } = row.dataset;
+    if (name !== undefined) return chosen(name, file);
+    if (d.openFiles.delete(file)) return drawFiles();
+    d.openFiles.add(file);
+    openFile(file);
+  });
+  imaged();
 
   // A cell: its text (a default greyed), ● when changed, ⚠ where a ticked pack writes it, its note as its title.
   const noteOf = (cell) => [cell.label && cell.note ? `${cell.label}: ${cell.note}` : cell.note,
@@ -184,7 +272,7 @@ export function dataTab({ call, root, say, packs, changed, image }) {
     const rows = cols.map((c) => el("tr", {}, el("th", { textContent: g.cols[c] || "(no name)" }), ...props.map((r) => {
       const v = g.cells[c][r], m = meta(c, r);
       const cell = { ...m, ref: [g.name, c, r], value: v, text: v == null ? "" : typeof v === "number"
-        ? String(Number(v.toPrecision(6))) : v };
+        ? String(Number(v.toPrecision(6))) : v, ...g.file !== CONFIG ? { file: g.file } : {} };
       if (changedAt.has(`${c}:${r}`)) cell.vanilla = changedAt.get(`${c}:${r}`);
       if (writtenAt.has(`${c}:${r}`)) cell.written = true;
       return td(cell);
@@ -201,7 +289,8 @@ export function dataTab({ call, root, say, packs, changed, image }) {
   const draw = () => {
     const a = d.answer;
     if (!a) return;
-    body.replaceChildren(...d.view === "tables" ? [el("h3", { textContent: `${a.label} (${a.name})` }), grid(a)]
+    body.replaceChildren(...d.view === "tables" ? [el("h3", { textContent: a.file === CONFIG ? `${a.label} (${a.name})`
+      : `${a.file.replace(/^gamedata\//, "")} · ${a.name}` }), grid(a)]
       : a.kind === "changes" && !a.sections.length ? [el("p", { className: "note", textContent: UNCHANGED })]
       : a.sections.map((s) => el("section", {}, el("h3", { textContent: s.title }), ...s.blocks.map(block))));
     const sets = d.ops.filter((op) => op.op === "set").length, bytes = d.ops.length - sets;
@@ -209,7 +298,7 @@ export function dataTab({ call, root, say, packs, changed, image }) {
     clear.disabled = !d.ops.length;
     undo.disabled = !d.undo.length;
     redo.disabled = !d.redo.length;
-    reset.disabled = !d.ops.some((op) => op.op === "set" && op.table === d.table);
+    reset.disabled = !d.ops.some(ofTable);
     others.replaceChildren(...bytes ? [`${bytes} byte edit${bytes === 1 ? "" : "s"} from a mods file (read-only) `,
                                        button("Remove them", () => commit(d.ops.filter((op) => op.op === "set")))]
       : []);
@@ -265,10 +354,12 @@ export function dataTab({ call, root, say, packs, changed, image }) {
   const edit = (node, cell, value) => {
     const job = editing.then(async () => {
       const [table, col, row] = cell.ref;
+      const made = { table, col, row, value, ...cell.file ? { file: cell.file } : {} };
       let sent, reply;
       do {
         sent = d.ops;
-        reply = await call("data_edit", { given: { edit: { table, col, row, value }, ops: sent } });
+        const given = { edit: made, ops: sent };
+        reply = await call("data_edit", cell.file ? imaging(given) : { given });
       } while (sent !== d.ops);
       if ("refused" in reply) {
         draw();

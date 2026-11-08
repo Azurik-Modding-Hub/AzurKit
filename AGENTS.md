@@ -1399,8 +1399,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     slider's spans as a build plans them; a pack a build would refuse
     marks none). The tab asks again each time it shows, so the marks
     follow the ticks; its line says the edits wait for the image to build
-    (D979). `tests/test_data.py`, `test_site.py` and `test_hosts.py` hold
-    it; `tests/_perf.py`'s A39-A46, A94, S32-S39 and S80 time it.
+    (D979). **All files…** (Step 4.6h, Modkit's) under All tables' list:
+    every .xbr of the picked image (`sdk.data`'s `files`, its release's
+    manifest once the image is checked), each row opening to its keyed
+    tables (`tables`: config.xbr's from the shipped file, another's read
+    from the image no further than its TOC; no vanilla file but config.xbr
+    has any), greyed with its line until an image (D979); another file's
+    table shows and edits as config.xbr's (its asks carry the image: the
+    app's path, the site's File mounted). `tests/test_data.py`,
+    `test_site.py` and `test_hosts.py` hold it; `tests/_perf.py`'s A39-A46,
+    A87, A88, A94, S32-S39, S73, S74 and S80 time it.
   - **The Tools tab** (Step 4.7c, `web/tools.mjs`; D919's list): **your
     image** (`sdk.image_info`: its release, size and kind, vanilla with how
     much of it the gate checked, an AzurKit build with its version and

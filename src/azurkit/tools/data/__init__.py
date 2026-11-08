@@ -5,6 +5,14 @@ tab opens, searches and edits before an image is picked. Each cell carries
 its note, unit, range hint, value set and editor from ``schema.json``
 beside it (Modkit's notes, by config.xbr's own names).
 
+All files (Modkit's "All files…", Step 4.6h): :func:`files` lists every
+``.xbr`` of a release's image and :func:`tables` a file's keyed tables (its
+``tabl`` entries, by their own names; none in a vanilla file but
+config.xbr). :func:`table` and :func:`check` take any file's table: another
+file's vanilla bytes (``base``, which the host reads from the image) and its
+``release``, with no schema notes, labels or int32 rules (config.xbr's) and no
+pack marks (the packs' spans are config.xbr's).
+
 - :func:`index`: the tables by category and the pickers' lists (critters
   by realm, pickups by kind, armor families, the staff spells), each entry
   with its info rows.
@@ -31,6 +39,7 @@ layer is last, D28).
 from __future__ import annotations
 
 import functools
+import hashlib
 import json
 import math
 import struct
@@ -70,7 +79,9 @@ class _State:
     data: bytes                    # config.xbr as they make it
     now: Mapping[str, Table]
     was: Mapping[str, Table]       # vanilla's
-    views: Views
+    views: Views | None            # config.xbr's alone
+    file: str = FILE
+    base: bytes = b""              # the file's vanilla bytes
 
 
 def _entry(table: str, entity: str, prop: str) -> tuple[str, dict]:
@@ -89,24 +100,28 @@ def _default(tables: Mapping[str, Table], ref: views.Ref) -> str | None:
 _LAST: dict[str, _State] = {}
 
 
-def _state(ops: object = ()) -> _State:
+def _state(ops: object = (), file: str = FILE, base: bytes | None = None, release: gate.Release = gate.USA) -> _State:
     """The tables as ``ops`` (the recipe's ``xbr`` list) make them: their
-    operations on config.xbr planned against vanilla and applied; the last
-    two asked are kept."""
-    mine = tuple(op for op in xbr.normalize(list(ops)) if op["file"] == FILE)
-    key = json.dumps(mine, sort_keys=True)
+    operations on ``file`` (config.xbr, else another file of ``release``
+    whose vanilla bytes are ``base``) planned against vanilla and applied;
+    the last two asked are kept."""
+    mine = tuple(op for op in xbr.normalize(list(ops)) if op["file"] == file)
+    config = file == FILE
+    if not config and base is None:
+        raise ValueError(f"{file} has no keyed table")
+    key = json.dumps([file, release.name, None if config else hashlib.sha256(base).hexdigest(), mine], sort_keys=True)
     if (kept := _LAST.get(key)) is not None:
         return kept
-    base, was = vanilla(), _vanilla_tables()
+    base, was = (vanilla(), _vanilla_tables()) if config else (base, Document(base).tables)
     if mine:
         out = bytearray(base)
-        for change in xbr.plan(list(mine), gate.USA, {FILE: base}).changes:
+        for change in xbr.plan(list(mine), release, {file: base}).changes:
             out[change.offset:change.offset + len(change.after)] = change.after
         data = bytes(out)
         now = Document(data).tables
     else:
         data, now = base, was
-    state = _State(mine, data, now, was, Views(now, functools.partial(_default, now)))
+    state = _State(mine, data, now, was, Views(now, functools.partial(_default, now)) if config else None, file, base)
     if len(_LAST) >= 2:
         _LAST.pop(next(iter(_LAST)))
     _LAST[key] = state
@@ -118,9 +133,9 @@ def _vanilla_tables() -> Mapping[str, Table]:
     return Document(vanilla()).tables
 
 
-def _differs(now: Table, was: Table, data: bytes, skip: int = -1) -> bool:
-    """Whether a cell of ``now`` (but the one at ``skip``) holds another value than in ``was``."""
-    if data[was.start:was.start + was.size] == vanilla()[was.start:was.start + was.size] and skip < 0:
+def _differs(now: Table, was: Table, data: bytes, base: bytes, skip: int = -1) -> bool:
+    """Whether a cell of ``now`` (but the one at ``skip``) holds another value than in ``was`` (of ``base``)."""
+    if data[was.start:was.start + was.size] == base[was.start:was.start + was.size] and skip < 0:
         return False
     return any((a.kind, a.value) != (b.kind, b.value) for a, b in zip(now.cells, was.cells) if a.at != skip)
 
@@ -157,6 +172,8 @@ def _value_set(state: _State, table: str, row: int, entry: Mapping) -> tuple[str
 
 def _meta(state: _State, table: str, col: int, row: int) -> dict:
     """The cell's note, type, unit, range hint, default, editor and int32 rule."""
+    if state.file != FILE:   # schema.json's notes and the int32 rules are config.xbr's
+        return {}
     t = state.was[table]
     entity, prop = t.cols[col], t.rows[row]
     name, entry = _entry(table, entity, prop)
@@ -228,7 +245,7 @@ def index(ops: object = ()) -> dict:
     each staff spell, with the info rows the picker shows."""
     state = _state(ops)
     v = state.views
-    changed = {t for t in state.now if _differs(state.now[t], state.was[t], state.data)}
+    changed = {t for t in state.now if _differs(state.now[t], state.was[t], state.data, state.base)}
     tables = [{"name": name, "label": label, "category": category, "rows": len(state.was[name].rows),
                "cols": len(state.was[name].cols), "changed": name in changed}
               for category, named in CATEGORIES.items() for name, label in named.items() if name in state.was]
@@ -276,7 +293,7 @@ def _changes(state: _State, ops: object) -> list[Section]:
     for named in CATEGORIES.values():
         for name, label in named.items():
             now, was = state.now.get(name), state.was.get(name)
-            if now is None or not _differs(now, was, state.data):
+            if now is None or not _differs(now, was, state.data, state.base):
                 continue
             rows = []
             for col, entity in enumerate(was.cols):
@@ -296,18 +313,48 @@ def _changes(state: _State, ops: object) -> list[Section]:
     return sections
 
 
-def table(name: str, ops: object = (), written: Iterable[Sequence[int]] = ()) -> dict:
-    """Table ``name`` as a grid: its rows and columns (entities) by name,
-    ``cells[col][row]`` (``None`` empty, a number or a text), the cells
-    ``ops`` change ``[col, row, vanilla text]``, those a ticked pack writes
-    ``[col, row]``, and each row's meta (``rows_meta``; settings_foo's by
-    column, ``cols_meta``)."""
-    state = _state(ops)
+def files(listing: Mapping[str, object]) -> list[dict]:
+    """Every ``.xbr`` of a release's image (``listing``: its manifest's
+    files, ``{path: [size, sha256]}``), as All files lists them: config.xbr
+    first, then by path, case-blind (``index/index.xbr`` among them)."""
+    paths = [p for p in listing if p.startswith("gamedata/") and p.lower().endswith(".xbr")]
+    return [{"file": p, "size": listing[p][0]} for p in sorted(paths, key=lambda p: (p != FILE, p.lower()))]
+
+
+def tables(ops: object = (), file: str = FILE, base: bytes | None = None, release: gate.Release = gate.USA) -> dict:
+    """``file``'s keyed tables in its TOC's order, each its name, size and
+    whether ``ops`` change it: config.xbr's by its own names, another
+    file's (its vanilla bytes ``base``; ``None``, a file with no ``tabl``
+    entry, has none) by its named rows' or ``tabl_<index>``."""
+    if file != FILE and base is None:
+        return {"file": file, "tables": []}
+    state = _state(ops, file, base, release)
+    return {"file": file, "tables": [
+        {"name": name, "rows": len(was.rows), "cols": len(was.cols),
+         "changed": _differs(state.now[name], was, state.data, state.base)} for name, was in state.was.items()]}
+
+
+def _missing(file: str, name: object) -> ValueError:
+    return ValueError(f"config.xbr has no table {name!r}" if file == FILE else f"{file} has no keyed table {name!r}")
+
+
+def table(name: str, ops: object = (), written: Iterable[Sequence[int]] = (), file: str = FILE,
+          base: bytes | None = None, release: gate.Release = gate.USA) -> dict:
+    """Table ``name`` of ``file`` (config.xbr; another file's from its
+    vanilla bytes ``base`` of ``release``) as a grid: its rows and columns
+    (entities) by name, ``cells[col][row]`` (``None`` empty, a number or a
+    text), the cells ``ops`` change ``[col, row, vanilla text]``, those a
+    ticked pack writes ``[col, row]`` (config.xbr's spans), and each row's
+    meta (``rows_meta``; settings_foo's by column, ``cols_meta``)."""
+    if file != FILE and base is None:
+        raise _missing(file, name)
+    state = _state(ops, file, base, release)
     if not isinstance(name, str) or name not in state.was:
-        raise ValueError(f"config.xbr has no table {name!r}")
-    now, was, spans = state.now[name], state.was[name], _spans(written)
+        raise _missing(file, name)
+    config = file == FILE
+    now, was, spans = state.now[name], state.was[name], _spans(written) if config else []
     n = len(was.rows)
-    category, label = LABELS.get(name, ("", name))
+    category, label = LABELS.get(name, ("", name)) if config else ("", name)
     cells, changed, touched = [], [], []
     for col in range(len(was.cols)):
         cells.append([c.value for c in now.cells[col * n:(col + 1) * n]])
@@ -317,13 +364,14 @@ def table(name: str, ops: object = (), written: Iterable[Sequence[int]] = ()) ->
                 changed.append([col, row, format_value(b.value)])
             if spans and _touched(a.at, spans):
                 touched.append([col, row])
-    entries = schema()["tables"].get(name, {}).get("cells", {})
-    by_column = name == xbr.BY_COLUMN
+    entries = schema()["tables"].get(name, {}).get("cells", {}) if config else {}
+    by_column = config and name == xbr.BY_COLUMN
     rows_meta = [_meta(state, name, 0, r) if not by_column and was.rows[r] in entries else None for r in range(n)]
     cols_meta = ([_meta(state, name, c, min(1, n - 1)) if was.cols[c] in entries else None
                   for c in range(len(was.cols))] if by_column else None)
-    return {"name": name, "label": label, "category": category, "rows": list(was.rows), "cols": list(was.cols),
-            "cells": cells, "changed": changed, "written": touched, "rows_meta": rows_meta, "cols_meta": cols_meta}
+    return {"file": file, "name": name, "label": label, "category": category, "rows": list(was.rows),
+            "cols": list(was.cols), "cells": cells, "changed": changed, "written": touched, "rows_meta": rows_meta,
+            "cols_meta": cols_meta}
 
 
 def preview(made: Sequence[tuple[str, Mapping | None, str | None]]) -> list[dict]:
@@ -434,9 +482,9 @@ def template(names: Sequence[str], entity: str | None = None, name: str = "my-mo
     return {"mod": {"name": name, "description": TEMPLATE, "_keyed_patches": keyed}, "left_out": left}
 
 
-def _ref(op: Mapping, tables: Mapping[str, Table]) -> tuple[str, int, int] | None:
-    """The cell a ``set`` operation writes, by position, else ``None``."""
-    if op["op"] != "set" or op["file"] != FILE or op["table"] not in tables:
+def _ref(op: Mapping, tables: Mapping[str, Table], file: str = FILE) -> tuple[str, int, int] | None:
+    """The cell of ``file`` a ``set`` operation writes, by position, else ``None``."""
+    if op["op"] != "set" or op["file"] != file or op["table"] not in tables:
         return None
     t = tables[op["table"]]
     try:
@@ -463,39 +511,45 @@ def _number(text: object) -> float | None:
     return value if math.isfinite(value) else None
 
 
-def check(edit: Mapping, ops: object = ()) -> dict:
+def check(edit: Mapping, ops: object = (), base: bytes | None = None, release: gate.Release = gate.USA) -> dict:
     """The edit ``{table, col, row, value}`` (a cell by position, as the
-    views and grids give it; ``value`` the typed text or a number) checked
-    against the tables ``ops`` make: ``{op, ops}``, its ``set`` operation
-    (``None`` when the edit puts the cell back as vanilla: empty text, the
-    vanilla value or the word the game reads an empty cell as) and ``ops``
-    with the cell's earlier operations dropped and it last.
-    ``ValueError`` says why the cell can't hold it."""
-    if not (isinstance(edit, Mapping) and set(edit) == {"table", "col", "row", "value"}):
-        raise ValueError("an edit is {table, col, row, value}")
+    views and grids give it; ``value`` the typed text or a number; with
+    ``file``, a table of another file, whose vanilla bytes of ``release``
+    are ``base``) checked against the tables ``ops`` make: ``{op, ops}``,
+    its ``set`` operation (``None`` when the edit puts the cell back as
+    vanilla: empty text, the vanilla value or the word the game reads an
+    empty cell as) and ``ops`` with the cell's earlier operations dropped
+    and it last. ``ValueError`` says why the cell can't hold it."""
+    if not (isinstance(edit, Mapping) and {"table", "col", "row", "value"} <= set(edit) <= {
+            "file", "table", "col", "row", "value"}):
+        raise ValueError("an edit is {table, col, row, value}, with file for another file's table")
+    file = edit.get("file", FILE)
     name, col, row, given = edit["table"], edit["col"], edit["row"], edit["value"]
-    tables = _vanilla_tables()
+    if not isinstance(file, str) or file != FILE and base is None:
+        raise _missing(file, name)
+    tables = _vanilla_tables() if file == FILE else Document(base).tables
     if not isinstance(name, str) or name not in tables:
-        raise ValueError(f"config.xbr has no table {name!r}")
+        raise _missing(file, name)
     t = tables[name]
     if not (type(col) is int and type(row) is int and 0 <= col < len(t.cols) and 0 <= row < len(t.rows)):
-        raise ValueError(f"config table {name} has no cell at column {col!r}, row {row!r}")
-    kept = [op for op in xbr.normalize(list(ops)) if _ref(op, tables) != (name, col, row)]
-    op = _op(t, col, row, given)
+        raise ValueError(f"config table {name} has no cell at column {col!r}, row {row!r}" if file == FILE
+                         else f"{file} table {name} has no cell at column {col!r}, row {row!r}")
+    kept = [op for op in xbr.normalize(list(ops)) if _ref(op, tables, file) != (name, col, row)]
+    op = _op(t, col, row, given, file, base)
     if op is None:
         return {"op": None, "ops": kept}
-    before, after = _state(kept), _state([*kept, op])
+    before, after = _state(kept, file, base, release), _state([*kept, op], file, base, release)
     made = after.now[name].cell(col, row)
-    if made.value != op["value"] or _differs(after.now[name], before.now[name], after.data, skip=made.at):
+    if made.value != op["value"] or _differs(after.now[name], before.now[name], after.data, after.base, skip=made.at):
         raise ValueError(f"{t.cols[col]} / {t.rows[row]}: its string is one another edit points at or rewrote, so "
                          "it takes only a text another cell of this table holds")
     return {"op": op, "ops": [*kept, op]}
 
 
-def _op(t: Table, col: int, row: int, given: object) -> dict | None:
+def _op(t: Table, col: int, row: int, given: object, file: str = FILE, base: bytes | None = None) -> dict | None:
     """The ``set`` operation that puts ``given`` in vanilla's cell (``None``: the cell as vanilla), or why not."""
     entity, prop, was = t.cols[col], t.rows[row], t.cell(col, row)
-    entry = _entry(t.name, entity, prop)[1]
+    entry = _entry(t.name, entity, prop)[1] if file == FILE else {}
     word = entry.get("empty_default") if isinstance(entry.get("empty_default"), str) else None
     if isinstance(given, str) and (not given.strip() or given.strip() == word):
         if given.strip() and was.kind != EMPTY:
@@ -507,21 +561,21 @@ def _op(t: Table, col: int, row: int, given: object) -> dict | None:
     typed = {"text": STRING, "list": STRING, "number": NUMBER, "int32": NUMBER}.get(entry.get("type"))
     as_text = was.kind == STRING or was.kind == EMPTY and (   # an empty cell: its schema's type, else its row's
         typed == STRING if typed else STRING in held and NUMBER not in held or NUMBER not in held and number is None)
-    base = {"op": "set", "file": FILE, "table": t.name, "entity": entity, "prop": prop}
+    made = {"op": "set", "file": file, "table": t.name, "entity": entity, "prop": prop}
     if t.cols.count(entity) > 1:
-        base["col"] = col
+        made["col"] = col
     if was.kind == EMPTY:
-        base["fill"] = True
+        made["fill"] = True
     if not as_text:
-        return _number_op(t, col, row, given, number, base)
+        return _number_op(t, col, row, given, number, made)
     if not isinstance(given, str):
         raise ValueError(f"{entity} / {prop} holds text, not a number: {_text_hint(t, col, row)}")
-    return _text_op(t, col, row, given, entry, base)
+    return _text_op(t, col, row, given, entry, made, vanilla() if file == FILE else base)
 
 
 def _number_op(t: Table, col: int, row: int, given: object, number: float | None, base: dict) -> dict | None:
     entity, prop, was = t.cols[col], t.rows[row], t.cell(col, row)
-    how = xbr.int32(t.name, entity, prop)
+    how = xbr.int32(t.name, entity, prop) if base["file"] == FILE else None
     example = format_value(was.value) if was.kind == NUMBER else "1"
     if how:
         whole, made = xbr.WHOLE[how]
@@ -544,7 +598,7 @@ def _text_hint(t: Table, col: int, row: int) -> str:
     return f"text, e.g. {example!r}, or a value another cell of this table holds; {_RESETS}."
 
 
-def _text_op(t: Table, col: int, row: int, text: str, entry: Mapping, base: dict) -> dict | None:
+def _text_op(t: Table, col: int, row: int, text: str, entry: Mapping, base: dict, data: bytes) -> dict | None:
     entity, prop, was = t.cols[col], t.rows[row], t.cell(col, row)
     where = f"{entity} / {prop}"
     if not text.isascii() or "\0" in text:
@@ -561,7 +615,7 @@ def _text_op(t: Table, col: int, row: int, text: str, entry: Mapping, base: dict
     if was.kind == EMPTY:
         raise ValueError(f"{where} is empty: it takes a text another cell of this table holds, and none holds "
                          f"{text!r} (a new string needs the table to grow)")
-    room = _room(t, was)
+    room = _room(t, was, data)
     if shared := sum(1 for field, at in t.refs() if field != was.at + 12 and was.text_at <= at <= was.text_at + room):
         raise ValueError(f"{where}: this text is shared with {shared} other cell{'s' * (shared > 1)}, so it takes "
                          f"only a value another cell of this table holds, and none holds {text!r}")
@@ -571,9 +625,9 @@ def _text_op(t: Table, col: int, row: int, text: str, entry: Mapping, base: dict
     return base | {"value": text}
 
 
-def _room(t: Table, cell) -> int:
-    """How many characters a text cell's string's slot holds (its length and the NULs after it)."""
-    data, end = vanilla(), cell.text_at + len(cell.value)
+def _room(t: Table, cell, data: bytes) -> int:
+    """How many characters a text cell's string's slot holds in ``data`` (its length and the NULs after it)."""
+    end = cell.text_at + len(cell.value)
     limit = t.start + t.size
     while end < limit and data[end] == 0:
         end += 1

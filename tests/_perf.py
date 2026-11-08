@@ -170,6 +170,8 @@ OPS = {op.id: op for op in (
     Op("A44", "Undo (the view again)", "build", first=False),
     Op("A45", "Build, defaults and 100 data edits", "build", head_start=True),
     Op("A46", "Load a mods file of 1,000 data edits, its view", "build"),
+    Op("A87", "Data tab, All files… opened (the image's .xbr files)", "build", first=False),   # Step 4.6h
+    Op("A88", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False),
     Op("A94", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
     Op("A47", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("A48", "Verify every file, first", "image", bar=True),
@@ -240,6 +242,8 @@ OPS = {op.id: op for op in (
     Op("S37", "Undo (the view again)", "build", first=False),
     Op("S38", "Build, defaults and 100 data edits", "build", head_start=True),
     Op("S39", "Load a mods file of 1,000 data edits, its view", "build"),
+    Op("S73", "Data tab, All files… opened (the image's .xbr files)", "build", first=False),   # Step 4.6h
+    Op("S74", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False),
     Op("S80", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
     Op("S40", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("S41", "Verify every file, first", "image", bar=True),
@@ -2059,11 +2063,42 @@ def _data(d: Driver, p: Page, ops: tuple[str | None, ...], pick: Callable[[], No
               ".querySelectorAll('#data .data-view section tr').length === 1001", 600)
 
 
+FILES_OPEN = """() => { const f = document.querySelector("#data .data-files"); f.open = false;
+  azurkit.data.state.files = null; f.querySelector("summary").click(); }"""
+FILE_OPEN = """(file) => { const d = azurkit.data.state; d.openFiles.delete(file); delete d.tablesOf[file];
+  [...document.querySelectorAll("#data .data-file")].find((b) => b.dataset.file === file).click(); }"""
+
+
+def _files(d: Driver, p: Page, ops: tuple[str, str], pick: Callable[[], None]) -> None:
+    """All files… (Step 4.6h) with the image picked (untimed, if it isn't): its list opened again and again, then a
+    file opened, each sample another level file (its TOC never read before in this page)."""
+    listing, opening = ops
+    if not (d.need(listing) or d.need(opening)):
+        return
+    if not p.js(USA):
+        pick()
+    p.js(click("tab-data"))
+    p.js(_views("All tables"))
+    p.wait(VIEWED)
+    while d.need(listing):
+        d.act(p, listing, FILES_OPEN, f"() => Array.isArray(azurkit.data.state.files) || {ERROR}", 600)
+    if not p.js("() => Array.isArray(azurkit.data.state.files)"):
+        d.act(p, None, FILES_OPEN, f"() => Array.isArray(azurkit.data.state.files) || {ERROR}", 600)
+    others = [f for f in p.js("() => azurkit.data.state.files.map((f) => f.file)") if f != "gamedata/config.xbr"]
+    k = 0
+    while d.need(opening):
+        file = others[k % len(others)]
+        k += 1
+        d.act(p, opening, FILE_OPEN, f"() => Array.isArray(azurkit.data.state.tablesOf[{json.dumps(file)}]) || {ERROR}",
+              600, file)
+
+
 def app_data(d: Driver, app: App, ctx) -> None:
     """A45 at a second launch, from its remembered setup: a Build right after the Tools tab opened would share the
     engine process with the randomizer's logic it reads ahead (from a checkout 1.1-2.8 s, against 0.12 s once read)."""
     p = app.launch(d, ctx, None)
     _data(d, p, ("A39", "A40", "A41", "A42", "A43", "A44", None, "A46", "A94"), None)
+    _files(d, p, ("A87", "A88"), lambda: d.act(p, None, typed("iso-path", str(d.iso)), USA, 900, change=True))
     app.quit(p)
     if not d.need("A45"):
         return
@@ -2081,6 +2116,7 @@ def app_data(d: Driver, app: App, ctx) -> None:
 def site_data(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
     _data(d, p, ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S80"), lambda: _pick(d, p, None))
+    _files(d, p, ("S73", "S74"), lambda: _pick(d, p, None))
     d.leave(p)
 
 
@@ -2102,7 +2138,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-reshape-pictures": ("app", ("A59", "A60", "A61"), app_reshape_pictures),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-plan": ("app", ("A97",), app_plan),
-    "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A94"), app_data),
+    "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A87", "A88", "A94"), app_data),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17", "S64"),
                    site_start),
@@ -2122,7 +2158,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-ahead-stale": ("site", ("S59",), site_ahead_stale),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-plan": ("site", ("S83",), site_plan),
-    "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S80"), site_data),
+    "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S73", "S74", "S80"), site_data),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)

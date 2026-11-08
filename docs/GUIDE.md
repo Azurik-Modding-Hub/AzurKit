@@ -169,6 +169,8 @@ before you pick your image: AzurKit ships the game's original config.xbr, the sa
 
 - **Views:** the Player, Critters, Items, Armor and Weapons, each entity's numbers from every table that holds them,
   with a search box; All tables, each as a grid you can sort, or show only what you changed.
+- **All files:** with your image picked, every .xbr file of it and each one's tables (only config.xbr has any on the
+  original disc); greyed until you pick it. On the command line, `azurkit data --iso PATH --files` or `--file FILE`.
 - **Edit any cell:** any number, never clamped; only a value the game can't store is refused, saying why. Each cell
   has a note on what it does.
 - **Marks:** ● on what you changed, with the original value; ⚠ where a ticked pack also writes it (your edit wins,

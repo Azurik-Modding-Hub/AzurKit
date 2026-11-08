@@ -179,6 +179,25 @@ class Document:
         return bytes(out)
 
 
+def toc_size(head: bytes) -> int:
+    """How many of an archive's first bytes hold its header and TOC, read
+    from ``head`` (at least the header); ``ValueError`` when it isn't an
+    XBR's start."""
+    if len(head) < HEADER.size or head[:4] != MAGIC:
+        raise ValueError("not an XBR: no xobx header")
+    return TOC_AT + ENTRY.size * HEADER.unpack_from(head, 0)[3]
+
+
+def tags(head: bytes) -> tuple[str, ...]:
+    """Each TOC entry's tag, from an archive's first :func:`toc_size`
+    bytes, so a file's keyed tables (its ``tabl`` entries,
+    :attr:`Document.tables`) are known before it is read whole."""
+    need = toc_size(head)
+    if len(head) < need:
+        raise ValueError(f"the TOC (0x{TOC_AT:X}, {need - TOC_AT} B) runs off the {len(head)} B read")
+    return tuple(ENTRY.unpack_from(head, at)[2].decode("latin-1") for at in range(TOC_AT, need, ENTRY.size))
+
+
 _KEPT: dict[tuple[str, int, int, bytes], keyed.Table] = {}   # the newest last
 
 

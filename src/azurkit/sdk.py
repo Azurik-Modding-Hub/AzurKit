@@ -111,6 +111,7 @@ from azurkit import __version__
 from azurkit.core import gate, iso, native
 from azurkit.core.progress import Steps, noting
 from azurkit.core.xbr import Document
+from azurkit.core.xbr import document as xbrdoc
 from azurkit.edits import manifest as edits
 from azurkit.edits import files as replaced
 from azurkit.edits import modkit, preset, xbr
@@ -1231,7 +1232,7 @@ def mod_template(given: Mapping) -> dict:
             "cells": sum(len(p) for e in keyed.values() for p in e.values()), "left_out": made["left_out"]}
 
 
-DATA = ("what", "ops", "packs", "kind", "name", "table")   # what a Data tab's ask holds (:func:`data`)
+DATA = ("what", "ops", "packs", "kind", "name", "table", "file", "iso")   # what a Data tab's ask holds (:func:`data`)
 
 
 def data(given: Mapping) -> dict:
@@ -1248,7 +1249,15 @@ def data(given: Mapping) -> dict:
     ticked packs and their values) also writes: the data edit wins, its
     layer last (D28). A pack whose values a build would refuse marks
     nothing here (the build names it). A refusal names the key, the view
-    or the table."""
+    or the table.
+
+    All files (Step 4.6h, Modkit's "All files…"): ``{"what": "files",
+    "iso"}`` every ``.xbr`` of the image (its release's, the image checked
+    as a build checks it, D27), config.xbr first; ``{"what": "tables",
+    "file"}`` a file's keyed tables, read from the image (``iso``) but
+    config.xbr's (only its TOC first: no vanilla file but config.xbr has
+    any); a ``table`` ask with ``file`` (default config.xbr) shows that
+    file's table."""
     if not isinstance(given, Mapping):
         raise ValueError("data: a JSON object")
     if unknown := sorted(set(given) - set(DATA), key=str):
@@ -1258,12 +1267,47 @@ def data(given: Mapping) -> dict:
         raise ValueError("data: ops is a list of xbr operations")
     if what == "index":
         return datatool.index(ops)
-    if what not in ("view", "table"):
-        raise ValueError(f"data: what is index, view or table, not {what!r}")
-    written = _written(given.get("packs") or {})
+    if what == "files":
+        stamp = _stamp(_data_image(given, "All files"))
+        return {"release": stamp.release.name, "label": stamp.release.label,
+                "files": datatool.files(stamp.release.files)}
+    if what not in ("view", "table", "tables"):
+        raise ValueError(f"data: what is index, view, table, files or tables, not {what!r}")
     if what == "view":
-        return datatool.view(given.get("kind"), given.get("name"), ops, written)
-    return datatool.table(given.get("table"), ops, written)
+        return datatool.view(given.get("kind"), given.get("name"), ops, _written(given.get("packs") or {}))
+    file = given.get("file", datatool.FILE)
+    if file == datatool.FILE:
+        return (datatool.tables(ops) if what == "tables"
+                else datatool.table(given.get("table"), ops, _written(given.get("packs") or {})))
+    release, base = _keyed_file(given, file)
+    if what == "tables":
+        return datatool.tables(ops, file, base, release)
+    return datatool.table(given.get("table"), ops, (), file, base, release)
+
+
+def _data_image(given: Mapping, what: str) -> str:
+    if not isinstance(iso_ := given.get("iso"), str):
+        raise ValueError(f"data: {what} needs your image: pick it first (iso, its path)")
+    return iso_
+
+
+def _keyed_file(given: Mapping, file: object) -> tuple[gate.Release, bytes | None]:
+    """``file`` of the image ``given["iso"]`` names (its build files checked,
+    D27): its release, and its bytes when its TOC holds a keyed table (a
+    ``tabl`` entry), else ``None``, read no further than its TOC."""
+    if not isinstance(file, str):
+        raise ValueError(f"data: file {file!r} is no gamedata/<name>.xbr")
+    stamp = _stamp(_data_image(given, file))
+    if not any(f["file"] == file for f in datatool.files(stamp.release.files)):
+        raise ValueError(f"data: the {stamp.release.label} image has no {file}")
+    with iso.Reader(stamp.path) as r:
+        entry = r.lookup(file)
+        if entry is None or entry.is_dir:
+            raise ValueError(f"data: the image has no {file}")
+        need = min(entry.size, xbrdoc.toc_size(r.range(entry, 0, min(entry.size, xbrdoc.HEADER.size))))
+        if "tabl" not in xbrdoc.tags(r.range(entry, 0, need)):
+            return stamp.release, None
+        return stamp.release, r.read(entry)
 
 
 @functools.cache
@@ -1298,12 +1342,17 @@ def data_edit(given: Mapping) -> dict:
     cell's earlier operations dropped and it last (``tools.data.check``).
     A number cell takes any finite number (D23) but what int32 can't hold
     where the game reads one (D45); a refusal says why, with the cell's
-    type and an example, never game bytes."""
-    if not (isinstance(given, Mapping) and "edit" in given and set(given) <= {"edit", "ops"}):
+    type and an example, never game bytes. An edit with ``file`` (another
+    file's table, All files) reads that file from the image ``iso``."""
+    if not (isinstance(given, Mapping) and "edit" in given and set(given) <= {"edit", "ops", "iso"}):
         raise ValueError("data_edit: {edit: {table, col, row, value}, ops}")
     if not isinstance(ops := given.get("ops") or [], list):
         raise ValueError("data_edit: ops is a list of xbr operations")
-    return datatool.check(given["edit"], ops)
+    edit = given["edit"]
+    if isinstance(edit, Mapping) and edit.get("file", datatool.FILE) != datatool.FILE:
+        release, base = _keyed_file(given, edit["file"])
+        return datatool.check(edit, ops, base, release)
+    return datatool.check(edit, ops)
 
 
 def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:

@@ -4515,8 +4515,9 @@ def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_
     (api/data, api/data_edit) is the setup the app remembers (api/setup)
     with Remember settings ticked (D1156), so the next launch's page holds it, its cell marked ● and the Patches
     tab's line naming it; once the image's path is typed, Build applies it
-    after the packs, its config.xbr CPython's of the same recipe."""
-    from tests.test_site import DATA_CELL, DATA_EDIT
+    after the packs, its config.xbr CPython's of the same recipe, and All
+    files… lists the image's .xbr files (Step 4.6h: api/data with its path)."""
+    from tests.test_site import DATA_CELL, DATA_EDIT, DATA_FILES, DATA_VIEW
     _home(monkeypatch, tmp_path / "home")
     hp = next(c for s in sdk.data({"what": "view", "kind": "player"})["sections"] for b in s["blocks"]
               for _, cells in b["rows"] for c in cells if c and c.get("name") == "initial hp")
@@ -4555,6 +4556,11 @@ def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_
                 _, report = sdk.image({"iso": str(usa_iso), "packs": defaults, "xbr": [op]})
                 assert built["result"]["gamedata/config.xbr"] == report["result"]["gamedata/config.xbr"]
                 assert built["result"] == report["result"]
+                files = sdk.data({"what": "files", "iso": str(usa_iso)})["files"]
+                page.evaluate(DATA_VIEW, "All tables")
+                page.evaluate("() => document.querySelector('#data .data-files > summary').click()")
+                assert _page.until(page, f"() => ({DATA_FILES})()[2].length && ({DATA_FILES})()") == [
+                    "data-files", "", [f"▸ {f['file'].removeprefix('gamedata/')}" for f in files]]
             _page.check_csp(page)
             page.close()
         finally:

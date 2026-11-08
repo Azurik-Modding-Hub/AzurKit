@@ -3,7 +3,8 @@ the image's XBR files, planned against the vanilla files into one layer
 (tool ``data``, kind ``xbr``; the Data tool's, one layer per tool):
 
 - ``{"op": "set", "file", "table", "entity", "prop", "value"}``, with
-  ``"col"`` and ``"fill"`` optional: a keyed cell (config.xbr's), by the
+  ``"col"`` and ``"fill"`` optional: a keyed cell (config.xbr's, or of any
+  file's keyed table: no other vanilla file holds one), by the
   file's own names with D51's spelling aliases (case-blind, ``_`` read as a
   space, ``color_r``/``g``/``b`` for the rows ``R``/``G``/``B``; an exact
   name wins, and a spelling of several names is refused), type-checked per
@@ -60,6 +61,7 @@ INT32 = {("armor_properties", name): "trunc" for name in ("Level", "Strong prote
         "ice_1 ice_2 ice_3 shield_lightning_1 shield_lightning_2 shield_lightning_3 lava_1 lava_2 lava_3 fire_shard "
         "rock_shard blaze fire_elemental shadow bot_1 bot_2 sleeth lord golem lord_golem octo catalisk catalisk_baby "
         "tesla fire_wall elemental_1 elemental_2 elemental_3 kill barnacle drown").split()}
+CONFIG = "gamedata/config.xbr"   # the file whose cells INT32 names
 BY_COLUMN = "settings_foo"   # the one table whose cells are named by their column (a setting each), not their row
 WHOLE = {"round": (round, "rounded"), "trunc": (math.trunc, "truncated")}
 RANGE = (-2**31, 2**31 - 1)
@@ -163,7 +165,7 @@ def _set(table: Table, data: bytes, op: Mapping) -> tuple[str, list[tuple[int, b
     if isinstance(value, str):
         writes = edits.set_text(table, data, entity, prop, value, col=col, fill=fill)
     else:
-        if how := int32(table.name, entity, prop):
+        if op["file"] == CONFIG and (how := int32(table.name, entity, prop)):
             whole, made = WHOLE[how]
             if not RANGE[0] <= whole(value) <= RANGE[1]:
                 raise ValueError(f"config table {table.name} {entity}/{prop}: {value:g} doesn't fit the game's "

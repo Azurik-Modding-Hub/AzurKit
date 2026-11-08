@@ -1145,7 +1145,7 @@ function ready(catalog, version, commit) {
     state.community = communityGroup({ root: $("packs"), call: state.engine.call, shared, say, catalog,
                                        settled: () => { tally(); lock(); } });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
-                           changed: (ops) => {
+                           app: state.app, changed: (ops) => {
                              state.xbr = ops;
                              noteXbr();
                              state.changed();

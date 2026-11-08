@@ -3,8 +3,9 @@ tables and views by the file's own names (Modkit's Game Data editor's,
 D262), read from the vanilla file AzurKit ships, which is both releases'
 file byte for byte; and a cell's edit checked into the recipe's ``set``
 operation, refused only where the cell's encoding can't hold it (D23,
-D45). Pure (the shipped file and the manifests), but a build of a data
-edit over a pack's slider (vanilla: the USA image)."""
+D45); All files (Step 4.6h): every .xbr of the image and any file's keyed
+tables. Pure (the shipped file and the manifests), but a build of a data
+edit over a pack's slider and All files' reads (vanilla: the USA image)."""
 
 from __future__ import annotations
 
@@ -334,3 +335,59 @@ def test_entity_diff_sets_two_entities_cells_side_by_side_table_by_table_and_nam
         assert cli.main(["entity", "diff", a, b]) == 1
         assert capsys.readouterr().err == "azurkit: no config.xbr table has 'no_such_entity' (azurkit data TABLE lists " \
                                           "a table's entities)\n"
+def test_all_files_lists_every_xbr_of_the_image_and_only_config_xbr_holds_keyed_tables(usa_iso, capsys):
+    """Step 4.6h (Modkit's All files…): sdk.data lists every .xbr of the
+    image, config.xbr first, then by path (index/index.xbr among them), and
+    each file's keyed tables, read from the image no further than its TOC:
+    config.xbr's 18 by its own names (its shipped file's, so no image), none
+    in any other vanilla file (Modkit's AZ-124). A file's ask without the
+    image, a table a file hasn't and a file the image hasn't are refused by
+    name; ``azurkit data --files`` and ``--file`` print the same."""
+    image = {"iso": str(usa_iso)}
+    listed = sdk.data({"what": "files"} | image)
+    paths = [f["file"] for f in listed["files"]]
+    xbrs = [p for p in gate.USA.files if p.endswith(".xbr")]
+    assert listed["release"] == "usa" and paths == [data.FILE, *sorted(set(xbrs) - {data.FILE}, key=str.lower)]
+    assert len(paths) == 42 and "gamedata/index/index.xbr" in paths
+    held = {p: [t["name"] for t in sdk.data({"what": "tables", "file": p} | image)["tables"]] for p in paths}
+    assert held[data.FILE] == [t["name"] for t in sdk.data({"what": "tables"})["tables"]] == list(
+        Document(data.vanilla()).tables) and [p for p in paths if held[p]] == [data.FILE]
+    for given, why in [({"what": "files"}, "data: All files needs your image: pick it first (iso, its path)"),
+                       ({"what": "tables", "file": "gamedata/a1.xbr"},
+                        "data: gamedata/a1.xbr needs your image: pick it first (iso, its path)"),
+                       ({"what": "table", "file": "gamedata/a1.xbr", "table": "x"} | image,
+                        "gamedata/a1.xbr has no keyed table 'x'"),
+                       ({"what": "tables", "file": "gamedata/nope.xbr"} | image,
+                        "data: the USA image has no gamedata/nope.xbr")]:
+        with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+            sdk.data(given)
+    assert cli.main(["data", "--files", "--iso", str(usa_iso)]) == 0
+    assert capsys.readouterr().out.splitlines() == [f"{len(held[p]):>3} keyed tables  {p}" for p in paths]
+    assert cli.main(["data", "--file", "gamedata/index/index.xbr", "--iso", str(usa_iso)]) == 0
+    assert capsys.readouterr().out == "(no keyed tables)\n"
+
+
+def test_another_files_keyed_table_reads_and_edits_as_config_xbrs_without_its_notes_rules_or_marks():
+    """A keyed table of any file (Step 4.6h; config.xbr's bytes stand in
+    for another file's, as no other vanilla file holds one) shows as a grid
+    and edits into a ``set`` operation naming that file, which plans on it
+    and marks its table changed; config.xbr's schema notes, int32 rules
+    (its armor Level takes 3e9 there) and pack spans don't reach it, and
+    config.xbr's own tables stay unedited."""
+    other, base = "gamedata/index/index.xbr", data.vanilla()
+    c, r = _at("armor_properties", "earth_armor_1", "Level")
+    span = [(data._vanilla_tables()["armor_properties"].cell(c, r).at, 16)]
+    grid = data.table("armor_properties", written=span, file=other, base=base)
+    config = data.table("armor_properties")
+    assert (grid["file"], grid["label"], grid["category"], grid["written"], grid["cols_meta"]) == (
+        other, "armor_properties", "", [], None) and set(map(type, grid["rows_meta"])) == {type(None)}
+    assert (grid["rows"], grid["cols"], grid["cells"]) == (config["rows"], config["cols"], config["cells"])
+    made = data.check({"file": other, "table": "armor_properties", "col": c, "row": r, "value": "3e9"}, base=base)
+    assert made["op"] == {"op": "set", "file": other, "table": "armor_properties", "entity": "earth_armor_1",
+                          "prop": "Level", "value": 3e9} and made["ops"] == [made["op"]]
+    with pytest.raises(ValueError, match="^earth_armor_1 / Level: a number the game reads as a 32-bit integer"):
+        _check("armor_properties", "earth_armor_1", "Level", "3e9")
+    assert xbr.plan(made["ops"], gate.USA, {other: base}).changes
+    assert data.table("armor_properties", made["ops"], file=other, base=base)["changed"] == [[c, r, "1"]]
+    assert {t["name"]: t["changed"] for t in data.tables(made["ops"], other, base)["tables"]}["armor_properties"]
+    assert data.index(made["ops"])["edits"] == 0 and data.table("armor_properties", made["ops"])["changed"] == []

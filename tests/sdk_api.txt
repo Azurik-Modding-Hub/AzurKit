@@ -542,6 +542,14 @@ layer last (D28). A pack whose values a build would refuse marks
 nothing here (the build names it). A refusal names the key, the view
 or the table.
 
+All files (Step 4.6h, Modkit's "All files…"): ``{"what": "files",
+"iso"}`` every ``.xbr`` of the image (its release's, the image checked
+as a build checks it, D27), config.xbr first; ``{"what": "tables",
+"file"}`` a file's keyed tables, read from the image (``iso``) but
+config.xbr's (only its TOC first: no vanilla file but config.xbr has
+any); a ``table`` ask with ``file`` (default config.xbr) shows that
+file's table.
+
 
 def data_edit(given: 'Mapping') -> 'dict':
 
@@ -552,7 +560,8 @@ operation (``None``: the cell back as vanilla) and ``ops`` with the
 cell's earlier operations dropped and it last (``tools.data.check``).
 A number cell takes any finite number (D23) but what int32 can't hold
 where the game reads one (D45); a refusal says why, with the cell's
-type and an example, never game bytes.
+type and an example, never game bytes. An edit with ``file`` (another
+file's table, All files) reads that file from the image ``iso``.
 
 
 def mods_diff(given: 'Mapping') -> 'dict':

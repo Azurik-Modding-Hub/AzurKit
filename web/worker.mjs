@@ -293,6 +293,8 @@ def engine(request):
             if request.type == "community":
                 return js(sdk.community())
             given = json.loads(JSON.stringify(request.given))
+            if mounted := getattr(request, "iso", None):   # All files: another file than config.xbr, from the image
+                given["iso"] = mounted
             return js((sdk.data if request.type == "data" else sdk.data_edit)(given))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
@@ -983,7 +985,7 @@ async function streamed(picked) {
 // plan's spoiler). Verify every file hashes here what the image's kept check hasn't (sdk.layout's whole), in
 // WebCrypto as prime does, its bar the bottom bar's, and hands the engine those digests (sdk.verify_all).
 const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler", "replace", "saves"];
-const DATA = ["data", "data_edit", "community"];   // the Data tab's and the Patches tab's community list: no image
+const DATA = ["data", "data_edit", "community"];   // the Data tab's (All files' asks mount the image) and the community list
 async function tool({ py, engine }, data) {
   if (data.type === "saves") {   // the Saves section: a slot's Files, an HDD image or the image's XBE and BIOS files
     const given = data.given, blobs = { files: {} };   // read at once: Safari answers each read of a File 200 ms late
@@ -1193,7 +1195,8 @@ try {
       if (data.type === "tracker" || data.type === "plan" || DATA.includes(data.type)) {   // answered whatever happens
         let reply;
         try {
-          reply = loaded.engine(data);
+          reply = DATA.includes(data.type) && data.file ? mounted(loaded.py, data.file, (iso) => loaded.engine({ ...data, iso }))
+            : loaded.engine(data);
         } catch (error) {
           reply = refusal(error);
         }

@@ -2803,6 +2803,14 @@ DATA_EDIT = f"""([table, name, text]) => {{ {DATA_FIND}
 DATA_PRESS = """(label) => [...document.querySelectorAll("#data .data-bar button")].find((b) => b.textContent === label).click()"""
 DATA_LINES = """() => [document.querySelector("#data .data-bar .note").textContent, azurkit.xbr,
     document.getElementById("xbr-note").textContent, document.querySelector("#data .data-builds").textContent]"""
+# All files… (Step 4.6h): one of the tab's views by its label; the section's class, line and rows as they read; a row
+# (a file, or a table under it: [file, table]) clicked.
+DATA_VIEW = """(label) => [...document.querySelectorAll("#data .views button")].find((b) => b.textContent === label).click()"""
+DATA_FILES = """() => { const f = document.querySelector("#data .data-files");
+    return [f.className, f.querySelector(":scope > p.note").textContent,
+            [...f.querySelectorAll(".data-file-list > *")].map((n) => n.textContent)]; }"""
+DATA_FILE = """([file, table]) => [...document.querySelectorAll("#data .data-file-list button")].find((b) =>
+    b.dataset.file === file && (b.dataset.name ?? null) === table).click()"""
 
 
 def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, usa_iso):
@@ -2814,7 +2822,10 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
     red line, the engine's words; Undo, Redo and the cell's Revert move the
     edits; unticking the pack takes its ⚠ off. Its line says the edits wait
     for the image; once one is picked, Build's config.xbr is CPython's of
-    the same recipe, the D28 conflict named. Two edits typed before the
+    the same recipe, the D28 conflict named. All files… waits for the image,
+    greyed with its line (D979); open once one is picked, it lists the
+    image's .xbr files as the engine does, a level file opens to none and
+    config.xbr to its 18 tables, one of which shows its grid. Two edits typed before the
     first's answer both stay, and an edit whose answer comes after Clear
     edits joins the cleared list. No CSP violation, no request but GETs of
     the site's files."""
@@ -2860,9 +2871,27 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
         assert _page.until(page, f"""() => {{ const c = ({DATA_CELL})({json.dumps(cell)});
             return c && !c[1].includes("written") && c[0]; }}""") == "● 500"
         _page.tick(page, list(packs), {"player_max_hp": {"starting_hp": "300"}})
+        _page.click(page, "tab-data")
+        page.evaluate(DATA_VIEW, "All tables")
+        page.evaluate("() => document.querySelector('#data .data-files > summary').click()")
+        assert page.evaluate(DATA_FILES) == ["data-files waits", "Pick your image (1.) to list its files.", []]
         _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla")
         assert page.evaluate(DATA_LINES)[3] == f"{waiting}."
+        files = [f["file"].removeprefix("gamedata/") for f in sdk.data({"what": "files", "iso": str(usa_iso)})["files"]]
+        assert _page.until(page, f"() => ({DATA_FILES})()[2].length && ({DATA_FILES})()") == [
+            "data-files", "", [f"▸ {f}" for f in files]]
+        for file in ("gamedata/a1.xbr", data.FILE):
+            page.evaluate(DATA_FILE, [file, None])
+        configs = [f"{'● ' * t['changed']}{t['name']}" for t in sdk.data(
+            {"what": "tables", "ops": page.evaluate("() => azurkit.xbr")})["tables"]]
+        rows = _page.until(page, f"() => !({DATA_FILES})()[2].some((t) => t.startsWith('Reading')) && ({DATA_FILES})()[2]")
+        assert rows == ["▾ config.xbr", *configs, "▾ a1.xbr", "(no keyed tables)", *[f"▸ {f}" for f in files[2:]]]
+        page.evaluate(DATA_FILE, [data.FILE, "magic"])
+        assert _page.until(page, "() => azurkit.data.state.answer?.name === 'magic' && azurkit.data.state.answer.file")\
+            == data.FILE
+        page.evaluate(DATA_VIEW, "Player")
+        _page.until(page, f"() => azurkit.data.state.answer?.kind === 'player' && ({DATA_CELL})({json.dumps(cell)})")
         page.evaluate("() => document.querySelector('#build').click()")
         built = _page.built(page)
         _, report = sdk.image({"iso": str(usa_iso), "packs": mods.normalize(packs), "xbr": [op]})
