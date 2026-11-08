@@ -642,15 +642,15 @@ def _document(characters_xbr: bytes, body: _Body, clips: Sequence[tuple[str, Cli
 
 
 def _refuse_out(out: Path, protect: Sequence[Path]) -> None:
-    """D36: ``out`` must be a new or empty folder outside this checkout and
-    outside ``iso/`` (exported files are game assets)."""
-    from azurkit.tools.characters.ports import checkout, require_new_output
-
-    real, root = out.resolve(), checkout()       # this code's own checkout: a lane's tree in a lane
-    if root and (real == root or root in real.parents):
-        raise ValueError(f"--out {out} is inside the checkout {root}: exported files are game assets, "
-                         f"never in the repo")
-    require_new_output(out, *protect)
+    """D36: ``out`` must be a new or empty folder that is none of ``protect``
+    (the inputs read) and inside none of them (its caller keeps it outside a
+    checkout and the images' folders: exported files are game assets)."""
+    real = out.resolve()
+    for p in map(Path, protect):
+        if p.exists() and real.exists() and real.samefile(p):
+            raise ValueError(f"--out {out} is the same file as {p}, which it reads")
+        if p.is_dir() and (real == p.resolve() or p.resolve() in real.parents):
+            raise ValueError(f"--out {out} is inside {p}, which it reads")
     if out.exists() and (not out.is_dir() or any(out.iterdir())):
         raise ValueError(f"--out {out} already holds something; give a new or empty folder")
 
@@ -993,11 +993,10 @@ def vanilla_characters(characters_xbr: bytes) -> bool:
     """Whether ``characters_xbr`` is a release's vanilla file (its
     manifest's sha256): the root's extras say so, and the import will
     refuse anything else (D27)."""
-    from azurkit.tools.characters.ports import REGIONS
+    from azurkit.core import gate
 
     sha = hashlib.sha256(characters_xbr).hexdigest()
-    return any(json.loads(r.manifest.read_text(encoding="utf-8"))["files"].get("gamedata/characters.xbr", (0, ""))[1]
-               == sha for r in REGIONS)
+    return any(r.files.get("gamedata/characters.xbr", (0, ""))[1] == sha for r in gate.RELEASES)
 
 
 def resolve_body(characters_xbr: bytes, config_xbr: bytes, name: str) -> tuple[str, str | None]:

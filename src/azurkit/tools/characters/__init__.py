@@ -189,11 +189,12 @@ def normalize(given: object) -> dict:
     return out
 
 
-def variant(recipe: Mapping, vanilla) -> tuple[object, dict] | tuple[None, None]:
+def variant(recipe: Mapping, vanilla, worn=None) -> tuple[object, dict] | tuple[None, None]:
     """The variant :func:`normalize`'s ``recipe`` wears and
     ``apply_player_model``'s options for it (Modkit's ``player_variant`` and
     ``variant_options``), or ``(None, None)`` for a species: ``species`` a
-    built-in variant, else one of ``variant_file``'s recipes, its shapes
+    built-in variant, else one of ``variant_file``'s recipes (``worn``, a
+    ``Variant``, in place of either: a sculpt round's, laid over), its shapes
     sized by ``shapes``; a mode, size, sounds, anims or on/off option the
     recipe gives must be the variant's, its scale and attack numbers
     multiply the variant's (a weapon's moveset's, under a weapon: its
@@ -202,7 +203,7 @@ def variant(recipe: Mapping, vanilla) -> tuple[object, dict] | tuple[None, None]
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import _player_weapons as weapons
 
-    found = variants.resolve(recipe["species"], recipe.get("variant_file"))
+    found = worn if worn is not None else variants.resolve(recipe["species"], recipe.get("variant_file"))
     if found is None:
         if recipe.get("shapes"):
             raise ValueError(f"character: shapes size a variant's shapes, and {recipe['species']!r} names no variant")
@@ -430,25 +431,51 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
                  lambda: note(f"Dressing {recipe['species']} (kept from an earlier build)"))
 
 
+def dressed(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object] = (), *, staging=None,
+            worn=None, logic=None, springs_out: dict | None = None, plans: list | None = None,
+            player_only: bool = True) -> tuple[object, object, object, list[str]]:
+    """:func:`normalize`'s ``recipe`` dressed on ``vanilla`` (a
+    ``ports.Vanilla``) over the layers ``before`` (``staging``: the staging
+    over them, else :func:`_over`'s), the swap reading ``packs``
+    (:func:`packs_view`'s), its shims' room past ``before``'s claims: the
+    staging it wrote, its ``ports.Build`` (its shims' claims), the variant it
+    wore (``None`` for a species) and the swap's build-log lines. ``worn``: a
+    ``Variant`` worn in place of the one ``recipe`` names (a sculpt round's,
+    laid over: Modkit's ``model dress``); ``logic``, ``springs_out``,
+    ``plans`` and ``player_only`` are ``apply_player_model``'s (``plans``
+    hears W24's mesh plan, ``springs_out`` the spring rows' preview data, and
+    ``player_only`` false leaves a prop or mesh in the body as its readers
+    read it). ``ValueError`` names why the swap can't be built.
+    :func:`plan`'s dress, and the model tools'."""
+    from azurkit.tools.characters import ports
+
+    swap = _swap()
+    staging = _over(vanilla, before)[3] if staging is None else staging
+    taken = [(c.offset, c.size, c.writable) for la in before for c in la.claims if c.file == XBE]
+    build = ports.Build(vanilla, taken=list(taken), packs=dict(packs))
+    heard = {"logic": logic, "springs_out": springs_out, "plans": plans, "player_only": player_only}
+    with ports.building(build):
+        worn, options = variant(recipe, vanilla, worn)
+        if worn is not None:   # Modkit's randomize-full: the base dressed with the variant's recipe
+            lines = swap.apply_player_model(staging, worn.base, variant=worn, weapon=recipe.get("weapon"),
+                                            ram=recipe.get("ram"), chain=recipe.get("chain", DEFAULT_CHAIN),
+                                            **options, **heard)
+        else:
+            kwargs = {FIELDS[k][1]: v for k, v in recipe.items() if FIELDS[k][1] is not None}
+            lines = swap.apply_player_model(staging, recipe["species"], **kwargs, **heard)
+    return staging, build, worn, lines
+
+
 def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object], folded: float | None,
           note: Callable[[str], object], over: tuple | None = None) -> tuple[Layer, list[str], list[str]]:
-    from azurkit.tools.characters import ports, shipped
+    from azurkit.tools.characters import shipped
 
     swap, release = _swap(), vanilla.release
     note(f"Dressing {recipe['species']} (reading its files)")
     base, kept, current, staging = over or _over(vanilla, before)
-    taken = [(c.offset, c.size, c.writable) for la in before for c in la.claims if c.file == XBE]
-    build = ports.Build(vanilla, taken=list(taken), packs=dict(packs))
     attack = swap.AttackLogic()
     note(f"Dressing {recipe['species']}")
-    with ports.building(build):
-        worn, options = variant(recipe, vanilla)
-        if worn is not None:   # Modkit's randomize-full: the base dressed with the variant's recipe
-            lines = swap.apply_player_model(staging, worn.base, variant=worn, logic=attack, weapon=recipe.get("weapon"),
-                                            ram=recipe.get("ram"), chain=recipe.get("chain", DEFAULT_CHAIN), **options)
-        else:
-            kwargs = {FIELDS[k][1]: v for k, v in recipe.items() if FIELDS[k][1] is not None}
-            lines = swap.apply_player_model(staging, recipe["species"], logic=attack, **kwargs)
+    staging, build, worn, lines = dressed(recipe, vanilla, before, packs, staging=staging, logic=attack)
     if worn is not None and worn.source != "built-in":   # the log names the recipe's file: its name only
         lines = [line.replace(worn.source, PurePath(worn.source).name) for line in lines]
     if folded is not None and not shipped.same_size(attack.size, folded):
