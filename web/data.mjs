@@ -84,8 +84,9 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
   const search = pick.element.querySelector(".picker-search input");
   const imaged = () => {
     builds.textContent = image() ? `${BUILDS}.` : `${BUILDS}: pick your image (1.) to build.`;
-    d.files = null;   // another image's files: asked again
+    d.files = null;   // another image's files and tables: asked again, an older image's answers dropped
     d.tablesOf = {};
+    d.reading = {};
     if (files.open && image()) listFiles();
     else drawFiles();
     if (d.file && d.view === "tables" && d.answer) show();
@@ -151,8 +152,8 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
 
   // All files…: the image's files, asked each time it opens (the search narrows them by file or table name), and a
   // file's keyed tables (only config.xbr's need no image), asked each time its row opens and again for each open row
-  // (reread, Modkit's _mark_tree) after each change of the edits (their ● marks); an answer a later ask overtook is
-  // dropped.
+  // (reread, Modkit's _mark_tree) once the files are listed (another image's) and after each change of the edits (their
+  // ● marks); an answer an ask since (a later one, another image's) overtook is dropped.
   const listFiles = async () => {
     const ticket = ++d.listing;
     d.files = null;
@@ -160,6 +161,7 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
     const reply = await call("data", imaging({ what: "files" }));
     if (ticket !== d.listing) return;
     d.files = "refused" in reply ? reply : reply.files;
+    reread();
     drawFiles();
   };
   const openFile = async (file) => {

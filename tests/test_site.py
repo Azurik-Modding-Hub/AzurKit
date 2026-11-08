@@ -2827,7 +2827,8 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
     image's .xbr files as the engine does, a level file opens to none and
     config.xbr to its 18 tables, one of which shows its grid; an edit there
     marks its row ● and Undo takes the mark off (each open row is read again
-    after each change of the edits). Two edits typed before the
+    after each change of the edits), and another pick reads the open rows
+    again. Two edits typed before the
     first's answer both stay, and an edit whose answer comes after Clear
     edits joins the cleared list. No CSP violation, no request but GETs of
     the site's files."""
@@ -2899,6 +2900,10 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
         drawn([f"● {t}" if t == "armor_properties" else t for t in rows])
         page.evaluate(DATA_PRESS, "Undo")
         drawn(rows)
+        listed = page.evaluate("() => azurkit.data.state.listing")
+        page.set_input_files("#iso", [])   # unpicked first: Chromium's and WebKit's inputs fire no change for the same file
+        _page.pick(page, "#iso", usa_iso)
+        drawn(rows, f"azurkit.data.state.listing > {listed}")
         page.evaluate(DATA_VIEW, "Player")
         _page.until(page, f"() => azurkit.data.state.answer?.kind === 'player' && ({DATA_CELL})({json.dumps(cell)})")
         page.evaluate("() => document.querySelector('#build').click()")
