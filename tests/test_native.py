@@ -534,6 +534,17 @@ def _dress_answer(case: dict) -> list:
                 rays.append("None" if got is None else bits([*got[0], *got[1:]]))
             except ZeroDivisionError:
                 rays.append("ZeroDivisionError")
+        me._RAYS[0] = ({}, {}, {})   # the side's rays asked at once, then each taken as _ray asks it
+        try:
+            me._rays_ahead([tuple(p) for p in points], s, s.origin)
+            for p in points:
+                try:
+                    got = me._ray(tuple(p), s, s.origin)
+                    rays.append("None" if got is None else bits([*got[0], *got[1:]]))
+                except ZeroDivisionError:
+                    rays.append("ZeroDivisionError")
+        finally:
+            me._RAYS[0] = None
     from azurkit.tools.characters import clip_import
 
     thinned = []
@@ -582,16 +593,22 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     over seeded random inputs, every NaN a NaN (its sign and payload aren't
     held: the compiler may order an operation's two NaN inputs either way)."""
     cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
-    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray", "thin",
-                 "dxt", "atan2", "raster"):
+    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray", "rays",
+                 "thin", "dxt", "atan2", "raster"):
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
                             ran.update([name]) or real(*a, **k))
     assert native.report()["loaded"]
     with numpy.errstate(all="ignore"):   # case 0's sample is the twin's
         got = [_dress_answer(case) for case in cases]
     asked = sum(len(points) for case in cases for *_, points in case["rays"])
+    left = 0   # each side's rays again, asked at once (rays): the library's calls but for the points _ray keeps none
+    for case, g in zip(cases, got):   # of (a zero coordinate) and those the twin answers (a division by zero)
+        at = 0
+        for *_, points in case["rays"]:
+            left += sum(0.0 in p or r == "ZeroDivisionError" for p, r in zip(points, g[0][at:at + len(points)]))
+            at += 2 * len(points)
     assert ran == {"origins": 1597, "linear": 400, "chain": 400, "boxes": 400, "sample": 399, "heights": 400,
-                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked, "thin": 1594,
+                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked + left, "rays": 1200, "thin": 1594,
                    "dxt": 1600, "atan2": 400, "raster": 400}   # by the library but case 0's clip's
     assert 0 < sum(r == "ZeroDivisionError" for g in got for r in g[0]) < asked / 10   # some divide by zero
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))

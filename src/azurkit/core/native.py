@@ -48,7 +48,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
-           "ray", "decimate", "thin", "dxt", "atan2", "raster")
+           "ray", "rays", "decimate", "thin", "dxt", "atan2", "raster")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -106,6 +106,7 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_skinned", [vp, vp, vp, i64, vp, vp, i64, i64, vp]),
                          ("az_signed", [vp, i64, vp, vp, i64, f64, f64, vp, vp, vp]),
                          ("az_ray", [vp, f64, f64, f64, i64, f64, f64, f64, vp]),
+                         ("az_rays", [vp, i64, vp, i64, f64, f64, f64, vp, vp]),
                          ("az_decimate_need", [i64] * 4),
                          ("az_decimate", [i64, vp, vp, i64, vp, vp, vp, vp, vp, ctypes.c_char_p, i64, vp, vp, vp,
                                           ctypes.c_char_p, vp, vp, i64, f64, i64, f64, vp, i64, i64, i64]),
@@ -908,6 +909,26 @@ def raster(p: int, m: int, size: int, tid: int, bary: int) -> bool:
     draws (a corner not finite, 2**40 or more from 0, or -0.0), nothing
     written then."""
     return (lib := library()) is not None and lib.az_raster(p, m, size, tid, bary) == 0
+
+
+def rays(row: array, points: Sequence, origin) -> list | None:
+    """:func:`ray` of each of ``points`` (3 floats each) in one call: each
+    one's answer, ``None`` at the origin or ``False`` where the twin
+    answers; ``None`` without the library."""
+    if (lib := library()) is None or not points:
+        return None
+    n = len(points)
+    try:
+        flat = array("d", [x for p in points for x in p])
+    except TypeError:
+        return None
+    if len(flat) != 3 * n:
+        return None
+    out, code = array("d", bytes(64 * n)), array("q", bytes(8 * n))
+    g = (0.0, 0.0, 0.0) if origin is None else origin
+    lib.az_rays(row.buffer_info()[0], n, _at(flat), int(origin is not None), g[0], g[1], g[2], _at(out), _at(code))
+    return [((out[8 * i], out[8 * i + 1], out[8 * i + 2]), out[8 * i + 3], out[8 * i + 4], out[8 * i + 5],
+             out[8 * i + 6], out[8 * i + 7]) if code[i] == 0 else None if code[i] == 1 else False for i in range(n)]
 
 
 def decimate(pos: array, flags: bytes, vpoint: array, twin: array, so: array, sb: array, sw: array, sbad: bytes,

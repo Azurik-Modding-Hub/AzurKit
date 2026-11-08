@@ -1144,7 +1144,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`native/mesh.c`, Step 4.6c): `mesh_edit._ray_at`, a round side's ray
   through a point (its form's exit, a drape's hull, the blend, the gate
   and the fades), on the side's numbers packed once (`_ray_row`); a
-  division by zero, which the twin raises, is the twin's. The fifth is
+  division by zero, which the twin raises, is the twin's. A side's rays
+  over many points are asked in one call (`az_rays`, `_rays_ahead`: the
+  shares' runs, and the rounds a round at a time over every point,
+  `_round_all_each`), kept in `_RAYS` for `_ray` to take as asked: under
+  Pyodide a ctypes call costs some browsers more than its ray. The fifth is
   the decimator's collapses (`native/decimate.c`, Step 4.6c):
   `decimate.decimate`'s loop past its `_Work` setup (the offers, the link
   test, the cost, the max_error's rehome and the collapse, the cheapest

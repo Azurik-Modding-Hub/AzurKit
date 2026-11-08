@@ -1913,16 +1913,40 @@ def _ray(p: Vec, side: _Placed, origin: Vec | None = None):
     memo = _RAYS[0]
     if memo is None or type(p) is not tuple or 0.0 in p:
         return _ray_at(p, side, origin)
-    ids, values, answers = memo
-    got = ids.get((id(side), id(origin)))
-    if got is None:         # the side and origin held, so their ids stay theirs
-        value = (id(side.op), repr((side.centre, side.frame, side.rays, side.inward_sign, origin)))
-        got = ids[(id(side), id(origin))] = (values.setdefault(value, len(values)), side, origin)
-    key = (got[0], p)
+    answers = memo[2]
+    key = (_ray_slot(memo, side, origin), p)
     ans = answers.get(key, answers)
     if ans is answers:
         ans = answers[key] = _ray_at(p, side, origin)
     return ans
+
+
+def _ray_slot(memo: tuple, side: _Placed, origin: Vec | None) -> int:
+    """The number :data:`_RAYS` keeps ``side``'s rays (from ``origin``) under: one a side's values."""
+    ids, values, _ = memo
+    got = ids.get((id(side), id(origin)))
+    if got is None:         # the side and origin held, so their ids stay theirs
+        value = (id(side.op), repr((side.centre, side.frame, side.rays, side.inward_sign, origin)))
+        got = ids[(id(side), id(origin))] = (values.setdefault(value, len(values)), side, origin)
+    return got[0]
+
+
+def _rays_ahead(points, side: _Placed, origin: Vec | None = None) -> None:
+    """``side``'s rays through each of ``points`` (from ``origin``) the
+    compiled kernel answers, in one call, kept in :data:`_RAYS` for
+    :func:`_ray`, which takes each as it would have asked it (a ctypes
+    call under Pyodide costs some browsers more than its ray); a point
+    :func:`_ray` keeps no answer for, or one the twin answers, is left."""
+    memo = _RAYS[0]
+    if memo is None or (row := _ray_row(side)) is None:
+        return
+    answers = memo[2]
+    slot = _ray_slot(memo, side, origin)
+    todo = list(dict.fromkeys(p for p in points if type(p) is tuple and 0.0 not in p and (slot, p) not in answers))
+    got = native.rays(row, todo, origin) if todo else None
+    for p, ans in zip(todo, got or ()):
+        if ans is not False:
+            answers[(slot, p)] = ans
 
 
 _ROWS: dict[int, tuple] = {}
@@ -2192,30 +2216,53 @@ def _round_all(p: Vec, rounds: list[list[_Placed]], heaviest: int, group: int, b
     splits by the map without it, a fill of a few millimetres the split
     triangles take as they are)."""
     for sides in rounds:
-        mine = [side for side in sides if side.selects(heaviest, group)]
-        if len(mine) == 2 and mine[0].op.pair:      # one ray from the pair's origin: no averaged moves
-            got = _pair_ray(p, mine)
-            d = None if got is None else _lift(*got[:5])
-            if d is not None:
-                p = (p[0] + d[0], p[1] + d[1], p[2] + d[2])
-            continue
-        moves = []
-        for side in mine:
-            d = _round_move(p, side)
-            if d is not None:
-                moves.append(d)
-        if moves:
-            if len(moves) == 1:
-                d = moves[0]
-            else:
-                weights = [_dot(m, m) for m in moves]
-                total = sum(weights)
-                d = tuple(sum(w * m[c] for w, m in zip(weights, moves)) / total for c in range(3)) \
-                    if total > 0.0 else (0.0, 0.0, 0.0)
-            p = (p[0] + d[0], p[1] + d[1], p[2] + d[2])
-        if bridge and len(mine) == 2 and mine[0].op.bridge > 0.0:
-            p = _bridge(p, mine)
+        p = _round_one(p, [side for side in sides if side.selects(heaviest, group)], bridge)
     return p
+
+
+def _round_one(p: Vec, mine: list[_Placed], bridge: bool) -> Vec:
+    """:func:`_round_all`'s round of ``p`` by the sides ``mine`` it selects."""
+    if len(mine) == 2 and mine[0].op.pair:      # one ray from the pair's origin: no averaged moves
+        got = _pair_ray(p, mine)
+        d = None if got is None else _lift(*got[:5])
+        return p if d is None else (p[0] + d[0], p[1] + d[1], p[2] + d[2])
+    moves = []
+    for side in mine:
+        d = _round_move(p, side)
+        if d is not None:
+            moves.append(d)
+    if moves:
+        if len(moves) == 1:
+            d = moves[0]
+        else:
+            weights = [_dot(m, m) for m in moves]
+            total = sum(weights)
+            d = tuple(sum(w * m[c] for w, m in zip(weights, moves)) / total for c in range(3)) \
+                if total > 0.0 else (0.0, 0.0, 0.0)
+        p = (p[0] + d[0], p[1] + d[1], p[2] + d[2])
+    if bridge and len(mine) == 2 and mine[0].op.bridge > 0.0:
+        p = _bridge(p, mine)
+    return p
+
+
+def _round_all_each(ps: list[Vec], rounds: list[list[_Placed]], heaviest: list[int], groups: list[int],
+                    bridge: bool = True) -> list[Vec]:
+    """:func:`_round_all` of each of ``ps`` (its heaviest bone and group
+    in ``heaviest`` and ``groups``), a round at a time over all of them,
+    so each side's rays are asked at once (:func:`_rays_ahead`): each
+    point the same as alone."""
+    ps = list(ps)
+    for sides in rounds:
+        mine = [[side for side in sides if side.selects(h, g)] for h, g in zip(heaviest, groups)]
+        asked: dict[tuple[int, int], tuple] = {}
+        for p, m in zip(ps, mine):
+            origin = m[0].origin if len(m) == 2 and m[0].op.pair else None
+            for side in m:
+                asked.setdefault((id(side), id(origin)), (side, origin, []))[2].append(p)
+        for side, origin, points in asked.values():
+            _rays_ahead(points, side, origin)
+        ps = [_round_one(p, m, bridge) for p, m in zip(ps, mine)]
+    return ps
 
 
 # --------------------------------------------------------------------------- normals
@@ -4098,14 +4145,18 @@ def _approx_finals(mesh: _Mesh, spec: MeshSpec, base: list[Vec], which) -> dict[
     placed = _place(mesh, spec)
     rounds = _rounds(mesh, spec)
     group_of = [g for g, _ in mesh.ids]
-    out = {}
+    out, moved = {}, []
     for k in which:
         if k in mesh.fixed:
             out[k] = base[k]
             continue
         ops = [op for op in placed if op.selects(mesh.heaviest[k], group_of[k])]
-        q = _displace(base[k], ops)[0] if ops else base[k]
-        out[k] = _round_all(q, rounds, mesh.heaviest[k], group_of[k]) if rounds else q
+        out[k] = _displace(base[k], ops)[0] if ops else base[k]
+        moved.append(k)
+    if rounds:   # the rounds a round at a time over them all (a side's rays at once)
+        for k, q in zip(moved, _round_all_each([out[k] for k in moved], rounds, [mesh.heaviest[k] for k in moved],
+                                               [group_of[k] for k in moved])):
+            out[k] = q
     return out
 
 
@@ -5390,6 +5441,13 @@ def _share_rows(shared: tuple, span: tuple[int, int]) -> list[tuple[int, list[fl
     """:func:`shares_each`'s pass over the vertices ``span`` gives (lo,
     hi): each one's share of each set of names but a kept one's."""
     base, heaviest, kept, rides, sides, side_of, rounds, round_of, segment_of, width = shared
+    points = [base[rides[k]] if k in rides else base[k] for k in range(*span) if heaviest[k] not in kept]
+    for side in rounds:   # each side's rays at once (_rays_ahead), as _round_share asks them
+        if side.op.pair:
+            _rays_ahead(points, side, side.origin)
+            _rays_ahead([(-p[0], p[1], p[2]) for p in points], side, side.origin)
+        else:
+            _rays_ahead(points, side)
     rows = []
     for k in range(*span):
         if heaviest[k] in kept:
@@ -5519,10 +5577,9 @@ def _positions(mesh: _Mesh, base: list[Vec], spec: MeshSpec) -> tuple[list[Vec],
     rounds = _rounds(mesh, spec)
     rounded = 0
     if rounds:      # the round ops, after the fields, in recipe order (each a projection: no det J of its own)
-        for k in range(len(final)):
-            if k in mesh.fixed:
-                continue
-            q = _round_all(final[k], rounds, mesh.heaviest[k], mesh.ids[k][0])
+        ks = [k for k in range(len(final)) if k not in mesh.fixed]   # a round at a time over them all
+        for k, q in zip(ks, _round_all_each([final[k] for k in ks], rounds, [mesh.heaviest[k] for k in ks],
+                                            [mesh.ids[k][0] for k in ks])):
             if q != final[k]:
                 final[k] = q
                 rounded += 1

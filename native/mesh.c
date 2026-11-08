@@ -256,3 +256,12 @@ API i64 az_ray(const double *S, double p0, double p1, double p2, i64 given, doub
     out[0] = uu[0], out[1] = uu[1], out[2] = uu[2], out[3] = r, out[4] = big_r, out[5] = k, out[6] = w, out[7] = ramp;
     return 0;
 }
+
+/* az_ray of n points p (3 doubles each) for the side S, from the origin g where given: each one's answer into code
+ * (0, 1 or 2, as az_ray's) and its 8 doubles into out (code 0's). One call for a side's points (Pyodide's ctypes calls
+ * cost far more than a ray in some browsers). */
+API i64 az_rays(const double *S, i64 n, const double *p, i64 given, double g0, double g1, double g2, double *out,
+                i64 *code) {
+    for (i64 i = 0; i < n; i++) code[i] = az_ray(S, p[3 * i], p[3 * i + 1], p[3 * i + 2], given, g0, g1, g2, out + 8 * i);
+    return 0;
+}
