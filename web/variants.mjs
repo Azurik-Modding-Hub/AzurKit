@@ -24,6 +24,7 @@ const CHOOSE = "Choose your image first (1.)";   // D979's line on what waits fo
 const MODES = { own: "Balanced", garret4: "Skin only" };
 const SIZES = { own: "its own", garret4: "Garret's height" };
 const JSON_NOTE = "Every field, as the recipe file holds it.";
+const LEGEND = "✓ green: fully playable · ~ yellow: rough edges · ✕ red: not playable · ? grey: not yet tested";   // the Models view's
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
 const el = (tag, props = {}, ...children) => {
@@ -59,6 +60,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const ui = {
     filter: el("input", { id: "var-filter", type: "search", placeholder: "Search the variants", spellcheck: false,
                           autocomplete: "off" }),
+    legend: el("p", { id: "var-legend", className: "note", textContent: LEGEND }),
     items: el("div", { id: "var-items", className: "picker-list" }),
     front: el("canvas", { id: "var-front", width: 160, height: 160 }),
     back: el("canvas", { id: "var-back", width: 160, height: 160 }),
@@ -115,7 +117,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const json = el("div", { id: "var-json", hidden: true },
     el("p", { className: "rando-row" }, ui.apply, ui.revert, ui.jsonNote), el("p", { className: "rando-row" }, ui.json));
   root.replaceChildren(el("div", { className: "chars-cols var-cols" },
-    el("div", { className: "chars-list" }, el("p", { className: "rando-row" }, ui.filter), ui.items,
+    el("div", { className: "chars-list" }, el("p", { className: "rando-row" }, ui.filter), ui.legend, ui.items,
        el("p", { className: "rando-row" }, ...app ? [ui.path, ui.importIt, ...ui.choose ? [ui.choose] : []]
          : [el("label", { className: "file", id: "var-import-box", title: "An Export's zip, or a recipe.json alone" },
                "Import… ", ui.file)], ui.export)),
@@ -195,6 +197,12 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
                                                         label: e.refusal ? `${e.name} (refused)` : e.name,
                                                         grade: e.refusal ? null : grade(e) }))];
   };
+  // A row's grade as the Models view draws a model's: its mark (app.css's data-grade ::after), its colour through its
+  // theme's --grade-* (the engine's colour where the theme has none) and its words in its title.
+  const tint = (button, grade, colours) => {
+    button.dataset.grade = grade;
+    button.style.color = `var(--grade-${grade}, ${colours?.[grade] ?? "currentColor"})`;
+  };
   const draw = () => {
     const groups = new Map(["Built-in", "Community", "Yours"].map((group) => [group, []]));
     for (const e of entries()) groups.get(e.group).push(e);
@@ -202,12 +210,14 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     ui.items.replaceChildren(...[...groups].filter(([, rows]) => rows.length).flatMap(([group, rows]) => [
       el("h3", { className: "picker-group", textContent: group }),
       ...rows.map((e) => {
+        const words = e.grade ? v.list?.grades?.[e.grade] : null;
         const row = el("button", { type: "button", className: "picker-entry model", textContent: e.kind === v.kind
           && e.name === v.name && v.kind === "built-in" ? label() : e.label,
-                                   title: e.refusal ?? (e.title ? `${e.title}, on ${e.base}` : e.label) });
+                                   title: e.refusal ?? [e.title ? `${e.title}, on ${e.base}` : e.label, words]
+                                     .filter(Boolean).join(" · ") });
         row.dataset.name = e.name;
         row.dataset.kind = e.kind;
-        if (e.grade) row.dataset.grade = e.grade;
+        if (e.grade) tint(row, e.grade, v.list?.colours);
         if (e.refusal) row.classList.add("refused");
         row.setAttribute("role", "option");
         row.setAttribute("aria-selected", String(e.kind === v.kind && e.name === (v.kind === "new" ? "" : v.name)));

@@ -627,6 +627,7 @@ p.views { margin: 0; padding: 2px 10px; }
 .var-cols .chars-list .picker-list { max-height: 26rem; }
 .chars .model.refused { color: var(--muted); font-style: italic; }
 #var-filter { flex: 1 1 0; min-width: 0; }
+#var-legend { margin: 0 0 3px; }
 #var-as { width: 9rem; }
 #var-import-path { flex: 1 1 0; min-width: 0; }
 .var-cols #var-name { margin: 6px 0 2px; }

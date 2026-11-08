@@ -5864,11 +5864,12 @@ def _variants_shown(page, *, status: str = "", name: str | None = None) -> dict:
 def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_and_asks_before_edits_go(
         browser, site, tmp_path):
     """Step 4.6c on the site (Modkit's Variants page; D372, D480, D1087), no image picked: the Variants view lists
-    the built-ins and opens beamlord as a recipe from it, its sha, grade and "built in" in the status line, Check
-    with game data greyed with D979's line; an edit reads "built in: Save as keeps your edits"; Save as a species', a
-    built-in's or a malformed name is refused by name, nothing kept; Save as "mine" keeps its own copy (listed under
-    Yours, and in the Models view's group of that name); a refused value is named and Save writes nothing; the JSON tab's
-    Apply keeps the old recipe on a refusal or a new base, saying why, and takes a good one; leaving unsaved edits is
+    the built-ins, each in its grade's colour with its words as its title under the Models view's legend, and opens
+    beamlord as a recipe from it, its sha, grade and "built in" in the status line, Check with game data greyed with
+    D979's line; an edit reads "built in: Save as keeps your edits"; Save as a species', a built-in's or a malformed
+    name is refused by name, nothing kept; Save as "mine" keeps its own copy (listed under Yours, and in the Models
+    view's group of that name); a refused value is named and Save writes nothing; the JSON tab's Apply keeps the old
+    recipe on a refusal or a new base, saying why, and takes a good one; leaving unsaved edits is
     asked about (a no stays); New from this offers mine_2; Export downloads the engine's zip; Delete (after a yes)
     and Import take it out and back; a New's unsaved edits are asked about as the page closes (Modkit's AZ-792), a
     saved one's never; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which the Tools tab's
@@ -5914,6 +5915,10 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
             f"recipe {beam.sha} · {grade} · built in · Choose your image first (1.) to check it",
             [True, "Choose your image first (1.)"])
         assert [r for r in shown["rows"] if r[0] == "built-in"] == [["built-in", n] for n in _player_variants.builtins()]
+        drawn = page.evaluate("""() => { const row = document.querySelector('#var-items button[data-name="beamlord"]');
+            return [row.style.color, row.title, document.getElementById('var-legend').textContent]; }""")
+        assert (drawn[0].startswith(f"var(--grade-{sdk._grade(beam)}, "), drawn[1].endswith(f" · {grade}"),
+                drawn[2].startswith("✓ green: fully playable")) == (True, True, True)   # its grade's colour, as Models
         page.evaluate(VARIANTS_TYPE, ["var-title", "My beam"])
         assert _variants_shown(page, status="edits")["status"].startswith(f"recipe {beam.sha} · {unseen} · built in: "
                                                                           "Save as keeps your edits")

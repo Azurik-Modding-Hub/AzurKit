@@ -1219,8 +1219,8 @@ def variants(given: Mapping | None = None) -> dict:
     alone: ``None``); ``yours``, each library folder's name with its title,
     base and grade, or its ``refusal``; ``species``, the species New may
     start on, none of which a variant of yours may be named as; ``unsaved``,
-    the name a recipe not saved yet works under; and ``grades``, each
-    grade's words."""
+    the name a recipe not saved yet works under; ``grades``, each grade's
+    words; and ``colours``, each grade's colour (the Models view's)."""
     from azurkit.tools.characters import _player_variants as kinds
     from azurkit.tools.characters import content as kit
     from azurkit.tools.characters import library, picker
@@ -1233,6 +1233,7 @@ def variants(given: Mapping | None = None) -> dict:
         entry = picker._entry_of(name, entries, held)
         community[name] = entry["id"] if entry else None
     return {"root": str(library.root()), "unsaved": UNSAVED, "grades": picker.GRADE_WORDS,
+            "colours": picker.STATUS_COLOURS,
             "builtins": [{"name": name, "title": v.title, "base": v.base, "grade": _grade(v),
                           "community": community[name]} for name, v in kinds.builtins().items()],
             "yours": [{"name": e.name, "title": e.variant.title, "base": e.variant.base, "grade": _grade(e.variant)}

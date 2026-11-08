@@ -835,8 +835,8 @@ Azurik-Custom-Content entry whose files it needs, with ``content``'s
 alone: ``None``); ``yours``, each library folder's name with its title,
 base and grade, or its ``refusal``; ``species``, the species New may
 start on, none of which a variant of yours may be named as; ``unsaved``,
-the name a recipe not saved yet works under; and ``grades``, each
-grade's words.
+the name a recipe not saved yet works under; ``grades``, each grade's
+words; and ``colours``, each grade's colour (the Models view's).
 
 
 def variant_open(given: 'Mapping') -> 'dict':

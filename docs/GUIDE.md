@@ -147,8 +147,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   moved shape shows the nearest one at once, marked Preview, until its own pictures are drawn). Booblord's four
   need her own moves and voice, extra files from our Azurik-Custom-Content; a build without them stops, naming
   the file.
-- **Make your own (the Variants view):** beside Models, a list of the built-in variants and yours (one that won't
-  load is marked, saying why). New starts one on any species' body, New from this copies the one open with all its
+- **Make your own (the Variants view):** beside Models, a list of the built-in variants and yours, each in its
+  grade's colour as in Models (one that won't load is marked, saying why). New starts one on any species' body, New from this copies the one open with all its
   files so every field is yours, Save, Save as and Delete (after a yes) keep your library, and Import and Export move
   one as a zip (naming any file in it made from the game's, which isn't yours to share). Body sets its size, scale,
   arms out, rotate, title and notes, Gameplay its mode, and JSON shows the whole recipe (Apply checks it first and
