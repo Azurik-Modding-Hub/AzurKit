@@ -73,8 +73,10 @@ def lean_mode(level: int, k: int) -> int:
     :data:`STRICT`, then weighted toward the low or high end (:data:`LOW_WEIGHTED`, :data:`WEIGHTED`; Hard's from the
     first), and today's draw (0) from :data:`LEANED` on, the fill's last :data:`~.fill.MAX_ATTEMPTS` of a level. A
     strict lean makes much the same placement every attempt, so one the verify refuses would be refused 20 times
-    over, and with the powers kept every leaning attempt of Easy's failed the trap gate in four seeds of ten: the
-    later attempts lean less, then not at all, so a level plans wherever today's fill does."""
+    over: the later attempts lean less, then not at all, so a level plans wherever today's fill does. Known flaw:
+    with the powers kept at settings that allow a trick, every leaning attempt of Easy's fails the trap gate in nearly
+    every seed (30 of 30 at Hard movement and Hard skips), so Easy there plans as today's draw, the lowest score of 3,
+    no easier than Normal; a gentler Easy lean that passes the trap gate is a follow-up."""
     if not level or k >= LEANED:
         return 0
     if level == 2:

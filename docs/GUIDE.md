@@ -41,7 +41,8 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 - **Movement difficulty:** Standard, Hard or Frame-perfect jumps and flaps.
 - **Seed difficulty:** Easy, Normal, Hard or Expert, with any settings. Harder levels put key items deeper in the chain
   of finds, in side rooms and dead ends, and behind the hardest tricks you allowed, so you need those tricks more; Easy
-  puts them early and close. Normal gives the seeds as before, and every seed stays beatable.
+  puts them early and close (not yet with elemental powers kept vanilla and a trick allowed: there it is much like
+  Normal). Normal gives the seeds as before, and every seed stays beatable.
 - **36 rated skips:** each on or off, or by group, whose tick turns on all of its: power storage, roll and flap tricks,
   barriers, dark rooms, out of bounds, super jumps.
 - **Dark areas:** they need Fire 1, unless a dark-room skip is on; then no fire.

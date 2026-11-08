@@ -672,8 +672,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the highest w, w = 4 * missed + round + min(detour, 6); strict below
     `STRICT` (10), then weighted, and a level's 20 attempts past `LEANED`
     draw as today, as a strict lean repeats one placement the verify may
-    refuse every time: with the powers kept, every leaning attempt of Easy's
-    failed the trap gate in four seeds of ten); the obsidians by detour (D1038). Easy
+    refuse every time. Known flaw: with the powers kept at settings that
+    allow a trick, every leaning attempt of Easy's fails the trap gate in
+    nearly every seed, so Easy there plans as today's draw, the lowest score
+    of 3, no easier than Normal); the obsidians by detour (D1038). Easy
     keeps the lowest `Judge.score` (key-item steps + key items off the path
     + twice the step-ups at each rating to the top) of 3 passing attempts,
     Expert the highest of 6, the first on a tie; Hard and Normal their first.
