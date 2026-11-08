@@ -169,7 +169,7 @@ OPS = {op.id: op for op in (
     Op("A44", "Undo (the view again)", "build", first=False),
     Op("A45", "Build, defaults and 100 data edits", "build", head_start=True),
     Op("A46", "Load a mods file of 1,000 data edits, its view", "build"),
-    Op("A87", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
+    Op("A94", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
     Op("A47", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("A48", "Verify every file, first", "image", bar=True),
     Op("A49", "Verify every file again", "image", first=False),
@@ -238,7 +238,7 @@ OPS = {op.id: op for op in (
     Op("S37", "Undo (the view again)", "build", first=False),
     Op("S38", "Build, defaults and 100 data edits", "build", head_start=True),
     Op("S39", "Load a mods file of 1,000 data edits, its view", "build"),
-    Op("S73", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
+    Op("S80", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
     Op("S40", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("S41", "Verify every file, first", "image", bar=True),
     Op("S42", "Verify every file again", "image", first=False),
@@ -2028,7 +2028,7 @@ def app_data(d: Driver, app: App, ctx) -> None:
     """A45 at a second launch, from its remembered setup: a Build right after the Tools tab opened would share the
     engine process with the randomizer's logic it reads ahead (from a checkout 1.1-2.8 s, against 0.12 s once read)."""
     p = app.launch(d, ctx, None)
-    _data(d, p, ("A39", "A40", "A41", "A42", "A43", "A44", None, "A46", "A87"), None)
+    _data(d, p, ("A39", "A40", "A41", "A42", "A43", "A44", None, "A46", "A94"), None)
     app.quit(p)
     if not d.need("A45"):
         return
@@ -2045,7 +2045,7 @@ def app_data(d: Driver, app: App, ctx) -> None:
 
 def site_data(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
-    _data(d, p, ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S73"), lambda: _pick(d, p, None))
+    _data(d, p, ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S80"), lambda: _pick(d, p, None))
     d.leave(p)
 
 
@@ -2066,7 +2066,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-reshape-pictures": ("app", ("A59", "A60", "A61"), app_reshape_pictures),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
-    "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A87"), app_data),
+    "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A94"), app_data),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17", "S64"),
                    site_start),
@@ -2085,7 +2085,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-ahead-build": ("site", ("S61",), site_ahead_build),
     "site-ahead-stale": ("site", ("S59",), site_ahead_stale),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
-    "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S73"), site_data),
+    "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S80"), site_data),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)

@@ -1372,7 +1372,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     marks none). The tab asks again each time it shows, so the marks
     follow the ticks; its line says the edits wait for the image to build
     (D979). `tests/test_data.py`, `test_site.py` and `test_hosts.py` hold
-    it; `tests/_perf.py`'s A39-A46, A87, S32-S39 and S73 time it.
+    it; `tests/_perf.py`'s A39-A46, A94, S32-S39 and S80 time it.
   - **The Tools tab** (Step 4.7c, `web/tools.mjs`; D919's list): **your
     image** (`sdk.image_info`: its release, size and kind, vanilla with how
     much of it the gate checked, an AzurKit build with its version and
