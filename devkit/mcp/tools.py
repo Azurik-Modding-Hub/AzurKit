@@ -357,7 +357,8 @@ def rando_build_iso(iso: str, out: str, seed: str | int | None = None, options: 
             finite number), pack_build_iso's "enable", "disable", "params"
             and "config_mod", the "character" the player wears (a recipe's:
             {"species", "mode", ...}) and "spoiler" (a file to write the
-            spoiler to). Any other is refused by name.
+            spoiler to: not iso, out or a vanilla image). Any other is
+            refused by name.
     Returns pack_build_iso's reply and "randomizer": the verdict (seed,
     share, settings, plan (its sha256), attempt, sliders, obsidian_cost,
     logic_verified, why_not, conflicts: a placement a later layer changed
@@ -368,6 +369,10 @@ def rando_build_iso(iso: str, out: str, seed: str | int | None = None, options: 
     options = dict(options or {})
     if unknown := sorted(set(options) - set(OPTIONS), key=str):
         raise ValueError(f"options: no option {', '.join(map(repr, unknown))} (the options: {', '.join(OPTIONS)})")
+    if spoiler := options.get("spoiler"):   # D36, refused before the build as Modkit's layer did
+        if Path(spoiler).resolve() == Path(out).resolve():
+            raise ValueError(f"spoiler {spoiler}: it is the output image itself")
+        _never_over(Path(spoiler), Path(iso))
     made, settled = _recipe(iso, options.get("enable"), options.get("disable"), options.get("params"),
                             options.get("config_mod"))
     made["randomizer"] = {"seed": SEED if seed is None else str(seed)} | {

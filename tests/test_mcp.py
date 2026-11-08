@@ -136,6 +136,8 @@ def test_a_refusal_names_what_it_refuses_and_writes_nothing(tmp_path):
          "player_physics"),
         (tools.pack_build_iso(str(image), out), "not the vanilla"),   # D27
         (tools.rando_build_iso(str(image), out, 1, {"no_gemz": True}), "no_gemz"),
+        (tools.rando_build_iso(str(image), out, 1, {"spoiler": str(image)}), "input"),   # D36
+        (tools.rando_build_iso(str(image), out, 1, {"spoiler": out}), "output image itself"),
         (tools.iso_extract(str(image), str(full)), "not a missing or empty folder"),
         (tools.iso_extract(str(image), out, ["gamedata/b.xbr"]), "gamedata/b.xbr"),
         (tools.iso_extract(str(colon), out), "x:y.xbr"),   # AZ-216
