@@ -479,3 +479,28 @@ API i64 az_thin(const double *k, i64 n, double eps, double rest, double *work, i
     kept[count++] = n - 1;
     return count;
 }
+
+/* jiggle._smooth: n samples (3 doubles each) through the kn integer weights kernel (centred; a loop's last sample its
+ * first, else the ends held) into out, each sum over the weights' total. -2 for the twin: a loop of fewer than 2
+ * samples or weights summing to 0 (its ZeroDivisionError). */
+API i64 az_smooth(const double *s, i64 n, i64 loop, const i64 *kernel, i64 kn, double *out) {
+    i64 half = kn / 2, total = 0;
+    for (i64 j = 0; j < kn; j++) total += kernel[j];
+    if ((loop && n < 2) || (n && total == 0)) return -2;
+    for (i64 i = 0; i < n; i++) {
+        double acc[3] = {0.0, 0.0, 0.0};
+        for (i64 j = 0; j < kn; j++) {
+            i64 m = i + j - half;
+            if (loop)
+                m = ((m % (n - 1)) + (n - 1)) % (n - 1);
+            else
+                m = m < 0 ? 0 : m > n - 1 ? n - 1 : m;
+            double c = (double)kernel[j];
+            acc[0] += c * s[3 * m];
+            acc[1] += c * s[3 * m + 1];
+            acc[2] += c * s[3 * m + 2];
+        }
+        for (int k = 0; k < 3; k++) out[3 * i + k] = acc[k] / (double)total;
+    }
+    return 0;
+}

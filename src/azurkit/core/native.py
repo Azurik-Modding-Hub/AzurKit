@@ -48,7 +48,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
-           "ray", "rays", "decimate", "thin", "dxt", "atan2", "raster")
+           "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -111,7 +111,7 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_decimate", [i64, vp, vp, i64, vp, vp, vp, vp, vp, ctypes.c_char_p, i64, vp, vp, vp,
                                           ctypes.c_char_p, vp, vp, i64, f64, i64, f64, vp, i64, i64, i64]),
                          ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64]),
-                         ("az_thin", [vp, i64, f64, f64, vp, vp]),
+                         ("az_thin", [vp, i64, f64, f64, vp, vp]), ("az_smooth", [vp, i64, i64, vp, i64, vp]),
                          ("az_dxt", [ctypes.c_char_p, i64, i64, i64, vp]), ("az_atan2", [vp, vp, i64, vp]),
                          ("az_raster", [vp, i64, i64, vp, vp])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
@@ -882,6 +882,27 @@ def thin(keys, eps: float, rest: float) -> list[int] | None | bool:
     if code == -1:
         return None
     return kept[:code].tolist() if code > 0 else False
+
+
+def smooth(samples: Sequence, loop: bool, kernel: Sequence[int]) -> list | None:
+    """``jiggle._smooth`` of ``samples`` (3 floats each) by the integer
+    weights ``kernel``: each one's 3-tuple, or ``None`` without the
+    library or where the twin answers (a loop of fewer than 2 samples,
+    weights summing to 0, a weight not an int under 2**53)."""
+    if (lib := library()) is None or not all(type(c) is int and abs(c) < 1 << 53 for c in kernel) or \
+            abs(sum(kernel)) >= 1 << 53:
+        return None
+    n = len(samples)
+    try:
+        flat = array("d", [x for p in samples for x in p])
+    except TypeError:
+        return None
+    if len(flat) != 3 * n:
+        return None
+    out, weights = array("d", bytes(24 * n)), array("q", kernel)
+    if lib.az_smooth(_at(flat), n, int(loop), _at(weights), len(weights), _at(out)) != 0:
+        return None
+    return [(out[3 * i], out[3 * i + 1], out[3 * i + 2]) for i in range(n)]
 
 
 # ---- the paint and the textures (native/paint.c) ---------------------------------------------------------------------

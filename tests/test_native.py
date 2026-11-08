@@ -371,6 +371,8 @@ def _dress_cases(seed: int, count: int):
         new = bytes(b if rng.random() < 0.8 else rng.randrange(3) for b in old[:rng.randint(0, len(old))])
         yield {"rays": _ray_cases(random.Random(seed * 1000 + i)), "thin": _thin_cases(random.Random(seed * 2000 + i)),
                "paint": _paint_cases(random.Random(seed * 3000 + i)),
+               "smooth": [[[[f() for _ in range(3)] for _ in range(rng.choice((0, 1, 2, 5, 40)))], rng.random() < 0.5,
+                           rng.choice(([1], [1, 2, 1], [1, 4, 6, 4, 1], [1] * 9, [0, 0], [-1, 3, -1]))] for _ in range(3)],
                "bones": bones, "tracks": tracks + [[0, 3, [[float("nan"), 1.0, 0.0, 0.0]]]] * (not i),
                "times": [rng.uniform(-1.0, 4.0) for _ in range(rng.randint(1, 8))] + [k[0] for t in tracks[:3] for k in t[2]],
                "linear": [lin, [f() for _ in range(4)], [[f() for _ in range(4)] for _ in range(4)],
@@ -553,6 +555,12 @@ def _dress_answer(case: dict) -> list:
         got = clip_import._thin_track(track, eps, rest)
         thinned.append("None" if got is None else "same" if got is track else bits([x for k in got.keys for x in k]))
 
+    smoothed = []
+    for samples, loop, kernel in case["smooth"]:
+        try:
+            smoothed.append(bits(jiggle._smooth([tuple(x) for x in samples], loop, kernel)))
+        except ZeroDivisionError:
+            smoothed.append("ZeroDivisionError")
     from azurkit.tools.characters import paint, textures
 
     pc = case["paint"]
@@ -576,7 +584,7 @@ def _dress_answer(case: dict) -> list:
                 got = [{ks[-1]: one(t)} if one else whole(t) for t in case["times"]]
             out.append([[*g[k][0], *g[k][1]] for g in got for k in (ks[-1:] if one else ks)])
         return out
-    return [rays, thinned, painted, engine(springs),
+    return [rays, thinned, smoothed, painted, engine(springs),
             engine(rt.origins_at, rig, clip, case["times"]), engine(rt.pose, rig, clip, case["times"][0]), bits(rows),
             characters._runs(*map(bytes.fromhex, case["runs"])), bits(_boxes(*case["boxes"])),
             bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist()),
@@ -594,7 +602,7 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     held: the compiler may order an operation's two NaN inputs either way)."""
     cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
     for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray", "rays",
-                 "thin", "dxt", "atan2", "raster"):
+                 "thin", "smooth", "dxt", "atan2", "raster"):
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
                             ran.update([name]) or real(*a, **k))
     assert native.report()["loaded"]
@@ -608,7 +616,7 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
             left += sum(0.0 in p or r == "ZeroDivisionError" for p, r in zip(points, g[0][at:at + len(points)]))
             at += 2 * len(points)
     assert ran == {"origins": 1597, "linear": 400, "chain": 400, "boxes": 400, "sample": 399, "heights": 400,
-                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked + left, "rays": 1200, "thin": 1594,
+                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked + left, "rays": 1200, "thin": 1594, "smooth": 1200,
                    "dxt": 1600, "atan2": 400, "raster": 400}   # by the library but case 0's clip's
     assert 0 < sum(r == "ZeroDivisionError" for g in got for r in g[0]) < asked / 10   # some divide by zero
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))

@@ -1047,6 +1047,8 @@ def _binomial(n: int) -> list[int]:
 
 
 def _smooth(samples: list[Vec], loop: bool, kernel: list[int]) -> list[Vec]:
+    if (got := native.smooth(samples, loop, kernel)) is not None:
+        return got   # the compiled kernel's (core.native); else its twin's
     half, total, n = len(kernel) // 2, sum(kernel), len(samples)
     out = []
     for i in range(n):
