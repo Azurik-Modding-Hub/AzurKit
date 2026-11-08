@@ -455,8 +455,13 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
     }));
     ui.reset.textContent = c.row === null ? "Reset all rows" : "Reset row";
   };
+  // Another row chosen: the last row's palette dropped till this one's answer (the wheel off, the swatches doing
+  // nothing), so no wheel press, swap or hex box reads its colours against the last row's.
+  const choose = (row) => {
+    if (row !== c.row) Object.assign(c, { row, found: [], shown: [] });
+  };
   const select = (row) => {
-    c.row = row;
+    choose(row);
     load();
   };
 
@@ -581,7 +586,7 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
     if ("refused" in reply) return pngSaid(`Not imported: ${reason(reply.refused)}`, true);
     const lost = app ? null : await keep(name, reply.name, picked.data);
     if (name !== v.name) return;
-    c.row = row;
+    choose(row);
     entry(true).ops = [{ op: "png", file: reply.name, sha256: reply.sha256 }];
     edit();
     load();

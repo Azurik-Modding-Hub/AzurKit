@@ -1435,11 +1435,11 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
 def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_pngs_out_and_back(
         browser, tmp_path, monkeypatch, usa_iso):
     """Step 4.6e in the app's page (Modkit's Colours tab, D772, D809 (a), Step 2.203, AZ-797): on town_female_3's
-    blue row, a drag round the wheel's rim writes the row's hsv op at each move (its main colour's hue turned there,
-    its saturation to the rim's), and a quick drag's views are drawn at its last value in two asks, not one a move;
-    the hex box turns the main colour to the colour typed, the hue and saturation boxes keep any number (D23: 500),
-    and text that isn't one is named, nothing written; a palette colour's swap takes its colour from the wheel
-    picker. Export PNGs writes each row's texture into a folder of its own in Downloads. Import PNG asks for Save as
+    blue row (its wheel off from the switch till its answer, so nothing reads All rows' colours), a drag round the
+    wheel's rim writes the row's hsv op at each move (its main colour's hue turned there, its saturation to the
+    rim's), and a quick drag's views are drawn at its last value in two asks, not one a move; the hex box turns the
+    main colour to the colour typed, the hue and saturation boxes keep any number (D23: 500), and text that isn't one
+    is named, nothing written; a palette colour's swap takes its colour from the wheel picker. Export PNGs writes each row's texture into a folder of its own in Downloads. Import PNG asks for Save as
     first, then a row; it asks before it replaces the row's edits (a no keeps them; a yes says Importing… at once, so
     the last import's line never reads as this one's done); a PNG of another size is named, and one of the row's size
     is copied into the variant's folder as the row's only op (its palette the PNG's red, a hue typed then turning it
@@ -1488,7 +1488,8 @@ def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_png
         _variants_shown(page, status="· saved ·", name="mine")
         _page.click(page, "var-png-use")
         assert _colours_drawn(page, "s.png")["png"] == "Choose a row: a PNG is one row's texture"
-        page.evaluate("() => document.querySelector('#var-rows button[data-row=\"1\"]').click()")
+        assert page.evaluate("() => { document.querySelector('#var-rows button[data-row=\"1\"]').click(); "
+                             "return azurkit.variants.colours.reference; }") is None   # off till row 1's answer
         ref = _colours_drawn(page, "azurkit.variants.colours.row === 1")["reference"]
         assert round(ref[0]) == 240   # its main colour a blue
         for i, ((x, y), hue) in enumerate(rim):   # one drag round the rim, slowly
