@@ -1,0 +1,64 @@
+# f1's hand decisions for `azurik-mod rando author` (Step R1.11b). Zones are the derive's (f1.Z<n>); a default taken
+# under D115 says so.
+level = "f1"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list; default taken under D115), and sweep (curved jumps the straight-flight check misses) at its own tier, not R1.8's +1: the cavern's ways out (the F1_F3 ledge Z009, the F6 side Z004) and the route's air-3 traverse (f1/g0/r1689 to f1/g0/r1695, [web]) are such jumps
+
+[names]                       # node id -> one of its zones
+f1_z107 = "f1.Z106"        # Step R1.24a: Z106 since the re-derive (was f1.Z107); the id kept
+f1_z272 = "f1.Z271"        # Step R1.24a: Z271 since the re-derive (was f1.Z272); the id kept
+f1_z285 = "f1.Z284"        # Step R1.24a: Z284 since the re-derive (was f1.Z285); the id kept
+f1_z368 = "f1.Z369"        # Step R1.24a: Z369 since the re-derive (was f1.Z368); the id kept
+f1_z378 = "f1.Z379"        # Step R1.24a: Z379 since the re-derive (was f1.Z378); the id kept
+f1_z438 = "f1.Z440"        # Step R1.24a: Z440 since the re-derive (was f1.Z438); the id kept
+f1_z442 = "f1.Z444"        # Step R1.24a: Z444 since the re-derive (was f1.Z442); the id kept
+f1_z462 = "f1.Z464"        # Step R1.24a: Z464 since the re-derive (was f1.Z462); the id kept
+f1_z463 = "f1.Z465"        # Step R1.24a: Z465 since the re-derive (was f1.Z463); the id kept
+f1_z478 = "f1.Z480"        # Step R1.24a: Z480 since the re-derive (was f1.Z478); the id kept
+f1_z482 = "f1.Z484"        # Step R1.24a: Z484 since the re-derive (was f1.Z482); the id kept
+f1_z488 = "f1.Z490"        # Step R1.24a: Z490 since the re-derive (was f1.Z488); the id kept
+f1_z489 = "f1.Z491"        # Step R1.24a: Z491 since the re-derive (was f1.Z489); the id kept
+f1_z511 = "f1.Z513"        # Step R1.24a: Z513 since the re-derive (was f1.Z511); the id kept
+f1_z512 = "f1.Z514"        # Step R1.24a: Z514 since the re-derive (was f1.Z512); the id kept
+f1_z542 = "f1.Z544"        # Step R1.24a: Z544 since the re-derive (was f1.Z542); the id kept
+f1_z550 = "f1.Z552"        # Step R1.24a: Z552 since the re-derive (was f1.Z550); the id kept
+f1_z613 = "f1.Z615"        # Step R1.24a: Z615 since the re-derive (was f1.Z613); the id kept
+f1_z614 = "f1.Z616"        # Step R1.24a: Z616 since the re-derive (was f1.Z614); the id kept
+f1_z618 = "f1.Z620"        # Step R1.24a: Z620 since the re-derive (was f1.Z618); the id kept
+f1_core = "f1.Z000"           # the main cavern: key_fire1 r1403, flameSpout13 and 15
+f1_town_side = "f1.Z008"      # the Town_F1 arrival and the LevelSwitch_F1_Town switch (startspot)
+f1_f6_side = "f1.Z004"        # the F6_F1 arrival and the LevelSwitch_F1_F6 switch
+f1_f3_side = "f1.Z009"        # the LevelSwitch_F1_F3 switch and the F7_F1 spot
+f1_keylocks = "f1.Z002"       # the three fire keylocks (Toggle_Force_Field) and key_fire1 r1401
+f1_lava_tubes = "f1.Z449"     # frag_water_3 (the migrated node's name)
+
+# ---- the air-3 traverse over the cavern (the route's f1/g0/r1689 to f1/g0/r1695, [web] "f1 air 3"): from the Town_F1 ledge across the
+# cavern's top ledges to the tunnel room Z013 and the obsidian ledge Z072. Its flights pass three flame spouts (timed:
+# water 1, re-lit after it) whose derived destroy_from leaves out the takeoff ledges, so the derive drops those crossings.
+[barrier."f1.flameSpout"]
+destroy_from = ["f1.Z271"]
+why = "doused with water 1 from the ledge the flight to Z118 leaves from, before the flight [inferred] (default taken under D115)"
+
+[barrier."f1.flameSpout15"]
+destroy_from = ["f1.Z033"]
+why = "doused from the ledge the jump into the tunnel room (Z013) leaves from [inferred] (default taken under D115)"
+
+[barrier."f1.flameSpout1"]
+destroy_from = ["f1.Z013"]
+why = "doused from the tunnel room before the flap to the obsidian ledge Z072 [inferred] (default taken under D115)"
+
+[[location]]
+id = "f1/g0/r1403"
+proven = { by = "l3", ref = "r129b3/cc519f5aaef1@97095da745cc" }
+note = "Step R1.29b: an L3 input string of 104 ticks (robustness 1.00 under jitter) from f1.Z000 (R6 onto a floor sample of f1.Z000; placed: R7 hop, R2 kit k0) touches it and comes back; xemu replayed it tick for tick (sitting r129b3), taking its item (key0; start 1-3 m away)"
+
+[[location]]
+id = "f1/g0/r1693"
+proven = { by = "l3", ref = "r129f1/dda0cf4fd63f@97095da745cc" }
+requires = "water>=1"
+note = "requires the proof's kit (Step R1.29g, AZ-543, default taken under D115): the logic also collects it at water 0 holding air 2, a way no string walked. Step R1.29e: an L3 input string of 876 ticks (robustness 0.06 under jitter) from f1.Z000 (R6 onto a floor sample of f1.Z000; placed: R7 hop, R2 kit water1) touches it and comes back; xemu replayed it tick for tick (sitting r129f1), taking its item (obsi; start >10 m away)"
+
+[[location]]
+id = "f1/g0/r1687"
+proven = { by = "l3", ref = "r129f3/afb4a4a88e3e@97095da745cc" }
+requires = "water>=1"
+note = "requires the proof's kit (Step R1.29f, default taken under D115). Its way back douses f1.flameSpout13 on f1_z003>f1_core #66, the route graph's way, an edge named by hand (the evidence folder's scripts/r129f_douse_back.py replaces l3_certify.crossing on leg 1: plan --spots' way back crosses nothing); at kit 0 the way back ran out of steps in all 4 seeds (certify-r129f-f1k), and the planner's kit-0 way back by f1_z489 (#36, #255, both assumed) has no walked string. Step R1.29f: an L3 input string of 2256 ticks (robustness 0.00 under jitter) from f1.Z000 (R6 onto a floor sample of f1.Z000; placed: R7 hop, R2 kit water1) touches it and comes back; xemu replayed it tick for tick (sitting r129f3), taking its item (obsi; start >10 m away)"

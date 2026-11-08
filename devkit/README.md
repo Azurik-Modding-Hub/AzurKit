@@ -20,8 +20,8 @@ names its verbs in `VERBS` (`{verb: its line}`); the verb `v` is the module
 
 Each arrives with its own step (`re`'s XBE verbs, data and shim authoring,
 `xemu`'s harness, sitting kit and demos, `sim`'s levels, `mcp` and
-`rando`'s database tools are here; the rest come after the first release,
-4.4); this is what each will hold:
+`rando`'s database tools, derive and authoring are here; the rest come after
+the first release, 4.4); this is what each will hold:
 
 | Area | What it holds |
 |---|---|
@@ -29,7 +29,7 @@ Each arrives with its own step (`re`'s XBE verbs, data and shim authoring,
 | `sim` | the simulator: the snapshot, observations and inputs, its levels on Unicorn, L3's search and trick explorer |
 | `re` | the XBE verbs, the Ghidra side and its data, shim authoring |
 | `mcp` | the `azurik` MCP server (`.mcp.json` launches it; `docs/MCP.md`) |
-| `rando` | the randomizer database's tools and benches, and its authoring |
+| `rando` | the randomizer database's tools and benches, the reach model's derive and the realm authoring |
 | `reach` | the reach engine, its native kernel and the patched Unicorn |
 | `models` | the model and effect verbs ModelKit's adapter calls |
 

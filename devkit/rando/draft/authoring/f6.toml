@@ -1,0 +1,112 @@
+# f6's hand decisions for `azurik-mod rando author` (Step R1.11b). Zones are the derive's (f6.Z<n>); a default taken
+# under D115 says so.
+level = "f6"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list; default taken under D115)
+
+[rig_held]                    # rigs whose ride needs what the rig probe's edges don't carry: their probe edges stay out of logic
+JawShape = "the Jaw opens only once the seal is touched with 3 fire fragments (Jaw_toggle's one input is SealActivate_andCombiner; no turnOff, so it stays open) [verified static: $RP r0/tools/logic_dump.py f6 '^Jaw_toggle$']; the derive's decoded Jaw edges carry that requirement"
+StairsShape = "moved by Jaw_toggle: the stairs rise with the Jaw (the same seal and 3 fire fragments)"
+BossDoorShape = "BossDoor_toggle opens when the guardian's third phase spawns (Boss3_generate_toggle, after guard_fire2 dies) [verified static: logic_dump.py f6 '^Boss3_generate_toggle$']"
+
+[names]
+f6_z873 = "f6.Z872"        # Step R1.24a: Z872 since the re-derive (was f6.Z873); the id kept
+f6_z876 = "f6.Z875"        # Step R1.24a: Z875 since the re-derive (was f6.Z876); the id kept
+f6_z877 = "f6.Z876"        # Step R1.24a: Z876 since the re-derive (was f6.Z877); the id kept
+f6_entrance = "f6.Z002"       # the F1_F6 arrival, startspot, the F6_F1 switch and save F6_1 (the migrated node)
+f6_seal = "f6.Z005"           # the seal court (DiscTrigga_Life:Seal_toggle)
+f6_core = "f6.Z154"           # power_fire's mine-car stop (the migrated node holding power_fire)
+f6_inner = "f6.Z018"          # the fire guardian's last platform: guard_fire3's generator, the 4th-fragment slot (the migrated arena node)
+f6_boss1 = "f6.Z010"          # bossPlatformShape1: guard_fire1's generator
+f6_boss2 = "f6.Z009"          # bossPlatformShape2: guard_fire2's generator
+f6_walkway = "f6.Z011"        # the walkway: 4 rubies, the F6_2 save, the guardian's trigger (tricks.toml's f6 terraces skips end here)
+
+[members]
+"f6/g0/r865" = "f6.Z154"      # power_fire stands on Go_platformShape (the mine car, a rig the derive doesn't ride); Z154 is 2.0 m aside, 6.6 m below [computed: the derive's columns] (default taken under D115)
+"f6/g0/r410" = "f6.Z006"      # an obsidian on Damage2Shape (a trigger, not a floor), 5.2 m from Z006 (default taken under D115)
+"characters/g21/r154" = "f6.Z018"   # frag_fire_4, the guardian slot: dropped where guard_fire3 dies (the dead level generator f6/g0/r1200 stands there)
+
+# ---- the fire guardian (D123, Q285). The fight starts on FireBossTriggerFieldShape (boss_fire_start), inside the Jaw;
+# guard_fire2 spawns when guard_fire1 dies (andCombiner1), guard_fire3 when guard_fire2 dies (andCombiner2), which also
+# opens BossDoor [verified static: $RP r0/tools/logic_dump.py f6 '^(FireBoss.*|Boss[0-9]_generate_toggle)$']. The derive
+# joins none of the three fight platforms (Z010, Z009's generator spot, Z018) to the seal court: the edges below are hand
+# edges (assumed). Leaving the arena early, before guard_fire3 dies, is normal movement (D123): nothing shuts the Jaw
+# (no turnOff), so the way out stays open; Q285's sighting is owed (sitting r111b).
+[[edge]]
+from = "f6.Z005"
+to = "f6.Z010"
+requires = "button:f6.seal"
+why = "through the Jaw, which the seal opens (touched with 3 fire fragments: f6.seal's generated requirement) up to the first fight platform (bossPlatformShape1, guard_fire1's generator) [inferred: the derive models no way past the Jaw's mouth] (default taken under D115)"
+
+[[edge]]
+from = "f6.Z010"
+to = "f6.Z005"
+requires = "true"
+why = "D123: leaving the arena early is normal movement; the Jaw stays open (Jaw_toggle has no turnOff) [verified static]; seen in xemu: owed (Q285)"
+
+[[edge]]
+from = "f6.Z010"
+to = "f6.Z009"
+requires = "true"
+why = "the second fight platform (bossPlatformShape2, guard_fire2's generator) from the first [inferred] (default taken under D115)"
+
+[[edge]]
+from = "f6.Z009"
+to = "f6.Z018"
+requires = "event:f6.guard_fire2.killed"
+why = "BossDoor opens when the third phase spawns, after guard_fire2 dies [verified static]: the last platform (guard_fire3's generator, the 4th fragment) [inferred]"
+
+[[edge]]
+from = "f6.Z018"
+to = "f6.Z010"
+requires = "true"
+why = "D123: back from the last platform, before or after the kill (the BossDoor has no turnOff) [inferred]; Q285"
+
+[[event]]
+id = "f6.guard_fire1.killed"
+of = "f6/g0/r113"
+zone = "f6.Z010"
+requires = "fire>=2 & earth>=2"
+why = "the fire guardian's first phase: the migrated fight requirement (power_fire 2 and power_earth 2) kept for the whole fight (default taken under D115)"
+
+[[event]]
+id = "f6.guard_fire2.killed"
+of = "f6/g0/r118"
+zone = "f6.Z009"
+requires = "event:f6.guard_fire1.killed"
+why = "the second phase spawns when the first dies (andCombiner1) [verified static]"
+
+[[event]]
+id = "f6.guard_fire3.killed"
+of = "f6/g0/r123"
+zone = "f6.Z018"
+requires = "event:f6.guard_fire2.killed"
+why = "the third phase spawns when the second dies (andCombiner2) [verified static]; its numDead sets FireBossDead"
+
+[exit."f6/g0/r1310"]          # PlaceFireDisk_levelSwitch: the fire disc's count-triggered teleport to town
+from = "f6.Z018"
+disc = "fire"
+requires = "discf>=4"
+why = "fires once 4 fire fragments are held (gs[fire fragments]>=4, no touch): taken where the 4th is picked up"
+
+[exit."f6/g0/r1312"]          # BackToTown_levelSwitch: once the fire disc is placed
+from = "f6.Z018"
+requires = "flag:town.disc_fire.placed"
+why = "touch(BackToTownFieldShape) and global fire_disk_placed: the field is in no derived zone; by the disc's place [inferred] (default taken under D115)"
+
+[[edge]]                      # the obsidian ledge Z026 (f6/g0/r402; in the route's set with f6/g0/r407, [web] "air 3")
+from = "f6.Z012"
+to = "f6.Z026"
+requires = "air>=3 & flag:f6.AcidBlock_08.destroyed"
+why = "the derive enters Z026 only by held bskips over AcidBlock_08 (its plane crossed twice); this is the shortest of those flights (air 3, 33 m, 8.9 m down from the F6_2 save's floor) taken with the block melted instead [inferred; the route's f6 obsidians need air 3, [web]] (default taken under D115)"
+
+[[edge]]                      # f6.mound_climb_air1 (Step R2.18b, D654, D671): the courtyard up the mound to f6_z091 on single flaps
+from = "f6.Z002"
+to = "f6.Z112"
+requires = "skip:f6.mound_climb_air1"
+why = "the skip's crossing as the owner did it: from the courtyard on single flaps and ledge hoists up the mound's first terraces to f6.Z112, the node f6_z091's anchor, and on to f6.Z001 (X.35 C2b with exactly air 1; X.67 S15 with air 2 held and no flight of more than 1 flap) [verified xemu]; the derive reaches f6_z091 only by air-2 flights from f6_z093"
+
+[[edge]]                      # f6.rjump_terraces and its air-1 variant (batch f6.terraces, Step R1.31b): the courtyard to the walkway
+from = "f6.Z002"
+to = "f6.Z011"
+requires = "skip:f6.rjump_terraces | skip:f6.rjump_terraces_air1"
+why = "the skip's crossing as its runs did it: up the steep mound from the courtyard (X.35 C2 with air 2, C2b with air 1, the owner's real input from f6's startspot) and down the terraces to the walkway (rjc5 A6's placed roll jumps with air 2; the owner's way down to f6.Z012, whose decoded floor walk ends on the walkway, with air 2 and air 1) [verified xemu]; the derive joins the courtyard to the mound only through the blocks (D145: the reach is the climb)"

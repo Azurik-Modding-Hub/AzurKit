@@ -1,0 +1,214 @@
+# w3's hand decisions for `azurik-mod rando author` (Step R1.8).
+level = "w3"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip"]   # ordinary movement the derive cannot measure, admitted as assumed (default taken under D115)
+
+[names]
+w3_z194 = "w3.Z195"        # Step R1.24b: Z195 since the water fix (was w3.Z194); the id kept
+w3_z208 = "w3.Z209"        # Step R1.24b: Z209 since the water fix (was w3.Z208); the id kept
+w3_z213 = "w3.Z214"        # Step R1.24b: Z214 since the water fix (was w3.Z213); the id kept
+w3_z258 = "w3.Z257"        # Step R1.24b: Z257 since the water fix (was w3.Z258); the id kept
+w3_z259 = "w3.Z258"        # Step R1.24b: Z258 since the water fix (was w3.Z259); the id kept
+w3_z290 = "w3.Z291"        # Step R1.24b: Z291 since the water fix (was w3.Z290); the id kept
+w3_z298 = "w3.Z300"        # Step R1.24b: Z300 since the water fix (was w3.Z298); the id kept
+w3_z317 = "w3.Z320"        # Step R1.24b: Z320 since the water fix (was w3.Z317); the id kept
+w3_z318 = "w3.Z321"        # Step R1.24b: Z321 since the water fix (was w3.Z318); the id kept
+w3_z351 = "w3.Z356"        # Step R1.24b: Z356 since the water fix (was w3.Z351); the id kept
+w3_z363 = "w3.Z369"        # Step R1.24b: Z369 since the water fix (was w3.Z363); the id kept
+w3_z442 = "w3.Z456"        # Step R1.24b: Z456 since the water fix (was w3.Z442); the id kept
+w3_z472 = "w3.Z486"        # Step R1.24b: Z486 since the water fix (was w3.Z472); the id kept
+w3_z529 = "w3.Z548"        # Step R1.24b: Z548 since the water fix (was w3.Z529); the id kept
+w3_z535 = "w3.Z554"        # Step R1.24b: Z554 since the water fix (was w3.Z535); the id kept
+w3_z536 = "w3.Z555"        # Step R1.24b: Z555 since the water fix (was w3.Z536); the id kept
+w3_z537 = "w3.Z556"        # Step R1.24b: Z556 since the water fix (was w3.Z537); the id kept
+w3_core = "w3.Z000"           # the lake: the four W1_W3a-d arrivals
+w3_sealed = "w3.Z133"         # the water guardian's arena (AquaDome): the W1_W3_Boss arrival
+
+[members]
+"w3/g1/r1160" = "w3.Z133"     # frag_water_4, the guardian slot: dropped in the arena (its generator sits in AquaDome's transform)
+"w3/g1/r1618" = "w3.Z000"     # sapphire: on w3.Z079, what is left of a 640 m2 icy floor since Step X.16 (AZ-359), whose ways in the derive holds as barrier bypasses (the conservative-kit rule)
+
+[[event]]
+id = "w3.guard_water.killed"
+of = "w3/g1/r1157"
+zone = "w3.Z133"
+requires = "water>=1 & fire>=1"
+why = "the water guardian, in its arena: the owner (D639, Step R2.18, verbatim: \"beating the water guardian herself takes water 1 and fire 1\"); was the migrated water 1, air 1, earth 1 and fire 1"
+
+[exit."w3/g1/r2224"]          # PlaceWaterDisk_levelSwitch: the water disc's count-triggered teleport to town
+from = "w3.Z133"
+disc = "water"
+requires = "discw>=4"
+
+[barrier."w3.BubbleTrapShape"]
+destroy_from = ["w3.Z000"]    # underwater, no standing point (probes sitting); it separates no zones and holds nothing
+
+[barrier."w3.Trap1Shape"]     # Trap2Shape and Trap3Shape share its wiring (a pop timer on magic, orCombiner1 on touch)
+why = "xemu (sitting r18, Step R1.8b; placed on its platform, then real input): 150 ticks standing on it and 4 plain staff swings neither lift nor hold the player nor change it (gameSolid 1, invisible; its pop timer and touch combiner stay 0); smash 1 unseen (the staff selection did not register); it separates no zones and holds nothing, so logic does not depend on it"
+
+# ---- the ice-bridge and snow puzzle (decoded wiring: logic_dump.py w3, Toggle_Build_Bridge_1/2, AND_Snow1/2, andComb)
+# Bridge 2 (ICEBREIDGE, the E island <-> the centre's top) = Toggle_Water_2 (LightShape g1r23, NW spiral top, latches: no
+# off input) AND Toggle_Button_2 (LightShape g1r29, E island); the derive decodes it (gate w3.gate.Toggle_Build_Bridge_2).
+# Snowplat2 (Toggle_Snow_Visible_1, latches once on) = Toggle_Snow_Blowers AND Toggle_Water_2 AND bridge 2; the blowers
+# = IceBlock_014 melted at steam level 2 (IceMelt_toggle's magic curve: on at 2) AND Light1Shape pressed (andComb, the
+# frost switch beside IceBlock_014). Snowplat1 (Toggle_Snow_Visible_2) = the blowers AND Toggle_Water_1 AND bridge 1.
+[gates]
+"w3.gate.Toggle_Snow_Visible_1" = "event:w3.snow_blowers.on & event:w3.LightShape_g1r23.action & event:w3.LightShape_g1r29.action"
+"w3.gate.Toggle_Snow_Visible_2" = "event:w3.snow_blowers.on & event:w3.LightShape_g1r93.action & event:w3.LightShape_g1r98.action"
+
+[[event]]
+id = "w3.snow_blowers.on"
+zone = "w3.Z400"
+requires = "flag:w3.IceBlock_014.destroyed"
+why = "the frost switch: Light1Shape (beside IceBlock_014, on w3.Z400) turns the snow blowers on once IceBlock_014 is melted at steam level 2 (andComb's two inputs; the blowers are a toggle, taken as latched since a second press only turns them off, default taken under D115)"
+
+# ---- the elevated walkways: the derive joins none of them to the lake level (no edge at any air level, even with
+# every probe class; its barrier-cut analysis marks the walkways' own walking edges as IceBlock_02 / smash-wall
+# crossings). The walkways' joins below follow the geometry (zone heights and the walkway footprints, scratch maps)
+# and the vanilla route (power_water at the centre on the first visit with water, fire, air and earth 1; frag_fire_1
+# on the second with steam 2) [inferred]; each is a hand edge (assumed), to be seen in xemu (default taken under D115).
+[[edge]]
+from = "w3.Z095"
+to = "w3.Z016"
+requires = "true"
+why = "the SE complex's raised strip (behind IceBlock_02) up to the SE walkway's platform, about 18 m [inferred: the strip is the walkway's foot; geometry]"
+
+[[edge]]
+from = "w3.Z016"
+to = "w3.Z095"
+requires = "true"
+why = "back down the strip [inferred]"
+
+[[edge]]
+from = "w3.Z016"
+to = "w3.Z077"
+requires = "true"
+why = "the SE walkway (Z016-Z126-Z077; its icy middle has no zone since Step X.16, AZ-359), plain walking the derive labels an IceBlock_02 crossing [inferred]"
+
+[[edge]]
+from = "w3.Z077"
+to = "w3.Z016"
+requires = "true"
+why = "the SE walkway, back [inferred]"
+
+# Step R1.40c (AZ-820): no edge onto the centre's top (w3.Z116) from the SE walkway's foot (w3.Z077) or from the
+# gate's front ledge (w3.Z150): the top is 3.5 m above Z077's highest floor and 6.8 m above Z150's, and the game caps a
+# jump and its flaps at 2.4 m above the takeoff; the walkway's ramp onto w3.Z079 leaves a 24 m crossing whose flights
+# from Z079's near end fall under the top's edge. Not seen at 0/0/0/0 or at air 1, 2 and 3 with their flaps [verified
+# xemu, real input from w3_2's load, Z150 placed: Step R1.40c's centre rises sitting (2026-10-28), rows <kit>-A-*,
+# <kit>-R-fly-b*, <kit>-B-*]; Z079's far end and a curved flight at air 3 are unmeasured (the derive's physical-only
+# w3.Z079 > w3.Z116 at air 3 stays out of logic).
+# The top is reached from the NW walkway's foot (w3.Z135, the derive's flap at air 1).
+[[edge]]
+from = "w3.Z116"
+to = "w3.Z077"
+requires = "true"
+why = "the centre's top back onto the SE walkway [inferred]"
+
+[[edge]]
+from = "w3.Z116"
+to = "w3.Z150"
+requires = "true"
+why = "the ledge before Smash_wall1_plane1 (the shrine's wall), part of the centre's top [inferred]"
+
+[[edge]]
+from = "w3.Z116"
+to = "w3.Z127"
+requires = "true"
+why = "the ledge before polySurfaceShape1 (the shrine's other wall) [inferred]"
+
+[[edge]]                      # Step R1.40b (AZ-820): was w3.Z127 -> w3.Z116 "back [inferred]", a 6.9 m rise
+from = "w3.Z127"
+to = "w3.Z077"
+requires = "true"
+why = "off w3_2's ledge (w3.Z127, 6.9 m under the centre's top) onto the SE walkway's foot, a flat join the derive leaves unjoined; every walk from w3_2's save, LT held or not, ended on the ledge, on this foot or in the lake, never on the top [verified xemu, real input from w3_2's load: Step R1.40b's shield walk sitting (2026-10-28), rows W1, W2 (LT held), C1, C2 (no store) and J1, J2]"
+
+[[edge]]                      # Step R1.40b (AZ-820)
+from = "w3.Z077"
+to = "w3.Z127"
+requires = "true"
+why = "back onto w3_2's ledge from the SE walkway's foot [verified xemu, real input: the same sitting, rows J1 and J2]"
+
+[[edge]]
+from = "w3.Z135"
+to = "w3.Z321"
+requires = "true"
+why = "the NW walkway's foot on the centre's top (Z135-Z321-Z148 to the spiral island, Z009) [inferred]. D158 check (Step R1.8c): FAIL as written to the old foot w3.Z139, the zones' nearest floors 17.0 m apart, the foot 4.9 m lower [verified data: the derive's floor samples]; the derive knows no other way onto the NW walkway or the spiral island, whose LightShape g1r23 the snow puzzle and so frag_fire_1 need, so the edge is kept until a sitting finds the real one (default taken under D115). Step X.16: the old foot is a slippery slope (85 of 85 samples nz 0.95-0.99), since AZ-359 a slide with no zone, so the edge lands on the walkway's next zone, w3.Z321 (most of the old w3.Z117), which joins the island both ways"
+
+[[edge]]
+from = "w3.Z321"
+to = "w3.Z135"
+requires = "true"
+why = "the NW walkway back onto the centre's top [inferred]"
+
+[[edge]]
+from = "w3.Z016"
+to = "w3.Z012"
+requires = "event:w3.LightShape_g1r93.action & event:w3.LightShape_g1r98.action"
+why = "ice bridge 1 (ICEBREIDGE polySurfaceShape2-38, from the SE platform to the E island) stands once Toggle_Water_1 and Toggle_Button_1 are on (AND_Water_Ice_Bridge_1; the water toggle has no off input) [verified data: logic_dump.py w3; the ends from the pieces' geometry]"
+
+[[edge]]
+from = "w3.Z012"
+to = "w3.Z016"
+requires = "event:w3.LightShape_g1r93.action & event:w3.LightShape_g1r98.action"
+why = "ice bridge 1, back [verified data]"
+
+[[edge]]
+from = "w3.Z300"
+to = "w3.Z076"
+requires = "true"
+why = "behind IceBlock_021, up the climbable face onto the Ice Island (Z076); the derive's climb edge (probe climb), which its cut analysis labels a snow-platform crossing [inferred]"
+
+[[edge]]
+from = "w3.Z076"
+to = "w3.Z300"
+requires = "true"
+why = "back down from the Ice Island [inferred]"
+
+[[edge]]                      # Step R2.18: up the unfrosted ice to frag_fire_1 (D637)
+from = "w3.Z012"
+to = "w3.Z078"
+requires = "skip:w3.iceclimb_frag_fire1"
+why = "the skip's clause: from the E island (w3.Z012) up the ice to frag_fire_1's ledge (w3.Z078) with air 1, one flight of 5 flaps with 6 mid-air casts (air fluttering), no frost [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 145727-147449, air 1]"
+
+[[edge]]                      # Step R1.44 (AZ-809): frag_fire_1's ledge's way out with no frost
+from = "w3.Z078"
+to = "w3.Z000"
+requires = "true"
+difficulty = 3
+why = "off the ledge's lake side: a walk-off (no jump, no flap) from reach t18h1's takeoff drops into the lake (w3.Z000) and swims, HP unchanged, at air 0-3 alike (3 of 5 inputs; +20 deg and the route planner's way die on rock) and with the frost played; with bridge 2 up and no frost the bridge's end stands on that takeoff (the walk stops 2 m short), and a walk-off 7.5 m short at -10 deg swims out (1 of 6 headings), as do a -20 deg one from another spot and a drop beside the bridge's end [verified xemu, real input from a placed ledge start, frag_fire_1 taken by the game's pickup: Step R1.44's ice-climb exit sitting (2026-10-29) rows C1-a<0-3>-1/2/4, its rerun rows K1p-c1-1/2, C1W-a1--10, C1B-a1-4, B2W-1]. Difficulty 3 (hard) for bridge 2's narrow band, the owner's to confirm (D670, D717; default taken under D115)"
+
+[[edge]]                      # Step R2.18: the sliding ice island over a steam block (D638)
+from = "w3.Z000"
+to = "w3.Z010"
+requires = "skip:w3.ice_island_steam_block"
+why = "the skip's clause: from the lake one flight of 10 flaps with 10 mid-air casts to w3.Z013, a roll jump and a flap to w3.Z010, past a level-1 steam block (which one is not named [inferred: IceBlock_027 or _014]) [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 135657-137463, air 1]"
+
+[[edge]]                      # Step R2.18: on from w3.Z010 to the diamonds' island (D638)
+from = "w3.Z010"
+to = "w3.Z009"
+requires = "air>=1"
+why = "1-flap flights from w3.Z010 to w3.Z009 (the five diamonds r1995 and LightShape g1r23) [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 137463-141252, air 1]"
+
+[barrier."w3.Smash_wall1_plane1"]
+override_requires = "earth>=1 & air>=1 & fire>=1 | skip:w3.pstorage_smash_shield"
+override_reason = "the generated smash requirement (earth, air and fire 1), or w3's in-logic skip w3.pstorage_smash_shield (a stored smash cast breaks the level-1 shield round w3's water power; confirmed in xemu, skips-c E5b, and from w3_2's save by real input at 0/3/3/3 and 3/0/3/3, Step R1.40b)"
+
+[barrier."w3.polySurfaceShape1"]    # Step R1.40d: the shrine's near wall, the stored smash's way in from w3_2's ledge
+override_requires = "earth>=1 & air>=1 & fire>=1 | skip:w3.pstorage_smash_shield"
+override_reason = "the generated smash requirement (earth, air and fire 1), or w3's in-logic skip w3.pstorage_smash_shield: from w3_2's save (w3.Z127) with LT held, a 3 m walk to the ledge's end, LT let go (the stored smash casts, staff mask 7) and A, B, A turn this wall non-solid; the cast staff walked in (w3.Z096) then breaks Smash_wall1_plane1 from inside [verified xemu, real input from w3_2's load: $EV/r1.40b-w3-shield-walk-2026-10-28/sitting, rows S1 (earth/air/fire/water 0/3/3/3) and S2 (3/0/3/3), and $EV/r1.40d-w3-shield-near-wall-2026-10-28/sitting, rows e0-S and a0-S again and k0-S at 0/0/0/0; controls with no store (C1, C2, e0-C, a0-C, k0-C): the wall stays solid]. Seen at 0/0/0/0, so at any kit, as the shield's own override (that no level stops the store is [inferred]) (Step R1.40d)"
+
+[[edge]]                      # Step X.16: the lake's jump onto IceBlock_027's ledge
+from = "w3.Z000"
+to = "w3.Z045"
+requires = "air>=1"
+why = "the derive's own modelled jump from the lake's shore (plain floor 0.8-1.2 m under the ledge, 22 samples within 4 m) onto the ledge before IceBlock_027 (2.7 m, +0.9 m, air 1), the vanilla route's way to the block. Since Step X.16 the derive tags it a bypass of the block: the ledge's lip w3.Z231 (5 m2, 0.5 m under it, the only zone the block's merge touches) is reached from the ledge only one way (AZ-359 leaves the icy step between them no floor), so the gate analysis takes the lip alone for the block's near side and the ledge for its far side. Ledge and lip are one side of the block [verified data: the derived edges and floor samples]"
+
+[[location]]
+id = "w3/g1/r1618"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on w3.Z079, what is left of a 640 m2 icy floor since Step X.16 (AZ-359: its slopes are slides), whose ways in the derive holds as barrier bypasses: the conservative-kit rule, joined to the lake (off the route: the level's last route step, w3/g1/r2024)"
+
+[[location]]
+id = "w3/g1/r2006"
+proven = { by = "l3", ref = "r129/e92550c08544@0492929e6a76" }
+note = "Step R1.29: an L3 input string of 149 ticks (robustness 0.62 under jitter) from w3.Z000 (R6 onto a water sample of w3.Z000; placed: R7 hop, R2 kit k0) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start 1-3 m away)"

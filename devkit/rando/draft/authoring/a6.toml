@@ -1,0 +1,96 @@
+# a6's hand decisions for `azurik-mod rando author` (Step R1.11a): what the derive (derived/a6.json.gz) can't decode
+# or doesn't model. Zones are the derive's (a6.Z<n>); a default taken under D115 says so. a6 is the air guardian's
+# dome: the arrival rides the tree lift (TreeElevatorToggle) up 47 m onto a6.Z006 [verified xemu, placed: sitting
+# r111a]; the three keylocks enable the laser mirrors' joysticks, and with the three mirrors aligned (Lift_plusCombiner's
+# three AngleChecks >= 3) the push field (PushFieldShape, a 119.5 m column from a6.Z004's floor) carries the player up
+# to the arena (a6.Z001) and arms the guardian (TouchAndOn_andCombiner -> TriggerBoss_toggle) [verified data:
+# logic_dump a6].
+level = "a6"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+a6_lift_top = "a6.Z006"       # where the arrival's tree lift stops (the A1_A6 arrival) [verified xemu, placed: sitting r111a]
+a6_field_foot = "a6.Z004"     # the push field's foot, 16 m over a6.Z006
+a6_core = "a6.Z000"           # the islands' main floor: the three keylocks, the laser islands, the save point A6_1
+a6_arena = "a6.Z001"          # the guardian's arena at the push field's top: Killed_levelSwitch, the disc teleport
+a6_p60 = "a6.Z034"            # pillar P60's top, the first pillar out from the bottom hub toward BlueKeyIsland (rjump-locate a6.rjump_platforms)
+a6_blue_key = "a6.Z003"       # BlueKeyIsland: key_blue (a6/g0/r467), the spot BlueKey_IslandShape
+
+[members]
+"characters/g16/r102" = "a6.Z001"   # frag_air_4, the guardian slot: dropped in the arena (its generator is in characters.xbr)
+"a6/g0/r467" = "a6.Z006"            # key_blue: on a6.Z003, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide)
+"a6/g0/r470" = "a6.Z006"            # key_green: on a6.Z012, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide)
+"a6/g0/r514" = "a6.Z006"            # key_red: on a6.Z008, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide)
+"a6/g0/r906" = "a6.Z006"            # obsidian: on a6.Z005, which the derive reaches in no rung at the hard tier
+"a6/g0/r908" = "a6.Z006"            # obsidian: on a6.Z021, which the derive reaches in no rung at the hard tier
+"a6/g0/r914" = "a6.Z006"            # obsidian: on a6.Z079, which the derive reaches in no rung at the hard tier
+
+[[event]]
+id = "a6.guard_air.killed"
+of = "a6/g0/r1394"
+zone = "a6.Z001"
+requires = "air>=3 & fire>=3 & water>=3 & earth>=3"
+why = "the air guardian, in its arena (migrated requirement kept, default taken under D115; the guard_air probe in the sitting owes what damages it)"
+
+[[edge]]                      # the push field: the arena lift
+from = "a6.Z004"
+to = "a6.Z001"
+requires = "button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2 & air>=3 & fire>=3 & water>=3 & earth>=3"
+why = "the push field lifts the player to the arena at full strength once the three mirrors are aligned (Lift_plusCombiner >= 3 sets PushField_randomNumber's minimum to 1) [verified data]; the mirrors turn on joysticks the three keylocks enable [verified data: keylock drives platform:joystickEnable]; the laser minigame (Step R1.8f), the red, green and blue lights the owner names: each laser's mirror turns on two timers whose rates are its joystick's stick (RZ_timer/RX_timer, GZ/GX, BZ/BX -> public_[RGB]Zrotation.rotateZ and [RGB]Xrotation.rotateX), and its AngleCheck is the AND of the two rotations' windows; red's joystick (AirSwitch:lightShape) is live once air_keylock2 has its key, green's (AirSwitch2) air_keylock, blue's (AirSwitch1) air_keylock1, and the ControlPannelShape drives all three [verified data: $RP r0/tools/logic_dump.py a6 'AngleCheck|Lift_plusCombiner' and their drivers]. Lift_plusCombiner adds the three checks, so the colours take any order: it is the keys, not an order, that gate the lift. The timers are saved and stay where aimed, so a miss is re-aimed (no lockout) and no item beyond the keys aims them; the rise also arms the guardian, so logic sends the player up only with the kill's kit and the arena is never a trap (default taken under D115)"
+
+[exit."a6/g0/r1572"]          # Killed_levelSwitch: the push field touched after the kill (KilledTeleporter_andCombiner)
+requires = "flag:a6.guard_air.killed"
+why = "and(KilledTouch_timer_toggle (a PushFieldShape touch), numDead(guard_air)) [verified data]"
+
+[exit."a6/g0/r1578"]          # PlaceAirDisk_levelSwitch: the air disc's count-triggered teleport to town
+from = "a6.Z001"
+disc = "air"
+requires = "disca>=4"
+why = "gs[air fragments]>=4 and the disc not yet placed [verified data]; the 4th fragment is the guardian slot, collected in the arena"
+
+[exit."a6/g0/r1567"]          # A6_A1_levelSwitch: armed only while TreeElevatorToggle's output is 0
+from = "a6.Z006"
+requires = "false"
+why = "its activate input is 1 only while TreeElevatorToggle's output is 0, and the toggle (lock 1) turns on at the arrival and never off, so the switch is disarmed once the lift starts [verified data: logic_dump a6 TreeElevatorToggle]: a6 is entered one way and left by Killed_levelSwitch or the disc teleport (default taken under D115; the probe sitting owes a look)"
+
+[[edge]]                      # a6.rjump_platforms (in logic: confirmed in xemu, rjc5 A6), placed
+from = "a6.Z034"
+to = "a6.Z003"
+requires = "skip:a6.rjump_platforms"
+why = "the skip's clause: from P60 one ground roll and two flaps onto BlueKeyIsland with air 2 (its requires), at the hard and frame-perfect tiers (its tiers) [verified xemu, placed: rjc5/A6]"
+
+[[edge]]                      # from the islands back up to the push field's foot
+from = "a6.Z000"
+to = "a6.Z004"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+why = "the derive drops from a6.Z004 to the islands (a6.Z000) and models no way back up, not even physically (the fusion cores' rings and the tree lift are rigs it doesn't follow); the vanilla run goes from the keylocks on the islands to the arena by the push field, which stands on a6.Z004: the conservative-kit rule's kit at a6's first route step, a6/g0/r286 (default taken under D115)"
+
+[[location]]
+id = "a6/g0/r467"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_blue on a6.Z003, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a6/g0/r467)"
+
+[[location]]
+id = "a6/g0/r470"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_green on a6.Z012, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a6/g0/r470)"
+
+[[location]]
+id = "a6/g0/r514"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_red on a6.Z008, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a6/g0/r514)"
+
+[[location]]
+id = "a6/g0/r906"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2"
+note = "obsidian on a6.Z005, which the derive reaches in no rung at the hard tier: the conservative-kit rule (the route's a6/g0/r906)"
+
+[[location]]
+id = "a6/g0/r908"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2"
+note = "obsidian on a6.Z021, which the derive reaches in no rung at the hard tier: the conservative-kit rule (the route's a6/g0/r908)"
+
+[[location]]
+id = "a6/g0/r914"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2"
+note = "obsidian on a6.Z079, which the derive reaches in no rung at the hard tier: the conservative-kit rule (the route's a6/g0/r914)"

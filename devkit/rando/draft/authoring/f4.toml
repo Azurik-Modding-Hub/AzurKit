@@ -1,0 +1,87 @@
+# f4's hand decisions for `azurik-mod rando author` (Step R1.11b). Zones are the derive's (f4.Z<n>); a default taken
+# under D115 says so.
+level = "f4"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list; default taken under D115), and sweep (curved jumps the straight-flight check misses) at its own tier, as in f1: the way into the main area (Z008) past FireWall_02 is such a jump
+
+[names]
+f4_z1128 = "f4.Z1134"      # Step R1.24a: Z1134 since the re-derive (was f4.Z1128); the id kept
+f4_cliffside = "f4.Z015"      # the F4_F2 switch and the F2_F4b arrival (levelSwitch3's)
+f4_lava_river = "f4.Z000"      # the F2_F4a arrival (the migrated node f2's exits name)
+f4_battle_platform = "f4.Z162" # frag_fire_2's platform (an island the derive joins to nothing)
+
+[members]
+"f4/g0/r2355" = "f4.Z162"     # an obsidian standing on Boss_PlatformShape (the battle platform, a rig), behind f4.door.RaiseTimer: with frag_fire_2 on the platform [inferred] (default taken under D115)
+
+# ---- the battle platform (frag_fire_2, the route's f4/g0/r1289). Boss_PlatformShape is a rig the derive doesn't ride, and its
+# floor (Z162) is an island the derive joins to nothing: the migrated edges are kept (logic_db v3, [migrated,
+# unverified]; the route's [web] 'Fire Disc: end of the volcano' agrees on air 2 and water 2), each a default taken under
+# D115. D123: the platform's cutscene skip gets no guard (the community's softlock report is ignored).
+[[edge]]
+from = "f4.Z000"
+to = "f4.Z162"
+requires = "air>=2 & water>=2"
+why = "the lava river to the battle platform (migrated f4_lava_river -> f4_battle_platform: power_air 2 and power_water 2) (default taken under D115)"
+
+[[edge]]
+from = "f4.Z015"
+to = "f4.Z162"
+requires = "air>=3"
+why = "the cliffside to the battle platform (migrated: power_air 3) (default taken under D115)"
+
+[[edge]]
+from = "f4.Z162"
+to = "f4.Z015"
+requires = "air>=2"
+why = "back from the battle platform to the cliffside (migrated: power_air 2) (default taken under D115)"
+
+[[edge]]                      # out of the main area (MainArea cell, save point, ten gems)
+from = "f4.Z008"
+to = "f4.Z054"
+requires = "true"
+why = "the derive enters the main area (Z008) by a curved jump from FireWall_02's ledge (Z054, via Z608) and gives it no way out (the elevators' decks join other zones); a room with a save point is no pit: back up to the firewall's ledge [inferred] (default taken under D115)"
+
+[[edge]]                      # all_fuel f4/g0/r1540 (on the route)
+from = "f4.Z005"
+to = "f4.Z436"
+requires = "air>=3"
+difficulty = 1
+why = "the derive's only way onto the 6.75 m2 ledge is two curved air-3 flaps (Z005 -> Z464 -> Z436, the second frame-perfect, 54.6 m); the route takes this fuel in the battle-platform leg [assumed]: kept at the hard tier with air 3 [inferred] (default taken under D115) Step R1.2b (D156): vanilla's own route needs it, so it is rated safe (difficulty 1; it was hard, 3)"
+
+[[edge]]                      # out of the MagCore room by its elevator
+from = "f4.Z048"
+to = "f4.Z008"
+requires = "true"
+why = "the MagCore room (Z048) holds elevator_platformShape's own call pad, and the elevator's top field (elevator_top_fieldShape) is touched in the main area Z008 [derived events]; the derive rides it nowhere (its motion range is undecoded): up to the main area [inferred] (default taken under D115)"
+
+# ---- into the main area from the cliffside with air 2 (the route's f4/g0/r1531 to f4/g0/r1609, [web]: the f4 obsidians "air 2"). The derive
+# reaches the main area from the F2_F4b side only by two flaps it rates hard with air 3 and frame-perfect with air 2.
+[[edge]]
+from = "f4.Z013"
+to = "f4.Z012"
+requires = "air>=2"
+difficulty = 1
+why = "the derive's flap from the save-point ledge into the main area: frame-perfect with air 2, hard with air 3; the route takes this side's obsidians with air 2 [web, unverified]: kept at the hard tier with air 2 [inferred] (default taken under D115) Step R1.2b (D156): vanilla's own route needs it, so it is rated safe (difficulty 1; it was hard, 3)"
+
+[[edge]]                      # Step R2.18: the save-point ledge to the main area in one flap (D650)
+from = "f4.Z013"
+to = "f4.Z006"
+requires = "air>=1"
+difficulty = 3
+why = "the owner (D650, verbatim: \"i did it in a different spot with a single flap technically possible\"): one 1-flap flight from the save-point ledge f4.Z013 into the main area f4.Z006, after about 12 that fell back on Z013: hard (3) [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 341291-341430, air 2 held, one flap]"
+
+[[edge]]                      # Step R2.18: the ledge pop at air 1 (D653)
+from = "f4.Z012"
+to = "f4.Z162"
+requires = "skip:f4.ledgepop"
+why = "the skip's clause: from f4.Z012 one flight of 14 flaps with 15 mid-air casts to f4.Z010 (his own snapshot there, n 362148; the next load lands 0.0 m from it), f4.Z321, then one flap onto the battle platform f4.Z162 [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 361369-364496, air 1]"
+
+[[edge]]
+from = "f4.Z012"
+to = "f4.Z006"
+requires = "air>=2"
+difficulty = 1
+why = "the next flap of the same way in, rated as the one above (frame-perfect with air 2, hard with air 3) [inferred] (default taken under D115) Step R1.2b (D156): vanilla's own route needs it, so it is rated safe (difficulty 1; it was hard, 3)"
+
+[[held]]                      # every drop and jump into the lava river (Step R1.24b, D722 row 09)
+to = "f4.Z000"
+why = "the owner, verbatim: \"falling into lava is an instant death\"; \"when you enter f4 from f2 from that exit, its because you activated the volcano in f2 and created a floating platform in the lava that you can jump onto\" (the owner's demo, X.78, D722 row 09: the drop failed at kit 0). The derive's river zone f4.Z000 is the lava's surface and the F2_F4a arrival's floating platform in one; the platform is there only once f2's volcano is activated, and no flag f4's node graph holds reads that (its two gameStates read only the day-night timer, and F2_F4a's arrival drives only a camera [verified data: logic_dump.py f4]), so the volcano's activation (f2: the drill pCylinder61bShape > Drill1Toggle1 > Drill1CamTimer2 > Raiselavatoggle, then CenterShape's touch > lavaridetog / LevelSwitchToggle > TransferTimer > F2_F4a, 21 s later [verified data: logic_dump.py f2]) can't gate a drop from the ledge: every derived drop and jump into f4.Z000 (from the save-point ledge f4.Z013, the cliffside f4.Z015 and 31 more, the lava they land in) leaves logic, and the river node is reached only by F2_F4a, the lava ride itself (f2's conservative-kit rule)"

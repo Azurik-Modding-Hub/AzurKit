@@ -1,0 +1,84 @@
+# w4's hand decisions for `azurik-mod rando author` (Step R1.8). Zones are the derive's (w4.Z<n>).
+# I-19 (w4's DayNight_gameState): default taken under D115: the day/night clock is a wait, not a flag (world.toml's
+# w4_daynight, harmless cycle): the fan platforms raised by day [0.25,0.75) are in logic whenever the player waits for day.
+level = "w4"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip"]   # ordinary movement the derive cannot measure, admitted as assumed (default taken under D115)
+
+[names]
+w4_z151 = "w4.Z149"        # Step R1.24b: Z149 since the water fix (was w4.Z151); the id kept
+w4_z158 = "w4.Z156"        # Step R1.24b: Z156 since the water fix (was w4.Z158); the id kept
+w4_z160 = "w4.Z158"        # Step R1.24b: Z158 since the water fix (was w4.Z160); the id kept
+w4_z164 = "w4.Z162"        # Step R1.24b: Z162 since the water fix (was w4.Z164); the id kept
+w4_z483 = "w4.Z475"        # Step R1.24b: Z475 since the water fix (was w4.Z483); the id kept
+w4_core = "w4.Z001"           # the lake: the W1_W4 arrival, the dock (startspotShape, save W4_2)
+w4_earth_frag = "w4.Z148"     # frag_earth_1's platform (tricks.toml's w4.pstorage_air_flap)
+w4_air_power = "w4.Z143"      # the flower holding power_air w4/g0/r642 (tricks.toml's w4.rjump_leaves ends here)
+w4_leaf_e = "w4.Z153"         # leaf L_e (gem r662): w4.rjump_leaves' takeoff
+
+[members]
+# The five emeralds sit 0.4 m over the top of a fan shaft's raised pose (decoded transforms: fanHinge..fanHinge4
+# public_Shaft_Shape2 under each gem; raised tops 5.44-5.99 m, the gems at 6.1 m, the water top 3.5 m;
+# the D145 verify run's w4.rjump_leaves measurements, 2026-10-12): picked up standing on a raised fan by day.
+"w4/g0/r674" = "w4.Z143"      # on fanHinge3: the fan corridor to the flower (its hops are hard, edge below)
+"w4/g0/r676" = "w4.Z143"      # on fanHinge4: the same corridor
+"w4/g0/r678" = "w4.Z143"      # on fanHinge2: the same corridor (stricter than its safe first hop; default taken under D115)
+"w4/g0/r670" = "w4.Z001"      # on fanHinge (the north row): a raised fan 1.8 m over the lake [inferred: climbed from the lake]
+"w4/g0/r672" = "w4.Z001"      # on fanHinge1 (the east row): the same [inferred]
+"w4/g0/r2303" = "w4.Z001"     # an obsidian 25 m over the west lake with no floor within 12 m (requires below)
+
+[[location]]
+id = "w4/g0/r2303"
+requires = "air>=1"
+note = "no floor within 12 m of it (the derive places it nowhere); the vanilla route takes it after power_air (the route's w4/g0/r913) [web]: air 1 is a default taken under D115 [inferred]"
+
+[[edge]]                      # the fan corridor by day: dock -> leaves C5, C4 -> fanHinge2 -> 3 -> 4 -> the flower
+from = "w4.Z001"
+to = "w4.Z143"
+requires = "true"
+difficulty = 1
+why = "by day the fans rise (ActivatePlats_toggle -> public_Shaft translateZ +30.5) into a corridor: gaps 3.01, 2.55, 5.46, 5.69 and 2.38 m, all level within 0.5 m [verified data: decoded posed geometry, the D145 verify run's w4.rjump_leaves measurements, 2026-10-12]; 5.46 and 5.69 exceed standard's 5.35 m run gap and clear hard's 6.12: hard (3). The derive models the fans in their rest pose only Step R1.2b (D156): vanilla's own route needs it, so it is rated safe (difficulty 1; it was hard, 3)"
+
+[[edge]]                      # w4.rjump_leaves (in logic, standard): L_e -> L_f -> L_g -> the flower with no air
+from = "w4.Z153"
+to = "w4.Z162"
+requires = "skip:w4.rjump_leaves"
+why = "the skip's first two roll-jump hops (rjc5 A6, kit true): L_e to L_g (gem r654)"
+
+[[edge]]
+from = "w4.Z162"
+to = "w4.Z143"
+requires = "skip:w4.rjump_leaves"
+why = "the skip's third hop: L_g to the flower (rjc5 A6, 14 of 15)"
+
+[[edge]]                      # the emerald cave (gems r648, r650, r652, r680): the strict profile needs every spot
+from = "w4.Z051"
+to = "w4.Z036"
+requires = "air>=3"
+difficulty = 1
+why = "the derive's only way into the cave is an air-3 flap from w4.Z051 that the margins rate standard (difficulty 2), so at the safe tier the four emeralds were the only spots never collected and the strict profile (safe movement) could fill no seed (Step R1.2b, D156): admitted at safe with air 3 [inferred: a 5-flap flight within standard's margins; no sitting]; default taken under D115"
+
+[[edge]]                      # frag_earth_1
+from = "w4.Z001"
+to = "w4.Z148"
+requires = "air>=1 | skip:w4.rjump_frag_earth1"
+why = "Step R2.18: or the roll-jump skip w4.rjump_frag_earth1 (D636): from the lake a water jump, a grab and a roll jump onto the platform with every element 0 [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 122969-123841, kit 0]. Before: the derive finds no way onto frag_earth_1's platform (2.5 m over the water; only the crane arm's air-3 flap): air 1 from the lake side, as the route (w4/g0/r865, [web] Rueake ED1), logic_db's migrated w4_core -> w4_earth_frag and w4.pstorage_air_flap's bypass ('air 1 on w4_core -> w4_earth_frag') say; how (the crane, waterswitch3/4, or a flap from the tower) is [inferred]; default taken under D115"
+
+[[edge]]                      # the F3_W4 arrival
+from = "w4.Z096"
+to = "w4.Z001"
+requires = "true"
+why = "F3_W4 lands in FieldShape1's water by the pipe to f3; the derive gives that water no way out (a sink): a swimmer leaves it into the lake [inferred]; default taken under D115"
+
+[[edge]]                      # the W1_W4_Bonus arrival
+from = "w4.Z475"
+to = "w4.Z001"
+requires = "true"
+why = "W1_W4_Bonus lands in the tower's updraft water (Field_Push_TowerShape), which the derive leaves with no edge: a swimmer leaves it into the lake [inferred]; the videos ride the updraft to the west dome (not modelled); default taken under D115"
+
+[exit."w4/g0/r2518"]          # LevelSwitch_W4_W1: its arrival W4_W1 floats over w1's bay
+to = "w1.Z001"
+
+[[location]]
+id = "w4/g0/r865"
+proven = { by = "l3", ref = "r129/c710e413eb55@36defa06abf4" }
+note = "Step R1.29: an L3 input string of 896 ticks (robustness 0.38 under jitter) from w4.Z001 (the snapshot's own spot; placed: R7 hop, R2 kit k0) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start >10 m away)"

@@ -1,0 +1,305 @@
+# d2's hand decisions for `azurik-mod rando author` (Step R1.11d): what the derive (derived/d2.json.gz) can't decode or
+# doesn't model. Zones are the derive's (d2.Z<n>); a default taken under D115 says so. d2 is the Death realm's
+# laboratory under d1: the bridge-end cutscene (d1's D2_movie_levelSwitch) drops the player from D1_D2_Fall onto the
+# lab floor d2.Z015, alive [verified xemu, placed: sitting r111d], beside the save point D2_1 (d2.Z026), the six key_lens open the six lens keylocks in the lock room
+# (d2.Z008), and once all six are used the force field to the door (key_plusCombiner_damper) opens onto the
+# D1_D2/D2_D1 door pair (d2.Z135) back to d1's floor 1 [verified data: logic_dump d2; the fall's landing inferred from
+# the height below the spot, the sitting's arrival probe owes it]. The derive models no way back up from the lab floor
+# (the conveyors, scoops and lifts are rigs it doesn't follow), so every pool location but one takes the
+# conservative-kit rule (draft/authoring/a1.toml's header): joined to the arrival's node with the elements the vanilla
+# run holds in d2 (air, water, fire, earth 3: the route's d2/g0/r3045 to button:d2.death_keylock5). D123: d2's three vat gems (r3774, r3777, r3780)
+# are normal pool spots, with no exclude or farmable.
+level = "d2"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+d2_z037 = "d2.Z036"        # Step R1.24b: Z036 since the water fix (was d2.Z037); the id kept
+d2_z040 = "d2.Z039"        # Step R1.24b: Z039 since the water fix (was d2.Z040); the id kept
+d2_z060 = "d2.Z057"        # Step R1.24b: Z057 since the water fix (was d2.Z060); the id kept
+d2_z077 = "d2.Z071"        # Step R1.24b: Z071 since the water fix (was d2.Z077); the id kept
+d2_z093 = "d2.Z087"        # Step R1.24b: Z087 since the water fix (was d2.Z093); the id kept
+d2_z127 = "d2.Z121"        # Step R1.24b: Z121 since the water fix (was d2.Z127); the id kept
+d2_z216 = "d2.Z198"        # Step R1.24b: Z198 since the water fix (was d2.Z216); the id kept
+d2_z217 = "d2.Z199"        # Step R1.24b: Z199 since the water fix (was d2.Z217); the id kept
+d2_z231 = "d2.Z212"        # Step R1.24b: Z212 since the water fix (was d2.Z231); the id kept
+d2_z249 = "d2.Z230"        # Step R1.24b: Z230 since the water fix (was d2.Z249); the id kept
+d2_core = "d2.Z015"           # the D1_D2_Fall landing [verified xemu, placed: sitting r111d], beside the save point D2_1 (d2.Z026)
+d2_lock_room = "d2.Z008"      # the six lens keylocks
+d2_door = "d2.Z135"           # the D1_D2 arrival and the D2_D1 door back to d1
+
+[[edge]]                      # the force field (key_plusCombiner_damper) and the door between the lock room and the door pair
+from = "d2.Z008"
+to = "d2.Z135"
+requires = "button:d2.death_keylock & button:d2.death_keylock1 & button:d2.death_keylock2 & button:d2.death_keylock3 & button:d2.death_keylock4 & button:d2.death_keylock5"
+why = "the force field to the door is solid until Keys_plusCombiner reaches 6 (ForceFieldShape.gameSolid's step at 5.5) [verified data]; that it sums the six lens LockToggles is [inferred] from its name and the six locks; the derive writes the field false (its combiner undecoded); the door beyond opens on its field's touch [verified data]"
+
+[[edge]]
+from = "d2.Z135"
+to = "d2.Z008"
+requires = "button:d2.death_keylock & button:d2.death_keylock1 & button:d2.death_keylock2 & button:d2.death_keylock3 & button:d2.death_keylock4 & button:d2.death_keylock5"
+why = "the same field and door from the door's side"
+
+[[edge]]
+from = "d2.Z015"
+to = "d2.Z008"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "from the lab floor up to the lock room: the derive models no way up (the conveyors, scoops and lifts); the conservative-kit rule's kit at the route's button:d2.death_keylock (default taken under D115)"
+
+[[edge]]
+from = "d2.Z008"
+to = "d2.Z015"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "from the lock room back down into the lab, as the way up (default taken under D115)"
+
+[exit."d2/g0/r3840"]          # D2_D1_levelSwitch: the door field beside the D1_D2 arrival
+from = "d2.Z135"
+requires = "button:d2.death_keylock & button:d2.death_keylock1 & button:d2.death_keylock2 & button:d2.death_keylock3 & button:d2.death_keylock4 & button:d2.death_keylock5"
+why = "Step R1.24b (D722, the owner's demo, X.78): going back into d1 by this door needs the death keys (the owner, verbatim: \"you cant go back into d1 without the keys\", which: \"d1's death keys\"); the door's wiring holds no keylock (touch(DeathLevelTransition1:LevelDoor2:public_DoorFieldShape) fires D2_D1_levelSwitch, and the iris toggle has no input in d2 [verified data: logic_dump.py d2]), and d1's three death keylocks are used after this door (the route's button:d1.death_keylock to button:d1.death_keylock2): gating it on any of them leaves the vanilla placement unbeatable (71 locations and the victory lost, Step R1.24b's read of the vanilla placement with this door gated), so it asks the death keylocks of d2's lock room, the six lens keylocks the vanilla route uses before it (button:d2.death_keylock to button:d2.death_keylock5; default taken under D115). touch(DeathLevelTransition1:LevelDoor2:public_DoorFieldShape) [verified data]"
+
+[members]                     # the conservative-kit rule: joined to the arrival's node
+"d2/g0/r3045" = "d2.Z015"  # key_lens: on d2.Z009, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3047" = "d2.Z015"  # key_lens: on d2.Z029, which the derive reaches in no rung from the arrival
+"d2/g0/r3049" = "d2.Z015"  # key_lens: on d2.Z087, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3051" = "d2.Z015"  # key_lens: on d2.Z024, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3053" = "d2.Z015"  # key_lens: on d2.Z121, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3055" = "d2.Z015"  # key_lens: on d2.Z230, which the derive reaches in no rung from the arrival
+"d2/g0/r3600" = "d2.Z015"  # ruby: on d2.Z071, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3602" = "d2.Z015"  # ruby: on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3604" = "d2.Z015"  # ruby: on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3606" = "d2.Z015"  # ruby: on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3609" = "d2.Z015"  # emerald: on d2.Z007, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3611" = "d2.Z015"  # emerald: on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3613" = "d2.Z015"  # emerald: on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3615" = "d2.Z015"  # emerald: on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3617" = "d2.Z015"  # emerald: on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3620" = "d2.Z015"  # sapphire: on d2.Z039, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3622" = "d2.Z015"  # sapphire: on d2.Z039, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3624" = "d2.Z015"  # sapphire: on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3626" = "d2.Z015"  # sapphire: on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3628" = "d2.Z015"  # sapphire: on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3630" = "d2.Z015"  # sapphire: on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3632" = "d2.Z015"  # sapphire: on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3634" = "d2.Z015"  # sapphire: on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3636" = "d2.Z015"  # sapphire: on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3638" = "d2.Z015"  # sapphire: on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3641" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3643" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3645" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3647" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3649" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3651" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3653" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3655" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3657" = "d2.Z015"  # diamond: on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3660" = "d2.Z015"  # all_fuel: on d2.Z011, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3662" = "d2.Z015"  # all_fuel: on d2.Z011, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow)
+"d2/g0/r3664" = "d2.Z015"  # all_fuel: on d2.Z006, which the derive reaches in no rung from the arrival
+"d2/g0/r3774" = "d2.Z015"  # diamond: on d2.Z212, which the derive reaches in no rung from the arrival
+"d2/g0/r3777" = "d2.Z015"  # ruby: on d2.Z198, which the derive reaches in no rung from the arrival
+"d2/g0/r3780" = "d2.Z015"  # emerald: on d2.Z199, which the derive reaches in no rung from the arrival
+
+[[location]]
+id = "d2/g0/r3045"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z009, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3045)"
+
+[[location]]
+id = "d2/g0/r3047"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z029, which the derive reaches in no rung from the arrival: the conservative-kit rule (the route's d2/g0/r3047)"
+
+[[location]]
+id = "d2/g0/r3049"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z087, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3049)"
+
+[[location]]
+id = "d2/g0/r3051"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z024, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3051)"
+
+[[location]]
+id = "d2/g0/r3053"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z121, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3053)"
+
+[[location]]
+id = "d2/g0/r3055"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z230, which the derive reaches in no rung from the arrival: the conservative-kit rule (the route's d2/g0/r3055)"
+
+[[location]]
+id = "d2/g0/r3600"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z071, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3602"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3604"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3606"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3609"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z007, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3611"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3613"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3615"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3617"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3620"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z039, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3622"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z039, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3624"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3626"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3628"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3630"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3632"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3634"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3636"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3638"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3641"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3643"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3645"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3647"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3649"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3651"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3653"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3655"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3657"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3660"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "all_fuel on d2.Z011, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3660)"
+
+[[location]]
+id = "d2/g0/r3662"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "all_fuel on d2.Z011, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3662)"
+
+[[location]]
+id = "d2/g0/r3664"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "all_fuel on d2.Z006, which the derive reaches in no rung from the arrival: the conservative-kit rule (the route's d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3774"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z212, which the derive reaches in no rung from the arrival: the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3777"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z198, which the derive reaches in no rung from the arrival: the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3780"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z199, which the derive reaches in no rung from the arrival: the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[event]]                     # the bridge-end cutscene has fired (Step R1.24b, D722 row 10)
+id = "d2.lab.reached"
+zone = "d2.Z015"
+requires = "true"
+why = "d2's lab floor (d2_core) is entered only by d1's bridge-end cutscene (D2_movie_levelSwitch, its D1_D2_Fall arrival [verified xemu, placed: sitting r111d]; d2's other arrival, D1_D2, is the door pair's), whose field's touch turns DeathMovie_disable_toggle off for good [verified data]: being here means the cutscene has fired, which d1's walk onto the beam walkway reads"

@@ -1,19 +1,12 @@
-"""``python -m devkit rando check [--db DIR] [--json]``: load a randomizer database with every check and say what is
-open (Modkit's ``rando check``; Step 4.13b).
-
-It loads the shipped database (``src/azurkit/tools/randomizer/data``) or ``--db``'s with every check of the format
-(:func:`azurkit.tools.randomizer.planner.loader.check_database`) and prints what is still open, then ``errors: N``
-and one line per error naming the file, the object and the field (``--json``: the whole summary and every error).
-It reads no game data and writes nothing. Exits 0 with no error, 1 otherwise.
-"""
+"""``python -m devkit rando check [--db DIR] [--json]``: load the randomizer database (by default the shipped one,
+``src/azurkit/tools/randomizer/data``), print what is open and every error, and exit 1 on an error (Modkit's ``rando
+check``, Step 4.13c)."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-
-from azurkit.tools.randomizer.planner.loader import DATA_DIR, check_database
 
 
 def report_lines(report) -> list[str]:
@@ -59,11 +52,11 @@ def report_lines(report) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
-    """Load the database; print what is open and every error; 1 on an error."""
-    ap = argparse.ArgumentParser(prog="python -m devkit rando check", description=__doc__.split("\n\n")[0])
-    ap.add_argument("--db", help="a database folder (default: the shipped one)")
-    ap.add_argument("--json", action="store_true", help="the whole summary and every error, as JSON")
-    args = ap.parse_args(argv)
+    p = argparse.ArgumentParser(prog="python -m devkit rando check", description=__doc__.split("\n\n")[0])
+    p.add_argument("--db", metavar="DIR", help="a database folder (default: the shipped one)")
+    p.add_argument("--json", action="store_true", help="the whole summary and every error, as JSON")
+    args = p.parse_args(argv)
+    from azurkit.tools.randomizer.planner.loader import DATA_DIR, check_database
     report = check_database(Path(args.db) if args.db else DATA_DIR)
     if args.json:
         print(json.dumps({**report.summary, "errors": [str(i) for i in report.issues]}, indent=1, sort_keys=True))

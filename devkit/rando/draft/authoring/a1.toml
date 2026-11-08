@@ -1,0 +1,297 @@
+# a1's hand decisions for `azurik-mod rando author` (Step R1.11a): what the derive (derived/a1.json.gz) can't decode
+# or doesn't model. Zones are the derive's (a1.Z<n>); a default taken under D115 says so.
+#
+# The realm's conservative-kit rule (default taken under D115): a pool location the derive places on no floor or
+# reaches in no rung (a moving rig, a rotating ring, a flower) is joined to a node it is reached from, and requires
+# the elements the vanilla run holds when route.toml collects it (a location off the route: when the run last leaves
+# the level). That kit is enough by construction (the vanilla run collects it with it), so the logic never asks for
+# less than the game needs; the xemu probe sitting (sitting r111a, 2026-10-13) owes the exact mechanism.
+level = "a1"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+a1_tree_top = "a1.Z013"       # the E6_A1 and A6_A1 arrivals at the top of Tree_elev3's ride (+403 m), the three air keylocks and the Vac1-3 tubes' feet
+a1_seal = "a1.Z003"           # the air seal (DiscTrigga_Life) and BridgeShape2
+a1_save = "a1.Z167"           # the save platform a1_1, where the Flower teleports land
+
+[members]                     # pool locations the derive places on no floor (the conservative-kit rule)
+"a1/g0/r1859" = "a1.Z013"     # key_air1, in Flower1 (Switch2Toggle's flower) on its SolidShape, ~70 m up near a1.Z127
+"a1/g0/r1851" = "a1.Z013"     # key_air2, in Flower2 (FlowerToggle1, AirSwitch1's flower), ~61 m over a1.Z009
+"a1/g0/r1843" = "a1.Z013"     # key_air3, in Flower3 (Switch3Toggle's flower), ~300 m over a1.Z000
+"a1/g0/r2120" = "a1.Z013"     # a diamond 24 m over a1.Z039
+"a1/g0/r2155" = "a1.Z013"     # a ruby 38 m over a1.Z081
+"a1/g0/r2204" = "a1.Z013"     # a sapphire 140 m over a1.Z000
+"a1/g0/r587" = "a1.Z013"      # sapphires on RingShape's always-rotating rings
+"a1/g0/r589" = "a1.Z013"
+"a1/g0/r591" = "a1.Z013"
+"a1/g0/r603" = "a1.Z013"      # sapphires on Ring2Shape's rings
+"a1/g0/r605" = "a1.Z013"
+"a1/g0/r607" = "a1.Z013"
+"a1/g0/r2144" = "a1.Z013"     # an emerald cluster on a1.Z099, a floor the derive reaches in no rung
+"a1/g0/r1102" = "a1.Z013"     # frag_air_1, 8.5 m over a1.Z128, whose node the derive gives no way back to an exit
+"a1/g0/r2129" = "a1.Z013"           # diamond: on a1.Z104, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2132" = "a1.Z013"           # obsidian: on a1.Z023, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2134" = "a1.Z013"           # obsidian: on a1.Z275 behind AcidBlock_03 (earth 3, water 3), on the far side
+"a1/g0/r2136" = "a1.Z013"           # obsidian: on a1.Z166, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2138" = "a1.Z013"           # obsidian: on a1.Z135, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2176" = "a1.Z013"           # ruby: on a1.Z020, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2350" = "a1.Z013"           # all_fuel: on a1.Z164, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2116" = "a1.Z013"           # diamond: on a1.Z068, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2118" = "a1.Z013"           # diamond: on a1.Z011, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2126" = "a1.Z013"           # diamond: on a1.Z011, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2146" = "a1.Z013"           # emerald: on a1.Z008, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2148" = "a1.Z013"           # emerald: on a1.Z008, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2151" = "a1.Z013"           # ruby: on a1.Z009, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2153" = "a1.Z013"           # ruby: on a1.Z009, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2158" = "a1.Z013"           # ruby: on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2160" = "a1.Z013"           # ruby: on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2162" = "a1.Z013"           # ruby: on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2164" = "a1.Z013"           # ruby: on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2166" = "a1.Z013"           # ruby: on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2168" = "a1.Z013"           # ruby: on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2170" = "a1.Z013"           # ruby: on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2172" = "a1.Z013"           # ruby: on a1.Z020, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2190" = "a1.Z013"           # sapphire: on a1.Z086, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2192" = "a1.Z013"           # sapphire: on a1.Z083, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2194" = "a1.Z013"           # sapphire: on a1.Z112, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2196" = "a1.Z013"           # sapphire: on a1.Z117, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2198" = "a1.Z013"           # sapphire: on a1.Z015, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2200" = "a1.Z013"           # sapphire: on a1.Z015, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2202" = "a1.Z013"           # sapphire: on a1.Z051, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+"a1/g0/r2206" = "a1.Z013"           # sapphire: on a1.Z010, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges)
+
+[[location]]
+id = "a1/g0/r1859"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "key_air1 sits on its flower's SolidShape (gone once collected) inside Flower1, which Switch2Toggle opens; Flower1_teleShape's touch returns the player to the save platform [verified data: logic_dump a1 '^Flower.*']; how the flower is reached is not decoded: the conservative-kit rule (the route's a1/g0/r1859)"
+
+[[location]]
+id = "a1/g0/r1851"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "key_air2, in Flower2 (FlowerToggle1, turned on by AirSwitch1's action button) [verified data]; reached as key_air1 is: the conservative-kit rule (the route's a1/g0/r1851)"
+
+[[location]]
+id = "a1/g0/r1843"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "key_air3, in Flower3 (Switch3Toggle) [verified data]; the conservative-kit rule (the route's a1/g0/r1843)"
+
+[[location]]
+id = "a1/g0/r1102"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "frag_air_1 floats 8.5 m over a1.Z128 with no floor under it (held, probe class float), and the derive gives a1.Z128 no way back to an exit; the route takes it right after the three air keylocks, whose T1-T3 switch on the Vac1-3 tubes (pushZ 30) [verified data]; the conservative-kit rule (the route's a1/g0/r1102) and the three locks"
+
+[[location]]
+id = "a1/g0/r2120"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "the conservative-kit rule (off the route: a1's last visit, at a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2155"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "the conservative-kit rule (off the route: a1's last visit, at a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2204"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "the conservative-kit rule (off the route: a1's last visit, at a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r587"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on RingShape's always-rotating rings (a rig whose motion the derive doesn't follow): the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r589"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on RingShape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r591"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on RingShape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r603"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on Ring2Shape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r605"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on Ring2Shape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r607"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on Ring2Shape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2144"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on a1.Z099, which the derive reaches in no rung (not even physically): the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[exit."a1/g0/r2654"]          # A1toA6: touch(Public_level_transferShape), 1.5 km over the seal's zone
+from = "a1.Z003"
+to = "a6.Z006"                # its arrival A1_A6 rides a6's tree lift up 47 m onto a6.Z006 [verified xemu, placed: sitting r111a, arrival(3)]
+requires = "button:a1.seal"
+why = "the air seal (a touch with 3 air fragments) moves BridgeShape2 [verified data: the derive's ride], the way to the final lift Tree_elev4 (decoded at +1,465 m, READINESS) whose ride ends at A1toA6's trigger, 1.5 km over the seal's zone; that the bridge leads to the lift and the lift to the trigger is [inferred] (probe sitting; default taken under D115)"
+
+[[edge]]                      # the first way to the teleporter pair's far end
+from = "a1.Z000"
+to = "a1.Z057"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & event:a1.Teleporters_ResetShape2.touch"
+why = "the Teleporters pair (TeleLocator2 on a1.Z000, TeleLocator1 on a1.Z057) works only once both ends' ResetShapes are touched (BeamToggle1 and BeamToggle2, locked, both inputs of andCombiner1/2) [verified data: logic_dump a1 '^Teleporters:'], so it is the way back, and the derive models no first way to a1.Z057 (the far side: frag_air_1, four obsidians, the seal); the vanilla run first goes there after the three air keylocks (the route's a1/g0/r1102): the conservative-kit rule with the three locks; the way starts from the near pad's floor, so its ResetShape2 is touched, which lets the far end get back by the pair (default taken under D115)"
+
+[[location]]
+id = "a1/g0/r2129"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "diamond on a1.Z104, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2132"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "obsidian on a1.Z023, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (the route's a1/g0/r2132)"
+
+[[location]]
+id = "a1/g0/r2134"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "obsidian on a1.Z275 behind AcidBlock_03 (earth 3, water 3), on the far side: the conservative-kit rule (the route's a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2136"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "obsidian on a1.Z166, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (the route's a1/g0/r2136)"
+
+[[location]]
+id = "a1/g0/r2138"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "obsidian on a1.Z135, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (the route's a1/g0/r2138)"
+
+[[location]]
+id = "a1/g0/r2176"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z020, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2350"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "all_fuel on a1.Z164, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (the route's a1/g0/r2350)"
+
+[[location]]
+id = "a1/g0/r2116"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "diamond on a1.Z068, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2118"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "diamond on a1.Z011, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2126"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "diamond on a1.Z011, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2146"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "emerald on a1.Z008, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2148"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "emerald on a1.Z008, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2151"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z009, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2153"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z009, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2158"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2160"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2162"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2164"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2166"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2168"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2170"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2172"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z020, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2190"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z086, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2192"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z083, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2194"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z112, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2196"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z117, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2198"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z015, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2200"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z015, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2202"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z051, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2206"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z010, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[exit."a1/g0/r2655"]          # levelSwitch1 (A1_E6): down the great tree into e6 (Step R1.11c authored e6)
+to = "e6.Z001"
+why = "its arrival A1_E6 falls 123 m down the great tree's tube onto no floor the derive models [verified xemu, placed: sitting r111c, arrival(2)]; the tube stands in the garden's lake (e6.Z001), where the Tree Song Skip enters it [inferred] (Step R1.11c)"

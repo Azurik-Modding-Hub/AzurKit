@@ -34,8 +34,10 @@ HOME_LAYOUT = re.compile(r"(?:~|\$HOME|\$\{HOME\}|/(?:Users|home)/[^/\s\"'`]+)/(
 #: folder's interface): a dead link in the public repo, so a sitting, a step or a measurement is named in words.
 EV_CITE = re.compile(r"\$EV" r"/(?!tools/)[^\s`'\"),;\]]*")
 #: The one cite left, and where: w3's barrier's reason, a value ``db_digest`` hashes into every plan (so into
-#: ``tests/goldens/rando_plans.json``), reworded with the database's next change.
-HASHED = ("src/azurkit/tools/randomizer/data/levels/w3.toml", "override_reason = ")
+#: ``tests/goldens/rando_plans.json``), reworded with the database's next change; in w3's level file and in the
+#: authoring that writes it (``python -m devkit rando author``), one value.
+HASHED = {"src/azurkit/tools/randomizer/data/levels/w3.toml": "override_reason = ",
+          "devkit/rando/draft/authoring/w3.toml": "override_reason = "}
 
 
 def tracked(*pathspec: str) -> list[str]:
@@ -123,7 +125,7 @@ def test_no_tracked_text_holds_a_home_path_or_cites_the_private_evidence_folder(
         for pattern in (HOME_LAYOUT, own_home, EV_CITE):
             for m in pattern.finditer(text) if pattern else ():
                 start = text.rfind("\n", 0, m.start()) + 1
-                if pattern is EV_CITE and rel == HASHED[0] and text.startswith(HASHED[1], start):
+                if pattern is EV_CITE and rel in HASHED and text.startswith(HASHED[rel], start):
                     continue
                 hits.append(f"{rel}:{text.count(chr(10), 0, m.start()) + 1}: {m.group()}")
     assert not hits, "name $EV, a relative path or what a claim rests on in words instead:\n" + "\n".join(hits)

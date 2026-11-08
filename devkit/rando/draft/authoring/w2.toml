@@ -1,0 +1,219 @@
+# w2's hand decisions for `azurik-mod rando author` (Step R1.8).
+level = "w2"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+w2_z019 = "w2.Z020"        # Step R1.24b: Z020 since the water fix (was w2.Z019); the id kept
+w2_z021 = "w2.Z022"        # Step R1.24b: Z022 since the water fix (was w2.Z021); the id kept
+w2_z022 = "w2.Z023"        # Step R1.24b: Z023 since the water fix (was w2.Z022); the id kept
+w2_z032 = "w2.Z031"        # Step R1.24b: Z031 since the water fix (was w2.Z032); the id kept
+w2_z034 = "w2.Z033"        # Step R1.24b: Z033 since the water fix (was w2.Z034); the id kept
+w2_z035 = "w2.Z034"        # Step R1.24b: Z034 since the water fix (was w2.Z035); the id kept
+w2_z044 = "w2.Z043"        # Step R1.24b: Z043 since the water fix (was w2.Z044); the id kept
+w2_z047 = "w2.Z046"        # Step R1.24b: Z046 since the water fix (was w2.Z047); the id kept
+w2_z048 = "w2.Z047"        # Step R1.24b: Z047 since the water fix (was w2.Z048); the id kept
+w2_z071 = "w2.Z070"        # Step R1.24b: Z070 since the water fix (was w2.Z071); the id kept
+w2_z078 = "w2.Z077"        # Step R1.24b: Z077 since the water fix (was w2.Z078); the id kept
+w2_z105 = "w2.Z104"        # Step R1.24b: Z104 since the water fix (was w2.Z105); the id kept
+w2_z112 = "w2.Z111"        # Step R1.24b: Z111 since the water fix (was w2.Z112); the id kept
+w2_z230 = "w2.Z227"        # Step R1.24b: Z227 since the water fix (was w2.Z230); the id kept
+w2_z250 = "w2.Z247"        # Step R1.24b: Z247 since the water fix (was w2.Z250); the id kept
+w2_z403 = "w2.Z400"        # Step R1.24b: Z400 since the water fix (was w2.Z403); the id kept
+w2_z408 = "w2.Z405"        # Step R1.24b: Z405 since the water fix (was w2.Z408); the id kept
+w2_z484 = "w2.Z481"        # Step R1.24b: Z481 since the water fix (was w2.Z484); the id kept
+w2_z488 = "w2.Z485"        # Step R1.24b: Z485 since the water fix (was w2.Z488); the id kept
+w2_z489 = "w2.Z486"        # Step R1.24b: Z486 since the water fix (was w2.Z489); the id kept
+w2_z574 = "w2.Z571"        # Step R1.24b: Z571 since the water fix (was w2.Z574); the id kept
+w2_z702 = "w2.Z697"        # Step R1.24b: Z697 since the water fix (was w2.Z702); the id kept
+w2_z814 = "w2.Z809"        # Step R1.24b: Z809 since the water fix (was w2.Z814); the id kept
+w2_z906 = "w2.Z899"        # Step R1.24b: Z899 since the water fix (was w2.Z906); the id kept
+w2_z1035 = "w2.Z1030"      # Step R1.24a: Z1037 since the re-derive (was w2.Z1035); the id kept
+w2_z1045 = "w2.Z1041"      # Step R1.24a: Z1048 since the re-derive (was w2.Z1045); the id kept
+w2_core = "w2.Z035"           # the W1_W2 arrival (the w1 -> w2 exit's)
+
+[members]
+"w2/g0/r1798" = "w2.Z043"     # a gem on the ice cave's ramp, a slippery slope (no zone since Step X.16, AZ-359): touched sliding down from the ramp's top, as r1796, which the derive places there (default taken under D115)
+"w2/g0/r1859" = "w2.Z043"     # a gem near the ramp's foot: as r1798 (default taken under D115)
+"w2/g0/r1752" = "w2.Z035"     # sapphire: on a slippery slope by the E2_W2 arrival's slide (w2.Z034, what is left of its 2,255 m2 floor since Step X.16, AZ-359), which the derive reaches from no zone the arrival reaches (the conservative-kit rule)
+"w2/g0/r1754" = "w2.Z035"     # sapphire: on a slippery slope by the E2_W2 arrival's slide (w2.Z034, what is left of its 2,255 m2 floor since Step X.16, AZ-359), which the derive reaches from no zone the arrival reaches (the conservative-kit rule)
+"w2/g0/r1756" = "w2.Z035"     # sapphire: on a slippery slope by the E2_W2 arrival's slide (w2.Z104, what is left of its 2,255 m2 floor since Step X.16, AZ-359), which the derive reaches from no zone the arrival reaches (the conservative-kit rule)
+"w2/g0/r1346" = "w2.Z003"     # power_water, in the hose pool (in the hose's damage volume, so on no floor)
+
+[gates]
+# The hose minigame (Step R1.8f) [verified data: $RP r0/tools/logic_dump.py w2 '^(OpenNCloseToggle(3|1[1-5])|HoseStuff:.*|LightShape)$']:
+# the console's action button (LightShape, X) latches HoseStuff:toggle10 and turns the hose on (keyToggle); the joystick
+# (PublicJoystickShape) aims its nozzle (damper1/2: the stick's deflection is the angle, up to 72 deg) and its range
+# (pEmitterShape2.velocityBaseZ); water sinking into a fire's HoseSink1Shape opens that fire's OpenNCloseToggle for about
+# 8 s (on over 4 s, off over 4 s; stored turnOff); hosecombiner ANDs the six fires (fire4, fire12-16), so all six put out
+# at once latch hosetoggle (saved), which drops the blocker and the damage round the power (nandCombiner1). No item
+# starts or aims the hose; a fire that relights is put out again, so a miss is retried (no lockout). Touching the
+# altar's trigger then plays the power's cutscene (WaterPowerTimer, saved), which turns the hose off for good.
+# Its two stations stand 95 m apart, both high over the pool (Step R1.8o, AZ-375): the console on w2.Z070, the round
+# platform at the far end of bridge01 from the south ridge (w2.Z077), and the joystick at the north end of the
+# fountain path (w2.Z022). So the gate asks for the minigame's two events, credited there (the [[event]]s below); the
+# way to them from the pool with nothing is the bridges' hand edges and the walks proven below.
+"w2.gate.nandCombiner1" = "event:w2.hose.won"   # the hose blocker round power_water: the hose minigame above, played at its console and its joystick (no item)
+
+[barrier."w2.HoseStuff"]
+override_requires = "false"
+override_reason = "the hose machine has no magic link: no attack breaks it (generated persist unknown); nothing in logic crosses it"
+destroy_from = ["w2.Z003"]
+
+[barrier."w2.FireWall_01"]
+destroy_from = ["w2.Z003"]    # not present at load and it separates no zones; its blocker sits over the hose pool
+
+[barrier."w2.IceBlock_02"]
+override_requires = "fire>=1 & water>=1 | skip:w2.pstorage_steam_iceblock02"
+override_reason = "the generated steam 1, or stored steam (w2.pstorage_steam_iceblock02, in logic: the owner's X.92 demo, replayed at every element level 0 in Step X.92b, D871)"
+
+# No edge up the ice cave's stairs (AZ-350, Step R1.8k): they are a 39 m ramp of slippery ice (w2.Z507, 0x8051 over its
+# whole length, nz 0.90-0.99, no flat landing). R1.8c's hand edge w2.Z006 -> w2.Z022 ("true", from the phys profile's
+# 0.65 m step-up) slid back about 12 m up in xemu (sitting r18e) and in L3: walked up the fall line from the plaza the
+# body slides (state 3) and gains at most 3.2 m, a jump every 12 or 20 ticks at most 3.6 m, and on w2's slippery floors
+# a 3 s walk uphill gains at most 0.4 m in every slope band from nz 0.90 to 0.9995 [verified L3, x7-w2-k0:
+# Step R1.8k's w2 town report (2026-10-14)]. The ramp's own walk in the derive is AZ-359; r1357's requirement is below.
+
+# The vanilla way to the hose's stations from the pool, with nothing (Step R1.8o, AZ-375): out of the pool onto the
+# plaza and up its ramp to the upper ledge (w2.Z006), bridge07 to WaterfallView (w2.Z020), up the climbable face there
+# (the derive's climb, 16 m, to the south ridge's end w2.Z077), then bridge01 to the console, or the derive's jumps
+# along the ridge (w2.Z023) and down onto the fountain path (w2.Z022) to the joystick, past the enemies there [verified
+# L3: whole steps from the W1_W2_Fall arrival, kit 0: Step R1.8o's w2 hose report (2026-10-15)]. The derive cuts both
+# rope bridges: each deck is a pair of invisible solid boxes (pCubeShape389/390) that BounceTimer rocks about the
+# bridge's long axis, a rig whose movers don't lift it level, so it keeps no floor and the zones at its two ends have
+# no walk between them. Help dialogs at WaterfallView and at the console pause the game until A.
+[[edge]]                      # bridge07
+from = "w2.Z006"
+to = "w2.Z020"
+requires = "true"
+why = "bridge07, the rope bridge (24 m long, 2 m wide, 13-15 m over the pool) from the plaza's upper ledge to WaterfallView, walked end to end in L3 both ways (player tick and whole steps, state 0 throughout) [verified L3: Step R1.8o's w2 hose report (2026-10-15)]; a rig the derive keeps no floor on (above)"
+
+[[edge]]                      # bridge07, back
+from = "w2.Z020"
+to = "w2.Z006"
+requires = "true"
+why = "bridge07 from WaterfallView back to the plaza's upper ledge, walked in L3 (player tick and whole steps) [verified L3: as the edge above]"
+
+[[edge]]                      # bridge01
+from = "w2.Z077"
+to = "w2.Z070"
+requires = "true"
+why = "bridge01, the rope bridge (25 m long, 31-34 m over the pool) from the south ridge's end (the climb's top) to the console's round platform, walked end to end in L3 both ways (player tick and whole steps; its sagging middle a 0.3 s drop) [verified L3: as bridge07's]; a rig the derive keeps no floor on (above)"
+
+[[edge]]                      # bridge01, back
+from = "w2.Z070"
+to = "w2.Z077"
+requires = "true"
+why = "bridge01 from the console back to the south ridge, walked in L3 (player tick and whole steps) [verified L3: as bridge07's]"
+
+[[edge]]                      # off the fountain path into the pool
+from = "w2.Z022"
+to = "w2.Z003"
+requires = "true"
+why = "off the fountain path's edge by the hose's joystick, down into the hose pool: in L3 (player tick, from the joystick) walked off toward the power in 5 of 6 headings 30 deg apart, each into the pool's water with no damage [verified L3: Step R1.8o's w2 hose report (2026-10-15)]; in xemu after the hose was solved (the probed walk below). The derive's own ways down (a 14.7 m jump to the plaza) are held as bypasses of the hose's damage gate (w2.gate.hosetoggle), as WaterfallView's drop was (the edge above, Step X.16), so the path had no way back"
+
+[[probed]]                    # bridge07, in xemu
+from = "w2.Z006"
+to = "w2.Z020"
+kit = "true"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o/results/runs.jsonl: leg-0" }
+note = "Step R1.8o: from the W1_W2_Fall arrival in the hose pool (a new game, every element 0; placed: loadvm, R7 hop, R2 kit), an L3 whole-step string of 1,588 ticks out of the pool, up the plaza's ramp and across bridge07 to WaterfallView, replayed in xemu tick for tick (0.0 m off; two enemy hits, HP 200 -> 170), up to WaterfallView's help dialog (A); the same string from the same start replayed exactly again in sittings r18o2 and r18o3"
+
+[[probed]]                    # the climbable face, in xemu
+from = "w2.Z020"
+to = "w2.Z077"
+kit = "true"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o/results/runs.jsonl: leg-1" }
+note = "Step R1.8o: from WaterfallView after its dialog, an L3 whole-step string of 620 ticks to the climbable face's foot, up it (the stick held toward the face: grab, climb, mantle) to the south ridge's end and across bridge01 to the console's platform, replayed in xemu tick for tick (0.0 m off, no damage), up to the console's help dialog (A); sittings r18o2 and r18o3 did the same (858 and 776 ticks, exact, enemies' hits at WaterfallView). Sitting r18e's stuck climbs had hopped into the face"
+
+[[probed]]                    # bridge01, in xemu
+from = "w2.Z077"
+to = "w2.Z070"
+kit = "true"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o/results/runs.jsonl: leg-1" }
+note = "Step R1.8o: bridge01 from the ridge's end to the console's platform, in the string of leg-1 (the probed walk above), replayed in xemu tick for tick"
+
+[[probed]]                    # bridge01 back, the ridge and the fountain path, in xemu
+from = "w2.Z070"
+to = "w2.Z077"
+kit = "true"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-3, leg-4" }
+note = "Step R1.8o, sitting r18o3: from the console (X there latched HoseStuff:toggle10, real input), L3 whole-step strings of 151 and 1,550 ticks back across bridge01, along the ridge (w2.Z023) and down the fountain path (w2.Z022) to the joystick, replayed in xemu tick for tick (0.0 m off; enemy hits on the path, HP 125 -> 95), split at a help dialog (A); in L3 the enemies killed the player or knocked it off the path in the 5 shorter waits on the ridge tried first, so the string waits 140 ticks there"
+
+[[probed]]
+from = "w2.Z077"
+to = "w2.Z023"
+kit = "true"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-4" }
+note = "Step R1.8o: the ridge's jump in the string of the probed walk above, replayed in xemu tick for tick"
+
+[[probed]]
+from = "w2.Z023"
+to = "w2.Z022"
+kit = "true"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-4" }
+note = "Step R1.8o: down onto the fountain path in the string of the probed walk above, replayed in xemu tick for tick"
+
+[[probed]]                    # off the fountain path into the pool, in xemu
+from = "w2.Z022"
+to = "w2.Z003"
+kit = "true"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-6" }
+note = "Step R1.8o, sitting r18o3: after the hose was solved at the joystick (xemu_minigames' hose solver, real input: engaged, all six fires out in one round, hosetoggle latched), an L3 whole-step string of 125 ticks off the path's edge toward the power, down into the pool, swimming, no damage, replayed in xemu tick for tick"
+
+[[event]]                     # the hose's console (Step R1.8o, AZ-375)
+id = "w2.hose.on"
+zone = "w2.Z070"
+requires = "true"
+why = "X at the console (LightShape, on the round platform w2.Z070) latches HoseStuff:toggle10, which turns the hose on (keyToggle) [verified data: the gate's comment above]; no item. Sittings r18o2 and r18o3: X there after the replayed way in from the pool latched toggle10 [verified xemu]"
+
+[[event]]                     # the hose's joystick (Step R1.8o, AZ-375)
+id = "w2.hose.won"
+zone = "w2.Z022"
+requires = "event:w2.hose.on"
+why = "the joystick (HoseStuff:PublicJoystickShape, at the north end of the fountain path w2.Z022) aims the running hose; the six fires put out within about 8 s of each other latch hosetoggle (saved), which drops nandCombiner1's blocker round power_water [verified data: the gate's comment above]. It needs the hose on (the console first) and no item; a miss is retried. Sitting r18o3: at the joystick after the replayed way from the console, xemu_minigames' hose solver (real input) put all six fires out in one round and hosetoggle latched [verified xemu]"
+
+[[location]]
+id = "w2/g0/r1364"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-13-r18/results/runs.jsonl: r1364 attempts 0-2" }
+note = "under the ice stairs: from the W1_W2_Fall arrival with every element 0, swum out of the hose pool onto the plaza, along the ice-cave corridor and into the pool, taken 3 of 3 with no damage (Step R1.8b)"
+
+[[location]]
+id = "w2/g0/r1346"
+requires = "event:w2.hose.won"
+note = "power_water behind the hose: the hose minigame (w2.hose.won, after w2.hose.on at the console) drops the blocker round it (Step R1.8o, AZ-375; the [members] zone alone made it free). Seen in xemu (Step R1.8f, sitting r18f's runs (2026-10-13): hose-1, hose-2): from a new game in w2 with every element 0, placed at the console and then on the joystick, scripts/xemu_minigames.py's hose solver put the six fires out with real input (one round each), and the route pilot walked from the joystick to the altar's trigger and the power: taken 2 of 2. Its proven mark is R1.8e's by-route one (D169), which this sitting stands beside (default taken under D115: one mark a spot, and the same proven set either way)"
+
+[[location]]
+id = "w2/g0/r1357"
+requires = "air>=3"
+note = "AZ-350 (Step R1.8k): the derive's one modelled way to the fountain path (w2.Z022, whose pool holds the spot) is the air-3 flight from the plaza (34 m, safe tier); its cheaper ways rest on moves xemu refuted: air 1 takes off high on the ice ramp (w2.Z507 -> Z050 -> Z022), which the body can't climb (AZ-359), and air 2 climbs the 16 m face above WaterfallView (Z020 -> Z077, probe class climb), stuck 4 of 4 in sitting r18e. L3's air-3 search from the plaza ran out of its budget (6 x 150,000 steps, 10 s short, tainted read: inconclusive), so the spot stays unproven (default taken under D115). Step R1.8o (AZ-375) climbed that face in xemu with nothing (the stick held toward it) and walks the fountain path with nothing to the hose's joystick; this spot in the path's pool was not searched, so the hand requirement stays (default taken under D115)"
+
+[exit."w2/g0/r2303"]          # levelSwitch1: back to w1 at W2_W1b
+to = "w1.Z009"
+why = "its arrival W2_W1b stands in the stream's water over w1's cove, where the waterfall ledge it climbed out on is a slippery slope since Step X.16 (AZ-359) and the stream's fall into the cove is not modelled; the player swims and falls down the stream into w1.Z009 in 5 s, HP 200 [verified L3, player tick, untainted, snapshot x7-w1-k0: Step X.16's arrival run from w1's r2178 (2026-10-14)]"
+
+[[edge]]                      # Step X.16: off the WaterfallView plateau into the pool
+from = "w2.Z020"
+to = "w2.Z003"
+requires = "true"
+why = "the derive's own 'enter the water' edge, 14.6 m down from the plateau's rim into the hose pool (28 rim sample-directions clear the body sweep) [verified data: moves.swim_edges on the derive], the vanilla run's way down (the route's w2/g0/r1359 to w2/g0/r1357). Since Step X.16 the hose's damage gate (w2.gate.hosetoggle, whose sides are 1-9 m2 zones by the power) takes the pool for its far side from one of those zones (the least-air comparison of gates.barrier_cut), so the edge is held as a barrier bypass and the plateau had no way off"
+
+[[edge]]                      # Step R2.18: past FireWall_02 with air 3 (D635)
+from = "w2.Z000"
+to = "w2.Z035"
+requires = "skip:w2.firewall02_air3"
+why = "the skip's clause: from w2's main body (w2.Z000 > Z012 > Z007, walked) over or round FireWall_02 with air 3, flights of 1, 2 and 3 flaps and a roll jump, to its far side w2.Z035, then Z011 and the exit to w1 [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 104809-111767, air 3]"
+
+[[location]]
+id = "w2/g0/r1752"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on w2.Z034, what is left since Step X.16 (AZ-359: the icy slope is a slide) of the 2,255 m2 floor by the E2_W2 arrival's slide, which the derive reaches from no zone the arrival reaches: the conservative-kit rule, joined to the arrival (off the route: the level's last route step, w2/g0/r1357)"
+
+[[location]]
+id = "w2/g0/r1754"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on w2.Z034, what is left since Step X.16 (AZ-359: the icy slope is a slide) of the 2,255 m2 floor by the E2_W2 arrival's slide, which the derive reaches from no zone the arrival reaches: the conservative-kit rule, joined to the arrival (off the route: the level's last route step, w2/g0/r1357)"
+
+[[location]]
+id = "w2/g0/r1756"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on w2.Z104, what is left since Step X.16 (AZ-359: the icy slope is a slide) of the 2,255 m2 floor by the E2_W2 arrival's slide, which the derive reaches from no zone the arrival reaches: the conservative-kit rule, joined to the arrival (off the route: the level's last route step, w2/g0/r1357)"

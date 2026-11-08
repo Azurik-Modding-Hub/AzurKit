@@ -1,0 +1,350 @@
+# e2's hand decisions for `azurik-mod rando author` (Step R1.11c): what the derive (derived/e2.json.gz) can't decode
+# or doesn't model. Zones are the derive's (e2.Z<n>); a default taken under D115 says so. e2 is the earth realm's
+# valley: the town arrival's canyon (e2.Z015, the pocket) opens on the arena's double door (RuinDoorTimer, any of its
+# four pads [verified data]); the main valley (e2.Z000) holds the two gondola docks (MineCar to e5, MineCar2 to e7,
+# both moved only once the two key_circuitboard locks are in: Topcartoggle1/2 <- MineCarRide2:andCombiner1 [verified
+# data; verified xemu, placed: rz-b2 I-10]) and the gear locks: E2_E5 and E2_E6 fire only with all three key_gear
+# locks in (toggle17, toggle18, toggle19 in their AND) [verified data: generated/e2.json gate hints]. The
+# conservative-kit rule is a1's (draft/authoring/a1.toml's header).
+level = "e2"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[rig_held]                    # AZ-588 (Step X.53): every rig only TowerTimer or DrillTimer moves that the reach model guesses a ride on (31 names; polySurfaceShape1023, which elevator1 moves too, is not held), those whose guesses have no edge today too, so a later derive's guess can't enter logic; their guessed rides (AZ-353) carry neither mover's trigger [verified data: the reach model's wiring decode, Step X.53's read of e2's model (2026-10-21)]. TowerTimer (no repeat, 34.7 s) is enabled only by the earth switch's action (event e2.earthswitch_lightShape_g0r744.action, set at e2.Z003 and e2.Z1673) and its 27 decoded rides all go 59.8 m up, once; DrillTimer (no repeat, 12 s) is enabled only by button:e2.earth_keylock2 and turns its parts as it moves them (its motion undecoded). Held, not given a rig_requires (default taken under D115): whether the drill carries a player anywhere is not decoded. In logic they were 2 tower and 36 drill rides requiring true; no kept node depended on them (read-e2/results/rig-logic-any.txt) and no e2 node's reach at any kit tier moved (build/results/e2-within-before.txt, -after.txt)
+"BlueBeam1:pTorusShape5" = "moved by TowerTimer: one way up 59.8 m after the earth switch (above)"
+Swivel_LensShape = "moved by TowerTimer (above)"
+pCylinderShape175 = "moved by TowerTimer (above)"
+polySurfaceShape117 = "moved by TowerTimer (above); two rigs bear this name, both TowerTimer's, and the hold takes both"
+polySurfaceShape1271 = "moved by TowerTimer (above)"
+polySurfaceShape1272 = "moved by TowerTimer (above)"
+polySurfaceShape1274 = "moved by TowerTimer (above)"
+polySurfaceShape4 = "moved by TowerTimer (above)"
+polySurfaceShape596 = "moved by TowerTimer (above)"
+"LargeHoleDrillH1:DrillBaseShape" = "moved by DrillTimer: enabled only by button:e2.earth_keylock2, its motion undecoded (above)"
+"LargeHoleDrillH1:polySurfaceShape7" = "moved by DrillTimer (above)"
+polySurfaceShape1087 = "moved by DrillTimer (above)"
+"LargeHoleDrillH1:DrillBit1Shape" = "moved by DrillTimer (above); no guessed edge today"
+LadderShape = "moved by TowerTimer (above); no guessed edge today"
+LadderShape1 = "moved by TowerTimer (above); no guessed edge today"
+pCylinderShape42 = "moved by TowerTimer (above); no guessed edge today"
+pCylinderShape43 = "moved by TowerTimer (above); no guessed edge today"
+pCylinderShape49 = "moved by TowerTimer (above); no guessed edge today"
+"platform1:polySurfaceShape21" = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape115 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape116 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape1266 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape1267 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape1268 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape1269 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape127 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape1270 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape1273 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape130 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape192 = "moved by TowerTimer (above); no guessed edge today"
+polySurfaceShape595 = "moved by TowerTimer (above); no guessed edge today"
+
+[rig_requires."MineCarRide2:mineplat2:polySurfaceShape13"]   # the in-level minecart's car (Step R1.28, AZ-468)
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+why = "CarMoveTimer, the car's only mover, is enabled by MineCarRide2:andCombiner2 alone, an and of MoveTog2 and a touch of the car (pCubeShape567), and MoveTog2 is turned on by MineCarRide2:andCombiner1 alone, an and of the two circuitboard locks' LockToggles (earth_keylock, earth_keylock1) [verified data: logic_dump.py e2 '^MineCarRide2:(andCombiner1|andCombiner2|MoveTog2|CarMoveTimer)$']: the car moves only once both are in, so the derive's 10 guessed rides among e2.Z005, Z095, Z136 and Z141 need both. Without it e2_z094 > e2_z027 held for nothing, and the reduction dropped the valley's water-1 way into e2.Z027 (the second circuitboard r735's room) for it"
+
+[names]
+e2_z009 = "e2.Z008"        # Step R1.24b: Z008 since the water fix (was e2.Z009); the id kept
+e2_z071 = "e2.Z072"        # Step R1.24b: Z072 since the water fix (was e2.Z071); the id kept
+e2_z075 = "e2.Z076"        # Step R1.24b: Z076 since the water fix (was e2.Z075); the id kept
+e2_z086 = "e2.Z087"        # Step R1.24b: Z087 since the water fix (was e2.Z086); the id kept
+e2_z087 = "e2.Z088"        # Step R1.24b: Z088 since the water fix (was e2.Z087); the id kept
+e2_z088 = "e2.Z089"        # Step R1.24b: Z089 since the water fix (was e2.Z088); the id kept
+e2_z094 = "e2.Z095"        # Step R1.24b: Z095 since the water fix (was e2.Z094); the id kept
+e2_z096 = "e2.Z097"        # Step R1.24b: Z097 since the water fix (was e2.Z096); the id kept
+e2_z148 = "e2.Z149"        # Step R1.24b: Z149 since the water fix (was e2.Z148); the id kept
+e2_z156 = "e2.Z157"        # Step R1.24b: Z157 since the water fix (was e2.Z156); the id kept
+e2_z160 = "e2.Z161"        # Step R1.24b: Z161 since the water fix (was e2.Z160); the id kept
+e2_z172 = "e2.Z173"        # Step R1.24b: Z173 since the water fix (was e2.Z172); the id kept
+e2_z181 = "e2.Z182"        # Step R1.24b: Z182 since the water fix (was e2.Z181); the id kept
+e2_z201 = "e2.Z202"        # Step R1.24b: Z202 since the water fix (was e2.Z201); the id kept
+e2_z210 = "e2.Z211"        # Step R1.24b: Z211 since the water fix (was e2.Z210); the id kept
+e2_z213 = "e2.Z214"        # Step R1.24b: Z214 since the water fix (was e2.Z213); the id kept
+e2_z250 = "e2.Z251"        # Step R1.24b: Z251 since the water fix (was e2.Z250); the id kept
+e2_z287 = "e2.Z288"        # Step R1.24b: Z288 since the water fix (was e2.Z287); the id kept
+e2_z303 = "e2.Z304"        # Step R1.24b: Z304 since the water fix (was e2.Z303); the id kept
+e2_z318 = "e2.Z319"        # Step R1.24b: Z319 since the water fix (was e2.Z318); the id kept
+e2_z337 = "e2.Z338"        # Step R1.24b: Z338 since the water fix (was e2.Z337); the id kept
+e2_z381 = "e2.Z382"        # Step R1.24b: Z382 since the water fix (was e2.Z381); the id kept
+e2_z383 = "e2.Z384"        # Step R1.24b: Z384 since the water fix (was e2.Z383); the id kept
+e2_z399 = "e2.Z400"        # Step R1.24b: Z400 since the water fix (was e2.Z399); the id kept
+e2_z449 = "e2.Z450"        # Step R1.24b: Z450 since the water fix (was e2.Z449); the id kept
+e2_z546 = "e2.Z547"        # Step R1.24b: Z547 since the water fix (was e2.Z546); the id kept
+e2_z633 = "e2.Z634"        # Step R1.24b: Z634 since the water fix (was e2.Z633); the id kept
+e2_z639 = "e2.Z640"        # Step R1.24b: Z640 since the water fix (was e2.Z639); the id kept
+e2_z640 = "e2.Z641"        # Step R1.24b: Z641 since the water fix (was e2.Z640); the id kept
+e2_z663 = "e2.Z664"        # Step R1.24b: Z664 since the water fix (was e2.Z663); the id kept
+e2_z694 = "e2.Z695"        # Step R1.24b: Z695 since the water fix (was e2.Z694); the id kept
+e2_z713 = "e2.Z714"        # Step R1.24b: Z714 since the water fix (was e2.Z713); the id kept
+e2_z715 = "e2.Z716"        # Step R1.24b: Z716 since the water fix (was e2.Z715); the id kept
+e2_z728 = "e2.Z729"        # Step R1.24b: Z729 since the water fix (was e2.Z728); the id kept
+e2_z746 = "e2.Z747"        # Step R1.24b: Z747 since the water fix (was e2.Z746); the id kept
+e2_z1051 = "e2.Z1053"      # Step R1.24a: Z1052 since the re-derive (was e2.Z1051); the id kept
+e2_z1053 = "e2.Z1055"      # Step R1.24a: Z1054 since the re-derive (was e2.Z1053); the id kept
+e2_z1054 = "e2.Z1056"      # Step R1.24a: Z1055 since the re-derive (was e2.Z1054); the id kept
+e2_z1163 = "e2.Z1165"      # Step R1.24a: Z1164 since the re-derive (was e2.Z1163); the id kept
+e2_z1175 = "e2.Z1177"      # Step R1.24a: Z1176 since the re-derive (was e2.Z1175); the id kept
+e2_z1243 = "e2.Z1245"      # Step R1.24a: Z1244 since the re-derive (was e2.Z1243); the id kept
+e2_z1255 = "e2.Z1257"      # Step R1.24a: Z1256 since the re-derive (was e2.Z1255); the id kept
+e2_z1260 = "e2.Z1262"      # Step R1.24a: Z1261 since the re-derive (was e2.Z1260); the id kept
+e2_z1423 = "e2.Z1425"      # Step R1.24a: Z1424 since the re-derive (was e2.Z1423); the id kept
+e2_z1576 = "e2.Z1579"      # Step R1.24a: Z1578 since the re-derive (was e2.Z1576); the id kept
+e2_z1580 = "e2.Z1583"      # Step R1.24a: Z1582 since the re-derive (was e2.Z1580); the id kept
+e2_z1592 = "e2.Z1595"      # Step R1.24a: Z1594 since the re-derive (was e2.Z1592); the id kept
+e2_z1799 = "e2.Z1802"      # Step R1.24a: Z1801 since the re-derive (was e2.Z1799); the id kept
+e2_z1812 = "e2.Z1815"      # Step R1.24a: Z1814 since the re-derive (was e2.Z1812); the id kept
+e2_z1815 = "e2.Z1818"      # Step R1.24a: Z1817 since the re-derive (was e2.Z1815); the id kept
+e2_z1818 = "e2.Z1821"      # Step R1.24a: Z1820 since the re-derive (was e2.Z1818); the id kept
+e2_z1824 = "e2.Z1827"      # Step R1.24a: Z1826 since the re-derive (was e2.Z1824); the id kept
+e2_z414 = "e2.Z414"        # Step R1.24a: Z413 since the re-derive (was e2.Z414); the id kept
+e2_z506 = "e2.Z506"        # Step R1.24a: Z505 since the re-derive (was e2.Z506); the id kept
+e2_z517 = "e2.Z517"        # Step R1.24a: Z516 since the re-derive (was e2.Z517); the id kept
+e2_z532 = "e2.Z532"        # Step R1.24a: Z531 since the re-derive (was e2.Z532); the id kept
+e2_z895 = "e2.Z897"        # Step R1.24a: Z896 since the re-derive (was e2.Z895); the id kept
+e2_z934 = "e2.Z936"        # Step R1.24a: Z935 since the re-derive (was e2.Z934); the id kept
+e2_z989 = "e2.Z991"        # Step R1.24a: Z990 since the re-derive (was e2.Z989); the id kept
+e2_core = "e2.Z000"           # the main valley: the gondola docks, the gear locks, the save point E2_2, the E6_E2 arrival
+e2_canyon = "e2.Z015"         # the pocket: the Town_E2 arrival, E2_Town, the arena door's pads and the catalisk teleport
+
+[button]                      # the gear locks: their triggers stand 14 m off e2.Z000 at its height, on the gear tower the derive places on no floor
+"e2.earth_keylock3" = "e2.Z000"
+"e2.earth_keylock4" = "e2.Z000"
+"e2.earth_keylock5" = "e2.Z000"
+
+[[event]]
+id = "e2.crystal_lightning.hit"
+zone = "e2.Z046"
+requires = "air>=1 & fire>=1 & water>=1"
+why = "tricks.toml's db_change e2-lightning-crystal-event, applied: the crystal room's crystal (CrystalOutsideShape / CrystalInsideShape, damage litn = air + fire + water) latches Crystal_Lightning3_Hit_latch, e6's SongLightning3_hit, on any non-zero magic: level 1 suffices [verified data; verified xemu for the wind crystal, rz-b2 I-3]"
+
+[exit."e2/g0/r4902"]          # E2_E6
+to = "e6.Z001"
+requires = "button:e2.earth_keylock3 & button:e2.earth_keylock4 & button:e2.earth_keylock5"
+why = "and(toggle19, toggle18, toggle17: the three gear locks' LockToggles) and a touch [verified data]; its arrival E2_E6 settles on e6's garden e6.Z001, 16 m under the spot [verified xemu, placed: sitting r111c, arrival(1)]"
+
+[exit."e2/g0/r4905"]          # E2_E5
+requires = "button:e2.earth_keylock3 & button:e2.earth_keylock4 & button:e2.earth_keylock5"
+to = "e5.Z014"
+why = "as E2_E6 [verified data]; its arrival E2_E5 rides e5's turning entrance gear and falls into e5.Z014, standing there from tick 227 at rest [verified L3, whole steps, and xemu, placed: TD.2's sitting A, S7 (h22-k0's replay); AZ-585, Step R1.34]; e5.Z581 is a static floor 18.0 m under the arrival point (AZ-538), and the player-tick read with the gear still that put it there (Step X.16's arrival run from e5's r1052, 2026-10-14) doesn't hold"
+
+[exit."e2/g0/r4907"]          # SwitchE5a: the MineCar gondola to e5
+cart = "minecart_e2e5"
+logic = false
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+why = "RANDOMIZER_PLAN 2.10 v1: the gondola stays out of logic (its side bit makes the dock a lethal drop while the bucket is away [verified xemu, placed: rz-b2 I-10]); the walk-through pair E2_E5 / E5_E2 carries e5's logic. Topcartoggle1 needs both circuitboard locks [verified data; verified xemu, placed]"
+
+[exit."e2/g0/r4909"]          # SwitchE5a1: the MineCar2 gondola to e7, e7's only way in
+cart = "minecart_e2e7"
+to = "e7.Z000"
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+why = "Topcartoggle2 (MineCar2's LockMove) needs both circuitboard locks [verified data; as MineCar's, verified xemu, placed: rz-b2]; e7's only exit is the ride back, which resets the side bit, so the lock is harmless (world.toml) [inferred]; e7's arrival elevator lowers the bucket onto e7.Z000 [inferred] (the probe sitting)"
+
+[exit."e2/g0/r4910"]          # levelSwitch5: the drop to w2
+from = "e2.Z013"
+to = "w2.Z006"
+requires = "false"
+why = "its trigger hangs 22 m over e2.Z013 and 12-16 m over the nearest floors (two slippery slopes, no zone since Step X.16, AZ-359), and the derive places no zone at it; the vanilla route never takes it, so it stays out of logic until the probe sitting finds its approach (default taken under D115). Its arrival E2_W2 stands on w2's ice: the player slides 219 m across and 132 m down it and stands in w2.Z006 after 39 s, HP 200 [verified L3, player tick, snapshot x7-w2-k0: Step X.16's long arrival run from r708 (2026-10-14)]"
+
+[exit."e2/g0/r4926"]          # catalisks_levelSwitch: the canyon's catalisk encounter movie, back to the canyon
+requires = "water>=2"
+why = "and(touch(cataliskEncounter_fieldShape), the movie toggle, gs[water level]>=2) [verified data]: a same-level teleport inside the canyon"
+
+[members]                     # pool locations the derive places on no floor (the conservative-kit rule)
+"e2/g0/r4357" = "e2.Z000"     # an emerald cluster 3.5 m off e2.Z000 at its height, 37 m over the floor under it: on a gear the derive doesn't follow
+"e2/g0/r4431" = "e2.Z000"     # a sapphire cluster 29 m over e2.Z001, on a rig the derive doesn't follow
+"e2/g0/r4373" = "e2.Z000"     # frag_air_3 on e2.Z173, which the derive joins to nothing
+"e2/g0/r4778" = "e2.Z003"     # key_gear: 18 m from e2.Z003, on no floor (a rig the derive doesn't follow)
+
+[[location]]
+id = "e2/g0/r4778"
+requires = "water>=1"
+note = "key_gear on no floor near e2.Z003: the conservative-kit rule (the route's e2/g0/r4778, after power_fire moved past the circuitboard locks)"
+
+[[location]]
+id = "e2/g0/r4357"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "on a gear beside e2.Z000: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4431"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "29 m over e2.Z001 on a rig: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4395"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "a diamond cluster the derive holds over e2.Z002 (on no floor, spring or updraft it models): the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4486"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "an emerald the derive holds over e2.Z028: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4488"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "an emerald the derive holds over e2.Z028: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4490"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "an emerald the derive holds over e2.Z028: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[barrier."e2.CrystalOutsideShape"]   # the song crystal (a damage platform, not a wall): hit from its room
+destroy_from = ["e2.Z046"]
+
+[barrier."e2.CrystalInsideShape"]
+destroy_from = ["e2.Z046"]
+
+[[edge]]                      # the pocket's way out: the arena door, then up the arena to e2.Z006
+from = "e2.Z015"
+to = "e2.Z006"
+requires = "water>=1 & (event:e2.arenaruins_baseShape9.touch | event:e2.arenaruins_pCylinderShape80.touch | event:e2.StepShape1Shape.touch | event:e2.StepShape2Shape.touch)"
+why = "the arena's double door opens on a touch of any of its four pads in the canyon (RuinDoorTimer) [verified data; verified xemu: sitting r111c pocket, a walk from the canyon onto StepShape1Shape and on through the door to the arena floor, real input after a placed hop], onto the arena floor e2.Z191, which e2.Z006 (the save point e2save_1) drops into; the derive finds no way up from e2.Z191 (every flight passes a solid: sweep) and none out of the canyon at all (reach v6's probe reach6.e2.arrival_canyon). The vanilla run goes from the town arrival to the valley with water 1 (the route's town/g1/r15 to e2/g0/r733): the conservative-kit rule's kit, default taken under D115; the probe sitting owes the climb"
+
+[[edge]]                      # from the arena to the main valley
+from = "e2.Z006"
+to = "e2.Z000"
+requires = "water>=1"
+why = "the derive's only way from the arena side (e2.Z006, e2.Z007, the crystal room) to the valley is the Teleporters pair, whose AND needs ResetShape2, which stands in the valley (e2.Z000) [verified data]: on a first visit the town arrival would be a dead end, yet the vanilla run collects the valley's keys after arriving from town with water 1 (the route's town/g1/r15 to button:e2.earth_keylock5). So a way from the arena to the valley exists that the derive doesn't model: the conservative-kit rule's kit, default taken under D115; the probe sitting owes the way (e2's pocket)"
+
+[[edge]]                      # MineCarRide2: the in-level minecart from its station on e2.Z005 to the ice cave's generator room
+from = "e2.Z005"
+to = "e2.Z076"
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+why = "CarMoveTimer runs on MoveTog2 (turned on by MineCarRide2:andCombiner1, the two circuitboard locks) and a touch of the car (pCubeShape567, at rest beside e2.Z005) [verified data: logic_dump e2 MineCarRide2]; it carries the player 219 m to the ice cave's generator room [verified xemu, placed: rz-b2 I-10]; that the room is power_fire's zone, past the ice the player can't melt before the fire power, is [inferred] (the route source's 'behind ice by the minecart')"
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z006"
+requires = "water>=1"
+why = "back from the valley to the arena by the same way (the edge above) [inferred]; without it the valley would get back only by the Teleporters pair, whose canyon pad a player who came by that way may never have touched (default taken under D115)"
+
+# The valley's first leg (the route's e2/g0/r733 to button:e2.earth_keylock1, with water 1 and no air; power_fire (e2/g0/r2955) follows the circuitboard locks): the derive reaches none of these from the valley
+# floor e2.Z000 without air 1-3 (its gears, ladders and lifts are rigs it doesn't follow), yet the vanilla run takes
+# each with water 1. The conservative-kit rule (default taken under D115): each is joined to the valley both ways with
+# that kit; the proven-spot and probe sittings owe the real ways.
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z005"
+requires = "water>=1"
+why = "the first circuitboard (e2/g0/r733, the route's e2/g0/r733) and MineCarRide2's station: the conservative-kit rule (the comment above) [inferred]"
+
+[[edge]]
+from = "e2.Z005"
+to = "e2.Z000"
+requires = "water>=1"
+why = "back the same way [inferred]"
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z027"
+requires = "water>=1"
+why = "the second circuitboard (e2/g0/r735, on the route): the conservative-kit rule (the comment above) [inferred]"
+
+[[edge]]
+from = "e2.Z027"
+to = "e2.Z000"
+requires = "water>=1"
+why = "back the same way [inferred]"
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z001"
+requires = "water>=1"
+why = "a key_gear (e2/g0/r737, on the route): the conservative-kit rule (the comment above) [inferred]"
+
+[[edge]]
+from = "e2.Z001"
+to = "e2.Z000"
+requires = "water>=1"
+why = "back the same way [inferred]"
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z097"
+requires = "water>=1"
+why = "a key_gear (e2/g0/r739, on the route): the conservative-kit rule (the comment above) [inferred]"
+
+[[edge]]
+from = "e2.Z097"
+to = "e2.Z000"
+requires = "water>=1"
+why = "back the same way [inferred]"
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z003"
+requires = "water>=1"
+why = "the obsidian e2/g0/r3960 (on the route) and the unplaced key_gear's ledge: the conservative-kit rule (the comment above) [inferred]"
+
+[[edge]]
+from = "e2.Z003"
+to = "e2.Z000"
+requires = "water>=1"
+why = "back the same way [inferred]"
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z040"
+requires = "water>=1"
+why = "the all_fuel e2/g0/r4415 (on the route): the conservative-kit rule (the comment above) [inferred]"
+
+[[edge]]
+from = "e2.Z040"
+to = "e2.Z000"
+requires = "water>=1"
+why = "back the same way [inferred]"
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z008"
+requires = "water>=1"
+why = "the obsidian e2/g0/r4419 (on the route): the conservative-kit rule (the comment above) [inferred]"
+
+[[edge]]
+from = "e2.Z008"
+to = "e2.Z000"
+requires = "water>=1"
+why = "back the same way [inferred]"
+
+[[edge]]
+from = "e2.Z000"
+to = "e2.Z012"
+requires = "water>=1"
+why = "the two circuitboard locks (at button:e2.earth_keylock to button:e2.earth_keylock1): the conservative-kit rule (the comment above) [inferred]"
+
+[[edge]]
+from = "e2.Z012"
+to = "e2.Z000"
+requires = "water>=1"
+why = "back the same way [inferred]"
+
+[[location]]
+id = "e2/g0/r4373"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "frag_air_3 on e2.Z173, an island the derive joins to nothing: the conservative-kit rule (the route's e2/g0/r4402)"
+
+[[probed]]
+from = "e2.Z027"
+to = "e2.Z000"
+kit = "water>=1"
+proven = { by = "l3", ref = "x7/5022c1fb5aed@82416dc03da3" }
+note = "Step X.7: an L3 input string of 128 ticks (robustness 0.81 under jitter) from e2.Z027 (R6 onto a floor sample of e2.Z027; placed: R7 hop, R2 kit water1) reaches e2_core; xemu replayed it tick for tick (sitting x7)"
+
+[[edge]]                      # the entrance gear (AZ-353)
+from = "e2.Z157"
+to = "e2.Z000"
+requires = "true"
+why = "the E5_E2 arrival's way into the valley on e2's entrance gear, the vanilla route's: until Step X.16 the derive guessed rides on the gear's teeth (EntranceGear6:pCubeShape5, Public_Gameplay_cylShape, moved by EntranceGearTimer4) from the arrival on to the valley; it now takes the gear, whose rotateX turns its decks over, for machinery (AZ-353), so this hand edge keeps the way: the arrival rides the gear and drops into the valley with no input (the owner's demo, X.78, D722 row 04, below)"
+
+[[probed]]                    # the E5_E2 arrival into the valley, at kit 0 (D722 row 04)
+from = "e2.Z157"
+to = "e2.Z000"
+kit = "true"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 18:18, rows 01-04 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+note = "Step R1.24b: e2 loaded by E5_E2 at E5b_E2b and the arrival dropped the owner e2.Z157 > Z202 > Z000 with no input, then he stood in e2.Z000, HP 200/200 (the owner's demo, X.78, D722 row 04: keep)"

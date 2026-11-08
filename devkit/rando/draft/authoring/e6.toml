@@ -1,0 +1,310 @@
+# e6's hand decisions for `azurik-mod rando author` (Step R1.11c): what the derive (derived/e6.json.gz) can't decode
+# or doesn't model. Zones are the derive's (e6.Z<n>); a default taken under D115 says so. e6 is the great tree's
+# garden. Two progression minigames (Step R1.8f's minigames report, 2026-10-13):
+# - the tree song: its four pedestals (Detect_fire/smsh/litn/wind) play a tone on a hit of their own staff, and a tone
+#   counts only once its crystal's global is set (SongFire1_hit in e7, SongLightning3_hit in e2, SongSmash2_hit and
+#   SongWhirlwind4_hit in e5) [verified data + xemu: rz-b2 I-3]; seven tones in order latch SongPuzzleSolved_toggle,
+#   which opens the tree's crystal door (CrystalDoorTimer); inside, the trunk's ramp leads to a bridge into the
+#   elevator car, where ExitTriggerShape's touch turns ExitToggle on, which raises the car (ElevTransform) and at 0.8
+#   of its climb fires E6_A1_levelSwitch [verified data: $RP r0/tools/logic_dump.py e6
+#   '^(ExitToggle|TurnOn_andCombiner|SongPuzzleSolved_toggle)$'; verified xemu: sitting r18j, Step R1.8j];
+# - the spotlights (Step R1.8i, AZ-355): six spotlights in a ring round the tree, Light2, 4 and 6 on the lower ring and
+#   Light1, 3 and 5 on the upper one (the second level), each aimed at one of two of the tree's six orbs; three red
+#   light the red machine (e6.red_machine.on: its gravity lifts up to the upper ring), three blue the blue beam
+#   (e6.blue_machine.on), which the upper ring's steam vent launches the player into, up to frag_earth_3 (e6/g0/r2755).
+#   Red first from the lower ring, then lights swapped until both are on (the events below).
+# The conservative-kit rule is a1's (draft/authoring/a1.toml's header).
+level = "e6"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+e6_z001 = "e6.Z000"        # Step R1.24b: Z000 since the water fix (was e6.Z001); the id kept
+e6_z004 = "e6.Z006"        # Step R1.24b: Z006 since the water fix (was e6.Z004); the id kept
+e6_z005 = "e6.Z007"        # Step R1.24b: Z007 since the water fix (was e6.Z005); the id kept
+e6_z007 = "e6.Z010"        # Step R1.24b: Z010 since the water fix (was e6.Z007); the id kept
+e6_z011 = "e6.Z015"        # Step R1.24b: Z015 since the water fix (was e6.Z011); the id kept
+e6_z013 = "e6.Z017"        # Step R1.24b: Z017 since the water fix (was e6.Z013); the id kept
+e6_z014 = "e6.Z018"        # Step R1.24b: Z018 since the water fix (was e6.Z014); the id kept
+e6_z020 = "e6.Z024"        # Step R1.24b: Z024 since the water fix (was e6.Z020); the id kept
+e6_z021 = "e6.Z025"        # Step R1.24b: Z025 since the water fix (was e6.Z021); the id kept
+e6_z023 = "e6.Z027"        # Step R1.24b: Z027 since the water fix (was e6.Z023); the id kept
+e6_z025 = "e6.Z029"        # Step R1.24b: Z029 since the water fix (was e6.Z025); the id kept
+e6_z026 = "e6.Z030"        # Step R1.24b: Z030 since the water fix (was e6.Z026); the id kept
+e6_z035 = "e6.Z039"        # Step R1.24b: Z039 since the water fix (was e6.Z035); the id kept
+e6_z039 = "e6.Z044"        # Step R1.24b: Z044 since the water fix (was e6.Z039); the id kept
+e6_z040 = "e6.Z045"        # Step R1.24b: Z045 since the water fix (was e6.Z040); the id kept
+e6_z043 = "e6.Z048"        # Step R1.24b: Z048 since the water fix (was e6.Z043); the id kept
+e6_z045 = "e6.Z050"        # Step R1.24b: Z050 since the water fix (was e6.Z045); the id kept
+e6_z046 = "e6.Z051"        # Step R1.24b: Z051 since the water fix (was e6.Z046); the id kept
+e6_z047 = "e6.Z052"        # Step R1.24b: Z052 since the water fix (was e6.Z047); the id kept
+e6_z048 = "e6.Z053"        # Step R1.24b: Z053 since the water fix (was e6.Z048); the id kept
+e6_z049 = "e6.Z054"        # Step R1.24b: Z054 since the water fix (was e6.Z049); the id kept
+e6_z054 = "e6.Z059"        # Step R1.24b: Z059 since the water fix (was e6.Z054); the id kept
+e6_z057 = "e6.Z062"        # Step R1.24b: Z062 since the water fix (was e6.Z057); the id kept
+e6_z068 = "e6.Z073"        # Step R1.24b: Z073 since the water fix (was e6.Z068); the id kept
+e6_z077 = "e6.Z082"        # Step R1.24b: Z082 since the water fix (was e6.Z077); the id kept
+e6_z084 = "e6.Z089"        # Step R1.24b: Z089 since the water fix (was e6.Z084); the id kept
+e6_z214 = "e6.Z226"        # Step R1.24b: Z226 since the water fix (was e6.Z214); the id kept
+e6_z222 = "e6.Z234"        # Step R1.24b: Z234 since the water fix (was e6.Z222); the id kept
+e6_z161 = "e6.Z168"        # Step R1.24a: Z160 since the re-derive (was e6.Z161); the id kept
+e6_z166 = "e6.Z175"        # Step R1.24a: Z165 since the re-derive (was e6.Z166); the id kept
+e6_z172 = "e6.Z181"        # Step R1.24a: Z171 since the re-derive (was e6.Z172); the id kept
+e6_z184 = "e6.Z193"        # Step R1.24a: Z183 since the re-derive (was e6.Z184); the id kept
+e6_z189 = "e6.Z198"        # Step R1.24a: Z188 since the re-derive (was e6.Z189); the id kept
+e6_core = "e6.Z001"           # the pedestals' garden at the tree's foot, the save points e6_1 and E6_2: the Tree Song Skip's start (tricks.toml)
+
+[barrier."e6.Detect_fireShape1"]
+override_requires = "false"
+override_reason = "a song pedestal's detector (no magic link; generated persist unknown): a hit plays its tone [verified xemu, placed: rz-b2 I-3], nothing breaks it and nothing in logic crosses it"
+destroy_from = ["e6.Z001"]
+
+[barrier."e6.Detect_windShape4"]
+override_requires = "false"
+override_reason = "a song pedestal's detector, as e6.Detect_fireShape1"
+destroy_from = ["e6.Z001"]
+
+[barrier."e6.Detect_smshShape2"]
+override_requires = "false"
+override_reason = "a song pedestal's detector, as e6.Detect_fireShape1"
+destroy_from = ["e6.Z001"]
+
+[barrier."e6.Detect_litnShape3"]
+override_requires = "false"
+override_reason = "a song pedestal's detector, as e6.Detect_fireShape1"
+destroy_from = ["e6.Z001"]
+
+[[event]]                     # the tree song (Step R1.8f)
+id = "e6.tree_song.played"
+zone = "e6.Z001"
+requires = "flag:e2.crystal_lightning.hit & flag:e7.crystal_fire.hit & flag:e5.crystal_whirlwind.hit & flag:e5.crystal_pulse.hit & earth>=1 & air>=1 & fire>=1 & water>=1"
+why = "the four crystals' globals and a staff hit of each kind at its pedestal, seven in order: smash, lightning, fire, whirlwind, lightning, smash, fire [verified data: $RP r0/tools/logic_dump.py e6 '^(Detect_.*Shape[0-9]|Song.*|ExitToggle)$' --hops 2: WhichWackType_max numbers a tone 1 fire, 2 smash, 3 lightning, 4 whirlwind (FireSound_and and the others: the pedestal's magic AND its crystal's latch; 5 is a plain whack on Detect_fireShape1), AdvanceTone_timer steps Tone01..07_hit_latch one hit at a time, and Tone_solution_and wants the solution toggles' windows 2, 3, 1, 4, 3, 2, 1, the order public_EarthSong_timer plays]. The staffs: smash earth + air + fire, lightning air + fire + water, fire earth + fire, whirlwind earth + air [verified data: config.xbr magic]; level 1 suffices (an AND on any non-zero magic) [verified xemu, placed: rz-b2 I-3 for whirlwind]. The crystals' own kits already hold those four elements; the song names them so the gate reads as the game does. A wrong tone fills its latch; after the seventh the timer resets every latch (AdvanceTone_disable_or), so the song is played again: no lockout. SongPuzzleSolved_toggle and CrystalDoorTimer are saved"
+
+[rig_held]                    # the tree's moving parts: no ride the probe edges model (Step R1.8j)
+polySurfaceShape571 = "the crystal door's right leaf: CrystalDoorTimer swings it open once the song is played (SongPuzzleSolved_toggle), so it carries no one and the way through it is the door edge below [verified data + xemu: sitting r18j, rows tree-exit-1, tree-door-shut-1]"
+polySurfaceShape572 = "the crystal door's left leaf, as polySurfaceShape571"
+"Bridge:BridgeShape" = "the bridge from the trunk's inner ramp into the elevator car: ExitToggle slides it 4 m when the car leaves its foot (Bridge_Transform), so it is walked, not ridden, and only inside the tree [verified data + xemu: r18j tree-exit-1]"
+
+[rig_one_way]                 # AZ-589 (Step R1.24a, D719): rigs whose movers only rise or only sink; their guessed rides against it stay out of logic
+TShape1 = { way = "up", why = "Mirror_Timer12, a timer that doesn't repeat, only raises it (every decoded ride goes up): its 6 guessed rides down are held; a drop beside it is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+
+[gates]
+"e6.gate.CrystalDoorTimer" = "event:e6.tree_song.played | skip:e6.tree_song_skip"   # the crystal door (its leaves polySurfaceShape569-572, which the derive takes for rigs): shut until the song plays SongPuzzleSolved_toggle -> CrystalDoorTimer [verified data]; the Tree Song Skip gets into the trunk by its tube instead
+
+[gate_sides."e6.gate.CrystalDoorTimer"]   # the zones outside the trunk and the trunk's inside (Step R1.8j)
+near = ["e6.Z001", "e6.Z007", "e6.Z010", "e6.Z015", "e6.Z021", "e6.Z027", "e6.Z030", "e6.Z035", "e6.Z047", "e6.Z196",
+        "e6.Z051", "e6.Z102", "e6.Z109", "e6.Z158", "e6.Z166", "e6.Z175", "e6.Z190", "e6.Z214", "e6.Z215", "e6.Z220",
+        "e6.Z249", "e6.Z264", "e6.Z282", "e6.Z307", "e6.Z321", "e6.Z476", "e6.Z523", "e6.Z226"]
+far = ["e6.Z025", "e6.Z097", "e6.Z529", "e6.Z641", "e6.Z525", "e6.Z597"]
+why = "the far zones are the trunk's inside (their samples within 13 m of its axis: the inner floor and ramp e6.Z025, the ledge e6.Z097 over the door's inside, and two ramp pieces); every derived edge between them and the near zones outside is the door's threshold (a 2 m jump the sweep probe admits), a door or bridge ride, a sweep jump or flap through the trunk's wall, or a barrier bypass; none is a plain modelled way in [verified data: the derived edges, Step R1.8j]. With the door shut (no song) the route pilot ended 28.3 m short in the garden; with it open it walked through and up the ramp [verified xemu, placed: sitting r18j, rows tree-door-shut-1, tree-exit-1]. Step X.16: the threshold slivers e6.Z525 and e6.Z597 (1-2 samples by the door's inside ledge, which AZ-360's erosion by the face keeps; a modelled drop from the outside ledge e6.Z109 into one, a step from the other onto e6.Z097) join far, and e6.Z226 (a 43 m air-3 sweep flap through the wall into e6.Z025) near [verified data: the derived edges]"
+
+[[event]]                     # a lower-ring spotlight's pad reached (Step R1.8i): Light4's, on its island
+id = "e6.Light4Shape.joystick"
+zone = "e6.Z010"
+requires = "true"
+why = "Light4Shape's pad (pCubeShape465) lies in e6.Z010; standing on it makes the light's joystick live (the pad's touch -> xorCombiner2 -> Mirror_Toggle24 -> joystickEnable) [verified data]. No item: the event marks the pad reached, for the machines below"
+
+[[event]]                     # a lower-ring spotlight's pad reached: Light6's island
+id = "e6.Light6Shape.joystick"
+zone = "e6.Z015"
+requires = "true"
+why = "Light6Shape's pad (pCubeShape471) lies in e6.Z015 (the pad's touch -> xorCombiner4 -> Mirror_Toggle26) [verified data]; the event marks the pad reached, as e6.Light4Shape.joystick"
+
+[[event]]                     # an upper-ring spotlight's pad reached: Light5's ledge
+id = "e6.Light5Shape.joystick"
+zone = "e6.Z024"
+requires = "true"
+why = "Light5Shape's pad (pCubeShape468) lies in e6.Z024, beside the upper ring (the pad's touch -> xorCombiner5 -> Mirror_Toggle18) [verified data]; the event marks the pad reached, as e6.Light4Shape.joystick"
+
+[[event]]                     # the red machine: its gravity lifts up to the second level (Step R1.8i, AZ-355)
+id = "e6.red_machine.on"
+zone = "e6.Z001"
+requires = "event:e6.Light4Shape.joystick & event:e6.Light6Shape.joystick"
+why = "RedOnToggle (stored turnOff: on while RedMachineCombiner is) needs all three red orbs lit (RedPanel_Toggle4-6 -> andCombiner10 -> RedPanelDelay_Toggle1 -> RedMachine_Toggle1-3 -> RedMachineCombiner); it opens Red_Machine's and Red_Machine2's iris (Door1-6.rotateX) and turns on their push fields (Public_FieldShape1, pushZ 4, 31 m tall), the lifts to the upper ring. Each spotlight aims at one of two orbs (its Left/RightPanelCombiner windows on its Public_RotY/RotZ timers): Light1 red 5 or red 6, Light2 red 4 or blue 8, Light3 blue 9 or blue 7, Light4 red 6 or red 5, Light5 red 4 or red 5, Light6 blue 7 or red 6; Light2, 4 and 6 stand on the lower ring (10 m under the upper ring's three), so from below the red machine is lit one way only: Light2 on red 4, Light4 on red 5, Light6 on red 6 [verified data: $RP r0/tools/logic_dump.py e6 '^(RedOnToggle|RedMachineCombiner|(Left|Right)PanelCombiner[0-9]*|MirrorAngleCombiner[0-9]|BlueMirrorAngleCombiner2)$' --hops 1]. Light2's pad is in the garden's node (e6.Z001), Light4's and Light6's are their islands' (the events above). No item aims a light. Sitting r18i (2026-10-14; runs red-first, full-1, full-2, module-2, module-3): those three aims lit the red machine 5 of 5, and its lift carried the player 32 m up from its floor (e6.Z120) on every ride (7, about 220 ticks) and, steered at the top, onto the upper ring 4 of 4 (rows lift-1726-jump, way-in-1, way-in-2, module-way-in-4; the red machine's camera holds the stick for about 20 s after it comes on) [verified xemu, placed: R6 onto each pad and onto the lift's floor, which the route pilot found no way onto from the garden]; the owner rode a red lift from the garden up to the ring with no power and no flap (D217: \"both red lifts lead to the second level ... reaching them from the garden is trivial\"; X.28 spot 4, n 74097-75600 at kit E3 A3 F3 W3 unused, and spot 7, n 138240-138690 at kit 0) [verified xemu, the owner's real input: the owner's X.28 demos' per-tick trace (2026-10-15)]. The aims are saved; a re-aimed light's old orb goes dark (the panels' stored turnOff), so a miss is re-aimed: no lockout"
+
+[[event]]                     # the blue machine: the beam to frag_earth_3, both machines on (Step R1.8i, AZ-355)
+id = "e6.blue_machine.on"
+zone = "e6.Z001"
+requires = "event:e6.Light6Shape.joystick & ((event:e6.red_machine.on & event:e6.Light5Shape.joystick) | skip:e6.slide_flight)"
+why = "BlueOnToggle (on while RedMachineCombiner2 is: BT1-BT3, all three blue orbs lit) turns on the blue beam (Public_FieldShape1, a push 385 m long, and PublicGuideShape solid) [verified data]. Blue 8 is lit only by Light2 and blue 9 only by Light3 (on the upper ring), so blue 7 needs Light6, and with both machines on red 4 needs Light5 and red 5 and red 6 Light1 and Light4: all six lights, one on each orb [verified data, the red machine's why]. The owner (2026-10-14): red first, then upper-ring lights onto red orbs and red ones onto blue until both are lit. So: the red machine from the lower ring, its lift up, Light5 onto red 4 and Light1 onto red 6 (each red orb held by two lights), Light3 onto blue 9; back down, Light2 onto blue 8 and Light6 onto blue 7: blue on and red still on, whose lift takes the player back up to the steam vent (frag_earth_3's way in). Sitting r18i: exactly that, real aims from each pad, both machines on in five sequences (rows full-1, full-2, module-2, module-3, and step by step red-first, upper-swap, L3-B9, lower-blue) [verified xemu, placed: R6 onto each pad]. Without the red machine (e6.slide_flight, held: flapping up the slide to the upper ring) Light2, Light3 and Light6 light blue alone. DissableToggle, on while exactly one machine runs, pulses every pad's xorCombiner when a machine turns on or off: the pad the player stands on lets go of its joystick and every other pad's Mirror_Toggle runs its 4 s lock, so every spotlight's joystick rises 1.5 m (Mirror_Joystck_Timer -> Joystick.translateZ) [verified data]; r18h's lights 2 and 3 that 'never engaged' once the red machine was on (AZ-355) were its solver pressing X from the pad at the joystick's old height: walked up to, the risen joysticks engage (row l3-probe, then every aim of full-1, full-2, module-2 and module-3). Nor does either machine shut the other out: blue first (Light2, Light3, Light6), then red (Light5 onto red 4, Light1 onto red 5, Light4 onto red 6), both on (row blue-then-red-2); r18h's red-after-blue miss was its solver's too. The blue machine's camera (RedMachineCamera_Timer1, about 29 s) and the red one's (RedMachineCamera_Timer, about 20 s) hold the stick while they play"
+
+[[edge]]                      # Step R2.18: from beside the upper ring down past AcidBlock_02 (D641, D643)
+from = "e6.Z024"
+to = "e6.Z017"
+requires = "(skip:e6.acidblock02_air2 | skip:e6.acidblock02_air1) & (event:e6.red_machine.on | skip:e6.slide_flight | skip:e6.upper_ring_flutter_air2 | skip:e6.upper_ring_flutter_air1)"
+why = "the skips' clause: from e6.Z024 (Light5's pad, beside the upper ring), flights down by e6.Z019 and e6.Z028 to e6.Z017, whose edges go on to e6.Z010 and the block's far side e6.Z054 [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 211866-213111 (air 2) and 237044-238486, air 1 and water 1]. Both his takeoffs for e6.Z024 were from the upper ring, and e6_core -> e6_z020 (the derive's 10 m air-1 flap, level with the ring, 14 m over the garden) leaves from the ring's part of e6.Z001 [inferred], so the edge also asks the ring's way up [default taken under D115]"
+
+[[edge]]                      # the crystal door after the song (Step R1.8j)
+from = "e6.Z001"
+to = "e6.Z025"
+requires = "event:e6.tree_song.played | skip:e6.tree_song_skip"
+why = "the song opens the crystal door (SongPuzzleSolved_toggle -> CrystalDoorTimer, saved) and the garden's floor runs through it onto the trunk's inner floor (e6.Z025) [verified data + xemu: sitting r18j, tree-exit-1: the route pilot from the crystal through the door, 698 ticks, kit E1 A1 F1 W1]; the Tree Song Skip (owner-confirmed, tricks.toml's clause) gets into the trunk by its tube and reaches the elevator's trigger from above instead (default taken under D115: the skip's way in is the door's)"
+
+[exit."e6/g0/r3467"]          # E6_A1_levelSwitch: the tree's elevator (Step R1.8j)
+from = "e6.Z025"
+requires = "true"
+why = "the owner (2026-10-14): \"The tree's elevator\". Up the trunk's inner ramp (e6.Z025) to the bridge, which leads into the elevator car standing at the shaft's foot; ExitTriggerShape fills the car, so stepping in turns ExitToggle on (TurnOn_andCombiner, unless the player arrived from a1), which raises the car (ElevTransform) and at 0.8 of its climb fires E6_A1_levelSwitch [verified data: $RP r0/tools/logic_dump.py e6 '^(ExitToggle|ExitTriggerShape|TurnOn_andCombiner|E6_A1_levelSwitch)$']. In xemu after the song (sitting r18j, tree-exit-1): the route pilot walked from the crystal through the door and up the ramp to the bridge, a walk along it into the car touched the trigger in 95 ticks and the car carried the player to a1 [verified xemu, placed: loadvm vanilla-rz-e6-song with the four crystal latches set, kit E1 A1 F1 W1; the song by Minigames.song]. Nothing past the door gates it"
+
+[members]                     # pool locations the derive places on no floor or gives no way back (the conservative-kit rule)
+"e6/g0/r2732" = "e6.Z198"     # a gem on a slippery slope (no zone since Step X.16, AZ-359): touched sliding down from the slope's top, as the cluster r2730 the derive places there (default taken under D115)
+"e6/g0/r2736" = "e6.Z198"     # as r2732 (default taken under D115)
+"e6/g0/r2636" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2638" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2640" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2642" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2644" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2646" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2648" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2659" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2661" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2665" = "e6.Z001"     # in the pit e6.Z007, which the garden drops into and the derive gives no way out of but held skips
+"e6/g0/r2685" = "e6.Z001"     # obsidian on e6.Z089, past FireWall_02, which the derive gives no way back from but a held skip
+"e6/g0/r2656" = "e6.Z001"     # a diamond cluster 4.5 m beside the garden (e6.Z001), on no floor (a rig the derive doesn't follow)
+"e6/g0/r2730" = "e6.Z198"     # a ruby cluster 1.5 m over e6.Z198, past AcidBlock_03 (its near location [verified data])
+"e6/g0/r2755" = "e6.Z002"     # frag_earth_3 over e6.Z029: taken from the blue beam, which the upper ring's steam vent (e6.Z002, its own zone since Step R1.24b's water fix, AZ-356) launches into (Step R1.8q)
+"e6/g0/r2651" = "e6.Z001"     # an emerald on e6.Z027, which since the water fix (AZ-356, Step R1.24b) the derive leaves only by barrier skips: the conservative-kit rule (below)
+"e6/g0/r2634" = "e6.Z001"     # a sapphire on e6.Z040, which since the water fix the derive enters by nothing but an unadmitted swim exit: the conservative-kit rule (below)
+
+[[location]]
+id = "e6/g0/r2755"
+requires = "event:e6.blue_machine.on"
+proven = { by = "xemu", ref = "x28-owner-demos-2026-10-15/trace.jsonl: spot 7, n 136042-139940 (the owner's real input, kit 0)" }
+note = "frag_earth_3 hangs at the blue beam's far end, 9.1 m over e6.Z029 (the E6_E2b switch's ledge). The way in (Step R1.8i): the upper ring's steam vent, pCubeShape63 (springboard 17.5, autoSpring: a launch straight up that keeps the horizontal speed), stands 10 m beside the beam; the launch carries the player into the beam's push field (Public_FieldShape1, on with BlueOnToggle), which holds a body in the air and carries it along the beam to its far end; there a jump and two flaps take the fragment [verified data: the vent's springboard, the field's push]. So the blue machine (e6.blue_machine.on, whose red-machine way leaves the lift on to come back up to the vent, the slide skip's the slide) and no power: the owner (D218, X.28 spot 7: \"got the disc fragment\") from e6's start (the E2_E6 arrival, e6.Z053), kit 0 and both machines on [placed: lit by real aims from placed starts in spots 4 and 6, BlueOnToggle re-latched after the re-entry], dropped into the garden, rode a red lift up to the ring, took the vent's launch into the beam and the fragment (fge3 0 -> 1 at n 139940), 0 flaps [verified xemu, the owner's real input: the owner's X.28 demos' per-tick trace (2026-10-15), n 136042-139940]; spot 6 the same from the ring with air 1 worn and 0 flaps (n 128721-129272). The fragment is taken from the beam, not from e6.Z029's ledge under it, so it is joined to the ring's zone (e6.Z001, [members]; default taken under D115). Sitting r18i (2026-10-14; runs way-in-1, way-in-2, module-way-in-4): after the full sequence (both machines on), the red lift up from its floor, the route pilot (hard, air 2) to the vent's side, onto the vent (a 17.3 m launch), into the field, 13 s along the beam and a jump with two flaps: taken 3 of 3 (the third by scripts/xemu_minigames.py's spotlights, lift and vent_beam) with kit E2 A2 F2 W2 held and no damage [verified xemu, placed: R6 onto each pad between aims and onto the lift's floor, whose way in from the garden the pilot didn't find (rows garden-into-lift, garden-lift2b); the vent, the beam and the fragment real input]. r18h's beam-1 took it once from a placement on the beam itself. The conservative kit E2 A2 F2 W2 it carried until Step R1.8q came down to the demo's kit 0"
+
+[[location]]                  # the second level (the upper ring, region R0002 of e6.Z001): its seven gem clusters (Step R1.8i)
+id = "e6/g0/r2667"
+requires = "event:e6.red_machine.on | skip:e6.slide_flight | skip:e6.upper_ring_flutter_air2 | skip:e6.upper_ring_flutter_air1"
+note = "on the upper ring (the second level: Light1, Light3, the steam vent and the save platform e6_1, e6.Z002), which the derive joined to the garden's zone by its water hull until Step R1.24b (the lake's columns and the upper stream's waterfall, pCubeShape505, one 54 m swim: AZ-356, fixed; the owner, verbatim: \"you cant swim up a waterfall\", D722 row 05) and still joins to it by the red machine's iris doors read as rigs (pCylinderShape6, probe class rig, admitted), neither of which carries anyone up: the red machine's lift, or a skip, is the way up [verified xemu: sitting r18i] (D722 row 05: the seven hand rules stay)"
+
+[[location]]
+id = "e6/g0/r2669"
+requires = "event:e6.red_machine.on | skip:e6.slide_flight | skip:e6.upper_ring_flutter_air2 | skip:e6.upper_ring_flutter_air1"
+note = "on the upper ring, the second level: as e6/g0/r2667"
+
+[[location]]
+id = "e6/g0/r2671"
+requires = "event:e6.red_machine.on | skip:e6.slide_flight | skip:e6.upper_ring_flutter_air2 | skip:e6.upper_ring_flutter_air1"
+note = "on the upper ring, the second level: as e6/g0/r2667"
+
+[[location]]
+id = "e6/g0/r2767"
+requires = "event:e6.red_machine.on | skip:e6.slide_flight | skip:e6.upper_ring_flutter_air2 | skip:e6.upper_ring_flutter_air1"
+note = "on the upper ring, the second level: as e6/g0/r2667"
+
+[[location]]
+id = "e6/g0/r2769"
+requires = "event:e6.red_machine.on | skip:e6.slide_flight | skip:e6.upper_ring_flutter_air2 | skip:e6.upper_ring_flutter_air1"
+note = "on the upper ring, the second level: as e6/g0/r2667"
+
+[[location]]
+id = "e6/g0/r2771"
+requires = "event:e6.red_machine.on | skip:e6.slide_flight | skip:e6.upper_ring_flutter_air2 | skip:e6.upper_ring_flutter_air1"
+note = "on the upper ring, the second level: as e6/g0/r2667"
+
+[[location]]
+id = "e6/g0/r2773"
+requires = "event:e6.red_machine.on | skip:e6.slide_flight | skip:e6.upper_ring_flutter_air2 | skip:e6.upper_ring_flutter_air1"
+note = "on the upper ring, the second level: as e6/g0/r2667"
+
+[[location]]
+id = "e6/g0/r2656"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "on no floor beside the garden: the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2730"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "1.5 m over e6.Z198 on no floor: the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2636"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2638"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2640"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2642"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2644"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2646"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2648"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2659"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2661"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2665"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "in the pit e6.Z007 (no way out the derive models): the conservative-kit rule (off the route: e6's last route step, e6/g0/r2789)"
+
+[[location]]
+id = "e6/g0/r2685"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "on e6.Z089 past FireWall_02 (no way back the derive models): the conservative-kit rule (the route's e6/g0/r2687)"
+
+[[location]]
+id = "e6/g0/r2747"
+proven = { by = "l3", ref = "r129/fd0d3ea2cea9@efb8c345652c" }
+note = "Step R1.29: an L3 input string of 1276 ticks (robustness 0.31 under jitter) from e6.Z001 (the snapshot's own spot; placed: R7 hop, R2 kit k0) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start >10 m away)"
+
+[exit."e6/g0/r3471"]          # EntranceGear2:levelSwitch1 (E6_E2): the entrance gear's exit back to e2 (Step R1.24b)
+from = "e6.Z053"
+requires = "true"
+why = "the turning gear's exit pocket is the zone the owner stood in, e6.Z053, not the derive's static-pose switch zone e6.Z048: from the garden (e6.Z001) he dropped onto e6.Z053 at kit 0 (no red lift, no slide), stood, jumped once and stood about 1.3 s, then e2 loaded by this exit (arrival e2.Z150 > Z001) [verified xemu, the owner's real input: the owner's demo, X.78, D722 row 06, the owner's calls at the X.78 logic-review demo (2026-10-25, 18:25)]"
+
+[[probed]]                    # the garden's drop into the gear's exit pocket, kit 0 (D722 row 06: keep)
+from = "e6.Z001"
+to = "e6.Z053"
+kit = "true"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 18:25, row 06 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+note = "Step R1.24b: from the E2_E6 arrival's garden floor a plain drop onto e6.Z053 at kit 0, no red lift and no slide, then e2 loaded by EntranceGear2:levelSwitch1 (AZ-586; the owner's word: \"done\")"
+
+[[edge]]                      # out of the lake back up to the garden by the stump's vines (Step R1.24d, D745; was Step R1.24b's 2/2/2/2 stand-in)
+from = "e6.Z003"
+to = "e6.Z001"
+requires = "true"
+why = "the lake (e6.Z003: Light4's island side, the underwater obsidian r2747 and r2744) is left at kit 0 up a tree stump's vines (the owner, verbatim: \"you can get out of the lake in e6 with kit 0 by climbing vines on a tree stump within the lake\", which lead \"back to the song tree puzzle area near the locked gate\"; D745, 2026-10-26). In the level data: climbable static faces at the lake's surface (28 columns beside e6.Z003's water) rise 12-13 m to e6.Z027's terrace, 1.6 m off them, whose 2.6 m walk-off (rank 0, modelled) drops into the garden e6.Z001, where the song's four pedestals and the crystal door (CrystalDoorTimer, shut until the song) stand [verified data: Step R1.24d's read of e6's lake climb (2026-10-26), rel]. The derive has no climb out of water (AZ-745), and its barrier cut holds both legs as bypasses (FireWall_02 and AcidBlock_02), so this hand edge is the owner's way, unmeasured in L3"
+
+[[location]]
+id = "e6/g0/r2651"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "the conservative-kit rule (a1.toml's header): the kit the vanilla run holds when it last leaves e6 (off the route: e6/g0/r2789 [computed: route.toml]), joined to the garden; its floor e6.Z027 lost its ways back with the water hull (AZ-356, Step R1.24b; default taken under D115)"
+
+[[location]]
+id = "e6/g0/r2634"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "the conservative-kit rule, as e6/g0/r2651: its floor e6.Z040 lost its ways in with the water hull (AZ-356, Step R1.24b; default taken under D115)"
+
+[[edge]]                      # the garden to Light4's island, the vanilla run's way (Step R1.24b, AZ-356)
+from = "e6.Z001"
+to = "e6.Z010"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+why = "Light4's island (e6.Z010, its pad pCubeShape465) lies in the lake's pocket, which the water hull joined to the garden (AZ-356); since the fix the derive's ways onto it are FireWall_02's crossing from e6.Z045 (reached at the standard tier only) and barrier skips, so the vanilla run's way to the lower spotlight takes the conservative-kit rule, the kit it holds in e6's spotlight area (the route's e6/g0/r2755 to e6/g0/r2747 [computed: route.toml]), rated safe since vanilla's own route needs it (D156; default taken under D115); its way back is the lake's (below)"

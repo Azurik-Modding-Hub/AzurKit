@@ -1,0 +1,21 @@
+# airship's hand decisions for `azurik-mod rando author` (Step R1.11a): what the derive (derived/airship.json.gz) can't
+# decode or doesn't model. Zones are the derive's (airship.Z<n>); a default taken under D115 says so.
+# The airship holds no pool location: it is the Balthazar fight, entered one way from w1's beach (AirshipFight_levelSwitch)
+# and left only by EndFight_levelSwitch to a3 (I-13 [verified data]).
+level = "airship"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+airship_deck = "airship.Z001"   # the deck the AirshipFight arrival (startspot) stands on, where Balthazar is fought
+
+[[event]]
+id = "airship.balthazar.killed"
+of = "airship/g0/r11"
+zone = "airship.Z001"
+requires = "true"
+why = "Balthazar is on his generator's list at the first player tick after the arrival and comes to the player; plain-staff hits are never blocked by his adaptive armor, so no element is needed [verified xemu, placed: the Balthazar armor sitting (2026-10-12), fight start 13 of 13 and 74 of 74 contacts; the static RE's 'plain-staff hits are never blocked']"
+
+[exit."airship/g0/r611"]        # EndFight_levelSwitch: fired by AirshipBalthazaarKilled_toggle (numDead of Balthazar), no touch
+from = "airship.Z001"
+requires = "flag:airship.balthazar.killed"
+why = "AZ-289's rule: the airship -> a3 edge needs the Balthazar kill (the switch's numDead gate, kept), and the writer never rewrites EndFight (fired while he lives it hangs the game on the airship_docking movie, sitting skips-h)"

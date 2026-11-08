@@ -1,16 +1,31 @@
 # devkit/rando: the randomizer database's tools and benches (dev only)
 
 The randomizer's database lives in `src/azurkit/tools/randomizer/data/`: a
-generated half, decoded from the vanilla image, and the hand-authored level
-files, items, skips, settings and vanilla route. These verbs make the
-generated half, check the whole, and measure the planner on it. They are
-Modkit's `rando db-extract` and `rando check` and its `rando_bench.py`,
-`rando_impact.py` and `rando_soak.py` at its cut (Step 4.13b), their imports
-pointed at AzurKit's engine through `ports.py`. `data/` holds the fixture
-databases the tests, the impact ranking and the solver's plan corpus run on
-(`toydb`, `reachdb`, `escapedb`, `guardiandb`, `impactdb`, and the plans in
-`plans/valid` and `plans/invalid`). The reach model's `derive` and `author`
-come with the authoring's own step. None of them prints a game byte.
+generated half, decoded from the vanilla image, the derived data the reach
+model writes, and the hand-authored level files, items, skips, settings and
+vanilla route. These verbs make the generated and derived halves, author
+the level and movement files, check the whole, and measure the planner on
+it. They are Modkit's `rando db-extract` and `rando check` and its
+`rando_bench.py`, `rando_impact.py` and `rando_soak.py` at its cut (Step
+4.13b), their imports pointed at AzurKit's engine through `ports.py`, and
+Modkit's `azurik-mod rando derive | author` and its restack at Modkit's
+freeze (Step 4.13c). `data/` holds the fixture databases the tests, the
+impact ranking and the solver's plan corpus run on (`toydb`, `reachdb`,
+`escapedb`, `guardiandb`, `impactdb`, and the plans in `plans/valid` and
+`plans/invalid`). None of them prints a game byte.
+
+`draft/` is Modkit's `randomizer/draft`, each module its code with its
+imports pointed at AzurKit's: the shipped half of the draft (the envelope,
+floors, geometry, wiring and `tiers.toml`) is the randomizer's own, in
+`src/azurkit/tools/randomizer/draft/`, and `physics.py` restores the parts
+of Modkit's physics the derive needs (the walk-off carry and the flights'
+certificates). `draft/authoring/<level>.toml` holds each realm step's hand
+decisions with its reason; `draft/blocker_families.toml` the blocker
+families the derive reads.
+[`docs/RANDOMIZER_DB.md`](../../docs/RANDOMIZER_DB.md) is the database's
+format, the derive's and the authoring's sections among it. The derive,
+author and restack read the shipped database and write there; the derive
+reads the USA image through the identity gate.
 
 ## `db-extract`: the generated level data
 
@@ -47,6 +62,41 @@ a reviewed data diff.
 - An exit to a level that isn't on the disc (f1's `levelSwitch3`, to `f7`)
   is left out.
 
+## `derive`: the reach model's derived data
+
+```bash
+uv run --locked python -m devkit rando derive LEVEL ... | --all [--check] [-j N] [--svg DIR] [--iso ISO]
+```
+
+Runs the reach model on each level and writes its derived file,
+`data/derived/<level>.json.gz` (`--all`: every committed one), all or none
+(D35). The levels run in `-j` spawned processes (default: the CPU count; `-j
+1` in this one), and the texts are the serial run's byte for byte. `--check`
+writes nothing and exits 1 unless each committed file equals a fresh
+derivation, naming a change under an unchanged stamp (bump `DERIVE_VERSION`
+in `draft/export.py`). `--svg DIR` also draws each level's tiers there
+(outside the repository: they show geometry). A file's stamp hashes
+`DERIVE_VERSION`, the draft tables (`tiers.toml` and
+`blocker_families.toml`), the level's generated file and the parts of its
+level file and `tricks.toml` the derive reads, so a stale one is re-derived.
+The movement envelope it builds (20-50 s) is kept in the user cache's
+`derive-env/` (`AZURIK_DERIVE_ENV_DIR`) under a key of everything it is made
+from. `derive.router(iso, level)` gives a level's reach model and route
+graph to a sitting script.
+
+## `author`: the level and movement files
+
+```bash
+uv run --locked python -m devkit rando author LEVEL ... [--check]
+```
+
+Writes each level's file (`data/levels/`), its movement file
+(`data/movement/`) and the stub levels' arrivals from the derived data,
+`tricks.toml` and `draft/authoring/<level>.toml`, all or nothing. Name every
+authored level together (all 22; their exits arrive in each other's nodes):
+one left out is named. `--check` writes nothing and exits 1 unless each file
+is current.
+
 ## `check`: load a database and say what is open
 
 ```bash
@@ -72,6 +122,20 @@ field. It reads no game data and writes nothing. Exits 0 with no error, 1
 otherwise. A draft level's open fields are counted, not errors; an
 `authored` level has none. On the shipped database it counts what Modkit's
 `rando check` counted at its freeze (`tests/test_rando_db.py`).
+
+## `restack`: data and goldens after a rebase
+
+```bash
+uv run --locked python -m devkit rando restack [-j N] [--derive-check] [--no-goldens]
+```
+
+In a lane worktree (it refuses the main checkout), at nice 15: derives the
+stale levels again (`--derive-check`: a full `derive --all --check` first),
+authors every level, alternating with the derive until a derive changes
+nothing (three rounds at most), checks the database, then re-records the
+randomizer's goldens (`scripts/record_goldens.py rando_plans.json
+pipelines.json europe/pipelines.json tracker.json`). It commits nothing; the
+commit names each golden it changed.
 
 ## `bench`: the solver's cost
 
@@ -124,8 +188,8 @@ order the spot proofs and the edge walks in xemu. Over a fixed seed sample
 It writes `impact.json` and `impact.txt` (the greedy set and the top
 `--top` spots and edges, each with its level, its place and why) to
 `--out`, and prints each stage's wall time. A place is named from the realm
-authoring's node names (`devkit/rando/draft/authoring/`, which the
-authoring's step brings; until then by its zones and what it holds).
+authoring's node names (`devkit/rando/draft/authoring/`; else by its
+zones and what it holds).
 `--jobs` processes (default 12) each compile the database once and
 recompile only with an edge removed; while an xemu sitting waits for a slot
 they run one unit at a time (`devkit/xemu/queue.py`'s batch token). It

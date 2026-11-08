@@ -1557,3 +1557,108 @@ def test_the_explorers_options_are_registered_and_each_reacts_to_the_rows_it_see
     got = [roll.act(p, r, t) for t, r in enumerate(rows)]
     pressed = {t: g[2] for t, g in enumerate(got) if g and g[2]}
     assert pressed == {0: O.BLACK, 19: O.BLACK, **{t: O.Y for t in range(22, 41)}} and got[41] and got[42] is None
+
+
+def test_the_trick_explorer_records_touched_faces_entered_volumes_regions_and_zone_steps_and_the_census_counts_them():
+    """Step TD.4 (the trick-discovery plan §3.4, §3.6): each explored row's touched face (the stored contact
+    normal's, ``obs.contact`` on the guide's level) and the push or trigger volumes its body centre is in are
+    tallied by id and state class, a region's picks since its last new cell mark it saturated, each step from a
+    zone stood in to another is recorded row by row (a zone a move only passes through counts), and the site
+    prior's visited sites are each exploration's own (one seed run twice on one guide keeps one archive); the site
+    miner finds, by one rule, a slope patch, a climb column (3 m and more), a lip (a wall under a ledge, within the
+    kit's apex plus the rim step-up), a thin wall with an open top (open air behind it over a floor), a spring, a
+    push volume and a trigger poking out into open air (its void share: points with no floor under them); the
+    census counts each surface class's faces, those touched, those touched in the class's own state, the sites
+    tried (a face touched or a volume entered; runs with no volume record leave a volume unmeasured) and the exits
+    with no logic way in that were reached."""
+    from devkit.rando.draft import sites as S
+    from devkit.sim import l3_explore as X
+    from devkit.sim.l3 import Pad
+    from devkit.sim.obs import Obs
+    from tests.test_reach_model import _box, _level, _quad, _side
+
+    th = math.acos(0.65)                                   # a 0.65 slope: state 3 in game
+    top = 5 * math.tan(th)
+    up, slope_n = (0.0, 0.0, 1.0), (0.0, -math.sin(th), 0.65)
+    inward = lambda tris: [(a, c, b) for a, b, c in tris]   # noqa: E731  the tern's winding for a volume: faces in
+    lv = _level(_quad(0, 0, 10, 5, 0.0) + _quad(0, 5, 10, 10, 0.0, z1=top) + _quad(0, 10, 10, 15, top),
+                (inward(_box(60, 0, 5.0, 62, 2, 7.0)), {}),                     # a trigger in the air
+                (inward(_box(2, 1, 0.0, 4, 3, 2.0)), {"pushEnable": 1.0}),      # a push volume on the floor
+                chunks=[(0x8052, _side((20, 4), (20, 0), 0.0, 4.0)),            # a climbable wall, 4 m
+                        (0x8050, _box(30, 0, 0.0, 32, 2, 1.0)),                  # a 1 m block
+                        (0x8050, _quad(40, 4, 44, 10, 0.0) + _side((40, 7), (44, 7), 0.0, 2.0)),   # a sheet, a floor
+                        (0x8054, _quad(50, 0, 52, 2, 0.0))])                     # a spring pad
+
+    class Row(typing.NamedTuple):
+        pos: tuple
+        state: int
+        obs: Obs
+        hp: int = 200
+        zone: str | None = None
+
+    class Walk:   # 7 m/s along the stick over the floor (state 0), up the slope (state 3) onto the upper floor
+        def __init__(self):
+            self.s = (5.0, 2.0)
+
+        def save(self):
+            return self.s
+
+        def reset(self, s):
+            self.s = s
+
+        def step(self, pad):
+            h, m = pad.yaw + math.atan2(-pad.stick[0], pad.stick[1]), math.hypot(*pad.stick)
+            x = min(max(self.s[0] - 7 * m * math.sin(h) / 30, 0.5), 9.5)
+            y = min(max(self.s[1] + 7 * m * math.cos(h) / 30, 0.5), 14.5)
+            self.s = (x, y)
+            z, st, n = (0.0, 0, up) if y < 5 else ((y - 5) * math.tan(th), 3, slope_n) if y < 10 else (top, 0, up)
+            return Row((x, y, z + 1.0), st, Obs((x, y, z + 1.0), (0.0, 0.0, 0.0), st, 200, 200, 0, normal=n,
+                                                  gauge=1.0))
+
+    class Guide:   # a 0.3 m zone at the slope's top, which a walk (0.23 m a tick at most) can't step over
+        level = lv
+
+        def zone(self, row):
+            y = row.pos[1]
+            return "t.Z000" if y < 5 else None if y < 10 else "t.Z002" if y < 10.3 else "t.Z001"
+
+    sim = Walk()
+    start = sim.save()
+    r0 = sim.step(Pad(yaw=0.0))
+    res = X.explore(sim, start, r0, Guide(), X.Limits(steps=20_000, idle=8), seed=1)
+    assert res.transitions["t.Z000>t.Z002"][0] >= 1 and res.transitions["t.Z002>t.Z001"][0] >= 1
+    assert "t.Z000>t.Z001" not in res.transitions and res.summary()["transitions"] == res.transitions
+    cells, picks, saturated = res.regions["t.Z000"]
+    assert cells > 0 and picks >= 8 and saturated            # 8 picks there with no new cell (Limits.idle)
+    assert set(res.touched) == {(0, "ground"), (1, "ground"), (2, "slope"), (3, "slope"), (4, "ground"),
+                                (5, "ground")} and res.summary()["faces_touched"] == 6
+    push = int(lv.tris_of(2).min())
+    assert set(res.entered) == {(push, "ground")}
+
+    exits = {"t/g0/r1": ["p1"], "t/g0/r2": ["p2"]}
+    found = S.mine(lv, exits=exits)
+    by = {c: [s for s in found if s.cls == c] for c in S.SITES}
+    assert {c: len(v) for c, v in by.items()} == {"slope": 1, "slide": 0, "steep": 0, "climb": 1, "lip": 1,
+                                                  "thin": 1, "open": 1, "trigger": 1, "speed": 2, "oob": 0}
+    assert (by["climb"][0].height, by["trigger"][0].void, by["slope"][0].id) == (4.0, 1.0, "t.slope.000")
+    assert by["lip"][0].public() == {"id": "t.lip.000", "class": "lip", "faces": 10, "m2": 12.0, "height_m": 1.0}
+    faces = S.exit_faces(lv, exits=exits)
+    c = S.census(lv, found, res.touched, entered=res.entered, exits=faces, no_way=["t/g0/r2"])
+    sur = c["surface"]
+    assert [sur[k][f] for k, f in (("floor", "touched"), ("floor", "in_state"), ("slope", "touched"),
+                                   ("slope", "in_state"), ("climb", "faces"), ("climb", "touched"),
+                                   ("spring", "faces"), ("thin", "faces"))] == [4, 4, 2, 2, 2, 0, 2, 2]
+    assert [(c["sites"][k]["tried"], c["sites"][k].get("unmeasured")) for k in ("slope", "climb", "speed",
+                                                                               "trigger")] == [
+        (1, None), (0, None), (1, None), (0, None)] and list(c["sites"]["lip"]["ids"]) == ["t.lip.000"]
+    assert c["exits"] == {"exits": 2, "no_logic_way_in": 1, "reached": 1, "no_logic_way_in_reached": 1}
+    old = S.census(lv, found, res.touched, exits=faces)                  # runs from before the volume record
+    assert [old["sites"][k].get("unmeasured") for k in ("speed", "trigger")] == [1, 1] and old["exits"]["reached"] \
+        is None
+
+    guide = Guide()
+    guide.site_prior = S.Prior(found)
+    seen: set = set()
+    assert guide.site_prior(Row((20 / 3, 20 / 3, top / 3 + 1.0), 3, None), seen) > 1.0 and seen   # on the slope
+    runs = [X.explore(sim, start, r0, guide, X.Limits(steps=3000), seed=2, digest=True) for _ in range(2)]
+    assert runs[0].archive == runs[1].archive

@@ -1,0 +1,203 @@
+# w1's hand decisions for `azurik-mod rando author` (Step R1.8): what the derive (derived/w1.json.gz) can't decode
+# or doesn't model. Zones are the derive's (w1.Z<n>); a default taken under D115 says so.
+level = "w1"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[rig_held]                    # rigs whose ride needs what the rig probe's edges don't carry: their probe edges stay out of logic
+pCylinderShape5 = "the periscope's own mast, turned by PeriscopeTimer, whose rate is the joystick's stick (pCubeShape7.joystickX): no ride from the station's door (w1.Z090) into it, which only the water keylock's stairs give (timer45 raises polySurfaceShape450-459: the derive's rig edges gated by button:w1.water_keylock) (AZ-344) [verified static: $RP r0/tools/logic_dump.py w1 '^pCubeShape7$' --hops 2]"
+
+[rig_one_way]                 # AZ-589 (Step R1.24a, D719): rigs whose movers only rise or only sink; their guessed rides against it stay out of logic
+polySurfaceShape450 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape451 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape452 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape453 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape454 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape455 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape456 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape457 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape458 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+polySurfaceShape459 = { way = "up", why = "timer45, a timer that doesn't repeat (the water keylock's button starts it), only raises the station's stairs (every decoded ride goes up): their guessed rides down are held; a drop beside them is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+
+[names]                       # node id -> one of its zones
+w1_z110 = "w1.Z117"        # Step R1.24a: Z117 since the re-derive (was w1.Z110); the id kept
+w1_z703 = "w1.Z705"        # Step R1.24a: Z705 since the re-derive (was w1.Z703); the id kept
+w1_z803 = "w1.Z806"        # Step R1.24a: Z806 since the re-derive (was w1.Z803); the id kept
+w1_z996 = "w1.Z1000"       # Step R1.24a: Z1000 since the re-derive (was w1.Z996); the id kept
+w1_beach = "w1.Z004"          # the start (world.toml), the spawn spot startspot
+w1_ocean = "w1.Z000"          # the open ocean (the derive's proposal: water region 0)
+w1_dark_cave = "w1.Z034"      # the cave behind the town falls: obsidian w1/g0/r2241, W1_Town, the Town_W1_Waterfall arrival
+w1_stone2 = "w1.Z124"         # the second stepping stone (the silver teleporter's island): kept as a node so the modelled plain jumps from the first stone and on to the bay's bar stay in the graph (Step R1.2b, AZ-352: the hand edge onto it went when the rim step-up covered the jump)
+w1_bay = "w1.Z001"            # the bay: the keylord, the seal, the W1_W4 exits, the W3_W1a-d arrivals
+w1_cove = "w1.Z009"           # the shore where w2 drops the player back (W2_W1a/b): the rollthrough's anchor (Q280)
+w1_town_side = "w1.Z043"      # the town side of FireWall_01: the Town_W1 arrival
+w1_station = "w1.Z026"        # the underwater station under the bay: the water keylock's and the periscope's
+
+[dark]
+w1_dark_cave = "w1.dark_cave_nolight"   # the w1 dark cave needs light (dark_fire) or its nolight skip (tricks.toml dark_node)
+
+[members]                     # pool locations the derive places on no floor -> the zone they float over
+"w1/g0/r1996" = "w1.Z004"     # a sapphire 0.1 m over the beach's water (unplaced)
+"w1/g0/r2080" = "w1.Z001"     # the whirlpool obsidian, deep under the bay; the whirlpool's push fields stop once w3's guardian dies
+
+[[location]]
+id = "w1/g0/r2080"
+requires = "flag:w3.guard_water.killed"
+note = "the whirlpool (WaterRealmFixed_latch's push and kill fields) holds it until the water guardian dies (derived gate w1.gate.WaterRealmFixed_latch)"
+
+[[event]]
+id = "w1.keylordSystem.killed"
+of = "w1/g0/r321"
+zone = "w1.Z001"              # the keylord's generator is 0.3 m from the bay's water (the derive places it on no floor)
+requires = "true"
+why = "the keylord is fought in the bay with the staff (migrated requirement kept, default taken under D115)"
+
+[exit."w1/g0/r3363"]          # AirshipFight_levelSwitch: on the airship, which lands over the beach
+from = "w1.Z004"
+requires = "flag:w3.guard_water.killed & flag:e5.guard_earth.killed | skip:w1.hidden_airship | skip:w1.hidden_airship_saveanywhere"
+why = "the ship descends with EarthRealm_fixed and WaterRealm_fixed (tricks.toml db_change w1-airship-gate, applied); or the hidden airship (D630, D632, Step R2.18): out of bounds from the beach with air 2 and air fluttering, under the geometry onto the ship that sits under the map, whose switch loads the fight (with save anywhere, or frame-perfect without it) [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 21991-72940 (the airship at n 69842), air 2, save anywhere]"
+
+[exit."w1/g0/r3380"]          # W1_A3_levelSwitch: the ship's platform switch after the fight
+from = "w1.Z004"
+requires = "flag:airship.balthazar.killed"
+why = "the ship leaves for a3 once Balthazar is dead (AZ-289's rule)"
+
+[exit."w1/g0/r3382"]          # BossDefeated_levelSwitch: the water disc's teleport to town
+disc = "water"
+requires = "discw>=4"
+why = "gs[water fragments]>=4 and a touch of the tube's push field (no placed check)"
+
+[exit."w1/g0/r3352"]          # W1_W2_Fall: the water spout's ride; its arrival spot W1_W2_Fall is over w2's hose pool
+from = "w1.Z169"
+to = "w2.Z003"
+why = "the owner (2026-10-14): 'for getting to w2 from w1, we are supposed to jump into a water spout by going along the rocks above the water'. The spout is SpoutPush1Shape, a push volume (pushZ 150 along its axis, 29 deg off vertical, 84 m long) rising out of the water beside the beach, switched by water_spout_particles_timer3 (on 0.67-4 s of every 8 s, repeating; touching it or HoverShape makes BlockerShape, a cylinder on the same axis, solid) [verified static: logic_dump.py w1 '^SpoutPush1Shape$']; the rock w1.Z169 (4-10 m over the water) stands in its foot (124 walk samples with the body inside it, the only zone that has any) [verified data]. Its push hands the body to a chain of push cylinders (pCylinderShape68-73, pushZ 100; 85, 50; 86, 20) whose axes follow an arc about 460 m long, rising then falling, that ends about 370 m away; the last, pCylinderShape86, lies inside pCubeShape327, W1_W2_Fall's touch trigger (which also covers w1.Z032, inside 86, and 89 samples of w1.Z005, the zone the derive anchored the exit to) [verified data: the volumes' meshes]. So the exit is taken from the rock in the spout's foot, not from Z005 (R1.8's hand edge beach -> Z005 is gone). The ride, played: from Z169 an L3 string in whole steps (the spout's timer is scene-side) walks onto the spout's foot and jumps every 8 ticks; the spout lifts the body 179 m along the cylinders into the trigger at tick 156 (robustness 1.0), replayed in xemu tick for tick, and w2 loaded [verified xemu: Step X.15's L3 coverage run (2026-10-14), sitting x15a]"
+
+[[edge]]                      # the rocks above the water: from the beach onto the big rock Z027 (then Z066 and the ridge Z048 to the spout's rock)
+from = "w1.Z004"
+to = "w1.Z027"
+requires = "true"
+why = "the owner's way to the spout (2026-10-14: 'going along the rocks above the water'): the rocks Z027 (13-24 m over the water), Z066 (10-13 m) and the ridge Z048 (9-11 m), which runs about 50 m out to the spout, where a jump drops 4.7 m onto the spout's rock Z169; the derive models every hop after the first (Z027 -> Z066 drop and jump, Z066 -> Z048 jump, Z048 -> Z169 jump) but the first only as a flap (air 1): Z027's rim is 1.26 m over the beach 4.9 m away, 0.42 m over the plain running jump's arc there [verified data: the walk samples], inside the measured lip lift (a running jump mounts up to 0.4987 m over its apex, RE_MOVEMENT); from a new game on the beach (vanilla-rz-new) an L3 string of 474 ticks (robustness 0.94 under jitter) lands on Z027 by the step-up and replayed in xemu tick for tick, and the chain then went on along the rocks and through the spout into w2 [verified xemu: Step X.15's L3 coverage run (2026-10-14), sitting x15a, its w1 opening chains]"
+
+[gates]
+"w1.gate.StatueTimer" = "event:w1.torpedo_tower.toppled"   # the wall across the dark cave's mouth (pPlaneShape14, Rolling_rock1Shape, Rolling_rock3Shape): StatueTimer clears its gameSolid 3 s after the torpedo topples the tower (the event below) [verified static: $RP r0/tools/logic_dump.py w1 '^(StatueTimer|StatueCombiner|StatueToggle)$']
+
+[gate_sides."w1.gate.StatueTimer"]   # the ledges on the bay side of the wall and the cave side they jump to (Step R1.8h)
+near = ["w1.Z355", "w1.Z399", "w1.Z535", "w1.Z535"]
+far = ["w1.Z034", "w1.Z183", "w1.Z337", "w1.Z838", "w1.Z881"]
+why = "the derive puts the four near ledges (on the rocks, within 3.2 m of the wall plane on the bay side) one sweep jump or flap from the cave side (a curved path may pass), but every straight segment between their floors and the far zones' passes through the wall (pPlaneShape14, 34.8 m high and 38 m wide, or a rock: 13 zone pairs, 8-240 segments each, all through) [verified data: the derive's floor samples against the wall's collision, Step R1.8h]: so they were an air-3 way into the dark cave past the shut wall at the frame-perfect tier (from w1.Z289, the D145 note's unprobed sweep route). The owner (2026-10-13): the torpedo topples the tower into the cave and opens its entrance; an edge between these zones needs the gate's requirement. In xemu, the wall up: a run, a jump and four flaps from Z355 at the cave stopped 3.9-4.0 m short against it, 6 of 6 with air 3 (sitting r18h rows wall-shut-*); the tower down: a walk from the fallen tower's bay end along it into w1.Z034 3 of 3, then the cave's obsidian and, by W1_Town, town's frag_water_2 taken (rows bridge-1, obsidian-*, w1town-1, fragw2-1) [verified xemu, placed]. The bay's own way onto the fallen tower is the hand edge below (Step R1.8j)"
+
+[[edge]]                      # the owner's way from the bay onto the fallen tower (Step R1.8j)
+from = "w1.Z001"
+to = "w1.Z034"
+requires = "event:w1.torpedo_tower.toppled"
+why = "the owner (2026-10-14), of the fallen tower reached from the bay: \"Climb out of the water onto it\"; then along it into the dark cave (walked 3 of 3 in sitting r18h from its bay end). Not reproduced: the tower lies with its low end in the bay (its underside 2.4 m under the water) and its top 1.2 m (a 45-degree face that slides) to 2.0 m over the water at that end; a swimmer floats with the feet 1.2 m under the surface and leaves the water only onto floor near it (xemu r18j: 13 tries at three faces, swimming, rising, Y, a dive and a wade, none out of the water onto it; rows climb-*, climb45*, wade-climb-1, sand-climb-*, swimjump-*); the slope beside the low end is walked onto from the water, but L3 runs from there (a running jump at the low faces, no air and air 1; and Go-Explore, 3 seeds of 120,000 steps each with air 0 and air 1) found no way onto the top (inconclusive: the step budget, a file read). The owner played it (D215, X.28 spot 3: \"no skips were needed except for going through the dark cave without any fire power\"): from the bay by the tower's base end (spot3-w1-tower: the tower toppled by R1.8h's torpedo solver, placed; kit 0) onto the fallen tower, along it to its top end at the cave (w1.Z034) and on to the obsidian (n 67333) and W1_Town, fire 0, no flap, no key [verified xemu, the owner's real input: the owner's X.28 demos' per-tick trace (2026-10-15), n 66210-67799]; replayed tick by tick from the same state on the deterministic sandbox (the trace's pad written at each player update) it reached the tower's top end at the cave within 0.001 m of the owner's run (tick 432, n 66642; R1.8q's REPORT). The edge needs no air: with it the bay -> dark cave term no longer carries the derive's air 1"
+
+[[probed]]                    # the owner's climb onto the fallen tower (Step R1.8q, D215)
+from = "w1.Z001"
+to = "w1.Z034"
+kit = "true"
+proven = { by = "xemu", ref = "x28-owner-demos-2026-10-15/trace.jsonl: spot 3 run 3, n 66210-66642 (the owner's real input, kit 0; replayed to n 66642 within 0.001 m, r1.8q-demo-intake-2026-10-15/replays.jsonl)" }
+note = "Step R1.8q: the owner's run from the bay onto the fallen tower and along it into the dark cave's mouth, kit 0 and no flap (the hand edge above); the dark cave itself is crossed with no light by its nolight option (w1.dark_cave_nolight, D144)"
+
+[[edge]]                      # the Torpedo Skip (owner-confirmed, D119): from the beach out of bounds to W1_Town's trigger
+from = "w1.Z004"
+to = "w1.Z034"
+requires = "skip:w1.torpedo_skip"
+why = "the skip's clause: it reaches W1_Town (LevelSwitcher4Shape) at the dark cave's end, past the keylord, the key, the station, the torpedo, the statue and the cave (tricks.toml bypasses)"
+
+[[edge]]                      # the underwater station: a dive to its moon pool, then in through the ElectricArch (AZ-391)
+from = "w1.Z001"
+to = "w1.Z090"
+requires = "air>=1 & fire>=1 | skip:w1.pstorage_electric_arch"
+why = "a dive from the bay to the underwater station; the derive models no way down its 83 m of water. D158 walk (sitting r18c): the dive reaches the station's outer wall, 13.5 m over the water keylock's floor w1.Z090 (HP 200) [verified xemu, placed]. The station is a sealed air pocket whose only opening is the ElectricArch (D145's solid-free connectivity: with the arch's TriggerShape shut the inside is its own component) [verified data]; outside it a porch over the moon pool, inside the hall where the water keylock stands 7 m behind the arch (w1.Z090, on the porch's level), whose stairs (timer45: the derive's rig edges w1.Z090 -> w1.Z806 gated by button:w1.water_keylock) rise to the upper floor and the periscope (w1.Z026), so the torpedo needs the keylock (AZ-344). The arch (gameState1: armor type 6, level >= 1, so the lightning shield, air 1 + fire 1) holds the player both ways: in L3 (whole steps, x15g-w1-k0, placed 3-4 m from the arch, then the pad only: a walk and a walk with jumps) nothing and the air shield are thrown back (HP 200 -> 155 / 159-167) from the porch and from the hall alike, and the lightning shield (air 1 + fire 1, cast LT+Y+B) walks through both ways with no HP lost [verified L3: Step R1.8p's w1 station report (2026-10-15)]; a stored lightning shield passes it too (w1.pstorage_electric_arch, skips-c E5b), and the skip enters as well: the store is carried with LT held down the dive (at element level 0 each A and X press only sets the mask's 0x40) along the side tunnel and up the moon pool's shaft onto the porch, and let go there it casts the shield, TriggerShape #1531 goes non-solid and the walk stands in the hall (Step R1.38, AZ-811, D210: rows S1 and S2, kit 0/0/0/0, real input from the bay's surface, HP 200; the control with no store thrown back, HP 200 -> 125) [verified xemu, placed at the sea surface: Step R1.38's w1 sitting (2026-10-28)]; at every kit tried, by real input from a bay save's load (w1's save platform w1_1 lies in this zone; W1_3's beach has no kit-0 way here), with one procedure: where earth or water is 1+ the dive's A and the shaft's X also select that element (each press with LT held flips it), and let go so the store casts a staff and the arch throws you back, so before letting go one more A or X tap leaves only air and fire selected (Step R1.38b, AZ-816: kits 0/0/0/0, earth 1, water 1, earth/air/fire/water 3/3/0/3 and 3/0/3/3, each control thrown back) [verified xemu, placed save: Step R1.38b's arch kits sitting (2026-10-28)]. The key rule (AZ-345) lets the keylock open with the bay keylord's key, since life's two key_life1 lie in life ahead of its two locks (Step R1.8l)"
+
+[[edge]]
+from = "w1.Z090"
+to = "w1.Z001"
+requires = "air>=1 & fire>=1 | skip:w1.pstorage_electric_arch"
+why = "out of the station: through the ElectricArch onto the porch, down into the moon pool and up into the bay, the dive's way swum up (Step R1.38's S1, with the stored shield cast on the porch: out through the arch, the swim in the pool dropped the shield, then down the shaft, along the tunnel and up to the bay's surface, HP 200) [verified xemu]. The owner (D210, 2026-10-15): leaving the station needs the electric shield, or the stored one (power storage); in L3 the lightning shield walks from the hall through the arch and drops into the moon pool, while nothing and the air shield are thrown back [verified L3: Step R1.8p's w1 station report (2026-10-15)] (AZ-391). The inside comes down to the hall (the derive's w1.Z026 -> w1.Z090)"
+
+[[edge]]                      # the lagoon's push band holds a swimmer, it doesn't trap him
+from = "w1.Z244"
+to = "w1.Z004"
+requires = "true"
+why = "a swimmer carried into the lagoon's push band turns round and swims back to the beach: the band stalls him (skips-h S1: 23 runs stalled, none trapped) [verified xemu: the skips-h sitting (2026-10-12)]"
+
+[[edge]]                      # the air-3 obsidian beyond the lagoon's push band
+from = "w1.Z004"
+to = "w1.Z063"
+requires = "air>=3"
+why = "the route's air-3 obsidian (w1/g0/r2076, [web]): a flight over the push band, which a swimmer can't cross [inferred] (default taken under D115)"
+
+[[edge]]                      # off the A5_W1 arrival's platform once the whirlpool is calm
+from = "w1.Z028"
+to = "w1.Z001"
+requires = "flag:w3.guard_water.killed"
+why = "the a5 -> w1 arrival's platform stands in the whirlpool, whose push and kill fields stop once the water guardian dies (WaterRealmFixed_latch, derived gate w1.gate.WaterRealmFixed_latch) [inferred] (default taken under D115)"
+
+[[edge]]
+from = "w1.Z063"
+to = "w1.Z004"
+requires = "true"
+why = "the lagoon's push band carries a swimmer from the obsidian's pocket back to the beach (the band's push points shoreward: skips-h S1) [inferred] (default taken under D115)"
+
+[gates_or]                    # a decoded gate a confirmed skip also passes
+"w1.gate.nandCombiner1" = "skip:w1.pstorage_electric_arch"   # the ElectricArch (air 1 & fire 1, its decoded need): a stored electric shield passes it (tricks.toml)
+
+[barrier."w1.FireWall_01"]
+override_requires = "water>=1 | skip:w1.pstorage_water_firewall01"
+override_reason = "the generated water 1, or stored water (w1.pstorage_water_firewall01, in logic: confirmed in xemu, skips-c E5)"
+
+[barrier."w1.IceBlock_01"]
+override_requires = "fire>=1 & water>=1 | skip:w1.pstorage_steam_iceblock01"
+override_reason = "the generated steam 1, or stored steam (w1.pstorage_steam_iceblock01, in logic: the owner's X.92 demo, replayed at every element level 0 in Step X.92b, D871)"
+
+[[location]]                  # frag_earth_1 on the ledge under the waterfall (on the route, moved from its first w1 visit after w2/g0/r1357)
+id = "w1/g0/r2078"
+proven = { by = "l3", ref = "r129/f30f08847e74@aeaa29f85d3b" }
+requires = "air>=1"
+note = "AZ-347, AZ-348 (Step R1.2b): the ledge (w1.Z1000) is reached from the waterfall ledge w1.Z162, a slippery floor (0x8051) the body slides on (state 3) and can only jump from with the slope's projected v0: 0 of 29 real running jumps reached it (xemu r113 and r12b; L3 X.5 agrees on the slide), while the derive still models a running jump from a flatter sample of Z162. With air 1 a standing flap from Z162 is modelled and reaches it, so the spot needs air 1 (default taken under D115; the hand requirement drops the data proof). Step R1.29: an L3 input string of 331 ticks (robustness 0.06 under jitter) from w1.Z009 (R6 onto a floor sample of w1.Z009; placed: R7 hop, R2 kit air1) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start 3-10 m away)"
+
+[[edge]]                      # the stepping stones past the steam gate: vanilla's way from the beach into the bay (AZ-343)
+from = "w1.Z416"
+to = "w1.Z128"
+requires = "true"
+why = "IceBlock_01 stands on the west tip of the ice island (Z146); melted, its place (Z416) is the takeoff to the stepping-stone islands Z128 and Z124 (the silver teleporter's), from which a jump lands on the bay's bar. It is vanilla's way into the bay before air power 1, which w4 holds behind the bay (the derive's other crossings are skips: the cove's band, the push walls); the speedrun's stored steam on this block 'opens the early path to w4' [video: 1lWqk4C3kYw@02:08-03:36]. A plain running jump lands on Z128's rim and the step-up lifts the player onto it: 8 of 8 with Y pressed from 1.6 m before the edge to 0.6 m past it, water 1 and fire 1, air 0, after a real steam cast melted the block [verified xemu, placed start: sitting r18d, rows stones1-*]. The reach model now counts the rim step-up (Step R1.2b, AZ-352: the second stone's jump is modelled plain) but flies nothing from Z416, the block's own place, which is inside the shut block at load (every flight from it passes a solid), so this edge stays by hand"
+
+[[edge]]                      # the water seal opens the way to the guardian's tube
+from = "w1.Z001"
+to = "w1.Z015"
+requires = "button:w1.seal | skip:w3.water_guardian_no_seal"
+why = "the seal's SealShape (Seal_toggle's solid, the derived gate w1.gate.Seal_toggle) closes the water passage from the bay to W1_W3Boss's tube (w1.Z015, a water zone the derive joins to nothing): the seal, touched with 3 water fragments, opens it [inferred from the seal's place, 0.5 m from both; default taken under D115]. Or the save-anywhere skip w3.water_guardian_no_seal (manual, D639, Step R2.18): the owner from the bay by w1.Z010 into the tube and W1_W3Boss with every element 0 and save anywhere [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 167071-168402, kit 0]"
+
+[[edge]]
+from = "w1.Z015"
+to = "w1.Z001"
+requires = "true"
+why = "back out of the tube into the bay through the open seal [inferred; default taken under D115]"
+
+[[location]]                  # three sapphires the derive holds over the bay (Step R1.11a: a held location needs a decision)
+id = "w1/g0/r2012"
+requires = "air>=3"
+note = "6.5 m over the bay (w1.Z001) with no floor, spring or updraft under it the derive models (held, probe class float): a flight with air 3 [inferred; conservative, default taken under D115]"
+
+[[location]]
+id = "w1/g0/r2018"
+requires = "air>=3"
+note = "7.0 m over the bay (w1.Z001), held as w1/g0/r2012 is: a flight with air 3 [inferred; conservative, default taken under D115]"
+
+[[location]]
+id = "w1/g0/r2020"
+requires = "air>=3"
+note = "7.1 m over the bay (w1.Z001), held as w1/g0/r2012 is: a flight with air 3 [inferred; conservative, default taken under D115]"
+
+[[event]]                     # the periscope's joystick: the torpedo (AZ-344)
+id = "w1.pCubeShape7.joystick"
+zone = "w1.Z806"
+requires = "button:w1.water_keylock"
+why = "the periscope stands at the top of the underwater station's spiral stairs (walked in sitting r18c with nothing), but the station's upper floor is entered only from its hall, behind the ElectricArch (AZ-391), up the water keylock's stairs (timer45), and the keylock takes the key_life1 the bay's keylord drops; its joystick also needs the station's two overlords killed (andCombiner5) [verified static: logic_dump.py w1]. The keylock is the torpedo's requirement (Step R1.8l: the key rule, AZ-345, opens it with the bay key alone, life's two key_life1 lying in life ahead of its two locks)"
+
+[[event]]                     # the torpedo topples the tower into the dark cave's mouth (Step R1.8h)
+id = "w1.torpedo_tower.toppled"
+zone = "w1.Z806"
+requires = "event:w1.pCubeShape7.joystick"
+why = "the owner (2026-10-13): aim the torpedo toward the dark cave to hit the tower beside it, which topples into the cave and opens its entrance. The wiring: the joystick's stick x sets PeriscopeTimer's rate (0.1 x the stick; a 4 s cycle turns the periscope's Camera a full turn); getting off the joystick launches the torpedo (CombineToggle & nandCombiner1 -> andCombiner1 -> LaunchToggle: Tor1 flies it, Tor2 times it); it blows up where maxCombiner1's bearing curve (the distance along the periscope's heading, against Tor2 x 15) says it hits (ExplodeToggle); StatueCombiner ANDs the blast with StatueRotToggle, on while the periscope points within a 2-degree window at the tower; StatueToggle (lock, saved) runs StatueTimer (saved), which topples the tower (StatueAnim) and clears the wall in front of the cave 3 s in. A miss: ExplodeTimer resets the periscope 24 s after the blast, so the torpedo is fired again (no lockout) [verified static: $RP r0/tools/logic_dump.py w1 '^(StatueRotToggle|maxCombiner1|StatueCombiner|ExplodeTimer)$' and the curves of their links]. No item aims it; the joystick event carries the station's overlords and the water keylock (AZ-344). Sitting r18h (2026-10-13; runs torpedo-1..3): scripts/xemu_minigames.py's torpedo solver turned the periscope into the window and fired, and the tower fell at the first launch 3 of 3, the wall's three solids off after [verified xemu, placed: PeriscopeHelpToggle latched for the overlords, the player put on the periscope's platform]"

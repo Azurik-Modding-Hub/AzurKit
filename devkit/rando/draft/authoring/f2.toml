@@ -1,0 +1,493 @@
+# f2's hand decisions for `azurik-mod rando author` (Step R1.11b's draft, finished at Step R1.8d). Zones are the
+# derive's (f2.Z<n>); a default taken under D115 says so.
+#
+# The derive follows f2 no further than its entrance pocket (12 zones round the E5_F2 arrival, f2.Z003): the way on
+# is the lava-pipe switch chain, whose effects are rides it decodes but gives no edges (the drill, Drill1CamTimer and
+# Drill1StuffTimer1 from the pCylinderShape61 / pCylinder61b actions; the geyser lids lava_plat1-7; the steam vents
+# pCylinderShape51/62, switched by pCylinderShape50f's touch; the lava pipe that raises the air power, [video:
+# deOODDGOQFQ@52:23-55:00]), and the silver teleporter, whose far end (ResetShape2, f2.Z000) must be touched first.
+# So f2 takes the conservative-kit rule (RANDOMIZER_DB 4.10, a1's precedent; default taken under D115): every pool
+# location the derive doesn't join to the arrival both ways is taken from the arrival and requires the elements the
+# vanilla run holds when route.toml collects it (off the route: at f2's last route step), and the exits to f4 leave
+# from the arrival with the kit the run holds when it goes there. The run collects each with that kit, so the logic
+# never asks for less than the game needs; the realm's probe sitting owes the switch chain.
+level = "f2"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list), and sweep (curved jumps the straight-flight check misses) at its own tier, as f1 and f3 admit it: the entrance pocket's ways about are such jumps (default taken under D115)
+
+[rig_one_way]                 # AZ-589 (Step R1.24a, D719): rigs whose movers only rise or only sink; their guessed rides against it stay out of logic
+Drill_pCylinderShape14 = { way = "down", why = "Drill1StuffTimer1, a timer that doesn't repeat, only lowers it (every decoded ride goes down): no ride carries the player up on it, so its 36 guessed rides up are held [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+
+[names]                       # node id -> one of its zones
+f2_entrance = "f2.Z003"       # the F2_E5 switch (levelSwitch1 -> e5) and TeleLocator1: where e5's levelSwitch3 lands (E5_F2, a spot the derive places on no floor; the probes sitting stood it 8.7 m from F2_E5 [verified xemu, the probes sitting's one-way exits (2026-10-12)])
+f2_core = "f2.Z056"           # the ledge by power_air (f2/g0/r1831; taken from the arrival, below), named for tricks.toml's f2.pstorage_air_flap
+f2_life_frag = "f2.Z007"      # frag_life_3 behind AcidBlock_04 (taken from the arrival, below), named for tricks.toml's f2.acidblock04_fly_around
+f2_f4_side = "f2.Z001"        # the F4_F2 arrival and the levelSwitch3 -> f4 switch
+
+[members]                     # the conservative-kit rule (the header): pool locations taken from the arrival
+"f2/g0/r1831" = "f2.Z003"     # power_air: on no floor, which the derive doesn't join to the arrival both ways
+"f2/g0/r2297" = "f2.Z003"     # ruby: on no floor, which the derive doesn't join to the arrival both ways
+"f2/g0/r2299" = "f2.Z003"     # ruby: on no floor, which the derive doesn't join to the arrival both ways
+"f2/g0/r2301" = "f2.Z003"     # ruby: on no floor, which the derive doesn't join to the arrival both ways
+"f2/g0/r2303" = "f2.Z003"     # ruby: on no floor, which the derive doesn't join to the arrival both ways
+"f2/g0/r2305" = "f2.Z003"     # ruby: on f2.Z005, which the derive doesn't join to the arrival both ways
+"f2/g0/r2307" = "f2.Z003"     # ruby: on f2.Z048, which the derive doesn't join to the arrival both ways
+"f2/g0/r2309" = "f2.Z003"     # ruby: on f2.Z006, which the derive doesn't join to the arrival both ways
+"f2/g0/r2311" = "f2.Z003"     # ruby: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2313" = "f2.Z003"     # ruby: on f2.Z180, which the derive doesn't join to the arrival both ways
+"f2/g0/r2315" = "f2.Z003"     # ruby: on f2.Z001, which the derive doesn't join to the arrival both ways
+"f2/g0/r2317" = "f2.Z003"     # ruby: on f2.Z001, which the derive doesn't join to the arrival both ways
+"f2/g0/r2319" = "f2.Z003"     # ruby: on f2.Z014, which the derive doesn't join to the arrival both ways
+"f2/g0/r2322" = "f2.Z003"     # obsidian: on f2.Z096, which the derive doesn't join to the arrival both ways
+"f2/g0/r2324" = "f2.Z003"     # obsidian: on f2.Z036, which the derive doesn't join to the arrival both ways
+"f2/g0/r2326" = "f2.Z003"     # obsidian: on f2.Z153, which the derive doesn't join to the arrival both ways
+"f2/g0/r2328" = "f2.Z003"     # obsidian: on f2.Z158, which the derive doesn't join to the arrival both ways
+"f2/g0/r2330" = "f2.Z003"     # obsidian: on f2.Z013, which the derive doesn't join to the arrival both ways
+"f2/g0/r2339" = "f2.Z003"     # emerald: on f2.Z036, which the derive doesn't join to the arrival both ways
+"f2/g0/r2341" = "f2.Z003"     # emerald: on f2.Z040, which the derive doesn't join to the arrival both ways
+"f2/g0/r2343" = "f2.Z003"     # emerald: on f2.Z084, which the derive doesn't join to the arrival both ways
+"f2/g0/r2345" = "f2.Z003"     # emerald: on f2.Z006, which the derive doesn't join to the arrival both ways
+"f2/g0/r2347" = "f2.Z003"     # emerald: on f2.Z048, which the derive doesn't join to the arrival both ways
+"f2/g0/r2349" = "f2.Z003"     # emerald: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2351" = "f2.Z003"     # emerald: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2353" = "f2.Z003"     # emerald: on f2.Z001, which the derive doesn't join to the arrival both ways
+"f2/g0/r2355" = "f2.Z003"     # emerald: on f2.Z001, which the derive doesn't join to the arrival both ways
+"f2/g0/r2358" = "f2.Z003"     # sapphire: on no floor, which the derive doesn't join to the arrival both ways
+"f2/g0/r2360" = "f2.Z003"     # sapphire: on f2.Z002, which the derive doesn't join to the arrival both ways
+"f2/g0/r2362" = "f2.Z003"     # sapphire: on f2.Z002, which the derive doesn't join to the arrival both ways
+"f2/g0/r2364" = "f2.Z003"     # sapphire: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2366" = "f2.Z003"     # sapphire: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2368" = "f2.Z003"     # sapphire: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2370" = "f2.Z003"     # sapphire: on f2.Z001, which the derive doesn't join to the arrival both ways
+"f2/g0/r2372" = "f2.Z003"     # sapphire: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2374" = "f2.Z003"     # sapphire: on f2.Z014, which the derive doesn't join to the arrival both ways
+"f2/g0/r2376" = "f2.Z003"     # sapphire: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2378" = "f2.Z003"     # sapphire: on f2.Z049, which the derive doesn't join to the arrival both ways
+"f2/g0/r2381" = "f2.Z003"     # diamond: on f2.Z002, which the derive doesn't join to the arrival both ways
+"f2/g0/r2383" = "f2.Z003"     # diamond: on f2.Z002, which the derive doesn't join to the arrival both ways
+"f2/g0/r2385" = "f2.Z003"     # diamond: on f2.Z011, which the derive doesn't join to the arrival both ways
+"f2/g0/r2387" = "f2.Z003"     # diamond: on f2.Z254, which the derive doesn't join to the arrival both ways
+"f2/g0/r2389" = "f2.Z003"     # diamond: on f2.Z024, which the derive doesn't join to the arrival both ways
+"f2/g0/r2391" = "f2.Z003"     # diamond: on f2.Z005, which the derive doesn't join to the arrival both ways
+"f2/g0/r2393" = "f2.Z003"     # diamond: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2395" = "f2.Z003"     # diamond: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2397" = "f2.Z003"     # diamond: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2399" = "f2.Z003"     # diamond: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2401" = "f2.Z003"     # diamond: on f2.Z001, which the derive doesn't join to the arrival both ways
+"f2/g0/r2403" = "f2.Z003"     # diamond: on f2.Z001, which the derive doesn't join to the arrival both ways
+"f2/g0/r2405" = "f2.Z003"     # diamond: on f2.Z002, which the derive doesn't join to the arrival both ways
+"f2/g0/r2407" = "f2.Z003"     # diamond: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2410" = "f2.Z003"     # sapphire: on f2.Z029, which the derive doesn't join to the arrival both ways
+"f2/g0/r2412" = "f2.Z003"     # sapphire: on f2.Z029, which the derive doesn't join to the arrival both ways
+"f2/g0/r2414" = "f2.Z003"     # sapphire: on f2.Z005, which the derive doesn't join to the arrival both ways
+"f2/g0/r2418" = "f2.Z003"     # diamond: on f2.Z011, which the derive doesn't join to the arrival both ways
+"f2/g0/r2422" = "f2.Z003"     # diamond: on f2.Z022, which the derive doesn't join to the arrival both ways
+"f2/g0/r2424" = "f2.Z003"     # diamond: on f2.Z022, which the derive doesn't join to the arrival both ways
+"f2/g0/r2427" = "f2.Z003"     # emerald: on f2.Z087, which the derive doesn't join to the arrival both ways
+"f2/g0/r2429" = "f2.Z003"     # emerald: on f2.Z092, which the derive doesn't join to the arrival both ways
+"f2/g0/r2432" = "f2.Z003"     # ruby: on f2.Z022, which the derive doesn't join to the arrival both ways
+"f2/g0/r2435" = "f2.Z003"     # sapphire: on f2.Z029, which the derive doesn't join to the arrival both ways
+"f2/g0/r2438" = "f2.Z003"     # ruby: on f2.Z052, which the derive doesn't join to the arrival both ways
+"f2/g0/r2441" = "f2.Z003"     # sapphire: on f2.Z006, which the derive doesn't join to the arrival both ways
+"f2/g0/r2443" = "f2.Z003"     # sapphire: on no floor, which the derive doesn't join to the arrival both ways
+"f2/g0/r2445" = "f2.Z003"     # sapphire: on f2.Z053, which the derive doesn't join to the arrival both ways
+"f2/g0/r2448" = "f2.Z003"     # emerald: on f2.Z067, which the derive doesn't join to the arrival both ways
+"f2/g0/r2450" = "f2.Z003"     # emerald: on f2.Z053, which the derive doesn't join to the arrival both ways
+"f2/g0/r2453" = "f2.Z003"     # diamond: on f2.Z103, which the derive doesn't join to the arrival both ways
+"f2/g0/r2455" = "f2.Z003"     # diamond: on f2.Z052, which the derive doesn't join to the arrival both ways
+"f2/g0/r2458" = "f2.Z003"     # all_fuel: on f2.Z028, which the derive doesn't join to the arrival both ways
+"f2/g0/r2461" = "f2.Z003"     # frag_life_3: on f2.Z007, which the derive doesn't join to the arrival both ways
+"f2/g0/r2465" = "f2.Z003"     # emerald: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2467" = "f2.Z003"     # emerald: on f2.Z000, which the derive doesn't join to the arrival both ways
+"f2/g0/r2470" = "f2.Z003"     # ruby: on f2.Z076, which the derive doesn't join to the arrival both ways
+
+[[location]]
+id = "f2/g0/r1831"
+requires = "water>=2 & fire>=2 & air>=1 & earth>=1 | skip:f2.rjump_interior"
+note = "power_air taken at kit 0 (n 272751) in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2297"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2299"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2301"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2303"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2305"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2307"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2309"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2311"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2313"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2315"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2317"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2319"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2322"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2324"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2326"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2328"
+proven = { by = "l3", ref = "r129/60d519a9241b@083415649d2b" }
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115). Step R1.29: an L3 input string of 999 ticks (robustness 0.00 under jitter) from f2.Z003 (R6 onto a floor sample of f2.Z003; placed: R7 hop, R2 kit air3-earth3-fire3-water3) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start >10 m away)"
+
+[[location]]
+id = "f2/g0/r2330"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2339"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2341"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2343"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2345"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2347"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2349"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2351"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2353"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2355"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2358"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2360"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2362"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2364"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2366"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2368"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2370"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2372"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2374"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2376"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2378"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2381"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2383"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2385"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2387"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2389"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2391"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2393"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2395"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2397"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2399"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2401"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2403"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2405"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2407"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2410"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2412"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2414"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2418"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2422"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2424"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2427"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2429"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2432"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2435"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2438"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2441"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2443"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2445"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2448"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2450"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2453"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2455"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2458"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=1"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2461"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior & skip:f2.acidblock04_fly_around"
+note = "frag_life_3 taken at air 1 (D649, Step R2.18): from f2.Z000, reached on foot by f2.rjump_interior, one flight of 10 flaps (1 + 9 mid-air casts) by f2.Z278 round AcidBlock_04 to f2.Z007 (f2.acidblock04_fly_around) [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 317345-318005, air 1]; or the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2465"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2467"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2470"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[exit."f2/g0/r2913"]          # levelSwitch3 -> f4 (F2_F4b): its switch stands on f2.Z001
+from = "f2.Z003"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=1 | skip:f2.rjump_interior"
+why = "Step R2.18: or the owner's kit-0 way on to f4 (D648): f2.Z000 > Z001 > f4.Z015 with the armor off, after f2.rjump_interior's roll jumps [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 294724-295630, kit 0]. Before: the conservative-kit rule (the header): the derive doesn't join f2.Z001 to the arrival, so the exit leaves from the arrival with the kit the vanilla run holds when it goes on to f4 (the route's f4/g0/r1531) [computed: route.toml] (default taken under D115)"
+
+[exit."f2/g0/r2918"]          # F2_F4a -> f4: on the F2_F4a rig's deck (CenterShape), by f2.Z035
+from = "f2.Z003"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=1"
+why = "as levelSwitch3 (the conservative-kit rule) (default taken under D115)"
+
+[[edge]]                      # from f4's arrival back to the entrance
+from = "f2.Z001"
+to = "f2.Z003"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=1"
+why = "the F4_F2 arrival (f2.Z001) and the entrance pocket are joined only through the switch chain (the header): the conservative-kit rule's way back, with the kit the vanilla run holds at f4 (the route's f4/g0/r1531) [computed: route.toml] (default taken under D115)"

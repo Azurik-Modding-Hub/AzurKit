@@ -1,0 +1,165 @@
+# e7's hand decisions for `azurik-mod rando author` (Step R1.11c): what the derive (derived/e7.json.gz) can't decode
+# or doesn't model. Zones are the derive's (e7.Z<n>); a default taken under D115 says so. e7 is the key farm: entered
+# only by e2's MineCar2 gondola (SwitchE5a1, lock minecart_e2e7) and left only by it (E7_E2_switch) [verified data].
+# Its arrival elevator (Elevator_toggle, turned on by LevelLoad_xorCombiner) lowers the bucket from the gondola's
+# station about 146 m onto the hall e7.Z000; the bucket's GoTriggerFieldShape toggles it back up to
+# ExitFieldTriggerShape, E7_E2_switch's only input [verified data: $RP r0/tools/logic_dump.py e7]; that the ride lands
+# on e7.Z000 is [inferred] from the bucket's column (the probe sitting, sitting r111c, 2026-10-13, owes it).
+level = "e7"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+e7_core = "e7.Z000"           # the hall: the elevator's foot, the six keylords, the save point E7_1
+e7_dark_room = "e7.Z002"      # the dark room (DarkRoomCellShape, its spot DarkRoomShape), obsidians e7/g0/r1045 and r1047: the nolight skip's dark_node (Step X.16: the room's floor zone; the slippery bowl named before is no zone, AZ-359)
+
+[dark]
+e7_dark_room = "e7.dark_room_nolight"   # light gates no game logic in e7 [verified data, rz-b2 I-14]; darkness is a logic need (dark_fire) or its nolight skip
+
+[members]
+"e7/g0/r1787" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1790" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1793" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1822" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1825" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1828" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1857" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1860" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1863" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1892" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1895" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1898" = "e7.Z002"     # a song room geode gem (e7.Z004 / e7.Z007, DarkRoomCellShape): an island the derive joins to nothing, so the dark room's node (the conservative-kit rule)
+"e7/g0/r1050" = "e7.Z001"     # the lobby ledge's obsidian (e7.Z018), which the derive joins to nothing: the lobby (the conservative-kit rule; the community climbs the walls above FireWall_02)
+"e7/g0/r1047" = "e7.Z002"     # the dark room's second obsidian (DarkRoomCellShape too), as r1045 in the room's floor zone (Step X.16: the slippery bowls both sat on are no zones, AZ-359)
+
+[[event]]
+id = "e7.keylordSystem6.killed"
+of = "e7/g0/r264"
+zone = "e7.Z000"
+requires = "true"
+why = "a keylord is fought in the hall with the staff (w1's keylord's rule, default taken under D115); its kill opens the cage (toggle2) over its key_battery [verified xemu, placed: rz-b2 I-18]"
+
+[[event]]
+id = "e7.keylordSystem7.killed"
+of = "e7/g0/r289"
+zone = "e7.Z000"
+requires = "true"
+why = "as keylordSystem6"
+
+[[event]]
+id = "e7.keylordSystem8.killed"
+of = "e7/g0/r314"
+zone = "e7.Z000"
+requires = "true"
+why = "as keylordSystem6"
+
+[[event]]
+id = "e7.keylordSystem10.killed"
+of = "e7/g0/r339"
+zone = "e7.Z000"
+requires = "true"
+why = "as keylordSystem6"
+
+[[event]]
+id = "e7.keylordSystem11.killed"
+of = "e7/g0/r364"
+zone = "e7.Z000"
+requires = "true"
+why = "as keylordSystem6"
+
+[[event]]
+id = "e7.keylordSystem12.killed"
+of = "e7/g0/r389"
+zone = "e7.Z000"
+requires = "true"
+why = "as keylordSystem6"
+
+[[event]]
+id = "e7.crystal_fire.hit"
+zone = "e7.Z002"
+requires = "air>=1 & water>=2 & fire>=2 & earth>=1"
+why = "the song room's crystal (CrystalInsideShape, damage fire = earth + fire) latches Crystal_Fire1_Hit_latch, e6's SongFire1_hit, on any non-zero magic: level 1 of the staff suffices [verified data; verified xemu for the wind crystal, rz-b2 I-3]. The song room (e7.Z004, e7.Z007, DarkRoomCellShape [verified data]) is an island the derive joins to nothing (its doors, SongDoorToggle on PressurePlateShape, are a rig it doesn't follow): it is credited in the dark room's node (light) with the kit the vanilla run holds there, the route's flag:e2.crystal_lightning.hit (the conservative-kit rule, default taken under D115)"
+
+[exit."e7/g0/r1944"]          # E7_E2_switch: the gondola back to e2 (ExitFieldTriggerShape at the elevator's top)
+from = "e7.Z000"
+to = "e2.Z000"
+cart = "minecart_e2e7"
+requires = "true"
+why = "the bucket's GoTriggerFieldShape raises the elevator to ExitFieldTriggerShape [verified data]; the gondola rides back to its dock beside e2.Z000 (rz-b2: a gondola ride back brings the e2 bucket home [verified xemu, placed, for MineCar]); E7_E2's composed spot hangs over the dock (25 m off e2.Z000) [inferred]"
+
+[barrier."e7.CrystalOutsideShape"]   # the song crystal (a damage platform, not a wall): hit from the song room
+destroy_from = ["e7.Z004"]
+
+[barrier."e7.CrystalInsideShape"]
+destroy_from = ["e7.Z004"]
+
+[[location]]
+id = "e7/g0/r1787"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1790"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1793"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1822"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1825"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1828"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1857"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1860"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1863"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1892"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1895"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1898"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1050"
+requires = "water>=1 & fire>=1"
+note = "on the lobby ledge e7.Z018, an island the derive joins to nothing: the conservative-kit rule (the route's e7/g0/r1050; the route source: the community climbs the walls above FireWall_02)"
+
+[[probed]]
+from = "e7.Z047"
+to = "e7.Z000"
+kit = "true"
+proven = { by = "l3", ref = "x7/2fce20d00647@ae280b4e3547" }
+note = "Step X.7: an L3 input string of 50 ticks (robustness 1.00 under jitter) from e7.Z047 (R6 onto a floor sample of e7.Z047; placed: R7 hop, R2 kit k0) reaches e7_core; xemu replayed it tick for tick (sitting x7)"

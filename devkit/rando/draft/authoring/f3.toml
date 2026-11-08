@@ -1,0 +1,186 @@
+# f3's hand decisions for `azurik-mod rando author` (Step R1.11b). Zones are the derive's (f3.Z<n>); a default taken
+# under D115 says so.
+level = "f3"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list; default taken under D115), and sweep (curved jumps the straight-flight check misses) at its own tier, as in f1: the key area's and the drops' ways back are such jumps
+
+[rig_held]                    # AZ-515 (Step R1.31b): the keylock pit's (Z028, Z031) way out to the main level over rides whose triggers the probe edges don't carry
+pSphereShape3 = "moved by Keybob2timer, which Bobkey2.goal enables (turned on by fire_keylock2's LockToggle), and by Lrod_platform_lock_chain's timer (always on, at a random rate) [verified data: $RP r0/tools/logic_dump.py f3 '^(Keybob2timer|Bobkey2|Lrod_platform_lock_chain:Lrod_p_l_c_timer)$']; its rig edges carry neither the lock nor the chain's phase, and with PlatformShape they were the pit's only way out to the main level (f3.Z051 > Z710 > Z458, then a sweep jump into Z002): held, so with no power the pit's way out in logic is the lift fire_keylock1 drives (the Z028 -> Z012 edge below); with air 1 or 2 the lever's block's ride up onto the archway's top (Z282) and its sweep jump into Z002 left too, until Step R1.31c held that ride ([[held]] below). pCubeShape283 (timer5, enabled by a lever: lever_1way2:lever1toggle by LightShape.actionButton, no item) stays: it is the vanilla route's way from key r1004 (Z031) back up to the lock (Z028), by Lrod_platform2 (its ride up from the chasm floor, f3.Z051 -> Z028, is unrun: AZ-533)"
+PlatformShape = "moved by Keybob2timer and Lrod_platform_lock_chain's timer, as pSphereShape3 is: held (AZ-515)"
+
+[[held]]                      # AZ-515 (Step R1.31c): the block's rides up onto the archway's top, which it can't carry
+from = "f3.Z028"
+to = "f3.Z282"
+via = "pCubeShape283"
+why = "pCubeShape283 is the archway's Door (pCubeShape283 > pCube283 > Door > Archways), which lever_1way2 (LightShape f3/g0/r1804 on f3.Z249, outside the pit) raises 3.85 m once by timer5 (Door.translateZ) [verified data: the transform tree and timer5's curve]; its deck stands 4.49 m over the floor beside it and the archway's top (f3.Z282, f3.Z403) 5.96-6.51 m, where jumps with flaps peak at 2.23 m (air 1) and 2.31 m (air 2) [verified xemu, sitting r131c: six L3 tries from the pit replayed tick for tick; L3's search from the pit, 4 seeds of 40,000 steps an air level, never left it], so no ride takes a player from the pit up onto the archway; its other rides stay (its rides down, and its two rides up from the chasm floor, f3.Z051 -> f3.Z028, the vanilla route's way from the key up to the lock, and f3.Z051 -> f3.Z399, unrun: AZ-533), and so does the archway top's own jump into the main cavern (f3.Z282 -> f3.Z002, a sweep: from an R6 start on f3.Z282 it stood in f3.Z002 with air 1, 168 ticks, string 89bfbd83f422, by a ledge hoist onto the cavern's lip, robustness 0.06: fragile, and air 2, 108 ticks, 90ce70671dc8, robustness 0.69 [verified xemu, sittings r131c and r131c-obs (the kit read back), placed]) (Step R1.31c, AZ-515)"
+
+[[held]]
+from = "f3.Z028"
+to = "f3.Z403"
+via = "pCubeShape283"
+why = "as Z028 -> Z282 (above)"
+
+[[held]]
+from = "f3.Z051"
+to = "f3.Z282"
+via = "pCubeShape283"
+why = "as Z028 -> Z282 (above), from the chasm floor 29.8 m under the door's base [inferred: the same flap ceiling; not run]"
+
+[[held]]
+from = "f3.Z051"
+to = "f3.Z403"
+via = "pCubeShape283"
+why = "as Z051 -> Z282 (above) [inferred; not run]"
+
+[[held]]
+from = "f3.Z399"
+to = "f3.Z282"
+via = "pCubeShape283"
+why = "as Z028 -> Z282 (above), from the archway's threshold on its far side, level with f3.Z028's floor (dh 0) [inferred: the same flap ceiling; not run]"
+
+[[held]]
+from = "f3.Z399"
+to = "f3.Z403"
+via = "pCubeShape283"
+why = "as Z399 -> Z282 (above) [inferred; not run]"
+
+[[held]]                      # the door's ride up from the chasm floor (Step R1.24b, D722 row 07)
+from = "f3.Z051"
+to = "f3.Z028"
+via = "pCubeShape283"
+why = "the owner, verbatim: \"the archway door cant carry us up because it is closed until we press the button in the same room as it\" (the owner's demo, X.78, D722 row 07): the archway's Door is shut until its own room's button and then rises 3.85 m once (timer5, Door.translateZ [verified data]), so it carries no one the 29.8 m up from the chasm floor to fire_keylock1's floor; the kit-0 way back from the key is the owner's, by f3.Z038 (the hand edge below)"
+
+[[held]]
+from = "f3.Z051"
+to = "f3.Z399"
+via = "pCubeShape283"
+why = "as f3.Z051 > Z028 (above): the door's ride up to the archway's threshold on its far side"
+
+[[held]]                      # AZ-532 (Step R1.34): the pit's air-2 way out at the hard tiers, never run
+from = "f3.Z028"
+to = "f3.Z091"
+difficulty = 3
+why = "the first of three flaps out of the keylock pit (f3.Z028 > Z091 > Z093 > Z045, two of them sweeps), then Z247 > Z419, two climbs (Z419 > Z601, 38.5 m; Z601 > Z631, 46.6 m) and a jump into f3.Z002: at the hard and frame-perfect tiers it let air 2 out of the pit with no fire key (Logic.within from f3_z028: 29 and 30 nodes, f3_core among them, against 3 at safe and standard), by f3_z028 -> f3_z282 (air 2, difficulty 3, assumed), and no run has tried it [Step R1.31c's review of f3's pit air (2026-10-19)]; held from the hard tier up, which then reads its air-3 option as standard does (the conservative direction; default taken under D115, Step R1.34)"
+
+[[held]]
+from = "f3.Z028"
+to = "f3.Z184"
+difficulty = 3
+why = "as Z028 -> Z091 (above): a sweep flap out of the pit with air 2 at the frame-perfect tier only, then a jump into f3.Z091 and the same flaps and climbs; held from the hard tier up, so out of logic (AZ-532, Step R1.34)"
+
+[rig_one_way]                 # AZ-589 (Step R1.24a, D719): rigs whose movers only rise or only sink; their guessed rides against it stay out of logic
+pCubeShape283 = { way = "up", why = "the archway door: timer5, a timer that doesn't repeat (enabled by lever_1way2), only raises it (every decoded ride goes up, 3.85 m once: AZ-533): its 11 guessed rides down are held, its rides up kept (the vanilla route's way back up to the lock, row 07 of the owner's X.78 list); a drop beside it is kept once L3 lands it alive [verified data: Step X.53's read of the guessed rides (2026-10-21), the reach model's decoded rides]" }
+
+[names]
+f3_z019 = "f3.Z018"        # Step R1.24b: Z018 since the water fix (was f3.Z019); the id kept
+f3_z061 = "f3.Z060"        # Step R1.24b: Z060 since the water fix (was f3.Z061); the id kept
+f3_z062 = "f3.Z061"        # Step R1.24b: Z061 since the water fix (was f3.Z062); the id kept
+f3_z073 = "f3.Z072"        # Step R1.24b: Z072 since the water fix (was f3.Z073); the id kept
+f3_z101 = "f3.Z100"        # Step R1.24b: Z100 since the water fix (was f3.Z101); the id kept
+f3_z113 = "f3.Z112"        # Step R1.24b: Z112 since the water fix (was f3.Z113); the id kept
+f3_z117 = "f3.Z116"        # Step R1.24b: Z116 since the water fix (was f3.Z117); the id kept
+f3_z131 = "f3.Z130"        # Step R1.24b: Z130 since the water fix (was f3.Z131); the id kept
+f3_z133 = "f3.Z132"        # Step R1.24b: Z132 since the water fix (was f3.Z133); the id kept
+f3_z169 = "f3.Z168"        # Step R1.24b: Z168 since the water fix (was f3.Z169); the id kept
+f3_z172 = "f3.Z171"        # Step R1.24b: Z171 since the water fix (was f3.Z172); the id kept
+f3_z174 = "f3.Z173"        # Step R1.24b: Z173 since the water fix (was f3.Z174); the id kept
+f3_z176 = "f3.Z175"        # Step R1.24b: Z175 since the water fix (was f3.Z176); the id kept
+f3_z245 = "f3.Z244"        # Step R1.24b: Z244 since the water fix (was f3.Z245); the id kept
+f3_z250 = "f3.Z249"        # Step R1.24b: Z249 since the water fix (was f3.Z250); the id kept
+f3_z254 = "f3.Z253"        # Step R1.24b: Z253 since the water fix (was f3.Z254); the id kept
+f3_z261 = "f3.Z260"        # Step R1.24b: Z260 since the water fix (was f3.Z261); the id kept
+f3_z282 = "f3.Z281"        # Step R1.24b: Z281 since the water fix (was f3.Z282); the id kept
+f3_z284 = "f3.Z283"        # Step R1.24b: Z283 since the water fix (was f3.Z284); the id kept
+f3_z343 = "f3.Z342"        # Step R1.24b: Z342 since the water fix (was f3.Z343); the id kept
+f3_z615 = "f3.Z615"        # Step R1.24a: Z616 since the re-derive (was f3.Z615); the id kept
+f3_z647 = "f3.Z647"        # Step R1.24a: Z648 since the re-derive (was f3.Z647); the id kept
+f3_z932 = "f3.Z933"        # Step R1.24a: Z934 since the re-derive (was f3.Z932); the id kept
+f3_z933 = "f3.Z934"        # Step R1.24a: Z935 since the re-derive (was f3.Z933); the id kept
+f3_core = "f3.Z002"           # the main cavern: power_earth f3/g0/r2455 (the migrated node, which tricks.toml's time-savers name)
+
+[exit."f3/g0/r2784"]          # LevelSwitch_F3_F1: its arrival F3_F1 (a spot the derive places on no floor)
+to = "f1.Z000"
+why = "F3_F1 is 7.4 m above the main cavern's floor (Z000, 2.7 m aside) with no floor under it within 3 m [computed: the derive's columns]; the probes sitting saw the arrival stand 17 ticks after the load [verified xemu, the probes sitting (2026-10-12), row 35]: it lands in the cavern (default taken under D115)"
+
+[barrier."f3.all"]            # r868 ("all", other acid) and r877 (Acid:AcidBlock_01) share their melt switches (r864, r884)
+override_requires = "earth>=1 & water>=1 | skip:f3.pstorage_acid_acidblock01"
+override_reason = "one acid hit melts both shape groups (the same AcidMelt switches, generated/f3.json), so the derive's crossings through f3.all (the Acid:* members between Z002 and Z647) are AcidBlock_01's: the generated earth 1 & water 1, or stored acid (f3.pstorage_acid_acidblock01, in logic: confirmed in xemu, skips-c E5b)"
+
+[barrier."f3.Acid_AcidBlock_01"]
+destroy_from = ["f3.Z002", "f3.Z647", "f3.Z615"]   # the zones its block overlaps (derived object f3/g0/r877); the derive binds its members' gate to f3.all (above)
+override_requires = "earth>=1 & water>=1 | skip:f3.pstorage_acid_acidblock01"
+override_reason = "the generated earth 1 & water 1, or stored acid (f3.pstorage_acid_acidblock01, in logic: confirmed in xemu, skips-c E5b); its crossings are f3.all's (above)"
+
+[gates_or]                    # a decoded gate a confirmed skip also passes
+"f3.all_" = "skip:f3.pstorage_acid_acidblock01"   # the pocket side's shape group of the same block (r868's members, Z049|Z615): the stored acid melts both groups (one AcidMelt switch pair)
+
+[[edge]]                      # through the melted block: between its two shape groups
+from = "f3.Z647"
+to = "f3.Z615"
+requires = "true"
+why = "Z647 and Z615 both lie between the block's two shape groups (r868's and r877's derived objects overlap both); once it melts (one hit melts both) the way from the main level (Z002) to the W4 pipeline pocket (Z049, Z018) is one passage, which the skip's sitting walked [verified xemu, skips-c E5b: the block melted from the pocket opens the main level]; the derive joins the two zones nowhere [inferred] (default taken under D115)"
+
+[[edge]]
+from = "f3.Z615"
+to = "f3.Z647"
+requires = "true"
+why = "the same passage the other way"
+
+[[edge]]                      # out of the keylock pit (InteriorLockAreaCell) once fire_keylock1 is used
+from = "f3.Z028"
+to = "f3.Z012"
+requires = "button:f3.fire_keylock1"
+why = "the pit holding fire_keylock1 and key_fire1 r1004 is a drop from the main level with no way out in the derive, and the derive joins the key area (the BigWorld cell: Z012 with key r1002, fire_keylock's Z206, fire_keylock2's Z033, key r1000's Z244) to the main level by nothing but skips; the lock's toggle5 moves six transforms over 12 s (positional links) [verified static: $RP r0/tools/logic_dump.py f3 '^toggle5$']: the lift out of the pit, up to the key area [inferred: the route takes the three keys and locks in one visit] (default taken under D115)"
+
+[[edge]]                      # up to fire_keylock2's room
+from = "f3.Z042"
+to = "f3.Z033"
+requires = "true"
+why = "fire_keylock2's room (Z033, the BigWorld cell) drops into Z042, the force field's (Toggle_Key_1's) far side; the derive reaches it only from the outer slopes (Z010), which it joins to nothing: the way up from Z042 [inferred: the route presses fire_keylock2 in the keys' visit, at button:f3.fire_keylock2] (default taken under D115)"
+
+[[location]]                  # two sapphires the derive holds over the key area (Step R1.11a: a held location needs a decision)
+id = "f3/g0/r2500"
+requires = "air>=3"
+note = "5.4 m over the key area's floor (f3.Z012) with no spring, updraft or ledge under it the derive models (held, probe class float): a flight with air 3 [inferred; conservative, as R1.11a's w1 sapphires; default taken under D115]"
+
+[[location]]
+id = "f3/g0/r2502"
+requires = "air>=3"
+note = "5.0 m over the key area's floor (f3.Z012), held as f3/g0/r2500 is: a flight with air 3 [inferred; conservative, default taken under D115]"
+
+[[edge]]                      # X.16: the vanilla route's way
+from = "f3.Z060"
+to = "f3.Z072"
+requires = "true"
+why = "the vanilla route's way at its at f3/g0/r2453 (fire): the derive's rig here was a guess until Step X.16 (ride Lrod_turbine4:SpinwheelShape; AZ-353, AZ-359 or AZ-357 took it out), so this hand edge keeps it; the owner crossed it at kit 0 (the owner's demo, X.78, D722 row 08, the [[probed]] walk below)"
+
+[[location]]
+id = "f3/g0/r2390"
+proven = { by = "l3", ref = "r129b4/9cf955bb0c28@5547cca8af77" }
+note = "Step R1.29b: an L3 input string of 599 ticks (robustness 0.00 under jitter) from f3.Z002 (R6 onto a floor sample of f3.Z002; placed: R7 hop, R2 kit air1) touches it and comes back; xemu replayed it tick for tick (sitting r129b4), taking its item (obsi; start >10 m away)"
+
+[[edge]]                      # the key pit's kit-0 way back to fire_keylock1 (Step R1.24b, D722 row 07)
+from = "f3.Z038"
+to = "f3.Z028"
+requires = "true"
+why = "the owner's way back from the key to the lock at kit 0 (the owner's demo, X.78, D722 row 07: from the key pit f3.Z031 straight up into f3.Z038, then on by the main level to fire_keylock1 in f3.Z028; he took all three keys and used all three locks at kit 0 [verified xemu, the owner's real input: the owner's calls at the X.78 logic-review demo (2026-10-25, 19:21)]); it stands in for the door's ride up (held above), which the vanilla route took for this way (AZ-533)"
+
+[[probed]]                    # the key pit straight up into f3.Z038, kit 0 (D722 row 07: keep)
+from = "f3.Z031"
+to = "f3.Z038"
+kit = "true"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 19:21, row 07 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+note = "Step R1.24b: from key r1004's pit floor (f3.Z031, 768 ticks) straight up into f3.Z038 at kit 0 with the key held (AZ-533)"
+
+[[probed]]                    # f3.Z038 on to fire_keylock1, kit 0 (D722 row 07)
+from = "f3.Z038"
+to = "f3.Z028"
+kit = "true"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 19:21, row 07 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+note = "Step R1.24b: from f3.Z038 on to fire_keylock1 (f3.Z028), where he stood before and after using it, kit 0 (AZ-533)"
+
+[[probed]]                    # the spinwheel hop, kit 0 (D722 row 08: keep)
+from = "f3.Z060"
+to = "f3.Z072"
+kit = "true"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 20:40, row 08 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+note = "Step R1.24b: from the POI_2 start, f3.Z060 (171 ticks) > Z108 > Z039 > Z723 > Z109 > f3.Z072 about 10 s later, no element levels (AZ-386's f3 half)"

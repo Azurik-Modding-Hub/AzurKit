@@ -1,0 +1,82 @@
+# The blocker families: logic-driven solids whose gate the wiring alone does not bind (R0's
+# route/blocker_families.json at the randomizer evidence's d54313d, classified by hand from each
+# family's driver chain). Reach (gates.py) gives a gate whose member is in a family with hand binds
+# the family's own requirement when the family is bound_to_known_gate and monotone; any other such
+# family is held (undecoded) until its probe settles it. Members are generated record ids.
+# Authoring input of `azurik-mod rando derive` (its derive stamp covers this file).
+
+[[family]]
+family = "e5.conveyor_track"
+class = "bound_to_known_gate"
+monotone = true
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+hand = ["e5.earth_keylock4", "e5.earth_keylock5"]
+members = ["e5/g0/r146", "e5/g0/r168", "e5/g0/r190", "e5/g0/r211", "e5/g0/r233", "e5/g0/r255", "e5/g0/r277", "e5/g0/r304", "e5/g0/r332", "e5/g0/r354", "e5/g0/r374", "e5/g0/r396", "e5/g0/r416", "e5/g0/r436", "e5/g0/r462", "e5/g0/r489", "e5/g0/r516", "e5/g0/r545", "e5/g0/r667", "e5/g0/r689", "e5/g0/r710", "e5/g0/r1153", "e5/g0/r1172", "e5/g0/r1325", "e5/g0/r1347", "e5/g0/r1369", "e5/g0/r1391", "e5/g0/r1413", "e5/g0/r1434", "e5/g0/r1463", "e5/g0/r1493", "e5/g0/r1515", "e5/g0/r1544", "e5/g0/r1574", "e5/g0/r1596", "e5/g0/r1618", "e5/g0/r1640", "e5/g0/r1669", "e5/g0/r1699", "e5/g0/r1721", "e5/g0/r1755", "e5/g0/r1777", "e5/g0/r1799", "e5/g0/r1821", "e5/g0/r1843", "e5/g0/r1865", "e5/g0/r1885", "e5/g0/r5324", "e5/g0/r5353", "e5/g0/r5381", "e5/g0/r5405", "e5/g0/r5426", "e5/g0/r5448", "e5/g0/r5638"]
+
+[[family]]
+family = "e2.conveyor_track"
+class = "bound_to_known_gate"
+monotone = true
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+hand = ["e5.earth_keylock4", "e5.earth_keylock5"]
+probe = "one look in xemu: e2's belts run after both e5 fuse locks are used (and stay running across a reload, since the global lives in shared.sav [inferred])"
+members = ["e2/g0/r101", "e2/g0/r130", "e2/g0/r160", "e2/g0/r189", "e2/g0/r219", "e2/g0/r241", "e2/g0/r263", "e2/g0/r285", "e2/g0/r317", "e2/g0/r341", "e2/g0/r370", "e2/g0/r400", "e2/g0/r422", "e2/g0/r443", "e2/g0/r464", "e2/g0/r486", "e2/g0/r509", "e2/g0/r531", "e2/g0/r553", "e2/g0/r575", "e2/g0/r597", "e2/g0/r619", "e2/g0/r641", "e2/g0/r663", "e2/g0/r685", "e2/g0/r707"]
+
+[[family]]
+family = "w1.whirlpool_slide"
+class = "bound_to_known_gate"
+monotone = true
+requires = "flag:w3.guard_water.killed"
+hand = ["w3.guard_water.killed"]
+members = ["w1/g0/r1259", "w1/g0/r1263"]
+
+[[family]]
+family = "w3.snow_bridge"
+class = "needs_probe"
+monotone = false
+requires = "barrier:w3.IceBlock_014:destroy"
+hand = ["w3.IceBlock_014"]
+probe = "xemu: does the bridge stay built (latch) once the sequence is done, and is any snow-generator spot unreachable without it? Probe from the w3 save nearest the snow blowers with steam L2."
+members = ["w3/g1/r87", "w3/g1/r144"]
+
+[[family]]
+family = "life.big_arms"
+class = "needs_probe"
+monotone = false
+requires = "button:life.life_keylock & button:life.life_keylock1"
+hand = ["life.life_keylock", "life.life_keylock1"]
+probe = "xemu in life: with both key_life1 locks used, solve the beam puzzle, then reset the beams; record whether the arms (and the exits) stay usable. Answers whether life's exit needs the keys AND the puzzle, or the keys only."
+members = ["life/g0/r401", "life/g0/r403", "life/g0/r430", "life/g0/r432"]
+
+[[family]]
+family = "a5.final_fan_pad"
+class = "bound_to_known_gate"
+monotone = true
+requires = "fire>=3 & water>=3"
+hand = ["a5.IceBlock_03", "a5.Iceblock_0Shape3"]
+members = ["a5/g0/r2819"]
+
+[[family]]
+family = "electric_arches"
+class = "bound_to_known_gate"
+monotone = true
+requires = { e2 = "air>=3 & fire>=3", e5 = "air>=2 & fire>=2", w1 = "air>=1 & fire>=1" }
+hand = []
+probe = "one cast in xemu: which combination raises armor type 6 (expected air+fire); one probe settles all three arches"
+members = ["w1/g0/r1531", "e2/g0/r4006", "e5/g0/r5595"]
+
+[[family]]
+family = "f1.force_field"
+class = "bound_to_known_gate"
+monotone = true
+requires = "button:f1.fire_keylock & button:f1.fire_keylock1 & button:f1.fire_keylock2"
+hand = ["f1.fire_keylock", "f1.fire_keylock1", "f1.fire_keylock2"]
+members = ["f1/g0/r355"]
+
+[[family]]
+family = "town.disc_cubbies"
+class = "decorative"
+monotone = true
+requires = "true"
+hand = []
+members = ["town/g1/r442", "town/g1/r485", "town/g1/r528", "town/g1/r571", "town/g1/r614", "town/g1/r657"]

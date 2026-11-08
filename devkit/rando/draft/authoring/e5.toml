@@ -1,0 +1,209 @@
+# e5's hand decisions for `azurik-mod rando author` (Step R1.11c's draft, finished at Step R1.8d): what the derive (derived/e5.json.gz) can't decode
+# or doesn't model. Zones are the derive's (e5.Z<n>); a default taken under D115 says so. e5 is the earth guardian's
+# level: the seal (touch with 3 earth fragments) moves EarthBossDoor; in the arena each of AcidBlock_04..07 turns its
+# tornado vent on at magic >= 2, the four vents' count drives the guardian's death, and numDead stops the kill wind
+# (BossDead_KillWind_toggle), raises the boss floor (BossFloor_Elevator_damper) and enables the 4th fragment's
+# generator [verified data: $RP thresholds/REPORT.md §6, e5_boss_dump.txt]. The conservative-kit rule is a1's
+# (draft/authoring/a1.toml's header); Step R1.8d applies it to the second fuse key (the derive puts it behind the
+# conveyors its own lock starts), the pit under it and the spots the derive joins to the arrival only one way.
+level = "e5"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+e5_z1098 = "e5.Z1099"      # Step R1.24a: Z1099 since the re-derive (was e5.Z1098); the id kept
+e5_z1123 = "e5.Z1124"      # Step R1.24a: Z1124 since the re-derive (was e5.Z1123); the id kept
+e5_z612 = "e5.Z614"        # Step R1.24a: Z614 since the re-derive (was e5.Z612); the id kept
+e5_z613 = "e5.Z615"        # Step R1.24a: Z615 since the re-derive (was e5.Z613); the id kept
+e5_z723 = "e5.Z725"        # Step R1.24a: Z725 since the re-derive (was e5.Z723); the id kept
+e5_z918 = "e5.Z920"        # Step R1.24a: Z920 since the re-derive (was e5.Z918); the id kept
+e5_dock = "e5.Z007"           # the E2a_E5a gondola arrival, the battery locks earth_keylock6/7, the save point e5_1
+e5_arena = "e5.Z001"          # the guardian's arena: the four tornado vents (AcidBlock_04..07)
+e5_boss_floor = "e5.Z037"     # the boss's floor (bossGeneratorShape, TowerElevatorFull1:FloorShape2) under the 4th fragment
+
+[members]
+"e5/g0/r3294" = "e5.Z037"     # frag_earth_4, the guardian slot: its generator hangs 35 m over the boss floor, which numDead raises (BossFloor_Elevator_damper) [verified data]
+# The 17 conservative-kit spots (the [[location]] rows below: each keeps its own kit) hung on e5.Z581 until Step
+# R1.24b, but Z581 lies inside the entrance gear's exit trigger: a body on it is in e2 within a second, and the walk
+# e5.Z014 > Z581 that led there is no way to them (the owner's demo, X.78, D722 rows 01-02; Step X.78's q01/q02:
+# placed on Z581 at kit 0, e2 loaded by E5_E2 after 24 ticks, 4 of 4 floor samples, 8 of 8 delays). Each now hangs
+# on its own zone where the logic joins that zone to the arrival both ways (e5.Z006, the 8 diamonds in the pit under
+# the second fuse key), and the rest on the zone the E2_E5 arrival really stands in, the gear room e5.Z014 (AZ-585,
+# Step R1.34), which is what Z581 stood for: on their own zones (Z086, Z091, Z102, Z115, Z154, Z197, Z226) the logic
+# reaches none of them both ways and the vanilla placement loses 96 locations and the victory
+# (Step R1.24b's read of e5's real zones under the vanilla placement, 2026-10-25), so their real ways are R1.25's (the
+# switch chains and conveyors the derive doesn't follow; default taken under D115)
+"e5/g0/r4762" = "e5.Z014"     # diamond: on e5.Z226, whose ways in the derive holds as barrier bypasses since Step X.16
+"e5/g0/r4268" = "e5.Z014"     # all_fuel on e5.Z086, a far side of the timer19 gate the derive reached only by air-3 flights over the open gate from slippery takeoffs, which Step R1.2b's rules hold standing
+"e5/g0/r4266" = "e5.Z014"     # key_fuse, the second fuse key: on e5.Z102, which the derive reaches only past SolidCubeHack, the cube the conveyors remove once both fuse locks are in (andCombiner2 needs both [verified data: wiring/REPORT.md]), so only after using the key itself
+"e5/g0/r4263" = "e5.Z014"     # frag_fire_3: on e5.Z154, which the derive doesn't join to the arrival both ways
+"e5/g0/r4849" = "e5.Z014"     # diamond: on e5.Z091, which the derive doesn't join to the arrival both ways
+"e5/g0/r4852" = "e5.Z014"     # diamond: on e5.Z091, which the derive doesn't join to the arrival both ways
+"e5/g0/r4855" = "e5.Z014"     # diamond: on e5.Z091, which the derive doesn't join to the arrival both ways
+"e5/g0/r4758" = "e5.Z014"     # diamond: on e5.Z115, the pit under the second fuse key, which the derive leaves only up the conveyors (both fuse locks and air 3): a drop in before the locks has no way back
+"e5/g0/r4760" = "e5.Z014"     # diamond: on e5.Z197, the pit under the second fuse key, as r4758
+"e5/g0/r4764" = "e5.Z006"     # diamond: on its own zone, e5.Z006, the pit under the second fuse key (Step R1.24b)
+"e5/g0/r4766" = "e5.Z006"     # as r4764
+"e5/g0/r4779" = "e5.Z006"     # as r4764
+"e5/g0/r4782" = "e5.Z006"     # as r4764
+"e5/g0/r4785" = "e5.Z006"     # as r4764
+"e5/g0/r4814" = "e5.Z006"     # as r4764
+"e5/g0/r4817" = "e5.Z006"     # as r4764
+"e5/g0/r4820" = "e5.Z006"     # as r4764
+
+[[location]]
+id = "e5/g0/r4266"
+requires = "water>=2 & fire>=2 & air>=1 & earth>=1"
+note = "the conservative-kit rule: the derive reaches the second fuse key's perch (e5.Z102) only past SolidCubeHack, which both fuse locks remove, so in the derive the two locks need a key found only behind them; the vanilla run takes both keys before the locks (route.toml), so the key is taken from the arrival with the kit the run holds when it collects it [computed: route.toml] (default taken under D115; the realm's probe sitting owes the way up)"
+
+[[location]]
+id = "e5/g0/r4263"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 | water>=2 & fire>=2 & air>=2 & skip:e5.frag_fire3_earth1 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115); or that kit with earth 1 by e5.frag_fire3_earth1 (its own requires: earth 1 & water 2), the pocket reached round AcidBlock_02 and AcidBlock_03 unmelted (AZ-512, Step R1.30)"
+
+[[location]]
+id = "e5/g0/r4849"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4852"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4855"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4758"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4760"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4764"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4766"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4779"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4782"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4785"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4814"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4817"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4820"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[event]]
+id = "e5.guard_earth.killed"
+of = "e5/g0/r2847"
+zone = "e5.Z001"
+requires = "earth>=2 & water>=2"
+why = "the kill needs magic >= 2 on a shape of each of the four arena acid blocks (their melt toggles feed the vents' count) [verified data]; that acid (earth + water) at power level 2 gives it is [inferred, static] (R0.3b §6; the route's kit there); default taken under D115"
+
+[[event]]
+id = "e5.crystal_whirlwind.hit"
+zone = "e5.Z725"
+requires = "earth>=1 & air>=1"
+why = "SongRoomCrystal1's crystal (damage wind = earth + air) latches Crystal_Whirlwind4_Hit_latch, e6's SongWhirlwind4_hit, on any non-zero magic: level 1 suffices [verified xemu, placed: rz-b2 I-3]"
+
+[[event]]
+id = "e5.crystal_pulse.hit"
+zone = "e5.Z315"
+requires = "earth>=1 & air>=1 & fire>=1"
+why = "SongRoomCrystal's crystal (damage smsh = earth + air + fire) latches Crystal_Smash2_Hit_latch, e6's SongSmash2_hit, on any non-zero magic: level 1 suffices [verified data; verified xemu for the wind crystal, rz-b2 I-3]"
+
+[exit."e5/g0/r5709"]          # levelSwitch2: the MineCar gondola back to e2
+cart = "minecart_e2e5"
+logic = false
+to = "e2.Z000"
+why = "RANDOMIZER_PLAN 2.10 v1: the gondola stays out of logic (its side bit makes e2's dock a lethal drop while the bucket is away [verified xemu, placed: rz-b2 I-10]); the ride back brings the e2 bucket home to its dock beside e2.Z000 [verified xemu, placed: rz-b2]"
+
+[exit."e5/g0/r5713"]          # DiskReplaced_levelSwitch: the earth disc's count-triggered teleport to town
+from = "e5.Z037"
+disc = "earth"
+requires = "disce>=4"
+why = "and(nand(global[earth_disk_placed]), gs[earth fragments]>=4) [verified data; verified xemu, placed: rz-b2 I-7]; the 4th fragment is the guardian slot on the boss floor"
+
+[barrier."e5.crystal"]        # SongRoomCrystal1's crystal (a damage platform, not a wall): hit from its room
+destroy_from = ["e5.Z725"]
+
+[barrier."e5.crystal1"]       # SongRoomCrystal's crystal: hit from its room
+destroy_from = ["e5.Z315"]
+
+[exit."e5/g0/r5714"]          # levelSwitch3: to f2
+to = "f2.Z003"
+why = "its arrival E5_F2 is a spot the derive places on no floor; the probes sitting stood it 8.7 m from F2_E5, on f2's entrance f2.Z003 [verified xemu, the probes sitting's one-way exits (2026-10-12)]"
+
+[exit."e5/g0/r5684"]          # E5_E2: the entrance gear's exit trigger (EntranceGear:LevelSwitchShape), back to e2
+from = "e5.Z014"
+requires = "true"
+why = "the gear-room fall into the turning gear's exit (the owner's demo, X.78, D722 row 03: from the E2_E5 arrival he stood in e5.Z014 about 2.2 min at kit 0, then fell 46 ticks straight into the exit trigger and e2 loaded by E5_E2 at E5b_E2b, with no tick on e5.Z581 [verified xemu, the owner's real input: the owner's calls at the X.78 logic-review demo (2026-10-25, 18:18)]). The derive's switch zone e5.Z121, reached only over e5.Z581 by the hand edge e5.Z581 > Z121 (inferred from the vanilla route) until Step R1.24b, was on no route the demo or Step X.78's placed reads took"
+
+[[held]]                      # out of e5.Z581: inside the gear's exit trigger (D722 rows 01-02)
+from = "e5.Z581"
+to = "e5.Z193"
+why = "e5.Z581 is the 5 x 6.5 m floor inside the entrance gear's sweep, and the gear's exit trigger (EntranceGear:LevelSwitchShape, E5_E2) turns over it: placed on Z581 at kit 0 with no input the body stood 24 ticks, then e2 loaded, from 4 of 4 floor samples and at 8 of 8 delays [verified xemu, placed: Step X.78's results/q01-z580-diag.json, q02-z580-period.json], and the owner found no way back up into the gear room (the owner's demo, X.78, D722 row 02): the derive's guessed sweep jumps on out of it leave logic"
+
+[[held]]
+from = "e5.Z581"
+to = "e5.Z075"
+why = "as e5.Z581 > Z193 (above)"
+
+[[held]]
+from = "e5.Z581"
+to = "e5.Z236"
+why = "as e5.Z581 > Z193 (above)"
+
+[[held]]
+from = "e5.Z581"
+to = "e5.Z934"
+why = "as e5.Z581 > Z193 (above)"
+
+[[edge]]                      # the song door (Step X.16)
+from = "e5.Z056"
+to = "e5.Z042"
+requires = "true"
+why = "the whirlwind song room's doors (Song:LeftDoorShape, Song:RightDoorShape, 5 m leaves) stand between e5.Z056 and the room's floor e5.Z042, each floor level with their foot and 1.0 m off; Song:PressurePlateShape lies on e5.Z056 itself, and its touch turns on Song:SongDoorToggle (lock 1, onTime 8: it swings the leaves open over 8 s and stays on) [verified data: the derive's floor samples against the leaves' and the plate's faces; logic_dump.py e5 'SongDoor']. Until Step X.16 the derive stood in for the doorway with guessed rides on the leaves' 1.7 m2 tops (ride Song:RightDoorShape), which AZ-353 takes for no lift; the vanilla route walks in at its flag:e5.crystal_whirlwind.hit (the whirlwind crystal)"
+
+[[edge]]                      # the song door, back out (Step X.16)
+from = "e5.Z042"
+to = "e5.Z056"
+requires = "true"
+why = "out of the whirlwind song room by its doors, open since the plate was touched (as the edge above)"
+
+[[location]]
+id = "e5/g0/r4762"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "diamond on e5.Z226, whose ways in the derive holds as barrier bypasses since Step X.16 (the gate sides moved with the re-derive): the conservative-kit rule (off the route: the level's last route step, e5/g0/r4268, and the route's e5 actions before it)"

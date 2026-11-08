@@ -1,0 +1,97 @@
+# town's hand decisions for `azurik-mod rando author` (Step R1.8).
+level = "town"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+town_z009 = "town.Z010"    # Step R1.24b: Z010 since the water fix (was town.Z009); the id kept
+town_z015 = "town.Z016"    # Step R1.24b: Z016 since the water fix (was town.Z015); the id kept
+town_z016 = "town.Z017"    # Step R1.24b: Z017 since the water fix (was town.Z016); the id kept
+town_z017 = "town.Z018"    # Step R1.24b: Z018 since the water fix (was town.Z017); the id kept
+town_z020 = "town.Z021"    # Step R1.24b: Z021 since the water fix (was town.Z020); the id kept
+town_z023 = "town.Z024"    # Step R1.24b: Z024 since the water fix (was town.Z023); the id kept
+town_z045 = "town.Z046"    # Step R1.24b: Z046 since the water fix (was town.Z045); the id kept
+town_z046 = "town.Z047"    # Step R1.24b: Z047 since the water fix (was town.Z046); the id kept
+town_z048 = "town.Z049"    # Step R1.24b: Z049 since the water fix (was town.Z048); the id kept
+town_z055 = "town.Z056"    # Step R1.24b: Z056 since the water fix (was town.Z055); the id kept
+town_z068 = "town.Z069"    # Step R1.24b: Z069 since the water fix (was town.Z068); the id kept
+town_z069 = "town.Z070"    # Step R1.24b: Z070 since the water fix (was town.Z069); the id kept
+town_z072 = "town.Z073"    # Step R1.24b: Z073 since the water fix (was town.Z072); the id kept
+town_z075 = "town.Z076"    # Step R1.24b: Z076 since the water fix (was town.Z075); the id kept
+town_z078 = "town.Z079"    # Step R1.24b: Z079 since the water fix (was town.Z078); the id kept
+town_z094 = "town.Z096"    # Step R1.24b: Z096 since the water fix (was town.Z094); the id kept
+town_z106 = "town.Z108"    # Step R1.24b: Z108 since the water fix (was town.Z106); the id kept
+town_z107 = "town.Z109"    # Step R1.24b: Z109 since the water fix (was town.Z107); the id kept
+town_z108 = "town.Z110"    # Step R1.24b: Z110 since the water fix (was town.Z108); the id kept
+town_z111 = "town.Z113"    # Step R1.24b: Z113 since the water fix (was town.Z111); the id kept
+town_z112 = "town.Z114"    # Step R1.24b: Z114 since the water fix (was town.Z112); the id kept
+town_z116 = "town.Z117"    # Step R1.24b: Z117 since the water fix (was town.Z116); the id kept
+town_z117 = "town.Z118"    # Step R1.24b: Z118 since the water fix (was town.Z117); the id kept
+town_z126 = "town.Z127"    # Step R1.24b: Z127 since the water fix (was town.Z126); the id kept
+town_z133 = "town.Z134"    # Step R1.24b: Z134 since the water fix (was town.Z133); the id kept
+town_z152 = "town.Z153"    # Step R1.24b: Z153 since the water fix (was town.Z152); the id kept
+town_z215 = "town.Z216"    # Step R1.24b: Z216 since the water fix (was town.Z215); the id kept
+town_z296 = "town.Z300"    # Step R1.24b: Z300 since the water fix (was town.Z296); the id kept
+town_z340 = "town.Z345"    # Step R1.24b: Z345 since the water fix (was town.Z340); the id kept
+town_z446 = "town.Z451"    # Step R1.24b: Z451 since the water fix (was town.Z446); the id kept
+town_z475 = "town.Z480"    # Step R1.24b: Z480 since the water fix (was town.Z475); the id kept
+town_z1028 = "town.Z1030"  # Step R1.24a: Z1030 since the re-derive (was town.Z1028); the id kept
+town_z1029 = "town.Z1031"  # Step R1.24a: Z1031 since the re-derive (was town.Z1029); the id kept
+town_z612 = "town.Z617"    # Step R1.24a: Z613 since the re-derive (was town.Z612); the id kept
+town_central = "town.Z004"    # the hub (world.toml): the temple plaza, the W1_TownShape arrival
+# The W1_TownShape arrival reaches the plaza over a rope bridge (AZ-351, Step R1.8k): static collision, a plain deck 2.1 m
+# wide between slippery rope rails. Step R1.8k's derive eroded the deck into fragments and joined the two sides by hops
+# (AZ-360); since Step X.16 the erosion measures the rail's face, so the deck is one walk region end to end. L3 walks the
+# deck end to end, and xemu walked it from the arrival into the plaza twice, one hit by the insects on it each time
+# (HP 200 -> 185, no fall) [verified xemu, placed: sittings r18k, r18k2]; so no hand edge. Since Step X.20 L3's whole
+# steps run the frame's render, so the insects fly in L3 as in xemu (AZ-361); the logic models no hit from them.
+town_e2_pocket = "town.Z012"  # the E2_TownShape arrival, the e2 exit's pocket behind FireWall_02 (town.firewall02_air1's takeoff)
+
+[exit."town/g1/r3059"]        # toD1_levelSwitch: the temple's death door, open once the four discs are placed
+from = "town.Z021"
+to = "d1.Z031"
+requires = "disca>=4 & disce>=4 & discf>=4 & discw>=4 & fire>=3 & water>=3 & air>=3 & earth>=3"
+why = "migrated requirement kept (default taken under D115); it arrives at d1's startspot on the grate elevator, which the derive leaves without a floor; the elevator takes the player down into the death seal's chamber, d1.Z031 [verified xemu, placed: sitting r111d]"
+
+[exit."town/g1/r2973"]
+requires = "discl>=3"
+why = "the temple's life door (migrated requirement kept)"
+
+[[event]]
+id = "town.disc_air.placed"
+zone = "town.Z021"
+requires = "disca>=4"
+why = "the temple's disc cubbies (the *_disk_loc arrivals)"
+
+[[event]]
+id = "town.disc_water.placed"
+zone = "town.Z021"
+requires = "discw>=4"
+
+[[event]]
+id = "town.disc_fire.placed"
+zone = "town.Z021"
+requires = "discf>=4"
+
+[[event]]
+id = "town.disc_earth.placed"
+zone = "town.Z021"
+requires = "disce>=4"
+
+[[event]]                     # a house door's action button, pressed from outside
+id = "town.Town_Houses_DoorShape_g1r2050.action"
+zone = "town.Z617"
+requires = "true"
+why = "the derive sets it at the house's inside (Z117) and the doorstep (Z617); the door it opens separates exactly those two, so it is pressed from the doorstep (the lowest-numbered zone, Z117, would put the button behind its own door)"
+
+[[probed]]
+from = "town.Z345"
+to = "town.Z004"
+kit = "true"
+proven = { by = "l3", ref = "x7/1bc0f6407f19@a30862f5eb3f" }
+note = "Step X.7: an L3 input string of 456 ticks (robustness 0.00 under jitter) from town.Z345 (R6 onto a floor sample of town.Z345; placed: R7 hop, R2 kit k0) reaches town_central; xemu replayed it tick for tick (sitting x7)"
+
+[[edge]]                      # out of the sewer (Step R1.24d, D745; was Step R1.24b's water-1 stand-in, D722 row 12)
+from = "town.Z003"
+to = "town.Z004"
+requires = "air>=1"
+why = "the sewer (SewerCellShape: obsidians r1738-r1746 and 19 diamonds, town.Z003) is left back to the plaza (town_central) with air 1, and water 1 alone does not get out (the owner, verbatim: \"you can get out of the sewer with air1\", and asked about water 1: \"No, air 1 only\"; D745, 2026-10-26); never at kit 0 (\"row 12 is not possible with kit 0\", the owner's demo, X.78, D722 row 12). Since the water fix (AZ-356) no derived edge leaves its 21 zones at any kit or tier (its only way out was the hull's swim down into the sea 50 m under its water), so this hand edge is the owner's fact, unmeasured in L3 (AZ-738's searches ran out of steps)"

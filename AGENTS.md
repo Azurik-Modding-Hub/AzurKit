@@ -254,8 +254,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   randomizer step.
   1. **The to-do:** Modkit's commits on the ported paths since the cut
      (`planner/dbcache.py` is AzurKit's own `tools/randomizer/dbcache.py`;
-     the reach engine's code, `reach_native/`, `draft/reach.py` and the
-     flights, isn't ported: its results arrive through `data/`):
+     the reach engine's code, `reach_native/`, isn't ported: its results
+     arrive through `data/`; the derive and the authoring are devkit's, cut
+     at the freeze below):
      ```bash
      git -C "$MODKIT" log --oneline 8bfef0ca6..origin/main -- azurik_mod/randomizer/{data,planner} \
        azurik_mod/randomizer/{writer,physics,movement,layer,tracker,live,live_link,levels}.py \
@@ -327,6 +328,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   rewrites (the soak's profiles and builds, four dark-area plans at Fire 1)
   are in its developer-log entry. A later fix is AzurKit's own, held to
   `tests/test_rando_db.py`.
+- **The derive's and the authoring's cut (Step 4.13c):** `devkit/rando` is
+  Modkit's `randomizer/draft` (the reach model, flights, gates, moves,
+  sites, route, L3 goals, coverage, value ranker, pictures, export and
+  authoring, with the 22 authoring specs and `blocker_families.toml`) and
+  its `rando derive | author | check` verbs at Modkit `f482ea041`, on the
+  shipped draft's envelope, floors, geometry and wiring;
+  `devkit/rando/physics.py` restores the walk-off carry and the flights'
+  certificates AzurKit's physics dropped. A change to the derive bumps
+  `DERIVE_VERSION`; `python -m devkit rando restack` re-derives, re-authors,
+  checks and re-records the randomizer's goldens, and
+  `tests/test_reach_model.py` and `tests/test_movement_envelope.py` hold it.
 - **Coverage:** Modkit's planner tests don't guard AzurKit's copy. A step
   that edits a module from the cut ports the Modkit tests that pin what it
   changes, or names the golden that pins it.

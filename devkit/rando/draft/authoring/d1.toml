@@ -1,0 +1,354 @@
+# d1's hand decisions for `azurik-mod rando author` (Step R1.11d): what the derive (derived/d1.json.gz) can't decode or
+# doesn't model. Zones are the derive's (d1.Z<n>); a default taken under D115 says so. d1 is the Death realm's spires:
+# the arrival from town (startspotShape) rides the grate elevator 37 m down into the death seal's chamber (d1.Z031)
+# [verified xemu, placed: sitting r111d], the seal (all five discs at 4) opens the chromatic gate onto the outer spires
+# (the floor-7 complex: floors 6-8, the beam walkways, the acid blocks, the entrance bridge); the bridge-end cutscene (D2_movie_levelSwitch) drops the player into d2, whose door comes back to
+# floor 1 (D2_D1), and the central spire's elevator (ElevatorShape, floors 1-11, called by CallField1-11 and steered
+# by the floor switches, three of them keyed by the diamond-battery keylocks: death_keylock1 -> switch7,
+# death_keylock -> switch4, death_keylock2 -> switch9) serves the inner floors; Spideyzar spawns when the elevator's
+# call selects floor 9 (switch9) [verified data: generated/d1.json, logic_dump d1; RANDOMIZER_PLAN 2.7].
+#
+# The elevator is a rig the derive doesn't follow (public_Elevator's gate undecoded). Its floors take the
+# conservative-kit rule (draft/authoring/a1.toml's header, default taken under D115): reached from floor 1 (after d2:
+# the d1.spires time-saver's plain route, "d2's way back reaches d1's floor 1, whose battery-free elevator serves
+# floor 5"), with the elements the vanilla run holds in d1 (air, water, fire, earth 3: the route's button:d1.seal to flag:d1.spideyzar.killed), the death
+# seal and the d1 keylocks the route uses before each floor's first step; floor 9 needs death_keylock2 (switch9's key).
+level = "d1"
+probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
+
+[names]
+d1_z219 = "d1.Z218"        # Step R1.24a: Z218 since the re-derive (was d1.Z219); the id kept
+d1_core = "d1.Z031"           # the town arrival: the grate elevator's foot in the death seal's chamber [verified xemu, placed: sitting r111d]
+d1_floor1 = "d1.Z015"         # floor 1 (Floor01_locShape, the save point D1_1), behind the d2 door
+d1_floor9 = "d1.Z005"         # floor 9: Spideyzar's room (spideyzarRoomLocationShape)
+d1_floor11 = "d1.Z016"        # floor 11: death_keylock2 (switch9's key) and the save point D1_2
+
+[[event]]
+id = "d1.spideyzar.killed"
+of = "d1/g0/r799"
+zone = "d1.Z005"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+terminal = true
+why = "Spideyzar, in his room on floor 9 (the migrated requirement kept, default taken under D115); the kill ends the game (D76, victory; RANDOMIZER_PLAN 2.7 [verified data])"
+
+[[edge]]                      # floor 1's door to the d1/d2 door pair, from either side
+from = "d1.Z125"
+to = "d1.Z015"
+requires = "true"
+why = "D2Door_toggle opens on a touch of its field (DeathLevelTransition:LevelDoor2:public_DoorFieldShape) [verified data], which the derive sets from both sides (d1.Z015 and d1.Z125) but credits at the lower, floor 1's, so the D2_D1 arrival's side could not open it: a touch from either side (default taken under D115)"
+
+[[edge]]
+from = "d1.Z015"
+to = "d1.Z125"
+requires = "true"
+why = "the same door from floor 1's side"
+
+[exit."d1/g0/r2265"]          # D1_Town_levelSwitch: the entrance's exit field
+from = "d1.Z031"
+to = "town.Z021"
+requires = "true"
+why = "touch(D1_Town_ExitFieldShape) [verified data]; the derive places neither its field nor the arrival on a floor: the arrival rides the grate elevator down into the seal's chamber (d1.Z031) [verified xemu, placed: sitting r111d], and the exit field is taken as the same elevator's way back up (default taken under D115); its arrival, D1_TownShape, stands on town's own grate elevator by the temple's death door, which the derive leaves without a floor: the temple's zone town.Z021, where toD1_levelSwitch leaves from (default taken under D115)"
+
+[exit."d1/g0/r2271"]          # D2_movie_levelSwitch: the bridge-end cutscene into d2
+from = "d1.Z056"
+to = "d2.Z015"
+requires = "event:d1.walkwayGenerator2_PressurePlateShape.touch | event:d1.walkwayGenerator2_BaseShape.touch"
+why = "the walk from walkway generator 2 (d1.Z056) onto the beam walkway past the bridge-end field fires it at kit 0, 5 of 5 in xemu and in the owner's demo (X.78, D722 row 10), so it leaves from there once walkway generator 2 (its plate beside d1.Z056) has raised the walkway (Step R1.24b; the derive's field zone is the walkway, d1.Z025). and(DeathMovie_disable_toggle, touch(DeathMovieFieldShape)) [verified data]: one shot (the touch turns the toggle off), harmless since the lab's only way out is the lens-locked door, after which the d1/d2 door pair stays open (default taken under D115); it lands the player from D1_D2_Fall alive on the lab floor d2.Z015 [verified xemu, placed: sitting r111d]"
+
+[exit."d1/g0/r2266"]          # D1_D2_levelSwitch: the floor-1 door to d2's door
+requires = "true"
+why = "touch(DeathLevelTransition:LevelDoor3:public_DoorFieldShape) [verified data]"
+
+[[edge]]                      # the elevator: floor 1 -> floor 7 (the outer complex)
+from = "d1.Z015"
+to = "d1.Z079"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal"
+why = "the central elevator from floor 1 up to floor 7 (the outer complex): a rig the derive doesn't follow; one way in logic (floor 1 is reached only through d2, the d1.spires time-saver's plain route); the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 1 -> floor 2
+from = "d1.Z015"
+to = "d1.Z002"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+why = "the central elevator from floor 1 to floor 2: a rig the derive doesn't follow; a gem cluster only, off the route: the level's last step's actions; the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 2 -> floor 1
+from = "d1.Z002"
+to = "d1.Z015"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "the central elevator back down to floor 1 (CallField1): the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 1 -> floor 3
+from = "d1.Z015"
+to = "d1.Z004"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+why = "the central elevator from floor 1 to floor 3: a rig the derive doesn't follow; a gem cluster only, off the route; the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 3 -> floor 1
+from = "d1.Z004"
+to = "d1.Z015"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "the central elevator back down to floor 1 (CallField1): the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 1 -> floor 4
+from = "d1.Z015"
+to = "d1.Z003"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+why = "the central elevator from floor 1 to floor 4: a rig the derive doesn't follow; a gem cluster only, off the route; the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 4 -> floor 1
+from = "d1.Z003"
+to = "d1.Z015"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "the central elevator back down to floor 1 (CallField1): the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 1 -> floor 5
+from = "d1.Z015"
+to = "d1.Z081"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal"
+why = "the central elevator from floor 1 to floor 5: a rig the derive doesn't follow; the beam walkway to death_keylock (the route's button:d1.death_keylock, the first lock); the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 5 -> floor 1
+from = "d1.Z081"
+to = "d1.Z015"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "the central elevator back down to floor 1 (CallField1): the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 1 -> floor 10
+from = "d1.Z015"
+to = "d1.Z000"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal"
+why = "the central elevator from floor 1 to floor 10: a rig the derive doesn't follow; IceBlock_03's near side (the route's d1/g0/r2169, key_diamondbattery); the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 10 -> floor 1
+from = "d1.Z000"
+to = "d1.Z015"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "the central elevator back down to floor 1 (CallField1): the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 1 -> floor 11
+from = "d1.Z015"
+to = "d1.Z016"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1"
+why = "the central elevator from floor 1 to floor 11: a rig the derive doesn't follow; death_keylock2 (the route's button:d1.death_keylock2, after the other two locks); the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 11 -> floor 1
+from = "d1.Z016"
+to = "d1.Z015"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "the central elevator back down to floor 1 (CallField1): the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 1 -> floor 9
+from = "d1.Z015"
+to = "d1.Z005"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+why = "the central elevator from floor 1 to floor 9: a rig the derive doesn't follow; Spideyzar's floor: switch9 is keyed by death_keylock2 [verified data]; the other two locks as the route uses them first (the route's flag:d1.spideyzar.killed); the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator: floor 9 -> floor 1
+from = "d1.Z005"
+to = "d1.Z015"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+why = "the central elevator back down to floor 1 (CallField1): the conservative-kit rule (default taken under D115)"
+
+[[edge]]                      # the elevator bounce: floor 8 -> floor 9 (Step R2.17b)
+from = "d1.Z018"
+to = "d1.Z005"
+requires = "skip:d1.elevator_bounce"
+why = "the skip's clause: from floor 8's shaft ring, with the deck called up from far below, walk toward the shaft axis onto the deck's raised centre 7-17 ticks before its dead stop: popped onto floor 9 with no button, kit 0 [verified xemu, placed: R2.17 sitting r217c-det-k0/w1]"
+
+[[edge]]                      # the elevator bounce: floor 7 -> floor 10 (Step R2.17b)
+from = "d1.Z079"
+to = "d1.Z000"
+requires = "skip:d1.elevator_bounce_f10"
+why = "the skip's clause: from floor 7's shaft ring, with the deck called up from far below, walk toward the shaft axis onto the deck's raised centre, the stick turned away from the axis in the air: launched onto floor 10 with no button, kit 0 [verified xemu, placed: R2.17 sitting r217c-det-k0/w4]"
+
+[members]                     # the conservative-kit rule: joined to floor 1 (the elevator's floor after d2)
+"d1/g0/r1019" = "d1.Z015"  # ruby: on d1.Z010, a lift floor (LiftShape) the derive reaches in no rung
+"d1/g0/r1029" = "d1.Z015"  # diamond: on d1.Z006, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: its decoded rides join d1.Z018 and d1.Z017 only)
+"d1/g0/r1035" = "d1.Z015"  # sapphire: on d1.Z011, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: its decoded rides join d1.Z018 and d1.Z017 only)
+"d1/g0/r1042" = "d1.Z015"  # emerald: on d1.Z008, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: its decoded rides join d1.Z018 and d1.Z017 only)
+"d1/g0/r1045" = "d1.Z015"  # ruby: on d1.Z009, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: its decoded rides join d1.Z018 and d1.Z017 only)
+"d1/g0/r1022" = "d1.Z015"  # diamond: on d1.Z007, a lift floor (LiftShape) the derive reaches in no rung
+"d1/g0/r1056" = "d1.Z015"  # sapphire: which the derive places on no floor
+"d1/g0/r1058" = "d1.Z015"  # sapphire: which the derive places on no floor
+"d1/g0/r1060" = "d1.Z015"  # sapphire: which the derive places on no floor
+"d1/g0/r1063" = "d1.Z015"  # ruby: which the derive places on no floor
+"d1/g0/r1065" = "d1.Z015"  # ruby: which the derive places on no floor
+"d1/g0/r1067" = "d1.Z015"  # ruby: which the derive places on no floor
+"d1/g0/r1071" = "d1.Z015"  # emerald: which the derive places on no floor
+"d1/g0/r1073" = "d1.Z015"  # emerald: which the derive places on no floor
+"d1/g0/r1075" = "d1.Z015"  # emerald: which the derive places on no floor
+"d1/g0/r1079" = "d1.Z015"  # diamond: which the derive places on no floor
+"d1/g0/r1081" = "d1.Z015"  # diamond: which the derive places on no floor
+"d1/g0/r1083" = "d1.Z015"  # diamond: high above any floor (the derive holds it over its zone)
+"d1/g0/r1096" = "d1.Z015"  # sapphire: which the derive places on no floor
+"d1/g0/r1624" = "d1.Z015"  # all_fuel: walled on (static level mesh)
+"d1/g0/r2193" = "d1.Z015"  # key_diamondbattery: in a damage volume (the electric fields), removed from the logic walk
+
+[[location]]
+id = "d1/g0/r1019"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby on d1.Z010, a lift floor (LiftShape) the derive reaches in no rung: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1022"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond on d1.Z007, a lift floor (LiftShape) the derive reaches in no rung: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1056"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1058"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1060"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1063"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1065"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1067"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1071"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "emerald which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1073"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "emerald which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1075"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "emerald which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1079"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1081"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1083"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond high above any floor (the derive holds it over its zone): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1096"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1624"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal"
+note = "all_fuel walled on (static level mesh): the conservative-kit rule, joined to floor 1 (the route's d1/g0/r1624)"
+
+[[location]]
+id = "d1/g0/r2193"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal"
+note = "key_diamondbattery in a damage volume (the electric fields), removed from the logic walk: the conservative-kit rule, joined to floor 1 (the route's d1/g0/r2193)"
+
+[[location]]
+id = "d1/g0/r1029"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond on d1.Z006, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: the lifts' decoded rides join d1.Z018 and d1.Z017 only): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1035"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire on d1.Z011, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: the lifts' decoded rides join d1.Z018 and d1.Z017 only): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1042"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "emerald on d1.Z008, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: the lifts' decoded rides join d1.Z018 and d1.Z017 only): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1045"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby on d1.Z009, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: the lifts' decoded rides join d1.Z018 and d1.Z017 only): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[held]]                      # the kit-0 walk onto the beam walkway past the bridge-end field (Step R1.24b, D722 row 10)
+from = "d1.Z056"
+to = "d1.Z025"
+why = "walking from d1.Z056 onto the beam walkway fires the one-shot bridge-end cutscene into d2 (5 of 5 in xemu, AZ-700; the D2_movie exit above). The owner (the owner's demo, X.78, D722 row 10, verbatim): \"actually, it would be possible to get here with 0 powers, but only by activating the cutscene, and then returning to town either through our ritual on save points where we press left trigger and all the powers, or through the debug menu\": the walk reaches the walkway at kit 0 only once the cutscene has fired (its touch turns DeathMovie_disable_toggle off for good) and the save warp has brought him back, and the save-point warp (qol_save_warp) is not in logic (RANDOMIZER.md, Playing safely), so the kit-0 walk leaves logic; after the cutscene the walk asks air 3, his route's kit (the hand edge below; default taken under D115). The way onto the walkway without the cutscene is floor 7's, with air 3 (below)"
+
+[[edge]]                      # the walk onto the beam walkway once the cutscene has fired, at air 3 (Step R1.24b, D722 row 10)
+from = "d1.Z056"
+to = "d1.Z025"
+requires = "air>=3 & flag:d2.lab.reached & (event:d1.walkwayGenerator2_PressurePlateShape.touch | event:d1.walkwayGenerator2_BaseShape.touch)"
+why = "after the one-shot cutscene (d2.lab.reached: only the cutscene lands in d2's lab) the bridge-end field is off and the walk from walkway generator 2 onto the beam walkway stays in d1; at kit 0 it is the owner's only by the save warp back (the owner's demo, X.78, D722 row 10: \"only by activating the cutscene, and then returning to town either through our ritual on save points ... or through the debug menu\"), which is not in logic, so it asks air 3, the kit of his way onto the walkway without the cutscene (default taken under D115)"
+
+[[held]]                      # floor 7's walkway onto the beam walkway, kit 0 (re-gated below)
+from = "d1.Z079"
+to = "d1.Z025"
+why = "re-gated to air 3 (the hand edge below)"
+
+[[edge]]                      # the way onto the beam walkway without the cutscene: air 3 (Step R1.24b, D722 row 10)
+from = "d1.Z079"
+to = "d1.Z025"
+requires = "air>=3 & (event:d1.BeamShape_g0r523.touch | event:d1.walkwayGenerator3_BaseShape.touch | event:d1.walkwayGenerator3_PressurePlateShape.touch | event:d1.walkwayGenerator4_BaseShape.touch | event:d1.walkwayGenerator4_PressurePlateShape.touch)"
+why = "the owner reached the beam walkway (d1.Z025) and stood there with d1 still loaded, no cutscene and no d2, by floor 7's ledge (d1.Z079), with air 3 (the owner's demo, X.78, D722 row 10, verbatim: \"i used air power 3 to get here\"); re-gated to air 3 from the derive's walk over walkway generators 3 and 4 (data), kit 0"
+
+[[held]]                      # floor 7 to floor 6 on foot (Step R1.24b, D722 row 11)
+from = "d1.Z079"
+to = "d1.Z121"
+pair = true
+why = "the owner, verbatim: \"my bad i meant row 11 isnt possible\" (the owner's demo, X.78, D722 row 11): floor 7's ledge (d1.Z079) to floor 6's (Floor06_loc, d1.Z121) on foot can't be done at kit 0 (the derive's 15 m jump ending 11 m down, then a 5.7 m drop, AZ-476), so every derived path between them leaves logic and the way is the keylock's (the hand edge below)"
+
+[[edge]]                      # floor 7 to floor 6 once death_keylock is used (Step R1.24b, D722 row 11)
+from = "d1.Z079"
+to = "d1.Z121"
+requires = "button:d1.death_keylock"
+why = "re-gated to button:d1.death_keylock (the owner's demo, X.78, D722 row 11: LIST.txt's fail branch); floors 6 and 10 then follow death_keylock (switch4, the elevator's floor switch it keys [verified data: generated/d1.json])"
+
+[[held]]                      # floor 8 to floor 6 on foot (Step R1.24b, D722 row 11)
+from = "d1.Z017"
+to = "d1.Z121"
+pair = true
+why = "with floor 7 > floor 6 held (above) the logic still reached floor 6's ledge (d1.Z121) from floor 7 at kit 0 over floor 8 (d1.Z079 > d1.Z018, then down by LiftShape's side: the derive's guessed sweeps, a 5.7 m drop from d1.Z110 or a jump from d1.Z323), ways no one has played; the owner's call (the owner's demo, X.78, D722 row 11: \"my bad i meant row 11 isnt possible\") is that floor 6 is the keylock's, so every guessed path from floors 7 and 8 into floor 6 leaves logic too (AZ-736) and the way is the keylock's (the hand edge below)"
+
+[[held]]
+from = "d1.Z018"
+to = "d1.Z121"
+pair = true
+why = "as d1.Z017 > d1.Z121 (above): floor 8 (d1.Z018) into floor 6 by guessed paths"
+
+[[held]]
+from = "d1.Z040"
+to = "d1.Z121"
+pair = true
+why = "as d1.Z017 > d1.Z121 (above): d1.Z040, beside d1.Z017 (one node), into floor 6 by guessed paths"
+
+[[held]]
+from = "d1.Z428"
+to = "d1.Z121"
+pair = true
+why = "as d1.Z017 > d1.Z121 (above): with floors 7 and 8 held the derive still joined d1.Z428 (above floor 8, reached from d1.Z017 at air 1) to floor 6 at air 3 by guessed sweeps no one has played, so floor 6 and r1104 came before death_keylock in every plan (d1 is entered at full kit); the owner's call (the owner's demo, X.78, D722 row 11) is that floor 6 is the keylock's"
+
+[[edge]]                      # floor 8 to floor 6 once death_keylock is used (Step R1.24b, D722 row 11)
+from = "d1.Z017"
+to = "d1.Z121"
+requires = "button:d1.death_keylock"
+why = "re-gated to button:d1.death_keylock as floor 7 > floor 6 (above; the owner's demo, X.78, D722 row 11: LIST.txt's fail branch): floor 6's elevator stop is switch4, which death_keylock keys [verified data: generated/d1.json]"
