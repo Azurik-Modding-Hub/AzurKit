@@ -135,6 +135,9 @@ def test_a_refusal_names_what_it_refuses_and_writes_nothing(tmp_path):
         (tools.pack_build_iso(str(image), out, ["player_physics"], {"player_physics": {"gravity": True}}),
          "player_physics"),
         (tools.pack_build_iso(str(image), out), "not the vanilla"),   # D27
+        (tools.pack_build_iso(str(image), out, config_mod={"format": "azurkit-preset", "schema_version": 1, "layers": [
+            {"tool": "files", "kind": "put", "recipe": {"files": [
+                {"path": "gamedata/config.xbr", "sha256": "ab" * 32, "size": 10}]}}]}), "files layer"),   # D35
         (tools.rando_build_iso(str(image), out, 1, {"no_gemz": True}), "no_gemz"),
         (tools.rando_build_iso(str(image), out, 1, {"spoiler": str(image)}), "input"),   # D36
         (tools.rando_build_iso(str(image), out, 1, {"spoiler": out}), "output image itself"),

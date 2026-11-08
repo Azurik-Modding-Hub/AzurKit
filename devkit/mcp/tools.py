@@ -288,6 +288,9 @@ def _recipe(image: str, enable: list | None, disable: list | None, params: dict 
         if isinstance(config_mod, str) and os.path.isfile(config_mod):
             config_mod = Path(config_mod).read_bytes()
         given = sdk.read_mods(config_mod)
+        if given.get("files"):   # D35: never built without the layer
+            raise ValueError(f"config_mod: its files layer ({', '.join(e['path'] for e in given['files'])}) replaces "
+                             "files a player picks (azurkit build --file); the MCP server picks none")
     said = io.StringIO()
     with contextlib.redirect_stdout(said):
         made = cli.recipe(image, list(enable or []), list(disable or []), True, (), given)
@@ -327,7 +330,8 @@ def pack_build_iso(iso: str, out: str, enable: list | None = None, params: dict 
             finite value (D23).
         config_mod: a mods file (its path, its JSON text or the object; a
             share link too): its packs replace those on by default, and its
-            xbr edits, seed and character come with it.
+            xbr edits, seed and character come with it; one with a files
+            layer (Replace files) is refused.
         disable: packs on by default to leave out; one both enabled and
             disabled is refused.
     Returns {output_path, region (the input's release), sha256 (the
