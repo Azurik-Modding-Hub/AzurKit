@@ -210,7 +210,8 @@ def test_the_variants_views_calls_open_read_save_import_and_export_whole_or_refu
     files its recipe names, naming those not yours to share (a mesh: D393);
     Import makes a folder of an Export's zip or a recipe.json alone, its
     other files left out, and refuses by name a taken name, two recipes, a
-    path outside its folder and what is no zip or recipe; Delete removes it."""
+    path outside its folder, a member it can't read and what is no zip or
+    recipe; Delete removes it."""
     import hashlib
     import io
     import zipfile
@@ -250,7 +251,9 @@ def test_the_variants_views_calls_open_read_save_import_and_export_whole_or_refu
     for data, why in ((out["zip"], r"variant 'lady': .* exists"),
                       (_zip({"a/recipe.json": b"{}", "b/recipe.json": b"{}"}), "holds 2 recipe.json files"),
                       (_zip({"x/recipe.json": b'{"x": {"base": "keylord"}}', "y/z.wav": b""}), "outside the variant's"),
-                      (b"PK not a zip", "not a zip"), (b"[1]", "holds one recipe")):
+                      (b"PK not a zip", "not a zip"), (b"[1]", "holds one recipe"),
+                      (_zip({"c/recipe.json": b'{"c": {"base": "keylord"}}', "c/ow.wav": b"RIFFWAVE"}).replace(
+                          b"RIFFWAVE", b"RIFFWAVF"), "'c/ow.wav' can't be read")):   # a stored member's bad CRC
         with pytest.raises(ValueError, match=why):
             sdk.variant_import({"data": data})
     sdk.variant_delete({"name": "lady"})

@@ -410,9 +410,10 @@ def unpacked(data: bytes) -> tuple[str, dict, dict[str, bytes]]:
     ``recipe.json`` alone. Its name (the recipe's), its recipe and its
     files by path beside the recipe; :class:`ValueError` names what isn't
     one (two recipes, a path outside its folder, more than :data:`MOST`
-    bytes unpacked, no recipe)."""
+    bytes unpacked, a member zipfile can't read, no recipe)."""
     import io
     import zipfile
+    import zlib
 
     if not isinstance(data, (bytes, bytearray)):
         raise ValueError("import: a zip or a recipe.json's bytes")
@@ -434,8 +435,11 @@ def unpacked(data: bytes) -> tuple[str, dict, dict[str, bytes]]:
         for info in infos:
             if not info.filename.startswith(top) or not _inside(path := info.filename[len(top):]):
                 raise ValueError(f"import: {info.filename!r} is outside the variant's folder")
-            with z.open(info) as f:
-                files[path] = f.read(MOST + 1)
+            try:   # a member zipfile can't read (a bad CRC, a broken stream, an encrypted one or another method)
+                with z.open(info) as f:
+                    files[path] = f.read(MOST + 1)
+            except (zipfile.BadZipFile, zlib.error, NotImplementedError, RuntimeError, EOFError) as exc:
+                raise ValueError(f"import: {info.filename!r} can't be read ({exc})") from None
         text = files.pop(RECIPE)
     if jsondepth.deeper(text.decode("utf-8", "replace"), NESTING):
         raise ValueError(f"import: not a recipe (it nests deeper than {NESTING})")
