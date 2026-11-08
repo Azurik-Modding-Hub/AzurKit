@@ -82,12 +82,13 @@ Attempt k leans strictly first, then weighted, and a level's
 Own spots, trades, the trap gate's repairs, vaults and AZ-725's marks stay in
 charge, and every attempt is verified as today. **The acceptance**
 (:class:`_Accept`): Easy keeps the lowest :class:`~.difficulty.Judge` score of
-its first :data:`~.difficulty.BOUNDS` passing attempts, Expert the highest,
-the first on a tie (fewer pass in its attempts: the best of those);
-Hard keeps its first. Attempt k is a pure function of the seed, k, the
-settings digest and the database, so a host may run those past the first at
-once (:data:`WIDTH` on its :data:`BESIDE`; the planner holds no thread): the
-same plan at any width. The useful items all fill the vaults (Q290), so
+its first :data:`~.difficulty.BOUNDS` passing attempts and, last, Normal's own
+plan for the seed (:meth:`_Run.normal_plan`), Expert the highest of its first
+BOUNDS, the first on a tie (fewer pass in its attempts: the best of those), so
+no Easy plan scores above Normal's; Hard keeps its first. Attempt k is a pure
+function of the seed, k, the settings digest and the database, so a host may
+run those past the first at once (:data:`WIDTH` on its :data:`BESIDE`; the
+planner holds no thread): the same plan at any width. The useful items all fill the vaults (Q290), so
 nothing leans them.
 
 **Streams** (plan §3.5): ``sub_seed(name)`` is the first 8 bytes of the
@@ -1209,20 +1210,23 @@ class _Kernel:
         w[24] = most_group
         self.blob = array("q", w)
 
-    def attempt(self, seed: str, k: int, told: _Count, repaired: list[str]) -> dict[str, str] | None:
+    def attempt(self, seed: str, k: int, told: _Count, repaired: list[str],
+                normal: bool = False) -> dict[str, str] | None:
         """Attempt ``k``'s placement as :meth:`_Slots.attempt` gives it (or its :class:`_Stuck`), its notes told to
-        ``told`` and its refusals in ``repaired``; None: the twin runs."""
+        ``told`` and its refusals in ``repaired``; ``normal``: Normal's attempt k (:meth:`_Run.attempt`); None: the
+        twin runs."""
         if self.blob is None:
             return None
         run, nt = self.run, self.tabs[0]
         keys = []
         for name in self.STREAMS:
-            n = sub_seed(seed, name if k == 0 else f"attempt{k}/{name}", run.digest)
+            n = sub_seed(seed, name if k == 0 else f"attempt{k}/{name}", run.normal if normal else run.digest)
             keys += [1 + (n >> 32 != 0), n & 0xFFFFFFFF, n >> 32]
         vw, nl = 1 + self.lw + 2 * self.nw, len(nt.locs)
         graphs = [g for t in self.tabs for g in t.graphs] + [0] * 3 * (4 - len(self.tabs))
+        mode = 0 if normal else lean_mode(run.level, k)
         while True:
-            call = array("q", [self.cap, len(self.tabs), lean_mode(run.level, k), run.past_at(k), *graphs, *keys])
+            call = array("q", [self.cap, len(self.tabs), mode, run.past_at(k, normal), *graphs, *keys])
             at_log = self.OUT + nl + vw * (MAX_REPAIRS + 2)
             out = native.attempt(self.blob, [t.tables for t in self.tabs], call, at_log + self.cap)
             if out != -3:
@@ -1341,28 +1345,41 @@ class _Run:
         self.count = _Count(making, BOUNDS[self.level])
         # a level's leaning attempts, then today's draw; Normal's of today, then as many going past a kept way out
         self.attempts = MAX_ATTEMPTS + (LEANED if self.level else MAX_ATTEMPTS)
+        # Easy's: Normal's settings digest, whose attempts on this run's caches make Normal's own plan (normal_plan)
+        self.normal = settings_digest(replace(st, seed_difficulty=0)) if self.level == 1 else None
         self.kernel = _Kernel(self)
         if self.judge is not None and self.kernel.blob is not None:
             self.judge.kernel = self.kernel
 
-    def lean_at(self, k: int) -> _Lean | None:
-        """Attempt ``k``'s lean (:func:`~.difficulty.lean_mode`), or none."""
-        return self.lean.at(lean_mode(self.level, k)) if self.lean is not None else None
+    def lean_at(self, k: int, normal: bool = False) -> _Lean | None:
+        """Attempt ``k``'s lean (:func:`~.difficulty.lean_mode`), or none (``normal``: Normal's attempt k)."""
+        return self.lean.at(lean_mode(self.level, k)) if self.lean is not None and not normal else None
 
-    def past_at(self, k: int) -> bool:
+    def past_at(self, k: int, normal: bool = False) -> bool:
         """Whether attempt ``k``'s trap gate repair may move a way-in item past a kept way out
-        (:meth:`_Slots.repairs`): a level's every attempt, Normal's past its first :data:`MAX_ATTEMPTS` (today's
-        plans, which they keep byte for byte; with the elemental powers kept, a seed whose every one of those met
-        the gate with no key item for a way out found no plan)."""
-        return bool(self.level) or k >= MAX_ATTEMPTS
+        (:meth:`_Slots.repairs`): a level's every attempt, Normal's (or ``normal``'s) past its first
+        :data:`MAX_ATTEMPTS` (today's plans, which they keep byte for byte; with the elemental powers kept, a seed
+        whose every one of those met the gate with no key item for a way out found no plan)."""
+        return bool(self.level and not normal) or k >= MAX_ATTEMPTS
 
-    def attempt(self, seed: str, k: int, count: _Count | None = None) -> Outcome:
+    def normal_plan(self, seed: str) -> Outcome | None:
+        """Normal's own plan for ``seed`` at these settings, Easy's last candidate (:meth:`_Accept.best`): the first
+        of Normal's attempts that passes, each made on this run's caches (an attempt reads nothing of the level but
+        its lean, its trap gate's repair and its streams' settings digest); None when none passes."""
+        for k in range(2 * MAX_ATTEMPTS):
+            if (o := self.attempt(seed, k, normal=True)).placement is not None:
+                return o
+        return None
+
+    def attempt(self, seed: str, k: int, count: _Count | None = None, normal: bool = False) -> Outcome:
+        """Attempt ``k`` of the run's level, or (``normal``, an Easy run's) Normal's attempt k."""
         repaired: list[str] = []
         try:
-            if (placement := self.kernel.attempt(seed, k, count or self.count, repaired)) is None:
-                placement = self.slots.attempt(self.st, self.reads, _streams(seed, k, self.digest), self.known,
-                                               repaired, self.reaches, count or self.count, self.lean_at(k),
-                                               self.past_at(k))
+            if (placement := self.kernel.attempt(seed, k, count or self.count, repaired, normal)) is None:
+                placement = self.slots.attempt(self.st, self.reads,
+                                               _streams(seed, k, self.normal if normal else self.digest), self.known,
+                                               repaired, self.reaches, count or self.count, self.lean_at(k, normal),
+                                               self.past_at(k, normal))
         except _Stuck as exc:
             return Outcome(k, None, str(exc), exc.item)
         layout(placement, self.logic.db)     # the writer's own check (never over a budget): a WriteError is a bug
@@ -1383,8 +1400,7 @@ class _Accept:
             if o.item is not None:
                 self.stuck.add(o.item)
             return None
-        made = Fill(self.seed, self.run.st, o.k, o.placement, tuple(self.reasons),
-                    tuple(f"attempt {o.k}: {r}" for r in o.repaired))
+        made = self._made(o)
         if self.run.judge is None:
             return made
         self.candidates.append(made)
@@ -1393,14 +1409,23 @@ class _Accept:
         self.run.count.tried_one(len(self.candidates))
         return None
 
+    def _made(self, o: Outcome) -> Fill:
+        return Fill(self.seed, self.run.st, o.k, o.placement, tuple(self.reasons),
+                    tuple(f"attempt {o.k}: {r}" for r in o.repaired))
+
     def best(self) -> Fill | None:
-        """The candidate with the best score (Easy's lowest, Expert's highest), the first on a tie; none: ``None``."""
+        """The candidate with the best score (Easy's lowest, Expert's highest), the first on a tie; none: ``None``.
+        Easy's candidates end with Normal's own plan for the seed (:meth:`_Run.normal_plan`), so it is kept only where
+        it scores below each of Easy's and no Easy plan scores above Normal's (D1160)."""
         if not self.candidates:
             return None
-        placements, score = [made.placement for made in self.candidates], self.run.judge.score
+        candidates = self.candidates
+        if self.run.normal is not None and (o := self.run.normal_plan(self.seed)) is not None:
+            candidates = [*candidates, self._made(o)]
+        placements, score = [made.placement for made in candidates], self.run.judge.score
         scores = [score(p) for p in placements] if self.beside is None else self.beside.again(score, placements)
         pick = (min if self.run.level == 1 else max)(range(len(scores)), key=scores.__getitem__)
-        return replace(self.candidates[pick], failed=tuple(self.reasons))
+        return replace(candidates[pick], failed=tuple(self.reasons))
 
     def end(self) -> Fill:
         """Every attempt told: the best of those that passed, or no plan (D35)."""

@@ -688,7 +688,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     that already collects a key item, then its sphere + min(detour, 6);
     `fill._earliest`, `P_REPAIR_EARLIEST`). Easy keeps the lowest
     `Judge.score` (key-item steps + key items off the path + twice the
-    step-ups at each rating to the top) of 3 passing attempts, Expert the
+    step-ups at each rating to the top) of 3 passing attempts and, last,
+    Normal's own plan for the seed (`fill._Run.normal_plan`: Normal's
+    attempts on the Easy run's caches), so Normal's is kept only where it
+    scores below all 3 and no Easy plan scores above Normal's; Expert the
     highest of 6, the first on a tie; Hard and Normal their first. The
     kernel (`fill.c`'s `lean`, the
     call's `A_LEAN` and `A_PAST`, each location's `L_DETOUR`) and its twin

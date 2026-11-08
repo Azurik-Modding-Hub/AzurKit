@@ -277,6 +277,26 @@ def test_easy_with_the_elemental_powers_kept_plans_from_its_lean_no_deeper_than_
                                       <= difficulty.chain(logic, normal, today.placement)), seed
 
 
+def test_easy_keeps_normals_own_plan_only_where_it_scores_below_each_of_easys_so_no_easy_plan_scores_above_normals(
+        monkeypatch):
+    """D1160: Easy's candidates end with Normal's own plan for the seed and settings (``fill._Run.normal_plan``), kept
+    only where it scores below every one of Easy's, a tie keeping Easy's: at Standard and Safe movement with no skips,
+    seeds "7" and "72", where Normal's draw scored below each of Easy's 3, Easy's plan is Normal's; at seeds "0" and
+    "1" it is the one Easy's own 3 give, below Normal's. Every plan passes the verify."""
+    logic = kept_logic()
+    for tier, seeds in (("standard", {"7": True, "0": False}), ("safe", {"72": True, "1": False})):
+        easy, normal = (Settings(0, tier, {}, seed_difficulty=level) for level in (1, 0))
+        judge = difficulty.Judge(logic, easy, fill.key_spots(logic, easy), difficulty.detours(logic, easy))
+        for seed, taken in seeds.items():
+            made, today = fill._fill(logic, seed, easy), fill._fill(logic, seed, normal)
+            with monkeypatch.context() as m:
+                m.setattr(fill._Run, "normal_plan", lambda run, seed: None)
+                own = fill._fill(logic, seed, easy)
+            assert not fill.verify(logic, easy, made.placement), (tier, seed)
+            assert made.placement == (today if taken else own).placement, (tier, seed)
+            assert (judge.score(own.placement) > judge.score(today.placement)) == taken, (tier, seed)
+
+
 def test_with_the_elemental_powers_kept_each_level_plans_a_seed_whose_attempts_of_today_all_meet_the_trap_gate():
     """D1160: with the elemental powers kept at Hard movement and skips, each of seed "52"'s 20 attempts of today (and
     seed "2"'s with the upgrades kept too) opens a realm before the kept power that gets the player back out, with no

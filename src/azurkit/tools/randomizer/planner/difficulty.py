@@ -17,8 +17,9 @@ host):
 The fill (``fill._Lean``, ``native/fill.c``'s lean) draws each key item's spot among those its rules allow by
 w = 4 * missed + round + min(detour, :data:`DETOUR_CAP`): Easy among the lowest (missed, round + detour), Hard weighted
 w * w + 1, Expert among the highest w; the obsidians by detour alone (D1038's lean of optional rewards). Easy keeps the
-lowest :meth:`Judge.score` of :data:`BOUNDS` passing attempts, Expert the highest, the first on a tie; Hard and Normal
-keep the first. Every attempt passes the fill's verify, so every seed stays beatable within its settings.
+lowest :meth:`Judge.score` of :data:`BOUNDS` passing attempts and Normal's own plan for the seed (last, so it is kept
+only where it scores below each of Easy's: no Easy plan scores above Normal's), Expert the highest, the first on a tie;
+Hard and Normal keep the first. Every attempt passes the fill's verify, so every seed stays beatable within its settings.
 
 A *rating* is one scale for movement tiers and skips: 1 Safe, 2 Standard, 3 Hard, 4 Frame-perfect. The *rung* E_r of
 settings S is S with everything rated r and above taken away (:func:`rung`). *need_r*: the plan can't be won at E_r.
