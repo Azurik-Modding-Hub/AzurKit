@@ -24,6 +24,7 @@ Ported from the Azurik Dialogue Studio (``audio_formats.py`` at
 
 from __future__ import annotations
 
+import functools
 import math
 import struct
 import wave
@@ -126,22 +127,52 @@ class WavInfo(NamedTuple):
     frames: int
 
 
-def _resampled(samples: Sequence[int], position: float, ratio: float) -> int:
-    """The windowed-sinc value of mono ``samples`` at ``position`` (a
-    source frame), low-passed to ``ratio`` (out rate / in rate) when it
-    downsamples."""
-    cutoff, radius, centre = min(1.0, ratio) * 0.95, 16, int(position)
-    value = weights = 0.0
-    for index in range(max(0, centre - radius + 1), min(len(samples), centre + radius + 1)):
-        distance = index - position
-        if abs(distance) >= radius:
+RADIUS = 16
+"""The windowed sinc's reach, in source frames either side."""
+
+
+@functools.lru_cache(maxsize=1024)
+def _taps(phase: float, cutoff: float) -> tuple[int, tuple[float, ...], float]:
+    """The windowed-sinc weights at a position ``phase`` past a source
+    frame (``0 <= phase < 1``), low-passed to ``cutoff``: the first tap's
+    frame from that one, each tap's weight in frame order and their sum,
+    added in that order. A rate's positions fall on a few phases (44.1 kHz
+    on one), so each is worked out once, not once a sample: each weight is
+    the one :func:`_resampled` worked out at each frame, bit for bit
+    (``frame - position`` is ``tap - phase``, ``phase`` the position less
+    its frame exactly)."""
+    first, weights, total = None, [], 0.0
+    for tap in range(1 - RADIUS, RADIUS + 1):
+        distance = tap - phase
+        if abs(distance) >= RADIUS:
             continue
         x = distance * cutoff
         sinc = 1.0 if abs(x) < 1e-12 else fdlibm.sin(math.pi * x) / (math.pi * x)
-        weight = cutoff * sinc * (0.5 + 0.5 * fdlibm.cos(math.pi * distance / radius))
-        weights += weight
-        value += samples[index] * weight
-    return max(-32768, min(32767, round(value / weights)))
+        weights.append(cutoff * sinc * (0.5 + 0.5 * fdlibm.cos(math.pi * distance / RADIUS)))
+        total += weights[-1]
+        first = tap if first is None else first
+    return first, tuple(weights), total
+
+
+def _resampled(samples: Sequence[int], position: float, ratio: float) -> int:
+    """The windowed-sinc value of mono ``samples`` at ``position`` (a
+    source frame), low-passed to ``ratio`` (out rate / in rate) when it
+    downsamples: :func:`_taps`' weights at its phase, summed in frame order
+    over the frames ``samples`` holds."""
+    centre = int(position)
+    first, weights, total = _taps(position - centre, min(1.0, ratio) * 0.95)
+    start = centre + first
+    value = 0.0
+    if start >= 0 and start + len(weights) <= len(samples):
+        for sample, weight in zip(samples[start:start + len(weights)], weights):
+            value += sample * weight
+        return max(-32768, min(32767, round(value / total)))
+    total = 0.0
+    for index, weight in enumerate(weights, start):
+        if 0 <= index < len(samples):
+            total += weight
+            value += samples[index] * weight
+    return max(-32768, min(32767, round(value / total)))
 
 
 def read_wav(path: str | Path) -> tuple[list[int], WavInfo]:

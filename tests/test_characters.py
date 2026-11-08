@@ -20,6 +20,7 @@ import struct
 import subprocess
 import sys
 import threading
+import wave
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -799,6 +800,34 @@ def test_a_reshapes_kept_dress_dresses_again_once_a_wav_is_edited_in_place_or_th
     assert sdk._reshape_kept("plan", stamp, character, {}, wav.read_bytes) == b"RIFF two"
     monkeypatch.setattr(content, "installed", lambda root=None: {"booblord": {"version": 2}})   # a Content Update
     assert sdk._reshape_kept("plan", stamp, character, {}, lambda: b"updated") == b"updated"
+
+
+def test_a_wavs_resampled_sound_is_the_windowed_sinc_worked_out_at_each_sample_bit_for_bit(tmp_path):
+    """A WAV at another rate than the build's is resampled with a windowed
+    sinc whose weights are worked out once a phase (Step 4.6c: booblord's
+    voices, 4 s of a dress, in a tenth of a second): each sample is the one
+    the Dialogue Studio's ``_resampled_frame`` works out at it, bit for
+    bit, at 44.1 and 48 kHz, upsampled at 11 kHz, and at a file's ends."""
+    from azurkit.core import fdlibm
+    from azurkit.tools.characters import xbox_adpcm as adpcm
+
+    def at(samples, position, ratio):   # the sinc worked out at each frame, as the port first did
+        cutoff, centre, value, weights = min(1.0, ratio) * 0.95, int(position), 0.0, 0.0
+        for index in range(max(0, centre - 15), min(len(samples), centre + 17)):
+            if abs(distance := index - position) < 16:
+                x = distance * cutoff
+                sinc = 1.0 if abs(x) < 1e-12 else fdlibm.sin(math.pi * x) / (math.pi * x)
+                weight = cutoff * sinc * (0.5 + 0.5 * fdlibm.cos(math.pi * distance / 16))
+                weights, value = weights + weight, value + samples[index] * weight
+        return max(-32768, min(32767, round(value / weights)))
+    noise = [int(30000 * math.sin(i * i / 97)) for i in range(600)]
+    for rate in (44100, 48000, 11025):
+        wav = tmp_path / f"{rate}.wav"
+        with wave.open(str(wav), "wb") as out:
+            out.setnchannels(1), out.setsampwidth(2), out.setframerate(rate)
+            out.writeframes(struct.pack(f"<{len(noise)}h", *noise))
+        want = [at(noise, k * rate / adpcm.RATE, adpcm.RATE / rate) for k in range(-(-600 * adpcm.RATE // rate))]
+        assert adpcm.read_wav(wav)[0] == want, rate
 
 
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():
