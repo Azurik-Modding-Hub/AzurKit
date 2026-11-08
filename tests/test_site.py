@@ -5876,7 +5876,8 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
     (after a yes) and Import take it out and back; New offers the species then the objects, each counted and in its
     grade's colour and mark; a New's unsaved edits are asked about as the page closes (Modkit's AZ-792), a saved
     one's never; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which the Tools tab's
-    Storage names and Clear removes. No CSP violation, no request but GETs of the site's files and that source's."""
+    Storage names and Clear removes, and a Save the first page makes after that Clear says this browser didn't keep
+    it, Export to keep a copy. No CSP violation, no request but GETs of the site's files and that source's."""
     from azurkit.tools.characters import _player_variants, content, picker
 
     beam = _player_variants.builtins()["beamlord"]
@@ -6035,6 +6036,14 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
                            "'Your saved variants (Export keeps a copy of one)')", 60)
         _page.click(again, "tools-clear")
         _page.until(again, "() => indexedDB.databases().then((dbs) => !dbs.some((db) => db.name === 'azurkit-variants'))", 60)
+        page.evaluate(VARIANTS_ROW, "mine_2")   # a Save after that Clear: the engine took it, this browser didn't
+        _page.until(page, VARIANTS_ASKED)
+        _page.click(page, "var-ask-yes")
+        _variants_shown(page, status="· saved ·", name="mine_2")
+        page.evaluate(VARIANTS_TYPE, ["var-scale", "1.25"])
+        _page.click(page, "var-save")
+        _page.until(page, "() => /^Saved mine_2, but this browser didn't keep it \\(.+\\): Export it to keep a copy$/"
+                          ".test(document.getElementById('status').textContent)", 60)
         assert [s for s in served.stray() if not s.startswith(f"GET {served.origin}/content-test/")] == []
     finally:
         served.close()

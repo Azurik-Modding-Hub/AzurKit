@@ -161,13 +161,18 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const label = () => v.kind === "new" ? "(new, unsaved)" : v.kind === "built-in" && edited() ? `${v.name} (edited)` : v.name;
 
   // The site's library: what this browser keeps, by folder, handed to its engine (none: the app's engine reads its own).
+  // Why this browser refused to keep it (a quota, a Clear meanwhile), else null: the engine has it this visit only.
   const keepFolder = async (name, files) => {
-    if (app) return;
+    if (app) return null;
     v.folders = { ...(v.folders ?? {}), ...(files ? { [name]: files } : {}) };
     if (!files) delete v.folders[name];
-    await kept.put([["folders", v.folders]]).catch(() => {});
+    const lost = await kept.put([["folders", v.folders]]).then(() => null,
+      (error) => error?.message || error?.name || "it refused the write");
     share(v.folders);
+    return lost;
   };
+  const told = (said, lost) => say(lost ? `${said}, but this browser didn't keep it (${lost}): Export it to keep a copy`
+    : said, Boolean(lost));
   const ready = app ? Promise.resolve() : kept.get("folders").then((folders) => {
     v.folders = folders ?? {};
     share(v.folders);
@@ -457,9 +462,10 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     say(`Not saved: ${reason(why)}`, true);
   };
   const wrote = async (reply) => {
-    await keepFolder(reply.name, reply.files);
+    const lost = await keepFolder(reply.name, reply.files);
     changed();
     await list();
+    return lost;
   };
   ui.save.addEventListener("click", async () => {   // what it sends is what it marks saved: an edit typed meanwhile isn't
     if (v.kind !== "yours") return;
@@ -467,18 +473,18 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     const reply = await call("variant_save", { given: { name, recipe, files: !app } });
     if ("refused" in reply) return refused(reply.refused);
     if (mine === v.ticket) v.saved = canon(recipe);
-    await wrote(reply);
+    const lost = await wrote(reply);
     shown(false);
-    say(`Saved ${name}`);
+    told(`Saved ${name}`, lost);
   });
   const copyAs = async (name) => {
     if (!name) return;
     const reply = await call("variant_save", { given: { name: working(), recipe: v.recipe, as: name,
                                                         from: v.kind === "yours" ? v.name : null, files: !app } });
     if ("refused" in reply) return refused(reply.refused);
-    await wrote(reply);
+    const lost = await wrote(reply);
     await open("yours", reply.name);
-    say(`Saved ${reply.name}`);
+    told(`Saved ${reply.name}`, lost);
   };
   ui.saveAs.addEventListener("click", () => copyAs(ui.as.value.trim()));
   ui.as.addEventListener("keydown", (event) => event.key === "Enter" && copyAs(ui.as.value.trim()));
@@ -497,11 +503,12 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     const gone = v.name, reply = await call("variant_delete", { given: { name: gone } });
     if ("refused" in reply) return refused(reply.refused);
     v.saved = canon(v.recipe);   // nothing left to ask about
-    await keepFolder(gone, null);
+    const lost = await keepFolder(gone, null);
     changed();
     await list();
     await open("built-in", v.list.builtins[0].name);
-    say(`Deleted ${gone}`);
+    say(lost ? `Deleted ${gone}, but this browser didn't keep that (${lost}): it may list it again next visit`
+      : `Deleted ${gone}`, Boolean(lost));
   });
   // New's species, each in its grade's colour and mark as the Models view first lists it (the shipped answer's), the
   // species then the objects, each group counted in the lead.
@@ -534,9 +541,9 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const imported = async (body) => {
     const reply = await call("variant_import", body);
     if ("refused" in reply) return say(`Not imported: ${reason(reply.refused)}`, true);
-    await wrote(reply);
+    const lost = await wrote(reply);
     if (await leave()) await open("yours", reply.name);
-    say(`Imported ${reply.name}`);
+    told(`Imported ${reply.name}`, lost);
   };
   ui.file?.addEventListener("change", async () => {
     const picked = ui.file.files[0];
