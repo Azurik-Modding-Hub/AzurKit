@@ -42,7 +42,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 export function dataTab({ call, root, say, packs, changed, image, app = false }) {
   const d = { ops: [], undo: [], redo: [], index: null, view: "player", chosen: {}, table: null, file: null,
               answer: null, ticket: 0, changedOnly: false, sort: null, opened: false,
-              files: null, listing: 0, tablesOf: {}, openFiles: new Set() };
+              files: null, listing: 0, tablesOf: {}, reading: {}, openFiles: new Set() };
   const tabs = VIEWS.map(([id, label]) => {
     const button = el("button", { type: "button", textContent: label });
     button.setAttribute("role", "tab");
@@ -150,7 +150,9 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
   };
 
   // All files…: the image's files, asked each time it opens (the search narrows them by file or table name), and a
-  // file's keyed tables, asked each time its row opens (only config.xbr's need no image).
+  // file's keyed tables (only config.xbr's need no image), asked each time its row opens and again for each open row
+  // (reread, Modkit's _mark_tree) after each change of the edits (their ● marks); an answer a later ask overtook is
+  // dropped.
   const listFiles = async () => {
     const ticket = ++d.listing;
     d.files = null;
@@ -161,11 +163,14 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
     drawFiles();
   };
   const openFile = async (file) => {
-    delete d.tablesOf[file];
-    drawFiles();
+    const mine = d.reading[file] = {};
     const reply = await ask("tables", { file });
+    if (d.reading[file] !== mine) return;
     d.tablesOf[file] = "refused" in reply ? reply : reply.tables;
     drawFiles();
+  };
+  const reread = () => {
+    if (image() && Array.isArray(d.files)) for (const { file } of d.files) if (d.openFiles.has(file)) openFile(file);
   };
   const drawFiles = () => {
     files.classList.toggle("waits", !image());
@@ -208,6 +213,8 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
     if (name !== undefined) return chosen(name, file);
     if (d.openFiles.delete(file)) return drawFiles();
     d.openFiles.add(file);
+    delete d.tablesOf[file];   // read anew: its marks may have changed while it was closed
+    drawFiles();
     openFile(file);
   });
   imaged();
@@ -379,6 +386,7 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
     d.ops = ops;
     changed(ops);
     show();
+    reread();
   };
   const step = (from, to) => {
     if (!from.length) return;
@@ -386,6 +394,7 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
     d.ops = from.pop();
     changed(d.ops);
     show();
+    reread();
   };
   body.addEventListener("click", (event) => {
     const node = event.target.closest?.("td.cell");
@@ -411,6 +420,7 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
       d.undo = [];
       d.redo = [];
       if (d.opened) show();
+      reread();
     },
     imaged,
     state: d,   // the tests' and the perf gate's

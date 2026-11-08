@@ -2825,7 +2825,9 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
     the same recipe, the D28 conflict named. All files… waits for the image,
     greyed with its line (D979); open once one is picked, it lists the
     image's .xbr files as the engine does, a level file opens to none and
-    config.xbr to its 18 tables, one of which shows its grid. Two edits typed before the
+    config.xbr to its 18 tables, one of which shows its grid; an edit there
+    marks its row ● and Undo takes the mark off (each open row is read again
+    after each change of the edits). Two edits typed before the
     first's answer both stay, and an edit whose answer comes after Clear
     edits joins the cleared list. No CSP violation, no request but GETs of
     the site's files."""
@@ -2887,9 +2889,16 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
             {"what": "tables", "ops": page.evaluate("() => azurkit.xbr")})["tables"]]
         rows = _page.until(page, f"() => !({DATA_FILES})()[2].some((t) => t.startsWith('Reading')) && ({DATA_FILES})()[2]")
         assert rows == ["▾ config.xbr", *configs, "▾ a1.xbr", "(no keyed tables)", *[f"▸ {f}" for f in files[2:]]]
-        page.evaluate(DATA_FILE, [data.FILE, "magic"])
-        assert _page.until(page, "() => azurkit.data.state.answer?.name === 'magic' && azurkit.data.state.answer.file")\
-            == data.FILE
+        page.evaluate(DATA_FILE, [data.FILE, "armor_properties"])
+        assert _page.until(page, "() => azurkit.data.state.answer?.name === 'armor_properties' && "
+                           "azurkit.data.state.answer.file") == data.FILE
+
+        def drawn(want, after="true"):   # once `after` holds, All files' rows read as `want`
+            return _page.until(page, f"() => {after} && ({DATA_FILES})()[2].join('|') === {json.dumps('|'.join(want))}")
+        page.evaluate(DATA_EDIT, ["armor_properties", "Level", "4321"])
+        drawn([f"● {t}" if t == "armor_properties" else t for t in rows])
+        page.evaluate(DATA_PRESS, "Undo")
+        drawn(rows)
         page.evaluate(DATA_VIEW, "Player")
         _page.until(page, f"() => azurkit.data.state.answer?.kind === 'player' && ({DATA_CELL})({json.dumps(cell)})")
         page.evaluate("() => document.querySelector('#build').click()")
