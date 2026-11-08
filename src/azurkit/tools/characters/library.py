@@ -45,6 +45,7 @@ from pathlib import Path
 
 from azurkit.core import jsondepth
 from azurkit.tools.characters import _player_variants as variants
+from azurkit.tools.characters import mesh_edit
 
 RECIPE = "recipe.json"
 ENV = "AZURKIT_VARIANTS"
@@ -185,7 +186,8 @@ def find(name: str) -> variants.Variant | None:
 
 def stamp(name: str) -> str | None:
     """The sha256 of what a build of your variant ``name`` reads (its
-    ``recipe.json`` and each file it names, by their bytes), which an
+    ``recipe.json`` and each file it names, by their bytes, a glTF's with
+    the buffers it reads beside it), which an
     answer kept for it stands on (its recipe's bytes alone where it builds
     nothing: refused); ``None`` when ``name`` is none of yours."""
     folder = root() / name
@@ -204,12 +206,24 @@ def stamp(name: str) -> str | None:
 def _stamp(file: Path, data: bytes, named: Iterable[str]) -> str:
     h = hashlib.sha256(data)
     for f in named:
-        try:
-            sha = hashlib.sha256((file.parent / f).read_bytes()).hexdigest()
-        except OSError:
-            sha = None
-        h.update(json.dumps([f, sha]).encode())
+        h.update(json.dumps([f, _file_sha(file.parent / f)]).encode())
     return h.hexdigest()
+
+
+def _file_sha(path: Path) -> str | None:
+    """A named file's sha256 as a dress reads it: a glTF's as its recipe's pin
+    hashes it (``mesh_edit.file_sha256``: its bytes, then each external
+    buffer's, which the dress reads beside it), else its bytes; ``None``
+    when it can't be read."""
+    try:
+        if path.suffix.casefold() in (".gltf", ".glb"):
+            try:
+                return mesh_edit.file_sha256(path)
+            except ValueError:   # not a glTF the dress reads: its bytes
+                pass
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
 
 
 def file_stamp(file: str | Path, data: bytes | None = None) -> str | None:

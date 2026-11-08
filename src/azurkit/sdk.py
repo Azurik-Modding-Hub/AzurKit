@@ -919,7 +919,8 @@ def _saved_as(given: Mapping, name: str, recipe: Mapping) -> bool:
 def _check_key(given: Mapping, name: str, recipe: Mapping | None) -> str:
     """What a Check stands on, by content: the image and the edit
     (:func:`_edit_key`), each file its recipe names in its folder by its
-    bytes (``library.file_stamp``) and the content installed."""
+    bytes, a glTF's with its buffers (``library.file_stamp``), and the
+    content installed."""
     from azurkit.tools.characters import content as kit
     from azurkit.tools.characters import library
 

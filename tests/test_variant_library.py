@@ -88,6 +88,20 @@ def test_the_library_lists_each_folder_as_its_recipe_or_its_refusal_and_a_build_
     assert variants.resolve("my_lady").sha != mine.sha
 
 
+def test_a_kept_answer_stands_on_the_buffer_a_gltf_reads_beside_it(lib):
+    """What a kept Build or Check answer stands on (``library.stamp``, ``library.file_stamp``) holds a named glTF
+    as its recipe's pin does, with the ``.bin`` it reads: a weights-only re-export under an unchanged ``.gltf`` is
+    new content, as a fresh dress refusing the old pin finds."""
+    _write(lib, "glad", json.dumps({"glad": {**LADY, "mesh": {"gltf": {**GLTF, "file": "m.gltf"}}}}))
+    (lib / "glad" / "m.gltf").write_text(json.dumps({"asset": {"version": "2.0"},
+                                                    "buffers": [{"uri": "m.bin", "byteLength": 4}]}))
+    (lib / "glad" / "m.bin").write_bytes(bytes(4))
+    stamps = library.stamp("glad"), library.file_stamp(lib / "glad" / library.RECIPE)
+    (lib / "glad" / "m.bin").write_bytes(b"\1" * 4)
+    assert None not in stamps and all(
+        a != b for a, b in zip(stamps, (library.stamp("glad"), library.file_stamp(lib / "glad" / library.RECIPE))))
+
+
 def test_new_new_from_this_save_save_as_and_delete_write_whole_or_nothing(lib):
     """New is a recipe on a species' own body; Save as makes a folder of
     it with the files it names, Save writes it again and Delete removes the
