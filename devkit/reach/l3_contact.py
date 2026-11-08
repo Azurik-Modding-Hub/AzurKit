@@ -409,8 +409,7 @@ def measure(key: str, slider: str, out: Path, steps: int, seeds: int, workers: i
     xbe = vanilla_xbe()
     case = Case(key, xbe)
     pack, name = slider.split(".")
-    site = next(s for s in (*get_pack(pack).parametric_sites(), *get_pack(pack).xbr_parametric_sites())
-                if s.name == name)
+    site = next(s for s in get_pack(pack).sliders() if s.name == name)
     v0 = 30.0 if name == "target_fps" else float(site.default)   # the pack's default is its value when on
     whole = name.endswith("_flaps") or name == "target_fps"
     tol = tol or (1.0 if whole else 0.01 * v0)

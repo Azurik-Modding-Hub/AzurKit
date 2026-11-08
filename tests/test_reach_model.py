@@ -2822,6 +2822,43 @@ def test_a_contact_search_at_a_higher_frame_rate_spans_the_same_game_time(monkey
                                                                                    "settle": 20}
 
 
+def test_a_contact_case_measured_again_keeps_its_start_and_bisects_its_slider_from_the_packs_default(tmp_path,
+                                                                                                      monkeypatch):
+    """``devkit/reach/l3_contact.py measure`` on a case an earlier measure
+    kept a start for: a start kept with no zoning of its own stands while
+    the level's kept reach model is stamped with the current zoning (no
+    new start is made), and ``PACK.SLIDER`` is the pack's slider, its
+    default the vanilla value the bisection starts from."""
+    import contextlib
+    import types
+
+    from devkit.reach import l3_certify as cert
+    from devkit.reach import l3_contact as lc
+    zones = {"zones": [[0]]}
+    (tmp_path / "x7" / "reach").mkdir(parents=True)
+    (tmp_path / "x7" / "reach" / "w1.stamp").write_text(cert.pr.zoning(zones), encoding="utf-8")
+    (tmp_path / "x11").mkdir()
+    start = {"teleport": [1.0, 2.0, 3.0, 0.5]}
+    (tmp_path / "x11" / "w1.lip.json").write_text(json.dumps({"start": start, "winners": []}), encoding="utf-8")
+    monkeypatch.setattr(lc, "private", lambda: tmp_path / "x11")
+    monkeypatch.setattr(cert, "private", lambda: tmp_path / "x7")
+    monkeypatch.setattr(cert, "_reach_path", lambda level: tmp_path / "x7" / "reach" / f"{level}.pkl")
+    monkeypatch.setattr(cert, "read_derived", lambda level: zones)
+    monkeypatch.setattr(lc, "load_router", lambda reach, prof: None)
+    monkeypatch.setattr(lc, "RouteGoal", lambda router, goal, air: None)
+    monkeypatch.setattr(lc, "kit_snapshot", lambda air, base: f"{base}-air{air}")
+    monkeypatch.setattr(lc, "vanilla_xbe", lambda: b"")
+    # no simulator: a new start (``l3.L3``) would fail here
+    monkeypatch.setattr(lc, "l3", types.SimpleNamespace(snapshot_path=str, read_meta=str, meta_sha12=len))
+    monkeypatch.setattr("devkit.reach.l3_pool.Pool", lambda *a, **k: contextlib.nullcontext())
+    starts = []
+    monkeypatch.setattr(lc, "point", lambda pool, case, ov, *a, **k: starts.append((case.priv["start"], ov)) or {
+        "reached": True, "robustness": 1.0, "tier": "standard", "seconds": 0})
+    monkeypatch.setattr(lc, "regrade", lambda pool, case, *a, **k: {"strings": 0})
+    rec = lc.measure("w1.lip", "player_physics.gravity", tmp_path / "out", 1, 1, 1, None, None, None)
+    assert starts == [(start, None)] and rec["vanilla"] == 9.8 and list(rec["points"]) == ["9.8"]
+
+
 def test_a_robustness_trial_moves_a_press_by_the_same_game_time_at_the_builds_frame_rate(monkeypatch):
     """AZ-388: ``l3_search.robustness`` moves each press a 30 fps tick
     earlier or later; at a build's 120 fps that is 4 of its ticks, by the

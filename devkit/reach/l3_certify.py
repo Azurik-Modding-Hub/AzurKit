@@ -109,7 +109,7 @@ from azurkit.tools.randomizer.planner.loader import DATA_DIR
 from devkit.rando.draft.author import AUTHORING, dnf, read_derived
 from devkit.rando.draft.l3_goal import (PROBES, ExitGoal, ObjectGoal, RouteGoal, exit_nodes, heading_to,
                                         item_touch, load_router, object_points, route_seed, router_of)
-from devkit.reach.models import reach_path as _reach_path   # the level's reach model (Step 4.13d1's home of it)
+from devkit.reach.models import _stamp, reach_path as _reach_path   # the level's reach model (Step 4.13d1's home)
 from devkit.sim import corpus, douse as dz, l3
 from devkit.sim.l3 import Pad
 from devkit.sim.l3_search import (AIRBORNE, CAST_WAIT, DEAD, Limits, Seg, Segment, exits_text, expand, flaps_of,
