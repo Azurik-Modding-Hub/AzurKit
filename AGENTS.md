@@ -310,6 +310,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
      crossed is the port's to fix (D835). It owes an xemu sitting only when
      the writer's or the layer's bytes change.
   9. Move the cut above to `<ref>`.
+- **The simulator's cut (Step 4.13a):** `devkit/sim` is Modkit's
+  `azurik_mod/sim` (L0-L3, the search, the trick explorer and `l3_hold`) and
+  the envelope's L2 flights at Modkit `f482ea041` (the folder's last commit
+  is `c3ecbff70`). Each module is Modkit's code with its imports pointed at
+  AzurKit's engine through `devkit/sim/ports.py` (Modkit's XBE, kernel-thunk,
+  pack and image calls on AzurKit's); the few rewrites (L0's XBR check, the
+  overlay's and L2's packs, the kernel's exports in `devkit/sim/data`, L3's
+  engine files, the hold's proofs path) are in its developer-log entry. The
+  pool and FastL3 come with the reach engine. Modkit is frozen: a later fix
+  is AzurKit's own, held to `tests/test_simulator.py` and `tests/test_roll.py`.
 - **Coverage:** Modkit's planner tests don't guard AzurKit's copy. A step
   that edits a module from the cut ports the Modkit tests that pin what it
   changes, or names the golden that pins it.

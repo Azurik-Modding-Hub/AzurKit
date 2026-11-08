@@ -19,13 +19,14 @@ names its verbs in `VERBS` (`{verb: its line}`); the verb `v` is the module
 `main(argv) -> int` runs it. An unknown area or verb exits 2.
 
 Each arrives with its own step (`re`'s XBE verbs, data and shim authoring,
-`xemu`'s harness, sitting kit and demos, `sim`'s core and `mcp` are here;
-the rest come after the first release, 4.4); this is what each will hold:
+`xemu`'s harness, sitting kit and demos, `sim`'s levels and `mcp` are
+here; the rest come after the first release, 4.4); this is what each will
+hold:
 
 | Area | What it holds |
 |---|---|
 | `xemu` | the in-game oracle: the harness, its slots and queue, the sittings and demos |
-| `sim` | the simulator: the snapshot, observations and inputs, its levels on Unicorn |
+| `sim` | the simulator: the snapshot, observations and inputs, its levels on Unicorn, L3's search and trick explorer |
 | `re` | the XBE verbs, the Ghidra side and its data, shim authoring |
 | `mcp` | the `azurik` MCP server (`.mcp.json` launches it; `docs/MCP.md`) |
 | `rando` | the randomizer database's tools and benches, and its authoring |

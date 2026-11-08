@@ -1,0 +1,190 @@
+# Code simulator Level 2 can't judge (Modkit's Step 2.10: what it hasn't proven).
+#
+# devkit/sim/l2.py reads this file.  A probe may stub only a function
+# listed here, and Sim refuses to load a build whose bytes in [va, va + size)
+# don't hash to `sha256` (the vanilla bytes) unless the running test is
+# signed off, xemu_signoff("<session>") in tests/test_simulator.py, by a
+# session in [signoffs] whose `spots` hold that spot's va.
+# Function sizes come from a recursive descent over vanilla (direct branches
+# and jump tables); site sizes are the patched instructions'.
+#
+# Protected (Q56): a spot or a sign-off goes in with owner review, never to
+# get a test green.
+
+# Step 2.11 xemu sessions: what each saw in game, and the listed spots it saw
+# changed (`spots`), the only ones its sign-off unlocks.  Each session's
+# report stays in the private evidence folder, under its name.
+[signoffs.xemu-oracle-2026-10-09]
+saw = """The roll slider (REPORT.md §5): its 0x8C745 shim, poked into vanilla's RAM \
+on level 1 at 30 fps, makes BLACK's roll speed exactly k times vanilla from the roll's 5th tick on; \
+the move code 0x47380 caps ground acceleration at about 3.27 m/s per tick, so on flat ground k = 2 \
+rolls 6.226 m against 3.387 m (x1.838), k = 0 rolls in place and k = -1 rolls back; jab and sweep \
+are unchanged.  Not seen: a built k != 1 XBE, 60 fps (fps_unlock), slopes, walls.  The logo skip \
+(REPORT.md §7.2): qol_skip_logo's CALL at 0x5F6E5 reaches the shim and prophecy.bik starts 10 ms later."""
+spots = []    # neither feature changes a listed spot
+
+# Sites of historical patches that did nothing in game where L2 gives, or
+# would give, a false pass (the azurik-game-reference skill's catalogue).
+
+[[spot]]
+va = 0x866D9
+size = 5
+sha256 = "8f2449cf7f218a0a8015301253bb96a23d4118badfd4729adf1d666ab37ecd85"
+what = "root_motion_roll's hook on player_walk_state's CALL 0x42E40 (roll v4, catalogue #5)"
+why = "the roll is the attack move (state 0x100), which never runs player_walk_state"
+
+[[spot]]
+va = 0x89381
+size = 3
+sha256 = "4a7c6dfff8415bf7fa4a25dfd40d4ba9559a538de89164112a03d76309e50973"
+what = "wing_flap's FSUB of z from the ceiling (flap_at_peak v1, catalogue #7)"
+why = "changes only the second and later flaps of a jump: multi-frame, L2 flaps from a set height"
+
+[[spot]]
+va = 0x8939F
+size = 2
+sha256 = "2fc66d7d2d77d2baa97dd9f069edea16f20eca91c6ef6e4959258479ae1825d9"
+what = "wing_flap's FLD ST(1) of the min(remaining, h) cap (flap_at_peak v2, catalogue #7)"
+why = "changes only the second and later flaps of a jump: multi-frame, L2 flaps from a set height"
+
+[[spot]]
+va = 0x89409
+size = 6
+sha256 = "0aa843296998b961d02d2255fee5c9020f25562ac3a69d14687b8c866ba1ae1b"
+what = "wing_flap's FSTP of the new vz (flap_at_peak v3's shim hook, catalogue #7)"
+why = "changes only the second and later flaps of a jump: multi-frame, L2 flaps from a set height"
+
+[[spot]]
+va = 0x883FF
+size = 5
+sha256 = "78101e6995194f75361f7ad216f29e0ceecf0a29fd7bf0aae95ea2fdc3b37045"
+what = "root_motion_climb's hook on player_climb_tick's CALL 0x42E40 (catalogue #6)"
+why = "no probe runs player_climb_tick, and the climb moves by root motion through the stubbed 0x42E40"
+
+[[spot]]
+va = 0x1980E4
+size = 4
+sha256 = "d88c86f15bbea365d658ad95a81d45367c465f7af6f7264fb077f01747ddc77d"
+what = "the climb speed constant 2.0, read only in player_climb_tick (0x87FA7, 0x88357; catalogue #6)"
+why = "the climb probes (tests/test_climb.py) run only its two readers, not player_climb_tick's rung sweep or layer update; the 2.0 moves the body 2.0 x dt a rung tick in game (sitting 2.185)"
+
+[[spot]]
+va = 0x8A095
+size = 6
+sha256 = "384a439b1319694de10dc1dde1ea8e7416cea7b108879a05efe7dc4bb3d4e8a5"
+what = "slope_slide_speed's hook on player_slope_slide_tick's FLD [0x3902A0], state 4 (catalogue #8)"
+why = "no probe runs player_slope_slide_tick; the value it loads is likely a turn rate, not a speed"
+
+[[spot]]
+va = 0x1AAB68
+size = 4
+sha256 = "d88c86f15bbea365d658ad95a81d45367c465f7af6f7264fb077f01747ddc77d"
+what = "the slope slide's state-3 constant 2.0, read only at 0x89B76 (catalogue #8; roll v3, #5)"
+why = "no probe runs player_slope_slide_tick"
+
+# Functions the probes stub: a patch inside one changes nothing L2 sees.
+
+[[spot]]
+va = 0x42E40
+size = 0x236
+sha256 = "c3d9e73c7abd28e551f9e60fe59d84ca63859bbf49f372ce710ae9cf535d46f1"
+what = "anim_apply_translation, root motion (holds animation_root_motion_scale's 0x43066, catalogue #9)"
+why = "stubbed by every movement probe: it needs animation data"
+
+[[spot]]
+va = 0x47380
+size = 0xDAE
+sha256 = "63fdf6e2114fba74e5103ae3c6c5148daf2f3192214b1710f058a5f1aec70bce"
+what = "collide/move (ground acceleration cap, slopes, walls, landing; fps_unlock's 0x47BC6, 0x47CF3, 0x47EEF)"
+why = "the walk and fall probes stop at its call and the roll probe stubs it"
+
+[[spot]]
+va = 0x42910
+size = 0x120
+sha256 = "f70e30b3fdb88910798685af4ac6977196413437d09c0594533eb5400dfa30a2"
+what = "anim_change"
+why = "stubbed by every movement probe"
+
+[[spot]]
+va = 0x8BE00
+size = 0x187
+sha256 = "62cb3c4c737daf25705a01bf7586ddeecce53cd6e36290f4340bafc17966ddf6"
+what = "fall_death_dispatch"
+why = "stubbed by every movement probe"
+
+[[spot]]
+va = 0x8BF90
+size = 0xE5
+sha256 = "33974785c100c5c867d4f7e78f47a34a3e249c925435b84eafb88cab809d3521"
+what = "the attack-move tick's handler of the move result (after 0x42E40 in 0x8C630)"
+why = "stubbed by the roll probe"
+
+[[spot]]
+va = 0xCACD0
+size = 0x65
+sha256 = "5d888062e1e16c50bfaa54d20621d21001e271b41c3d72f157cb3ea7e6a72c86"
+what = "the root-motion sampler"
+why = "stubbed by the roll probe, which feeds it a fake root track"
+
+[[spot]]
+va = 0x837A0
+size = 0x10F
+sha256 = "11e1af756cb1c1d3b596f1fdad6e3292b3065d8aa1b3da7b161f059d8e5e26a0"
+what = "armor_reset_out_of_fuel (swaps in the level-1 Armor slot, empties the gauge)"
+why = "stubbed by the flap probe, which only reports the call"
+
+[[spot]]
+va = 0x8D4E0
+size = 0x8C
+sha256 = "24c772bbb2ab1e15fc0d9c537695c40e78c2cb06501ed93877675e87176027c7"
+what = "the flap sound"
+why = "stubbed by the flap probe"
+
+[[spot]]
+va = 0xA5CA0
+size = 0x7E
+sha256 = "74a4d2315eb1122d6bb66e67712a137cd4f6cece9d0cecb80777d410a8a7dcb1"
+what = "the sound and asset index lookup"
+why = "stubbed by the jump probe (no sound) and the armor loader (found)"
+
+[[spot]]
+va = 0xA6110
+size = 0x9B
+sha256 = "a09da5f6cc4dd13d1a1a882c34270a3805cd386dc90286923b9dc27a1ef9d630"
+what = "asset prefetch"
+why = "stubbed by the armor loader probe"
+
+[[spot]]
+va = 0xA67A0
+size = 0xC0
+sha256 = "77a9c953c1ec8306ac65870fb35c9db1fcf12a8386a089dd5703d07c723ca5ba"
+what = "asset load"
+why = "stubbed by the armor loader probe, which hands over config.xbr's 0x3000 grid on trust"
+
+[[spot]]
+va = 0x3D3C0
+size = 0x197
+sha256 = "eb200828e2320fabec56bae3a6becb1f842859f379c04080bdd8e40dc1e96b03"
+what = "the armor slot vector's insert"
+why = "stubbed by the armor loader probe"
+
+[[spot]]
+va = 0x50D80
+size = 0xC2
+sha256 = "75281fd171578e763fcac026965feced178f629c101bf3d387ebee43ea1fd77a"
+what = "the armor slot's name lookup"
+why = "stubbed by the armor loader probe"
+
+[[spot]]
+va = 0x18980
+size = 0xC1
+sha256 = "6665e0ba450e5ff7c79aa33e1a6c09fc6ead3caf5cac21132eef4bef6f7fc69f"
+what = "play_movie_fn"
+why = "stubbed by the boot probe, which records the movie and reports it started"
+
+[[spot]]
+va = 0x18D30
+size = 0xB1
+sha256 = "64f7795cf3415c24dd11ca91764e579f07815fb02ae852713b771a24e8515074"
+what = "poll_movie"
+why = "stubbed by the boot probe: the movie is always still playing"
