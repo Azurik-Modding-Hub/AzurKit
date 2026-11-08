@@ -10548,7 +10548,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
                                                 variant, rigged, rates, drawn, arms=False)
         except ValueError as exc:
             raise ValueError(f"--player-character {variant.name!r} (a variant of {species}): {exc}") from None
-        game["characters.xbr"] = bytearray(grown)
+        game["characters.xbr"], grown = bytearray(grown), None   # the staged file is it: no copy held to the end
     sprung: list[jiggle_rt.Row] = []
     hair = variants.chain_springs(body.name) if variant is None or variant.jiggle is None else ()
     if rigged is not None and jiggle_rt.spring_bones(variant.jiggle) or hair:   # X41 (Step 2.156; D444, D445,
@@ -10592,6 +10592,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
             who = (_named(species) if variant is None else
                    f"--player-character {variant.name!r} (a variant of {species})")
             raise ValueError(f"{who}: {exc}") from None
+    built = None   # X41's copy of the file, read: not held through the LODs and the shadow (a dress's peak)
     if lo.carry in (RIGID, FLOAT):   # W31 on a creature or a token (Step 2.161e): its carriers after every measure
         try:   # of its pose (a token's one bone stays one to them); a clipless body's g4/ clips key the floating one
             grown = add_carriers(bytes(game["characters.xbr"]), body, lo)
@@ -10609,6 +10610,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     grown, faded = faded_lifted(grown, body.name, lo)   # and through its crossfades (Step 2.207c, AZ-806)
     if kept_up or faded:
         game["characters.xbr"] = bytearray(grown)
+    grown = None
     if lo.cut:   # W33 (Step 2.161d): garret4's staff cut from his mesh, after every other write of his body
         try:
             grown, _ = cut_staff(bytes(game["characters.xbr"]), lo)
