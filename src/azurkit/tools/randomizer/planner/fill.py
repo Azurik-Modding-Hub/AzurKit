@@ -34,9 +34,10 @@ The passes, each drawing from its own named stream:
    free, the way out, for one collected last before they start, the way in,
    or for a spot at a trap when they are there from the start; in an
    attempt that may (:meth:`_Run.past_at`) whose way out is a kept item,
-   the way in to a free spot from the way out's sphere on), the obsidians
-   are placed again and it is checked again, up to :data:`MAX_REPAIRS`
-   swaps; a swap that breaks the placement goes back.
+   the way in to a free spot from the way out's sphere on, Easy's the
+   earliest and closest first), the obsidians are placed again and it is
+   checked again, up to :data:`MAX_REPAIRS` swaps; a swap that breaks the
+   placement goes back.
 3. **Useful** (``useful``): the vaults first, the most restricted spots
    (Q290: a vault, a spot an obsidian lock's force field closes, holds
    only ``power_life``, ``power_staff*`` or ``power_ammo``), then the rest,
@@ -489,22 +490,28 @@ class _Slots:
         return budget.fits(loc, item)
 
     def repairs(self, settings: Settings, placement: Mapping[str, str], r: Reach, trace: Sequence,
-                prog: Mapping[str, str], known: frozenset[str], nongem: Sequence[str],
-                past: bool = False) -> list[tuple[str, str]]:
+                prog: Mapping[str, str], known: frozenset[str], nongem: Sequence[str], past: bool = False,
+                lean: _Lean | None = None) -> tuple[list[tuple[str, str]], list[tuple[int, int, int]] | None]:
         """The trap gate's repair (Step R1.8m): the first sphere ``t`` whose state has new trick-free traps, and
         the first later sphere ``u`` at whose state none of those is one any more. A progression item collected
         in the sphere before ``u`` (the way out) swaps spots with one collected in the sphere before ``t`` (the
         way in), or, when the traps are there from the start, with whatever lies on a spot at a trap node (its
         escape picks the item up there, as vanilla's water in w2's hose pool): each pair (the way out's spot, the
-        other), sorted. ``past`` (:meth:`_Run.past_at`): when the way out is no key item (an elemental power
-        ``exclude_categories`` keeps vanilla), a way-in item goes past it instead, to a free proven spot collected
-        from the way out's sphere on (a realm's last fragment opened it long before the kept power that gets the
-        player back out)."""
+        other), sorted, and no keys. ``past`` (:meth:`_Run.past_at`): when the way out is no key item (an elemental
+        power ``exclude_categories`` keeps vanilla), a way-in item goes past it instead, to a free proven spot
+        collected from the way out's sphere on (a realm's last fragment opened it long before the kept power that gets
+        the player back out). ``lean``, an Easy attempt's: the items collected before ``u`` are no way out when the
+        traps free at ``u``'s state without them all (key items beside a kept way out: swapped, one would open its own
+        realm early again), and where one way-in item alone opens the traps each pair past a kept way out has a key,
+        its spot's rungs missed, 1 where its sphere collects no key item yet (a spot there adds a key-item step), then
+        its sphere + min(detour, :data:`~.difficulty.DETOUR_CAP`), so the repair takes the earliest and closest spot
+        first (:func:`_earliest`)."""
         new = [sp.free_traps - r.after_completion - known for sp in trace]
         t = next((i for i, n in enumerate(new) if n), None)
         u = None if t is None else next((i for i in range(t + 1, len(trace)) if not new[i] & new[t]), None)
         if u is None:
-            return []
+            return [], None
+        near: dict[str, tuple[int, int, int]] | None = None
         outs, got = sorted(trace[u - 1].locations & prog.keys()), trace[t].got
         back = next((i for i in range(t - 1, -1, -1) if trace[i].locations & prog.keys()), None)
 
@@ -512,18 +519,29 @@ class _Slots:
             return not self.logic.reach(settings, placement, collected=collected, replay=True).free_traps & new[t]
         if back is not None:        # the way in: the last items before t, those without which the traps aren't first
             ins = sorted(trace[back].locations & prog.keys())
-            ins = [b for b in ins if clears(got - {b})] or ins
+            opens = [b for b in ins if clears(got - {b})]
+            ins = opens or ins
+            if past and lean is not None and outs and clears(trace[u].got - set(outs)):   # Easy's: the traps free
+                outs = []                                                       # without them all, no way out
             if past and not outs:   # the way out a kept item: a way-in item to a free spot from its sphere on
-                later = set().union(*(sp.locations for sp in trace[u - 1:]))
+                later = {loc: i for i in range(u - 1, len(trace)) for loc in trace[i].locations}
                 outs, ins = ins, [loc for loc in nongem if loc in later and loc not in prog and loc in self.proven
                                   and loc not in self.excluded and loc not in self.vault]
+                if lean is not None and opens:   # Easy's, where one way-in item opens the traps: each spot's rungs
+                    #                              missed, a sphere with no key item yet, then near
+                    gots = [rung(placement, (), traps=False).locations for rung in lean.rungs]
+                    bare = {i for i in range(u - 1, len(trace))
+                            if not any(self.cls.get(placement.get(loc)) == "progression" for loc in trace[i].locations)}
+                    near = {b: (sum(b not in seen for seen in gots), int(later[b] in bare),
+                                later[b] + min(lean.detour[b], DETOUR_CAP)) for b in ins}
         else:                       # none: the spots at the traps, and first the ways out that free them there
             node = self.logic.db.node_of
             ins = [loc for loc in nongem if node[loc] in new[t] and loc in self.proven and loc not in self.excluded
                    and loc not in self.vault]
             outs = [a for a in outs if clears(got | {a})] or outs
-        return [(a, b) for a in outs for b in ins if a != b and self.holds(b, prog[a])
-                and (b not in prog or self.holds(a, prog[b]))]
+        pairs = [(a, b) for a in outs for b in ins if a != b and self.holds(b, prog[a])
+                 and (b not in prog or self.holds(a, prog[b]))]
+        return pairs, [near[b] for _, b in pairs] if near is not None else None
 
     @staticmethod
     def floor(k: int, counters: Mapping[str, int], reads: Mapping[str, frozenset[int]]) -> int:
@@ -632,11 +650,14 @@ class _Slots:
             elif not trade(item, r):
                 raise _Stuck(f"no safe proven spot for {item}", item, r.locations)
         prog = {loc: item for loc, item in placed.items() if loc not in base}
-        good, pairs = None, []      # the last placement only the trap gate refused, and its untried repairs
+        good, pairs, keys = None, [], None      # the last placement only the trap gate refused, its untried repairs
         for fix in range(MAX_REPAIRS + 1):
             try:
                 if fix:
-                    a, b = pairs.pop(rng.below(len(pairs)))
+                    at = rng.below(len(pairs)) if keys is None else _earliest(rng, keys)
+                    a, b = pairs.pop(at)
+                    if keys is not None:
+                        del keys[at]
                     prog = {**good, b: good[a]}
                     if b in good:
                         prog[a] = good[b]
@@ -664,7 +685,9 @@ class _Slots:
                     break
                 if len(problems) > 1 or not new_traps(r, known):
                     raise _Stuck("the verify: " + "; ".join(problems))
-                good, pairs = prog, self.repairs(settings, placed, r, trace, prog, known, nongem, past)
+                good, (pairs, keys) = prog, self.repairs(settings, placed, r, trace, prog, known, nongem, past,
+                                                         lean if lean is not None and lean.mode in (LOW, LOW_WEIGHTED)
+                                                         else None)
                 why = _Stuck("the verify: " + "; ".join(problems))
                 if pairs and repaired is not None:
                     repaired.append(str(why))
@@ -714,6 +737,13 @@ class _Slots:
         if problems := _problems(lg, reaches(placed), known):     # verify's, on the kept reaches
             raise _Stuck("the verify: " + "; ".join(problems))
         return dict(sorted(placed.items()))
+
+
+def _earliest(rng: Rng, keys: Sequence[tuple[int, int, int]]) -> int:
+    """Easy's repair's pair (:meth:`_Slots.repairs`' keys): one with the lowest key, at random among them."""
+    low = min(keys)
+    ties = [j for j, key in enumerate(keys) if key == low]
+    return ties[rng.below(len(ties))]
 
 
 class _Count:

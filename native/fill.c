@@ -60,7 +60,7 @@ enum { W_NONE, W_NO_PROVEN, W_REPAIR_BUDGET, W_NO_SAFE_LEFT, W_VERIFY, W_VAULT_N
        W_NO_FILLER };
 /* The paths an attempt took (O_PATHS: the twin test's spread) */
 enum { P_OWN = 1, P_TRADE = 2, P_TRADE_FAIL = 4, P_LEAN = 8, P_LEAN_MISSED = 16, P_REPAIRED = 32, P_REPAIR_SWAP = 64,
-       P_REPAIR_IN = 128, P_REPAIR_AT = 256, P_VAULT = 512, P_REPAIR_PAST = 1024 };
+       P_REPAIR_IN = 128, P_REPAIR_AT = 256, P_VAULT = 512, P_REPAIR_PAST = 1024, P_REPAIR_EARLIEST = 2048 };
 
 typedef struct {   /* a reach's answer kept: its locations, nodes, safe nodes, trick-free traps, those after completion */
     u64 *got, *nodes, *safe, *free, *after;
@@ -82,8 +82,8 @@ typedef struct {
     R r[6];
     /* the attempt's state */
     i64 *placed, *base, *prog, *good, *snap, *assumed, *used, *sa, *sb, *list, *spots, *missed, *best, *rank, *seen,
-        *cand, *pairs, *outs, *ins, *sph, *bcount, *bstart, *border, npairs;
-    u64 *gnew, *newt, *tmp, *acc, *coll, *was, *fresh;
+        *cand, *pairs, *pkey, *outs, *ins, *sph, *bcount, *bstart, *border, npairs, keyed;
+    u64 *gnew, *newt, *tmp, *acc, *coll, *was, *fresh, *bare;
     MT rng;
 } S;
 
@@ -538,12 +538,15 @@ static i64 clears(S *s, const u64 *coll, int *yes) {
     return 0;
 }
 
-/* _Slots.repairs on the verify's reach `r` (its rounds' log as the kernel left it): the swaps, into s->pairs */
+/* _Slots.repairs on the verify's reach `r` (its rounds' log as the kernel left it): the swaps, into s->pairs, and in
+ * an Easy attempt's repair past a kept way out, where one way-in item alone opens the traps, each one's key (its spot's
+ * rungs missed, whether its sphere collects no key item yet, then its sphere and detour) into s->pkey, s->keyed set */
 static i64 repairs(S *s, const i64 *prog, const R *r) {
     const u64 *stub = bits(s, F_STUB), *known = bits(s, F_KNOWN_NAME);
     const i64 *ng = s->f + s->f[F_NONGEM];
     i64 rounds = s->rounds, nsph = 0, t = -1, u = -1, nouts = 0, nins = 0, back = -1, rc;
-    s->npairs = 0;
+    int easy = s->call[A_LEAN] == M_LOW || s->call[A_LEAN] == M_LOW_WEIGHTED;
+    s->npairs = 0, s->keyed = 0;
     /* the locations by round (the twin's spheres: each round that collects something) */
     for (i64 j = 0; j < rounds; j++) s->bcount[j] = 0;
     for (i64 loc = 0; loc < s->L; loc++)
@@ -602,16 +605,45 @@ static i64 repairs(S *s, const i64 *prog, const R *r) {
             nins = kept;
         }
         s->paths |= P_REPAIR_IN;
+        if (s->call[A_PAST] && easy && nouts) {   /* Easy's: no way out when the traps free without them all */
+            int yes;
+            clear(s->coll, s->lw);   /* sphere u's state less them, from the rounds' lists (clears' reaches left their */
+            for (i64 i = 0; i < u; i++)   /* own log) */
+                for (i64 j = 0; j < s->bcount[s->sph[i]]; j++) put_bit(s->coll, s->border[s->bstart[s->sph[i]] + j]);
+            for (i64 j = 0; j < nouts; j++) del_bit(s->coll, s->outs[j]);
+            if ((rc = clears(s, s->coll, &yes))) return rc;
+            if (yes) nouts = 0;
+        }
         if (!nouts && s->call[A_PAST]) {   /* the way out a kept item: a way-in item to a free spot from its sphere on */
             copy_i(s->outs, s->ins, nins);
             nouts = nins, nins = 0;
-            clear(s->coll, s->lw);   /* the locations of the spheres from u - 1 on (clears' reaches left their own log) */
-            for (i64 rr = s->sph[u - 1]; rr < rounds; rr++)
-                for (i64 j = 0; j < s->bcount[rr]; j++) put_bit(s->coll, s->border[s->bstart[rr] + j]);
+            clear(s->coll, s->lw);   /* the locations of the spheres from u - 1 on, */
+            clear(s->bare, s->lw);   /* each one's sphere in s->rank, and those whose sphere collects no key item */
+            for (i64 rr = s->sph[u - 1], d = u - 1; rr < rounds; rr++) {
+                int key = 0;
+                if (!s->bcount[rr]) continue;
+                for (i64 j = 0; j < s->bcount[rr]; j++) {
+                    i64 loc = s->border[s->bstart[rr] + j];
+                    put_bit(s->coll, loc);
+                    s->rank[loc] = d;
+                    key |= s->placed[loc] >= 0 && item_row(s, s->placed[loc])[I_CLASS] == CL_PROG;
+                }
+                if (!key)
+                    for (i64 j = 0; j < s->bcount[rr]; j++) put_bit(s->bare, s->border[s->bstart[rr] + j]);
+                d++;
+            }
             for (i64 j = 1; j <= ng[0]; j++) {
                 i64 loc = ng[j], fl = loc_row(s, loc)[L_FLAGS];
                 if (has(s->coll, loc) && prog[loc] < 0 && (fl & LF_PROVEN) && !(fl & LF_EXCL) && !(fl & LF_VAULT))
                     s->ins[nins++] = loc;
+            }
+            if (easy && kept) {   /* Easy's, where one way-in item opens the traps: each spot's rungs missed */
+                s->keyed = 1;
+                for (i64 j = 0; j < nins; j++) s->missed[j] = 0;
+                for (i64 ti = 1; ti < s->call[A_TABS]; ti++) {
+                    if ((rc = reach(s, ti, -1, -1, 0, 0, 0, 0, &s->r[3]))) return rc;
+                    for (i64 j = 0; j < nins; j++) s->missed[j] += !has(s->r[3].got, s->ins[j]);
+                }
             }
             s->paths |= P_REPAIR_PAST;
         }
@@ -639,10 +671,35 @@ static i64 repairs(S *s, const i64 *prog, const R *r) {
     for (i64 i = 0; i < nouts; i++)
         for (i64 j = 0; j < nins; j++) {
             i64 a = s->outs[i], b = s->ins[j];
-            if (a != b && holds(s, b, prog[a]) && (prog[b] < 0 || holds(s, a, prog[b])))
-                s->pairs[2 * s->npairs] = a, s->pairs[2 * s->npairs + 1] = b, s->npairs++;
+            if (a != b && holds(s, b, prog[a]) && (prog[b] < 0 || holds(s, a, prog[b]))) {
+                s->pairs[2 * s->npairs] = a, s->pairs[2 * s->npairs + 1] = b;
+                if (s->keyed) s->pkey[3 * s->npairs] = s->missed[j], s->pkey[3 * s->npairs + 1] = has(s->bare, b),
+                              s->pkey[3 * s->npairs + 2] = s->rank[b] + capped(s, b);
+                s->npairs++;
+            }
         }
     return 0;
+}
+
+/* pair i's key against pair j's (s->pkey's three words, in order): below 0, 0 or above 0 */
+static i64 key_cmp(const S *s, i64 i, i64 j) {
+    for (int w = 0; w < 3; w++)
+        if (s->pkey[3 * i + w] != s->pkey[3 * j + w]) return s->pkey[3 * i + w] < s->pkey[3 * j + w] ? -1 : 1;
+    return 0;
+}
+
+/* the repair's pair: at random, or with keys (Easy's) one of the lowest at random (fill._earliest) */
+static i64 pick_pair(S *s) {
+    i64 at = 0, nt = 0, x;
+    if (!s->keyed) return below(&s->rng, s->npairs);
+    s->paths |= P_REPAIR_EARLIEST;
+    for (i64 j = 1; j < s->npairs; j++)
+        if (key_cmp(s, j, at) < 0) at = j;
+    for (i64 j = 0; j < s->npairs; j++) nt += !key_cmp(s, j, at);
+    x = below(&s->rng, nt);
+    for (i64 j = 0; j < s->npairs; j++)
+        if (!key_cmp(s, j, at) && !x--) return j;
+    return at;
 }
 
 /* the counted items and the trap gate's repairs (the twin's loop over MAX_REPAIRS + 1 tries) */
@@ -653,9 +710,12 @@ static i64 settle(S *s) {
     for (i64 fix = 0; fix <= MAX_REPAIRS; fix++) {
         rc = 0;
         if (fix) {
-            i64 at = below(&s->rng, s->npairs), a = s->pairs[2 * at], b = s->pairs[2 * at + 1];
+            i64 at = pick_pair(s), a = s->pairs[2 * at], b = s->pairs[2 * at + 1];
             for (i64 j = at; j + 1 < s->npairs; j++) s->pairs[2 * j] = s->pairs[2 * j + 2],
-                                                     s->pairs[2 * j + 1] = s->pairs[2 * j + 3];
+                                                     s->pairs[2 * j + 1] = s->pairs[2 * j + 3],
+                                                     s->pkey[3 * j] = s->pkey[3 * j + 3],
+                                                     s->pkey[3 * j + 1] = s->pkey[3 * j + 4],
+                                                     s->pkey[3 * j + 2] = s->pkey[3 * j + 5];
             s->npairs--;
             copy_i(prog, good, s->L);
             prog[b] = good[a];
@@ -851,11 +911,13 @@ static i64 lay(S *s, const i64 *f, const i64 **tabs, const i64 *call, i64 *ws) {
     s->sa = words(&c, maxg), s->sb = words(&c, maxg), s->list = words(&c, maxg), s->spots = words(&c, maxg);
     s->missed = words(&c, ng), s->best = words(&c, ng), s->rank = words(&c, L), s->seen = words(&c, s->cap_rounds);
     s->cand = words(&c, L);
-    s->pairs = words(&c, 2 * np * (ng > np ? ng : np)), s->outs = words(&c, L), s->ins = words(&c, L);
+    s->pairs = words(&c, 2 * np * (ng > np ? ng : np)), s->pkey = words(&c, 3 * np * (ng > np ? ng : np));
+    s->outs = words(&c, L), s->ins = words(&c, L);
     s->sph = words(&c, s->cap_rounds), s->bcount = words(&c, s->cap_rounds), s->bstart = words(&c, s->cap_rounds);
     s->border = words(&c, L);
     s->newt = (u64 *)words(&c, s->nw), s->tmp = (u64 *)words(&c, s->nw), s->acc = (u64 *)words(&c, s->nw);
     s->coll = (u64 *)words(&c, s->lw), s->was = (u64 *)words(&c, s->lw), s->fresh = (u64 *)words(&c, s->lw);
+    s->bare = (u64 *)words(&c, s->lw);
     return c.at;
 }
 
@@ -961,7 +1023,7 @@ API i64 az_attempt(const i64 *f, const i64 *t0, const i64 *t1, const i64 *t2, co
     s.f = f, s.call = call;
     for (int j = 0; j < 4; j++) s.tabs[j] = tabs[j];
     s.cap = call[A_CAP], s.out = out, s.log = out + O_HEAD + s.L + VW(&s) * (MAX_REPAIRS + 2);
-    s.err = 0, s.nlog = 0, s.reaches = 0, s.paths = 0, s.npairs = 0, s.rounds = 0;
+    s.err = 0, s.nlog = 0, s.reaches = 0, s.paths = 0, s.npairs = 0, s.keyed = 0, s.rounds = 0;
     for (i64 j = 0; j < O_HEAD; j++) out[j] = 0;
     for (i64 loc = 0; loc < s.L; loc++) s.base[loc] = s.placed[loc] = loc_row(&s, loc)[L_FIRST];
     s.start = s.nplaced = f[F_START];

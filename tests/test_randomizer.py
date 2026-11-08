@@ -256,20 +256,25 @@ def test_seed_difficulty_levels_lean_chains_off_path_and_tricks_in_order(monkeyp
     assert [fill._fill(logic, seed, st).placement for st in shaped for seed in "01"] == one
 
 
-def test_easy_with_the_elemental_powers_kept_plans_from_its_lean_below_normals_score_with_no_trick():
-    """D1157 with the elemental powers kept vanilla at Hard movement and skips: Easy's lean put every key item early,
-    so a realm's last fragment opened it long before the kept power that gets the player back out (new trick-free
-    traps), and the trap gate's repair had no key item after them to swap. Easy's repair moves that fragment past the
-    kept power, so over seeds "0".."3" each Easy plan comes from a leaning attempt, passes the verify, needs no trick
-    and scores below Normal's."""
+def test_easy_with_the_elemental_powers_kept_plans_from_its_lean_no_deeper_than_normal_and_below_its_score_with_no_trick():
+    """D1157, D1160 with the elemental powers kept vanilla: Easy's lean put every key item early, so a realm's last
+    fragment opened it long before the kept power that gets the player back out (new trick-free traps), and the trap
+    gate's repair had no key item after them to swap. Easy's repair moves that fragment past the kept power, to the
+    earliest and closest spot first, so over seeds "0".."3" at Hard movement and skips and "0".."7" at Standard and no
+    skips each Easy plan comes from a leaning attempt, passes the verify, needs no trick and scores below Normal's, and
+    at Standard its key-item steps are no more than Normal's (drawn at random among every later spot, seeds "2" and "4"
+    took more)."""
     logic = kept_logic()
-    easy, normal = (Settings(3, "hard", {}, frozenset({"powers"}), seed_difficulty=level) for level in (1, 0))
-    judge = difficulty.Judge(logic, easy, fill.key_spots(logic, easy), difficulty.detours(logic, easy))
-    for seed in "0123":
-        made, today = fill._fill(logic, seed, easy), fill._fill(logic, seed, normal)
-        assert made.attempt < difficulty.LEANED and not fill.verify(logic, easy, made.placement), seed
-        assert not judge._need(made.placement, 2), seed
-        assert judge.score(made.placement) < judge.score(today.placement), seed
+    for (ceiling, tier), seeds in (((3, "hard"), "0123"), ((0, "standard"), "01234567")):
+        easy, normal = (Settings(ceiling, tier, {}, frozenset({"powers"}), seed_difficulty=level) for level in (1, 0))
+        judge = difficulty.Judge(logic, easy, fill.key_spots(logic, easy), difficulty.detours(logic, easy))
+        for seed in seeds:
+            made, today = fill._fill(logic, seed, easy), fill._fill(logic, seed, normal)
+            assert made.attempt < difficulty.LEANED and not fill.verify(logic, easy, made.placement), (tier, seed)
+            assert not judge._need(made.placement, 2), (tier, seed)
+            assert judge.score(made.placement) < judge.score(today.placement), (tier, seed)
+            assert tier == "hard" or (difficulty.chain(logic, easy, made.placement)
+                                      <= difficulty.chain(logic, normal, today.placement)), seed
 
 
 def test_with_the_elemental_powers_kept_each_level_plans_a_seed_whose_attempts_of_today_all_meet_the_trap_gate():

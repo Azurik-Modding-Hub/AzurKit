@@ -205,8 +205,8 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
     ``_Count`` hears, in order, over a spread of settings, seed difficulties, seeds and attempts (each lean of
     ``difficulty.lean_mode`` among them) that reaches each of the kernel's paths (an own spot, a trade and one that
     fails, the lean and a lean where a rung misses a spot, a repair, its swap, its way in and its spots at the traps,
-    its way in past a kept way out, a vault) and placed and stuck outcomes, Normal's attempts past today's among
-    them; and a candidate's
+    its way in past a kept way out and Easy's earliest such spot first, a vault) and placed and stuck outcomes, Normal's
+    attempts past today's among them; and a candidate's
     need and play at each rung, stopped or not (with play's notes), and its ``Judge.score``, are ``difficulty``'s."""
     from azurkit.core import progress
     from azurkit.tools.randomizer.planner import difficulty, fill
@@ -275,7 +275,7 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
                 judged = judge.score(placement)
                 monkeypatch.setattr(judge, "kernel", None)
                 assert judged == judge.score(placement), (st, seed, k)
-    assert (paths, outcomes) == (2047, {"placed", "no safe proven spot", "no safe spot", "the verify"}), (
+    assert (paths, outcomes) == (4095, {"placed", "no safe proven spot", "no safe spot", "the verify"}), (
         paths, outcomes)
 
 

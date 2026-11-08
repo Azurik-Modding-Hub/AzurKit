@@ -680,10 +680,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     stay today's and a seed whose 20 all met that gate plans too), the trap
     gate's repair then moves the realm's opener to a free spot from the kept
     power's sphere on (`_Slots.repairs`' `past`, `fill.c`'s `A_PAST` and
-    `P_REPAIR_PAST`). Easy keeps the lowest `Judge.score` (key-item
-    steps + key items off the path + twice the step-ups at each rating to
-    the top) of 3 passing attempts, Expert the highest of 6, the first on a
-    tie; Hard and Normal their first. The kernel (`fill.c`'s `lean`, the
+    `P_REPAIR_PAST`). In an Easy attempt the key items collected just
+    before the traps free are no way out when the traps free without them
+    all (beside the kept power, swapped, one would open its own realm early
+    again), and where one way-in item alone opens the traps the repair
+    takes the earliest and closest spot first (no rung missing it, a sphere
+    that already collects a key item, then its sphere + min(detour, 6);
+    `fill._earliest`, `P_REPAIR_EARLIEST`). Easy keeps the lowest
+    `Judge.score` (key-item steps + key items off the path + twice the
+    step-ups at each rating to the top) of 3 passing attempts, Expert the
+    highest of 6, the first on a tie; Hard and Normal their first. The
+    kernel (`fill.c`'s `lean`, the
     call's `A_LEAN` and `A_PAST`, each location's `L_DETOUR`) and its twin
     (`fill._Lean` in `_Slots.attempt`) agree bit for bit
     (`tests/test_native.py`'s spread). Attempt k is pure, so a host may
