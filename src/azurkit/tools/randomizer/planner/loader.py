@@ -454,7 +454,7 @@ class _Checker:
             self.issue("missing_file", str(root), "no database folder")
             return
         known = {"generated", "derived", "levels", "settings", "movement", "items.toml", "world.toml", "tricks.toml",
-                 "route.toml", "contact.json", "forcing.json", "slider_tiers.json", pr.FILE}
+                 "route.toml", "contact.json", "slider_tiers.json", pr.FILE}
         for p in sorted(root.iterdir()):
             if p.name.startswith("."):
                 continue

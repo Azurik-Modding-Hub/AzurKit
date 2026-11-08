@@ -300,8 +300,6 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
      europe/pipelines.json tracker.json`, and `art` when `ART_VERSION`
      moved (`data/generated`, `draft/`, `art/` or `levels.py` changed: a
      new `web/art/<version>/`). The commit names each golden and why.
-     `scripts/seed_forcing.py` re-runs Seed difficulty's rate table (a test
-     refuses it stale); a table that changes bumps `SEED_DIFFICULTY_FILL`.
   6. **Cross-check** (evidence, not a test): the re-recorded
      `rando_plans.json` rows (attempt, sha256, the default plan file) and
      G3's seed rows equal Modkit's at `<ref>` (`git -C "$MODKIT" show
@@ -650,59 +648,58 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     between looks.
   - The fill runs in the caller's thread: Modkit's seed roll in a process
     pool (`roll_seed`) isn't ported.
-  - **Seed difficulty** (D1031, D1037-D1039; `planner/difficulty.py`,
-    `planner/fill.py`): `Settings.seed_difficulty` is 0 (Any, the default:
-    level 0 enters none of what follows, its plans, files and strings are
-    today's byte for byte) or a rating, 2 Standard, 3 Hard, 4 Frame-perfect,
-    never above the settings' top (`settings.top_rating`, refused by name).
-    A settings file's `seed_difficulty` is written only over 0, and the
-    plan's `settings` then also holds `seed_difficulty_fill`
-    (`settings.SEED_DIFFICULTY_FILL`), as does share version 4 (a literal
-    category mask, one bit per `CATEGORIES` entry, never folded; the slider
-    count, 0 too; then `fill << 3 | level`); another fill version is refused
-    by name. A rung E_r is the settings with everything rated r and above
-    taken away; need_r is "not won at E_r"; play_r counts the step-ups, the
-    fewest points any play needs a trick rated r or above, and the
-    progression between them. A level asks a promise (`difficulty.asked`,
-    no reach): `data/forcing.json`, `scripts/seed_forcing.py`'s campaign over
-    seeds "0".."29" at every cell of Movement x Skips (its plans' met rates,
-    each pick's and the tier's opener share, the fragments-kept and
-    powers-kept rows at Hard/Hard), reads L throughout (need_L, at least 2
-    step-ups at Standard, no stretch over half the 71), else L once
-    (need_L), else the level below, each at `RATE_LINE` 1/2; none: greyed,
-    and a loaded file or string plans with today's draws on its own streams.
-    Under `SAY_LINE` 9/10 it says "about N seeds in 10"; toggles leaving
-    opener shares under `FORCE_LINE` 1/3 treat the level as under the line.
-    The table holds no Frame-perfect promise yet, so that level plays as Hard.
-    The fill's pin (`fill._Pin`) puts each needed item on a spot the most
-    rungs of the ladder miss, spread over the map's levels; its acceptance
-    (`fill._Accept`) keeps the first of up to `difficulty.BOUND` (6) passing
-    candidates that meets the promise, reading it lazily (`Shape.why_not`:
-    one reach, then play_2 stopped at the first stage over half), else the
-    highest `Shape.score`, the first on a tie. Attempt k is pure (each in the
-    compiled kernel with its acceptance's reaches, The engine's contracts), so a host
-    may run those past the first at once (`fill.WIDTH` on its `fill.BESIDE`):
-    the app's engine on its threads (`procpool.Beside`, each as soon as a
-    thread is free, its answer read in order, the rest stopped at their next
-    note once a plan is decided), the site's worker one at a time: the same
-    plan at any width. A spoiler's openers read one switchable option set a
-    tier (`Logic.reach`'s `off`: each skip on also needs a flag of its own,
-    so every mix of picks turned off is one compile; about 0.3 s, where a
-    seed's 70 compiles took 4-5 s), and the app's engine works them out
-    ahead, low, after a shaped plan (`randomizer.openers_ahead`), for the
-    spoiler's View: the newest plan's only, pausing for a build or another
-    plan (`engine._openers_ahead`); a View or the tracker's Spoiler (which
-    asks that process, `engine.JOBS["openers"]`) waits on nothing and works
-    out what isn't kept yet. Any change
-    that gives the same inputs another level >
-    0 placement (the bound, ladders, spread, scores, promise, lines, the
-    table's method or a re-run that changes it) bumps
-    `SEED_DIFFICULTY_FILL` and leaves `GENERATOR` alone. D1038's optional
-    rewards take no code: the shaping already puts 86-91 % of the obsidians
-    past a trick, and the 8 useful items all fill the 8 vaults (Q290).
-    `tests/test_randomizer.py` pins the promises, plans, strings and files;
-    `tests/_perf.py`'s A70-A80 time the costliest settings
-    (`scripts/seed_forcing.py --rows` names their seeds).
+  - **Seed difficulty** (D1157, amending D1031, D1037, D1039;
+    `planner/difficulty.py`, `planner/fill.py`, `native/fill.c`):
+    `Settings.seed_difficulty` is 0 Normal (the default: it enters none of
+    what follows, its plans, files and strings are today's byte for byte), 1
+    Easy, 2 Hard or 3 Expert, each offered at any settings. A settings file
+    and the tab's table name it (`"Easy"`, `"Hard"`, `"Expert"`) only above
+    Normal, and the plan's `settings` then also holds `seed_difficulty_fill`
+    (`settings.SEED_DIFFICULTY_FILL`, 2), as does share version 4's last
+    byte (`fill << 3 | level`); another fill is refused by name, except
+    v1.0.0's (fill 1, a file's or plan's integer: 2 Standard, 3 Hard, 4
+    Frame-perfect), which loads at the nearest level now
+    (`settings.OLDER_LEVELS`: Hard, Expert, Expert), the tab's `note`
+    saying so. Three integer measures, no clock: a spot's *round* (the
+    progression reach's, dense-ranked), its *rungs missed* (E_top .. E_2 of
+    the ladder, `difficulty.ladder`, at that point of the fill: a spot behind
+    an allowed trick is a hard one, so tricks follow from placement, with no
+    forcing of their own) and its *detour* (`difficulty.detours`, on its
+    level's node graph: 0 on a shortest way through, twice a side room's
+    depth; `OFF_PATH` 2 or more is off the path). In the progression pass
+    each key item takes a spot by its attempt's lean (`difficulty.lean_mode`:
+    Easy the lowest (missed, round + detour), Hard weighted w * w + 1, Expert
+    the highest w, w = 4 * missed + round + min(detour, 6); strict below
+    `STRICT` (10), then weighted, and a level's 20 attempts past `LEANED`
+    draw as today, as a strict lean repeats one placement the verify may
+    refuse every time: with the powers kept, every leaning attempt of Easy's
+    failed the trap gate in four seeds of ten); the obsidians by detour (D1038). Easy
+    keeps the lowest `Judge.score` (key-item steps + key items off the path
+    + twice the step-ups at each rating to the top) of 3 passing attempts,
+    Expert the highest of 6, the first on a tie; Hard and Normal their first.
+    The kernel (`fill.c`'s `lean`, the call's `A_LEAN`, each location's
+    `L_DETOUR`) and its twin (`fill._Lean` in `_Slots.attempt`) agree bit for
+    bit (`tests/test_native.py`'s spread). Attempt k is pure, so a host may
+    run those past the first at once (`fill.WIDTH` on its `fill.BESIDE`):
+    the app's engine on its threads (`procpool.Beside`), the site's worker
+    one at a time: the same plan at any width. Every plan's spoiler and
+    tracker show one measured line (`difficulty.profile`, `line`): "Hard: 19
+    key-item steps, 17 off the path, needs Roll jumps twice", the tricks
+    (play_2's step-ups' openers, `difficulty.openers`, in `TRICK_NAMES`'
+    short words) named only with the spoiler shown, else "needs tricks at N
+    points", left out when no trick is allowed. A spoiler's openers read one
+    switchable option set a tier (`Logic.reach`'s `off`), and the app's
+    engine works them out ahead, low, after a plan above Normal
+    (`randomizer.openers_ahead`, `engine._openers_ahead`); a View or the
+    tracker's Spoiler waits on nothing and works out what isn't kept yet.
+    Any change that gives the same inputs another level > 0 placement (the
+    leans, the schedule, the bounds, the score, the measures) bumps
+    `SEED_DIFFICULTY_FILL` and leaves `GENERATOR` alone. No movement data
+    rates plain platforming, so with no trick allowed the levels differ by
+    chain and off the path alone. `tests/test_randomizer.py` pins the levels'
+    order, plans, strings and files; `tests/_perf.py`'s A70-A80 time the
+    costliest settings, each on the seed of "0".."99" whose fill takes the
+    most reaches there.
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's
   `randomizer` (the planner's recipe and an `obsidian_cost`; `azurkit build
   --seed`) is planned at the tier the build's movement sliders pick
@@ -740,11 +737,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   carries its plan, `plan`), the marks the page keeps (Modkit's state:
   `collected`, `live`, `veto`, `slot`, `gems`) and, with Live on, the element
   levels the game holds (`kit`, R1.41): the marks after a `toggle` or a
-  `reset`, the head line (with a seed difficulty over 0 its level and
-  `head.requires`: the level asked, met or the closest the fill found, the
-  counts; each step-up's third and its openers only with `spoiler`; the
-  profile once a plan on the tracker's Logic, `tracker.json`'s digest
-  excludes it; the page's line under the head), the counter row, each spot's state (`got`,
+  `reset`, the head line (with a seed difficulty above Normal its level, and
+  at every level `head.difficulty`: the measured line, its counts and, only
+  with `spoiler`, each step-up's tricks by name; the profile once a plan on
+  the tracker's Logic, `tracker.json`'s digest excludes it; the page's line
+  under the head), the counter row, each spot's state (`got`,
   `live`, `near`, `skip`: only with a skip, R1.41, `far`) and its item
   only once collected or with `spoiler`, and the Table's two trees; with
   `gems` (Step 4.2c3, R1.43, D928), each gem spot's gems (a cluster's
@@ -1142,14 +1139,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     ceiling and the obsidian cost (vanilla 10,
     D910), with D144's defaults (`sdk.catalog`'s `randomizer`, which offers
     the Seed difficulty levels and their tip; `randomizer_settings`'
-    `difficulty`: each level's `[value, name, enabled, line]` from the shipped
-    rate table with no reach, and a loaded level's `note`: the Seed
-    difficulty select after Skips greys a level the settings can't ask,
-    D979, says the chosen level's line and why the first greyed one is under
-    the row; an edit that can change the offer asks without the level first,
-    as the engine refuses one above the settings, and moves a level off
-    offer down to the highest on it, saying so; a loaded level that greys
-    stays and says what it plans), the share
+    `difficulty`: each level's `[value, name, enabled, line]`, every one
+    offered at any settings: the Seed difficulty select after Skips, Normal
+    first selected, says the chosen level's line under the row, and a
+    v1.0.0 level loaded says on the warning line what it loads as), the share
     string (editable, Copy), Load settings… and Save settings… (D144:
     a settings file, read and written by the engine: `randomizer_settings`'
     `file`, the app's `api/settings_file`), the item rows (each a category

@@ -53,8 +53,8 @@ from azurkit.tools.randomizer.planner.fill import fill, starved
 from azurkit.tools.randomizer.planner.loader import DATA_DIR, kept_logic
 from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc, spoiler_lines
 from azurkit.tools.randomizer.planner.settings import (
-    CATEGORIES, DARK_FIRE, SETTINGS_FORMAT_ELEMENTAL, Settings, picks, settings_from_table,
-    share_decode, share_encode, turnable)
+    CATEGORIES, DARK_FIRE, SEED_DIFFICULTY_NAMES, SETTINGS_FORMAT_ELEMENTAL, Settings, older_note, picks,
+    settings_from_table, share_decode, share_encode, turnable)
 from azurkit.tools.randomizer.planner.solver import Logic
 
 # The wheel's and the frozen app's checked database comes with its Logic's tables (Step 4.3g, P4): kept_logic takes
@@ -72,12 +72,12 @@ MOVEMENT_TIP = ("How tight the jumps and flaps the logic may ask for are. Standa
                 "straight, flaps nearly perfect. Frame-perfect: the physics limit: the perfect frame, a straight "
                 "stick, ideal flaps.")
 CEILING_TIP = "Turns on every skip rated at or below it; a skip's own toggle wins over it."
-#: The Seed difficulty levels (D1031, D1037): the ratings, as the ceilings' values are, Any (today's seeds, D1039) first.
-SEED_DIFFICULTY = ((0, "Any"), (2, "Standard"), (3, "Hard"), (4, "Frame-perfect"))
-SEED_DIFFICULTY_TIP = ("How much of the game makes you use the tricks Movement and Skips allow. Higher levels put key "
-                       "items where your tricks are needed, at several points through the game, not just one. The "
-                       "seed is always beatable within your settings, and the tracker and spoiler say what it needs. "
-                       "When a seed can't be made to match, you get the closest the fill found, and they say how close.")
+#: The Seed difficulty levels (D1157), each its name as a settings table holds it and its label, easiest first.
+SEED_DIFFICULTY = (("Easy", "Easy"), ("Normal", "Normal"), ("Hard", "Hard"), ("Expert", "Expert"))
+SEED_DIFFICULTY_TIP = ("Where the key items go. Harder levels put them deeper in the chain of finds, in out-of-the-way "
+                       "spots and behind the hardest tricks you allow, so the tricks get needed more; Easy puts them "
+                       "early and close. Normal is the seeds as before. The seed is always beatable within your "
+                       "settings, and the tracker and spoiler say what it took.")
 RATINGS = ("Unrated", "Safe", "Standard", "Hard", "Frame-perfect")   # a skip's difficulty 1-4 (the ceiling's names)
 BARRIERS = "Stay vanilla in v1 (R2.2)."
 #: The item rows (Modkit's Randomize page): each its category, ticked to shuffle it, or None, greyed: it stays vanilla;
@@ -205,12 +205,12 @@ def spoiler(doc: Mapping) -> list[str]:
 
 
 def openers_ahead(doc: Mapping) -> None:
-    """Work out a shaped plan's spoiler openers ahead (each a rules' compile the kept Logic then keeps, and the answer):
-    the app's engine's background job after a plan, so the spoiler's View needn't wait on them. Nothing at level 0, or
-    with nothing to shape."""
+    """Work out a plan's spoiler openers ahead (each a rules' compile the kept Logic then keeps, and the answer): the
+    app's engine's background job after a plan above Normal, so the spoiler's View needn't wait on them. Nothing when
+    its settings allow no trick."""
     logic = kept_logic()
     planned = load_plan(doc, logic.db)
-    if planned.settings.seed_difficulty and difficulty.asked(planned.settings, logic.skip_tables) is not None:
+    if difficulty.tricks_allowed(planned.settings, logic.skip_tables):
         difficulty.openers(logic, planned.settings, planned.placement)
 
 
@@ -226,8 +226,8 @@ def literal(settings: Settings) -> dict:
     """``settings`` as the tab holds them: a settings file's table in format
     /2, whose ``exclude_categories`` are exactly the categories kept vanilla
     (format /1's ``powers`` keeps the upgrades too), so a page reads and
-    sets each row's box as it is; a seed difficulty only when over 0, the save warp only when on."""
-    level = {"seed_difficulty": settings.seed_difficulty} if settings.seed_difficulty else {}
+    sets each row's box as it is; a seed difficulty's name only when it isn't Normal, the save warp only when on."""
+    level = {"seed_difficulty": SEED_DIFFICULTY_NAMES[settings.seed_difficulty]} if settings.seed_difficulty else {}
     warp = {"save_warp": True} if settings.save_warp else {}
     return {"format": SETTINGS_FORMAT_ELEMENTAL, "skip_ceiling": settings.skip_ceiling,
             "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE, **level, **warp,
@@ -335,9 +335,9 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     file) and the skip groups (``groups``, D258, D1061: each group's picks a
     setting can turn on, ``top`` the highest rating among them and ``tip``)
     and the seed difficulty's
-    levels (``difficulty``: each ``[value, name, enabled, line]``, read from
-    the shipped rate table with no reach, and a loaded level's ``note``:
-    :func:`.planner.difficulty.levels`). ``ValueError`` names a key,
+    levels (``difficulty``: each ``[value, name, enabled, line]``, every one
+    offered: :func:`.planner.difficulty.levels`); ``note`` also says a
+    v1.0.0 level loaded at the nearest one now. ``ValueError`` names a key,
     setting, share string or settings file refused."""
     if not isinstance(given, Mapping):
         raise ValueError(f"randomizer: a JSON object, not {type(given).__name__}")
@@ -347,13 +347,13 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
         raise ValueError("randomizer: give settings, share, file or plan")
     logic = kept_logic()
     skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
-    note = planned = None
+    note, planned, older = None, None, []
     if "plan" in given:
         if not isinstance(given["plan"], Mapping):
             raise ValueError("randomizer: plan is a plan file's object (azurkit plan's)")
         st = (planned := layer.checked_plan(given["plan"], logic)).asked
     elif "share" in given:
-        st = share_decode(given["share"], skips)
+        st = share_decode(given["share"], skips, older)
         if (st.sliders or worn) and st.sliders != sliders:
             note = slider_note(st.sliders, sliders, worn, bodies)
     elif "file" in given:
@@ -363,11 +363,13 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
             table = tomllib.loads(given["file"])
         except tomllib.TOMLDecodeError as exc:
             raise ValueError(f"settings file: not TOML ({exc})") from None
-        st = settings_from_table(table, skips, "settings file")
+        st = settings_from_table(table, skips, "settings file", older)
     elif isinstance(given["settings"], Mapping):
-        st = settings_from_table(given["settings"], skips, "settings")
+        st = settings_from_table(given["settings"], skips, "settings", older)
     else:
         raise ValueError("randomizer: settings is a settings file's table")
+    if older:   # a v1.0.0 level, loaded at the nearest
+        note = "; ".join(filter(None, (older_note(older[0], st.seed_difficulty), note)))
     cost = _cost(given)
     st = replace(st, sliders={pack: dict(values) for pack, values in sliders.items()})
     every, rows, groups, tops = picks(skips), [], {key: [] for key in SKIP_GROUPS}, dict.fromkeys(SKIP_GROUPS, 0)
@@ -390,7 +392,7 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
             "file": layer.settings_text(st),
             "groups": [{"id": key, "label": label, "picks": groups[key], "top": RATINGS[tops[key]],
                         "tip": SKIP_GROUP_TIPS.get(key)} for key, label in SKIP_GROUPS.items()],
-            "difficulty": difficulty.levels(st, skips)}
+            "difficulty": difficulty.levels()}
 
 
 def size_fold(made: Mapping, mine: Mapping) -> float | None:

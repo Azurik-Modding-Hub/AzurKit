@@ -202,10 +202,11 @@ def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables()
 def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_the_randomizers_own_data(monkeypatch):
     """``native/fill.c`` (Step 4.4ci57, D1141): an attempt of the fill (``fill._Kernel.attempt``) is its twin's
     (``_Slots.attempt``): the placement, or the stuck reason and item, each repaired refusal and every note its
-    ``_Count`` hears, in order, over a spread of settings, seeds and attempts that reaches each of the kernel's paths
-    (an own spot, a trade and one that fails, the pin and its miss, a repair, its swap, its way in and its spots at the
-    traps, a vault) and placed and stuck outcomes; and a shaped candidate's need and play at each rung, stopped or
-    not (with play's notes), and its ``why_not`` and ``score``, are ``difficulty``'s."""
+    ``_Count`` hears, in order, over a spread of settings, seed difficulties, seeds and attempts (each lean of
+    ``difficulty.lean_mode`` among them) that reaches each of the kernel's paths (an own spot, a trade and one that
+    fails, the lean and a lean where a rung misses a spot, a repair, its swap, its way in and its spots at the traps,
+    a vault) and placed and stuck outcomes; and a candidate's
+    need and play at each rung, stopped or not (with play's notes), and its ``Judge.score``, are ``difficulty``'s."""
     from azurkit.core import progress
     from azurkit.tools.randomizer.planner import difficulty, fill
     from azurkit.tools.randomizer.planner.loader import kept_logic
@@ -233,9 +234,11 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
             self.calls.append((placed, reach))
     cases = [(logic.db.defaults, [("0", 0), ("0", 3), ("11", 3), ("2", 3), ("5", 0)]),
              (Settings(0, "safe", {}), [("4", 0)]), (Settings(4, "frame_perfect", {}), [("0", 0)]),
-             (Settings(3, "hard", {}, seed_difficulty=3), [("0", 0), ("1", 3)]),
+             (Settings(3, "hard", {}, seed_difficulty=3), [("0", 0), ("1", 3), ("1", 21)]),
+             (Settings(3, "hard", {}, seed_difficulty=1), [("2", 0), ("3", 1), ("3", 11)]),
+             (Settings(2, "standard", {}, seed_difficulty=2), [("4", 0), ("5", 2)]),
              (Settings(3, "hard", {}, frozenset({"fragments"}), seed_difficulty=3), [("31", 12), ("31", 4)]),
-             (Settings(4, "frame_perfect", {}, seed_difficulty=4), [("15", 3), ("15", 0)])]
+             (Settings(4, "frame_perfect", {}, seed_difficulty=2), [("15", 3), ("15", 0)])]
     for st, seeds in cases:
         run = fill._Run(logic, st)
         assert run.kernel.blob is not None, st
@@ -246,16 +249,16 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
                 try:
                     got = (run.kernel.attempt(seed, k, heard, repaired) if kernel else run.slots.attempt(
                         st, run.reads, fill._streams(seed, k, run.digest), run.known, repaired, run.reaches, heard,
-                        run.pin), None, None)
+                        run.lean_at(k)), None, None)
                 except fill._Stuck as exc:
                     got = (None, str(exc), exc.item)
                 answers.append((got, repaired, heard.calls))
             assert answers[0] == answers[1], (st, seed, k)
             outcomes.add(answers[0][0][1].split(" for ")[0].split(":")[0] if answers[0][0][1] else "placed")
-            if (shape := run.shape) is None or (placement := answers[0][0][0]) is None:
+            if not run.level or (placement := answers[0][0][0]) is None:
                 continue
-            for rating in range(2, shape.ask.rating + 1):
-                for stop in (None, shape.limit, 0):
+            for rating in range(2, len(run.ladder) + 2):
+                for stop in (None, 20, 0):
                     told = []
                     for kernel in (False, True):
                         notes.clear()
@@ -265,9 +268,10 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
                                 difficulty.need(logic, st, placement, rating))
                         told.append((need, play and (play.need, play.stages), len(notes)))
                     assert told[0] == told[1], (st, seed, k, rating, stop)
-            judged = [(shape.why_not(placement), shape.score(placement))]
-            monkeypatch.setattr(shape, "kernel", None)
-            assert judged == [(shape.why_not(placement), shape.score(placement))], (st, seed, k)
+            if (judge := run.judge) is not None:
+                judged = judge.score(placement)
+                monkeypatch.setattr(judge, "kernel", None)
+                assert judged == judge.score(placement), (st, seed, k)
     assert (paths, outcomes) == (1023, {"placed", "no safe proven spot", "no safe spot", "the verify"}), (
         paths, outcomes)
 
@@ -289,13 +293,13 @@ def test_the_acceptance_kernels_play_keeps_every_stage_when_the_options_collect_
     w = [k.MAGIC, k.VERSION, n, n, n, 1] + [0] * (k.HEAD - 6)   # fill.c's F_* head: L, I, the names, one graph
     w[7] = len(w)                                               # F_LOCS: each spot open (LF_OPEN), its own vanilla
     for i in range(n):
-        w += [32, i] + [0] * 7
+        w += [32, i] + [0] * 8
     w[8] = len(w)                                               # F_ITEMS: each a progression item, none held
     w += [0] * 5 * n
     w[13] = w[17] = w[21] = w[23] = len(w)                      # F_PROG, F_NONGEM (none), F_GUARD, F_GIVES: zeros
     w += [0] * (n + 1)
     kernel = object.__new__(k)
-    kernel.blob, kernel.run, kernel._last = array("q", w), NS(shape=NS(ask=NS(rating=2))), (None, None)
+    kernel.blob, kernel.run, kernel._last = array("q", w), NS(ladder=(None,)), (None, None)
     spots, items = [f"s{i}" for i in range(n)], {f"x{i}": i for i in range(n)}
     kernel.tabs = [NS(tables=t, graphs=(0, 0, 0), locs=spots, item=items), NS(tables=t, graphs=(1, 1, 1))]
     assert kernel.play(dict(zip(spots, items)), 2, None) == Play(True, (0, *[1] * n, 0), ())

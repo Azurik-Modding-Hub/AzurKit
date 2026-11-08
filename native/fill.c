@@ -1,7 +1,7 @@
 /* The randomizer's fill attempt, compiled (Step 4.4ci57, D1141): one attempt of planner/fill.py's _Slots.attempt, its
  * Python twin and the reference, line for line, over the fill's blob (fill._NativeFill packs it) and the reach tables
  * azurkit.core.native.Tables writes (the plan's options' and each rung of a seed difficulty's ladder): the progression
- * items (own spots, safe spots, trades, the pin), the counted items by threshold band, the trap gate's repairs, the
+ * items (own spots, safe spots, trades, the lean), the counted items by threshold band, the trap gate's repairs, the
  * useful items, the filler by class and the verify. Its reaches are reach.c's az_reach on caller workspace; its streams
  * CPython's random.Random(int) (MT19937 seeded by init_by_array, random()'s 53 bits) under fill.Rng's below, shuffle,
  * choice and weighted. Integers only: no float, no libm, no allocation, no libc. It tells no note: it logs each of the
@@ -25,9 +25,10 @@ i64 az_reach(const i64 *t, const i64 *call, i64 *counters, i64 *held, u64 *flags
 i64 az_reach_need(const i64 *t, i64 *ints);
 
 #define FILL_MAGIC 0x314c4c49464bLL   /* "KFILL1" */
-#define FILL_VERSION 1
+#define FILL_VERSION 2
 #define MAX_REPAIRS 8                 /* fill.MAX_REPAIRS */
 #define WEIGHT 3                      /* fill.USEFUL_MAJOR_WEIGHT */
+#define DETOUR_CAP 6                  /* difficulty.DETOUR_CAP */
 #define TWO53 ((i64)1 << 53)
 
 /* reach.c's header words this file reads */
@@ -37,15 +38,17 @@ enum { F_MAGIC, F_VERSION, F_L, F_I, F_NAMES, F_GRAPHS, F_START, F_LOCS, F_ITEMS
        F_PROG, F_USEFUL, F_COUNTED, F_GROUPS, F_NONGEM, F_KNOWN_FULL, F_KNOWN_NAME, F_STUB, F_GUARD, F_FULL, F_GIVES,
        F_MAXGROUP, F_HEAD };
 /* A location's row, and its flags */
-enum { L_FLAGS, L_VANILLA, L_KIND, L_GRAPH, L_NODE, L_LEVEL, L_FIRST, L_ITEMNAME, L_TEMPLATE, L_W };
+enum { L_FLAGS, L_VANILLA, L_KIND, L_GRAPH, L_NODE, L_LEVEL, L_FIRST, L_ITEMNAME, L_TEMPLATE, L_DETOUR, L_W };
 enum { LF_POOL = 1, LF_EXCL = 2, LF_VAULT = 4, LF_MAJOR = 8, LF_PROVEN = 16, LF_OPEN = 32, LF_ONLY = 64 };
 /* An item's row, its classes and flags */
 enum { I_CLASS, I_BASE, I_FLAGS, I_START, I_COST, I_W };
 enum { CL_PROG, CL_COUNTED, CL_USEFUL, CL_FILLER, CL_OTHER };
-enum { IF_READ = 1, IF_VAULT = 2, IF_NEEDED = 4 };
-/* A call's words: the told log's capacity, the tables (the plan's, then the rungs), the pin, each table's three graph
- * ids, and the three streams' seeds (progression, useful, filler: a key's word count and its two 32-bit words). */
-enum { A_CAP, A_TABS, A_PIN, A_GRAPHS, A_STREAMS = A_GRAPHS + 12, A_W = A_STREAMS + 9 };
+enum { IF_READ = 1, IF_VAULT = 2 };
+/* A call's words: the told log's capacity, the tables (the plan's, then the rungs E_top .. E_2), the attempt's lean
+ * (difficulty.lean_mode: 0 none), each table's three graph ids, and the three streams' seeds (progression, useful,
+ * filler: a key's word count and its two 32-bit words). */
+enum { A_CAP, A_TABS, A_LEAN, A_GRAPHS, A_STREAMS = A_GRAPHS + 12, A_W = A_STREAMS + 9 };
+enum { M_NONE, M_LOW, M_WEIGHTED, M_HIGH, M_LOW_WEIGHTED };   /* the leans: difficulty.LOW .. LOW_WEIGHTED */
 /* The answer's words, then the placement (L), a verify's reach for the reason and one for each repaired refusal
  * (MAX_REPAIRS + 1 of them: its victory, locations, trick-free traps and those after completion: VW words), and the
  * told log (A_CAP). */
@@ -55,7 +58,7 @@ enum { O_STATUS, O_CODE, O_A, O_B, O_NLOG, O_NREP, O_REACHES, O_PATHS, O_HEAD };
 enum { W_NONE, W_NO_PROVEN, W_REPAIR_BUDGET, W_NO_SAFE_LEFT, W_VERIFY, W_VAULT_NONE, W_VAULT_UNSAFE, W_NO_SAFE,
        W_NO_FILLER };
 /* The paths an attempt took (O_PATHS: the twin test's spread) */
-enum { P_OWN = 1, P_TRADE = 2, P_TRADE_FAIL = 4, P_PIN = 8, P_PIN_MISS = 16, P_REPAIRED = 32, P_REPAIR_SWAP = 64,
+enum { P_OWN = 1, P_TRADE = 2, P_TRADE_FAIL = 4, P_LEAN = 8, P_LEAN_MISSED = 16, P_REPAIRED = 32, P_REPAIR_SWAP = 64,
        P_REPAIR_IN = 128, P_REPAIR_AT = 256, P_VAULT = 512 };
 
 typedef struct {   /* a reach's answer kept: its locations, nodes, safe nodes, trick-free traps, those after completion */
@@ -77,8 +80,8 @@ typedef struct {
     i64 *wi, *c, *held, *gives, *loc_round, *flag_round, *rout;
     R r[6];
     /* the attempt's state */
-    i64 *placed, *base, *prog, *good, *snap, *assumed, *used, *sa, *sb, *list, *spots, *missed, *best, *pinned,
-        *cand, *pairs, *outs, *ins, *sph, *bcount, *bstart, *border, npinned, npairs;
+    i64 *placed, *base, *prog, *good, *snap, *assumed, *used, *sa, *sb, *list, *spots, *missed, *best, *rank, *seen,
+        *cand, *pairs, *outs, *ins, *sph, *bcount, *bstart, *border, npairs;
     u64 *gnew, *newt, *tmp, *acc, *coll, *was, *fresh;
     MT rng;
 } S;
@@ -413,10 +416,41 @@ static i64 trade(S *s, i64 item, const R *r, int *done) {
     return 0;
 }
 
-/* _Pin.pick: a needed item's spot among `spots` the most rungs miss, on a map level no pinned item holds yet */
-static i64 pick(S *s, i64 item, const i64 *spots, i64 n, const R *r, i64 *loc) {
-    i64 rc, top = 0, nb = 0, nf = 0;
-    if (!(item_row(s, item)[I_FLAGS] & IF_NEEDED) || !has(r->got, spots[0])) {
+/* the progression reach's rounds (s->loc_round) dense-ranked from 1 into s->rank: the twin's trace's spheres */
+static i64 ranks(S *s) {
+    if (s->rounds > s->cap_rounds) return -6;
+    for (i64 j = 0; j < s->rounds; j++) s->seen[j] = 0;
+    for (i64 loc = 0; loc < s->L; loc++)
+        if (s->loc_round[loc] >= 0) s->seen[s->loc_round[loc]] = 1;
+    for (i64 j = 0, n = 0; j < s->rounds; j++) n += s->seen[j], s->seen[j] = n;
+    for (i64 loc = 0; loc < s->L; loc++) s->rank[loc] = s->loc_round[loc] >= 0 ? s->seen[s->loc_round[loc]] : 0;
+    return 0;
+}
+
+static i64 capped(const S *s, i64 loc) {
+    i64 d = loc_row(s, loc)[L_DETOUR];
+    return d < DETOUR_CAP ? d : DETOUR_CAP;
+}
+
+/* fill.Rng.weighted: `xs` by the weights `ws` */
+static i64 weighted(MT *m, const i64 *xs, const i64 *ws, i64 n) {
+    i64 total = 0, x;
+    for (i64 j = 0; j < n; j++) total += ws[j];
+    x = below(m, total);
+    for (i64 j = 0; j < n; j++) {
+        if (x < ws[j]) return xs[j];
+        x -= ws[j];
+    }
+    return xs[n - 1];
+}
+
+/* _Lean.pick: a key item's spot among `spots` (own or safe ones, in the pool's order; `r` its reach) by each spot's
+ * rungs missed, its round (s->rank) and its detour, by the attempt's lean: the lowest (missed, round + detour),
+ * weighted w * w + 1, the highest w, or weighted (top - w)^2 + 1, w = 4 * missed + round + detour */
+static i64 lean(S *s, const i64 *spots, i64 n, const R *r, i64 *loc) {
+    i64 rc, mode = s->call[A_LEAN], nb = 0, lo = 0, hi = 0;
+    int any = 0;
+    if (!has(r->got, spots[0])) {   /* an own spot comes first, as today */
         *loc = spots[below(&s->rng, n)];
         return 0;
     }
@@ -425,31 +459,46 @@ static i64 pick(S *s, i64 item, const i64 *spots, i64 n, const R *r, i64 *loc) {
         if ((rc = reach(s, ti, -1, -1, 1, 0, 0, 0, &s->r[3]))) return rc;
         for (i64 j = 0; j < n; j++) s->missed[j] += !has(s->r[3].got, spots[j]);
     }
-    for (i64 j = 0; j < n; j++)
-        if (s->missed[j] > top) top = s->missed[j];
-    if (!top) {
-        *loc = spots[below(&s->rng, n)];
-        s->paths |= P_PIN_MISS;
+    for (i64 j = 0; j < n; j++) {
+        s->best[j] = s->rank[spots[j]] + capped(s, spots[j]);   /* near: its round and detour */
+        any |= s->missed[j] > 0;
+    }
+    s->paths |= P_LEAN | (any ? P_LEAN_MISSED : 0);
+    if (mode == M_LOW) {   /* among the lowest (missed, near) */
+        for (i64 j = 0; j < n; j++)
+            if (!j || s->missed[j] < lo || (s->missed[j] == lo && s->best[j] < hi)) lo = s->missed[j], hi = s->best[j];
+        for (i64 j = 0; j < n; j++)
+            if (s->missed[j] == lo && s->best[j] == hi) s->sb[nb++] = spots[j];
+        *loc = s->sb[below(&s->rng, nb)];
         return 0;
     }
-    for (i64 j = 0; j < n; j++)
-        if (s->missed[j] == top) s->best[nb++] = spots[j];
-    for (i64 j = 0; j < nb; j++) {   /* a map level no pinned item holds, else all */
-        int used = 0;
-        for (i64 p = 0; p < s->npinned; p++)
-            if (loc_row(s, s->pinned[p])[L_LEVEL] == loc_row(s, s->best[j])[L_LEVEL]) used = 1;
-        if (!used) s->best[nf++] = s->best[j];
+    for (i64 j = 0; j < n; j++) {   /* w, and its highest */
+        s->missed[j] = 4 * s->missed[j] + s->best[j];
+        if (!j || s->missed[j] > hi) hi = s->missed[j];
     }
-    if (!nf) {
-        nb = 0;
-        for (i64 j = 0; j < n; j++)
-            if (s->missed[j] == top) s->best[nb++] = spots[j];
-        nf = nb;
+    if (mode == M_WEIGHTED || mode == M_LOW_WEIGHTED) {   /* weighted w * w + 1, or (top - w)^2 + 1 */
+        for (i64 j = 0; j < n; j++) {
+            i64 x = mode == M_WEIGHTED ? s->missed[j] : hi - s->missed[j];
+            s->best[j] = x * x + 1;
+        }
+        *loc = weighted(&s->rng, spots, s->best, n);
+        return 0;
     }
-    *loc = s->best[below(&s->rng, nf)];
-    s->pinned[s->npinned++] = *loc;
-    s->paths |= P_PIN;
+    for (i64 j = 0; j < n; j++)   /* among the highest w */
+        if (s->missed[j] == hi) s->sb[nb++] = spots[j];
+    *loc = s->sb[below(&s->rng, nb)];
     return 0;
+}
+
+/* _Lean.counted: a counted item's copy among `spots` weighted by detour (Easy's leans 7 - d, Hard's 1 + d, Expert's
+ * (1 + d)^2) */
+static i64 by_detour(S *s, const i64 *spots, i64 n) {
+    i64 mode = s->call[A_LEAN];
+    for (i64 j = 0; j < n; j++) {
+        i64 d = capped(s, spots[j]);
+        s->missed[j] = mode == M_LOW || mode == M_LOW_WEIGHTED ? 7 - d : mode == M_WEIGHTED ? 1 + d : (1 + d) * (1 + d);
+    }
+    return weighted(&s->rng, spots, s->missed, n);
 }
 
 /* the counted items as blocks: a reach per threshold band, the band's lowest count assumed */
@@ -466,7 +515,7 @@ static i64 counted(S *s) {
             n = safe(s, item, s->r[0].got, s->sa);
             for (i64 j = 0; j < band; j++) {
                 if (!n) return stuck(s, W_NO_SAFE_LEFT, item, k);
-                i64 spot = s->sa[below(&s->rng, n)];
+                i64 spot = s->call[A_LEAN] ? by_detour(s, s->sa, n) : s->sa[below(&s->rng, n)];
                 put(s, spot, item);
                 k--;
                 n = still(s, item, s->r[0].got, s->sa, n, spot);
@@ -719,10 +768,11 @@ static i64 attempt(S *s) {
         i64 item = s->list[j], m, loc;
         s->assumed[item] -= (item_row(s, item)[I_FLAGS] & IF_READ) != 0;
         if ((rc = areach(s, -1, -1, &s->r[0]))) return rc;
+        if (s->call[A_LEAN] && (rc = ranks(s))) return rc;   /* before own()'s reaches log their rounds */
         if ((rc = spots_for(s, item, &s->r[0], 0, s->sa, &m))) return rc;
         if (m) {
-            if (!s->call[A_PIN]) loc = s->sa[below(&s->rng, m)];
-            else if ((rc = pick(s, item, s->sa, m, &s->r[0], &loc))) return rc;
+            if (!s->call[A_LEAN]) loc = s->sa[below(&s->rng, m)];
+            else if ((rc = lean(s, s->sa, m, &s->r[0], &loc))) return rc;
             put(s, loc, item);
         } else {
             if ((rc = trade(s, item, &s->r[0], &done))) return rc;
@@ -785,7 +835,8 @@ static i64 lay(S *s, const i64 *f, const i64 **tabs, const i64 *call, i64 *ws) {
     s->snap = words(&c, L), s->assumed = words(&c, I), s->used = words(&c, s->G);
     s->gnew = (u64 *)words(&c, s->G * s->namew);
     s->sa = words(&c, maxg), s->sb = words(&c, maxg), s->list = words(&c, maxg), s->spots = words(&c, maxg);
-    s->missed = words(&c, ng), s->best = words(&c, ng), s->pinned = words(&c, np), s->cand = words(&c, L);
+    s->missed = words(&c, ng), s->best = words(&c, ng), s->rank = words(&c, L), s->seen = words(&c, s->cap_rounds);
+    s->cand = words(&c, L);
     s->pairs = words(&c, 2 * np * (ng > np ? ng : np)), s->outs = words(&c, L), s->ins = words(&c, L);
     s->sph = words(&c, s->cap_rounds), s->bcount = words(&c, s->cap_rounds), s->bstart = words(&c, s->cap_rounds);
     s->border = words(&c, L);
@@ -896,7 +947,7 @@ API i64 az_attempt(const i64 *f, const i64 *t0, const i64 *t1, const i64 *t2, co
     s.f = f, s.call = call;
     for (int j = 0; j < 4; j++) s.tabs[j] = tabs[j];
     s.cap = call[A_CAP], s.out = out, s.log = out + O_HEAD + s.L + VW(&s) * (MAX_REPAIRS + 2);
-    s.err = 0, s.nlog = 0, s.reaches = 0, s.paths = 0, s.npinned = 0, s.npairs = 0, s.rounds = 0;
+    s.err = 0, s.nlog = 0, s.reaches = 0, s.paths = 0, s.npairs = 0, s.rounds = 0;
     for (i64 j = 0; j < O_HEAD; j++) out[j] = 0;
     for (i64 loc = 0; loc < s.L; loc++) s.base[loc] = s.placed[loc] = loc_row(&s, loc)[L_FIRST];
     s.start = s.nplaced = f[F_START];

@@ -15,12 +15,13 @@ movement sliders that aren't vanilla's, which pick the tier its seed is
 filled at (``movement.played``, D1066); a settings file can't hold them
 (its format stays /1), the share string does (its version 2).
 
-``Settings.seed_difficulty`` (D1031, D1037, D1039; :mod:`.difficulty`) is the
-level the fill shapes a seed to: 0 (Any, the default: today's seeds), or a
-rating, 2 Standard, 3 Hard, 4 Frame-perfect, never above what the movement
-tier and the skips on allow (:func:`top_rating`). A file writes
-``seed_difficulty`` only when it is over 0, and a share string takes version 4
-then, so every other file and string is as before.
+``Settings.seed_difficulty`` (D1157; :mod:`.difficulty`) is where the fill
+leans key items: 0 Normal (the default: today's seeds), 1 Easy, 2 Hard, 3
+Expert, each offered at any settings. A file names it (``"Easy"``, ``"Hard"``,
+``"Expert"``) only when it isn't Normal, and a share string takes version 4
+then, so every other file and string is as before. v1.0.0's levels (a fill 1
+byte or a file's integer: 2 Standard, 3 Hard, 4 Frame-perfect) load at the
+nearest level now (:data:`OLDER_LEVELS`), a ``told`` list hearing the old one.
 
 ``Settings.save_warp`` (D1154, D1155; RANDOMIZER_PLAN R2.14) counts the
 save-point warp of the pack ``qol_save_warp`` in the logic (the solver's
@@ -58,8 +59,10 @@ CATEGORIES = ("fragments", "powers", "gems", "obsidians", "consumables", "upgrad
 NAMES = {"fragments": "disc fragments", "powers": "elemental powers", "gems": "gems", "obsidians": "obsidians",
          "consumables": "fuel pickups", "upgrades": "upgrades"}
 UPGRADES = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # "upgrades"; the other power_* "powers"
-SEED_DIFFICULTIES = (0, 2, 3, 4)   # the ratings a seed may be shaped to, 0 none: no Safe level, a Safe rating needs no trick
-SEED_DIFFICULTY_FILL = 1           # level > 0's algorithm: bumped when the same inputs give such a seed another placement
+SEED_DIFFICULTIES = (0, 1, 2, 3)   # Normal (today's seeds), Easy, Hard, Expert (D1157)
+SEED_DIFFICULTY_NAMES = ("Normal", "Easy", "Hard", "Expert")   # a level's name, as a file and the tab hold it
+SEED_DIFFICULTY_FILL = 2           # level > 0's algorithm: bumped when the same inputs give such a seed another placement
+OLDER_LEVELS = {2: 2, 3: 3, 4: 3}  # v1.0.0's levels (fill 1: Standard, Hard, Frame-perfect) -> the nearest level now
 RATING_NAMES = ("None", "Safe", "Standard", "Hard", "Frame-perfect")   # a rating's name, 0 none
 RETIRED_KEYS = ("name", "default", "knobs", "tricks")             # the presets' keys (D113, D144)
 SHARE_PREFIX = "AZR-"
@@ -110,7 +113,7 @@ class Settings:
     skip_override: Mapping[str, bool] = field(default_factory=dict)
     exclude_categories: frozenset[str] = frozenset()
     sliders: Mapping[str, Mapping[str, float]] = field(default_factory=dict)   # {pack: {slider: value}}, AZ-383
-    seed_difficulty: int = 0   # D1037: one of SEED_DIFFICULTIES
+    seed_difficulty: int = 0   # D1157: one of SEED_DIFFICULTIES
     save_warp: bool = False    # D1154: the logic counts the save-point warp (the pack qol_save_warp)
 
 
@@ -204,9 +207,10 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
     if "dark_fire" in table and not _int_in(table["dark_fire"], (DARK_FIRE,)):
         out.append(("settings_bad_dark_fire", "dark_fire", f"{table['dark_fire']!r}: dark areas always need Fire 1 now; "
                                                            "this seed can't be remade"))
-    level = table.get("seed_difficulty", 0)
-    if not _int_in(level, SEED_DIFFICULTIES):
-        out.append(("settings_bad_seed_difficulty", "seed_difficulty", f"{level!r} is not one of 0, 2, 3, 4"))
+    level = table.get("seed_difficulty", "Normal")
+    if level not in SEED_DIFFICULTY_NAMES and not _int_in(level, (0, *OLDER_LEVELS)):
+        out.append(("settings_bad_seed_difficulty", "seed_difficulty",
+                    f"{level!r} is not one of {', '.join(SEED_DIFFICULTY_NAMES)}"))
     if not isinstance(table.get("save_warp", False), bool):
         out.append(("settings_bad_save_warp", "save_warp", f"{table['save_warp']!r} is not true or false"))
     excluded = table.get("exclude_categories", [])
@@ -230,17 +234,29 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
             why = next((s for s in ("held", "manual") if s in status), "unconfirmed")
             out.append(("settings_enables_held_or_manual_skip", key,
                         f"turns on a {why} skip; a toggle never does (D144, D114)"))
-    if level and not out:
-        top = top_rating(Settings(table["skip_ceiling"], table["movement_tier"], _folded(toggles, skips)), skips)
-        if level > top:
-            out.append(("settings_seed_difficulty_above_top", "seed_difficulty",
-                        f"{level} asks for {RATING_NAMES[level]} tricks; Movement and Skips allow "
-                        f"{RATING_NAMES[top]} at most"))
     return out
 
 
-def settings_from_table(table: Mapping, skips: Mapping[str, Mapping], where: str = "settings") -> Settings:
-    """A valid settings table as :class:`Settings`; raises :class:`SettingsError`."""
+def level_of(value: str | int, told: list | None = None) -> int:
+    """A valid table's ``seed_difficulty`` as a level: a name's, or v1.0.0's integer at the nearest level now
+    (:data:`OLDER_LEVELS`; ``told`` hears the old one)."""
+    if isinstance(value, str):
+        return SEED_DIFFICULTY_NAMES.index(value)
+    if value and told is not None:
+        told.append(value)
+    return OLDER_LEVELS.get(value, 0)
+
+
+def older_note(old: int, level: int) -> str:
+    """What the tab says of a v1.0.0 level ``old`` (a rating) loaded at ``level``."""
+    return (f"Made with the older Seed difficulty {RATING_NAMES[old]}: it loads as {SEED_DIFFICULTY_NAMES[level]}, "
+            "the nearest level now; its items land elsewhere than in the seed it was shared from")
+
+
+def settings_from_table(table: Mapping, skips: Mapping[str, Mapping], where: str = "settings",
+                        told: list | None = None) -> Settings:
+    """A valid settings table as :class:`Settings`; raises :class:`SettingsError`. ``told`` hears a v1.0.0 level
+    (:func:`level_of`)."""
     problems = settings_problems(table, skips)
     if problems:
         raise SettingsError(where, problems)
@@ -249,7 +265,7 @@ def settings_from_table(table: Mapping, skips: Mapping[str, Mapping], where: str
         excluded.add("upgrades")      # /1's powers keep the upgrades too
     return Settings(table["skip_ceiling"], table["movement_tier"],
                     _folded(table.get("skip_override", {}), skips), frozenset(excluded),
-                    seed_difficulty=table.get("seed_difficulty", 0), save_warp=table.get("save_warp", False))
+                    seed_difficulty=level_of(table.get("seed_difficulty", 0), told), save_warp=table.get("save_warp", False))
 
 
 def skips_on(settings: Settings, skips: Mapping[str, Mapping]) -> list[str]:
@@ -297,6 +313,10 @@ def share_encode(settings: Settings, skips: Mapping[str, Mapping] | Iterable[str
 
 
 def _encode(settings: Settings, registry: list[str]) -> str:
+    return SHARE_PREFIX + base64.b32encode(bytes(_payload(settings, registry))).decode().rstrip("=")
+
+
+def _payload(settings: Settings, registry: list[str]) -> bytearray:
     toggles = settings.skip_override
     head = settings.skip_ceiling | MOVEMENT_TIERS.index(settings.movement_tier) << 3 | (0x80 if toggles else 0)   # bits 5-6: D1061
     level, warp = settings.seed_difficulty, settings.save_warp
@@ -323,7 +343,7 @@ def _encode(settings: Settings, registry: list[str]) -> str:
         out.append(SEED_DIFFICULTY_FILL << 3 | level if level else 0)
     if warp:
         out.append(SHARE_WARP)
-    return SHARE_PREFIX + base64.b32encode(bytes(out)).decode().rstrip("=")
+    return out
 
 
 def share_sliders(text: str, skips: Mapping[str, Mapping]) -> dict[str, dict[str, float]]:
@@ -339,10 +359,12 @@ def share_sliders(text: str, skips: Mapping[str, Mapping]) -> dict[str, dict[str
                        bytes([SHARE_VERSION_DIFFICULTY]), bytes([SHARE_VERSION_WARP])) else {}
 
 
-def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
+def share_decode(text: str, skips: Mapping[str, Mapping], told: list | None = None) -> Settings:
     """The settings a share string holds, checked as a settings file is.
     Refuses an unknown version, an out-of-range field, a string made for
-    another skip registry, trailing bytes and a non-canonical string."""
+    another skip registry, trailing bytes and a non-canonical string. A
+    v1.0.0 level (fill 1) loads at the nearest level now, ``told`` hearing
+    the old one, canonical against its own byte."""
     def fail(detail: str):
         raise SettingsError("share string", [("share_invalid", "share", detail)])
 
@@ -408,18 +430,23 @@ def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
                 fail(f"slider {index}: no such slider, or a value that isn't a number")
             pack, name = SHARE_SLIDERS[index]
             sliders.setdefault(pack, {})[name] = value
+    older = None    # a v1.0.0 level's byte and where it lies
     if raw[0] in (SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
         if k >= len(raw):
             fail("no seed difficulty")
         level, made = raw[k] & 7, raw[k] >> 3
-        k += 1
-        if raw[k - 1] or raw[0] == SHARE_VERSION_DIFFICULTY:     # version 5's 0 is level 0
-            if made != SEED_DIFFICULTY_FILL:
+        if raw[k] or raw[0] == SHARE_VERSION_DIFFICULTY:     # version 5's 0 is Normal
+            if made == 1 and level in OLDER_LEVELS and raw[0] == SHARE_VERSION_DIFFICULTY:   # v1.0.0 had no version 5
+                older, level = (k, raw[k]), OLDER_LEVELS[level]
+                if told is not None:
+                    told.append(raw[k] & 7)
+            elif made != SEED_DIFFICULTY_FILL:
                 fail(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill {SEED_DIFFICULTY_FILL}: "
                      "the same seed would place items differently")
-            if level not in SEED_DIFFICULTIES[1:]:
-                fail(f"seed difficulty {level} is not one of 2, 3, 4")
-            table["seed_difficulty"] = level
+            elif level not in SEED_DIFFICULTIES[1:]:
+                fail(f"seed difficulty {level} is not one of 1, 2, 3")
+            table["seed_difficulty"] = SEED_DIFFICULTY_NAMES[level]
+        k += 1
     if raw[0] == SHARE_VERSION_WARP:
         if k >= len(raw) or raw[k] != SHARE_WARP:
             fail("no options byte, or an option this AzurKit doesn't know")
@@ -428,6 +455,9 @@ def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
     if k != len(raw):
         fail("trailing bytes")
     settings = replace(settings_from_table(table, skips, "share string"), sliders=sliders)
-    if _encode(replace(settings, skip_override=table["skip_override"]), ids if head & 0x80 else registry) != t:
+    body = _payload(replace(settings, skip_override=table["skip_override"]), ids if head & 0x80 else registry)
+    if older is not None:
+        body[older[0]] = older[1]
+    if SHARE_PREFIX + base64.b32encode(bytes(body)).decode().rstrip("=") != t:
         fail("not canonical")
     return settings

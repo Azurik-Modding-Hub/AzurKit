@@ -50,7 +50,7 @@ from azurkit.tools.randomizer import needs
 from azurkit.tools.randomizer.planner import difficulty
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import PlanError, load_plan
-from azurkit.tools.randomizer.planner.settings import CATEGORIES, RATING_NAMES, picks_on
+from azurkit.tools.randomizer.planner.settings import CATEGORIES, SEED_DIFFICULTY_NAMES, picks_on
 from azurkit.tools.randomizer.tracker import (ELEMENTS, Row, Tracker, held_counts, marks, no_skips, realms,
                                               spot_classes)
 
@@ -183,29 +183,31 @@ def _row(row: Row) -> dict:
             "total": row.total, "where": row.where, "game": row.game, "children": [_row(c) for c in row.children]}
 
 
-def _requires(t: Tracker, spoiler: bool, openers: Callable[[Mapping], list] | None = None) -> dict:
-    """A shaped plan's ``head.requires``: its profile once per plan on the tracker's Logic, its openers (D1031) only
-    when Spoiler asks, from ``openers(plan)`` when a host works them out elsewhere; each kept on the tracker."""
+def _difficulty(t: Tracker, spoiler: bool, openers: Callable[[Mapping], list] | None = None) -> dict:
+    """A plan's ``head.difficulty`` (D1157, every level): its profile once per plan on the tracker's Logic, its
+    tricks by name only when Spoiler asks, from ``openers(plan)`` when a host works them out elsewhere (a seed
+    difficulty's plan, in the app); each kept on the tracker."""
     if t.profile is None:
         t.profile = difficulty.profile(t.logic, t.settings, t.placement)
     if spoiler and t.opened is None:
-        if not t.profile["asks"]:
+        if not t.profile["points"]:
             t.opened = []
         else:
-            t.opened = openers(t.doc) if openers else difficulty.openers(t.logic, t.settings, t.placement)
-    return difficulty.requires(t.profile, spoiler=spoiler, openers=t.opened if spoiler else None)
+            t.opened = (openers(t.doc) if openers and t.settings.seed_difficulty
+                        else difficulty.openers(t.logic, t.settings, t.placement))
+    return difficulty.head(t.profile, difficulty.needs(t.logic, t.settings, t.opened) if spoiler else None)
 
 
 def ahead(settings, stop: Callable[[], bool] = lambda: False) -> None:
     """Compile on this process's kept Logic, each kept, the option sets a first view of a plan of ``settings`` (as
     :func:`load_plan` reads them) reaches under, before the plan is in: its own (:class:`Tracker`'s), with no skip
-    (:func:`no_skips`) and, at a seed difficulty asking for a trick, each rung its profile plays (:func:`_requires`).
+    (:func:`no_skips`) and, where a trick is allowed, the rung E_2 its profile plays (:func:`_difficulty`).
     The app's server works them out beside its engine's fill, so that view only reaches (their compiles were most of
     a Hard plan's first view, after its click). ``stop()`` is asked before each."""
     logic = kept_logic()
     sets = [settings, no_skips(settings)]
-    if settings.seed_difficulty and (ask := difficulty.asked(settings, logic.skip_tables)) is not None:
-        sets += [difficulty.rung(settings, r, logic.skip_tables) for r in range(2, ask.rating + 1)]
+    if difficulty.tricks_allowed(settings, logic.skip_tables):
+        sets.append(difficulty.rung(settings, 2, logic.skip_tables))
     for st in sets:
         if stop():
             return
@@ -214,20 +216,20 @@ def ahead(settings, stop: Callable[[], bool] = lambda: False) -> None:
 
 def head(t: Tracker, spoiler: bool = False, openers: Callable[[Mapping], list] | None = None) -> dict:
     """The tracker's head line (Modkit's): the seed, its share string, the skip ceiling, the movement tier (and the
-    one moved movement sliders play it as, D1066), the categories kept vanilla and each skip on (a batch once, D275); with a seed
-    difficulty over 0, the level and ``requires`` (:func:`.planner.difficulty.requires`, ``openers`` as
-    :func:`_requires` takes it)."""
+    one moved movement sliders play it as, D1066), the categories kept vanilla and each skip on (a batch once, D275), a
+    seed difficulty above Normal; and ``difficulty``, its measured line (:func:`.planner.difficulty.head`, ``openers``
+    as :func:`_difficulty` takes it)."""
     st, doc = t.settings, t.doc
     on = [pid if ids == [pid] else f"{pid} ({', '.join(ids)})" for pid, ids in picks_on(st, t.logic.skip_tables).items()]
     kept = [c for c in CATEGORIES if c in st.exclude_categories]
-    level = f" · seed difficulty {RATING_NAMES[st.seed_difficulty]}" if st.seed_difficulty else ""
+    level = f" · seed difficulty {SEED_DIFFICULTY_NAMES[st.seed_difficulty]}" if st.seed_difficulty else ""
     tier = t.asked.movement_tier
     played = "" if tier == st.movement_tier else f" played as {st.movement_tier.replace('_', '-')} (your sliders)"
     return {"seed": doc["seed"], "share": doc["share"], "sha256": doc["sha256"],
             "text": (f"Seed {doc['seed']} · {doc['share']} · skips {RATINGS[st.skip_ceiling]}, movement "
                      f"{tier.replace('_', '-')}{played}"
                      + (f", vanilla {' '.join(kept)}" if kept else "") + f" · {len(on)} skips on{level}"),
-            "skips": on} | ({"requires": _requires(t, spoiler, openers)} if st.seed_difficulty else {})
+            "skips": on, "difficulty": _difficulty(t, spoiler, openers)}
 
 
 def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], object] | None = None,

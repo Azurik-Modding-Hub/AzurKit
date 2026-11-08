@@ -700,9 +700,9 @@ def test_the_trackers_spoiler_on_a_shaped_plan_takes_its_openers_from_the_engine
         plan = server.plan({"recipe": recipe})["plan"]
         assert asked == ["plan"] and server.slots.job("view") is None
         shown = server.track({"given": {"plan": plan, "spoiler": True}})
-        assert asked[1:] == ["openers"] and shown["head"]["requires"]["openers"]
-        assert server.track({"given": {"plan": plan, "spoiler": True, "marks": {"collected": []}}})["head"]["requires"][
-            "openers"] == shown["head"]["requires"]["openers"] and asked[1:] == ["openers"]
+        assert asked[1:] == ["openers"] and shown["head"]["difficulty"]["needs"]
+        assert server.track({"given": {"plan": plan, "spoiler": True, "marks": {"collected": []}}})["head"]["difficulty"][
+            "needs"] == shown["head"]["difficulty"]["needs"] and asked[1:] == ["openers"]
     finally:
         server.close()
         # The plan's openers ahead reach on, low, past the close (a Here engine's; the app's end with its process): left

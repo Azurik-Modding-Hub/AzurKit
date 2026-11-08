@@ -1439,16 +1439,16 @@
    "share": "AZR-AAEA"
   },
   "sha256": "aa53a70eff1bf059aae6749ca3b1dc653b65d090d90a239eb8944202e8b80cc6",
-  "spoiler": "146cec1c89added0accdaa46b34ec914c5720f1e32ce054fe4d2350835c7206a"
+  "spoiler": "7b75f55e7a56e853c30071373afe3c6ff61f35bd93bc27af3546d246e4c11f43"
  },
  "max": {
   "attempt": 0,
   "sha256": "33e1c79d103aa6d5c46ed53dd3ad3780cf4975ad044b9d7f2424cccb282547f1",
-  "spoiler": "44760551baaeae92eecdc58315c10efcfb8985bfdcba09c170a926d51b6bb8f0"
+  "spoiler": "17be1571c25ffee6e5a42a04cdf5b6bb7a7b50d0d87a1767e983be8b9fd1fad5"
  },
  "strict": {
   "attempt": 1,
   "sha256": "42f64b3141526d3a65b3778dcff96b8173e862ad4a68d2369a00b2b43bedbf51",
-  "spoiler": "751c442ab20f200a3ba0a4e262784ca659d4a734e073b82b8459b3a26d3501f8"
+  "spoiler": "029bf1245a2c529411c894eadd84357b009f5be96bfe156150d0edcb3650adaf"
  }
 }

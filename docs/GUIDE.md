@@ -39,8 +39,9 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
   barriers stay put.
 - **Whole-game logic:** all 22 levels and their 1,418 item locations.
 - **Movement difficulty:** Standard, Hard or Frame-perfect jumps and flaps.
-- **Seed difficulty:** Any, Standard, Hard or Frame-perfect: key items go where the tricks you allowed are needed at
-  several points through the game, and the seed stays beatable.
+- **Seed difficulty:** Easy, Normal, Hard or Expert, with any settings. Harder levels put key items deeper in the chain
+  of finds, in side rooms and dead ends, and behind the hardest tricks you allowed, so you need those tricks more; Easy
+  puts them early and close. Normal gives the seeds as before, and every seed stays beatable.
 - **36 rated skips:** each on or off, or by group, whose tick turns on all of its: power storage, roll and flap tricks,
   barriers, dark rooms, out of bounds, super jumps.
 - **Dark areas:** they need Fire 1, unless a dark-room skip is on; then no fire.
@@ -76,7 +77,8 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
   build), a seed you haven't built yet, or a plan file.
 - **Quick to open:** on our Mac the Randomizer tab opens, and Track this seed shows its plan, within 3 s of the
   click, in the app and in the browser.
-- **What a seed needs:** with Seed difficulty on, the head line says how many points need a trick and how hard.
+- **What a seed took:** under the head line, how many key-item steps the seed has, how many key items lie off the way
+  through and how many points need a trick; with Spoiler on, which tricks, e.g. "needs Roll jumps twice".
 - **Where you stand:** what you've collected and what you can reach right now, sphere by sphere.
 - **Skips shown apart:** spots you can reach only with a skip have their own colour.
 - **Spoiler-free:** each item stays hidden until you collect it, unless you turn Spoiler on.

@@ -57,6 +57,7 @@ from azurkit.tools.randomizer.planner.grammar import DISCS, atoms, parse
 from azurkit.tools.randomizer.planner.settings import (
     CATEGORIES,
     SEED_DIFFICULTY_FILL,
+    SEED_DIFFICULTY_NAMES,
     Settings,
     SettingsError,
     picks,
@@ -127,7 +128,8 @@ def load_plan(source: Path | str | Mapping, db) -> Plan:
     skips = {sid: s for sid, (_, s) in db.skips.items()}
     table = dict(doc["settings"])
     made = table.pop("seed_difficulty_fill", None)
-    if table.get("seed_difficulty") and made != SEED_DIFFICULTY_FILL:
+    level = table.get("seed_difficulty")
+    if level and made != (1 if isinstance(level, int) else SEED_DIFFICULTY_FILL):   # v1.0.0's: fill 1, a rating
         raise PlanError(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill "
                         f"{SEED_DIFFICULTY_FILL}: the same seed would place items differently")
     try:     # the movement sliders it was asked under ride in its share string (AZ-383)
@@ -817,7 +819,7 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
     lines = [
         f"plan {doc['sha256'][:12]}: seed {doc['seed']!r}, attempt {doc['attempt']}, {doc['generator']}",
         f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {plan.asked.movement_tier}, dark_fire 1, "
-        + (f"seed_difficulty {st.seed_difficulty}, " if st.seed_difficulty else "")
+        + (f"seed_difficulty {SEED_DIFFICULTY_NAMES[st.seed_difficulty]}, " if st.seed_difficulty else "")
         + ("save_warp on, " if st.save_warp else "") +
         f"toggles: {toggles}" + (f", kept vanilla: {kept}" if kept else "") + f"; share {doc['share']} "
         f"(skip registry tag {registry_tag(picks(logic.skip_tables)).hex()})",
@@ -835,12 +837,9 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
     if any("saveanywhere" in fam.split("+") for fam in families):
         lines.append("warning: a saveanywhere skip is on (plan §2.14): it never counts as an escape")
     reach, spheres_ = _playthrough(plan, logic)
-    if st.seed_difficulty:   # right after the skips on
-        known = known_traps(logic, st)
-        prof = difficulty.profile(logic, st, plan.placement)
-        lines[4:4] = difficulty.spoiler_lines(
-            prof, difficulty.openers(logic, st, plan.placement) if prof["asks"] else [],
-            sorted(reach.traps - reach.after_completion - known))
+    prof = difficulty.profile(logic, st, plan.placement)    # right after the skips on, at every level
+    opened = difficulty.openers(logic, st, plan.placement) if prof["points"] else []
+    lines[4:4] = difficulty.spoiler_lines(prof, opened, difficulty.needs(logic, st, opened))
     if plan.asked.sliders:   # D1064, D1066: right after the settings
         lines.insert(2, f"movement sliders: {sliders_text(plan.asked.sliders)}; {said(plan.asked)}; {PROMISE}")
     won = False

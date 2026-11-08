@@ -4425,26 +4425,25 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
 
 # The Seed difficulty select as it reads: its level, each option's [value, name, enabled, line], the line under it.
 LEVELS = """() => { const s = document.getElementById("rando-difficulty");
-    return [Number(s.value), [...s.options].map((o) => [Number(o.value), o.textContent, !o.disabled, o.title]),
+    return [s.value, [...s.options].map((o) => [o.value, o.textContent, !o.disabled, o.title]),
             document.getElementById("rando-difficulty-line").textContent]; }"""
 
 
-def test_seed_difficulty_greys_what_the_settings_cant_ask_moves_down_with_them_and_the_tracker_says_what_a_seed_needs(
+def test_seed_difficulty_offers_every_level_at_any_settings_loads_v1_levels_at_the_nearest_and_the_tracker_shows_the_line(
         browser, site, tmp_path):
-    """Step 4.3sd-b (D1031, D1037-D1039; its design's 1.4 and 4.2): the
-    tab's four levels read the engine's answer, each greyed where it can't
-    be asked, with the chosen level's line and why the first greyed one is;
-    a level moves down, saying so, when an edit takes it off offer, and
-    stays through one that doesn't; a share string's level sets the select
-    both ways, a loaded one that greys there kept and said; the tracker's
-    line under the head is the engine's, each step-up's third only with
-    Spoiler on."""
+    """Step 4.20 (D1157): the tab offers Easy, Normal, Hard and Expert at
+    any settings, Normal first selected, each option's line the engine's
+    and the chosen level's under the select; a level chosen rides the share
+    string, and a share string's level sets the select both ways; a v1.0.0
+    level loads at the nearest one and the warning line says so; the
+    tracker's line under the head is the engine's measured line, the tricks
+    named only with Spoiler on."""
     on = mods.normalize({name: {} for name, pack in mods.PACKS.items() if pack.default_on})
     defaults = sdk.catalog()["randomizer"]["defaults"]
 
-    def table(tier, ceiling, level=0, **rest):
+    def table(tier, ceiling, level="Normal", **rest):
         return defaults | {"movement_tier": tier, "skip_ceiling": ceiling, **rest} \
-            | ({"seed_difficulty": level} if level else {})
+            | ({"seed_difficulty": level} if level != "Normal" else {})
 
     def engine(*args, **rest):
         return sdk.randomizer_settings({"settings": table(*args, **rest), "packs": on})
@@ -4468,71 +4467,43 @@ def test_seed_difficulty_greys_what_the_settings_cant_ask_moves_down_with_them_a
         page = served.open()
         _page.click(page, "tab-randomizer")
         _page.until(page, SETTLED, 120)
-        assert page.evaluate(LEVELS)[0] == 0   # Any, D1039
         _page.click(page, "rando-on")
-        for tier, ceiling, offered in (("hard", 3, [0, 2, 3]), ("frame_perfect", 4, [0, 2, 3, 4]), ("standard", 2, [0, 2]),
-                                       ("standard", 0, [0]), ("hard", 0, [0, 2, 3])):
+        for tier, ceiling in (("hard", 3), ("standard", 0), ("safe", 0)):
             choose(movement=tier, ceiling=ceiling)
             level, levels, line = page.evaluate(LEVELS)
             answer = engine(tier, ceiling)["difficulty"]["levels"]
-            assert level == 0 and levels == answer and [row[0] for row in levels if row[2]] == offered
-            assert line == " ".join([answer[0][3], *[row[3] for row in answer if not row[2]][:1]])
+            assert level == "Normal" and levels == answer and [row[0] for row in levels] == [
+                "Easy", "Normal", "Hard", "Expert"] and all(row[2] for row in levels)
+            assert line == answer[1][3]
+        view = choose(difficulty="Expert")   # at Safe movement and no skip too
+        assert view["share"] == engine("safe", 0, "Expert")["share"] and view["settings"]["seed_difficulty"] == "Expert"
+        assert page.evaluate(LEVELS)[2] == engine("safe", 0, "Expert")["difficulty"]["levels"][3][3]
+        assert "seed_difficulty" not in choose(difficulty="Normal")["settings"]
 
-        choose(movement="frame_perfect", ceiling=4)
-        view = choose(difficulty=3)
-        assert view["share"] == engine("frame_perfect", 4, 3)["share"] and view["settings"]["seed_difficulty"] == 3
-        assert page.evaluate(LEVELS)[2] == engine("frame_perfect", 4, 3)["difficulty"]["levels"][2][3]
-        pick = next(skip["id"] for skip in view["skips"] if skip["ceiling"] is True)
-        page.evaluate("(id) => document.querySelector(`#rando-skips input[data-skip='${id}']`).click()", pick)
-        assert _page.until(page, SETTLED, 120)["share"] \
-            == engine("frame_perfect", 4, 3, skip_override={pick: False})["share"]   # asked again at the level kept
-        _page.click(page, "rando-clear")
-        _page.until(page, SETTLED, 120)
-        assert choose(movement="standard", ceiling=2)["share"] == engine("standard", 2, 2)["share"]
-        level, _, line = page.evaluate(LEVELS)
-        assert level == 2 and line.startswith("Moved down from Hard. ")
-        assert choose(ceiling=0)["share"] == engine("standard", 0)["share"]
-        level, _, line = page.evaluate(LEVELS)
-        assert level == 0 and line.startswith("Moved down from Standard. ")
-        # A group's tick lifts what Seed difficulty offers (D1061), and its untick moves the level down, no refusal
-        click = "() => document.querySelector('#rando-groups input[data-group=bounds]').click()"
-        page.evaluate(click)
-        view = _page.until(page, SETTLED, 120)
-        top = max(row[0] for row in view["difficulty"]["levels"] if row[2])
-        assert top > 0 and view["settings"]["skip_override"] == dict.fromkeys(
-            sorted(p["id"] for g in view["groups"] if g["id"] == "bounds" for p in g["picks"]), True)
-        assert choose(difficulty=top)["settings"]["seed_difficulty"] == top
-        page.evaluate(click)
-        view = _page.until(page, SETTLED, 120)
-        assert view["share"] == engine("standard", 0)["share"] and page.evaluate(LEVELS)[0] == 0
-        assert page.evaluate(LEVELS)[2].startswith("Moved down from ") and page.evaluate(WARNED) == [""]
-        choose(ceiling=2)
-        assert not page.evaluate(LEVELS)[2].startswith("Moved")
-
-        share = engine("hard", 3, 3)["share"]
-        view = typed(share, 3)
-        assert view["share"] == share and view["settings"]["seed_difficulty"] == 3
+        share = engine("hard", 3, "Easy")["share"]
+        view = typed(share, "Easy")
+        assert view["share"] == share and view["settings"]["seed_difficulty"] == "Easy"
         assert page.evaluate("() => document.getElementById('rando-movement').value") == "hard"
-        share = engine("standard", 0, 2)["share"]
-        view = typed(share, 2)
-        level, levels, line = page.evaluate(LEVELS)
-        assert view["share"] == share and level == 2 and not levels[1][2]   # a loaded level that greys here stays
-        assert engine("standard", 0, 2)["difficulty"]["note"] in line
+        older = "AZR-" + base64.b32encode(bytes([4, 0x13, 0, 0, 1 << 3 | 4])).decode().rstrip("=")   # v1's Frame-perfect
+        view = typed(older, "Expert")
+        assert view["settings"]["seed_difficulty"] == "Expert" and view["share"] == engine("hard", 3, "Expert")["share"]
+        assert any(line.startswith("⚠ Made with the older Seed difficulty Frame-perfect: it loads as Expert")
+                   for line in page.evaluate(WARNED))
 
-        doc = sdk.plan({"seed": "page", "settings": table("hard", 3, 3)})   # a plan no other test tracks: the tracker is kept
+        doc = sdk.plan({"seed": "page", "settings": table("hard", 3, "Expert")})   # a plan no other test tracks
         (tmp_path / "shaped.json").write_text(json.dumps(doc), encoding="utf-8")
         _page.click(page, "rando-view-tracker")
-        assert page.evaluate("() => document.getElementById('track-requires').hidden")
+        assert page.evaluate("() => document.getElementById('track-difficulty').hidden")
         _page.pick(page, "#track-open", tmp_path / "shaped.json")
         _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])} && ({TRACKED})()", 300)
-        shown = """() => [document.getElementById("track-head").textContent, document.getElementById("track-requires").textContent,
-                          document.getElementById("track-requires").hidden]"""
-        head, spoiled = sdk.tracker({"plan": doc})["head"], sdk.tracker({"plan": doc, "spoiler": True})["head"]["requires"]
-        thirds = ", ".join(spoiled["thirds"])
-        assert page.evaluate(shown) == [head["text"], head["requires"]["text"], False] and thirds not in head["requires"]["text"]
+        shown = """() => [document.getElementById("track-head").textContent, document.getElementById("track-difficulty").textContent,
+                          document.getElementById("track-difficulty").hidden]"""
+        head, spoiled = sdk.tracker({"plan": doc})["head"], sdk.tracker({"plan": doc, "spoiler": True})["head"]["difficulty"]
+        assert page.evaluate(shown) == [head["text"], head["difficulty"]["text"], False]
+        assert "needs tricks at" in head["difficulty"]["text"] and "needs tricks at" not in spoiled["text"]
         _page.click(page, "track-spoiler")
-        _page.until(page, f"() => azurkit.tracker.state.view.head.requires.thirds && ({TRACKED})()", 300)
-        assert page.evaluate(shown) == [head["text"], spoiled["text"], False] and f": {thirds}" in spoiled["text"]
+        _page.until(page, f"() => azurkit.tracker.state.view.head.difficulty.needs && ({TRACKED})()", 300)
+        assert page.evaluate(shown) == [head["text"], spoiled["text"], False]
         _page.check_csp(page)
         assert served.stray() == []
     finally:

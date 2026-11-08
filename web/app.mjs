@@ -70,8 +70,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
                 vouched: new Map(), resting: new Map(), tracking: null, recovered: [], launch: null, played: null,
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
-                         note: null, noted: null, asked: null, recheck: false, probing: false,
-                         moved: null, plan: null } };
+                         note: null, noted: null, asked: null, plan: null } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 // The theme (D897): dark, or light once the toggle picks it, which is remembered: by the site in this browser's
@@ -1558,9 +1557,9 @@ function randoSettings() {
   const { defaults, categories } = randoOptions();
   const kept = new Set([...R("items").querySelectorAll("input[data-category]")].filter((box) => !box.checked)
     .map((box) => box.dataset.category));
-  const ceiling = Number(R("ceiling").value), level = Number(R("difficulty").value);
+  const ceiling = Number(R("ceiling").value), level = R("difficulty").value;
   return { format: defaults.format, skip_ceiling: ceiling, movement_tier: R("movement").value,
-           dark_fire: defaults.dark_fire, ...(level ? { seed_difficulty: level } : {}),
+           dark_fire: defaults.dark_fire, ...(level !== "Normal" ? { seed_difficulty: level } : {}),
            ...(warpPack()?.checked ? { save_warp: true } : {}),
            exclude_categories: categories.filter((c) => kept.has(c)),
            skip_override: Object.fromEntries(Object.entries(state.rando.overrides).sort()) };
@@ -1660,9 +1659,7 @@ function setRando({ on, seed, settings, obsidian_cost: cost, plan = null }, from
     box.checked = !settings.exclude_categories.includes(box.dataset.category);
   }
   state.rando.overrides = { ...settings.skip_override };
-  R("difficulty").value = String(settings.seed_difficulty ?? 0);   // a loaded level stays, even one that greys here
-  state.rando.recheck = false;
-  state.rando.moved = null;
+  R("difficulty").value = settings.seed_difficulty ?? "Normal";
   R("cost").value = String(cost ?? randoOptions().obsidian_cost);
   syncWarp(settings, from);
   const mark = $("randomizer").querySelector(".on .mark");
@@ -1707,8 +1704,6 @@ function askRando(given = null, wait = 100) {
   if (!state.ready || state.building) return;
   state.rando.later = setTimeout(() => {
     const asked = state.rando.given ?? (state.rando.plan ? { plan: state.rando.plan.doc } : { settings: randoSettings() });
-    state.rando.probing = !state.rando.given && state.rando.recheck && "seed_difficulty" in (asked.settings ?? {});
-    if (state.rando.probing) delete asked.settings.seed_difficulty;   // the engine refuses a level above the settings
     state.rando.given = null;
     const character = state.characters?.character() ?? null;   // its size folds into the walk and roll, as a build's
     state.engine.randomizer({ ...randoCost(), ...asked, packs: chosen(), ...(character ? { character } : {}) }, ticket,
@@ -1721,8 +1716,6 @@ function askRando(given = null, wait = 100) {
 function randoView(reply, ticket) {
   if (ticket !== state.rando.ticket) return;
   state.rando.waiting = false;
-  const probed = state.rando.probing;
-  state.rando.probing = false;
   if ("refused" in reply) {
     const from = state.rando.load?.plan ? `${state.rando.load.from}: ` : "";   // a plan file refused: named
     state.rando.load = null;
@@ -1736,7 +1729,6 @@ function randoView(reply, ticket) {
     state.rando.noted = state.rando.asked;   // or until the Patches tab's sliders give that share string again
     return;
   }
-  if (probed && fitLevel(reply.difficulty.levels)) return askRando();   // that answer was Any's: now the level's
   if (state.rando.note && reply.share === state.rando.noted) state.rando.note = null;
   state.rando.view = reply;
   renderLevels(reply.difficulty);
@@ -1754,32 +1746,13 @@ function randoView(reply, ticket) {
   remember();
 }
 
-// An edit that can change what Seed difficulty offers asks without the level (the engine alone knows what the settings
-// allow, D1037): a level no longer on offer moves down to the highest that is, and says so. Whether a level is left.
-function fitLevel(levels) {
-  const select = R("difficulty"), level = Number(select.value);
-  const [fit] = levels.findLast(([value, , enabled]) => enabled && value <= level);
-  state.rando.recheck = false;
-  if (fit !== level) {
-    state.rando.moved = `Moved down from ${select.selectedOptions[0].textContent}.`;
-    select.value = String(fit);
-  }
-  return fit > 0;
-}
-
-// The engine's levels: each greyed where it can't be asked (D979), the line under the select the chosen level's, then
-// why the first greyed one is; the tooltip holds them all. A loaded level that greys here stays, and says what it plans.
-function renderLevels({ levels, note }) {
-  const select = R("difficulty"), chosen = levels.find(([value]) => String(value) === select.value);
-  for (const option of select.options) {
-    const [, , enabled, line] = levels.find(([value]) => String(value) === option.value);
-    option.disabled = !enabled;
-    option.title = line;
-  }
+// The engine's levels (D1157: each offered at any settings): the line under the select the chosen level's; the
+// tooltip holds them all.
+function renderLevels({ levels }) {
+  const select = R("difficulty"), chosen = levels.find(([value]) => value === select.value);
+  for (const option of select.options) option.title = levels.find(([value]) => value === option.value)[3];
   select.title = [randoOptions().tips.seed_difficulty, ...levels.map(([, name, , line]) => `${name}: ${line}`)].join("\n");
-  const grey = levels.find((row) => !row[2] && row !== chosen);
-  R("difficulty-line").textContent = [...new Set([state.rando.moved, note && `${note}.`, chosen[3], grey?.[3]])]
-    .filter(Boolean).join(" ");
+  R("difficulty-line").textContent = chosen?.[3] ?? "";
   R("difficulty-line").hidden = false;
 }
 
@@ -2024,12 +1997,7 @@ function randoEvents(changed) {
   const edited = () => {
     changed();
     state.rando.note = null;
-    state.rando.moved = null;
     askRando();
-  };
-  const reread = () => {   // an edit that can change what Seed difficulty offers
-    state.rando.recheck = true;
-    edited();
   };
   R("on").addEventListener("change", () => {
     $("randomizer").querySelector(".on .mark").textContent = "";
@@ -2042,7 +2010,7 @@ function randoEvents(changed) {
       offered();
       renderGroups();
       renderSkips();
-      reread();
+      edited();
     });
   }
   R("difficulty").addEventListener("change", edited);
@@ -2056,7 +2024,7 @@ function randoEvents(changed) {
     edited();
   });
   R("items").addEventListener("change", () => {
-    reread();
+    edited();
     gate();   // the answer for the items as they were is stale
   });
   R("groups").addEventListener("change", (e) => {
@@ -2064,7 +2032,7 @@ function randoEvents(changed) {
     if (e.target.checked) R("skip-list").open = true;   // D1061: a tick shows which skips it turned on
     renderSkips();
     renderGroups();
-    reread();
+    edited();
   });
   R("load").addEventListener("change", loadSettings);
   R("save").addEventListener("click", saveSettings);
@@ -2097,13 +2065,13 @@ function randoEvents(changed) {
   R("filter").addEventListener("input", renderSkips);
   R("clear").addEventListener("click", () => {
     state.rando.overrides = {};
-    reread();
+    edited();
   });
   R("skips").addEventListener("change", (e) => {
     toggleSkip(e.target.dataset.skip);
     renderSkips();
     renderGroups();
-    reread();
+    edited();
   });
   $("spoiler-view").addEventListener("click", async () => {
     if ($("spoiler").hidden && !await spoilt()) return;

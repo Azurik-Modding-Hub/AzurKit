@@ -143,21 +143,21 @@ OPS = {op.id: op for op in (
     Op("A34", "Install a community pack -> its row tickable", "build"),
     Op("A35", "tick it -> its rows set and locked", "build"),
     Op("A36", "Build with it", "build", head_start=True),
-    Op("A77", "Track, Seed difficulty Standard at Standard movement and skips", "tracker", head_start=True),
-    Op("A78", "Build, Seed difficulty Standard at Hard movement and skips, no Track first", "randomizer", head_start=True),
-    Op("A79", "Track, Seed difficulty Hard at Hard movement and skips", "tracker", head_start=True),
-    Op("A80", "Build, Seed difficulty Hard at Hard movement and skips, no Track first", "randomizer", head_start=True),
+    Op("A77", "Track, Seed difficulty Easy at Hard movement and skips", "tracker", head_start=True),
+    Op("A78", "Build, Seed difficulty Hard at Hard movement and skips, no Track first", "randomizer", head_start=True),
+    Op("A79", "Track, Seed difficulty Expert at Hard movement and skips", "tracker", head_start=True),
+    Op("A80", "Build, Seed difficulty Expert at Hard movement and skips, no Track first", "randomizer", head_start=True),
     Op("A70", "Track, Seed difficulty Hard at Hard movement, Standard skips", "tracker", head_start=True),
-    Op("A71", "Track, Seed difficulty Hard at Hard movement and skips, the fragments kept", "tracker", head_start=True),
-    Op("A72", "Track, Seed difficulty Frame-perfect at Frame-perfect movement and skips", "tracker", head_start=True),
-    Op("A73", "Build, Seed difficulty Frame-perfect at Frame-perfect movement and skips, no Track first", "randomizer",
+    Op("A71", "Track, Seed difficulty Expert at Hard movement and skips, the fragments kept", "tracker", head_start=True),
+    Op("A72", "Track, Seed difficulty Expert at Frame-perfect movement and skips", "tracker", head_start=True),
+    Op("A73", "Build, Seed difficulty Expert at Frame-perfect movement and skips, no Track first", "randomizer",
        head_start=True),
-    Op("A74", "Track, Seed difficulty Hard at Hard movement with a movement slider, no skip (jump 1.3: "
+    Op("A74", "Track, Seed difficulty Expert at Hard movement with a movement slider, no skip (jump 1.3: "
               "Frame-perfect's seed)", "tracker", head_start=True),
-    Op("A75", "the spoiler's View clicked as Build ends, Seed difficulty Hard at Hard movement and skips (its openers)",
-       "randomizer"),
-    Op("A76", "the tracker's Spoiler ticked as Track ends, Seed difficulty Hard at Hard movement and skips (its openers)",
-       "tracker"),
+    Op("A75", "the spoiler's View clicked as Build ends, Seed difficulty Expert at Hard movement and skips "
+              "(its openers)", "randomizer"),
+    Op("A76", "the tracker's Spoiler ticked as Track ends, Seed difficulty Expert at Hard movement and skips "
+              "(its openers)", "tracker"),
     Op("A85", "the Tracker view with no plan: Map ready (the vanilla game's spots)", "tracker"),   # Step 4.4u3
     Op("A86", "a level's map with no plan, picked on Map", "tracker", first=False),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
@@ -1233,19 +1233,20 @@ def app_ahead_stale(d: Driver, app: App, ctx) -> None:
     app.quit(p)
 
 
-# Seed difficulty's ops (its design's sec. 4.3): Track or Build at a level's costliest settings, each op's seed the one
-# of "0".."99" whose plan there takes the most fill reaches (scripts/seed_forcing.py --rows; A74's with no slider):
-# op: (Track or Build, A80's the spoiler's View after it, movement tier, skip ceiling, level, categories kept, seed)
+# Seed difficulty's ops (Step 4.20): Track or Build at a level's costliest settings, each op's seed the one of "0".."99"
+# whose fill there takes the most reaches (the kernel's attempts', the acceptance's and the Logic's, in a campaign of
+# Step 4.20's; A74's at the tier its slider plays, Frame-perfect with no skip):
+# op: (Track or Build, A80's the spoiler's View after it, movement tier, skip ceiling, level 1-3, categories kept, seed)
 SHAPED = {
-    "A77": ("track", "standard", 2, 2, (), "80"),
-    "A78": ("build", "hard", 3, 2, (), "77"),
-    "A79": ("track", "hard", 3, 3, (), "53"),
-    "A80": ("build", "hard", 3, 3, (), "53"),
-    "A70": ("track", "hard", 2, 3, (), "19"),
-    "A71": ("track", "hard", 3, 3, ("fragments",), "31"),
-    "A72": ("track", "frame_perfect", 4, 4, (), "15"),
-    "A73": ("build", "frame_perfect", 4, 4, (), "15"),
-    "A74": ("track", "hard", 0, 3, (), "83"),
+    "A77": ("track", "hard", 3, 1, (), "53"),
+    "A78": ("build", "hard", 3, 2, (), "46"),
+    "A79": ("track", "hard", 3, 3, (), "67"),
+    "A80": ("build", "hard", 3, 3, (), "67"),
+    "A70": ("track", "hard", 2, 2, (), "27"),
+    "A71": ("track", "hard", 3, 3, ("fragments",), "87"),
+    "A72": ("track", "frame_perfect", 4, 3, (), "65"),
+    "A73": ("build", "frame_perfect", 4, 3, (), "65"),
+    "A74": ("track", "hard", 0, 3, (), "66"),
 }
 SHAPED_SLIDER = """() => { const box = document.querySelector('#packs input[data-pack="player_physics"]');
   if (!box.checked) box.click();
@@ -1278,15 +1279,16 @@ def app_shaped(d: Driver, app: App, ctx) -> None:
         share = _shaped_share(tier, ceiling, level, kept)
         d.act(p, None, "() => { const b = document.getElementById('rando-share'); b.value = %s; "
                        "b.dispatchEvent(new Event('change')); }" % json.dumps(share),
-              "() => azurkit.rando.view?.settings.seed_difficulty === %d" % level, 900, change=True)
+              "() => azurkit.rando.view?.settings.seed_difficulty === %s"
+              % json.dumps(("Easy", "Hard", "Expert")[level - 1]), 900, change=True)
         d.act(p, None, typed("rando-seed", seed), "() => document.getElementById('rando-seed').value === %s" % json.dumps(seed),
               change=True)
         if kind == "track":
             d.act(p, None, click("rando-view-tracker"), WORLD, 600)
             d.act(p, op, click("track-seed"),
-                  "() => /seed difficulty/.test(document.getElementById('track-head').textContent)", 1800)
+                  "() => /key-item steps/.test(document.getElementById('track-difficulty').textContent)", 1800)
             if op == "A79" and d.need("A76"):
-                d.act(p, "A76", click("track-spoiler"), "() => azurkit.tracker.state.view?.head.requires?.openers "
+                d.act(p, "A76", click("track-spoiler"), "() => azurkit.tracker.state.view?.head.difficulty?.needs "
                                                         "&& !azurkit.tracker.state.running", 900)
         else:
             d.act(p, op, build_js(), BUILT, 1800)
