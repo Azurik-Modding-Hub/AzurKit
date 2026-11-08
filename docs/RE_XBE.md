@@ -1402,7 +1402,7 @@ check pass read it again with capstone.  The data layouts are in
 
 ### Rig triggers: the motion nodes and the graph in RAM (Step R2.19h2, 2026-10-28)
 
-What starts a moving solid (`azurik_mod/reach_engine/triggers.py`; `scripts/rig_triggers.py`, D847) [verified
+What starts a moving solid (`devkit/reach/engine/triggers.py`; `python -m devkit reach rig-triggers`, D847) [verified
 static 2026-10-28: `azurik-mod xbe fn|dis|vtable|calls` on the USA XBE;
 the graph layout and the pokes also by L3 runs]:
 

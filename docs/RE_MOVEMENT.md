@@ -1530,9 +1530,9 @@ and xemu sitting skips-a; USA VAs; labels as there:
   and +8 := `[0x1A9C88]` 1.0 (the vertical) at 0x8570D-0x8571C, constants, not config; the centre (critter +0x15C)
   is 1 m over the feet. The step-up sweeps the same body (its pushes at 0x8B298/0x8B2A1) [verified static]; the lip
   lift 0x86920 reads the same two constants round its three sweeps [inferred]. The face test 0xB9E60 sweeps a
-  sphere of the horizontal radius in a space whose z is halved (rh / rv), which is what `azurik_mod/reach_native`'s
+  sphere of the horizontal radius in a space whose z is halved (rh / rv), which is what `devkit/reach/native`'s
   kernel runs. `randomizer/physics.py`'s `BODY_HEIGHT` 2.0 [inferred] is twice the 1.0 m semi-axis.
-- **The static level's walk, its face loop** (Step R2.19m; FastL3's C walk, `azurik_mod/sim/fastl3_step.c`'s
+- **The static level's walk, its face loop** (Step R2.19m; FastL3's C walk, `devkit/reach/fastl3_step.c`'s
   `h_walk`): collision_sweep reaches the tern's walk 0xD1B80, which for each chunk of its BVH whose flags pass the
   move's mask cuts the faces to the query's x range (0xD18D0) and runs the loop 0xD1E80-0xD22FD over them, its index
   in ECX and `[esp+0x14]`, its end `[esp+0x30]`, the chunk in EBX (byte +6 the vertex count n, the i16 vertices

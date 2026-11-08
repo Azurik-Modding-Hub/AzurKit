@@ -861,7 +861,7 @@ CPU over the 3,600 steps.
 
 The patched library: `python -m devkit reach build-unicorn` builds PyPI's unicorn
 2.1.4 sdist (uv.lock's, sha-checked), x86 only, with
-`scripts/unicorn_fastl3.patch` (GPL as Unicorn: never in the wheel) into
+`devkit/reach/unicorn/unicorn_fastl3.patch` (GPL as Unicorn: never in the wheel) into
 the user cache dir's
 `AzurKit/unicorn-fastl3/<the patch's sha12>` (about a minute; cmake,
 ninja, clang). A process that sets `l3_fast.worker_env()` before it
