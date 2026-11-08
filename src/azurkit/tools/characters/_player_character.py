@@ -8992,8 +8992,9 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     if baking is not None:   # W30
         painted = paint.write(edited, stored, body, reshaped, specs, baking.result())
         _progress.note("the paint")
-    made = bytes(edited)
-    _KEPT_BODY[0] = (key, current, stored, made, pickle.dumps((reshaped, rigged, painted), pickle.HIGHEST_PROTOCOL))
+    made = bytes(edited)   # kept with the image's file in place of an equal staged one: a copy less held (Step 4.6c)
+    _KEPT_BODY[0] = (key, stored if current == stored else current, stored, made,
+                     pickle.dumps((reshaped, rigged, painted), pickle.HIGHEST_PROTOCOL))
     return made, reshaped, rigged, painted
 
 

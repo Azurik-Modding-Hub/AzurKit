@@ -433,7 +433,8 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, byte
             others += [file for file in generator.files(prepared) if file not in base and file not in others]
         elif ahead and character is not None:
             yield [(r.start(entry), entry.size) for entry in map(r.find, others)]   # a body's files, at once
-        base |= {file: r.read(file) for file in others}
+        base |= {file: vanilla.read(file) if vanilla is not None and file in characters.READS else r.read(file)
+                 for file in others}   # a worn body's files the bytes its dress reads (its Vanilla's): one copy
     layers, failed, judge = [], [], None
     if prepared is not None:
         layers.append(generator.plan_layer(prepared, base))   # a WriteError or LayerError: nothing planned on

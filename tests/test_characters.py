@@ -9,6 +9,7 @@ resource of each G3 build that wears a model) and G3's per-file hashes."""
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import io
 import json
@@ -1581,6 +1582,33 @@ def test_a_dress_scans_the_levels_once_a_release_and_keeps_none_of_them(usa_iso,
     assert "town_female_3" in placed and "town_female_2" not in placed
     assert sum(map(bool, map(level.fullmatch, first.digests))) > 1 and not any(map(level.fullmatch, first._cache))
     assert model_inspect.placed_species(again) == placed and not any(map(level.fullmatch, again.digests))
+
+
+def test_a_worn_bodys_build_and_its_kept_variant_body_hold_each_file_of_the_image_once(usa_iso, monkeypatch):
+    """Step 4.6c (the capped site's peak, a Check's dress): the files a worn
+    body's dress reads are the build's own bytes, its ``Vanilla``'s, not a
+    second read of each (103 MiB on USA); and a variant body kept beside a
+    staged characters.xbr the layers before left as the image's holds the
+    image's one (64 MiB), still taken by a call on an equal copy."""
+    from azurkit.tools.characters import _player_character as swap
+
+    read = {}
+
+    def size(character, vanilla):   # the dress's reads, as a size's are
+        read.update({f: vanilla.read(f) for f in characters.READS})
+        return 1.0
+    monkeypatch.setattr(characters, "size", size)
+    monkeypatch.setattr(characters, "plan", lambda *_, **__: (Layer("x", characters.TOOL, characters.KIND, {}, (), ()),
+                                                              [], []))
+    base = sdk._plan({"iso": str(usa_iso), "packs": {}, "character": {"species": "keylord"}})[1]
+    assert all(base[f] is read[f] for f in characters.READS)
+    monkeypatch.setattr(swap, "_KEPT_BODY", [None])
+    plain = dataclasses.replace(_player_variants.builtins()["booblord"], mesh=None, jiggle=None, textures=(),
+                                texture_scale=1.0, plain=None)
+    stored, staged = bytes(64), bytes(bytearray(64))
+    made = swap._variant_body(staged, stored, "town_female_2", plain)[0]
+    assert swap._KEPT_BODY[0][1] is stored and swap._variant_body(bytes(bytearray(64)), stored, "town_female_2",
+                                                                 plain)[0] is made
 
 
 def test_a_swap_under_the_apps_process_pool_is_its_goldens_file_for_file(usa_iso, no_content, tmp_path, monkeypatch):
