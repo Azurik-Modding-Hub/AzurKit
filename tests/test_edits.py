@@ -548,7 +548,9 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
     default apply, as Modkit's ``patch`` did): ``azurkit build --mods`` and
     both hosts' Load (``sdk.mods_file``) take it. A config.xbr byte edit
     with no original gets the vanilla file's; one already holding its value
-    has nothing to do; a null or empty shape is none, as Modkit read it.
+    has nothing to do; a null or empty shape is none, as Modkit read it,
+    and its text may nest groups past a link's cap and give a key twice (the
+    last kept), as Python's json read it, where a preset's text may not.
     Every refusal names its edit and why, the whole mod's
     in one message (D35): a retired registry.json name (AZ-123's and
     AZ-167's, naming the cell it wrote), a typo'd shape (AZ-215), a value or
@@ -588,6 +590,11 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
                                                                    "recipe": {"ops": ops}}]
     assert sdk.read_mods(json.dumps({"patches": mod["patches"], "_keyed_patches": None, "xbr_edits": None,
                                      "level_patches": [], "source_hashes": None})) == {"xbr": [golem]}
+    deep = {"settings_foo": {"a": {"b": {"c": {"d": {"e": {"initial_fuel": {"Value": 1}}}}}}}}   # 9 deep
+    assert sdk.read_mods(f'{{"patches": [], "sections": {json.dumps(deep)}, "patches": {json.dumps(mod["patches"])}}}'
+                         ) == {"xbr": [golem, ops[1] | {"value": 1}]}
+    with pytest.raises(ValueError, match="^preset: a key given twice"):
+        sdk.read_mods('{"format": "azurkit-preset", "format": "azurkit-preset"}')
     retired = "a retired registry.json name (AZ-123, AZ-167): it wrote "
     refused = {
         json.dumps({"patches": [{"section": "damage", "entity": "octo", "property": "damage", "value": 9.0}]}):

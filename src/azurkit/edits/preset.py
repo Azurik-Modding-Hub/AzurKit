@@ -35,7 +35,7 @@ import base64
 import json
 import re
 import zlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from azurkit.core import gate, jsondepth
 
@@ -46,6 +46,7 @@ PREFIX = "#p="
 MAX_ENCODED = 8 * 1024
 MAX_INFLATED = 64 * 1024
 MAX_DEPTH = 8
+MAX_MOD_DEPTH = 64   # a Modkit mod file's text (its sections nest groups freely): far under json's stack on any platform
 MAX_FILE = 16 << 20                 # a mods file's JSON text
 KEYS = {"format", "schema_version", "azurkit", "base", "layers", "result"}
 LAYER_KEYS = {"tool", "kind", "recipe"}
@@ -108,15 +109,15 @@ def _constant(name: str) -> None:
     raise ValueError(f"preset: {name} is not a finite number")
 
 
-def _json(data: bytes) -> object:
+def _json(data: bytes, depth: int = MAX_DEPTH, pairs: Callable[[list], dict] = _object) -> object:
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         raise ValueError("preset: not UTF-8") from None
-    if jsondepth.deeper(text, MAX_DEPTH):   # before json parses it: its own limit differs by platform
-        raise ValueError(f"preset: JSON nested deeper than {MAX_DEPTH}")
+    if jsondepth.deeper(text, depth):   # before json parses it: its own limit differs by platform
+        raise ValueError(f"preset: JSON nested deeper than {depth}")
     try:
-        return json.loads(text, object_pairs_hook=_object, parse_constant=_constant)
+        return json.loads(text, object_pairs_hook=pairs, parse_constant=_constant)
     except json.JSONDecodeError as exc:
         raise ValueError(f"preset: not JSON ({exc.msg} at {exc.pos})") from None
 
@@ -169,9 +170,12 @@ def from_manifest(record: Mapping) -> dict:
     return check(made)
 
 
-def parse(given: str | bytes | Mapping) -> object:
+def parse(given: str | bytes | Mapping, modkit: Callable[[object], bool] | None = None) -> object:
     """A mods file's object: its JSON text parsed within the caps, a link's
-    preset (:func:`decode`), or the object given."""
+    preset (:func:`decode`), or the object given. A text past the caps that
+    ``modkit`` takes (one of Modkit's mod files, ``edits.modkit.is_mod``) is
+    read as Modkit's ``json`` read it: nested to :data:`MAX_MOD_DEPTH`, a
+    key given twice its last value."""
     if not isinstance(given, (str, bytes)):
         return given
     raw = given.encode() if isinstance(given, str) else given
@@ -179,7 +183,19 @@ def parse(given: str | bytes | Mapping) -> object:
         raise ValueError(f"preset: a mods file of {len(raw):,} B, past its {MAX_FILE:,} B")
     if raw.lstrip()[:1] != b"{":
         return decode(raw.decode("utf-8", "replace"))
-    return _json(raw)
+    try:
+        return _json(raw)
+    except ValueError as exc:
+        if modkit is None:
+            raise
+        refused = exc
+    try:
+        found = _json(raw, MAX_MOD_DEPTH, dict)
+    except ValueError:
+        raise refused from None
+    if not modkit(found):
+        raise refused from None
+    return found
 
 
 def read(given: str | bytes | Mapping) -> dict:

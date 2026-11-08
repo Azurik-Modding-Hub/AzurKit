@@ -965,7 +965,7 @@ def _read(given: str | bytes | Mapping) -> dict:
     (``edits.modkit``: its edits as ``xbr`` operations, each checked as a
     build makes it of the vanilla config.xbr, ``tools.data.preview``); every
     refusal named."""
-    found = preset.parse(given)
+    found = preset.parse(given, modkit.is_mod)
     if not modkit.is_mod(found):
         return preset.read(found)
     made = modkit.edits(found, datatool.vanilla())
@@ -1156,7 +1156,7 @@ def mods_diff(given: Mapping) -> dict:
     by name."""
     if not (isinstance(given, Mapping) and set(given) == {"text"} and isinstance(given["text"], str)):
         raise ValueError("mods_diff: {text}, a mods file's text")
-    found = preset.parse(given["text"])
+    found = preset.parse(given["text"], modkit.is_mod)
     if modkit.is_mod(found):
         made = modkit.edits(found, datatool.vanilla())
         about = {key: found[key] for key in ("name", "description") if isinstance(found.get(key), str)}
