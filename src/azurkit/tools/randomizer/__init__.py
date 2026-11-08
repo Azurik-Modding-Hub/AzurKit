@@ -128,7 +128,7 @@ SKIP_GROUP = {
                      "w1.shoreline_rollthrough", "w3.water_guardian_no_seal"), "bounds"),
     **dict.fromkeys(("e6.tree_song_skip", "d1.elevator_bounce", "d1.elevator_bounce_f10", "f4.ledgepop"), "superjump"),
 }
-TAB = ("settings", "share", "file", "obsidian_cost")
+TAB = ("settings", "share", "file", "plan", "obsidian_cost")
 SEED_MAX = 256   # a remembered seed's length (D915; any string builds)
 
 
@@ -308,8 +308,10 @@ def _cost(given: Mapping) -> float | None:
 def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mapping | None = None,
         bodies: Callable[[float], list[str]] | None = None) -> dict:
     """What the tab shows for ``given`` (``settings``, a settings file's
-    table, ``share``, a share string, or ``file``, a settings file's text,
-    D144's Load settings; and ``obsidian_cost``) on a build's
+    table, ``share``, a share string, ``file``, a settings file's text,
+    D144's Load settings, or ``plan``, a plan file's object, Open a plan…,
+    read back and beatable under its settings, ``layer.checked_plan``, whose
+    settings are its own; and ``obsidian_cost``) on a build's
     movement ``sliders`` (``physics.slider_values``; with a body ``worn``,
     ``{"species", "fold", "sliders"}``, its size's sqrt(s) folded into the
     walk and roll of the Patches tab's ``sliders``): the settings
@@ -321,8 +323,9 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     (``ratings``: the page reads them against its own ceiling) and its toggle (``null``: none), the picks
     held (no toggle turns one on, D144), the forfeitable locations, what a
     build of them leaves unverified (``why_not``: the tier the movement
-    sliders play as, a roll a skip on was proven at, an obsidian cost above
-    vanilla's) and the preflight's
+    sliders play as, a plan's at other sliders that doesn't verify at this
+    one, ``layer.plan_reasons``, a roll a skip on was proven at, an obsidian
+    cost above vanilla's) and the preflight's
     refusal (``preflight``: too few proven spots, AZ-454, in plain words and
     what to change; ``preflight_tick``, its short "Tick <row>", on which the
     page greys Build, Step 4.4u1), the settings
@@ -338,12 +341,16 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
         raise ValueError(f"randomizer: a JSON object, not {type(given).__name__}")
     if unknown := sorted(set(given) - set(TAB), key=str):
         raise ValueError(f"randomizer: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(TAB)})")
-    if sum(key in given for key in ("settings", "share", "file")) != 1:
-        raise ValueError("randomizer: give settings, share or file")
+    if sum(key in given for key in ("settings", "share", "file", "plan")) != 1:
+        raise ValueError("randomizer: give settings, share, file or plan")
     logic = kept_logic()
     skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
-    note = None
-    if "share" in given:
+    note = planned = None
+    if "plan" in given:
+        if not isinstance(given["plan"], Mapping):
+            raise ValueError("randomizer: plan is a plan file's object (azurkit plan's)")
+        st = (planned := layer.checked_plan(given["plan"], logic)).asked
+    elif "share" in given:
         st = share_decode(given["share"], skips)
         if (st.sliders or worn) and st.sliders != sliders:
             note = slider_note(st.sliders, sliders, worn, bodies)
@@ -372,7 +379,8 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
                 groups[group].append({"id": pid, "name": rows[-1]["name"], "rating": rows[-1]["rating"]})
                 tops[group] = max(tops[group], *(s.get("difficulty", 0) for s in live))
     refused = starved(logic, st)
-    why = [r for r in [said(st)] if r] + layer.roll_reasons(st, logic.db, sliders) + [
+    why = [r for r in [said(st)] if r] + (layer.plan_reasons(planned, logic, sliders) if planned else
+                                          layer.roll_reasons(st, logic.db, sliders)) + [
         r for r in [layer.obsidian_reason(cost)] if r]
     return {"settings": literal(st), "share": share_encode(st, skips), "note": note, "skips": rows,
             "held": len(every) - len(rows), "forfeitable": len(logic.forfeitable), "why_not": why,

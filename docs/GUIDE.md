@@ -255,7 +255,7 @@ azurkit verify [--iso PATH]              # is it vanilla USA or Europe, every fi
 azurkit packs                            # the packs, and which a build applies by default
 azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] \
     [--no-defaults] [--pack-param PACK.SLIDER=VALUE ...] \
-    [--seed SEED [--settings FILE | --share STRING] [--obsidian-cost N]] [--character JSON]
+    [--seed SEED [--settings FILE | --share STRING] | --plan FILE] [--obsidian-cost N] [--character JSON]
 azurkit open BUILD                       # a build's recipe, as a mods file for build --mods
 azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]   # a plan; needs no game
 azurkit spoiler PLAN                     # that plan's spoiler

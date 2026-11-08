@@ -10,7 +10,8 @@ read-back of the final image.
 - :func:`plan_for`: the fill of ``--seed`` under those settings with the
   build's own movement sliders (:func:`build_sliders`), which the
   settings, so the plan's share string, then hold (AZ-383); moved, they
-  pick the tier the seed is filled at (:func:`~.movement.played`, D1066).
+  pick the tier the seed is filled at (:func:`~.movement.played`, D1066);
+  or ``--plan``'s plan file, exactly, once :func:`checked_plan` reads it.
 - :func:`write_layer`: the plan through :func:`~.writer.write_plan`, and
   ``--obsidian-cost``'s lock thresholds, as the layer ``randomizer`` of
   the build's :class:`~azurik_mod.patching.mod_apply.LayerLog`.
@@ -169,9 +170,47 @@ def size_params(enabled, params: Mapping, s: float) -> tuple[list[str], dict[str
     return list(enabled) + ([SIZE_PACK] if SIZE_PACK not in enabled else []), folded
 
 
+def checked_plan(doc: Mapping, logic):
+    """A plan file's object ``doc`` read back on ``logic``'s database
+    (:func:`~.planner.plan.load_plan`: its format, generator, sha256 and
+    ``db_digest``) and beatable under its settings (:func:`~.planner.fill.verify`,
+    the fill's own check: victory, every location but the forfeitable, no new
+    trick-free trap), as a :class:`~.planner.plan.Plan`;
+    :class:`~.planner.plan.PlanError` names each refusal (an edited plan's
+    sha256 is anyone's to recompute, so its placement is checked)."""
+    from azurkit.tools.randomizer.planner.fill import verify
+    from azurkit.tools.randomizer.planner.plan import PlanError, load_plan
+
+    if {"share", "placement"} <= set(doc) and not (
+            isinstance(doc["share"], str) and isinstance(doc["placement"], Mapping)
+            and all(isinstance(k, str) and isinstance(v, str) for k, v in doc["placement"].items())):
+        raise PlanError("not a plan file: its share is a share string and its placement maps location ids to items")
+    plan = load_plan(doc, logic.db)
+    if problems := verify(logic, plan.settings, plan.placement):
+        raise PlanError(f"plan {doc['sha256'][:12]} isn't beatable under its settings: {'; '.join(problems)}")
+    return plan
+
+
+def plan_reasons(plan, logic, sliders: Mapping) -> list[str]:
+    """Why a plan file's logic is unverified on a build of the movement
+    ``sliders`` (Modkit's ``plan_for`` of ``--plan``): planned at other
+    sliders, each problem :func:`~.planner.fill.verify` finds at the tier
+    this build's pick (:func:`~.movement.played`; flagged, never refused),
+    then :func:`roll_reasons`."""
+    from azurkit.tools.randomizer.movement import played
+    from azurkit.tools.randomizer.planner.fill import verify
+
+    lost = verify(logic, played(replace(plan.asked, sliders=dict(sliders))), plan.placement) \
+        if plan.asked.sliders != sliders else []
+    return [f"the plan verifies at the movement it was planned for but not at this build's: {p}" for p in lost] + \
+        roll_reasons(plan.asked, logic.db, sliders)
+
+
 def plan_for(args, logic, sliders=None):
     """The build's plan and why its logic is unverified so far, as (plan,
-    why): the fill of ``--seed`` (default ``"42"``) under
+    why): ``--plan``'s plan file (a plan file's object), exactly, once
+    :func:`checked_plan` reads it (``why``: :func:`plan_reasons`), else the
+    fill of ``--seed`` (default ``"42"``) under
     :func:`settings_from_args` with the build's movement ``sliders``
     (:func:`build_sliders`; none: vanilla's), on ``logic`` (the logic as
     authored); moved, they pick the tier it is filled at, so the seed is that
@@ -184,6 +223,9 @@ def plan_for(args, logic, sliders=None):
     from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc
 
     sliders = dict(sliders or {})
+    if _given(args, "plan"):
+        plan = checked_plan(args.plan, logic)
+        return plan, plan_reasons(plan, logic, sliders)
     settings = settings_from_args(args, logic.db)
     if settings.sliders and settings.sliders != sliders:
         raise LayerError(f"--share holds the movement sliders {sliders_text(settings.sliders)}, and this build's "
@@ -298,5 +340,5 @@ def spoiler_text(plan, logic, logic_verified: bool, why_not=()) -> str:
 
 
 __all__ = ["CATEGORIES", "LAYER", "LayerError", "LayerReport", "SIZE_FOLD", "SIZE_PACK", "SIZE_SLIDERS",
-           "build_sliders", "obsidian_reason", "plan_for", "roll_reasons", "read_settings", "size_params",
+           "build_sliders", "checked_plan", "obsidian_reason", "plan_for", "plan_reasons", "roll_reasons", "read_settings", "size_params",
            "sliders_text", "settings_from_args", "settings_text", "spoiler_text"]

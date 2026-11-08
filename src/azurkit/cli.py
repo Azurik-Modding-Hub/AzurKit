@@ -5,7 +5,8 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit packs                         the packs: on by default or not, the releases, what each does, its sliders
     azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
                   [--pack-param PACK.SLIDER=VALUE ...]
-                  [--seed SEED [--settings FILE | --share STRING] [--obsidian-cost N]] [--character JSON]
+                  [--seed SEED [--settings FILE | --share STRING] | --plan FILE] [--obsidian-cost N]
+                  [--character JSON]
     azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
     azurkit files IMAGE [--extract PATH --out FILE]
                                           an image's files (each size and path), or one of them written to FILE
@@ -34,6 +35,9 @@ the plan (the seed under the default settings, a settings file's or a share
 string's, at the movement tier the build's movement sliders pick) is
 written first, the built image is read back against it before anything is
 written, and the build prints whether its logic still holds (and why not);
+``--plan FILE`` builds that plan file (``plan``'s) exactly, in the seed's
+place: it carries its own seed and settings, and one from another database,
+edited, or not beatable under its settings is refused by name.
 ``--obsidian-cost`` sets the obsidian locks' cost (vanilla 10). ``--character``
 dresses the player in a species' body (a recipe's character as JSON,
 ``{"species": "keylord"}`` and any of its options: ``tools.characters``;
@@ -154,12 +158,19 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
 
 
 def _randomizer(args: argparse.Namespace) -> dict | None:
-    """The randomizer's flags as the sdk's recipe (``None`` without ``--seed``)."""
-    if args.seed is None:
+    """The randomizer's flags as the sdk's recipe (``None`` without ``--seed``
+    or ``--plan``, whose plan carries its own seed and settings: the sdk
+    refuses either beside it)."""
+    if args.seed is None and args.plan is None:
         if args.settings or args.share or args.obsidian_cost is not None:
-            raise ValueError("--settings, --share and --obsidian-cost randomize the build: give --seed")
+            raise ValueError("--settings, --share and --obsidian-cost randomize the build: give --seed or --plan")
         return None
-    given = {"seed": args.seed}
+    given = {"seed": args.seed} if args.seed is not None else {}
+    if args.plan is not None:
+        try:
+            given["plan"] = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"--plan {args.plan}: not a plan file (not JSON: {exc})") from None
     if args.settings:
         given["settings"] = tomllib.loads(Path(args.settings).read_text(encoding="utf-8"))
     elif args.share:
@@ -466,6 +477,8 @@ def main(argv: list[str] | None = None) -> int:
     settled = build.add_mutually_exclusive_group()
     settled.add_argument("--settings", metavar="FILE", help="the randomizer's settings as a settings file (TOML)")
     settled.add_argument("--share", metavar="STRING", help="the randomizer's settings as a share string (AZR-...)")
+    build.add_argument("--plan", metavar="FILE", help="randomize the build with this plan file (azurkit plan's), "
+                       "exactly: it carries its own seed and settings")
     build.add_argument("--obsidian-cost", type=float, metavar="N",
                        help="the obsidian each lock costs (vanilla 10; any number, never clamped)")
     build.add_argument("--character", metavar="JSON", help='dress the player in a species\' body: a recipe\'s '

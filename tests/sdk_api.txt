@@ -54,8 +54,10 @@ are hints, never limits, and nothing is clamped (``mods.normalize``).
 A randomizer plan needs no image: :func:`plan` takes a seed and its
 settings (``tools.randomizer``'s recipe) and returns Modkit's plan file. A
 build recipe's ``randomizer`` (that recipe, and an ``obsidian_cost``) plans
-it at the movement tier the build's movement sliders pick (D1066) and writes it
-as the build's first layer, before the packs (Modkit's ``mod_apply``
+it at the movement tier the build's movement sliders pick (D1066), or takes a
+plan file's object as its ``plan`` (Modkit's ``randomize-full --plan``), exactly,
+once it reads back on this database and is beatable under its settings,
+and writes it as the build's first layer, before the packs (Modkit's ``mod_apply``
 order); the built image is read back against the plan before anything is
 written: a placement a later layer changed is a conflict that leaves the
 logic unverified (D28), as does any moved slider, under which a seed isn't
@@ -251,7 +253,7 @@ text or the object, a share link, or one of Modkit's mod files: its
 ``patches``, ``sections``, ``_keyed_patches`` and ``xbr_edits`` as
 ``xbr`` operations) as a recipe's ``{"packs", "xbr"}``,
 normalized, and ``randomizer`` (the seed and share string a randomized
-build's plan replays from); ``packs`` only when it has a packs layer (a
+build's plan replays from, or the plan file it built); ``packs`` only when it has a packs layer (a
 build's packs are then its packs, with those they require, and no
 others), ``settled`` only when that added one (its lines, for a host to
 say), ``community`` its community packs' pins (a build resolves them).
@@ -327,8 +329,10 @@ call that waits on it goes on in its own stages, never back.
 def randomizer_settings(given: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
 
 What the Randomizer tab shows for ``given``: its ``settings`` (a
-settings file's table), ``share`` (a share string) or ``file`` (a
-settings file's text, D144's Load settings), its
+settings file's table), ``share`` (a share string), ``file`` (a
+settings file's text, D144's Load settings) or ``plan`` (a plan file's
+object, Open a plan…: its own settings, refused by name unless it reads
+back on this database and is beatable under them), its
 ``obsidian_cost`` (vanilla's when not given), the build's ``packs``
 (``{pack: {slider: value}}``, normalized) and ``character`` (the body
 it wears, whose size folds into the walk and roll as a build's does,

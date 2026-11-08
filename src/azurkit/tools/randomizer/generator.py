@@ -5,7 +5,9 @@ through the packs' catalog (D83(c)).
 
 - :func:`prepare`: the recipe checked, the build's movement sliders
   (``physics.slider_values`` of its packs), and the plan ``layer.plan_for``
-  makes, at the tier they pick (``movement.played``, D1066), with each
+  makes, at the tier they pick (``movement.played``, D1066), or a plan
+  file's (``plan``, Modkit's ``randomize-full --plan``), exactly, read
+  back and beatable under its settings (``layer.checked_plan``), with each
   reason that leaves its logic unverified.
 - :func:`plan_layer`: the writer's writes (``writer.layout`` and its
   per-file writes, each computed from the vanilla bytes), one group a node
@@ -60,7 +62,7 @@ from azurkit.tools.randomizer.planner.settings import settings_from_table, share
 
 TOOL, KIND = "randomizer", "plan"
 LAYER = layer.LAYER      # the layer's id, as Modkit names it in a conflict
-RECIPE = ("seed", "settings", "share", "obsidian_cost")
+RECIPE = ("seed", "settings", "share", "obsidian_cost", "plan")
 OBSIDIAN_GROUP = f"{LAYER} obsidian lock thresholds"
 CONFIG, ENGINE = "gamedata/config.xbr", "critters_engine"
 CONTAINED_GROUP = f"{LAYER} contained touch"   # + its species: one group a species (contained)
@@ -87,13 +89,20 @@ def _skips(db) -> dict:
 def normalize(recipe: object) -> dict:
     """``recipe`` checked: its keys, the seed a string, at most one of
     ``settings`` (a settings file's table) and ``share`` (a share string),
-    and ``obsidian_cost`` any number whose thresholds (x1 to x10) a float32
-    holds (D23: never clamped). ``ValueError`` names the first refusal."""
+    or in their place ``plan`` (a plan file's object, which carries its own
+    seed and settings), and ``obsidian_cost`` any number whose thresholds (x1
+    to x10) a float32 holds (D23: never clamped). ``ValueError`` names the
+    first refusal."""
     if not isinstance(recipe, Mapping):
         raise ValueError(f"randomizer: a JSON object, not {type(recipe).__name__}")
     if unknown := sorted(set(recipe) - set(RECIPE), key=str):
         raise ValueError(f"randomizer: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(RECIPE)})")
-    if not isinstance(recipe.get("seed"), str):
+    if "plan" in recipe:
+        if given := [key for key in ("seed", "settings", "share") if key in recipe]:
+            raise ValueError(f"randomizer: a plan carries its own seed and settings, so it takes no {' or '.join(given)}")
+        if not isinstance(recipe["plan"], Mapping):
+            raise ValueError("randomizer: plan is a plan file's object (azurkit plan's)")
+    elif not isinstance(recipe.get("seed"), str):
         raise ValueError("randomizer: seed is a string (any string; the same seed and settings give the same plan)")
     if "settings" in recipe and "share" in recipe:
         raise ValueError("randomizer: settings and share both give the settings: give one")
@@ -115,11 +124,13 @@ def normalize(recipe: object) -> dict:
 
 
 def check(recipe: object) -> dict:
-    """:func:`normalize`'s ``recipe`` with its settings table or share
-    string checked as a build checks them (a link's, before its page loads
-    it); ``ValueError`` names the first refusal."""
+    """:func:`normalize`'s ``recipe`` with its settings table, share
+    string or plan checked as a build checks them (a link's, before its page
+    loads it); ``ValueError`` names the first refusal."""
     recipe = normalize(recipe)
     skips = _skips(kept_logic().db)
+    if "plan" in recipe:
+        layer.checked_plan(recipe["plan"], kept_logic())
     if "settings" in recipe:
         settings_from_table(recipe["settings"], skips, "settings")
     if "share" in recipe:
@@ -131,7 +142,9 @@ def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepar
     """The plan :func:`normalize`'s ``recipe`` makes under the build's
     ``packs`` (``{pack: {slider: value}}``, normalized), at the tier their
     movement sliders pick (D1066); a share string made for other sliders is
-    refused (AZ-383). ``ValueError`` names a setting refused or the items no
+    refused (AZ-383). Its ``plan``, a plan file's, is the plan as it is, no
+    fill: its layer's recipe holds it, so its build's mods file builds it
+    again. ``ValueError`` names a setting or plan refused or the items no
     attempt found a safe spot for (D35)."""
     recipe = normalize(recipe)
     logic = kept_logic()
@@ -139,11 +152,12 @@ def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepar
     share = recipe.get("share")
     if "settings" in recipe:
         share = share_encode(settings_from_table(recipe["settings"], _skips(db), "settings"), _skips(db))
-    args = SimpleNamespace(plan=None, seed=recipe["seed"], settings=None, share=share, skip_ceiling=None,
-                           movement_tier=None, skip=None, no_skip=None, exclude_category=None)
-    note("placing the items")   # the seed's fill starts (core.progress: the call's stage folds it)
+    args = SimpleNamespace(plan=recipe.get("plan"), seed=recipe.get("seed"), settings=None, share=share,
+                           skip_ceiling=None, movement_tier=None, skip=None, no_skip=None, exclude_category=None)
+    if "plan" not in recipe:
+        note("placing the items")   # the seed's fill starts (core.progress: the call's stage folds it)
     plan, why = layer.plan_for(args, logic, sliders(packs))
-    made = {"seed": plan.doc["seed"], "share": plan.doc["share"]}
+    made = {"plan": plan.doc} if "plan" in recipe else {"seed": plan.doc["seed"], "share": plan.doc["share"]}
     if "obsidian_cost" in recipe:
         made["obsidian_cost"] = recipe["obsidian_cost"]
     why = [r for r in [layer.obsidian_reason(recipe.get("obsidian_cost"))] if r] + list(why)

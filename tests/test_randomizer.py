@@ -623,11 +623,16 @@ def test_seed_2s_plan_under_each_profile_is_its_goldens_and_the_default_plan_fil
     assert hashlib.sha256(capsys.readouterr().out.encode()).hexdigest() == PLANS["default"]["spoiler"]
 
 
-def test_a_plan_reads_back_into_its_spoiler_and_what_the_randomizer_cant_take_is_refused_by_name():
+def test_a_plan_reads_back_into_its_spoiler_and_what_the_randomizer_cant_take_is_refused_by_name(tmp_path, capsys):
     """The default plan's spoiler names its share string and each sphere;
     an edited plan, a recipe with both settings and a share string, a build
     recipe's unknown key, settings with a share string, or an obsidian cost
-    whose thresholds a float32 can't hold are refused, each by name."""
+    whose thresholds a float32 can't hold are refused, each by name. A build
+    recipe's plan file (Modkit's ``randomize-full --plan``, P31) carries its
+    own seed and settings, and one edited, from another database, typed
+    otherwise or not beatable under its settings (its sha256 made again:
+    anyone can) is refused by name before any image is read, as ``build
+    --plan`` with ``--seed``, or a file that isn't JSON, is."""
     lines = sdk.spoiler(PLANS["default"]["plan"])["lines"]
     assert any(PLANS["default"]["plan"]["share"] in line for line in lines)
     assert any(line.lower().startswith("sphere") for line in lines)
@@ -636,15 +641,38 @@ def test_a_plan_reads_back_into_its_spoiler_and_what_the_randomizer_cant_take_is
         sdk.spoiler(edited)
     with pytest.raises(ValueError, match="settings and share both"):
         sdk.plan({"seed": "2", "settings": {}, "share": "AZR-AAEA"})
-    for given, why in (({"seed": "2", "plan": {}}, r"no key 'plan'"), ({"seed": 2}, "seed is a string"),
+
+    def signed(doc):
+        body = {k: v for k, v in doc.items() if k != "sha256"}
+        return body | {"sha256": hashlib.sha256(fill.canonical(body)).hexdigest()}
+    doc = PLANS["default"]["plan"]
+    fragment = next(lid for lid, item in doc["placement"].items() if item.startswith("frag"))
+    unbeatable = signed(doc | {"placement": doc["placement"] | {fragment: "obsidian"}})
+    for given, why in (({"seed": "2", "plan": doc}, "a plan carries its own seed and settings, so it takes no seed$"),
+                       ({"plan": "plan.json"}, "plan is a plan file's object"), ({"plan": edited}, "edited plan"),
+                       ({"plan": signed(doc | {"db_digest": "0" * 64})}, "made from another database"),
+                       ({"plan": signed(doc | {"placement": [fragment]})}, "its placement maps location ids to items"),
+                       ({"plan": unbeatable}, fr"^plan {unbeatable['sha256'][:12]} isn't beatable under its settings: "
+                                              r"victory \(flag:d1\.spideyzar\.killed\) does not hold; \d+ locations"),
+                       ({"seed": 2}, "seed is a string"),
                        ({"seed": "2", "settings": {}, "share": "AZR-AAEA"}, "settings and share both"),
                        ({"seed": "2", "obsidian_cost": math.nan}, "obsidian_cost nan"),
                        ({"seed": "2", "obsidian_cost": 1e38}, "finite float32s")):
         with pytest.raises(ValueError, match=why):
             sdk.image({"iso": "x.iso", "randomizer": given})
+    (tmp_path / "plan.json").write_text(DEFAULT_PLAN, encoding="utf-8")
+    (tmp_path / "settings.toml").write_text("skip_ceiling = 0\n", encoding="utf-8")
+    capsys.readouterr()
+    for flags, said in ((["--plan", str(tmp_path / "plan.json"), "--seed", "2"],
+                         "randomizer: a plan carries its own seed and settings, so it takes no seed"),
+                        (["--plan", str(tmp_path / "settings.toml")],
+                         f"--plan {tmp_path / 'settings.toml'}: not a plan file (not JSON: Expecting value")):
+        assert cli.main(["build", "--iso", "x.iso", "--out", str(tmp_path / "out.iso"), *flags]) == 1
+        assert capsys.readouterr().err.startswith(f"azurkit: {said}")
 
 
-def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_unverified_and_a_link_carries_it():
+def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_unverified_and_a_link_carries_it(
+        monkeypatch):
     """Step 4.2c1: the Randomizer tab starts at D144's defaults (the
     database's), whose share string is Modkit's; the settings it holds
     (format /2: each category as it is) give back the same settings and a
@@ -662,7 +690,11 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
     every skip of the database has its D258 group (a new one needs its
     group, Modkit's ``SKIP_GROUP``); the tab's settings file (D144's Save
     settings) loads back to its settings, and a file that isn't one is
-    refused by name."""
+    refused by name. A plan file (Open a plan…, P31) gives its own settings
+    and the build's flags on them: a roll a skip it has on was proven at,
+    and (Modkit's ``plan_for``) each problem its placement has at the tier
+    the build's movement sliders pick, when they aren't the plan's; a link
+    carries it whole."""
     logic = kept_logic()
     skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
     options = sdk.catalog()["randomizer"]
@@ -704,6 +736,18 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
                                        "packs": {"player_physics": {"roll_speed_scale": 0.5}}})["why_not"]
     assert flagged == [*generator.movement_reasons({"player_physics": {"roll_speed_scale": 0.5}},
                                                    sdk.catalog()["packs"]), layer.obsidian_reason(20.0)]
+    doc, roll = _profile("max"), {"player_physics": {"roll_speed_scale": 0.5}}
+    planned, plan = sdk.randomizer_settings({"plan": doc, "packs": roll}), layer.checked_plan(doc, logic)
+    rolled = layer.roll_reasons(plan.asked, logic.db, generator.sliders(roll))
+    assert rolled and (planned["settings"], planned["why_not"]) == (
+        randomizer.literal(plan.asked), [*generator.movement_reasons(roll, sdk.catalog()["packs"]), *rolled])
+    with pytest.raises(ValueError, match="give settings, share, file or plan"):
+        sdk.randomizer_settings({"plan": doc, "share": "AZR-AAEA"})
+    assert sdk.read_mods(sdk.preset_encode({"packs": {}, "randomizer": {"plan": doc}}))["randomizer"] == {"plan": doc}
+    monkeypatch.setattr(fill, "verify", lambda lg, st, placement, known=None: ["x"] * (st.movement_tier == "safe"))
+    assert layer.plan_reasons(plan, logic, generator.sliders({"player_physics": {"jump_speed_scale": 0.5}})) == [
+        "the plan verifies at the movement it was planned for but not at this build's: x"]
+    monkeypatch.undo()
 
     rando = {"seed": "2", "settings": given, "obsidian_cost": 20.0}
     found = sdk.preset_decode(sdk.preset_encode({"packs": {}, "randomizer": rando}))
@@ -856,7 +900,8 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     """G3's seed cases (J1's model-free seed case on both releases): the
     packs on by default and the plan of the case's seed and options,
     through the CLI's recipe, change each file the golden names to its
-    sha256 and no other (Europe's golden names its own files; its XBRs are
+    sha256 and no other (the default case's plan file, built as it is
+    with no seed, too: Modkit's ``randomize-full --plan``) (Europe's golden names its own files; its XBRs are
     the USA case's), the image less its root entries is the golden's (the
     default case's of ``rando_plans.json``'s default plan), the image reads
     back to the plan with its logic verified, its report carrying the plan
@@ -893,6 +938,14 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     assert found == {"packs": mods.normalize({n: {} for n, p in mods.PACKS.items() if p.default_on}),
                      "randomizer": {"seed": "2", "share": plan["share"]}}
     assert (native.report()["loaded"], bool(kernels), bool(twins)) == (not twin, not twin, twin)
+    if (release, case) == ("usa", "randomize-full:seed=2,default"):   # its plan file (P31: build --plan), as it is
+        doc = PLANS["default"]["plan"]
+        again, built = sdk.image(cli.recipe(str(path), [], [], True, randomizer={"plan": doc}))
+        assert (built["result"], built["randomizer"], built["plan"], built["spoiler"]) == (
+            report["result"], plan, doc, report["spoiler"])
+        with iso.Reader(again) as r:
+            assert iso.read(path, {file: r.read(file) for file in files}).sha256() == golden["ISO"]
+        assert sdk.read_mods(sdk.open_build(again, whole=False))["randomizer"] == {"plan": doc}
 
 
 @pytest.mark.parametrize("release, recipe", [
