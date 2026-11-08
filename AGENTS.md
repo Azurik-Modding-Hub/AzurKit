@@ -1155,7 +1155,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `clip_import._thin_track`'s keys kept past its stepped test (its twin
   `_thin_kept`: each sample's value `retarget.evaluate`'s, the Hermite run
   from the last kept key checked against the samples between), a time not
-  finite or not after the one before the twin's.
+  finite or not after the one before the twin's. The seventh is the
+  paint's (`native/paint.c`): `textures._dxt`'s BC1 and BC2 blocks
+  (integers only), `paint._raster`'s texels (a corner not finite, past
+  2**40 or -0.0 the twin's) and `fdlibm.atan2` over a texture's points
+  (`paint._atan2`, `_hsv`'s hue; fdlibm's constants by their bits).
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

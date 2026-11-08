@@ -48,7 +48,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
-           "ray", "decimate", "thin")
+           "ray", "decimate", "thin", "dxt", "atan2", "raster")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -110,7 +110,9 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_decimate", [i64, vp, vp, i64, vp, vp, vp, vp, vp, ctypes.c_char_p, i64, vp, vp, vp,
                                           ctypes.c_char_p, vp, vp, i64, f64, i64, f64, vp, i64, i64, i64]),
                          ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64]),
-                         ("az_thin", [vp, i64, f64, f64, vp, vp])):
+                         ("az_thin", [vp, i64, f64, f64, vp, vp]),
+                         ("az_dxt", [ctypes.c_char_p, i64, i64, i64, vp]), ("az_atan2", [vp, vp, i64, vp]),
+                         ("az_raster", [vp, i64, i64, vp, vp])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
         return None, f"{name} doesn't load: {e}", None
@@ -879,6 +881,33 @@ def thin(keys, eps: float, rest: float) -> list[int] | None | bool:
     if code == -1:
         return None
     return kept[:code].tolist() if code > 0 else False
+
+
+# ---- the paint and the textures (native/paint.c) ---------------------------------------------------------------------
+def dxt(rgba: bytes, h: int, w: int, dxt1: bool) -> bytes | None:
+    """``textures._dxt`` of a level's ``h`` x ``w`` RGBA8 texels (rows
+    top down): its BC1 (``dxt1``) or BC2 blocks, or ``None`` without the
+    library."""
+    if (lib := library()) is None:
+        return None
+    out = bytearray(((h + 3) // 4) * ((w + 3) // 4) * (8 if dxt1 else 16))
+    return bytes(out[:lib.az_dxt(rgba, h, w, int(dxt1), _buf(out))])
+
+
+def atan2(y: int, x: int, n: int, out: int) -> bool:
+    """``fdlibm.atan2(y[i], x[i])`` of ``n`` points into ``out`` (the
+    doubles' addresses); False without the library."""
+    return (lib := library()) is not None and lib.az_atan2(y, x, n, out) == 0
+
+
+def raster(p: int, m: int, size: int, tid: int, bary: int) -> bool:
+    """``paint._raster`` of ``m`` triangles whose corners' UVs times
+    ``size`` are ``p`` (m x 3 x 2 doubles) into ``tid`` (size x size
+    int64, each -1) and ``bary`` (size x size x 3 doubles, each 0): the
+    buffers' addresses; False without the library or where the twin
+    draws (a corner not finite, 2**40 or more from 0, or -0.0), nothing
+    written then."""
+    return (lib := library()) is not None and lib.az_raster(p, m, size, tid, bary) == 0
 
 
 def decimate(pos: array, flags: bytes, vpoint: array, twin: array, so: array, sb: array, sw: array, sbad: bytes,

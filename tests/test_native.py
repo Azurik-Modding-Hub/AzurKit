@@ -370,6 +370,7 @@ def _dress_cases(seed: int, count: int):
         old = bytes(rng.randrange(3) for _ in range(rng.choice((0, 1, 5, 300))))
         new = bytes(b if rng.random() < 0.8 else rng.randrange(3) for b in old[:rng.randint(0, len(old))])
         yield {"rays": _ray_cases(random.Random(seed * 1000 + i)), "thin": _thin_cases(random.Random(seed * 2000 + i)),
+               "paint": _paint_cases(random.Random(seed * 3000 + i)),
                "bones": bones, "tracks": tracks + [[0, 3, [[float("nan"), 1.0, 0.0, 0.0]]]] * (not i),
                "times": [rng.uniform(-1.0, 4.0) for _ in range(rng.randint(1, 8))] + [k[0] for t in tracks[:3] for k in t[2]],
                "linear": [lin, [f() for _ in range(4)], [[f() for _ in range(4)] for _ in range(4)],
@@ -409,6 +410,32 @@ def _thin_cases(rng: random.Random) -> list:
             keys[rng.randrange(n)][rng.randrange(1, 4)] = rng.choice((float("inf"), -1e300))
         out.append([keys, rng.choice((1e-4, 1e-3, 1e-2)), rng.choice((0.0, 0.25, keys[0][1]))])
     return out
+
+
+def _paint_cases(rng: random.Random) -> dict:
+    """The paint's and the textures' kernels' inputs, as JSON: RGBA8
+    levels (1 to 13 texels a side; random, flat with see-through texels,
+    or white, whose two colours meet) to DXT, atan2's points (zeros of each
+    sign, infinities, NaN, x 1, huge and tiny values) and triangles' UVs
+    to raster (tiled past 0..1, a degenerate one, a -0.0 or NaN now and
+    then) at a size."""
+    def level():
+        h, w, kind = rng.randint(1, 13), rng.randint(1, 13), rng.random()
+        return [h, w, [[255] * 4 if kind < 0.2 else [40, 80, 120, rng.choice((0, 255))] if kind < 0.4
+                       else [rng.randrange(256) for _ in range(4)] for _ in range(h * w)]]
+
+    def x():
+        return rng.choice((0.0, -0.0, float("inf"), -float("inf"), float("nan"), 1.0, 1e-300, -1e300, 5e-324)) \
+            if rng.random() < 0.2 else rng.uniform(-3.0, 3.0)
+
+    def uv():
+        return rng.choice((-0.0, float("nan"))) if rng.random() < 0.01 else \
+            rng.uniform(-0.3, 2.3) if rng.random() < 0.3 else rng.random()
+    tris = [[[uv(), uv()] for _ in range(3)] for _ in range(rng.randint(0, 12))]
+    if tris and rng.random() < 0.2:
+        tris[0][1] = list(tris[0][0])
+    return {"levels": [level() for _ in range(2)], "atan2": [[x(), x()] for _ in range(60)], "uvs": tris,
+            "size": rng.choice((1, 4, 16, 33))}
 
 
 def _ray_cases(rng: random.Random) -> list:
@@ -515,6 +542,19 @@ def _dress_answer(case: dict) -> list:
         got = clip_import._thin_track(track, eps, rest)
         thinned.append("None" if got is None else "same" if got is track else bits([x for k in got.keys for x in k]))
 
+    from azurkit.tools.characters import paint, textures
+
+    pc = case["paint"]
+    painted = [textures._dxt(np.array(px, dtype=np.uint8).reshape(h, w, 4), fmt).hex()
+               for h, w, px in pc["levels"] for fmt in (0x20, 0x40)]
+    painted.append(bits(paint._atan2(np.array([p[0] for p in pc["atan2"]]), np.array([p[1] for p in pc["atan2"]]))
+                        .tolist()))
+    try:
+        tid, bary = paint._raster_corners(np.array(pc["uvs"], dtype=float).reshape(-1, 3, 2), pc["size"])
+        painted += [tid.tolist(), bits(bary.reshape(-1).tolist())]
+    except (ValueError, OverflowError) as exc:
+        painted.append(type(exc).__name__)
+
     def springs():   # a spring's chain and the clear's body, as jiggle poses them (the engine model on them alone)
         chain = jiggle._chain(rig, len(bones) - 1)
         whole = jiggle._posed_all(rig, clip, [len(bones) - 1, 0])
@@ -525,7 +565,7 @@ def _dress_answer(case: dict) -> list:
                 got = [{ks[-1]: one(t)} if one else whole(t) for t in case["times"]]
             out.append([[*g[k][0], *g[k][1]] for g in got for k in (ks[-1:] if one else ks)])
         return out
-    return [rays, thinned, engine(springs),
+    return [rays, thinned, painted, engine(springs),
             engine(rt.origins_at, rig, clip, case["times"]), engine(rt.pose, rig, clip, case["times"][0]), bits(rows),
             characters._runs(*map(bytes.fromhex, case["runs"])), bits(_boxes(*case["boxes"])),
             bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist()),
@@ -542,7 +582,8 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     over seeded random inputs, every NaN a NaN (its sign and payload aren't
     held: the compiler may order an operation's two NaN inputs either way)."""
     cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
-    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray", "thin"):
+    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray", "thin",
+                 "dxt", "atan2", "raster"):
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
                             ran.update([name]) or real(*a, **k))
     assert native.report()["loaded"]
@@ -550,7 +591,8 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
         got = [_dress_answer(case) for case in cases]
     asked = sum(len(points) for case in cases for *_, points in case["rays"])
     assert ran == {"origins": 1597, "linear": 400, "chain": 400, "boxes": 400, "sample": 399, "heights": 400,
-                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked, "thin": 1594}   # by the library but case 0's clip's
+                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked, "thin": 1594,
+                   "dxt": 1600, "atan2": 400, "raster": 400}   # by the library but case 0's clip's
     assert 0 < sum(r == "ZeroDivisionError" for g in got for r in g[0]) < asked / 10   # some divide by zero
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):   # the twins' numpy on infinities

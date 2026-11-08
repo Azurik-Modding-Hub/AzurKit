@@ -48,7 +48,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from azurkit.core import fdlibm, inflate
+from azurkit.core import fdlibm, inflate, native
 from azurkit.tools.characters import render
 
 FORMATS = {"dxt1": 0x20, "dxt3": 0x40, "bgra8": 0x10}
@@ -131,6 +131,9 @@ def _dxt(rgba: np.ndarray, fmt: int) -> bytes:
     """One level as BC1 (0x20) or BC2 (0x40) blocks, rows of blocks top to
     bottom, edge texels replicated (Level Studio's ``_dxt``, ported)."""
     height, width = rgba.shape[:2]
+    if rgba.dtype == np.uint8 and rgba.ndim == 3 and rgba.shape[2] == 4 and \
+            (got := native.dxt(np.ascontiguousarray(rgba).tobytes(), height, width, fmt == 0x20)) is not None:
+        return got   # the compiled kernel's (core.native); else its twin's
     px = [[tuple(int(c) for c in rgba[y, x]) for x in range(width)] for y in range(height)]
     dxt1 = fmt == 0x20
     out = bytearray()

@@ -118,7 +118,7 @@ from pathlib import Path
 
 import numpy as np
 
-from azurkit.core import fdlibm
+from azurkit.core import fdlibm, native
 from azurkit.tools.characters import textures
 from azurkit.tools.characters import render
 from azurkit.core.xbr.append import NewResource, append_resources
@@ -331,6 +331,10 @@ def _raster(uv: np.ndarray, tris: np.ndarray, size: int):
     tid = np.full((size, size), -1, int)
     bary = np.zeros((size, size, 3))
     P = uv[tris] * size                     # (m, 3, 2): u right, v down
+    if P.dtype == np.float64 and P.ndim == 3 and P.shape[1:] == (3, 2):   # the compiled kernel's (core.native)
+        P, got = np.ascontiguousarray(P), np.full((size, size), -1, np.int64)
+        if native.raster(P.ctypes.data, len(P), int(size), got.ctypes.data, bary.ctypes.data):
+            return got.astype(tid.dtype, copy=False), bary
     for t in range(len(tris)):
         tri = P[t] - np.floor(P[t].min(0) / size) * size      # its lowest corner's tile at 0
         reach = np.floor(tri.max(0) / size).astype(int)
@@ -375,8 +379,18 @@ def _hsv(rgb: np.ndarray):
     mx, mn = rgb.max(-1), rgb.min(-1)
     sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-9), 0.0)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
-    hue = np.degrees(np.vectorize(fdlibm.atan2, otypes=[float])(math.sqrt(3.0) * (g - b), 2.0 * r - g - b)) % 360.0
+    hue = np.degrees(_atan2(math.sqrt(3.0) * (g - b), 2.0 * r - g - b)) % 360.0
     return hue, sat, mx
+
+
+def _atan2(y: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """``fdlibm.atan2`` of each point: the compiled kernel's (core.native), else its twin's, ``np.vectorize``'s."""
+    y64, x64 = np.ascontiguousarray(y, dtype=np.float64), np.ascontiguousarray(x, dtype=np.float64)
+    if y64.shape == x64.shape:
+        out = np.empty(y64.shape)
+        if native.atan2(y64.ctypes.data, x64.ctypes.data, y64.size, out.ctypes.data):
+            return out
+    return np.vectorize(fdlibm.atan2, otypes=[float])(y, x)
 
 
 def _in_window(hue, lo, hi):
