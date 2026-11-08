@@ -381,8 +381,9 @@ def test_a_cleanup_never_deletes_a_snapshot_the_reach_engine_a_running_run_or_a_
     assert len(blocking([store], holds)) == 5
     assert blocking([store / "x7" / "loose-k0-1.l3snap", store / "reach-live-old.l3snap"], holds) == []
     monkeypatch.setattr(l3_hold, "CHECKOUT", checkout)
+    monkeypatch.setattr(l3_hold, "command_lines", lambda: commands)   # ps -ww is POSIX's; held() pins the rule
     assert l3_hold.main(["--store", str(store), "--check", str(store / "x7" / "x99-proof-k0-140435.l3snap")]) == 1
-    assert "lanes/x.99/" in capsys.readouterr().out
+    assert os.path.join("lanes", "x.99", "") in capsys.readouterr().out
 
 
 def test_l3_snapshot_reads_its_pages_from_one_physical_ram_dump_through_the_page_tables_it_holds(tmp_path):
