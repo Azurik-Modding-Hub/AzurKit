@@ -27,8 +27,11 @@
 #   log's tail and processes printed first, so a hang names itself.
 # Each setup download with no retry of its own runs through one (Step 4.4ci46: run 42255487123's Linux job lost two
 # packages to a mirror that closed the connection): apt under install-deps, the content clone and each of the game data's
-# fetches through scripts/ci_retry.sh's retry, Pyodide's core and wheels through scripts/web_tools.py's; a few tries, then
-# a failure by name.
+# fetches through scripts/ci_retry.sh's retry, Pyodide's core and wheels through scripts/web_tools.py's; tries spread
+# over minutes, then a failure by name (Step 4.5t: run 42467070736's jobs lost Pyodide's core to GitHub's release
+# downloads answering 504 for minutes, past 3 asks in 15 s). What web_tools.py fetches (Pyodide's core and wheels,
+# Playwright's browsers) is kept in Actions' cache, keyed by their exact versions and the OS (web_tools.py --cache),
+# restored before its step and saved after it, so most runs fetch none of it; nothing of the game's is in it.
 # uv sync goes through that retry too (Step 4.4ci55: its own retries of a request end within a minute).
 # Python 3.14 is uv's own (uv sync --locked, .python-version), never the runner's. Actions are pinned by commit sha,
 # their release beside it. No pull_request_target, and nothing here deploys, publishes or releases (D1024, D1026).
@@ -120,8 +123,30 @@ jobs:
       - run: |
           . scripts/ci_retry.sh
           retry "uv sync" uv sync --locked --no-build
+      # What web_tools.py fetches comes from Actions' cache when a run on this OS kept these versions (Step 4.5t): the
+      # key and the two folders (Pyodide's, Playwright's browsers') are web_tools.cache()'s, restored before the fetch
+      # and saved after it on a miss, before any key or image is on the runner (setup-uv's cache saves at the job's end).
+      - name: The web tools' cache key and folders (scripts/web_tools.py --cache)
+        id: web-tools
+        run: uv run --locked python scripts/web_tools.py --cache >> "$GITHUB_OUTPUT"
+      - name: Pyodide and the browsers from the cache, if a run on this OS kept these versions
+        id: web-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          key: ${{ steps.web-tools.outputs.key }}
+          path: |
+            ${{ steps.web-tools.outputs.pyodide }}
+            ${{ steps.web-tools.outputs.browsers }}
       - name: Pyodide and the browsers (scripts/web_tools.py)
         run: uv run --locked python scripts/web_tools.py
+      - name: Pyodide and the browsers into the cache, for the next run on this OS
+        if: steps.web-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          key: ${{ steps.web-tools.outputs.key }}
+          path: |
+            ${{ steps.web-tools.outputs.pyodide }}
+            ${{ steps.web-tools.outputs.browsers }}
       - name: The browsers' system libraries (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -206,8 +231,30 @@ jobs:
         run: |
           . scripts/ci_retry.sh
           retry "uv sync" uv sync --locked --no-build
+      # What web_tools.py fetches comes from Actions' cache when a run on this OS kept these versions (Step 4.5t): the
+      # key and the two folders (Pyodide's, Playwright's browsers') are web_tools.cache()'s, restored before the fetch
+      # and saved after it on a miss, before any key or image is on the runner (setup-uv's cache saves at the job's end).
+      - name: The web tools' cache key and folders (scripts/web_tools.py --cache)
+        id: web-tools
+        run: uv run --locked python scripts/web_tools.py --cache >> "$GITHUB_OUTPUT"
+      - name: Pyodide and the browsers from the cache, if a run on this OS kept these versions
+        id: web-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          key: ${{ steps.web-tools.outputs.key }}
+          path: |
+            ${{ steps.web-tools.outputs.pyodide }}
+            ${{ steps.web-tools.outputs.browsers }}
       - name: Pyodide and the browsers (scripts/web_tools.py)
         run: uv run --locked python scripts/web_tools.py
+      - name: Pyodide and the browsers into the cache, for the next run on this OS
+        if: steps.web-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          key: ${{ steps.web-tools.outputs.key }}
+          path: |
+            ${{ steps.web-tools.outputs.pyodide }}
+            ${{ steps.web-tools.outputs.browsers }}
       - name: The browsers' system libraries (Linux)
         if: runner.os == 'Linux'
         run: |

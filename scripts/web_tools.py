@@ -8,6 +8,7 @@ folder a static host serves.
     uv run --locked python scripts/web_tools.py --site DIR    # the site, in DIR (a new folder)
     uv run --locked python scripts/web_tools.py --site DIR --content CLONE   # with a content repository's files
                                                      # in DIR/content-source/ (Content from: ./content-source/)
+    uv run --locked python scripts/web_tools.py --cache   # CI's cache key and folders of what it fetches (cache())
 
 Only the five files the runtime loads are kept (:data:`FILES`), and the
 wheels of the packages the site loads for a tab that needs them
@@ -28,6 +29,7 @@ import argparse
 import base64
 import hashlib
 import http.client
+import importlib.metadata
 import importlib.util
 import json
 import os
@@ -54,10 +56,16 @@ SHA256 = "2abdcc2e35208af406e07724cffa85bc582ced97e9028383ecf5462541393f95"
 FILES = ("pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json")
 PACKAGES = ("numpy",)
 CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
-TRIES = 3
-"""How many times :func:`download` asks for a file before it fails by name (Step 4.4ci46)."""
-WAIT = 5.0
-"""The seconds :func:`download` waits after a failed ask, doubled after each."""
+TRIES = 6
+"""How many times :func:`download` asks for a file before it fails by name (Step 4.4ci46; 6 since Step 4.5t)."""
+WAIT = 15.0
+"""The seconds :func:`download` waits after a failed ask, doubled after each up to :data:`MOST_WAIT`."""
+MOST_WAIT = 120.0
+"""The longest wait between two asks: 15, 30, 60, 120 and 120 s, 5 min 45 s in all (Step 4.5t: run 42467070736's
+jobs lost Pyodide's core as GitHub's release downloads answered 504 for minutes, where 3 asks spanned 15 s)."""
+CAP = 600.0
+"""The most seconds :func:`download` spends on a file from its first ask: no wait starts that would end past it, so
+slow asks (a read may wait 120 s) cost asks, never more time."""
 # The web tests' engines (Step 4.1d3; Firefox D994): each test that takes the ``browser`` fixture runs in each. Each
 # one's name in Playwright's browsers.json, and its label.
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit"),
@@ -164,9 +172,14 @@ def download(url: str, out: Path, tries: int = TRIES) -> Path:
     """``url``'s body, whole, in ``out`` (Step 4.4ci46: CI's setup lost a job
     to one dropped answer). A dropped or slow answer (a connection refused,
     reset or timed out, a body short of its ``Content-Length``, a 5xx) is
-    asked again, :data:`WAIT` s later, then twice that, up to ``tries`` asks;
-    past them, or at once on another answer (a 404), it fails naming the URL
-    and the last error, and leaves nothing in ``out``."""
+    asked again, :data:`WAIT` s later, then twice that each time up to
+    :data:`MOST_WAIT`, so the asks span minutes, as an outage of GitHub's
+    release downloads does (Step 4.5t), up to ``tries`` asks or a wait that
+    would end past :data:`CAP` s from the first; each failed ask says when
+    the next comes and the bounds. Past them, or at once on another answer
+    (a 404), it fails naming the URL, the asks, their time and the last
+    error, and leaves nothing in ``out``."""
+    start = time.monotonic()
     for ask in range(1, tries + 1):
         try:
             with urllib.request.urlopen(url, timeout=120) as response, open(out, "wb") as f:
@@ -183,10 +196,14 @@ def download(url: str, out: Path, tries: int = TRIES) -> Path:
         except (OSError, http.client.HTTPException) as error:   # a cut body under read() is an IncompleteRead
             out.unlink(missing_ok=True)
             last = error
-        if ask < tries:
-            print(f"{url}: ask {ask} of {tries} failed ({last}); again in {WAIT * 2 ** (ask - 1):g} s", file=sys.stderr)
-            time.sleep(WAIT * 2 ** (ask - 1))
-    raise SystemExit(f"{url}: {tries} asks failed; the last: {last}")
+        wait, spent = min(WAIT * 2 ** (ask - 1), MOST_WAIT), time.monotonic() - start
+        if ask == tries or spent + wait > CAP:
+            break
+        print(f"{url}: ask {ask} of {tries} failed ({last}); again in {wait:g} s ({tries} asks, {CAP:g} s at most)",
+              file=sys.stderr)
+        time.sleep(wait)
+    capped = f", and a {wait:g} s wait would pass the {CAP:g} s cap" if ask < tries else ""
+    raise SystemExit(f"{url}: {ask} asks failed in {spent:.0f} s{capped}; the last: {last}")
 
 
 def browsers_dir(root: Path = ROOT) -> Path:
@@ -234,6 +251,30 @@ def fetch_browser(engine: str, root: Path = ROOT) -> Path:
         subprocess.run(["node", str(cli), "install", *(["--only-shell"] if engine == "chromium" else []), engine],
                        check=True, timeout=900, env=os.environ | {"PLAYWRIGHT_BROWSERS_PATH": str(browsers_dir(root))})
     return browser_dir(engine, root)
+
+
+def cache(root: Path = ROOT) -> dict[str, str]:
+    """CI's cache of what :func:`fetch` and :func:`fetch_browser` keep
+    (Step 4.5t: run 42467070736's jobs failed as GitHub's release downloads
+    answered Pyodide's core 504 for minutes; ``tests.yml`` restores it before
+    this script runs and saves it after, so a run fetches nothing a run on its
+    OS kept): its ``key``, from the exact versions (Pyodide's and its
+    :data:`PACKAGES`, the locked playwright's, which names each browser's
+    revision) and the host (Playwright's builds differ by macOS release and
+    Linux distribution, and by CPU), and its two folders, ``pyodide`` and
+    ``browsers``, as paths from ``root``, POSIX style. Nothing of the game's
+    is ever in them."""
+    if sys.platform == "darwin":
+        host = _mac_host().removesuffix("-arm64")
+    elif sys.platform == "linux":
+        release = platform.freedesktop_os_release()
+        host = f"{release['ID']}{release.get('VERSION_ID', '')}"
+    else:
+        host = sys.platform
+    versions = (f"pyodide{VERSION}", *PACKAGES, f"playwright{importlib.metadata.version('playwright')}")
+    return {"key": "-".join(("web-tools", host, platform.machine(), *versions)),
+            "pyodide": Path(os.path.relpath(pyodide_dir(root), root)).as_posix(),
+            "browsers": Path(os.path.relpath(browsers_dir(root), root)).as_posix()}
 
 
 def digest(*parts: Path | str) -> str:
@@ -508,8 +549,13 @@ if __name__ == "__main__":
     ap.add_argument("--site", type=Path, metavar="DIR", help="write the site to DIR (a new folder)")
     ap.add_argument("--content", type=Path, metavar="CLONE",
                     help="with --site: a content repository's files in DIR/content-source/")
+    ap.add_argument("--cache", action="store_true",
+                    help="print CI's cache key and folders of what it fetches, as $GITHUB_OUTPUT's lines")
     args = ap.parse_args()
-    if args.site:
+    if args.cache:
+        sys.stdout.reconfigure(newline="\n")   # Windows' runner too: no \r in a key or a path
+        print("".join(f"{name}={value}\n" for name, value in cache().items()), end="")
+    elif args.site:
         print(f"the site: {site(args.site, content=args.content)}")
     else:
         print(f"Pyodide {VERSION}: {fetch()}")

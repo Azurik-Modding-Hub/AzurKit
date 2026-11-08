@@ -4,14 +4,14 @@
 # Azurik-Custom-Content's clone over HTTPS; and every workflow's uv sync (Step 4.4ci55), whose own 3 retries of a
 # request span under a minute (run 42335356378's Intel job: 48.8 s). A workflow step sources it (`. scripts/ci_retry.sh`) and runs each such download
 # as `retry "WHAT" COMMAND [ARG...]`, COMMAND a command or a function of the step's that starts afresh (a clone's
-# deletes what a failed one left). It runs COMMAND at most 3 times, 30 s then 60 s after a failure, and the third
-# failure fails the step, naming WHAT and COMMAND's last exit code: a real failure still fails, a minute and a half
-# later. `retry --tries=N "WHAT" ...` runs it at most N times, each wait 30 s longer than the one before: the game
-# data's fetches take 6, 7.5 min of waits (Step 4.5e: a macOS runner's whole network was out for minutes, runs
-# 42313664434 and 42387860921, past 3 tries' minute and a half). tests/test_contracts.py holds every such download in
-# every workflow to this form.
+# deletes what a failed one left). It runs COMMAND at most 6 times, each wait 30 s longer than the one before (30 s to
+# 2.5 min, 7.5 min of waits), and the sixth failure fails the step, naming WHAT and COMMAND's last exit code: a real
+# failure still fails, 7.5 min later. An outage lasts minutes: a macOS runner's whole network (Step 4.5e, runs
+# 42313664434 and 42387860921) and GitHub's release downloads (Step 4.5t, run 42467070736), each past 3 tries' minute
+# and a half, so 6 tries since Step 4.5t. `retry --tries=N "WHAT" ...` runs it at most N times: the game data's fetches
+# name their 6. tests/test_contracts.py holds every such download in every workflow to this form.
 retry() {
-  local tries=3 what try=1 status=0
+  local tries=6 what try=1 status=0
   case $1 in --tries=*) tries=${1#--tries=}; shift ;; esac
   what=$1
   shift

@@ -1364,11 +1364,14 @@ def test_every_name_the_perf_registrys_functions_call_is_one_the_module_has():
     assert set().union(*(missing(child) for child in top.get_children())) == set()
 
 
-def test_web_tools_downloads_ask_again_after_a_dropped_answer_and_fail_by_name_after_their_tries(tmp_path, monkeypatch):
+def test_web_tools_downloads_ask_again_over_minutes_after_a_dropped_answer_and_fail_by_name_past_their_tries_or_cap(
+        tmp_path, monkeypatch):
     """Step 4.4ci46: a CI job's setup failed on one dropped answer. ``web_tools.download`` (Pyodide's core and its
-    wheels) asks a stand-in server again, 5 s after a failed ask and 10 s after the next, when its first answer ends
-    short of its length or closes before its headers, and keeps the whole body; one cut every time fails naming the URL
-    after 3 asks, a 404 at once, and neither leaves a part of the file."""
+    wheels) asks a stand-in server again, 15 s after a failed ask, when its first answer ends short of its length or
+    closes before its headers, and keeps the whole body; one cut every time fails naming the URL after 6 asks, the
+    waits doubling to 2 min (Step 4.5t: GitHub's release downloads answered 504 for minutes, past 3 asks' 15 s), or
+    sooner, saying so, where a wait would end past the cap from the first ask; a 404 fails at once, and none leaves a
+    part of the file."""
     import http.server
     import threading
 
@@ -1394,21 +1397,31 @@ def test_web_tools_downloads_ask_again_after_a_dropped_answer_and_fail_by_name_a
 
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    monkeypatch.setattr(web_tools, "time", types.SimpleNamespace(sleep=waits.append))
+
+    def sleep(seconds: float) -> None:   # the clock moves by the waits alone
+        waits.append(seconds)
+
+    monkeypatch.setattr(web_tools, "time", types.SimpleNamespace(sleep=sleep, monotonic=lambda: sum(waits)))
     url, out = f"http://127.0.0.1:{server.server_port}", tmp_path / "file"
+    cut = r"; the last: the answer ended at 8,192 of its 16,384 B$"
     try:
         for path in ("/cut-once", "/silent-once"):
             waits.clear()
             assert web_tools.download(url + path, out) == out and out.read_bytes() == body
-            assert (asked.count(path), waits) == (2, [5.0]), path
+            assert (asked.count(path), waits) == (2, [15.0]), path
         waits.clear()
-        with pytest.raises(SystemExit, match=r"/cut-always: 3 asks failed; the last: the answer ended at 8,192 of its "
-                                             r"16,384 B$"):
+        with pytest.raises(SystemExit, match=r"/cut-always: 6 asks failed in 345 s" + cut):
             web_tools.download(url + "/cut-always", out)
-        assert (asked.count("/cut-always"), waits, out.exists()) == (3, [5.0, 10.0], False)
+        assert (asked.count("/cut-always"), waits, out.exists()) == (6, [15.0, 30.0, 60.0, 120.0, 120.0], False)
+        waits.clear()
+        monkeypatch.setattr(web_tools, "CAP", 100.0)
+        with pytest.raises(SystemExit, match=r"/cut-always: 3 asks failed in 45 s, and a 60 s wait would pass the 100 s "
+                                             r"cap" + cut):
+            web_tools.download(url + "/cut-always", out)
+        assert (asked.count("/cut-always"), waits, out.exists()) == (9, [15.0, 30.0], False)
         with pytest.raises(SystemExit, match=r"/missing: 404 "):
             web_tools.download(url + "/missing", out)
-        assert (asked.count("/missing"), waits, out.exists()) == (1, [5.0, 10.0], False)
+        assert (asked.count("/missing"), waits, out.exists()) == (1, [15.0, 30.0], False)
     finally:
         server.shutdown()
         server.server_close()

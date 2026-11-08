@@ -1857,10 +1857,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   pytest log's tail and summary are printed. A setup download with no
   retry of its own (apt under Playwright's `install-deps`, the game data's
   fetches and Azurik-Custom-Content's clone) runs as `retry "WHAT" COMMAND`
-  (`retry --tries=6 ...` for the game data's) from
-  `scripts/ci_retry.sh` (in any workflow: `tests/test_contracts.py`), and
-  `web_tools.download` fetches Pyodide's core and wheels: 3 tries, backing
-  off, then a failure by name (Step 4.4ci46). Each tier runs on xdist's
+  (the game data's name their `--tries=6`) from
+  `scripts/ci_retry.sh` (in any workflow: `tests/test_contracts.py`): 6
+  tries, 7.5 min of waits, and `web_tools.download` fetches Pyodide's core
+  and wheels: 6 asks, 15 s to 2 min apart, 10 min at most, then a failure
+  by name (Steps 4.4ci46 and 4.5t: an outage of GitHub's release downloads
+  lasts minutes). What `scripts/web_tools.py` fetches (Pyodide, Playwright's
+  browsers) is kept in Actions' cache, keyed by the exact versions and the
+  OS (`web_tools.py --cache`), restored before its step and saved after it
+  on a miss, before any key or image is on the runner (Step 4.5t). Each tier runs on xdist's
   workers (`--dist=loadgroup`, as the gate does) in a number each runner's
   memory sets, in the matrix: a killed worker ends the run by name
   (`--max-worker-restart=0`), where replacing one under loadgroup hangs it.

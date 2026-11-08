@@ -229,12 +229,12 @@ def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_
     sources ``scripts/ci_retry.sh`` first and runs each as ``retry "WHAT"
     COMMAND``, on that line or in a function of the step's that a retry line
     names, whose commands are joined by ``&&`` (bash's -e is off inside it)
-    and whose clone first deletes what a failed one left. ``retry`` tries 3
-    times, 30 s then 60 s apart (``--tries=N``: N times, each wait 30 s
-    longer than the last), then fails the step naming WHAT and the last exit
-    code."""
+    and whose clone first deletes what a failed one left. ``retry`` tries 6
+    times (``--tries=N``: N), each wait 30 s longer than the last, 7.5 min of
+    waits (Step 4.5t: an outage of GitHub's release downloads lasted minutes),
+    then fails the step naming WHAT and the last exit code."""
     helper = (ROOT / "scripts" / "ci_retry.sh").read_text(encoding="utf-8")
-    assert "  local tries=3 what try=1 status=0\n  case $1 in --tries=*) tries=${1#--tries=}; shift ;; esac\n" in helper
+    assert "  local tries=6 what try=1 status=0\n  case $1 in --tries=*) tries=${1#--tries=}; shift ;; esac\n" in helper
     assert re.search(r'(?m)^  while \[ "\$try" -le "\$tries" \]; do\n    "\$@" && return 0\n    status=\$\?\n', helper)
     assert "      sleep $((try * 30))\n    fi\n    try=$((try + 1))\n  done\n" in helper
     assert helper.endswith('  echo "::error::$what failed $tries times (exit $status)"\n  return "$status"\n}\n')
@@ -282,7 +282,7 @@ def test_every_workflows_uv_sync_builds_nothing_and_runs_through_the_bounded_ret
     """Step 4.4ci55: run 42335356378's Intel job lost its ``uv sync`` to a
     request uv's own 3 retries gave up on after 48.8 s. Each workflow's
     every sync is :data:`UV_SYNC` (no ``uv sync`` in any other form), in a
-    step that sources ``scripts/ci_retry.sh`` first, so it tries 3 times
+    step that sources ``scripts/ci_retry.sh`` first, so it tries 6 times
     and fails by name; ``--no-build`` runs no package's own code and fails
     a package with no wheel by name. In each job a ``uv run`` (which syncs
     what isn't) comes only after that job's sync; a ``uv run --no-project``
@@ -300,6 +300,60 @@ def test_every_workflows_uv_sync_builds_nothing_and_runs_through_the_bounded_ret
             assert not runs or (syncs and syncs[0] < runs[0]), f"{path.name}: {code[runs[0]]}"
             synced[path.name] = synced.get(path.name, 0) + len(syncs)
     assert synced == {"apps.yml": 1, "checks.yml": 2, "release.yml": 3, "tests.yml": 2}
+
+
+WEB_CACHE = """          key: ${{ steps.web-tools.outputs.key }}
+          path: |
+            ${{ steps.web-tools.outputs.pyodide }}
+            ${{ steps.web-tools.outputs.browsers }}
+"""
+"""The web tools' cache's key and folders, alike in its restore and its save (``web_tools.cache``)."""
+
+
+def test_ci_keeps_what_web_tools_fetches_in_a_cache_keyed_by_its_versions_and_os_restored_before_it_saved_after():
+    """Step 4.5t: run 42467070736's jobs (911040d) failed as GitHub's release
+    downloads answered Pyodide's core 504 for minutes. In each ``tests.yml``
+    job that runs ``scripts/web_tools.py``, the step before its fetch
+    restores :data:`WEB_CACHE` (``actions/cache/restore``) and the step after
+    saves it on a miss alone, its key and two folders printed into the job's
+    outputs by ``web_tools.py --cache`` the step before: Pyodide's folder and
+    Playwright's browsers', nothing else, both saved before any step reads a
+    secret or the tier's folder (no key or image is on the runner yet); no
+    other step of any workflow names a cache action. The key names the exact
+    versions (Pyodide's, its packages, the locked playwright's) and the host."""
+    from importlib.metadata import version
+    import platform
+
+    from scripts import web_tools
+    text = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
+    jobs = re.split(r"(?m)^  ([\w-]+):\n", text.split("\njobs:\n", 1)[1])
+    cached = []
+    for name, job in zip(jobs[1::2], jobs[2::2]):
+        steps = re.split(r"(?m)^      - ", job)[1:]
+        fetches = [at for at, step in enumerate(steps)
+                   if "        run: uv run --locked python scripts/web_tools.py\n" in step]
+        if not fetches:
+            continue
+        [at] = fetches
+        key, restore, save = steps[at - 2], steps[at - 1], steps[at + 1]
+        assert "id: web-tools\n" in key and \
+            'run: uv run --locked python scripts/web_tools.py --cache >> "$GITHUB_OUTPUT"\n' in key, name
+        assert "id: web-cache\n" in restore and "uses: actions/cache/restore@" in restore, name
+        assert "if: steps.web-cache.outputs.cache-hit != 'true'\n" in save and "uses: actions/cache/save@" in save, name
+        assert restore.endswith(f"with:\n{WEB_CACHE}") and re.sub(r"(?m)^ *#.*\n", "", save).endswith(
+            f"with:\n{WEB_CACHE}"), name
+        assert not [s for s in steps[:at + 2] if re.search(r"secrets\.|TIER_ROOM|\.iso\b", s)], name
+        cached.append(name)
+    assert cached == ["pure", "vanilla"]
+    caches = [f"{path.name}: {use}" for path in sorted(WORKFLOWS.glob("*.yml"))
+              for use in USES.findall(path.read_text(encoding="utf-8")) if use.startswith("actions/cache")]
+    assert len(caches) == 4 and all(use.startswith("tests.yml: actions/cache/") for use in caches), caches
+    made = web_tools.cache(ROOT)
+    assert {(ROOT / made[name]).resolve() for name in ("pyodide", "browsers")} == {
+        web_tools.pyodide_dir(ROOT).resolve(), web_tools.browsers_dir(ROOT).resolve()} and set(made) == {
+        "key", "pyodide", "browsers"}
+    assert {f"pyodide{web_tools.VERSION}", *web_tools.PACKAGES, f"playwright{version('playwright')}",
+            platform.machine()} <= set(made["key"].split("-")), made["key"]
 
 
 GITHUB_ED25519 ="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
