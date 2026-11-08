@@ -136,7 +136,7 @@ import azurkit
 from azurkit import sdk
 from azurkit.core import iso, native, progress
 from azurkit.tools import characters
-from azurkit.tools.characters import pool
+from azurkit.tools.characters import parts, pool
 
 PIECE = "/tmp/azurkit-piece"
 VARIANTS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
@@ -286,14 +286,46 @@ class Kept:
         return {key: make if isinstance(make, bytes) else make() for key, make in put.items()} if made else {}
 
 
+class Parts(Kept):
+    """tools.characters.parts.STORE here (Step 4.6o): the parts this browser kept for a Check's recipe content
+    (IndexedDB's, checked() in this file), handed in with the Check, each let go of as it is taken (part_codec's: no
+    pickle, a stale one refused by name), and those its dress works out, made once its answer is out (the parts call)
+    and handed back with the keys of those it took, so the page keeps what that content's Check used."""
+
+    def __init__(self):
+        super().__init__()
+        self.took = []
+
+    def get(self, key):
+        found = self.offered.pop(key, None)
+        if found is not None:
+            self.took.append(key)
+        return found
+
+    def taken(self, made=True):
+        """The parts to keep, made, by key, and the keys of those taken; none kept after (one the codec refuses left
+        out: a part kept nowhere is worked out again)."""
+        took, put, out = self.took, self.made or {}, {}
+        self.took, self.offered, self.made = [], {}, None
+        for key, make in put.items() if made else ():
+            try:
+                out[key] = make if isinstance(make, bytes) else make()
+            except ValueError:
+                pass
+        return {"made": out, "taken": took}
+
+
 KEPT = characters.CACHE = Kept()
-BUILDING = ("build", "ahead", "hash", "hashed", "spoiler", "kept")   # a build's own asks (build()), its kept ask last
+PARTS = parts.STORE = Parts()
+BUILDING = ("build", "ahead", "hash", "hashed", "spoiler", "kept", "parts")   # a build's own asks (build()), its kept
+# asks last
 
 
 def engine(request):
     LAST.clear()
     if request.type not in BUILDING:
         KEPT.taken(made=False)
+        PARTS.taken(made=False)
 
     def js(value):
         return to_js(handed(value), dict_converter=Object.fromEntries, create_pyproxies=False)
@@ -306,6 +338,8 @@ def engine(request):
         return js({})
     if request.type == "kept":   # after a build's answer: what it worked out to keep, made now
         return js(KEPT.taken())
+    if request.type == "parts":   # after a Check's answer: the parts it took, and those it worked out, made now
+        return js(PARTS.taken())
     if request.type == "content":
         return js({"dropped": kept(request.files, json.loads(JSON.stringify(getattr(request, "installed", None))
                                                              or "null"))})
@@ -321,9 +355,11 @@ def engine(request):
                 given["iso"] = mounted
             call = getattr(sdk, request.type)
             if request.type == "variant_check":   # build()'s keeping: the dress this browser kept offered, its own kept
-                KEPT.made = {}
+                KEPT.made, PARTS.made = {}, {}
                 if offered := getattr(request, "kept", None):
                     KEPT.offered = {key: getattr(offered, key).to_bytes() for key in Object.keys(offered)}
+                if offered := getattr(request, "parts", None):   # and the parts kept for its content (Step 4.6o)
+                    PARTS.offered = {key: getattr(offered, key).to_bytes() for key in Object.keys(offered)}
             return js(call(given, progress=progressed) if request.type in BARRED else call(given))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
@@ -1024,15 +1060,25 @@ function character(loaded, data) {
 
 // Check with game data (Step 4.6c): the dress this browser kept for the edit offered, as build()'s (D1015: the engine
 // takes it only under its own key, by what the edit holds), and the one it works out kept after its answer, so a
-// Check of content dressed before, here or in a worker since, answers without dressing again.
+// Check of content dressed before, here or in a worker since, answers without dressing again. And its dress's parts
+// (Step 4.6o): those kept for the recipe's content offered (partsHint: no name, a copy's under any name), and the
+// ones it took and worked out kept after its answer, a refusal's too (a refusal itself is never a part).
 async function checked({ py, engine }, data) {
-  let hint = null;
+  let hint = null, parted = null;
   try {
     hint = text([ids.get(data.file) ?? null, data.type, data.given ?? null], true);
+    parted = partsHint(data.file, data.given);
   } catch {}   // a value JSON can't hold: nothing kept
-  const offered = hint && await dresses("readonly", (store) => store.get(hint)).catch(() => null);
-  const reply = mounted(py, data.file, (iso) => engine({ ...data, iso, ...(offered ? { kept: offered } : {}) }));
+  const [offered, parts] = await Promise.all([
+    hint && dresses("readonly", (store) => store.get(hint)).catch(() => null),
+    parted && partsOf(parted).catch(() => null)]);
+  const reply = mounted(py, data.file, (iso) => engine({ ...data, iso, ...(offered ? { kept: offered } : {}),
+                                                         ...(parts && Object.keys(parts).length ? { parts } : {}) }));
   post({ type: "reply", call: data.call, reply });
+  try {
+    const { made, taken } = engine({ type: "parts" });
+    if (parted && (taken.length || Object.keys(made).length)) await keepParts(parted, made, taken);
+  } catch {}   // parts not kept are parts worked out again
   if (!hint || "refused" in reply || reply.refusal) return;
   try {
     const kept = mounted(py, data.file, () => engine({ type: "kept" })), made = Object.keys(kept).length > 0;
@@ -1165,6 +1211,55 @@ const keep = (hint, kept) => dresses("readwrite", (store) => {   // kept null: a
     if (kept) store.put(kept, hint);
   };
   return order;
+});
+
+// The parts of Checks' dresses this browser keeps (Step 4.6o, the Check design's L2): each part (part_codec's bytes,
+// the engine's Parts) once, under its key ("part"), and for each recipe content's hint the keys its last Check took and
+// worked out ("hint": {keys, at}), so a copy of a variant under any name is offered what another's Check kept. The
+// engine takes a part only under its own key (what its stage reads, the code's digest): another's are a miss, never
+// another answer. PART_HINTS hints at most, the least recently checked dropped first with the parts no hint kept lists.
+const PARTS = "azurkit-parts", PART_HINTS = 8, LABELS = ["title", "notes"], SOUNDS = ["voice", "sfx", "wavs", "shouts"];
+// A Check's parts hint: the image and the recipe's content, its name, folder, labels and sounds left out (none reaches
+// a part); a built-in's by its name, its content.
+const partsHint = (file, { name, recipe } = {}) => text([ids.get(file) ?? null, recipe
+  ? Object.fromEntries(Object.entries(recipe).filter(([field]) => ![...LABELS, ...SOUNDS].includes(field))) : name],
+true);
+const parted = (mode, fn) => new Promise((resolve) => {   // the hints and parts; none where storage is refused
+  const opened = indexedDB.open(PARTS, 1);
+  opened.onupgradeneeded = () => ["hint", "part"].forEach((name) => opened.result.createObjectStore(name));
+  opened.onerror = () => resolve(null);
+  opened.onsuccess = () => {
+    const db = opened.result, done = db.transaction(["hint", "part"], mode);
+    const asked = fn(done.objectStore("hint"), done.objectStore("part"));
+    done.oncomplete = () => { db.close(); resolve(asked); };
+    done.onerror = done.onabort = () => { db.close(); resolve(null); };
+  };
+});
+const partsOf = (hint) => parted("readonly", (hints, stored) => {   // {key: bytes} kept for the hint
+  const found = {}, listed = hints.get(hint);
+  listed.onsuccess = () => {
+    for (const key of listed.result?.keys ?? []) {
+      const one = stored.get(key);
+      one.onsuccess = () => { if (one.result) found[key] = one.result; };
+    }
+  };
+  return found;
+});
+const keepParts = (hint, made, taken) => parted("readwrite", (hints, stored) => {
+  for (const [key, bytes] of Object.entries(made)) stored.put(bytes, key);
+  hints.put({ keys: [...new Set([...taken, ...Object.keys(made)])], at: Date.now() }, hint);
+  const kept = [], walk = hints.openCursor();
+  walk.onsuccess = () => {
+    if (walk.result) {
+      kept.push([walk.result.key, walk.result.value]);
+      return walk.result.continue();
+    }
+    kept.sort((a, b) => b[1].at - a[1].at);
+    for (const [old] of kept.splice(PART_HINTS)) hints.delete(old);
+    const used = new Set(kept.flatMap(([, value]) => value.keys)), all = stored.getAllKeys();
+    all.onsuccess = () => all.result.filter((key) => !used.has(key)).forEach((key) => stored.delete(key));
+  };
+  return {};
 });
 
 async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character, community, files, picked }) {

@@ -692,7 +692,7 @@ def _taken(job, shared: tuple, lod: Lod):
     if (kept := parts.get(key, "cut")) is not None:
         return pickle.loads(kept)
     got = ahead[1].result()[0] if ahead is not None and ahead[0] == pickled else job(shared, lod)
-    kept = pickle.dumps(got, pickle.HIGHEST_PROTOCOL)
+    kept = parts.dump(got)
     parts.put(key, kept, len(kept))
     return got
 
@@ -746,7 +746,7 @@ def shadow_lod(characters_xbr: bytes, body: str, ratio: float = SHADOW_RATIO,
         raise ValueError(f"shadow LOD: {asset.name} has {len(asset.lods)} LODs, and its shadow draws its own LOD 1")
     asset.lods.append(_taken(_cut, (ratio, max_error), by_material(asset.lods[0], weld=True)))
     grown = write_asset(characters_xbr, asset)
-    kept = (parts.delta(characters_xbr, grown), pickle.dumps(asset.lods[1], pickle.HIGHEST_PROTOCOL))
+    kept = (parts.delta(characters_xbr, grown), parts.dump(asset.lods[1]))
     parts.put(key, kept, parts.size_of(kept[0]) + len(kept[1]))
     return grown, asset.lods[1]
 
@@ -774,7 +774,7 @@ def screen_lods(characters_xbr: bytes, body: str, ratios: Sequence[float],
     cuts = _taken(_chain, shared, by_material(asset.lods[0])) if ratios else []
     asset.lods[1:] = cuts
     grown = write_asset(characters_xbr, asset)
-    kept = (parts.delta(characters_xbr, grown), pickle.dumps(cuts, pickle.HIGHEST_PROTOCOL))
+    kept = (parts.delta(characters_xbr, grown), parts.dump(cuts))
     parts.put(key, kept, parts.size_of(kept[0]) + len(kept[1]))
     return grown, cuts
 

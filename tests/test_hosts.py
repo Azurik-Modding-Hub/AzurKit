@@ -2318,6 +2318,35 @@ def test_a_second_launch_of_the_app_hashes_no_image_it_checked_and_dresses_no_bo
         sdk._MATCHES.clear()
 
 
+def test_the_app_keeps_a_dress_parts_across_launches_in_its_signed_store_and_takes_them_at_the_next(tmp_path,
+                                                                                                  monkeypatch):
+    """Step 4.6o (the Check design's L2): the app's stores keep a dress's parts (``tools.characters.parts.STORE``)
+    in the swap kind, sealed under the install's key and written behind the answer, as ``part_codec``'s bytes (no
+    pickle in the entry); a later launch, holding none in its process, takes each from there, as it was kept."""
+    import pickle
+
+    from azurkit import store
+    from azurkit.app import swapcache
+    from azurkit.tools import characters
+    from azurkit.tools.characters import part_codec, parts
+
+    for module, name in ((gate, "STAMPS"), (characters, "CACHE"), (parts, "STORE")):
+        monkeypatch.setattr(module, name, None)
+    part = ((8192, None, b"\x01" * 4096), parts.dump({"rig": [-0.0, 2.5]}))
+    for launch in (1, 2):   # each its own stores on the same folders, nothing held in its process
+        swapcache.install(tmp_path / "cache", tmp_path / "cache.key")
+        parts.clear()
+        if launch == 1:
+            parts.put("W29:rig", part, 4105)
+            assert swapcache.settle()
+    got = parts.get("W29:rig")
+    assert (got[0], pickle.loads(got[1])) == (part[0], {"rig": [-0.0, 2.5]})
+    entry, = (tmp_path / "cache" / "swap").iterdir()
+    assert entry.name.startswith(parts._stored("W29:rig")) and entry.read_bytes()[store.HEAD:].startswith(
+        part_codec.MAGIC)
+    parts.clear()
+
+
 def test_the_apps_cache_folder_loads_only_what_this_install_wrote_there(tmp_path, monkeypatch):
     """SEC-4 (Step 4.3i): each file the app's stores write in the user cache
     folder (``app.swapcache``: the store's entries, the swap's pickled

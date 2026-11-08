@@ -71,6 +71,7 @@ export const KEPT = {
               ["azurkit-snapshot", "The engine's quick start (no image in it)"],
               ["azurkit-content", "Installed community content"],
               ["azurkit-dress", "Dressed characters (each build's, so the same one builds again quickly)"],
+              ["azurkit-parts", "Checked variants' parts (so a copy under any name checks again quickly)"],
               ["azurkit-variants", "Your saved variants (Export keeps a copy of one)"]],
 };
 

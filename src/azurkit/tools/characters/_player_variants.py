@@ -4255,7 +4255,7 @@ def restyled(before: bytes, after: bytes, first: int, body: str, variant: Varian
     if (kept := parts.get(key, "W28 arms" if arms else "W28 springs")) is not None:
         return parts.undelta(after, kept[0]), kept[1], pickle.loads(kept[2])
     grown, count, peaks = _restyled(before, after, first, body, variant, rigged, rates, drawn, arms)
-    kept = (parts.delta(after, grown), count, pickle.dumps(peaks, pickle.HIGHEST_PROTOCOL))
+    kept = (parts.delta(after, grown), count, parts.dump(peaks))
     parts.put(key, kept, parts.size_of(kept[0]) + len(kept[2]))
     return grown, count, peaks
 

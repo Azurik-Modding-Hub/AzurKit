@@ -21,12 +21,21 @@ refusal (which names the variant) is worked out again.
 A part's file is kept as the pages where it differs from the file the dress
 handed the stage (:func:`delta`), so a kept part holds no second copy of
 the 70 MB ``characters.xbr``; its objects (a mesh plan, a rig, the cuts)
-pickled, so each taker gets its own. The parts held are bounded by
+pickled (:func:`dump`), so each taker gets its own. The parts held are bounded by
 :data:`ROOM`, the least recently taken let go first, under :data:`LOCK`
 (the app's engine dresses on a thread a call, so two dresses may take and
 keep at once). The answer a part gives is the one the stage would work
 out, byte for byte: what a stage reads is all in its key, and the stage is
-a function of it."""
+a function of it.
+
+A host keeps them across visits too (Step 4.6o, the design's L2): each part
+kept is handed to :data:`STORE` as :mod:`.part_codec` keeps it (no pickle;
+a stale one refused by name), under its key and the code's digest
+(``characters._code()``, so another version's never answers), and a part
+this process doesn't hold is asked of it before it is worked out. The
+app's store is its signed ``swap`` kind, written behind the answer; the
+site's, the parts IndexedDB kept for a recipe's content, which the page
+offers with a Check and keeps after its answer."""
 
 from __future__ import annotations
 
@@ -43,7 +52,12 @@ ROOM = 256 << 20
 PAGE = 4096
 """The bytes a part's file is compared and kept in: each page that differs from the stage's input (:func:`delta`)."""
 HEARD: dict[str, dict[str, int]] | None = None
-"""A dict: each stage's parts taken (``hit``) and worked out (``miss``), by stage name (a test's, a measure's)."""
+"""A dict: each stage's parts taken (``hit``; ``stored``: of them, from :data:`STORE`) and worked out (``miss``), by
+stage name (a test's, a measure's)."""
+
+STORE = None
+"""A host's store of parts across visits (``get(key) -> bytes | None``, ``put(key, bytes or what makes them)``, made
+behind the answer), or ``None``: kept in this process only."""
 
 LOCK: contextlib.AbstractContextManager = contextlib.nullcontext()
 """Held over the kept parts by :func:`get`, :func:`held`, :func:`put` and :func:`clear`: none here (the engine holds
@@ -73,6 +87,16 @@ def digest(data: bytes) -> str:
     if build is not None and (known := build.vanilla.digest_of(data)) is not None:
         return known
     return hashlib.sha256(data).hexdigest()
+
+
+class Pickled(bytes):
+    """An object a part holds, pickled in this process (:func:`dump`): kept
+    across visits as the values it holds (:mod:`.part_codec`), never as a pickle."""
+
+
+def dump(obj: object) -> Pickled:
+    """``obj`` as a part holds it: its pickle, so each taker unpickles its own copy."""
+    return Pickled(pickle.dumps(obj, pickle.HIGHEST_PROTOCOL))
 
 
 def pickled(obj: object) -> str:
@@ -105,31 +129,70 @@ def stamps(folder: Path | None, files) -> tuple:
 def _heard(stage: str, how: str) -> None:
     if HEARD is not None:
         counts = HEARD.setdefault(stage, {"hit": 0, "miss": 0})
-        counts[how] += 1
+        counts[how] = counts.get(how, 0) + 1
+
+
+def _stored(name: str) -> str:
+    """The key :data:`STORE` keeps the part named ``name`` under: with the code's digest, so another version misses."""
+    from azurkit.tools import characters
+
+    return hashlib.sha256(f"part\0{characters._code()}\0{name}".encode()).hexdigest()
+
+
+def _fetch(name: str) -> tuple[object, int] | None:
+    """The part :data:`STORE` keeps under ``name`` (and its size), held in
+    this process again; ``None`` where it keeps none, or none this codec reads."""
+    from azurkit.tools.characters import part_codec
+
+    if STORE is None or (blob := STORE.get(_stored(name))) is None:
+        return None
+    try:
+        part, size = part_codec.decode(blob)
+    except (ValueError, TypeError):   # a stale or spoiled part: worked out again
+        return None
+    _hold(name, part, size)
+    return part, size
 
 
 def get(name: str, stage: str | None = None) -> object | None:
-    """The part kept under ``name``, or ``None`` (``stage``: heard as taken or not)."""
+    """The part kept under ``name``, here or in :data:`STORE`, or ``None``
+    (``stage``: heard as taken or not, and as taken from the store)."""
     with LOCK:
         found = None if OFF else _SLOTS.get(name)
         if found is not None:
             _SLOTS.move_to_end(name)
-        if stage is not None:
+    stored = found is None and not OFF and (found := _fetch(name)) is not None
+    if stage is not None:
+        with LOCK:
             _heard(stage, "miss" if found is None else "hit")
+            if stored:
+                _heard(stage, "stored")
     return None if found is None else found[0]
 
 
 def held(name: str) -> bool:
-    """Whether a part is kept under ``name`` (none taken, none heard)."""
+    """Whether a part is kept under ``name``, here or in :data:`STORE` (taken
+    into this process then; none heard)."""
     with LOCK:
-        return not OFF and name in _SLOTS
+        if OFF or name in _SLOTS:
+            return not OFF
+    return _fetch(name) is not None
 
 
 def put(name: str, part: object, size: int) -> None:
     """Keep ``part`` (``size`` bytes) under ``name``, letting the least
-    recently taken go past :data:`ROOM`; one larger than it is not kept."""
+    recently taken go past :data:`ROOM`, and hand it to :data:`STORE`; one
+    larger than :data:`ROOM` is not kept."""
     if OFF or size > ROOM:
         return
+    _hold(name, part, size)
+    if STORE is not None:
+        from azurkit.tools.characters import part_codec
+
+        STORE.put(_stored(name), lambda: part_codec.encode((part, size)))
+
+
+def _hold(name: str, part: object, size: int) -> None:
     with LOCK:
         if (old := _SLOTS.pop(name, None)) is not None:
             _HELD[0] -= old[1]
@@ -197,5 +260,5 @@ def size_of(part: tuple) -> int:
     return len(pages) + (0 if spans is None else spans.itemsize * len(spans))
 
 
-__all__ = ["HEARD", "LOCK", "OFF", "PAGE", "ROOM", "clear", "delta", "digest", "get", "held", "key", "pickled", "put",
-           "size_of", "stamps", "undelta"]
+__all__ = ["HEARD", "LOCK", "OFF", "PAGE", "ROOM", "STORE", "Pickled", "clear", "delta", "digest", "dump", "get",
+           "held", "key", "pickled", "put", "size_of", "stamps", "undelta"]

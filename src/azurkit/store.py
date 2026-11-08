@@ -7,7 +7,8 @@ A kind (:data:`KINDS`) keeps data only, in its own form: JSON (a value
 AZKP1 (bytes that begin with :data:`AZKP1`, the dress's answers), so
 reading an entry of either runs no code: the store never unpickles. One
 kind, ``swap``, keeps bytes it doesn't type: a dress's ``AZKP1`` plan and
-size (``tools.characters._kept``, no pickle) and the match and pictures
+size (``tools.characters._kept``, no pickle), its parts (``tools.characters.
+part_codec``'s, no pickle) and the match and pictures
 ``app.engine._kept`` pickles today, until those move to ``memos`` and
 ``pictures`` (JSON), the plans to ``dresses`` with them (the page's Storage
 lists ``swap``); then it goes. Until then the app's seal (an HMAC under the
@@ -64,7 +65,7 @@ KINDS: dict[str, tuple[str, str]] = {   # a kind -> (its form, what Storage says
     "dresses": ("azkp1", "The characters' dressed bodies"),
     "pictures": ("json", "The characters' pictures"),
     "memos": ("json", "The engine's small answers: a tracker's view, a restore, a tab's"),
-    "swap": ("bytes", "The characters' dressed bodies, pictures and G4 matches"),
+    "swap": ("bytes", "The characters' dressed bodies, a Check's parts, pictures and G4 matches"),
 }
 
 Seal = Callable[[bytes, bytes, bool], "bytes | None"]

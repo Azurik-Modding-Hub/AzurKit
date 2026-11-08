@@ -34,6 +34,7 @@ import http.client
 import http.server
 import json
 import os
+import pickle
 import re
 import shutil
 import socket
@@ -52,7 +53,7 @@ import pytest
 from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import characters, data, mods, randomizer
-from azurkit.tools.characters import pool
+from azurkit.tools.characters import parts, pool
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tables, web_tools
@@ -5731,6 +5732,7 @@ def _site_engine(monkeypatch, tmp_path):
     for module in (js, pyodide, ffi, pyodide_js):
         monkeypatch.setitem(sys.modules, module.__name__, module)
     monkeypatch.setattr(characters, "CACHE", characters.CACHE)   # each as it was after
+    monkeypatch.setattr(parts, "STORE", parts.STORE)
     monkeypatch.setattr(pool, "TICK", pool.TICK)
     engine = {"__name__": "worker"}
     exec((_page.WEB / "worker.mjs").read_text(encoding="utf-8").split("const ENGINE = `")[1].split("`;")[0], engine)
@@ -5770,6 +5772,36 @@ def test_the_site_engine_keeps_a_characters_build_dress_and_nothing_a_reshapes_p
     for x in (1.25, 1.4):
         assert ask("preview", recipe={"character": {"species": "booblord", "shapes": {"bust": x}}}) == {}
     assert ask("kept") == {}   # what the worker holds
+
+
+def test_the_site_engine_offers_a_check_the_parts_kept_for_its_content_and_hands_back_those_it_took_and_made(
+        monkeypatch, tmp_path):
+    """Step 4.6o (the Check design's L2): worker.mjs's engine, its Python run here under CPython, takes a Check's
+    dress's parts from those the page offers with it (``parts.STORE``, ``part_codec``'s bytes, each let go of as it is
+    taken) and, at the parts ask after its answer, hands back the keys of those it took and the ones it worked out,
+    made then; an ask but a build's own lets go of what it held, so nothing is kept outside a Check."""
+    from azurkit.tools.characters import part_codec
+
+    ask, took = _site_engine(monkeypatch, tmp_path), []
+    monkeypatch.setattr(sys.modules["js"].Object, "keys", lambda offered: list(vars(offered)), raising=False)
+
+    def check(given, progress=None):   # a dress: its mesh taken, its rig worked out
+        took.append(pickle.loads(parts.get("W24:mesh", "W24")[1]))
+        parts.put("W29:rig", (b"pages", parts.dump({"rig": [1.0]})), 9)
+        return {"refusal": None}
+    monkeypatch.setattr(sdk, "variant_check", check)
+    parts.clear()
+    mesh, rig = parts._stored("W24:mesh"), parts._stored("W29:rig")
+    offered = types.SimpleNamespace(**{mesh: types.SimpleNamespace(to_bytes=lambda: part_codec.encode(
+        ((b"", parts.dump({"plan": -0.0})), 4)))})
+    assert ask("variant_check", given={"name": "mine"}, parts=offered) == {"refusal": None}
+    kept = ask("parts")
+    assert (took, kept["taken"], list(kept["made"])) == ([{"plan": -0.0}], [mesh], [rig])
+    assert part_codec.decode(kept["made"][rig])[1] == 9
+    ask("variant_check", given={"name": "mine"})
+    ask("catalog")
+    assert ask("parts") == {"made": {}, "taken": []}
+    parts.clear()
 
 
 def test_the_site_engines_restore_reads_the_logic_before_the_page_is_ready_when_randomize_comes_back_on(

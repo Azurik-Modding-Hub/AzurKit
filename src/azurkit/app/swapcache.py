@@ -4,8 +4,9 @@ out: the images the gate vouched for (``core.gate.STAMPS``: one JSON file,
 ``stamps.json``, its newest :data:`STAMPS_KEPT` entries, so a picked image
 that hasn't changed isn't hashed again) and the store's kinds
 (:mod:`azurkit.store`, one folder a kind: the swap's answers,
-``tools.characters.CACHE``, in ``swap/``, so a body dressed once dresses
-from it), every kind's least recently used removed past one budget in all
+``tools.characters.CACHE``, and a dress's parts, ``tools.characters.parts.STORE``,
+in ``swap/``, so a body dressed once dresses from it, and a copy of it under
+another name from its parts), every kind's least recently used removed past one budget in all
 (:data:`azurkit.store.BUDGET`). Each is written whole or not at all (a part
 file renamed into place); a store that can't be read or written is a store
 that holds nothing, as remembering is a convenience. The keys are the
@@ -271,6 +272,22 @@ class Folder:
         self.kept.put("swap", key, data, now=missed is not None and time.monotonic() - missed >= LONG)
 
 
+class Parts:
+    """``tools.characters.parts.STORE``: a dress's parts kept across launches
+    (Step 4.6o), the ``swap`` kind of the app's store (``kept``, signed),
+    each made and written behind the answer: one a quit cuts short is a
+    part worked out again (seconds of a dress, not its minutes)."""
+
+    def __init__(self, kept: Kept):
+        self.kept = kept
+
+    def get(self, key: str) -> bytes | None:
+        return self.kept.get("swap", key)
+
+    def put(self, key: str, make: Callable[[], bytes]) -> None:
+        self.kept.put("swap", key, make)
+
+
 class Stamps:
     """``core.gate.STAMPS``: ``{key: the release's name}`` in one JSON file
     (its MAC's hex line under the key in ``key``, then the JSON), its newest
@@ -311,10 +328,13 @@ class Stamps:
 def install(folder: Path | None = None, key: Path | None = None) -> None:
     """Keep this process's stamps and the store's kinds in ``folder`` (the
     user cache folder's AzurKit folder), signed under the key in ``key``
-    (:func:`key_file`): the app's server and its engine process."""
+    (:func:`key_file`): the app's server and its engine process (the swap's
+    answers and a dress's parts, :class:`Parts`)."""
     from azurkit.core import gate
     from azurkit.tools import characters
+    from azurkit.tools.characters import parts
 
     folder = Path(folder) if folder else root()
     gate.STAMPS = Stamps(folder / "stamps.json", key)
     characters.CACHE = Folder(folder, key=key)
+    parts.STORE = Parts(characters.CACHE.kept)

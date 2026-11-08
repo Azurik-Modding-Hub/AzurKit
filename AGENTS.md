@@ -1044,7 +1044,20 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the app's engine sets (`parts.LOCK`: it dresses on a thread a call); a
     stage that raises keeps nothing, so a refusal is worked out again;
     `parts.OFF` dresses fresh, and `test_variant_editor.py` holds a copy's
-    Check to a fresh one.
+    Check to a fresh one. Across visits (Step 4.6o): each part kept is
+    handed to the host's `parts.STORE` as `tools/characters/part_codec.py`
+    keeps it (no pickle: `None`, numbers by their bits, strings, bytes,
+    containers, `array`/numpy arrays and the dataclasses of the modules a
+    part holds, by their fields, the lists and dicts held twice one again;
+    runs of numbers, nested rows, bytes, dicts and one frozen dataclass in
+    columns; zstd at level 3; a format, a class's fields or a class no
+    part holds refused by name), under its key and `characters._code()`,
+    and a part the process doesn't hold is asked of it first: the app's is
+    its signed `swap` kind written behind the answer
+    (`app.swapcache.Parts`), the site's the parts IndexedDB the page offers
+    a Check by its recipe's content (the worker's `Parts`, below). Its
+    objects stay pickles in the process (`parts.dump`'s `Pickled`), made
+    into the codec's only for the store.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload
@@ -1205,7 +1218,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   moved entry is a miss, never decoded). Its kinds keep JSON or AZKP1, never
   a pickle; `swap` keeps bytes: `characters._kept`'s (a size's hex, a plan
   as `AZKP1` at `characters.KEPT_LEVEL`, made on the writer's thread: about
-  7.9 MB for booblord's 110 MB pickle, Step 4.3r4i) and those `engine._kept`
+  7.9 MB for booblord's 110 MB pickle, Step 4.3r4i), a dress's parts
+  (`part_codec`'s, Step 4.6o: 28 MB for a booblord copy's 98 MB) and those `engine._kept`
   still pickles, until those move to `memos`/`pictures`, the plans to
   `dresses` with them (the page's Storage lists `swap`). One
   budget across the kinds (`store.BUDGET`, 5 GiB): a write past it removes
@@ -1710,7 +1724,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (IndexedDB, by the File's name, size and lastModified) for the next
   visit, and a character's dress too (D1067: `characters.CACHE` is the
   worker's `Kept`, IndexedDB's `azurkit-dress` by the build's hint, the
-  last 32; taken only under the engine's own key). A build's changed files are hashed there too (`sdk.image_staged`,
+  last 32; taken only under the engine's own key), and a Check's dress's
+  parts (Step 4.6o: `parts.STORE` is the worker's `Parts`, IndexedDB's
+  `azurkit-parts`, each part once by its key and each hint's keys, the
+  hint the image and the Check's recipe with its name, folder, labels and
+  sounds left out (a built-in's its name), the last 8 hints and the parts
+  they list; offered with the Check, each let go of as it is taken, and
+  those it took and worked out kept after its answer, a refusal's too). A build's changed files are hashed there too (`sdk.image_staged`,
   `edits.staged`), one at a time, each handed over only for its digest. It posts its start's steps, a kept image's walk and a build's, a
   plan's and a tracker's stages as `core/progress.py`'s record, and each build's answer reports the heap,
   by which the pool keeps the worker or replaces it. A worker whose engine's wasm traps (Pyodide's fatal error: each

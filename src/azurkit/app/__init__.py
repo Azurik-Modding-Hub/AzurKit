@@ -485,7 +485,8 @@ def kept() -> list[tuple[str, str, Path]]:
     from platformdirs import user_data_path
     return [("settings", "Your setup, theme, tracker marks, Content from and the last image's path", _config()),
             ("stamps", "The images AzurKit checked (each one's path, size and times)", swapcache.root() / "stamps.json"),
-            ("swap", "The characters' dressed bodies, pictures and G4 matches", swapcache.root() / "swap"),
+            ("swap", "The characters' dressed bodies, a Check's parts, pictures and G4 matches",
+             swapcache.root() / "swap"),
             ("content", "Installed community content", user_data_path("AzurKit", appauthor=False) / "content"),
             ("logs", "Each build's log (its recipe and report, or why it failed)", logs.folder())]
 

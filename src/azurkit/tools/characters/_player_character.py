@@ -7434,7 +7434,7 @@ def size_shape(iso: Path, species: str, mode: str = DEFAULT_MODE, size: str = DE
                       1.0 if scale is None else scale,
                       mode == "garret4")
     if key is not None:
-        kept = pickle.dumps(found, pickle.HIGHEST_PROTOCOL)
+        kept = parts.dump(found)
         parts.put(key, kept, len(kept))
     return found
 
@@ -9013,7 +9013,7 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
             if placing is not None:   # the parent's refusal first, as when its places came first
                 placing.result()
             raise
-        kept = (parts.delta(current, edited), pickle.dumps(reshaped, pickle.HIGHEST_PROTOCOL))
+        kept = (parts.delta(current, edited), parts.dump(reshaped))
         parts.put(keys[0], kept, parts.size_of(kept[0]) + len(kept[1]))
     _progress.note("the mesh")
     if placing is not None:
@@ -9031,7 +9031,7 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
         rigged = jiggles.rig(edited, stored, body, variant.jiggle, variant.mesh, folder, asset=assembled, at=at,
                              late=reshaped.late if reshaped is not None else None)
     if rig is None:
-        kept = (parts.delta(current, edited), pickle.dumps(rigged, pickle.HIGHEST_PROTOCOL))
+        kept = (parts.delta(current, edited), parts.dump(rigged))
         parts.put(keys[1], kept, parts.size_of(kept[0]) + len(kept[1]))
     if variant.jiggle is not None:
         _progress.note("the springs")
