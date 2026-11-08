@@ -380,10 +380,13 @@ class _Slots:
         self.pool = sorted(loc for loc, lvl in logic.pool.items() if lvl not in db.stubs)
         self.vanilla = {loc: locs[loc]["item"] for loc in self.pool}
         rows = logic.location_rows
-        on = {pick_of(sid, logic.skip_tables) for sid in skips_on(settings or db.defaults, logic.skip_tables)}
+        st = settings or db.defaults
+        on = {pick_of(sid, logic.skip_tables) for sid in skips_on(st, logic.skip_tables)}
         marks = {loc: rows[loc]["proven"] for loc in self.pool if "proven" in rows.get(loc, {})}
-        # AZ-725: a route mark that a skip these options turn on outdoes holds then only for its ``only`` items
-        self.only = {loc: frozenset(pv.get("only", ())) for loc, pv in marks.items() if on & set(pv.get("unless", ()))}
+        # AZ-725: a route mark that a skip these options turn on outdoes holds then only for its ``only`` items, and
+        # so does every mark with an ``unless`` while they count the save-point warp, a term of each (Logic.without)
+        self.only = {loc: frozenset(pv.get("only", ())) for loc, pv in marks.items()
+                     if (unless := set(pv.get("unless", ()))) and (st.save_warp or on & unless)}
         self.proven = frozenset(loc for loc in marks if self.only.get(loc, True))
         locks = {gid for gid, (_, kind, _) in db.generated_objects.items() if kind == "obsidian_locks"}
         self.vault = frozenset(loc for loc in self.pool if set(locs[loc].get("gated_by", ())) & locks)

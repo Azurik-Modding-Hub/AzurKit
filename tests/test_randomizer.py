@@ -607,7 +607,9 @@ def test_the_save_warp_counted_frees_the_traps_a_save_platform_leaves_and_rides_
     no region. Counted, the vanilla placement's a3 and a5 platform rooms are no traps; a plan of it verifies, names
     it in its spoiler and reads back; share version 5 and a file carry it (written only when on), its options byte
     refused when unknown; a build applying qol_save_warp plans with it, settings counting it without the pack are
-    refused, and the tracker reads it. Off, plans are as before (the goldens; the eighty plans' test)."""
+    refused, and the tracker reads it. Off, plans are as before (the goldens; the eighty plans' test). D169 holds
+    under it: the warp gives power_water's hose-pool spot a way out at water 0, so, a term of its route mark's
+    unless (AZ-725), counted it holds that spot for water alone below the firewall skip's ceiling."""
     logic = kept_logic()
     skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
     shim = (Path(mods.__file__).parent / "shims" / "qol_save_warp.c").read_text(encoding="utf-8")
@@ -623,8 +625,14 @@ def test_the_save_warp_counted_frees_the_traps_a_save_platform_leaves_and_rides_
     on = dataclasses.replace(logic.db.defaults, save_warp=True)
     vanilla = logic.vanilla_placement()
     assert {"a3_z002", "a5_z021"} <= logic.reach(logic.db.defaults, vanilla).traps - logic.reach(on, vanilla).traps
+    pool, pv = "w2/g0/r1346", logic.location_rows["w2/g0/r1346"]["proven"]
+    _, kin, kout = logic.route_walks({pool})[pool]
+    lenient = dataclasses.replace(logic.without(pv["unless"]), save_warp=True)
+    assert "holding water 0" in logic.kit_short(pool, kin, kout, lenient)[1]
+    slots = fill._Slots(logic, dataclasses.replace(on, skip_ceiling=2))
+    assert slots.holds(pool, "power_water") and not slots.holds(pool, "power_earth")
 
-    table = {"format": "azurik-rando-settings/1", "skip_ceiling": 0, "movement_tier": "standard", "dark_fire": 1}
+    table ={"format": "azurik-rando-settings/1", "skip_ceiling": 0, "movement_tier": "standard", "dark_fire": 1}
     doc = randomizer.plan({"seed": "2", "settings": table | {"save_warp": True}})
     plan = load_plan(doc, logic.db)
     assert doc["settings"]["save_warp"] is True and plan.settings == on and not fill.verify(logic, on, plan.placement)

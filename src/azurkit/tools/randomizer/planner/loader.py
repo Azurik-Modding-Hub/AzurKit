@@ -255,8 +255,8 @@ def proof_problem(pv, by=PROVEN_BY) -> str | None:
         return f'not {{ by = {" | ".join(map(repr, by))}, ref = "..." }}'.replace("'", '"')
     if pv.keys() - {"by", "ref"} and (pv["by"] != "route" or not _names(pv.get("unless"))
                                       or ("only" in pv and not _names(pv["only"]))):
-        return ("only a by-route mark names the skips it needs off (unless, a list of picks) and the items it holds "
-                "for with them on (only, a list; AZ-725)")
+        return ("only a by-route mark names the skips it needs off (unless, a list of picks or save_warp) and the "
+                "items it holds for with them on (only, a list; AZ-725)")
     if pv["by"] == "l3" and not pr.REF.fullmatch(pv["ref"]):
         return "an l3 ref is <sitting>/<input string sha12>@<snapshot meta sha12> (D170)"
     return None

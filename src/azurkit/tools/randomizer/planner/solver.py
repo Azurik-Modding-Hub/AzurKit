@@ -65,6 +65,9 @@ The return gets no edge: an escape returns to the platform its own ritual
 stored, which that closure already holds, and the reach is monotone, so a
 return lands only where it was (a stored point the closure didn't set is
 history the escape can't count on). A platform with no node gets no edge.
+D169's checks count it as they count the skips: a mark holds under it, or
+(a route mark with an ``unless``) only for its ``only`` items
+(:meth:`Logic.without`).
 
 **The cost** (plan §2.13): a backward search from the start, in which an
 edge is passable on the items held and the flags its own source node can
@@ -108,6 +111,8 @@ from azurkit.tools.randomizer.planner.settings import (
 
 Rule = Callable[[Mapping[str, int], Container[str]], bool]
 MAX_SETTINGS = Settings(4, "frame_perfect", {})   # every in-logic skip on, every player tier's edge usable
+MAX_WARP = replace(MAX_SETTINGS, save_warp=True)  # and the save-point warp counted: D169's most lenient options
+WARP_TERM = "save_warp"                           # a by-route mark's unless term for the warp (AZ-725; no skip's pick)
 TRICK_FREE = Settings(0, "frame_perfect", {})     # no skip, every player tier's edge usable
 SWITCH = "(on) "                                  # a switchable option set's flag for a skip it turns on: this, its id
 STRICTEST = Settings(0, "safe", {})               # no skip, the safe tier (rule 10's options)
@@ -1044,13 +1049,15 @@ class Logic:
         entry, and the spot is proven when :meth:`kit_short` finds no kit the
         logic collects it with that holds less: under the most lenient
         options with the mark's ``unless`` picks off, and with them on for
-        each of its ``only`` items (AZ-725, :meth:`route_terms`)."""
+        each of its ``only`` items (AZ-725, :meth:`route_terms`). The
+        save-point warp counted is one of those options, a term of every
+        ``unless`` (:meth:`without`)."""
         if walk is None:
             return "route.toml collects it at no step that replayed ok"
         unless, only = pv.get("unless", []), pv.get("only", [])
-        picks = {pick_of(s, self.skip_tables) for s in skips_on(MAX_SETTINGS, self.skip_tables)}
+        picks = {pick_of(s, self.skip_tables) for s in skips_on(MAX_SETTINGS, self.skip_tables)} | {WARP_TERM}
         if bad := sorted(set(unless) - picks):
-            return f"its unless names no in-logic skip's pick: {', '.join(bad)}"
+            return f"its unless names no in-logic skip's pick or {WARP_TERM}: {', '.join(bad)}"
         if bad := sorted(set(only) - {it["name"] for it in self.db.items["item"] if it["class"] == "progression"}):
             return f"its only names no progression item: {', '.join(bad)}"
         step, kin, kout = walk
@@ -1062,10 +1069,14 @@ class Logic:
                         f"and {kout.get(bad[0], 0)} leaving")
 
     def without(self, picks: Iterable[str]) -> Settings:
-        """The most lenient options with ``picks`` (D275's: a batch's id or a
-        lone skip's) toggled off."""
+        """The most lenient options (:data:`MAX_WARP`) with ``picks`` (D275's:
+        a batch's id or a lone skip's) off, and the save-point warp with them
+        when there are any: a way out of any save platform, it is a term of
+        every mark's ``unless`` (AZ-725), named (:data:`WARP_TERM`) only by a
+        mark the warp alone outdoes."""
+        picks = list(picks)
         return Settings(MAX_SETTINGS.skip_ceiling, MAX_SETTINGS.movement_tier,
-                        dict.fromkeys(picks, False))
+                        {p: False for p in picks if p != WARP_TERM}, save_warp=not picks)
 
     def route_terms(self, loc: str, kin: Mapping[str, int],
                     kout: Mapping[str, int]) -> tuple[list[str], list[str]] | None:
@@ -1076,7 +1087,8 @@ class Logic:
         items it still holds for with all of them on (an item whose counts
         give the walk's own way out); None when it fails with every skip off
         too. So a skip changes no mark below its own tier."""
-        picks = sorted({pick_of(sid, self.skip_tables) for sid in skips_on(MAX_SETTINGS, self.skip_tables)})
+        picks = [*sorted({pick_of(sid, self.skip_tables) for sid in skips_on(MAX_SETTINGS, self.skip_tables)}),
+                 WARP_TERM]
         if self.kit_short(loc, kin, kout, self.without(picks)):
             return None
         unless = list(picks)
@@ -1087,7 +1099,7 @@ class Logic:
         return unless, [x for x in prog if not self.kit_short(loc, kin, kout, items=(x,))]
 
     def kit_short(self, loc: str, kin: Mapping[str, int], kout: Mapping[str, int] | None = None,
-                  settings: Settings = MAX_SETTINGS, items: Iterable[str] | None = None) -> tuple[str, str] | None:
+                  settings: Settings = MAX_WARP, items: Iterable[str] | None = None) -> tuple[str, str] | None:
         """Whether a walk that reached pool location ``loc`` holding the
         counters ``kin`` and left it holding ``kout`` (by default ``kin`` and
         the spot's vanilla item: an L3 string from a new game holding its
@@ -1096,9 +1108,9 @@ class Logic:
         ``kin`` on the way in, or less than ``kout`` on the way out (its
         escape picks up whatever progression item is put there), else (the
         counter, why). It is checked under ``settings``, by default the most
-        lenient options (every in-logic skip, every movement tier: a mark
-        holds whatever the user sets; a route mark may hold only with some
-        skips off, AZ-725: :meth:`route_terms`), with ``items`` the only
+        lenient options (every in-logic skip, every movement tier, the
+        save-point warp: a mark holds whatever the user sets; a route mark
+        may hold only with some skips off, AZ-725: :meth:`route_terms`), with ``items`` the only
         progression items the spot may hold (default: any), one counter at
         a time and in the logic's own bands (a count
         matters only at the thresholds the logic compares it with): every
@@ -1113,7 +1125,7 @@ class Logic:
             self._add(collections.Counter(), kout, *self.vanilla[loc])
         st, memo = settings, self._kit_memo
         reads, opts = self.reads(st), (st.skip_ceiling, st.movement_tier,
-                                       tuple(sorted(st.skip_override.items())))
+                                       tuple(sorted(st.skip_override.items())), st.save_warp)
         every = {it["name"]: self.items[it["name"]] for it in self.db.items["item"] if it["class"] == "progression"}
         prog = every if items is None else {name: every[name] for name in items}
         if loc in self.prefilled:
