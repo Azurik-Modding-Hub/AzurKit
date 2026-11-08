@@ -19,10 +19,10 @@ owner action (Modkit's Step 2.13c, ported in Step 4.11d2). Stdlib only but
   ``ghidra-serve/<port>/`` in the user cache folder (:func:`state_root`;
   copies can be made again), run with the ``.tools`` Ghidra
   (:func:`tools_dir`). Not under ``.tools``: Ghidra refuses a project path
-  with a folder whose name starts with ``.``, which also rules out a cache
-  folder under a hidden one (Linux's ``~/.cache``: there ``start`` refuses
-  by name). A busy port is refused, naming what answers there (Q200: no
-  fallback). Refusals write nothing.
+  with a folder whose name starts with ``.``, so a cache folder under a
+  hidden one (Linux's ``~/.cache``) gives way to the main checkout's
+  ``out/``, Modkit's place. A busy port is refused, naming what answers
+  there (Q200: no fallback). Refusals write nothing.
 - **Detached** in its own process group; :func:`stop` touches the stop
   file, then kills the group. A failed or interrupted start kills it, and
   a failure raises with the log's tail (D35).
@@ -97,9 +97,14 @@ def headless_exe() -> Path:
 def state_root() -> Path:
     """The serves' state, ``ghidra-serve/`` in the user cache folder (beside
     ``ghidra-apply/``'s work): copies and Ghidra's settings, never a tracked
-    path."""
+    path. Ghidra refuses a project under a folder whose name starts with
+    ``.``, so where the cache is under one (Linux's ``~/.cache``) it is the
+    main checkout's ``out/``, as Modkit's was (git ignores it)."""
     from platformdirs import user_cache_path
-    return user_cache_path("AzurKit", appauthor=False) / "ghidra-serve"
+    cache = user_cache_path("AzurKit", appauthor=False)
+    if any(part.startswith(".") for part in cache.parts):
+        cache = _main_checkout() / "out"
+    return cache / "ghidra-serve"
 
 
 def _read_json(path: Path) -> dict | None:
@@ -450,8 +455,9 @@ def main(argv: list[str]) -> int:
         prog="python -m devkit re ghidra-serve",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Copies the project (reading it only) into ghidra-serve/<port>/ in the user cache folder and\n"
-            "serves the copy with .tools' Ghidra over the stock GhydraMCP HTTP API on 127.0.0.1, so the\n"
+            "Copies the project (reading it only) into ghidra-serve/<port>/ in the user cache folder (the\n"
+            "main checkout's out/ where that is hidden, as on Linux) and serves the copy with .tools'\n"
+            "Ghidra over the stock GhydraMCP HTTP API on 127.0.0.1, so the\n"
             "ghidra-* verbs (--port N) and the bridge (instances_use(N)) work with no owner action. Nothing\n"
             "can be saved: HTTP writes stay in memory (status says dirty) and vanish at stop. A busy port\n"
             "is refused, naming what answers there."),

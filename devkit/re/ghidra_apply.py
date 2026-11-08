@@ -116,7 +116,8 @@ def _headless(program: str, work: Path) -> Runner:
 
 def _work(work_root: Path | None) -> tempfile.TemporaryDirectory:
     """A temporary folder for one verb's copies and Ghidra settings, under
-    ``ghidra-apply/`` beside the serves' state in the user cache."""
+    ``ghidra-apply/`` beside the serves' state (:func:`.ghidra_serve.state_root`:
+    the user cache, or the main checkout's ``out/`` where the cache is hidden)."""
     if work_root is None:
         from .ghidra_serve import state_root
         work_root = state_root().parent / "ghidra-apply"

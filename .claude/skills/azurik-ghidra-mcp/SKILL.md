@@ -118,7 +118,8 @@ its path is the owner's and never written in a tracked file. Pass it as
    ghidra-serve start --project "<the .gpr>" [--port N]` copies the project
    (reading it only; it may copy while the GUI holds it, checking the
    content fingerprint before and after) into `ghidra-serve/<port>/` in the
-   user cache folder and serves it read-only on 127.0.0.1 (not under
+   user cache folder (the main checkout's `out/` where that is hidden, as
+   on Linux) and serves it read-only on 127.0.0.1 (not under
    `.tools`, and not under a hidden folder: Ghidra refuses a project path
    with a dot-folder). `GET /program`'s `programId` is
    `AzurikServe:/default.xbe` for a serve's copy and `Azurik
@@ -243,6 +244,7 @@ opens a live Ghidra. The stock bridge is upstream code with no tests here.
   need it (§1).
 - `ghidra-apply --apply` writes the real project: only after reading its
   dry run, with Ghidra closed, `--project` naming it (§2).
-- A Linux user cache under `~/.cache` is a hidden folder Ghidra refuses:
-  `ghidra-serve start` says so (a known limit; macOS's and Windows' caches
-  are fine).
+- Ghidra refuses a project under a hidden folder, so where the user cache
+  is one (Linux's `~/.cache`) the serves' copies and `ghidra-apply`'s work
+  go to the main checkout's `out/` (Modkit's place; git ignores it); a
+  checkout under a hidden folder is refused by name.

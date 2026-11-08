@@ -27,6 +27,8 @@ movies/
 
 # Tools fetched for the tests (Pyodide: scripts/web_tools.py), shared by every lane
 /.tools/
+# devkit's Ghidra serves' copies and ghidra-apply's work where the user cache is hidden (Linux)
+/out/
 
 # The checked randomizer database the wheel's and the app's builds ship (dbcache.ship): generated, never in the tree
 /src/azurkit/tools/randomizer/shipped/

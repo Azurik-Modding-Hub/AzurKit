@@ -899,6 +899,21 @@ def serve(tmp_path, monkeypatch):
     ghidra_serve.stop(port, root, timeout=30)
 
 
+def test_serves_and_apply_work_outside_a_hidden_user_cache_ghidra_would_refuse(tmp_path, monkeypatch):
+    """Ghidra refuses a project under a folder whose name starts with ``.``:
+    under Linux's hidden ``~/.cache`` the serves' state and ghidra-apply's
+    work go to the main checkout's ``out/``, as Modkit's did; a user cache
+    that isn't hidden (macOS's, Windows') keeps them."""
+    import platformdirs
+    monkeypatch.setattr(ghidra_serve, "_main_checkout", lambda: tmp_path / "main")
+    for cache, root in ((tmp_path / "home" / ".cache" / "AzurKit", tmp_path / "main" / "out"),
+                        (tmp_path / "Caches" / "AzurKit", tmp_path / "Caches" / "AzurKit")):
+        monkeypatch.setattr(platformdirs, "user_cache_path", lambda *_, at=cache, **__: at)
+        assert ghidra_serve.state_root() == root / "ghidra-serve"
+        with ghidra_apply._work(None) as work:
+            assert Path(work).parent == root / "ghidra-apply"
+
+
 def test_a_serve_reuses_its_copy_only_while_the_project_and_the_copy_are_unchanged(tmp_path, monkeypatch):
     """Q202: the copy is reused only while the project and the copy both
     match its stamp, and the project is only ever read. A project that
