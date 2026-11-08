@@ -893,7 +893,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     remembered setup wear one by name (a link with its sha12, Q174); each
     key an answer for a character is kept under (`characters.cache_key`,
     `app.ahead.key`, the sdk's dresses) stands on what a build of yours
-    reads (`library.stamp`: its folder's recipe and files by sha256). The
+    reads (`library.stamp`: its folder's recipe and files by sha256), and
+    a recipe file's on what it holds (`library.file_stamp`), never its
+    path. The
     Characters view lists them as its Yours group (`custom`). Its checks
     are `tests/test_variant_library.py`'s, one a build of the probe variant
     saved as yours, its golden's file for file.
@@ -938,11 +940,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     reads a recipe file, every refusal by name. `sdk.variant_check`
     (Check with game data, a bar op) dresses it as a build does (its
     recipe written beside its files as a hidden file the dress's
-    `variant_file` names, removed after) and keeps that dress before its
-    colours for the process (one, as `_DRESSED`; the app's in its
-    engine, `engine.JOBS`), on which `variant_colours` (the live
-    recolour), `variant_preview` (the Shape tab's quick preview, no
-    dress), `variant_rows` and `export_pngs` stand; `add_png`, `add_wav`,
+    `variant_file` names, removed after; yours as saved by name, as its
+    Build dresses it, so the two keep one dress) and keeps that dress
+    before its colours for the process (one, as `_DRESSED`; the app's in
+    its engine, `engine.JOBS`) with its answer: a Check of what it
+    checked last, unchanged (`sdk._check_key`, by content), answers at
+    once, and a dress kept before (`characters.cache_key`; the site's
+    worker keeps a Check's dress in IndexedDB as `build()` keeps a
+    build's) is taken, so only new content dresses (D1015, D999). On it
+    stand `variant_colours` (the live recolour), `variant_preview` (the
+    Shape tab's quick preview, no dress), `variant_rows` and
+    `export_pngs`; `add_png`, `add_wav`,
     `base_bones`, `own_sounds`, `kit_throw` and `move_sources` need no
     dress. The library's calls stand on Step 4.6a's library (Step 4.6c):
     `sdk.variants` (the list: built-ins, yours with each refusal, the
@@ -1469,7 +1477,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     work ahead's key counts each handoff. The Models view lists yours as
     its Yours group (`#char-custom`) with Edit… on a chosen variant.
     `tests/test_variant_library.py`, `test_site.py` and `test_hosts.py`
-    hold it; `tests/_perf.py`'s A87-A92 and S73-S78 time it.
+    hold it; `tests/_perf.py`'s A87-A93 and S73-S79 time it.
   - **The Data tab** (Step 4.7a, `web/data.mjs`; D986, Modkit's Game Data
     editor): config.xbr's cells before an image (`sdk.data`, from the
     vanilla file `tools/data` ships): the Player, Critter, Item, Armor and

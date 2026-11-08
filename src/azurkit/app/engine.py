@@ -227,7 +227,7 @@ def _kept(job: str, fn: Callable[[Mapping, Callable | None], dict]) -> Callable[
         if characters.CACHE is not None and isinstance(recipe, Mapping) and isinstance(recipe.get("iso"), str):
             try:
                 stamp = gate.vouched(recipe["iso"], whole=False)
-                if stamp is not None:   # a recipe file's character (variant_file) is never kept: cache_key's None
+                if stamp is not None:   # a recipe file's character (variant_file) by what it holds: cache_key's
                     key = characters.cache_key(job, characters.normalize(recipe.get("character")), stamp.release,
                                                extra=recipe.get("packs"))
             except (OSError, ValueError, TypeError):

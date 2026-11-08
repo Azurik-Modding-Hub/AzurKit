@@ -97,7 +97,7 @@ behind the answer: the app's, in its user cache), or ``None`` (each is
 worked out again): :func:`size` and :func:`plan` keep theirs under
 :func:`cache_key`, a size as ``float.hex``'s text and a plan as ``AZKP1``
 (:mod:`.shipped`'s, at :data:`KEPT_LEVEL`), never a pickle; a recipe file's
-(``variant_file``) never."""
+(``variant_file``) by what it holds (``library.file_stamp``)."""
 KEPT_LEVEL = 3
 """A kept plan's zstd level: booblord's 117 MB of changes in 7.9 MB and 0.26 s behind the answer (the shipped
 files' 19 takes about 11 s for 6.6 MB; a pickle 110 MB)."""
@@ -129,16 +129,23 @@ def cache_key(what: str, recipe: Mapping, release: gate.Release, before: Sequenc
     ``release`` over the layers ``before`` (each one's recipe, changes and
     claims), with ``extra`` (the size the walk and roll were folded with),
     the content folder's ``installed.json`` and, for a variant of yours,
-    what its build reads (``library.stamp``); ``None`` without a
-    :data:`CACHE`, or for a recipe file's character."""
+    what its build reads (``library.stamp``), for a recipe file's
+    character what the file holds (``library.file_stamp``), never its
+    path; ``None`` without a :data:`CACHE`, or a recipe file it can't read."""
     from azurkit.tools.characters import content as kit
     from azurkit.tools.characters import library
 
-    if CACHE is None or "variant_file" in recipe:
+    if CACHE is None:
         return None
+    if "variant_file" in recipe:   # by what the file holds, not where it is (the editor's Check writes one a call)
+        if (own := library.file_stamp(recipe["variant_file"])) is None:
+            return None
+        recipe = {**recipe, "variant_file": True}
+    else:
+        own = library.stamp(recipe["species"])
     h = hashlib.sha256(json.dumps([what, _code(), release.name, release.iso_sha256, recipe, extra, kit.installed()],
                                   sort_keys=True, default=str).encode())
-    if (own := library.stamp(recipe["species"])) is not None:
+    if own is not None:
         h.update(own.encode())
     for la in before:
         h.update(json.dumps([la.id, la.tool, la.kind, la.recipe, [(c.file, c.offset, c.before, c.group, c.whole)

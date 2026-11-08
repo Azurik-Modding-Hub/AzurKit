@@ -8,6 +8,7 @@ the rows' PNG round trip."""
 
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
 import json
 import math
@@ -21,7 +22,7 @@ from azurkit import sdk
 from azurkit.app import engine
 from azurkit.core import iso
 from azurkit.tools import characters
-from azurkit.tools.characters import _player_variants, colour_preview
+from azurkit.tools.characters import _player_variants, colour_preview, library
 from azurkit.tools.randomizer import art
 from tests import _hosts
 
@@ -155,6 +156,39 @@ def test_a_check_dresses_a_built_in_and_one_it_cant_dress_still_lists_its_bases_
     cant = sdk.variant_check(_given(usa_iso, tmp_path, glb))
     assert str(tmp_path / "mine" / "body.glb") in cant["refusal"]
     assert cant["bones"] == sdk.base_bones({"iso": str(usa_iso), "species": "town_female_2"})["bones"]
+
+
+def test_a_check_of_content_checked_before_answers_from_what_it_kept(usa_iso, tmp_path, monkeypatch):
+    """Check with game data keeps by content (D1015): the same edit checked again answers at once, and in a process
+    that kept its dress (another thread's call: another hidden recipe file) takes it by what the file dresses, its
+    log naming recipe.json, a title typed since too (no dress reads it); yours as saved, or but for its notes,
+    dresses by name, so its Build takes the Check's dress. Only new content (a scale moved) dresses again."""
+    kept, dressed = {}, []
+    store = type("Store", (), {"get": lambda _, key: kept.get(key),
+                               "put": lambda _, key, made: kept.__setitem__(key, made if isinstance(made, bytes)
+                                                                            else made())})
+    monkeypatch.setattr(characters, "CACHE", store())
+    monkeypatch.setattr(library, "ROOT", tmp_path / "library")
+    for name in ("_size", "_plan"):
+        work = getattr(characters, name)
+        monkeypatch.setattr(characters, name, lambda recipe, *a, _work=work, _name=name, **k: (
+            dressed.append((_name, recipe["species"])), _work(recipe, *a, **k))[1])
+    recipe = library.new("keylord")
+    given = _given(usa_iso, tmp_path, recipe)
+    first = sdk.variant_check(given)
+    assert sdk.variant_check(given) == first and dressed == [("_size", "mine"), ("_plan", "mine")]
+    sdk._CHECKED.clear()
+    with concurrent.futures.ThreadPoolExecutor(1) as other:
+        again = other.submit(sdk.variant_check, given).result()
+    assert again == first and len(dressed) == 2 and not any(".edit-" in line for line in again["log"])
+    assert sdk.variant_check(given | {"recipe": recipe | {"title": "Mine"}}) == first and len(dressed) == 2
+    library.save_as("yours", recipe)
+    yours = given | {"name": "yours", "folder": str(tmp_path / "library" / "yours")}
+    sdk.variant_check(yours)
+    sdk._plan({"iso": str(usa_iso), "packs": {}, "character": {"species": "yours"}})
+    sdk.variant_check(yours | {"recipe": recipe | {"notes": "kept"}})
+    sdk.variant_check(given | {"recipe": recipe | {"scale": 1.5}})
+    assert dressed[2:] == [("_size", "yours"), ("_plan", "yours"), ("_size", "mine"), ("_plan", "mine")]
 
 
 def test_the_quick_preview_puts_each_drawn_vertex_where_a_dress_at_those_values_does(usa_iso, tmp_path):

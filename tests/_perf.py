@@ -166,6 +166,7 @@ OPS = {op.id: op for op in (
     Op("A90", "Import a variant's zip", "characters", first=False),
     Op("A91", "Export a variant's zip (the Downloads folder)", "characters", first=False),
     Op("A92", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True),
+    Op("A93", "Check it again, unchanged (its answer kept by content, D1015)", "characters", first=False, content=True),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -237,6 +238,7 @@ OPS = {op.id: op for op in (
     Op("S76", "Import a variant's zip", "characters", first=False),
     Op("S77", "Export a variant's zip (the browser's download)", "characters", first=False, browser_bar=DOWNLOAD_BAR),
     Op("S78", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True),
+    Op("S79", "Check it again, unchanged (its answer kept by content, D1015)", "characters", first=False, content=True),
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
@@ -2140,6 +2142,7 @@ VAR_SAVED = f"() => {VAR_READ} && document.getElementById('var-status').textCont
 VAR_EDITED = f"() => {VAR_READ} && document.getElementById('var-status').textContent.includes('unsaved edits')"
 VAR_CHECKED = (f"() => {VAR_READ} && /checked: it builds|the check refused it/.test("
                "document.getElementById('var-status').textContent)")
+VAR_AGAIN = f"() => azurkit.variants.state.checked !== self.azurkitChecked && ({VAR_CHECKED})()"   # a new Check's
 VAR_ASKED = "() => document.getElementById('var-ask').open && document.getElementById('var-ask-name')"
 YOURS = (("mine_a", "keylord"), ("mine_b", "golem"), ("mine_c", "town_female_2"))
 
@@ -2156,8 +2159,9 @@ def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], obje
                  booblord: Callable[[], None]) -> None:
     """The Variants view's ops after its open, on one of yours: Save after a Body edit; Import (``imported``: a new
     name's recipe.json each sample) and Export (``exported``, the op timed by it); New from this on booblord (her files
-    copied, once ``booblord()`` installed her) and Check of each copy (the image picked), each a new copy."""
-    save, new_from, imported_op, exported_op, check = ops
+    copied, once ``booblord()`` installed her) and Check of each copy (the image picked), each a new copy, then the
+    same copy checked again, unchanged."""
+    save, new_from, imported_op, exported_op, check, again = ops
     n = 0
     while d.need(save):
         n += 1
@@ -2169,24 +2173,28 @@ def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], obje
         d.act(p, imported_op, lambda: imported(file), VAR_SAVED + f" && azurkit.variants.state.name === 'imported_{n}'", 600)
     while d.need(exported_op):
         exported(exported_op)
-    if not d.needed((new_from, check)):
+    if not d.needed((new_from, check, again)):
         return
     booblord()
     p.wait("() => document.querySelector('#var-items button[data-name=\"booblord\"]')", 600)
-    while d.needed((new_from, check)):
+    while d.needed((new_from, check, again)):
         d.act(p, None, "() => document.querySelector('#var-items button[data-name=\"booblord\"]').click()",
               "() => azurkit.variants.state.name === 'booblord' && " + VAR_READ, 600)
         d.act(p, None, click("var-from"), VAR_ASKED, 60)
         d.act(p, new_from, click("var-ask-yes"), VAR_SAVED + " && azurkit.variants.state.name.startsWith('booblord_')",
               1800)
-        if d.need(check):
+        if d.needed((check, again)):
             p.wait("() => !document.getElementById('var-check').disabled", 600)
             d.act(p, check, click("var-check"), VAR_CHECKED, 3600)
+        while d.need(again):
+            p.wait("() => !document.getElementById('var-check').disabled", 600)
+            p.js("() => { self.azurkitChecked = azurkit.variants.state.checked; }")
+            d.act(p, again, click("var-check"), VAR_AGAIN, 600)
 
 
 def app_variants(d: Driver, app: App, ctx) -> None:
     """The Variants view in the app (Step 4.6c): three of yours in its library, as a Modkit player keeps them (A87);
-    then A88-A92 (:func:`_variant_ops`): Import by path, Export into the Downloads folder."""
+    then A88-A93 (:func:`_variant_ops`): Import by path, Export into the Downloads folder."""
     library = app.home / "Library" / "Application Support" / "AzurKit" / "variants"
     for name, base in YOURS:
         (library / name).mkdir(parents=True, exist_ok=True)
@@ -2214,13 +2222,13 @@ def app_variants(d: Driver, app: App, ctx) -> None:
               """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 1800)
         p.js(click("char-view-variants"))
 
-    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92"), imported, exported, booblord)
+    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92", "A93"), imported, exported, booblord)
     app.quit(p)
 
 
 def site_variants(d: Driver, ctx, url: str) -> None:
     """The Variants view on the site (Step 4.6c): three of yours imported, then a new page opens it (S73: the library
-    this browser keeps, handed to its engine as the page starts); S74-S78 (:func:`_variant_ops`): Import picks a
+    this browser keeps, handed to its engine as the page starts); S74-S79 (:func:`_variant_ops`): Import picks a
     file, Export is the browser's download (its page part to the download's start)."""
     p = _site_page(d, ctx, url, None)
     p.js(click("tab-characters"))
@@ -2256,7 +2264,7 @@ def site_variants(d: Driver, ctx, url: str) -> None:
                    && !azurkit.characters.state.installing""", 1800)
         p.js(click("char-view-variants"))
 
-    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78"),
+    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79"),
                  lambda file: p.page.set_input_files("#var-import", str(file)), exported, booblord)
     d.leave(p)
 
@@ -2280,7 +2288,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-plan": ("app", ("A97",), app_plan),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A120", "A121", "A94"), app_data),
-    "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92"), app_variants),
+    "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93"), app_variants),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17", "S64"),
                    site_start),
@@ -2301,7 +2309,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-plan": ("site", ("S83",), site_plan),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S120", "S121", "S80"), site_data),
-    "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78"), site_variants),
+    "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79"), site_variants),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)

@@ -320,6 +320,10 @@ def engine(request):
             if mounted := getattr(request, "iso", None):
                 given["iso"] = mounted
             call = getattr(sdk, request.type)
+            if request.type == "variant_check":   # build()'s keeping: the dress this browser kept offered, its own kept
+                KEPT.made = {}
+                if offered := getattr(request, "kept", None):
+                    KEPT.offered = {key: getattr(offered, key).to_bytes() for key in Object.keys(offered)}
             return js(call(given, progress=progressed) if request.type in BARRED else call(given))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
@@ -1014,7 +1018,26 @@ function library({ engine }, { folders }) {
 function character(loaded, data) {
   const { py, engine } = loaded;
   if (!data.file) return post({ type: "reply", call: data.call, reply: engine(data) });
+  if (data.type === "variant_check") return checked(loaded, data);
   mounted(py, data.file, (iso) => post({ type: "reply", call: data.call, reply: engine({ ...data, iso }) }));
+}
+
+// Check with game data (Step 4.6c): the dress this browser kept for the edit offered, as build()'s (D1015: the engine
+// takes it only under its own key, by what the edit holds), and the one it works out kept after its answer, so a
+// Check of content dressed before, here or in a worker since, answers without dressing again.
+async function checked({ py, engine }, data) {
+  let hint = null;
+  try {
+    hint = text([ids.get(data.file) ?? null, data.type, data.given ?? null], true);
+  } catch {}   // a value JSON can't hold: nothing kept
+  const offered = hint && await dresses("readonly", (store) => store.get(hint)).catch(() => null);
+  const reply = mounted(py, data.file, (iso) => engine({ ...data, iso, ...(offered ? { kept: offered } : {}) }));
+  post({ type: "reply", call: data.call, reply });
+  if (!hint || "refused" in reply || reply.refusal) return;
+  try {
+    const kept = mounted(py, data.file, () => engine({ type: "kept" })), made = Object.keys(kept).length > 0;
+    if (made || offered) await keep(hint, made ? kept : null);
+  } catch {}   // a dress not kept is a dress made again
 }
 
 // A file picked to replace one of the image's, in memory for one ask or build, and its sha256 in WebCrypto.
@@ -1246,10 +1269,11 @@ try {
       if (data.type === "content") return content(loaded, data);
       if (data.type === "library") return library(loaded, data);
       if (CHARACTER.includes(data.type) || VARIANTS.includes(data.type)) {   // answered whatever happens: the page waits
+        const refused = (error) => post({ type: "reply", call: data.call, reply: refusal(error) });
         try {
-          return character(loaded, data);
+          return character(loaded, data)?.catch(refused);
         } catch (error) {
-          return post({ type: "reply", call: data.call, reply: refusal(error) });
+          return refused(error);
         }
       }
       if (data.type === "vanilla") return vanilla(loaded, data.file);

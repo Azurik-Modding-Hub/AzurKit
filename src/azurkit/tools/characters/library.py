@@ -196,16 +196,43 @@ def stamp(name: str) -> str | None:
     except (OSError, ValueError):
         named = []
     try:
-        h = hashlib.sha256((folder / RECIPE).read_bytes())
+        return _stamp(folder / RECIPE, (folder / RECIPE).read_bytes(), named)
     except OSError:
         return None
+
+
+def _stamp(file: Path, data: bytes, named: Iterable[str]) -> str:
+    h = hashlib.sha256(data)
     for f in named:
         try:
-            sha = hashlib.sha256((folder / f).read_bytes()).hexdigest()
+            sha = hashlib.sha256((file.parent / f).read_bytes()).hexdigest()
         except OSError:
             sha = None
         h.update(json.dumps([f, sha]).encode())
     return h.hexdigest()
+
+
+def file_stamp(file: str | Path, data: bytes | None = None) -> str | None:
+    """:func:`stamp`'s for a recipe file (``variant_file``; ``data``: the
+    bytes it would hold, read from it where none): the sha256 of its
+    recipes but their labels (``variants.LABELS``: no dress reads a title
+    or notes), or of its bytes where it holds none, and of each file its
+    recipes name beside it, so an answer kept for a recipe file stands on
+    what it dresses, never on its path; ``None`` when it can't be read."""
+    file = Path(file)
+    try:
+        data = file.read_bytes() if data is None else data
+    except OSError:
+        return None
+    try:
+        doc = json.loads(data)
+    except (ValueError, RecursionError):
+        doc = None
+    if not isinstance(doc, dict) or not all(isinstance(recipe, dict) for recipe in doc.values()):
+        return _stamp(file, data, [])
+    named = sorted({f for recipe in doc.values() for f in named_files(recipe)})
+    dressed = {name: {k: v for k, v in recipe.items() if k not in variants.LABELS} for name, recipe in doc.items()}
+    return _stamp(file, json.dumps(dressed, sort_keys=True).encode(), named)
 
 
 def text_of(name: str, recipe: dict) -> str:

@@ -721,8 +721,12 @@ the machine its ``default.xbe`` is for, ``model_inspect.lines_ram``,
 and ``words``), each ``effects`` row's
 bytes, and its picture in its colours (``front``, ``back``: PNG bytes,
 160 px). This process keeps the dress before its colours for
-:func:`variant_colours`, :func:`variant_preview` and :func:`variant_rows`.
-A field or value the loader refuses is a ``ValueError`` naming it.
+:func:`variant_colours`, :func:`variant_preview` and :func:`variant_rows`,
+and its answer: a Check of what it checked last, unchanged
+(:func:`_check_key`), answers at once (D1015), and a dress worked out
+before is taken as kept (``characters.cache_key``, by content), so only
+the first Check of new content dresses. A field or value the loader
+refuses is a ``ValueError`` naming it.
 
 
 def variant_colours(given: 'Mapping') -> 'dict':

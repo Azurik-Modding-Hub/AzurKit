@@ -113,6 +113,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import threading
 import urllib.parse
@@ -860,9 +861,12 @@ def _edit_key(given: Mapping, recipe: Mapping | None, leave: tuple[str, ...] = (
 def _dressing(given: Mapping, recipe: Mapping | None, steps: Steps = Steps()) -> tuple[dict[str, bytes], list[str]]:
     """``default.xbe``, config.xbr, characters.xbr and fx.xbr as a build of
     the edit (over ``given``'s ``packs``) writes them, and its dress's
-    lines: a built-in's by name; an edit's from its recipe written for the
-    dress beside its files (a hidden file in its folder, removed after; a
-    folder not made yet: a temporary one), as ``variant_file`` names it."""
+    lines: a built-in's by name, and yours as saved (its ``recipe.json`` in
+    the library holds the edit) by name too, as its Build dresses it, so the
+    two keep one dress (``characters.cache_key``); any other edit from its
+    recipe written for the dress beside its files (a hidden file in its
+    folder, removed after; a folder not made yet: a temporary one), as
+    ``variant_file`` names it, its dress kept by what it holds."""
     import tempfile
 
     from azurkit.tools.characters import ports
@@ -870,7 +874,7 @@ def _dressing(given: Mapping, recipe: Mapping | None, steps: Steps = Steps()) ->
     name = given["name"]
     with contextlib.ExitStack() as stack:
         file = None
-        if recipe is not None:
+        if recipe is not None and not _saved_as(given, name, recipe):
             folder = Path(given["folder"])
             if not folder.is_dir():
                 folder = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="azurkit-variant-")))
@@ -887,9 +891,41 @@ def _dressing(given: Mapping, recipe: Mapping | None, steps: Steps = Steps()) ->
             said = str(exc).replace(file.name, VARIANT_RECIPE)
             raise ValueError(said.replace(str(file.parent), given["folder"])) from None
         files = characters.worn_by(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), layers, _WORN)
-    lines = [line.replace(file.name, VARIANT_RECIPE) if file else line
+    edit = re.compile(rf"\.{re.escape(name)}\.edit-\d+-\d+\.json")   # a kept dress's lines name the call's that kept it
+    lines = [edit.sub(VARIANT_RECIPE, line) if file else line
              for la in layers if la.tool == characters.TOOL for line in la.notes]
     return files, lines
+
+
+def _saved_as(given: Mapping, name: str, recipe: Mapping) -> bool:
+    """Whether the edit dresses as your variant ``name`` as its library folder holds it (``given``'s folder, its
+    ``recipe.json`` the edit but for their labels, which no dress reads: a title or notes typed since)."""
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import library
+
+    folder = Path(given["folder"])
+    if folder != library.root() / name:
+        return False
+    try:
+        saved = json.loads((folder / VARIANT_RECIPE).read_text(encoding="utf-8"))[name]
+        if library.find(name) is None:   # yours as the library reads it (a label it refuses: the edit's own)
+            return False
+    except (OSError, ValueError, TypeError, KeyError, RecursionError):
+        return False
+    return isinstance(saved, dict) and ({k: v for k, v in saved.items() if k not in variants.LABELS}
+                                        == {k: v for k, v in recipe.items() if k not in variants.LABELS})
+
+
+def _check_key(given: Mapping, name: str, recipe: Mapping | None) -> str:
+    """What a Check stands on, by content: the image and the edit
+    (:func:`_edit_key`), each file its recipe names in its folder by its
+    bytes (``library.file_stamp``) and the content installed."""
+    from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import library
+
+    files = None if recipe is None else library.file_stamp(Path(given["folder"]) / VARIANT_RECIPE,
+                                                            library.text_of(name, dict(recipe)).encode())
+    return json.dumps([_edit_key(given, recipe), files, kit.installed()], sort_keys=True)
 
 
 def _colours_of(variant) -> tuple:
@@ -926,14 +962,21 @@ def variant_check(given: Mapping, *, progress: Callable[[dict], object] | None =
     and ``words``), each ``effects`` row's
     bytes, and its picture in its colours (``front``, ``back``: PNG bytes,
     160 px). This process keeps the dress before its colours for
-    :func:`variant_colours`, :func:`variant_preview` and :func:`variant_rows`.
-    A field or value the loader refuses is a ``ValueError`` naming it."""
+    :func:`variant_colours`, :func:`variant_preview` and :func:`variant_rows`,
+    and its answer: a Check of what it checked last, unchanged
+    (:func:`_check_key`), answers at once (D1015), and a dress worked out
+    before is taken as kept (``characters.cache_key``, by content), so only
+    the first Check of new content dresses. A field or value the loader
+    refuses is a ``ValueError`` naming it."""
     from azurkit.tools.characters import colour_preview, editor, picker, ports
     from azurkit.tools.characters import model_inspect as mi
 
     with noting(Steps(progress)) as steps:
         name, variant, recipe = _editing(given, "variant_check")
         place = _edit_key(given, None)   # the image checked and the packs read first: their refusals are raised
+        asked = _check_key(given, name, recipe)
+        if (last := _CHECKED.get("last")) is not None and last["asked"] == asked:   # checked last, unchanged
+            return dict(last["answer"])
         steps("dress", f"Dressing {name}")
         _CHECKED.clear()   # the last one's dress goes before this one is worked out (one heap)
         dresses = colour_preview.dresses(variant)
@@ -955,12 +998,14 @@ def variant_check(given: Mapping, *, progress: Callable[[dict], object] | None =
             error, warning = mi.lines_for(mi.budget_of(xbe), mi.lines_ram(xbe, mi.DEFAULT_RAM))
         base = colour_preview.base(plain["characters.xbr"], body, True) if dresses else _base_of(given, name, variant,
                                                                                                     recipe)
+        answer = {"refusal": None, "sha": variant.sha, "log": log, "body": body, "bones": editor.bones(worn, body),
+                  "load": {"own": own["bytes"], "error": error, "warning": warning, "words": mi.own_words(own)},
+                  "effects": editor.effect_bytes(log, variant.effects),
+                  **colour_preview.pictures(colour_preview.recoloured(base, _colours_of(variant)))}
         _CHECKED["last"] = {"place": place, "uncoloured": _edit_key(given, recipe, ("colours",)),
-                            "variant": variant, "base": base, "characters": plain["characters.xbr"], "kept": None}
-        return {"refusal": None, "sha": variant.sha, "log": log, "body": body, "bones": editor.bones(worn, body),
-                "load": {"own": own["bytes"], "error": error, "warning": warning, "words": mi.own_words(own)},
-                "effects": editor.effect_bytes(log, variant.effects),
-                **colour_preview.pictures(colour_preview.recoloured(base, _colours_of(variant)))}
+                            "variant": variant, "base": base, "characters": plain["characters.xbr"], "kept": None,
+                            "asked": asked, "answer": answer}
+        return dict(answer)
 
 
 def _checked(given: Mapping, recipe: Mapping | None) -> dict | None:
