@@ -1,0 +1,1436 @@
+# The game's functions' notes: what each function in the facts' list does and what a shim calling it must
+# know, by its name in src/azurkit/core/facts.usa.json. Ported from Modkit's vanilla-symbol registry
+# (azurik_mod/patching/vanilla_symbols.py, each entry's doc, unchanged) in its order at its last cut (Step 4.11d1):
+# a function the facts renamed since (D94: Ghidra's names) keys its note by the facts' name, and a Modkit path,
+# header or test in a note names Modkit's tree. tests/test_re_xbe.py holds its names to the facts' list.
+
+play_movie_fn = """\
+Boot-time movie player.  `name` is a path like 'AdreniumLogo.bik'; `flag` is a boolean (1 = prophecy-like, 0 = \
+logo-like).  Returns AL=1 if the movie started (enter poll state), AL=0 if it didn't (skip to next boot state)."""
+poll_movie = """\
+Called once per frame while a movie is playing.  Takes a float dt.  Returns 0 = still playing, 1 = should-abort, 2 = \
+movie finished."""
+entity_lookup = """\
+Looks up an entity descriptor by name.  __fastcall: name (byte *) in ECX, fallback (int *) in EDX.  Walks the global \
+entity registry (DAT_0038C1E4..DAT_0038C1E8) comparing each entry's name against the needle; returns the matching \
+descriptor pointer in EAX, or 0 if no match AND the fallback is NULL.  When the fallback is non-null and the lookup \
+misses, the function registers the fallback as a new entry and returns it.\n\nABI verified from two callers \
+(FUN_000353F0 and FUN_0003A610) both of which do ``MOV ECX, <name>; XOR/MOV EDX, <fallback>; CALL`` without any \
+``ADD ESP, N`` cleanup afterward — __fastcall with 2 register args.\n\nSafe to call from shims that need to resolve \
+named entities (critter descriptors, scripted pickups, etc.)."""
+boot_state_tick = """\
+Runs one tick of the boot-state machine.  __stdcall: dt (float) on stack.  Returns a boolean-ish value in AL (caller \
+at VA 0x59BA5 does ``TEST AL, AL; JNZ ...`` to branch on the result).\n\nThis is the state-machine function that \
+``qol_skip_logo`` shims into — it decides which movie / logo plays next. Shims that want to INTERCEPT boot-state \
+transitions (rather than just skip a single movie) can wrap it: call the vanilla then post-process the AL return to \
+force a different transition.\n\nMultiple ``RET 4`` exits confirm __stdcall with 1 arg. Return type formally \
+undefined4 in Ghidra, but the only observed caller treats it as a byte — ``unsigned char`` is a safe shim-side \
+declaration."""
+config_name_lookup = """\
+Look up a named entry in a config table.  __thiscall: ``this`` (the config table object) in ECX, needle (const char \
+*) on the stack.  Callee does RET 4.\n\nABI pinned by: ``MOV EAX, [ECX]`` + ``MOV EDX, [ECX+4]`` prologue (ECX is \
+``this``) + stack arg at [ESP+0x14] after 4 register pushes + return addr = first stack arg + closing ``C2 04`` (RET \
+4).\n\nReturns an int (probably row index or entry offset).  The table is scanned byte-by-byte for a matching name — \
+O(N) in table entries.  Callable directly from shim C via ``__attribute__((thiscall))``; no inline-asm wrapper \
+needed (unlike ``gravity_integrate_raw``) because this is a pure thiscall without RVO / ESI context magic."""
+config_cell_value = """\
+Look up a cell value in a 2-D config grid.  __stdcall(16): ``(int *grid, int row, int col, double *default_out)`` on \
+the stack, popped by the callee (RET 0x10; 136 call sites push four arguments and never clean up); returns a \
+``float10`` (80-bit FPU value in ST(0)).\n\nThe function does bounds-checking on ``row`` and ``col`` against the \
+grid's size fields (read at [ECX+8] and [ECX+0]) and panics via a logging call + INT3 if either is out of range — \
+shims MUST NOT pass invalid indices."""
+load_critters_config = """\
+Boot-time loader that populates every runtime ``CritterData`` struct (``Entity *`` registry targets) from the seven \
+``critters_*`` keyed-table assets in ``config.xbr``.  Sections visited in order:\n\n  1. ``config/critters_engine``       \
+— collision + rendering fields (piVar9[0..0xD])\n  2. ``config/critters_critter_data`` — gameplay fields \
+(piVar9[0x0E..0x43])\n  3. ``config/critters_damage``       — hitPoints + per-damage-type table (piVar9[5] + \
+piVar9[0x23])\n  4. ``config/critters_damage_fx``    — per-type FX (piVar9[0x24])\n  5. ``config/critters_sounds``       \
+— audio refs\n  6. ``config/critters_item_data``    — item drops\n  7. ``config/critters_special_anims`` — anim \
+overrides\n\nIMPORTANT: ``hitPoints`` is read from the ``critters_damage`` grid (NOT ``critters_critter_data`` as a \
+surface read of the CritterData struct layout might suggest).  The call at VA 0x495A0-ish does \
+``config_name_lookup(critters_damage_grid, \"hitPoints\") → col_idx`` followed by ``config_cell_value(grid, row, \
+col, default=&DAT_00195790)``; the result lands in ``piVar9[5]`` (struct offset 0x14, \
+``CritterData.hit_points``).\n\nThe April 2026 caveat that config.xbr's ``critters_damage`` has no ``hitPoints`` \
+column came from our labels, which were shifted by one table until AZ-113: the table at TOC offset 0x01A000 is \
+``critters_damage`` and has ``garret4.hitPoints``.  The player never uses it: critter init 0x409C0 falls back to it \
+only for a negative spawn HP (``docs/RE_MOVEMENT.md``, 2026-10-09).\n\nABI: __cdecl — callers (e.g. the boot \
+data-load sequence) do CALL with no ADD ESP, N cleanup and the function uses ESP-relative stack allocation only \
+(``SUB ESP, 0x8A8`` prologue).  No args."""
+load_armor_properties_config = """\
+Boot-time loader that populates DAT_0038C4D4 (the per-armor-slot struct array, 0x40 bytes per entry) from \
+``config/armor_properties`` and DAT_0038C4AC (armor hit-fx slots, 0xC bytes per entry) from \
+``config/armor_hit_fx``.\n\nFlaps path: reads the ``Flaps`` column as a ``double`` via ``config_cell_value(...)``, \
+converts to int64 via ``FUN_000f5a40`` (FPU FISTP), stores the lower 32 bits at ``puVar1[0xE]`` (struct offset \
+0x38).\n\nThe asset ``config/armor_properties`` is the keyed table at TOC offset 0x002000 (header at file offset \
+0x3000), labelled ``armor_properties``.  0x004000 is ``attacks_anims`` (the attack animations, referenced at \
+0x7E301), not dead armor data; the two were labelled ``armor_properties_real`` / ``armor_properties_unused`` until \
+AZ-113."""
+armor_reset_out_of_fuel = """\
+Per-armor-slot reset helper invoked when an armor feature runs out of fuel (``puVar1[0xD]`` / fuel-state word \
+reaches 0).  Takes the slot struct pointer (``int *``, layout documented in azurik_mod docs under \
+``armor_properties``) and:\n\n  1. Calls ``FUN_000836b0(slot)`` — inner zeroer.\n  2. Re-resolves the slot's \
+``Armor`` row via ``config_name_lookup(config_ctx, \"Armor\")``.\n  3. Re-links ``slot[8]`` to a default feature via \
+``FUN_0003c660(1)``.\n  4. Clears scratch: ``slot[0x17] = 0``, ``slot->+0x61 byte = 0``, ``slot[9] / [0xb] / [0xd] = \
+0``.\n\nUsed by ``mark_armor_feature_used`` / the armor tick cluster.  Named in Ghidra by hand (April 2026 \
+armor-state reverse-engineering pass).\n\nABI: __stdcall(4): the slot pointer on the stack, popped by the callee \
+(RET 4; 11 call sites push it and never clean up)."""
+mark_armor_feature_used = """\
+Flips the ``used`` byte on the current player's armor feature slot if the slot is live (``fuel != 0``) and not \
+already marked.  Per-controller state lives in the ControllerState array at 0x37BE98 (``azurik.h`` \
+``ControllerState``; the Ghidra project and snapshot name it ``g_controller_state`` since 2026-10-11, D94/AZ-252, \
+formerly ``g_armor_state_per_controller``) — 0x15 DWORDs per controller indexed by ``g_active_controller_index`` (4 \
+= global fallback / preview).  The ``used`` byte is at ``slot + feature_idx + 0x48``.\n\nArguments: EDX = feature \
+index (int, 0-based row into the per-controller 0x15-DWORD block), plus one stack DWORD the function never reads but \
+pops (RET 4).  ECX is overwritten before it is read.\n\nNamed in Ghidra April 2026.  Relevant to any shim that wants \
+to hook the armor-usage tracker (e.g. fuel HUD overlay, no-fuel-consumption cheat).\n\nABI: __fastcall(12), declared \
+``void mark_armor_feature_used(unsigned unused_ecx, int feature_idx, unsigned unused_stack)`` so a C call loads EDX \
+and pushes the 4 bytes RET 4 pops; 7 call sites do the same and never clean up."""
+player_ground_attack_start = """\
+The ground attack starter; the name is an old misreading and stays until the AzurKit 4.2/4.3 rename (P3-Q6, D68).  \
+``player_physics_state_machine`` (0x0008CCC0) calls it at 0x8D13B, 0x8D211 and 0x8D465.  It picks an attack button \
+from the input flags at input+0x20 (0x08, 0x10, and 0x20 = BLACK, which picks button 4 at 0x88B76) and from \
+per-button doubles at entity+0xA0/+0xA8/+0xB0, starts the move through 0x7EF10 and the attack-move entry 0x88990 \
+(state 0x100) and returns AL = 1.  With no attack it returns AL = 0, after setting entity+0x134 (the attack entry \
+index) to -1 when the stack flag is nonzero.  It never calls or jumps to ``player_slope_slide_tick`` (0x00089A70) or \
+0x8AE10 [verified 2026-10-10, capstone over 0x88A80-0x88E6F; ROLL_FINDINGS 2026-10-09].\n\nABI: EAX = entity and ESI \
+= input, which all 3 call sites load right before the CALL, plus one stack byte flag (``char state_byte``, the reset \
+flag) popped by the callee (RET 4 at 0x88B73 and 0x88E6C).  Declared __stdcall(4) for the stack part; EAX/ESI need \
+an asm thunk like ``player_walk_state_call`` (none is provided)."""
+load_asset_by_fourcc = """\
+Get an asset by its handle and fourcc, loading it first when it isn't resident.  __stdcall(8): ``(int fourcc, int \
+flags)`` on the stack, plus the asset's handle passed in EAX as an implicit register argument.  Returns a pointer to \
+the asset's loaded payload in EAX, or 0 when it can't be had; a negative EAX comes back inverted (~EAX) with no \
+lookup.  It blocks while the asset loads.\n\n[verified 2026-10-11, capstone] A negative EAX returns ~EAX \
+(0xA67A8-0xA67B0).  Otherwise it calls 0xA59F0 with EAX = 2 (0xA67B6), which maps the handle to its run's 28-byte \
+descriptor: handle bits 20-30 pick the archive in the table at [0x37BE34], the low 20 bits a slot of its u16 table \
+at +0x28.  When the archive has no table, the slot is 0x8000 or the run's state (word +0x1A & 0x3000) is 0x1000, \
+0xA59F0 stops there only for EAX = 0 (0xA5A68); with 2 it calls 0xA5980 (which also calls 0xA58A0 and waits, \
+0xA599C-0xA59BC), then 0xA4C00 when there was no run (0xA5A8F), then 0xA5480 (0xA5AB2), which sets the state to \
+0x2000 (0xA54D4), and it returns 0 when 0xA5980 or 0xA4C00 does.  Back here ``flags`` goes to 0xA6530; while the \
+state is 0x2000 it calls 0xA58A0 and waits (0xE11EC with -1; 0xA67F0-0xA681C), and any state but 0x3000 then gives \
+0.  The entry is the 16-byte TOC entry at [run+0xC] + 16 * (handle - [run+8]) (0xA6832-0xA683C); its fourcc at +8 \
+must equal ``fourcc`` (0xA6842), and the result is [run+0x10] - toc[0].offset + entry.offset (0xA6847-0xA6852), a \
+pointer into the run's loaded payload.  [inferred]: 0xA5980 gets the archive's header entry for the handle, 0xA4C00 \
+builds a run and 0xA5480 starts its read; state 0x1000 is a run not yet read, 0x2000 one being read and 0x3000 one \
+loaded.  It reads no index.xbr record, and how a name becomes a handle isn't traced.  The EAX-as-handle convention \
+is Watcom-ish and NOT expressible via a native clang attribute — shim authors should prefer a call-through wrapper \
+(template deferred until a real shim needs this).\n\nTypical fourcc values (little-endian packing):\n    0x78646E69  \
+'indx' — indx section (the index table)\n    0x79646F62  'body' — character body meshes\n    0x6D6E6162  'banm' — \
+bone animations\n    0x65646F6E  'node' — scene-graph nodes\n    0x66727573  'surf' — surface / material data\n    \
+0x65766177  'wave' — audio blobs\n    0x6C76656C  'levl' — level descriptors\n\nUntil AZ-259 (2026-10-11) this said \
+it looked up an index.xbr record by an asset index.  docs/RE_DATA.md § index.xbr says which table it reads instead."""
+game_start_setup = """\
+The game start/continue setup, which also picks the level to load (the name is an old misreading; HP research, \
+2026-10-09).  __stdcall(12): three stack arguments, RET 0xC; 5 call sites push three arguments and never clean up.  \
+It calls the new-game inventory reset 0x57B70 (at 0x52FD0 and 0x530C7) and sets current HP from settings_foo \
+``initial hp`` at 0x532A7 (docs/RE_MOVEMENT.md 'Player HP comes from settings_foo') [verified 2026-10-10, capstone].  \
+A virtual call's AL result at VA 0x52F90 picks the ``levels/selector`` string (0x001A1E3C, the developer \
+level-select hub) or ``levels/training_room`` as the second-stage candidate of a three-stage level-name validator \
+chain whose first stage, the caller's own level, almost always wins.  The BSS dword at ``AZURIK_DEV_MENU_FLAG_VA`` \
+(0x001BCDD8) only sets ESI on the selector branch (3 when it holds -1); it doesn't gate the hub, and the name \
+overstates its role [verified 2026-10-10, capstone].\n\nSee docs/RE_DATA.md § selector.xbr."""
+calculate_save_signature = """\
+Entry point for Azurik's save-slot sign / verify.  __thiscall: the save-slot context lives in ECX (path buffer at \
+[ECX+0x20A], flag byte at [ECX+0x20A]'s high byte — 0x7A disables signing).\n\nIt returns at once when that byte is \
+0x7A; otherwise it opens an HMAC-SHA1 context with XCalculateSignatureBegin(0), hashes the slot's file tree \
+(FUN_0005C4B0), closes it with XCalculateSignatureEnd and writes the 20-byte digest to ``signature.sav`` in the \
+slot.\n\nIts sibling verify_save_signature (0x5C990) recomputes the digest and compares it (docs/SAVE_FORMAT.md § \
+7).  The hash-tree-walk is pinned in :mod:`azurik_mod.save_format.signature` for direct Python use."""
+xcalculate_signature_begin = """\
+XDK re-export.  ``XCalculateSignatureBegin(flags)`` — allocates + initialises an HMAC-SHA1 context keyed with \
+``XboxSignatureKey``.  flags=0 means 'inner HMAC only' (no per-console HDKey outer layer); Azurik passes 0 from \
+``calculate_save_signature``.\n\nReturns the hash-context pointer in EAX (opaque; pass to Update / End).  See \
+docs/SAVE_FORMAT.md § 7 for the save-sign trace."""
+xcalculate_signature_end = """\
+XDK re-export.  ``XCalculateSignatureEnd(ctx, out20)`` — finalises the HMAC-SHA1 accumulator from Begin/Update and \
+writes 20 bytes to ``out20``.  When the Begin-time flags requested the HDKey outer layer, that extra \
+HMAC-SHA1(HDKey, inner) stage happens here too; otherwise this is plain HMAC-Final.\n\nPair with \
+:data:`xcalculate_signature_begin`."""
+OutputDebugStringA = """\
+Win32-style debug string output.  __stdcall(4): ``(const char *str)``.  Cheaper than DbgPrint when the shim already \
+has a formatted string — no format-parsing overhead."""
+strncmp = """\
+``int strncmp(const char *s1, const char *s2, size_t n)``.  Case-sensitive bounded compare.  Cdecl — mangled as \
+``_strncmp`` in COFF."""
+_stricmp = """\
+``int _stricmp(const char *a, const char *b)`` — case-INSENSITIVE compare.  MSVC internal name (double-underscore \
+mangle).  Shim authors should declare ``extern int _stricmp(const char *, const char *);`` so clang emits the \
+matching ``__stricmp`` undefined reference."""
+_strnicmp = """\
+``int _strnicmp(const char *a, const char *b, size_t n)`` — case-insensitive bounded compare.  Mangled as \
+``__strnicmp``."""
+strncpy = "``char *strncpy(char *dst, const char *src, size_t n)``."
+strrchr = "``char *strrchr(const char *s, int c)`` — last-occurrence search."
+strstr = "``char *strstr(const char *haystack, const char *needle)``."
+atol = "``long atol(const char *s)`` — parse decimal integer."
+wcscmp = """\
+``int wcscmp(const wchar_t *a, const wchar_t *b)``.  Xbox filesystem + save metadata paths are UTF-16; shims that \
+touch SaveMeta.xbx benefit from this."""
+wcsstr = "``wchar_t *wcsstr(const wchar_t *hay, const wchar_t *needle)``."
+fclose = """\
+``int fclose(FILE *stream)``.  Game uses FATX-backed FILE* handles for save I/O; pair with XcreateFileA / \
+game-internal fopen wrappers."""
+GetLastError = """\
+``DWORD GetLastError(void)``.  Xbox kernel stores per-thread last-error code; shims that wrap stdcall Win32 calls \
+should consult this when a call returns FALSE / 0xFFFFFFFF."""
+SetLastError = "``void SetLastError(DWORD code)``."
+CreateEventA = """\
+``HANDLE CreateEventA(attrs, manual, initial, name)`` — create a Win32 event.  16 stack bytes (4 × u32 / pointer \
+args)."""
+SetEvent = "``BOOL SetEvent(HANDLE h)`` — signal an event."
+ResetEvent = "``BOOL ResetEvent(HANDLE h)``."
+XGetLaunchInfo = """\
+``DWORD XGetLaunchInfo(DWORD *flags_out, void *data_out)``.  Retrieves the launch-data blob passed in from the \
+dashboard or a prior XBE invocation.  Useful for shims that want to detect how the game was launched."""
+XLaunchNewImageA = """\
+``DWORD XLaunchNewImageA(const char *xbe_path, void *data)``.  Launches a different XBE — pass NULL for ``xbe_path`` \
+to return to the dashboard.  Companion: XapiBootToDash."""
+XapiBootToDash = """\
+``void XapiBootToDash(arg1, arg2, arg3)`` — exit to the Xbox dashboard.  3 stack args (12 bytes).  A shim that wants \
+a 'quit to dashboard' hotkey can call this directly."""
+gravity_integrate_raw = """\
+RAW vanilla gravity-integration routine.  **Do NOT call this directly from shim C code** — its real ABI uses an \
+MSVC-RVO extension that no clang calling-convention attribute can express natively:\n\n    ECX     = config struct \
+pointer\n    EDX     = velocity / position ptr\n    EAX     = result struct pointer (RVO, implicit output)\n    ESI     \
+= caller-provided player / entity context\n    [stack] = float gravity_dt (callee pops via RET 4)\n\nDeclared \
+__fastcall(12) ``(config, vel_accumulator, float gravity_dt)``: ECX, EDX and the stack float the callee pops (6 call \
+sites push it and never clean up).  Calling it from C still needs an inline-asm call-through wrapper that sets EAX / \
+ESI before the CALL.  The unused wrapper and its header were deleted in REORG_PLAN Step 1.10 (D18); recover them \
+from git history if a shim needs one.\n\nABI pinned from the caller at VA 0x860C8 (MOV ECX,EBP / LEA EDX,[ESP+0x1C] \
+/ LEA EAX,[ESP+0xCC] / PUSH <gravity> / CALL), matched against the callee prolog's ``MOV EDI,[ECX]`` / ``MOV \
+[EAX],EDI`` / ``FLD [ESI+0x28]`` accesses.  First RET is ``C2 04`` (pops 4 bytes = the stack float), confirming \
+fastcall-with-one-stack-arg ABI plus the implicit EAX output."""
+XapiSelectCachePartition = """\
+Auto-generated stdcall(12) entry for ``XapiSelectCachePartition``. Ghidra signature: ``int \
+XapiSelectCachePartition(int param_1, uint * param_2, undefined4 * param_3)``"""
+XMountUtilityDrive = """\
+Auto-generated stdcall(4) entry for ``XMountUtilityDrive``. Ghidra signature: ``undefined1 XMountUtilityDrive(int \
+param_1)``"""
+XMountAlternateTitleA = """\
+Auto-generated stdcall(12) entry for ``XMountAlternateTitleA``. Ghidra signature: ``undefined4 \
+XMountAlternateTitleA(byte * param_1, dword param_2, char * param_3)``"""
+XUnmountAlternateTitleA = """\
+Auto-generated stdcall(4) entry for ``XUnmountAlternateTitleA``. Ghidra signature: ``undefined \
+XUnmountAlternateTitleA(byte param_1)``"""
+XMUNameFromDriveLetter = """\
+Auto-generated stdcall(12) entry for ``XMUNameFromDriveLetter``. Ghidra signature: ``undefined4 \
+XMUNameFromDriveLetter(undefined4 param_1, undefined4 param_2, undefined4 param_3)``"""
+MoveFileA = """\
+Auto-generated stdcall(8) entry for ``MoveFileA``. Ghidra signature: ``undefined4 MoveFileA(undefined4 param_1, \
+undefined4 param_2)``"""
+OpenEventA = """\
+Auto-generated stdcall(12) entry for ``OpenEventA``. Ghidra signature: ``int OpenEventA(undefined4 param_1, \
+undefined4 param_2, int param_3)``"""
+PulseEvent = """\
+Auto-generated stdcall(4) entry for ``PulseEvent``. Ghidra signature: ``bool PulseEvent(undefined4 param_1)``"""
+CreateMutexA = """\
+Auto-generated stdcall(12) entry for ``CreateMutexA``. Ghidra signature: ``int CreateMutexA(undefined4 param_1, \
+undefined4 param_2, int param_3)``"""
+SignalObjectAndWait = """\
+Auto-generated stdcall(16) entry for ``SignalObjectAndWait``. Ghidra signature: ``int SignalObjectAndWait(undefined4 \
+param_1, undefined4 param_2, uint param_3, int param_4)``"""
+XCalculateSignatureBegin = """\
+Auto-generated stdcall(4) entry for ``XCalculateSignatureBegin``. Ghidra signature: ``undefined4 * \
+XCalculateSignatureBegin(undefined4 param_1)``"""
+XapiSetLastNTError = """\
+Auto-generated stdcall(4) entry for ``XapiSetLastNTError``. Ghidra signature: ``undefined4 \
+XapiSetLastNTError(undefined4 param_1)``"""
+GetOverlappedResult = """\
+Auto-generated stdcall(16) entry for ``GetOverlappedResult``. Ghidra signature: ``undefined4 GetOverlappedResult(int \
+param_1, int * param_2, int * param_3, int param_4)``"""
+XapiMapLetterToDirectory = """\
+Auto-generated stdcall(24) entry for ``XapiMapLetterToDirectory``. Ghidra signature: ``int \
+XapiMapLetterToDirectory(undefined4 param_1, ushort * param_2, char * param_3, int param_4, short * param_5, \
+XBE_SECTION_HEADER * param_6)``"""
+XapiInitProcess = """\
+Auto-generated stdcall(0) entry for ``XapiInitProcess``. Ghidra signature: ``undefined XapiInitProcess()``"""
+XapiFormatObjectAttributes = """\
+Auto-generated stdcall(12) entry for ``XapiFormatObjectAttributes``. Ghidra signature: ``undefined \
+XapiFormatObjectAttributes(undefined4 param_1, undefined4 param_2, undefined4 param_3)``"""
+cinit = "Auto-generated cdecl(0) entry for ``_cinit``. Ghidra signature: ``undefined cinit()``"
+rtinit = "Auto-generated cdecl(0) entry for ``_rtinit``. Ghidra signature: ``undefined rtinit()``"
+XapiCallThreadNotifyRoutines = """\
+XAPI internal: runs the registered thread-notify routines. __stdcall(4) ``(BOOL create)``: RET 4; 3 call sites push \
+one argument and never clean up."""
+UnhandledExceptionFilter = """\
+Auto-generated stdcall(4) entry for ``UnhandledExceptionFilter``. Ghidra signature: ``undefined4 \
+UnhandledExceptionFilter(undefined4 param_1)``"""
+SetThreadPriority = """\
+Auto-generated stdcall(8) entry for ``SetThreadPriority``. Ghidra signature: ``undefined4 \
+SetThreadPriority(undefined4 param_1, int param_2)``"""
+GetThreadPriority = """\
+Auto-generated stdcall(4) entry for ``GetThreadPriority``. Ghidra signature: ``int GetThreadPriority(undefined4 \
+param_1)``"""
+SetThreadPriorityBoost = """\
+Auto-generated stdcall(8) entry for ``SetThreadPriorityBoost``. Ghidra signature: ``bool \
+SetThreadPriorityBoost(undefined4 param_1, int param_2)``"""
+RaiseException = """\
+Auto-generated stdcall(16) entry for ``RaiseException``. Ghidra signature: ``undefined RaiseException(undefined4 \
+param_1, uint param_2, uint param_3, undefined4 * param_4)``"""
+GetExitCodeThread = """\
+Auto-generated stdcall(8) entry for ``GetExitCodeThread``. Ghidra signature: ``undefined4 GetExitCodeThread(int \
+param_1, undefined4 * param_2)``"""
+XRegisterThreadNotifyRoutine = """\
+XAPI ``XRegisterThreadNotifyRoutine(notification, register)``.  __stdcall(8): RET 8; its one call site pushes two \
+arguments."""
+CreateThread = """\
+Auto-generated stdcall(24) entry for ``CreateThread``. Ghidra signature: ``dword CreateThread(undefined4 param_1, \
+dword param_2, undefined4 param_3, undefined4 param_4, uint param_5, undefined4 param_6)``"""
+XGetSectionSize = """\
+Auto-generated stdcall(4) entry for ``XGetSectionSize``. Ghidra signature: ``undefined4 XGetSectionSize(int \
+param_1)``"""
+XAutoPowerDownResetTimer = """\
+Auto-generated stdcall(0) entry for ``XAutoPowerDownResetTimer``. Ghidra signature: ``undefined \
+XAutoPowerDownResetTimer()``"""
+_onexit_lk = "Auto-generated cdecl(0) entry for ``__onexit_lk``. Ghidra signature: ``undefined _onexit_lk()``"
+__onexitinit = """\
+Auto-generated cdecl(0) entry for ``___onexitinit``. Ghidra signature: ``undefined4 __onexitinit()``"""
+_onexit = "Auto-generated cdecl(0) entry for ``__onexit``. Ghidra signature: ``undefined4 _onexit()``"
+atexit = "Auto-generated cdecl(0) entry for ``_atexit``. Ghidra signature: ``int atexit(__func * __func)``"
+_fclose_lk = """\
+Auto-generated cdecl(0) entry for ``__fclose_lk``. Ghidra signature: ``undefined4 _fclose_lk(int * param_1)``"""
+_abstract_cw = "Auto-generated cdecl(0) entry for ``__abstract_cw``. Ghidra signature: ``uint _abstract_cw()``"
+_hw_cw = "Auto-generated cdecl(0) entry for ``__hw_cw``. Ghidra signature: ``uint _hw_cw()``"
+_control87 = """\
+Auto-generated cdecl(0) entry for ``__control87``. Ghidra signature: ``uint _control87(uint param_1, uint param_2)``"""
+_controlfp = """\
+Auto-generated cdecl(0) entry for ``__controlfp``. Ghidra signature: ``undefined _controlfp(uint param_1, uint \
+param_2)``"""
+_fsopen = "Auto-generated cdecl(0) entry for ``__fsopen``. Ghidra signature: ``undefined4 _fsopen()``"
+_dosmaperr = """\
+Auto-generated cdecl(0) entry for ``__dosmaperr``. Ghidra signature: ``undefined _dosmaperr(uint param_1)``"""
+_wcsdup = """\
+Auto-generated cdecl(0) entry for ``__wcsdup``. Ghidra signature: ``wchar_t * _wcsdup(wchar_t * param_1)``"""
+_copysign = """\
+Auto-generated cdecl(0) entry for ``__copysign``. Ghidra signature: ``double _copysign(double __x, double __y)``"""
+_chgsign = """\
+Auto-generated cdecl(0) entry for ``__chgsign``. Ghidra signature: ``float10 _chgsign(undefined4 param_1, uint \
+param_2)``"""
+_allmul = """\
+MSVC 64-bit multiply helper.  Pops its 16 argument bytes (RET 0x10) under the plain ``__allmul`` symbol; 13 call \
+sites never clean up.  clang inlines ``long long`` multiplication, so shims only reach it by name."""
+_SEH_epilog = "Auto-generated cdecl(0) entry for ``__SEH_epilog``. Ghidra signature: ``undefined _SEH_epilog()``"
+_global_unwind2 = """\
+Auto-generated cdecl(0) entry for ``__global_unwind2``. Ghidra signature: ``undefined _global_unwind2(undefined4 \
+param_1)``"""
+_local_unwind2 = """\
+Auto-generated cdecl(0) entry for ``__local_unwind2``. Ghidra signature: ``undefined _local_unwind2(int param_1, int \
+param_2)``"""
+_aullshr = """\
+Auto-generated cdecl(0) entry for ``__aullshr``. Ghidra signature: ``ulonglong _aullshr(byte param_1, uint \
+param_2)``"""
+_aullrem = """\
+MSVC 64-bit unsigned remainder helper.  Pops 16 argument bytes (RET 0x10) under the plain ``__aullrem`` symbol clang \
+emits for ``unsigned long long %``."""
+wcsncpy = """\
+Auto-generated cdecl(0) entry for ``_wcsncpy``. Ghidra signature: ``wchar_t * wcsncpy(wchar_t * __dest, wchar_t * \
+__src, size_t __n)``"""
+_aulldiv = """\
+MSVC 64-bit unsigned divide helper.  Pops 16 argument bytes (RET 0x10) under the plain ``__aulldiv`` symbol clang \
+emits for ``unsigned long long /``; 4 call sites never clean up."""
+_allshr = """\
+Auto-generated cdecl(0) entry for ``__allshr``. Ghidra signature: ``undefined8 _allshr(byte param_1, int param_2)``"""
+_alldiv = """\
+MSVC 64-bit signed divide helper.  Pops 16 argument bytes (RET 0x10) under the plain ``__alldiv`` symbol clang emits \
+for ``long long /``."""
+_wcsicmp = """\
+Auto-generated cdecl(0) entry for ``__wcsicmp``. Ghidra signature: ``int _wcsicmp(ushort * param_1, ushort * \
+param_2)``"""
+wcscpy = """\
+Auto-generated cdecl(0) entry for ``_wcscpy``. Ghidra signature: ``wchar_t * wcscpy(wchar_t * __dest, wchar_t * \
+__src)``"""
+isalpha = "Auto-generated cdecl(0) entry for ``_isalpha``. Ghidra signature: ``int isalpha(int param_1)``"
+isdigit = "Auto-generated cdecl(0) entry for ``_isdigit``. Ghidra signature: ``int isdigit(int param_1)``"
+isspace = "Auto-generated cdecl(0) entry for ``_isspace``. Ghidra signature: ``int isspace(int param_1)``"
+isalnum = "Auto-generated cdecl(0) entry for ``_isalnum``. Ghidra signature: ``int isalnum(int param_1)``"
+seh_longjmp_unwind = "C-runtime SEH unwind helper used by longjmp. __stdcall(4): RET 4 (no direct call sites)."
+_flsbuf = """\
+Auto-generated cdecl(0) entry for ``__flsbuf``. Ghidra signature: ``uint _flsbuf(byte param_1, int * param_2)``"""
+write_char = """\
+Auto-generated cdecl(0) entry for ``_write_char``. Ghidra signature: ``undefined write_char(int * param_1)``"""
+write_multi_char = """\
+Auto-generated cdecl(0) entry for ``_write_multi_char``. Ghidra signature: ``undefined write_multi_char(undefined4 \
+param_1, int param_2, int * param_3)``"""
+write_string = """\
+Auto-generated cdecl(0) entry for ``_write_string``. Ghidra signature: ``undefined write_string(int param_1)``"""
+_close = "Auto-generated cdecl(0) entry for ``__close``. Ghidra signature: ``undefined4 _close()``"
+_freebuf = """\
+Auto-generated cdecl(0) entry for ``__freebuf``. Ghidra signature: ``undefined _freebuf(undefined4 * param_1)``"""
+_flush = "Auto-generated cdecl(0) entry for ``__flush``. Ghidra signature: ``undefined4 _flush(int * param_1)``"
+_fflush_lk = """\
+Auto-generated cdecl(0) entry for ``__fflush_lk``. Ghidra signature: ``int _fflush_lk(int * param_1)``"""
+flsall = "Auto-generated cdecl(0) entry for ``_flsall``. Ghidra signature: ``undefined4 flsall()``"
+_flushall = "Auto-generated cdecl(0) entry for ``__flushall``. Ghidra signature: ``undefined _flushall()``"
+_lock_file = """\
+Auto-generated cdecl(0) entry for ``__lock_file``. Ghidra signature: ``undefined _lock_file(uint param_1)``"""
+_lock_file2 = """\
+Auto-generated cdecl(0) entry for ``__lock_file2``. Ghidra signature: ``undefined _lock_file2(int param_1, int \
+param_2)``"""
+_unlock_file = """\
+Auto-generated cdecl(0) entry for ``__unlock_file``. Ghidra signature: ``undefined _unlock_file(uint param_1)``"""
+_unlock_file2 = """\
+Auto-generated cdecl(0) entry for ``__unlock_file2``. Ghidra signature: ``undefined _unlock_file2(int param_1, int \
+param_2)``"""
+_hextodec = "Auto-generated cdecl(0) entry for ``__hextodec``. Ghidra signature: ``uint _hextodec()``"
+_inc = """\
+Auto-generated cdecl(0) entry for ``__inc``. Ghidra signature: ``uint _inc(undefined4 param_1, undefined4 * \
+param_2)``"""
+_errcode = "Auto-generated cdecl(0) entry for ``__errcode``. Ghidra signature: ``int _errcode(byte param_1)``"
+_umatherr = """\
+Auto-generated cdecl(0) entry for ``__umatherr``. Ghidra signature: ``float10 _umatherr(int param_1, int param_2)``"""
+_handle_qnan1 = """\
+Auto-generated cdecl(0) entry for ``__handle_qnan1``. Ghidra signature: ``float10 _handle_qnan1(int param_1, double \
+param_2)``"""
+_handle_qnan2 = """\
+Auto-generated cdecl(0) entry for ``__handle_qnan2``. Ghidra signature: ``float10 _handle_qnan2(int param_1, double \
+param_2, double param_3)``"""
+_set_exp = """\
+Auto-generated cdecl(0) entry for ``__set_exp``. Ghidra signature: ``float10 _set_exp(undefined8 param_1, short \
+param_2)``"""
+_set_bexp = """\
+Auto-generated cdecl(0) entry for ``__set_bexp``. Ghidra signature: ``float10 _set_bexp(undefined8 param_1, short \
+param_2)``"""
+_sptype = """\
+Auto-generated cdecl(0) entry for ``__sptype``. Ghidra signature: ``undefined4 _sptype(int param_1, uint param_2)``"""
+_ctrlfp = "Auto-generated cdecl(0) entry for ``__ctrlfp``. Ghidra signature: ``int _ctrlfp()``"
+_filbuf = """\
+Auto-generated cdecl(0) entry for ``__filbuf``. Ghidra signature: ``uint _filbuf(undefined4 * param_1)``"""
+_read = "Auto-generated cdecl(0) entry for ``__read``. Ghidra signature: ``undefined4 _read()``"
+_stbuf = "Auto-generated cdecl(0) entry for ``__stbuf``. Ghidra signature: ``undefined4 _stbuf(int * param_1)``"
+_ftbuf = """\
+Auto-generated cdecl(0) entry for ``__ftbuf``. Ghidra signature: ``undefined _ftbuf(int param_1, int * param_2)``"""
+_write = "Auto-generated cdecl(0) entry for ``__write``. Ghidra signature: ``undefined4 _write()``"
+_openfile = """\
+Auto-generated cdecl(0) entry for ``__openfile``. Ghidra signature: ``undefined4 * _openfile(undefined4 param_1, \
+char * param_2, undefined4 param_3, undefined4 * param_4)``"""
+_getstream = "Auto-generated cdecl(0) entry for ``__getstream``. Ghidra signature: ``undefined4 * _getstream()``"
+_forcdecpt = """\
+Auto-generated cdecl(0) entry for ``__forcdecpt``. Ghidra signature: ``undefined _forcdecpt(char * param_1)``"""
+_fassign = """\
+Auto-generated cdecl(0) entry for ``__fassign``. Ghidra signature: ``undefined _fassign(uint param_1, uint * \
+param_2, byte * param_3)``"""
+_cfltcvt = """\
+Auto-generated cdecl(0) entry for ``__cfltcvt``. Ghidra signature: ``undefined _cfltcvt(undefined4 * param_1, char * \
+param_2, int param_3, uint param_4, int param_5)``"""
+_startOneArgErrorHandling = """\
+Auto-generated cdecl(0) entry for ``__startOneArgErrorHandling``. Ghidra signature: ``float10 \
+_startOneArgErrorHandling(undefined4 param_1, int param_2, ushort param_3, undefined4 param_4, undefined4 param_5, \
+undefined4 param_6)``"""
+_fload_withFB = """\
+Auto-generated cdecl(0) entry for ``__fload_withFB``. Ghidra signature: ``uint _fload_withFB(undefined4 param_1, int \
+param_2)``"""
+_math_exit = """\
+Auto-generated cdecl(0) entry for ``__math_exit``. Ghidra signature: ``undefined _math_exit(undefined4 param_1, int \
+param_2, undefined4 param_3, undefined4 param_4, undefined4 param_5)``"""
+_lseek = "Auto-generated cdecl(0) entry for ``__lseek``. Ghidra signature: ``undefined4 _lseek()``"
+_getbuf = """\
+Auto-generated cdecl(0) entry for ``__getbuf``. Ghidra signature: ``undefined _getbuf(undefined4 * param_1)``"""
+_isatty = "Auto-generated cdecl(0) entry for ``__isatty``. Ghidra signature: ``byte _isatty(uint param_1)``"
+_get_osfhandle = """\
+Auto-generated cdecl(0) entry for ``__get_osfhandle``. Ghidra signature: ``undefined4 _get_osfhandle(uint param_1)``"""
+_unlock_fhandle = """\
+Auto-generated cdecl(0) entry for ``__unlock_fhandle``. Ghidra signature: ``undefined _unlock_fhandle(uint \
+param_1)``"""
+_ZeroTail = """\
+Auto-generated cdecl(0) entry for ``__ZeroTail``. Ghidra signature: ``undefined4 _ZeroTail(int param_1, int \
+param_2)``"""
+_IncMan = """\
+Auto-generated cdecl(0) entry for ``__IncMan``. Ghidra signature: ``undefined _IncMan(int param_1, int param_2)``"""
+_RoundMan = """\
+Auto-generated cdecl(0) entry for ``__RoundMan``. Ghidra signature: ``undefined4 _RoundMan(int param_1, int \
+param_2)``"""
+_CopyMan = """\
+Auto-generated cdecl(0) entry for ``__CopyMan``. Ghidra signature: ``undefined _CopyMan(int param_1, undefined4 * \
+param_2)``"""
+_IsZeroMan = """\
+Auto-generated cdecl(0) entry for ``__IsZeroMan``. Ghidra signature: ``undefined4 _IsZeroMan(int param_1)``"""
+_ShrMan = """\
+Auto-generated cdecl(0) entry for ``__ShrMan``. Ghidra signature: ``undefined _ShrMan(int param_1, int param_2)``"""
+_ld12cvt = """\
+Auto-generated cdecl(0) entry for ``__ld12cvt``. Ghidra signature: ``undefined4 _ld12cvt(ushort * param_1, uint * \
+param_2, int * param_3)``"""
+_ld12told = """\
+Auto-generated cdecl(0) entry for ``__ld12told``. Ghidra signature: ``undefined4 _ld12told(ushort * param_1, \
+undefined4 * param_2)``"""
+_sopen = "Auto-generated cdecl(0) entry for ``__sopen``. Ghidra signature: ``undefined4 _sopen()``"
+__dtold = """\
+Auto-generated cdecl(0) entry for ``___dtold``. Ghidra signature: ``undefined __dtold(uint * param_1, uint * \
+param_2)``"""
+_flswbuf = """\
+Auto-generated cdecl(0) entry for ``__flswbuf``. Ghidra signature: ``undefined2 _flswbuf(undefined2 param_1, int * \
+param_2)``"""
+__addl = """\
+Auto-generated cdecl(0) entry for ``___addl``. Ghidra signature: ``undefined4 __addl(uint param_1, uint param_2, \
+uint * param_3)``"""
+__add_12 = """\
+Auto-generated cdecl(0) entry for ``___add_12``. Ghidra signature: ``undefined __add_12(uint * param_1, uint * \
+param_2)``"""
+__shl_12 = """\
+Auto-generated cdecl(0) entry for ``___shl_12``. Ghidra signature: ``undefined __shl_12(uint * param_1)``"""
+__shr_12 = """\
+Auto-generated cdecl(0) entry for ``___shr_12``. Ghidra signature: ``undefined __shr_12(uint * param_1)``"""
+GetTimeZoneInformation = """\
+Auto-generated stdcall(4) entry for ``GetTimeZoneInformation``. Ghidra signature: ``undefined4 \
+GetTimeZoneInformation(int * param_1)``"""
+OutputDebugStringW = """\
+Auto-generated stdcall(4) entry for ``OutputDebugStringW``. Ghidra signature: ``undefined \
+OutputDebugStringW(undefined4 param_1)``"""
+XGWriteSurfaceOrTextureToXPR = """\
+Auto-generated stdcall(12) entry for ``XGWriteSurfaceOrTextureToXPR``. Ghidra signature: ``undefined4 \
+XGWriteSurfaceOrTextureToXPR(uint * param_1, uint param_2, int param_3)``"""
+_itoa = """\
+Auto-generated cdecl(0) entry for ``__itoa``. Ghidra signature: ``void * _itoa(int param_1, void * param_2, uint \
+param_3)``"""
+_ltoa = """\
+Auto-generated cdecl(0) entry for ``__ltoa``. Ghidra signature: ``void * _ltoa(int param_1, void * param_2, uint \
+param_3)``"""
+_setjmp3 = """\
+Auto-generated cdecl(0) entry for ``__setjmp3``. Ghidra signature: ``undefined4 _setjmp3(undefined4 * param_1, int \
+param_2, int param_3, undefined4 param_4)``"""
+rt_probe_read4 = """\
+C-runtime helper.  __stdcall(4): RET 4; its one call site pushes one argument and never cleans up."""
+_cintrindisp2 = """\
+Auto-generated cdecl(0) entry for ``__cintrindisp2``. Ghidra signature: ``undefined _cintrindisp2(undefined4 \
+param_1, int param_2)``"""
+_cintrindisp1 = """\
+Auto-generated cdecl(0) entry for ``__cintrindisp1``. Ghidra signature: ``undefined _cintrindisp1(undefined4 \
+param_1, int param_2)``"""
+_ctrandisp2 = """\
+Auto-generated cdecl(0) entry for ``__ctrandisp2``. Ghidra signature: ``undefined _ctrandisp2(uint param_1, int \
+param_2, uint param_3, int param_4)``"""
+_ctrandisp1 = """\
+Auto-generated cdecl(0) entry for ``__ctrandisp1``. Ghidra signature: ``undefined _ctrandisp1(uint param_1, int \
+param_2)``"""
+_fload = """\
+Auto-generated cdecl(0) entry for ``__fload``. Ghidra signature: ``float10 _fload(uint param_1, int param_2)``"""
+D3DDevice_GetDeviceCaps = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_GetDeviceCaps``. Ghidra signature: ``undefined \
+D3DDevice_GetDeviceCaps(undefined4 * param_1)``"""
+D3DDevice_SetGammaRamp = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetGammaRamp``. Ghidra signature: ``undefined \
+D3DDevice_SetGammaRamp(byte param_1, undefined4 * param_2)``"""
+D3DDevice_GetGammaRamp = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_GetGammaRamp``. Ghidra signature: ``undefined \
+D3DDevice_GetGammaRamp(undefined4 * param_1)``"""
+D3DDevice_CreateTexture = """\
+Auto-generated stdcall(28) entry for ``D3DDevice_CreateTexture``. Ghidra signature: ``undefined \
+D3DDevice_CreateTexture(uint param_1, uint param_2, uint param_3, uint param_4, uint param_5, undefined4 param_6, \
+undefined4 * param_7)``"""
+D3DDevice_CreateVolumeTexture = """\
+Auto-generated stdcall(32) entry for ``D3DDevice_CreateVolumeTexture``. Ghidra signature: ``undefined \
+D3DDevice_CreateVolumeTexture(uint param_1, uint param_2, uint param_3, uint param_4, uint param_5, uint param_6, \
+undefined4 param_7, undefined4 * param_8)``"""
+D3DDevice_CreateCubeTexture = """\
+Auto-generated stdcall(24) entry for ``D3DDevice_CreateCubeTexture``. Ghidra signature: ``undefined \
+D3DDevice_CreateCubeTexture(uint param_1, uint param_2, uint param_3, uint param_4, undefined4 param_5, undefined4 * \
+param_6)``"""
+D3DDevice_SetTransform = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetTransform``. Ghidra signature: ``undefined \
+D3DDevice_SetTransform(int param_1, uint * param_2)``"""
+D3DDevice_MultiplyTransform = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_MultiplyTransform``. Ghidra signature: ``undefined \
+D3DDevice_MultiplyTransform(int param_1, float * param_2)``"""
+D3DDevice_Release = """\
+Auto-generated stdcall(0) entry for ``D3DDevice_Release``. Ghidra signature: ``undefined D3DDevice_Release()``"""
+D3DDevice_BlockOnFence = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_BlockOnFence``. Ghidra signature: ``undefined \
+D3DDevice_BlockOnFence(uint param_1)``"""
+D3DDevice_GetVisibilityTestResult = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_GetVisibilityTestResult``. Ghidra signature: ``undefined4 \
+D3DDevice_GetVisibilityTestResult(uint param_1, undefined4 * param_2, undefined4 * param_3)``"""
+D3DDevice_BlockUntilVerticalBlank = """\
+Auto-generated stdcall(0) entry for ``D3DDevice_BlockUntilVerticalBlank``. Ghidra signature: ``undefined \
+D3DDevice_BlockUntilVerticalBlank()``"""
+D3DDevice_InsertFence = """\
+Auto-generated stdcall(0) entry for ``D3DDevice_InsertFence``. Ghidra signature: ``undefined \
+D3DDevice_InsertFence()``"""
+D3DDevice_GetDisplayMode = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_GetDisplayMode``. Ghidra signature: ``undefined \
+D3DDevice_GetDisplayMode(undefined4 * param_1)``"""
+D3DDevice_Reset = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_Reset``. Ghidra signature: ``int D3DDevice_Reset(uint * param_1)``"""
+D3DDevice_SetRenderTarget = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetRenderTarget``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderTarget(uint * param_1, uint * param_2)``"""
+D3DDevice_GetBackBuffer = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_GetBackBuffer``. Ghidra signature: ``undefined \
+D3DDevice_GetBackBuffer(int param_1, undefined4 param_2, undefined4 * param_3)``"""
+D3DDevice_CopyRects = """\
+Auto-generated stdcall(20) entry for ``D3DDevice_CopyRects``. Ghidra signature: ``undefined D3DDevice_CopyRects(int \
+param_1, uint * param_2, uint param_3, int param_4, uint * param_5)``"""
+D3DDevice_GetRenderTarget = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_GetRenderTarget``. Ghidra signature: ``undefined4 \
+D3DDevice_GetRenderTarget(undefined4 * param_1)``"""
+D3DDevice_GetDepthStencilSurface = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_GetDepthStencilSurface``. Ghidra signature: ``undefined4 \
+D3DDevice_GetDepthStencilSurface(undefined4 * param_1)``"""
+D3DDevice_SetViewport = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetViewport``. Ghidra signature: ``undefined \
+D3DDevice_SetViewport(uint * param_1)``"""
+D3DDevice_SetLight = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetLight``. Ghidra signature: ``undefined4 D3DDevice_SetLight(float \
+param_1, int * param_2)``"""
+D3DDevice_SetTexture = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetTexture``. Ghidra signature: ``undefined D3DDevice_SetTexture(int \
+param_1, uint * param_2)``"""
+D3DDevice_SetIndices = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetIndices``. Ghidra signature: ``undefined \
+D3DDevice_SetIndices(uint * param_1, undefined4 param_2)``"""
+D3DDevice_BeginVisibilityTest = """\
+Auto-generated stdcall(0) entry for ``D3DDevice_BeginVisibilityTest``. Ghidra signature: ``undefined \
+D3DDevice_BeginVisibilityTest()``"""
+D3DDevice_EndVisibilityTest = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_EndVisibilityTest``. Ghidra signature: ``undefined4 \
+D3DDevice_EndVisibilityTest(uint param_1)``"""
+D3DDevice_GetDisplayFieldStatus = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_GetDisplayFieldStatus``. Ghidra signature: ``undefined \
+D3DDevice_GetDisplayFieldStatus(int * param_1)``"""
+D3DDevice_SetTile = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetTile``. Ghidra signature: ``undefined D3DDevice_SetTile(uint \
+param_1, uint * param_2)``"""
+D3DDevice_SetScissors = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_SetScissors``. Ghidra signature: ``undefined \
+D3DDevice_SetScissors(uint param_1, uint param_2, uint * param_3)``"""
+D3DDevice_PersistDisplay = """\
+Auto-generated stdcall(0) entry for ``D3DDevice_PersistDisplay``. Ghidra signature: ``int \
+D3DDevice_PersistDisplay()``"""
+D3DDevice_SetRenderState_Simple = """\
+XDK ``D3DDevice_SetRenderState_Simple(method, value)``. __fastcall(8): both arguments in ECX/EDX, plain RET; 33 call \
+sites load ECX/EDX and push nothing."""
+D3DDevice_SetRenderState_Deferred = """\
+XDK ``D3DDevice_SetRenderState_Deferred(state, value)``. __fastcall(8): both arguments in ECX/EDX, plain RET; 15 \
+call sites load ECX/EDX and push nothing."""
+D3DDevice_SetRenderStateNotInline = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetRenderStateNotInline``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderStateNotInline(int param_1, undefined4 param_2)``"""
+D3DDevice_SetRenderState_FogColor = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_FogColor``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_FogColor(uint param_1)``"""
+D3DDevice_SetRenderState_CullMode = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_CullMode``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_CullMode(int param_1)``"""
+D3DDevice_SetRenderState_TextureFactor = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_TextureFactor``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_TextureFactor(undefined4 param_1)``"""
+D3DDevice_SetRenderState_LineWidth = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_LineWidth``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_LineWidth(float param_1)``"""
+D3DDevice_SetRenderState_Dxt1NoiseEnable = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_Dxt1NoiseEnable``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_Dxt1NoiseEnable(uint param_1)``"""
+D3DDevice_SetRenderState_FillMode = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_FillMode``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_FillMode(undefined4 param_1)``"""
+D3DDevice_SetTextureState_TexCoordIndex = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetTextureState_TexCoordIndex``. Ghidra signature: ``undefined \
+D3DDevice_SetTextureState_TexCoordIndex(int param_1, uint param_2)``"""
+D3DDevice_SetTextureState_BumpEnv = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_SetTextureState_BumpEnv``. Ghidra signature: ``undefined \
+D3DDevice_SetTextureState_BumpEnv(uint param_1, int param_2, undefined4 param_3)``"""
+D3DDevice_SetTextureState_BorderColor = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetTextureState_BorderColor``. Ghidra signature: ``undefined \
+D3DDevice_SetTextureState_BorderColor(int param_1, int param_2)``"""
+D3DDevice_SetTextureState_ColorKeyColor = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SetTextureState_ColorKeyColor``. Ghidra signature: ``undefined \
+D3DDevice_SetTextureState_ColorKeyColor(int param_1, int param_2)``"""
+D3DDevice_SetTextureStageStateNotInline = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_SetTextureStageStateNotInline``. Ghidra signature: ``undefined \
+D3DDevice_SetTextureStageStateNotInline(uint param_1, int param_2, uint param_3)``"""
+D3D_CommonSetDebugRegisters = """\
+Auto-generated stdcall(0) entry for ``D3D_CommonSetDebugRegisters``. Ghidra signature: ``undefined \
+D3D_CommonSetDebugRegisters()``"""
+D3DDevice_SetRenderState_ZEnable = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_ZEnable``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_ZEnable(int param_1)``"""
+D3DDevice_SetRenderState_OcclusionCullEnable = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_OcclusionCullEnable``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_OcclusionCullEnable(int param_1)``"""
+D3DDevice_SetRenderState_StencilCullEnable = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_StencilCullEnable``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_StencilCullEnable(int param_1)``"""
+D3DDevice_SetRenderState_RopZCmpAlwaysRead = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_RopZCmpAlwaysRead``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_RopZCmpAlwaysRead(undefined4 param_1)``"""
+D3DDevice_SetRenderState_RopZRead = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_RopZRead``. Ghidra signature: ``undefined \
+D3DDevice_SetRenderState_RopZRead(undefined4 param_1)``"""
+D3DDevice_SetRenderState_DoNotCullUncompressed = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetRenderState_DoNotCullUncompressed``. Ghidra signature: \
+``undefined D3DDevice_SetRenderState_DoNotCullUncompressed(undefined4 param_1)``"""
+D3DTexture_GetSurfaceLevel = """\
+Auto-generated stdcall(12) entry for ``D3DTexture_GetSurfaceLevel``. Ghidra signature: ``undefined \
+D3DTexture_GetSurfaceLevel(uint * param_1, uint param_2, undefined4 * param_3)``"""
+D3DTexture_LockRect = """\
+Auto-generated stdcall(20) entry for ``D3DTexture_LockRect``. Ghidra signature: ``undefined D3DTexture_LockRect(uint \
+* param_1, int param_2, undefined4 * param_3, int * param_4, uint param_5)``"""
+D3DCubeTexture_GetCubeMapSurface = """\
+Auto-generated stdcall(16) entry for ``D3DCubeTexture_GetCubeMapSurface``. Ghidra signature: ``undefined \
+D3DCubeTexture_GetCubeMapSurface(uint * param_1, int param_2, uint param_3, undefined4 * param_4)``"""
+D3DCubeTexture_LockRect = """\
+Auto-generated stdcall(24) entry for ``D3DCubeTexture_LockRect``. Ghidra signature: ``undefined \
+D3DCubeTexture_LockRect(uint * param_1, uint param_2, int param_3, undefined4 * param_4, int * param_5, uint \
+param_6)``"""
+D3D_CreateTexture = """\
+Auto-generated stdcall(36) entry for ``D3D_CreateTexture``. Ghidra signature: ``undefined4 D3D_CreateTexture(uint \
+param_1, uint param_2, uint param_3, uint param_4, uint param_5, uint param_6, char param_7, uint param_8, \
+undefined4 * param_9)``"""
+D3D_CheckDeviceFormat = """\
+Auto-generated stdcall(24) entry for ``D3D_CheckDeviceFormat``. Ghidra signature: ``undefined4 \
+D3D_CheckDeviceFormat(int param_1, int param_2, int param_3, byte param_4, undefined4 param_5, int param_6)``"""
+D3DDevice_CreateVertexShader = """\
+XDK ``D3DDevice_CreateVertexShader(declaration, function, handle_out, usage)``.  __stdcall(16): RET 0x10; 3 call \
+sites push four arguments and never clean up."""
+D3DDevice_SetStreamSource = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_SetStreamSource``. Ghidra signature: ``undefined \
+D3DDevice_SetStreamSource(int param_1, uint * param_2, int param_3)``"""
+D3DDevice_LoadVertexShader = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_LoadVertexShader``. Ghidra signature: ``undefined \
+D3DDevice_LoadVertexShader(int param_1, int param_2)``"""
+D3DDevice_LoadVertexShaderProgram = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_LoadVertexShaderProgram``. Ghidra signature: ``undefined \
+D3DDevice_LoadVertexShaderProgram(uint * param_1, int param_2)``"""
+D3DDevice_SelectVertexShader = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_SelectVertexShader``. Ghidra signature: ``undefined \
+D3DDevice_SelectVertexShader(uint param_1, undefined4 param_2)``"""
+D3DDevice_SetShaderConstantMode = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetShaderConstantMode``. Ghidra signature: ``undefined \
+D3DDevice_SetShaderConstantMode(uint param_1)``"""
+D3DDevice_DeleteVertexShader = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_DeleteVertexShader``. Ghidra signature: ``undefined \
+D3DDevice_DeleteVertexShader(int param_1)``"""
+D3DDevice_SetVertexShader = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetVertexShader``. Ghidra signature: ``undefined \
+D3DDevice_SetVertexShader(uint param_1)``"""
+D3DDevice_SetVertexShaderConstant = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_SetVertexShaderConstant``. Ghidra signature: ``undefined \
+D3DDevice_SetVertexShaderConstant(int param_1, uint * param_2, int param_3)``"""
+D3DDevice_Clear = """\
+Auto-generated stdcall(24) entry for ``D3DDevice_Clear``. Ghidra signature: ``undefined D3DDevice_Clear(int param_1, \
+uint * param_2, uint param_3, uint param_4, float param_5, uint param_6)``"""
+D3DDevice_DrawVerticesUP = """\
+Auto-generated stdcall(16) entry for ``D3DDevice_DrawVerticesUP``. Ghidra signature: ``undefined \
+D3DDevice_DrawVerticesUP(undefined4 param_1, uint param_2, uint param_3, int param_4)``"""
+D3DDevice_DrawIndexedVerticesUP = """\
+Auto-generated stdcall(20) entry for ``D3DDevice_DrawIndexedVerticesUP``. Ghidra signature: ``undefined \
+D3DDevice_DrawIndexedVerticesUP(undefined4 param_1, uint param_2, ushort * param_3, uint param_4, int param_5)``"""
+D3DDevice_DrawVertices = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_DrawVertices``. Ghidra signature: ``undefined \
+D3DDevice_DrawVertices(undefined4 param_1, uint param_2, uint param_3)``"""
+D3DDevice_DrawIndexedVertices = """\
+Auto-generated stdcall(12) entry for ``D3DDevice_DrawIndexedVertices``. Ghidra signature: ``undefined \
+D3DDevice_DrawIndexedVertices(int * param_1, uint param_2, int * param_3)``"""
+D3DSurface_GetDesc = """\
+Auto-generated stdcall(8) entry for ``D3DSurface_GetDesc``. Ghidra signature: ``undefined D3DSurface_GetDesc(uint * \
+param_1, uint * param_2)``"""
+D3DSurface_LockRect = """\
+Auto-generated stdcall(16) entry for ``D3DSurface_LockRect``. Ghidra signature: ``undefined D3DSurface_LockRect(uint \
+* param_1, undefined4 * param_2, int * param_3, uint param_4)``"""
+D3D_SetPushBufferSize = """\
+Auto-generated stdcall(8) entry for ``D3D_SetPushBufferSize``. Ghidra signature: ``undefined \
+D3D_SetPushBufferSize(undefined4 param_1, undefined4 param_2)``"""
+D3DDevice_CreateIndexBuffer = """\
+XDK ``D3DDevice_CreateIndexBuffer(length, usage, format, pool, buffer_out)``.  __stdcall(20): RET 0x14; 4 call sites \
+push five arguments and never clean up."""
+D3DDevice_CreateVertexBuffer = """\
+XDK ``D3DDevice_CreateVertexBuffer(length, usage, fvf, pool, buffer_out)``.  __stdcall(20): RET 0x14; 4 call sites \
+never clean up."""
+D3DVertexBuffer_Lock = """\
+Auto-generated stdcall(20) entry for ``D3DVertexBuffer_Lock``. Ghidra signature: ``undefined \
+D3DVertexBuffer_Lock(uint * param_1, int param_2, undefined4 param_3, int * param_4, byte param_5)``"""
+D3DResource_GetType = """\
+Auto-generated stdcall(4) entry for ``D3DResource_GetType``. Ghidra signature: ``char D3DResource_GetType(uint * \
+param_1)``"""
+D3DResource_BlockUntilNotBusy = """\
+Auto-generated stdcall(4) entry for ``D3DResource_BlockUntilNotBusy``. Ghidra signature: ``undefined \
+D3DResource_BlockUntilNotBusy(uint * param_1)``"""
+D3D_DestroyResource = """\
+Auto-generated stdcall(4) entry for ``D3D_DestroyResource``. Ghidra signature: ``undefined D3D_DestroyResource(uint \
+* param_1)``"""
+D3DResource_AddRef = """\
+Auto-generated stdcall(4) entry for ``D3DResource_AddRef``. Ghidra signature: ``uint D3DResource_AddRef(uint * \
+param_1)``"""
+D3DResource_Release = """\
+Auto-generated stdcall(4) entry for ``D3DResource_Release``. Ghidra signature: ``uint D3DResource_Release(uint * \
+param_1)``"""
+D3DResource_Register = """\
+Auto-generated stdcall(8) entry for ``D3DResource_Register``. Ghidra signature: ``undefined \
+D3DResource_Register(uint * param_1, int param_2)``"""
+D3DDevice_RunPushBuffer = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_RunPushBuffer``. Ghidra signature: ``undefined \
+D3DDevice_RunPushBuffer(int * param_1, int param_2)``"""
+D3DDevice_GetPushBufferOffset = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_GetPushBufferOffset``. Ghidra signature: ``undefined \
+D3DDevice_GetPushBufferOffset(int * param_1)``"""
+D3DDevice_Present = """\
+XDK ``D3DDevice_Present(src_rect, dst_rect, window, dirty_region)``.  __stdcall(16): RET 0x10; 2 call sites push \
+four arguments and never clean up."""
+D3D_AllocContiguousMemory = """\
+Auto-generated stdcall(8) entry for ``D3D_AllocContiguousMemory``. Ghidra signature: ``undefined \
+D3D_AllocContiguousMemory(int param_1, undefined4 param_2)``"""
+D3DDevice_CreatePixelShader = """\
+Auto-generated stdcall(8) entry for ``D3DDevice_CreatePixelShader``. Ghidra signature: ``undefined4 \
+D3DDevice_CreatePixelShader(undefined4 * param_1, undefined4 * param_2)``"""
+D3DDevice_DeletePixelShader = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_DeletePixelShader``. Ghidra signature: ``undefined \
+D3DDevice_DeletePixelShader(int * param_1)``"""
+D3DDevice_SetPixelShader = """\
+Auto-generated stdcall(4) entry for ``D3DDevice_SetPixelShader``. Ghidra signature: ``undefined \
+D3DDevice_SetPixelShader(uint param_1)``"""
+D3D_UpdateProjectionViewportTransform = """\
+Auto-generated stdcall(0) entry for ``D3D_UpdateProjectionViewportTransform``. Ghidra signature: ``undefined \
+D3D_UpdateProjectionViewportTransform()``"""
+D3D_LazySetPointParams = """\
+Auto-generated stdcall(4) entry for ``D3D_LazySetPointParams``. Ghidra signature: ``undefined \
+D3D_LazySetPointParams(uint * param_1)``"""
+D3D_SetFence = """\
+Auto-generated stdcall(4) entry for ``D3D_SetFence``. Ghidra signature: ``uint D3D_SetFence(byte param_1)``"""
+D3D_BlockOnTime = """\
+Auto-generated stdcall(8) entry for ``D3D_BlockOnTime``. Ghidra signature: ``undefined D3D_BlockOnTime(uint param_1, \
+int param_2)``"""
+D3D_KickOffAndWaitForIdle = """\
+Auto-generated stdcall(0) entry for ``D3D_KickOffAndWaitForIdle``. Ghidra signature: ``undefined \
+D3D_KickOffAndWaitForIdle()``"""
+D3D_BlockOnResource = """\
+Auto-generated stdcall(4) entry for ``D3D_BlockOnResource``. Ghidra signature: ``undefined D3D_BlockOnResource(uint \
+* param_1)``"""
+XMETAL_StartPush = """\
+Auto-generated stdcall(4) entry for ``XMETAL_StartPush``. Ghidra signature: ``undefined XMETAL_StartPush(uint * \
+param_1)``"""
+XGSwizzleRect = """\
+Auto-generated stdcall(32) entry for ``XGSwizzleRect``. Ghidra signature: ``undefined XGSwizzleRect(undefined4 * \
+param_1, int param_2, int * param_3, undefined4 * param_4, uint param_5, uint param_6, uint * param_7, undefined8 * \
+param_8)``"""
+XGUnswizzleBox = """\
+Auto-generated stdcall(40) entry for ``XGUnswizzleBox``. Ghidra signature: ``undefined XGUnswizzleBox(int param_1, \
+uint param_2, uint param_3, uint param_4, uint * param_5, undefined4 * param_6, uint param_7, int param_8, int * \
+param_9, uint param_10)``"""
+XGSetTextureHeader = """\
+Auto-generated stdcall(36) entry for ``XGSetTextureHeader``. Ghidra signature: ``undefined XGSetTextureHeader(uint \
+param_1, uint param_2, uint param_3, uint param_4, uint param_5, undefined4 param_6, undefined4 * param_7, \
+undefined4 param_8, uint param_9)``"""
+XInitDevices = "XDK ``XInitDevices(prealloc_count, prealloc_types)``. __stdcall(8): RET 8 (no direct call sites)."
+DirectSoundCreate = """\
+XDK ``DirectSoundCreate(guid, dsound_out, outer)``. __stdcall(12): RET 0xC; 3 call sites push three arguments and \
+never clean up."""
+DirectSoundDoWork = """\
+SDK entry point (DirectSound (DSOUND)).  Ghidra signature: ``undefined DirectSoundDoWork(void)``"""
+Direct3D_CreateDevice = """\
+XDK ``Direct3D_CreateDevice(adapter, device_type, window, flags, params, device_out)``.  __stdcall(24): RET 0x18; 2 \
+call sites push six arguments and never clean up."""
+player_walk_state = """\
+Main walking-state per-frame function (state 0).  Real ABI: EAX = entity, [esp+4] = input, returns AL, RET 4 (4 call \
+sites push one argument and never clean up).  Declared __stdcall(4); call it through \
+``player_walk_state_call(entity, input)``, which also loads EAX.  Reads CritterData.run_speed * entity.magnitude * \
+direction and produces horizontal velocity.  The FLD [EAX+0x40] at VA 0x85F65 reads garret4's config.xbr runSpeed, \
+the cell walk_speed_scale sets (D53)."""
+player_jump_init = """\
+Initial jump from ground (state 5 -> 2 transition).  Real ABI: ESI = entity, EAX = input, returns AL, plain RET with \
+no stack arguments, so it is declared __cdecl(void); call it through ``player_jump_init_call(entity, input)``, which \
+loads ESI and EAX.  Sets entity.air_control=9.0 (imm32 at 0x890E4/0x89120) and entity.jump_height=1.1 (imm32 at \
+0x890D4/0x89110), then computes v0 = sqrt(2*gravity*jump_height).  The FLD [0x001980A8] at VA 0x89160 is the \
+jump_speed_scale patch target.  Calls player_airborne_reinit on the air-power path (overwrites \
+air_control/jump_height with air-power-specific values)."""
+player_airborne_tick = """\
+Per-frame airborne physics (state 2).  Real ABI: EDI = entity, [esp+4] = input, returns AL, RET 4 (3 call sites push \
+one argument and never clean up).  Declared __stdcall(4); call it through ``player_airborne_tick_call(entity, \
+input)``, which also loads EDI.  Computes horizontal velocity = entity.air_control * entity.magnitude and applies \
+gravity to z.  It does not call wing_flap: the state machine's air case (0x8D37A) does.  The FADD [0x001A25C0] at VA \
+0x896EA was the pre-v2 flap_height_scale target (wrong maneuver — see comment there)."""
+wing_flap = """\
+Wing flap / Air-power double-jump.  Real ABI: ESI = entity, [esp+4] = input, returns AL, RET 4.  Declared \
+__stdcall(4) for the stack part; ESI needs an asm thunk like ``player_walk_state_call`` (none is provided).  Its \
+only direct caller is the state machine's air case (0x8D37A).  Gated by ([input_state+0x20] & 0x04) + \
+armor.flap_count != 0 + entity.flap_counter < armor.flap_count.  Consumes fuel via consume_fuel: 1.0 on every flap \
+(0x89354), and 100.0 more on a flap more than 6 m below the flap ceiling (peak_z + h - z > 6.0, the FCOMP at \
+0x893C0; the CALL at 0x893D4).  v0 = sqrt(2 * 9.8 * flap_height) at VA 0x893AE (flap_height_scale patch target), \
+halved by FMUL [0x001A2510]=0.5 at VA 0x893DD on that descent flap (flap_below_peak_scale patch target), scaled by \
+FMUL [0x001A26C4]=1.5 at VA 0x893EB.  Also hosts the wing_flap_count shim trampoline at VA 0x89321."""
+player_airborne_reinit = """\
+Airborne re-initialiser, called only from player_jump_init (0x89147) and wing_flap (0x89348), not per frame.  ECX = \
+&entity[+0x140] (air-control out), EAX = armor_mgr (in), plain RET.  Declared __fastcall(4) for ECX; EAX needs an \
+asm thunk like ``player_walk_state_call`` (none is provided).  Writes entity.air_control (12.0 if the air slot's \
+Flaps (level+0x38) is non-zero and its Level (level+0x08) is 1-3, else 9.0) and entity.jump_height (1.2 / 1.1 resp.) \
+on every jump and flap.  This is WHY the static jump_init imm32 writes at 0x890E4/0x89126/etc. aren't enough to \
+patch air-control — this function overrides them.  The 2 imm32s at VA 0x83FAC (12.0) and 0x83FCE (9.0) are the \
+air_control_scale secondary patch targets."""
+player_input_tick = """\
+Per-frame input composer.  __fastcall(4): ECX = PlayerInputState pointer, plain RET (its one call site loads ECX and \
+pushes nothing).  Reads raw stick/buttons, computes entity.magnitude ([entity+0x124]) and entity.direction \
+([entity+0x128..0x130]).  When bit 0x40 of [entity+0x20] is set, multiplies magnitude by 3.0 at VA 0x849E4 (FMUL \
+[0x001A25BC]): the developer cheat-buttons turbo, set only while the cvar 'enable cheat buttons' is on (0 in \
+retail).  Not the roll (roll_speed_scale hooks 0x8C745)."""
+player_climb_tick = """\
+Climbing-state per-frame function (state 1).  Real ABI: EAX = entity, [esp+4] = input, RET 4 (its one call site \
+pushes one argument).  Declared __stdcall(4); EAX needs an asm thunk like ``player_walk_state_call`` (none is \
+provided).  Reads g_climb_speed_const (VA 0x001980E4 = 2.0) at two call sites: VA 0x87FA7 (primary climb velocity) \
+and VA 0x88357 (secondary climb-retarget).  The constant has EXACTLY 2 readers (both here): the rung step (2.0 x dt \
+a tick in xemu) and the rung clips' rate, which climb_speed_scale scales (Step 2.185)."""
+player_slope_slide_tick = """\
+Slope-slide states 3 & 4 per-frame function.  Called by the state machine's slope cases (0x8D250, 0x8D29A) and by \
+0x8AE10, which sets state 3 first (0x8AEF4; the call is at 0x8AEFE); the ground attack starter 0x88A80 \
+(``player_ground_land_tick``) never calls it [verified 2026-10-10, capstone].  State 3 uses the slope-slide constant \
+(VA 0x001AAB68 = 2.0) — single reader at VA 0x89B76; overwriting it had no in-game effect (slider deleted in Step \
+1.10, D18).  State 4 has separate fast-slide physics with dynamic-init globals at 0x003902A0..9C."""
+player_swim_tick = """\
+Swim per-frame function (state 6).  Real ABI: EAX = input, [esp+4] = entity, RET 4, result in AL (a non-zero AL ends \
+the frame).  The state machine calls it from its ground, air, slope, zipline ride and swim cases (0x8D118, 0x8D35F, \
+0x8D221, 0x8D26B, 0x8D2B5, 0x8D1CB), each with PUSH EBP (the entity) and MOV EAX, EDI (the input) [verified \
+2026-10-11, capstone; live in xemu s6, ESI (from EAX) = the input, a stack address in 0x8C230's frame, and EBX = the \
+entity].  Declared __stdcall(4); EAX needs an asm thunk like ``player_walk_state_call`` (none is provided).  It \
+returns 0 at once while input+0x135 bit 0 is clear.  Reads [0x001A25B4]=10.0 (shared) at VA 0x8B7BF as the stroke, a \
+target speed in m/s; the FMUL there is the swim_speed_scale patch target."""
+fall_damage_dispatch = """\
+Fall-damage tiered dispatcher (surface-landing path).  __stdcall(float fall_height, float fall_speed); it also reads \
+EDI = the entity (0x8AD8C), an input the signature leaves out.  Called only from player_landing at VA 0x8C173.  \
+Reads 7 cvars from config.xbr on first call ('fall min velocity', 'fall height 1/2/3', 'fall damage 1/2/3') cached \
+as static doubles at 0x00390228..290.  The highest tier the drop reaches sets HP to HP - (int)'fall damage N' \
+(0xF5A40, int32) through apply_damage (FUN_00044640), the clamped HP setter (0x8AD87-0x8AD9B); no armor code runs.  \
+The deleted no_fall_damage pack (v2) rewrote the prologue to 'XOR AL,AL ; RET 8 ; NOP'."""
+fall_death_dispatch = """\
+Fall-death check.  __stdcall(int entity).  4 callers: player_landing at VA 0x8C095 when [entity+0x38] \
+(surface-contact slot) is NULL (a contact with no floor object), player_jump_init (0x892A0), wing_flap (0x8945E) and \
+0x856E2 (right after the fall reference's reset, so it can't kill).  A fall ending on a floor never reaches it.  \
+When min(drop, v^2/2g) exceeds the cached 'fall height 4' (drop = entity+0x168, the fall reference, minus \
+critter+0x164), it sets HP to 0 through apply_damage whatever the HP, plays 'fx/sound/player/fallingdeath' and sets \
+the death flag ([entity+0x16C] |= 1).  The deleted no_fall_damage pack (v2) rewrote the prologue to 'XOR AL,AL ; RET \
+4'."""
+apply_damage = """\
+Set a critter's HP, clamped to [0, max HP] (critter +0x210, +0x214); the name is old (a rename waits for AzurKit, \
+D68).  __stdcall(int entity, int kind, char caller_flag) — verified by RET 0xC at VA 0x44735; the first argument is \
+the critter, the second the new HP, not a kind (fall damage passes HP - damage).  14 direct calls (xbe calls), among \
+them VA 0x8AD9B in fall_damage_dispatch and VA 0x8BF59 in fall_death_dispatch (the deleted no_fall_damage pack \
+rewrote those two callers).  NOT directly patched — touching this shared routine would affect non-fall damage too."""
+player_landing = """\
+Player landing handler.  Dispatches to fall_death_dispatch (no-surface path, VA 0x8C095) or fall_damage_dispatch \
+(surface path, VA 0x8C173) based on [entity+0x38] (surface-contact slot).  Called per-frame from \
+player_airborne_tick's transition-to-ground logic."""
+player_staff_wall_check = """\
+The staff-hits-wall clank.  __stdcall(PlayerControl), RET 4 on all three returns; AL = 1 when the staff struck a \
+wall this tick.  Only while the cvar 'combat/staff hits walls' (record 0x38BB80) is on and PlayerControl+0x94 has \
+the attack bit 0x100, and while the body's ``m_attacklevel`` marker is raised (z > 0.01), it sweeps the staff bone \
+``staff_center2slide`` against the world; a hit clears 0x100 and plays 'fx/sound/hits/clank1'.  A body without the \
+bone sweeps stale stack bytes (X17, Step 2.75d).  One caller: the CALL at 0x8C3B0 in the PlayerControl tick \
+(0x8C230), whose AL is ignored (0x8C3B5 moves EDI to ESI and calls 0x8C520) [verified 2026-10-12, Ghidra serve and \
+capstone].  The player-model swap's X3 shim (Step 2.21c) takes that CALL and ends by calling this."""
+consume_fuel = """\
+Event-driven fuel consumer.  __thiscall(4): ECX = armor_mgr, float cost on the stack, popped by the callee (RET 4; \
+both call sites push the cost and never clean up).  Subtracts cost / Flaps from the gauge ([this+0x24], 1.0 = full), \
+where Flaps is the slot's flap cap ([[this+0x20]+0x38], 1/2/5 for air shields 1/2/3; there is no separate fuel_max).  \
+Returns 0 only when there is no slot, Flaps is 0 or the gauge is exactly 0; when less than half a step is left it \
+empties the gauge and calls armor_reset_out_of_fuel (0x837A0), still returning 1.  ONLY 2 direct callers — both in \
+wing_flap (0x89354=1.0 cost, 0x893D4=100.0 penalty).  Per-frame sustained drain is SEPARATE, in \
+player_armor_state_tick at VA 0x83DE3.  The deleted infinite_fuel pack forced this function to return 1 without \
+consuming."""
+settings_get_double = """\
+Settings lookup, not a cvar getter (the name is an old misreading; the cvar system is cvar_get_or_create 0x9F630, \
+docs/RE_XBE.md).  It reads one ``config/settings_foo`` cell by column (the setting's name, e.g. 'fall min \
+velocity'), row ``Value``: while [0x1BF620] is 0, 0x5E550 loads the table there and the row index into [0x1BF624], \
+and the value comes back on ST(0) from config_cell_value 0xD1520 [verified 2026-10-10, capstone].  Uses a \
+caller-maintained cached-return pattern: caller keeps a static double + 'cached' byte, zeroes the byte on first \
+call, and passes in ESI a record whose first DWORD points at the setting's name.  The arg-in-ESI is a Watcom-ish \
+convention not expressible in portable C, so shims using this would need a wrapper."""
+anim_apply_translation = """\
+Per-frame animation-apply helper.  __thiscall: ECX = four floats copied to anim_obj[+0x18C] and normalised (a \
+rotation); stack args int* anim_obj, float blend_time, byte* reference_name, float* ref_pos; EAX = a buffer pointer \
+forwarded to FUN_00061100, which C can't pass (needs an asm thunk).  Samples the active ``banm`` clip via \
+FUN_000cab80, writes XYZ translation deltas to anim_obj[0x6C..0x71] (both delta-mode and absolute-mode output \
+slots), and commits via vtable+0xC0.  Called from every player-state tick (walk/climb/airborne/swim/slope).  Shims \
+that post-scaled the written deltas at its roll and climb CALL sites had no in-game effect (deleted in Step 1.10, \
+D18).  Ends with ``RET 0x10`` (callee cleans 16 bytes)."""
+anim_change = """\
+Animation-change helper.  __stdcall(12): the critter (its anim object is +0x17C, its species +0x178), new index and \
+flags on the stack (RET 0xC); ECX is not an input.  It sets critter+0x200 = index, then plays the clip in species \
+slot +0x124 + 4 x index via load_asset_by_fourcc('banm', 1) and binds it (a slot of -1 plays nothing; flags 2: no \
+change when +0x200 already holds the index) [verified 2026-10-12, capstone].  NOT the per-frame translation applier \
+(that's anim_apply_translation at 0x42E40).  Called whenever an animation index changes (e.g. walk → roll \
+transition)."""
+anim_change_at_node = """\
+anim_change for a hit reaction.  __stdcall(16): the critter, the anim index, the flags and a node name on the stack \
+(RET 0x10; no register input; EAX isn't read by its caller).  It plays the clip in the critter's species slot +0x124 \
++ 4 x index on a fresh layer (0xCAD40: rate 1.0, end = the clip's length) and sets critter+0x200 = index and +0x204 \
+= the clip, after sampling the node in the new clip (0xCAB80) into critter+0x1B0 / +0x1BC and its name into +0x1F8 / \
++0x1FC; with a slot of -1, or no anim object, it plays no clip and writes none of them.  One caller: the player's \
+hit handler 0x8D600 (a PlayerControl vtable slot at 0x19BC84), its CALL at 0x8D682 with flags 4 and node \"m_feet\", \
+after the chooser 0x30BD0 picked anim 37-42 [verified 2026-10-12, Ghidra serve and capstone].  The player-model \
+swap's hit-reaction shim (Step 2.21d) takes that CALL and calls this."""
+species_clip_lookup = """\
+A species' clip handle by name.  __stdcall(4): the species on the stack (RET 4), plus EAX = the name and EDI = int \
+*out, which C can't pass (needs an asm thunk); returns out in EAX.  It looks the name up in the global asset \
+registry (0xA5CA0) as a whole key, else as characters/<S+4>/<name> (the species' body), and writes the handle, or -1 \
+for an empty or NULL name or when neither exists, to *out.  Callers 0x4B2BA, 0x4B81B, 0x4B858, 0x4B8AF, 0x4B948 (the \
+species load 0x4B8E0's base clips, which the player-model swap's slot shim X11 takes, Step 2.66) and 0x7E3F0, each \
+with the name in EAX and EDI on a local [verified 2026-10-15, capstone]."""
+species_bind_clip_sounds = """\
+Binds a clip's sounds to a species' anim slot.  __stdcall(8): the slot and the clip name on the stack (RET 8), plus \
+EDI = the species record, which C can't pass (needs an asm thunk); keeps EDI, returns nothing.  It formats \"<sound \
+dir>/<clip>\" and \"<sound dir>/<clip>_a\" .. \"_s\" (the dir the record's +8; 0x19F28C, 0x19F280), resolves each \
+through 0xA5CA0 and appends every hit to the slot's list in the record's map at +0x2E8; a NULL or empty clip binds \
+nothing.  Callers 0x4B93C (the 82 base clips, 0x4B8E0) and 0x7E3DD (each attacks_anims Anim as slot 0x52 + column) \
+load EDI with the record and read none of EAX, ECX, EDX after it; also 0x4B2AE, 0x4B80F and 0x4B8A3 [verified \
+2026-10-15, capstone; docs/RE_DATA.md § \"How a critter's sounds are chosen\"].  The player-model sounds shim (Step \
+2.71, X14) takes the first two CALLs and calls this."""
+anim_root_motion_delta = """\
+Root-motion sampler: how far a named node of a clip moves between two clip times (FUN_000CAB80 samples its \
+translation at each; a body without the node gives zero).  __stdcall(16): anim object, node name, t0, t1 on the \
+stack (RET 0x10), plus ESI = float out[3] and EDI = the clip, which C can't pass (needs an asm thunk); returns out \
+in EAX.  One caller, player_attack_root_motion's CALL at 0x8C6AE with node \"m_feet\" (attack moves and the roll); \
+the player-model roll shim (Step 2.21b) replaces that CALL."""
+quat_rotate = """\
+Turns a vector by a quaternion (x, y, z, w): out = v times the rotation matrix 0xA0770 builds from it.  No stack \
+argument (a plain RET): EAX = the quaternion, EDX = float v[3], ESI = float out[3], which C can't pass (needs an asm \
+thunk); ECX is scratch.  0x42430 and anim_apply_translation (0x42E40) turn a marker's sample by the critter's turn \
+with it [verified 2026-10-15, capstone]; the player-model climb shim (Step 2.63) calls it."""
+critter_model_matrix = """\
+A critter's model matrix, where its body is drawn and its markers land in the world.  __stdcall(4): the critter on \
+the stack (RET 4), plus ESI = float out[16], 16-byte aligned (its 0xE91BB uses movaps), which C can't pass (needs an \
+asm thunk); clobbers EAX, ECX, EDX and XMM0-5.  Rows 0-2 the rotation 0xA0770 builds from the critter's quaternion \
+(+0x18C), row 3 (+0x30) the model origin 0x42070 interpolates between +0x1B0 and +0x1BC by the glide mode +0x19C \
+(mode 0: +0x1B0), moved by 0x402E0's aligned-node offset (0xA36E0); unscaled (callers scale the 3x3 by +0x188 with \
+0xA3860) [verified 2026-10-15, capstone].  11 callers, the camera point 0x41F40 (0x41FB0) and the damage pass \
+(0x43BA9) among them; the player-model camera shim (Step 2.80b) calls it."""
+aligned_node_offset = """\
+A critter's aligned-node term, which critter_model_matrix (0x42200) adds to its model origin unscaled (its one \
+caller, the CALL at 0x42253, then 0xA36E0): the node named at +0x1F8 in the clip at +0x204 at the top layer's time \
+less the same node in the blended pose, after the pose update 0xCBC80; zeros with no anim object, node or clip.  No \
+stack argument (a plain RET): EAX = the critter, EDI = float out[3], which C can't pass (needs an asm thunk); \
+returns out in EAX, keeps EBX, ESI, EDI and EBP [verified 2026-10-20, capstone]; the player-model stance and camera \
+shims (Step 2.116) call it."""
+glide_origin = """\
+Where a critter's model origin is drawn, critter_model_matrix's row 3 before the aligned-node term.  __stdcall(8): \
+the critter, float out[3] (RET 8), out back in EAX.  By the glide mode +0x19C: 2 (an aligned move's glide) the \
+straight-line blend of +0x1B0 and +0x1BC by the move's fraction clamped to 0..1, 1 the same by another clock, else \
++0x1B0 [verified 2026-10-20, capstone].  Its caller is 0x42200 (0x42237); the player-model camera shim (Step 2.116) \
+calls it in the climb-over glide."""
+camera_reach = """\
+The level camera's water push (0x81E10) puts a candidate place within its reach of the point: out = P + (c - P) as \
+0x81CA0 clamps the offset (at most [0x19815C] 12 m, at least [0x19816C] 2 m horizontally; both X25-scaled).  No \
+stack argument (a plain RET): EAX = float c[3], ESI = float P[3], EDI = float out[3], which C can't pass (needs an \
+asm thunk); returns EAX = EDI, clobbers ECX and EDX, the x87 stack balanced.  Its callers are the push's two \
+candidates, 0x81FEB and 0x82042 [verified 2026-10-20, capstone]; the player-model water push shim (X29, Step 2.116b) \
+replaces the first CALL and jumps to it."""
+camera_water_push = """\
+The level camera's water push: a camera within 0.4 m of the surface moves to its other side, else its own, and \
+0x820E0 re-aims it, writing the pushed pitch and distance into the wanted ones (+0x1A0, +0x1A4).  [ESP+4] the camera \
+and EAX = float point[3] (a register input C can't pass: an asm thunk), RET 4; keeps EBX, ESI, EDI and EBP and \
+leaves the x87 stack empty.  Its one caller is the update's CALL at 0x81BEA, every tick [verified 2026-10-20, \
+capstone; Europe 0x81DC0 from 0x81B9A]; the player-model water push shim's latch entry (X29, Step 2.116e) replaces \
+that CALL and calls it."""
+volume_query = """\
+The volume query: every volume at a point whose slot +0xA0 answers ORs its flags into the caller's 24-byte record \
+(which it fills itself first), skipping the asker, and the largest depth below the surface among the water volumes \
+(flag 0x100) goes to *depth, -50 when there is none.  __stdcall(24): the volume tree (world +0xAC), float point[3], \
+the asker, the flags record, float *depth (may be 0), touch (nonzero: each volume found also gets the touch message, \
+its slot +0xB4); RET 0x18 (0x60E1C, 0x60E2E), no register input, no useful return.  Callers 0x379AC, 0x81EBB (the \
+level camera's water push, touch 0, the camera as the asker), 0x85587 (the player's input), 0x86635, 0x86D32, none \
+cleaning the stack [verified 2026-10-20, capstone; Europe 0x60B80, the same five callers].  The player-model water \
+push shim's latch entry (X29, Step 2.116e) asks it at the camera's rest place."""
+anim_change_aligned = """\
+An aligned clip change.  __stdcall(36): the critter, the anim, the place, the target, the turn (a quaternion), the \
+end node, the next start node, t0 and t1 (RET 0x24; no register input).  It moves the critter to the place \
+(0x61100), plays the clip in species slot +0x124 + 4 x anim from t0 to t1 of its length on a fresh layer (0xCAD40, \
+flags 4 forward) and glides the model's origin from where the start node (+0x1FC, else the end node) is to where the \
+end node lands on the target (+0x1B0 to +0x1BC, mode 2 at +0x19C, read by 0x42070), and writes +0x200 = anim, +0x204 \
+= the clip, +0x1F8 / +0x1FC = the nodes.  A slot of -1 or no anim object returns at 0x424AA, after the move to the \
+place, writing none of it [verified 2026-10-15, Ghidra serve and capstone].  The player's move-state setter 0x8BDB0 \
+calls it at 0x8BDF3 (callers 0x86920 hoist, 0x86DD0 climb_start, 0x87120 climb_from_jump, 0x87470 climb_down_edge, \
+0x87950 climb_up_edge, 0x8B1D0 step_up); the player-model climb shim (Step 2.63) takes that CALL and calls this."""
+player_move_offsets_init = """\
+The aligned moves' marker offsets, once per boot (the guard byte 0x1AAB7D).  __stdcall(4): the player's critter (RET \
+4; no register input).  For each of its species' 113 clip slots (+0x124) it samples m_root, m_feet and m_grab \
+(0xCAB80) at t 0 and at the clip's length into three BSS arrays of 0x18-byte entries (USA 0x38A610, 0x389B78, \
+0x38B0D0; Europe +0x1FA0), zeros for an empty slot.  The ladder latches (0x86DD0, 0x87120), the top moves (0x87470, \
+0x87950) and the overhead hang (0x8A200) read slots 0x3C, 0x3E-0x40 and 0x44 [verified 2026-10-15, capstone and L2 \
+on garret4's clips].  The PlayerPhysics constructor 0x84D50 calls it at 0x84E59; the player-model climb shim (Step \
+2.63b) takes that CALL and calls this."""
+anim_play_clip = """\
+The clip change.  __stdcall(12): the anim object, the clip's handle and the flags on the stack (RET 0xC; no register \
+input).  It marks every playing layer fading out, resolves the handle ('banm', 0xA67A0), starts the clip on a free \
+layer (anim+0x40 + 0x40 x n: +0 the handle, +4 the clip, +0x20 the rate 1.0, +0x24 the end, the clip's length), \
+makes it anim+0x10 and binds its tracks (0xCB080, the CALL at 0xCAF6B).  Callers 0x14612, 0x40F83, 0x42655 \
+(0x42430), 0x428D1 (anim_change_at_node) and 0x429DA (anim_change), which the player-model swap's X12 takes (Step \
+2.67) [verified 2026-10-15, capstone]."""
+anim_bind_clip_tracks = """\
+Binds the active layer's clip to the anim's body by raw index.  cdecl, no stack argument (a plain RET), plus EAX = \
+the anim object, which C can't pass (needs an asm thunk).  It sizes the active layer's bone table (+0x28) and marker \
+table (+0x34) to the clip's track counts (banm +0, +8; 0xCD4F0, 8 bytes a track, -1 filled) and copies each track's \
+index (track +0xC) into them, unchanged.  One caller: the clip change 0xCAD40's CALL at 0xCAF6B, which the \
+player-model swap's X12 takes (Step 2.67) [verified 2026-10-15, capstone]."""
+anim_bone_matrix = """\
+One runtime bone's matrices: unless its +0x2C flag is set, the local (+0x30) from JO x q x RA, rows x S, / the \
+parent's S where the record's +0xB is set, T in row 3; then the world (+0x70, model space) := local x the parent's \
+world (0xE91BB, movaps).  __stdcall(4): the parent's world on the stack (RET 4), plus EAX = the runtime bone and EDI \
+= &the parent's scale, which C can't pass (needs an asm thunk); keeps EBX, ESI, EDI and EBP.  Callers: the pose's \
+matrix builder 0xCB550 at 0xCB5CB, once a bone in index order (the player-model jiggle shim's site, Step 2.156), and \
+0xCAAC0 on the stack allocator's scratch [verified 2026-10-22: ``xbe fn`` and ``calls``; Europe 0xCA5F0]."""
+anim_marker_position = """\
+A marker's current position by its exact name.  __thiscall(4): ECX = the anim object, the name on the stack (RET 4), \
+plus EAX = float out[3], which C can't pass (needs an asm thunk); returns out in EAX.  It walks the anim object's \
+runtime markers (+0xC, 0x34-byte entries, +0 the body's marker record) for the body's (+0) record with that name (a \
+byte compare, not case-blind) and copies the entry's +4..+0xC, or writes zeros when the body has none.  Callers \
+0x40320, 0x41F67, 0x4442C and 0x8C986 pass ECX, EAX and one stack argument, and 0x4442C reads [EAX] after it \
+[verified 2026-10-12, capstone and a Ghidra serve].  0x41F67 is the critter camera point's (0x41F40, the vtable slot \
++0xB0 the cameras call) lookup of \"m_head\"; the player-model camera shim (Step 2.23c) replaces that CALL and jumps \
+here for any critter but the player."""
+anim_marker_box = """\
+A damage marker's box.  __fastcall: ECX = the box's 4x4 matrix (out: rows 0-2 the rotation 0xA0770 builds from the \
+marker's quaternion +0x10, row 3 the translation, the marker's position +0x04), EDX = the runtime marker (0x34 \
+bytes), plus EAX = float min/max[6] (out: -/+ the extents +0x20 x the length +0x2C), which C can't pass (needs an \
+asm thunk); plain RET, clobbers EAX and EDX, keeps ECX.  Its one caller is the damage pass 0x43A80 (the CALL at \
+0x43B47), which then scales the translation and the min/max by the critter's +0x188 [verified 2026-10-15, capstone; \
+Step 2.61].  The player-model attack-box shim (X13, Step 2.70) replaces that CALL."""
+anim_node_by_name = """\
+A body node's index by its exact name (a byte compare).  __thiscall(4): ECX = the anim object, the name on the stack \
+(RET 4).  It searches the body's (anim object +0) markers first (returns i | 0x8000), then its bones (i | 0x4000), \
+else returns 0.  Callers 0x28489, 0x2849B, 0x44355 and 0x8C918.  0x44355 is the critter bind interface's slot 1 \
+(0x44270, in both vtables 0x19FBCC and 0x1A1ADC), which binds an fx transform to a node by name; the player-model \
+wings shim (Step 2.77) replaces that CALL."""
+anim_node_transform = """\
+A body node's current transform by anim_node_by_name's index.  Register ABI: ECX = the anim object, EDX = the index, \
+plus EAX = the transform record, which C can't pass (needs an asm thunk); plain RET.  A marker (0x8000) gives its \
+translation, rotation and scale (record +0x50, +0x40, +0x5C), +0x68 = 1 and +0x69 = 0; a bone (0x4000) the same and \
+its matrix, +0x69 = 1; any other index (0, 0xC000) clears +0x68 and +0x69.  Callers 0x2948B, 0x44389 and 0x8C9BA.  \
+0x44389 is the bind interface's slot 2 (0x44370), which the fx update calls for each bound transform; the \
+player-model wings shim (Step 2.77) replaces that CALL and jumps here for every index but its own 0xC000."""
+player_armor_state_tick = """\
+Player armor-state per-frame tick.  __stdcall(4): one stack argument (the armor manager), RET 4; ECX is overwritten \
+before it is read, so it is not thiscall.  Drives fuel drain, armor-power cooldowns, and level-gated armor features. \
+Previously only had a macro anchor in azurik.h; now has a first-class VanillaSymbol entry so shims can reference it \
+by name.  Home of the VA 0x83DE3 per-frame fuel-drain block that the retired infinite_fuel pack NOPed."""
+load_level_from_path = """\
+Core level-load entrypoint.  Signature: ``void load_level_from_path(SceneState *scene, const char *path, const char \
+*spot, char is_movie)``.  Copies `path` into scene->pending_path (strncpy to 0x50 bytes), dispatches to the \
+bink-movie branch when `path` starts with 'bink:', otherwise loads the 'level' fourcc asset, parses the resulting \
+scene/node/sdsr data, constructs the player entity, and hands off to the teleport-spot logic.  __stdcall(16): RET \
+0x10; its 4 direct call sites push four arguments and never clean up [verified 2026-10-11, capstone]: \
+``level_teleport_helper`` (0x529BD, 0x529F3), 0x52F50 (``dev_menu_flag_check``, the game start/continue setup; \
+0x53406 passes the literal 'levels/selector' at 0x001A1E3C) and ``scene_state_tick``'s load tail (0x55F80), which \
+calls it only for a movie or when scene+0x28 is set; otherwise that tail loads through 0x5BC20, 0x52910 (it stores \
+an object at scene+0x28 and calls 0x52F50) and 0x1E000 (0x55F61-0x55F71).  So a load through ``scene_state_tick`` (a \
+fired levelSwitch's [inferred], and 'start-playing''s 'levels/water/w1') reaches it only on that condition; what \
+0x5BC20 does, and where 'levels/training_room' (0x001A1E4C) is loaded, isn't traced.  Until 2026-10-11 this said \
+every levelSwitch, every level-select choice and every hardcoded XBE fallback (levels/water/w1, levels/selector, \
+levels/training_room) funnels through here."""
+scene_state_tick = """\
+Scene / state-machine per-frame tick.  __stdcall(8): RET 8; both call sites push two arguments (the scene pointer \
+from 0x1BF63C first) and never clean up, so the three-argument signature older notes gave has only two stack \
+arguments.  Advances the global scene state (bink-movie playback, level-switch cooldowns, cutscene \
+fade-in/out).\n\nLevel switches [verified 2026-10-11, capstone]: it acts on a pending transition record (movie at \
++0, destination at +0x104, spot at +0x208).  When 0x54520 accepts the movie (it takes a ``bink:`` chain when 0xE05E7 \
+answers for one of its names, another path when 0xA5C10 rates it 2 to 4), it loads the movie with is_movie=1, first \
+storing the destination at scene+0x169 and the spot at scene+0x26D when scene+0x168 is clear (0x55D7F-0x55E2F).  \
+Otherwise it compares the destination with 'end-of-cut-scene' (0x55E44, only while scene+0x168 is set), \
+'last-save-spot' (0x55EDF: 0x542E0, then dev_menu_flag_check) and 'return-to-shell' (0x55F07: it returns 2), and \
+else loads the destination and spot if 0x54520 accepts the destination.  After 'end-of-cut-scene' it loads the \
+stored destination and spot if 0x54520 accepts them; else a stored 'return-to-shell' returns 5 (0x55E7B), and a \
+stored 'start-playing' (0x55E9A) takes 'levels/water/w1' (data VA 0x0019ECF8) with the spot 'Town_W1_Movie' \
+(0x0019ECE8) when 0x54520 accepts that path; anything else, an empty one included, loads scene+0x2C with is_movie=1 \
+(0x55ED1).  Every load goes through one tail: ``load_level_from_path`` (0x55F80, its only call here) for a movie or \
+when scene+0x28 is set, else 0x5BC20, 0x52910 and 0x1E000 (0x55F61-0x55F71).  It posts 'end-of-cut-scene' records \
+itself (0x55C4C, 0x56079), and also calls dev_menu_flag_check at 0x55C9E and 0x55CCB, before the record is read.  \
+[inferred]: that a fired levelSwitch fills the record and its movie plays before the stored destination is read; \
+that ``EndTutorial_levelSwitch`` (destination 'start-playing') reaches w1 this way; what scene+0x28, +0x2C and \
++0x168, 0x5BC20 and the callers' handling of 2 and 5 mean.  The switches are catalogued in ``docs/RE_DATA.md`` § \
+\"Level loading\" and ``docs/Finished/LOADING_ZONES_AUDIT.md`` (implicit and ending zones; its module went with the \
+old randomizer at Step R1.10c).  Until AZ-250 (2026-10-11) this said those switches had no destination and that this \
+function resolved one."""
+level_teleport_helper = """\
+Level-teleport / shell-return helper.  Signature: ``int level_teleport_helper(char mode)``.  [verified 2026-10-11, \
+capstone] It reads the scene from EDI and a movie path from EBX.  When 0x54520 refuses the movie it returns 0 \
+(0x529FF).  Otherwise it releases and clears the object at scene+0x28, copies 'return-to-shell' (data VA 0x0019EEDC; \
+``mode`` non-zero, ``test al, al`` at 0x5297F) or an empty string (``mode`` zero) into scene+0x169, where \
+``scene_state_tick`` stores a fired switch's destination, calls ``load_level_from_path(scene, movie, NULL, 1)`` \
+(0x529BD, 0x529F3) and returns 1: it plays a movie and sets the destination that follows it (after \
+'end-of-cut-scene', ``scene_state_tick`` returns 5 for a stored 'return-to-shell' that 0x54520 refuses).  Callers: \
+0x5F678 (``mode`` 0; EBX is the start path [0x1BCDD0], after a 14-character compare with 'movies/scenes/' at \
+0x5F658) and the wrapper at 0x56680, which sets EDI from 0x1BF63C and passes its caller's EBX; who calls the wrapper \
+isn't traced, and older notes' death handler and debug-console exit are unverified.  A ``hardcoded_xbe`` \
+loading-zone source (``docs/RE_DATA.md`` § \"Level loading\").  ABI: __stdcall(4) for the stack byte flag (RET 4), \
+plus EDI and EBX.  Shim authors SHOULD NOT call this function through its declaration, which sets neither register; \
+no plain-call equivalent is verified.  Until AZ-260 (2026-10-11) this said EBX was a destination level path (NULL \
+for shell-return) and advised ``load_level_from_path(NULL, \"return-to-shell\")``, two arguments to a four-argument \
+stdcall naming the keyword as a path.  See ``docs/RE_DATA.md`` § Level loading, 6a."""
+global_var_find_or_create = """\
+The global map's find-or-create: ``u32 *global_var_find_or_create(void *map, const char *name)`` returns the record \
+of ``name`` in the name -> record map at world +0xE4 (its value dword at +0), creating it.  The ``shared.sav`` \
+writer 0x5E8A0 writes every entry and the reader 0x5E980 zeroes every value and re-reads them, so a name no level \
+uses is a variable the save keeps and a new game clears.  __stdcall(8), RET 8.  Callers: 0x5EA84 (in the reader) and \
+0x6A303 (the latch loader 0x6A2E0)."""
+matrix_to_quat = """\
+A 4x4 matrix's rotation as a quaternion (x, y, z, w).  Real ABI: ECX = the matrix, EBX = float out[4]; plain RET; \
+clobbers EAX and EDX, keeps ECX, EBX, ESI and EDI.  The extern declares ECX only: call it through \
+``matrix_to_quat_call``, which also loads EBX.  Callers: 0x694E3, 0x6ED9E, 0x6FB2E and the save point's update \
+0x70F90 (0x71028, building a save's place)."""
+active_controller_state = """\
+The active pad's ControllerState: ``0x37BE98 + i * 0x54`` for the active index ``i`` at 0x1A7AE4, player 0's when \
+``i`` is 4 (no pad).  No argument, plain RET, returns EAX; touches nothing else.  Callers: 0x55BCF, 0x8D3DC, \
+0x8D3FA, 0x8D41B.  Other code inlines the same address arithmetic."""
+collision_sweep = """\
+Sweeps an ellipsoid through the world's collision tree.  __stdcall(36): the tree (world +0xAC), an object it \
+ignores, 0, float from[3], float to[3], the two radii (floats), the face mask and a hit record (+0x18 the hit's \
+fraction of the way); RET 0x24 (0x60BB9, 0x6099D), returns AL nonzero on a hit; no register input.  51 callers, \
+among them the level camera's 0x80FB0 at 0x81061 (from the target's +0x15C to its point) and 0x810F3 (from the point \
+to the wanted camera place; the camera, radii [0x38BC00], mask 0x40) and the player's 1 m touch query 0x8C520 \
+[verified 2026-10-19, capstone: the nine pushes at both camera sites, no ADD ESP after].  The player-model eye-sweep \
+shim (Step 2.104, X19) takes the CALL at 0x810F3 and calls this."""
+attack_target_find = """\
+The attack transition search's (0x7EF10) target finder.  __stdcall(12): the critter, its facing angle (a float) and \
+a 0x38-byte result; RET 0xC (0x7EE8D, 0x7EE9F); no register input.  It queries the critters in a cube of +-3.0 m \
+round the critter's bounds centre (0x60700) and keeps those whose +0x168 has 0x4040 and not 0x10000000 and whose \
+distance less radius is at most 3.0 (0x7EDA4), reading the 3.0 at 0x1A25BC seven times (0x7EC10, 0x7EC20, 0x7EC36, \
+0x7EC53, 0x7EC5D, 0x7EC67, 0x7EDA4); the result: +0 their count, then the one nearest the facing angle's direction, \
+angle, angle off, distance less radius (+0x18), +0x168 (+0x1C) and bounds [verified 2026-10-19, capstone: one \
+caller, 0x7EF80, three pushes and no ADD ESP after].  The player-model target-search shim (Step 2.105, X21) takes \
+that CALL and calls this."""
+attack_transition_search = """\
+The attack transition search: the first attacks_transitions row (16-byte rows at [0x38BC74], table order) whose last \
+move (PlayerControl +0x134, read at 0x7EF29: -2 or -3 with none, -4 in the air), button, target direction, damage \
+type, target features, near-cliff and long-range bytes match, copied through attack_anim_record_copy (0x7F1F0; \
+column 0 when none matches).  Its direction: the stick heading H against the facing F, or the bearing of a target \
+within 60 deg of H (0x7EFE9), forward under 45 deg, back past 135, else right or left; a target above or below the \
+body's middle is up or down (0x7EF92).  __stdcall(24): the PlayerControl's +0xDC, F, H, the button (1 A, 2 B, 3 \
+BLACK), a move flag and the near-cliff byte; AL (moving faster than walkSpeed) and CL (the air search) are register \
+inputs; RET 0x18; keeps EBX, EBP, ESI and EDI [verified 2026-10-21, capstone: callers 0x88D78 and 0x88FB2, no ADD \
+ESP after; Europe 0x7EEC0].  The player-model attack-sets shim (Step 2.135, X36) takes the CALL at 0x88D78 and calls \
+this."""
+attack_anim_record_copy = """\
+Copies attacks_anims column EAX's 0x58-byte record (from [0x38BC60] + EAX x 0x58) to ECX (a PlayerControl's +0xDC), \
+writes EAX to ECX+0x58 (+0x134) and the swing's yaw to ECX+0x5C (+0x138): the bearing B (else H when B is 1e5) less \
+the column's Aim angle x pi/180, or H alone when the Aim cell is empty (1e5).  Real ABI: ECX the record's home, EAX \
+the column, H then B on the stack (H at [esp+4]); RET 8; keeps EBX, EBP, ESI and EDI (0x7F246, 0x7F259) [verified \
+2026-10-21, capstone: callers 0x7F199 and 0x7F1B8 in 0x7EF10; Europe 0x7F1A0].  Call it through \
+``attack_anim_record_copy_call``, which loads ECX and EAX; the player-model attack-sets shim (Step 2.135, X36) does."""
+hud_list_draw = """\
+Draws the HUD's list: the 0x18-byte image entries between the HUD's +0xE0 and +0xE4, each anchoring itself \
+(0x1B151).  Real ABI: __stdcall(4), the HUD on the stack; RET 4 (0x1B2A7); keeps EBX, EBP, ESI and EDI.  Its one \
+caller is the HUD draw 0x1B2B0's last call, at 0x1B306 [verified 2026-10-22, capstone: Step 2.153's read R1; the \
+same VA and caller in Europe].  The player-model attack-sets shim (Step 2.153, X36) takes that CALL and calls this \
+first."""
+hud_font = """\
+The 2D text font, 'interface/courier18b' (0xA5CA0 loads its handle once into 0x38E040): EAX the font object (fourcc \
+'font', 0xA67A0 or 0xA6860 by [0x1BF59C]) or 0; no argument, plain RET.  Its +0 is the texture handle the 2D \
+material 0x97420 takes, +4 the line step and +8 the top (ints, as the 'show profile' overlay 0x22170 reads them) \
+[verified 2026-10-22, capstone: Step 2.153's read R1; Europe 0xD0CE0].  The attack-sets shim (Step 2.153, X36) draws \
+its line in it."""
+hud_anchor = """\
+Anchors the 2D draws that follow: D3DTS_WORLD := scale(scale[0], scale[1]) plus an offset to a title-safe edge, \
+flags & 3 the x (1: -0.4 W, 2: +0.4 W) and flags & 0xC the y (4: -0.4 H, 8: +0.4 H; [0x1A2680], [0x1A2684]); the 2D \
+frame (0xD0720) is 640x480 pixels, its origin at the centre, y up, so 9 (left | top) puts the origin 64 px from the \
+left and 48 px from the top.  Real ABI: __stdcall(int flags, const float scale[2]); RET 8; keeps EBX, EBP, ESI and \
+EDI.  18 callers, the HUD draw 0x1B2B0's 0x1B2D3 (6) and 0x1B2F4 (5) among them [verified 2026-10-22, capstone: Step \
+2.153's reads R1 and the critique; Europe 0xD0B30].  The attack-sets shim (Step 2.153, X36) anchors its line at 9 \
+with it."""
+font_draw_text = """\
+Draws a string: ESI a 9-float pen (the position x, y, z, the up and the advance vectors), its position advanced \
+glyph by glyph (0xD0A40 looks each byte up as a glyph, so '\\n' is no line break); __stdcall(font, text); RET 8; \
+keeps EBX, EBP, ESI and EDI [verified 2026-10-22, capstone: Step 2.153's read R1; Europe 0xD1060].  Call it through \
+``font_draw_text_call``, which loads ESI; the attack-sets shim (Step 2.153, X36) does."""
+anim_layer_fraction = """\
+The top anim layer's fraction played: ECX the anim object, its top layer at anim + 0x40 x ([anim+0x10] + 1), st(0) \
+:= the layer's time (+0x18, clip seconds) over its clip's length (clip at +4, its +0x10), or 0.0 with no clip; plain \
+RET, clobbers EAX and ECX.  The attack state's chain check reads it at 0x8D44D (ECX [[input]+0x17C]) against PC+0xFC \
+[verified 2026-10-22, capstone: Step 2.153's read R3 fn_0xCB020 and design blast_site; Europe 0xCB1A0, the same \
+shape].  The player-model air-blast shim (Step 2.153, X39) takes that CALL and jumps here."""
+ai_hit_handler = """\
+The common AI hit handler, slot +0x18 of eight AI controller vtables (0x19FAE8, 0x19FEEC, 0x19FF28, 0x1A032C, \
+0x1A0510, 0x1A053C, 0x1A0838, 0x1A0B94); bosses have their own (the airship's 0x279B0 falls through to it at \
+0x27A37).  __thiscall: ECX the controller, the hit on the stack; RET 4 (0x38C91, 0x38D05, 0x39016) [verified \
+2026-10-22: ``azurik-mod xbe fn`` and ``find-refs --va 0x38C60 --data``; the same VA in Europe].  The player-model \
+drain shim (Step 2.153, X37) compares a toucher's controller's slot with it, so it passes only a common AI critter's \
+no-hit window."""
+critter_play_fx = """\
+Plays an fx at a critter.  __thiscall: ECX the critter, the fx key (a string, e.g. \"fx/damage/fx_fire_3\") on the \
+stack; it plays it at the critter's bind interface (+0x170) through the fx system 0x649E0 and pops the key (RET 4 at \
+0x44166; PUSH ECX / PUSH EDI ... POP EDI / POP ECX).  Seven callers; the AI hit handler 0x38C60 plays a hit's visual \
+with it at 0x39006 (the victim species' critters_damage_fx key for the hit's damage record, S+0x90[index]), 0x37D16 \
+and 0x3A3D5 pass 0 [verified 2026-10-21: ``azurik-mod xbe fn`` and ``calls --to 0x440F0`` on both releases, the same \
+VA in Europe, its inner callee 0x64990 there].  The player-model hit-fx shim (Step 2.132, X32) takes the CALL at \
+0x39006 and jumps to this."""
+move_query_clear = """\
+Clears a move query's struct before the move code fills it: EAX the struct, its +0x6C..+0x158 zeroed (its flag words \
+0x8000 and 0xCC set); clobbers ECX and EDX, keeps ESI (PUSH ESI ... POP ESI), plain RET at 0x308E2; no stack \
+argument.  Eight callers in each release; player_attack_root_motion (0x8C630) clears its stack query ([esp+0x40]) \
+with it at 0x8C728 (Europe 0x8C6D8) [verified 2026-10-21: ``azurik-mod xbe fn`` and ``calls --to 0x307E0`` on both \
+releases, the same VA in Europe].  The player-model attack-carry shim (Step 2.132, X33) takes that CALL and calls \
+this with EAX unchanged."""
+button_pressed_once = """\
+Whether pad button ECX (0 A, 1 B, 3 jump, 4 BLACK: ControllerState +0x18 + 4 x ECX) is a fresh press: its analog \
+value above 0 with its latch (+0x48 + ECX) clear, which it then sets.  Real ABI: EDX = the ControllerState, ECX = \
+the button, returns AL, plain RET (0xA30EF, 0xA30F2), writes only AL and the latch.  Eight callers in each release: \
+the menus 0x55BDB-0x55D0D and the attack state's stamps 0x8D3E5, 0x8D406, 0x8D427 (Europe 0xA3250) [verified \
+2026-10-21: ``azurik-mod xbe fn`` and ``calls --to 0xA30D0``].  The player-model attack-carry shim (Step 2.140, X33) \
+takes the A and B stamps' CALLs and calls this with ECX and EDX as the game set them."""
+player_air_attack_start = """\
+The airborne state's attack start: a press stamped under 0.3 s ago (PlayerControl +0xA0/+0xA8/+0xB0) or flagged \
+(input +0x20 & 8/0x10/0x20) consumes the stamp (-1.0, 0x88F4D) and the latch (0x88F87), picks the air row (0x7EF10 \
+at 0x88FB2) and enters it in state 0x102 (0x88990 at 0x88FD8), AL 1; else +0x134 := -1, AL 0.  Real ABI: EAX = the \
+PlayerControl, [esp+4] = the input, RET 4 (0x88EFA, 0x89057); keeps EBX, EBP, ESI and EDI.  Its one caller is \
+0x8D38A (push the input, no ADD ESP after; Europe 0x88E20 at 0x8D33A) [verified 2026-10-21: ``xbe fn`` and \
+``calls``].  Call it through ``player_air_attack_start_call(pc, input)``, which loads EAX; the player-model \
+attack-carry shim (Step 2.140, X33) takes its CALL and jumps to this."""
+player_land_classify = """\
+The move result's classifier: on a landing (arg3 +0x38 set, the result's +0x60..+0x68 zero, falling steeply enough) \
+it writes the state's 0x100 bit alone (0x85A94: an air attack's 0x102 becomes 0x100) or plays the hard landing \
+0x8B100 (7.54 m/s or more after 0.5 s airborne); a slope writes 3.  Real ABI: ESI = the PlayerControl and three \
+stack arguments (the input, the move result, the move query), RET 0xC (0x8599D, 0x85AA4, 0x85B70); keeps EBX, EBP \
+and EDI.  Callers: 0x8672A, 0x89982 and 0x8A1E2 (three pushes each, no ADD ESP after; Europe 0x858D0) [verified \
+2026-10-21: ``xbe fn`` and ``calls``].  The player-model attack-carry shim (Step 2.140, X33) takes the airborne \
+tick's CALL at 0x89982 and calls this with ESI as the game set it."""
+player_hard_land = """\
+The hard landing: PlayerControl+0x94 := 0x100, +0x16C's bit 3 cleared, the move result's +0xC0 vector into PC+0x24, \
+the touchdown (slot 11) through anim_change_aligned (0x42430, the call at 0x8B18C) and a landing sound (0xA5CA0, \
+0xA1C70).  Real ABI: EAX the move result, ECX the PlayerControl, EDX the input; plain RET (0x8B1CC); keeps EBX and \
+ESI (prologue `sub esp, 0x18`).  The extern declares ECX and EDX; EAX needs an asm thunk.  Its two callers are \
+player_land_classify's 0x85A7C and 0x85B65 (Europe 0x8B0B0, called at 0x85A2C and 0x85B15) [verified 2026-10-22: \
+Step 2.153b's design reads fn-8B100, us-calls-8B100, eu-calls-8B0B0].  The player-model air-blast shim (Step 2.153b, \
+X39) takes both CALLs and jumps here but for the blast column."""
+player_ground_attack_tick = """\
+The attack state's (0x100) tick: a root-motion attack (PlayerControl +0x16C & 8) runs one player_attack_root_motion \
+(0x8C630) tick, an aligned move (the bit clear: hoists, ladder tops, the hard landing) its glide through 0x85700 \
+with no velocity.  Real ABI: EDI = the input, [esp+4] = the PlayerControl, RET 4 (0x8C7FE, 0x8C896).  Its one caller \
+is 0x8D46F (push EBP, no ADD ESP after; Europe 0x8C780 at 0x8D41F) [verified 2026-10-21: ``xbe fn`` and ``calls``].  \
+The player-model attack-carry shim (Step 2.140, X33) takes that CALL and jumps to this with EDI as the game set it."""
+anim_sample_markers = """\
+An anim's marker sampler: once per clock change (anim+0x30 against the clock [anim+4]+0x10, f64; a no-op when they \
+are equal) it advances the three layers (0xCB370: time += dt x rate, the crossfade weights) and writes every runtime \
+marker as the layers' blend of their clips' tracks over the body's rest values.  Stack: the anim, a flags pointer; \
+RET 8 (0xCBD1E); no register input.  Callers: 0x4030B (aligned_node_offset's re-sample) and 0x43A62 (the anim step \
+0x43A00, ESI the critter) [verified 2026-10-22: ``xbe fn`` and ``calls``; Europe 0xCBE00].  The player-model fx ring \
+(Step 2.149, X38) takes the CALL at 0x43A62."""
+quat_from_euler = """\
+A rotation quaternion (x, y, z, w) from three Euler angles in radians (the stack's x, y, z: each halved, its sine \
+and cosine a quaternion about that axis, the three multiplied by 0xA03F0).  Real ABI: ESI = float out[4] (a register \
+input: 0x4FFA2 moves it into EAX for the last product); three stack floats, RET 0xC; the x87 stack net empty; \
+clobbers EAX, ECX and EDX.  21 callers, player_attack_enter's at 0x88A5E among them (``lea esi, [esp+0x14]`` first) \
+[verified 2026-10-22: ``xbe fn`` and ``calls``; Europe the same VA].  The player-model fx ring (Step 2.149, X38) \
+takes that CALL and jumps on with ESI as the game set it."""
+fx_instantiate = """\
+Plays an fx graph into a 12-byte handle {+0 the instance's handle-list head (instance+0x20), +4 the next handle, +8 \
+its flags}: (handle, key, world, cell (u16), flags, bind interface (critter+0x170, or 0), 0, 0, 0).  It first \
+releases the handle (0x64CE0: with flags bit 0 the old instance's stop, bit 1 its detach, 0 an unlink alone), then, \
+when the key resolves, allocates the instance (0x62E10), binds it (0x63250, which runs its first tick: the graph \
+loaded, state 2, unless the load is deferred) and links the handle at the head of its list with handle+8 := flags.  \
+RET 0x24 (0x64CBC, 0x64CD4); no register input.  14 callers, critter_play_fx's at 0x4415F among them (flags 1) \
+[verified 2026-10-22: ``xbe fn`` and ``calls``; Europe 0x64990].  The player-model fx ring (Step 2.149, X38) spawns \
+its copies with flags 0."""
+fx_instance_detach = """\
+Detaches an fx instance from its critter: both bind sets unlinked from the bind interface's list and emptied \
+(0x62860), so every node keeps its last transform and the instance ticks on where it is; while loading (state 1 at \
++0xA0) it sets the deferred bit 0x10000 instead.  Real ABI: ESI = the instance; no stack argument, plain RET; keeps \
+EBX, ESI, EDI and EBP, clobbers EAX, ECX and EDX.  Call it through ``fx_instance_detach_call``, which loads ESI.  \
+Callers: 0x63361 (the deferred detach), 0x64D17 (the handle release) and 0x70492 (the effectControl) [verified \
+2026-10-22: ``xbe fn`` and ``calls``; Europe 0x63460]."""
+player_ai_factory = """\
+The `ai` class the registry gives 'player' (0x3686D pushes it with the name 0x19F154 to 0x49370 in the boot's table \
+fill; Europe 0x8D700): the species loader stores the `ai` cell's class at the species record's +0xC (0x4972C -> \
+0x493D0, stored at 0x4973D), so a critter is the player's species when that word is this function (garret4 and the \
+unplaced noship have ai player).  Real ABI: ECX in (kept at [esp+0xC] after its pushes), plain RET (0x8D8FA) \
+[verified 2026-10-22: ``xbe fn`` and Step 2.157's read].  The player-model fx-default shim (Step 2.157, X40) \
+compares a species' +0xC with its address; nothing calls it from a shim."""
+cheat_owner_tick = """\
+The cheat owner's per-update tick: by the owner's state +0x1C (jump table 0x15ECC), 0 walks the cheat codes \
+(0x16D40), 1 is the free camera (BACK's edge, latch +0x53, destroys it: 0x827B0, state 0), 2 the menu (0x1F590), 3 \
+pops a menu, 4 pops every menu, destroys the free camera and sets state 0.  __stdcall(8): the scene and the update's \
+dt on the stack (RET 8 at 0x15EC6), plus EDI = the cheat owner ([scene+0x40]), which C can't pass: call it through \
+``cheat_owner_tick_call``.  Keeps EBX, ESI and EBP.  One caller, scene_state_tick's CALL at 0x55BB9 [verified \
+2026-10-22: ``xbe fn``, ``dis`` and ``calls``; Europe the same VA], which the photo mode pack (Step 2.160) takes."""
+cheat_owner_action = """\
+The cheat owner's action dispatcher (owner, action 0..9, scene), __stdcall(12), RET 0xC (0x16D0E); no register \
+input.  Action 3 (0x16812) makes the free camera (0x198 bytes, 0x82680) at the active camera's place, appends it to \
+the world's camera list (+0xA8), copies the game camera's FOV and HUD flag, and sets owner +0x2C to it and owner \
++0x1C to 1 (the world pauses: 0x15F60); with no camera in the world, or one whose +0x158 is 0, it returns at 0x16D04 \
+having made nothing.  One vanilla caller, the code walker's CALL at 0x17060 [verified 2026-10-22: ``xbe dis`` and \
+``calls``; Europe the same VA].  The photo mode pack (Step 2.160) calls it with action 3."""
+free_camera_update = """\
+The free camera's update, its vtable's (0x19C218) slot +0xCC (the one data dword holding it, 0x19C2E4): the active \
+pad flies it, 10 m/s, 90 deg/s and the zoom 45 deg/s, each times dt (0x82975, 0x82AC2, 0x82DBE).  __thiscall: ECX = \
+the camera, dt on the stack (RET 4 at 0x82DFF) [verified 2026-10-22: ``xbe fn`` and ``find-refs``; Europe 0x82790].  \
+The photo mode pack (Step 2.160) compares the active camera's slot +0xCC with its address; nothing calls it from a \
+shim."""
+world_text_clear = """\
+Empties the world-text vector (0x38DD00; in retail only cvar-gated debug labels fill it: docs/RE_XBE.md's row; \
+0x50A90 erases begin..end, RET 8), making it on its first call. Its one caller is the world update's CALL at \
+0x55FF5, which 0x55FE3 skips while the world is paused (0x15F60), while 0x50500 draws the list every frame \
+(0x5519C): so a paused world keeps its last update's lines on screen.  No argument, plain RET; clobbers EAX, ECX and \
+EDX [verified 2026-10-22: ``xbe dis`` and ``calls``; Europe the same VA, its vector 0x38FCA8].  The photo mode pack \
+(Step 2.160) calls it on entry."""
+asset_find = """\
+Finds an asset in the global registry by its key: ECX the name (e.g. \"fx/sound/player/ouch\"), [esp+4] its kind (0 \
+any), [esp+8] a flag (2 at its sound callers); returns its handle, or -1 when no asset has it (0x8ADCC's ``cmp eax, \
+-1``), and pops 8 (RET 8 at 0xA5CD3).  The sound callers pass the handle to 0xA1C70 or sound_play_at; 0x8D4E0 and \
+the fall's ouch (0x8ADC7) look a name up each time they play it [verified 2026-10-22: ``xbe dis`` and ``calls --to \
+0xA5CA0``; Europe 0xA5E20].  The player-model thud shim (Step 2.159a, X43) looks up the kit's thud with it."""
+sound_play_at = """\
+Plays a sound handle at a point: 0xA1C70(0x1AA8E0, handle, EAX, 1) makes the sound, its vtable +0x6C places it at \
+the point, +0x30 and +0x44 start it.  Real ABI: [esp+4] the handle, [esp+8] the point (float[3]), [esp+12] unread, \
+RET 0xC; EAX an input (0xA1C70's flag: 0 at the AI hit handler's 0x38D2F and 0x38D54, which XOR it first).  The \
+extern declares the stack part: jump to it from asm that loads EAX [verified 2026-10-22: ``xbe dis`` and ``calls \
+--to 0xA2630``, 8 callers; Europe 0xA27B0].  The player-model thud shim (Step 2.159a, X43) takes the CALL at 0x38D2F \
+and jumps to this."""
+critter_spawn = """\
+Builds a critter from a 0x40-byte descriptor: [esp+4] the descriptor (+0 its owner object, +4 the owner's slot, +8 \
+the species record, +0xC the cell, +0x10 the point, +0x1C the quaternion, +0x30 and +0x34 its HP pair, -1 the \
+species'), [esp+8] the world, [esp+0xC] an int it sets to 1 both when it builds the critter now and when it queues \
+it (the world's +0x100 vtable +4 says so, 0x45C28-0x45C59); returns the critter, or 0 (queued: the flag 1; failed: \
+0); RET 0xC.  The new critter's node +0x1EC joins the owner's list at its +4 and its +0x1F4 is the slot \
+(0x40494-0x404C6) [verified 2026-10-23: ``xbe fn`` and ``calls --to 0x45C10``, 9 callers (the earth guardian's \
+boulders at 0x28EF0); Europe the same VA; seen in xemu, Step 2.159b's B0 probe].  The thrown rock and vase (Step \
+2.159b, X42) spawn through it."""
+species_get_by_name = """\
+A species record by name, loaded on first use: ECX the name, EDX entity_lookup's fallback (0 at its callers); \
+entity_lookup (0x4B510), then the species load (0x4B8E0) once (+0x11 its loaded byte), its clip and sound slots \
+bound; returns the record or 0; plain RET [verified 2026-10-23: ``xbe dis`` and ``calls --to 0x45E30``, 9 callers \
+with EDX 0 (0x28D24); Europe the same VA].  X42 (Step 2.159b) loads the thrown projectile's species with it."""
+hit_send = """\
+Sends a hit to every critter a box touches: [esp+4] the box (+0 its world 4x4, row 3 the translation; +0x80 the \
+local min, +0x8C the local max), [esp+8] the message ({3, the source critter, its damage record, the multiplier, \
+...}); each victim tested by its vtable +0xA4 (0xB6C70 reads the box), the source skipped (0x461E7), the wall test \
+0x46070 from the source to the hit point unless the source's species +0x7C (hitsThroughWalls) is set \
+(0x4621D-0x46243); RET 8 [verified 2026-10-23: ``xbe fn``, its one caller 0x43C1B, the damage pass; Europe the same \
+VA; seen in xemu, Step 2.159b's B0 probe: one 10 HP hit a throw].  X42 (Step 2.159b) sends the thrown projectile's \
+hits as the player's with it."""
+player_move_fx = """\
+The PlayerControl tick's last call (0x8C3C3, after the anim step and player_staff_wall_check): switches the player's \
+move-state effect (swimming, airborne, none: 0x437A0 with 0x19BD48, 0x19BD38, 0x19BD20, kept at PC+0x174).  Real \
+ABI: EAX the PlayerControl, [esp+4] a pointer to the tick's frame, RET 4; clobbers EAX, ECX and EDX, keeps ESI and \
+EDI.  The extern declares the stack part: call it from asm that keeps EAX [verified 2026-10-23: ``xbe dis`` \
+0x8C3B0-0x8C3F1 and 0x8C450-0x8C50E; Europe 0x8C400, called at 0x8C373].  X42 (Step 2.159b) takes the CALL at \
+0x8C3C3 and makes it first."""
+player_physics_state_machine = """\
+The player's move-state machine: the state's case through the jump table at 0x8D4BC (entity+0x94), the death check \
+and the arrival.  Real ABI: [esp+4] the PlayerControl, EAX the tick's input (kept in EBP and EDI inside); RET 4 \
+(0x8D3A6, 0x8D47B, 0x8D4B7).  Its one caller is the PlayerControl tick's CALL at 0x8C37D (``push edi; lea eax, \
+[esp+0x24]``) [verified 2026-10-25: ``xbe dis 0x8C372:4``, ``xbe calls --to 0x8CCC0``; Europe 0x8CC70, called at \
+0x8C32D].  The extern declares the stack part: jump to it from asm that keeps EAX.  The speed toggle (Step 2.186, \
+D713) takes that CALL and reads the left stick click first."""
+run_pages_alloc = """\
+A virtual (mode-0) load run's memory: the size rounded up to 4 KiB, refused (0) when [0x1BF400] plus it passes the \
+budget [0x1BF404], else VirtualAlloc's reserve and commit, the size added to [0x1BF400] (RET 4; callers 0xA490C, the \
+run allocator's, 0xB54FB and 0xBACF8) [verified 2026-10-23: ``xbe fn``; Europe 0xBACE0].  qol_memory_upper64 (Step \
+2.162e) takes the CALL at 0xA490C."""
+VirtualFree = """\
+XAPI's VirtualFree(address, size, type): NtFreeVirtualMemory, TRUE or FALSE (RET 0xC) [verified 2026-10-23: ``xbe \
+fn``; Europe 0xE0E48].  The run free 0xBAD10 calls it at 0xBAD55, which qol_memory_upper64 (Step 2.162e) takes."""
+run_evict_until = """\
+evict(size, level): the expired list 0x1AA7F0 through 0xA6450, then, if it freed nothing and level >= 3, the expiry \
+wheel's 30 slots until size bytes are freed; AL = 1 when anything was (RET 8; callers the out-of-memory handler \
+0xA66A0 with level 3, D3D's 0x90801 and 0x90854, 0x24E23, 0xA4920, 0xA4CC2, 0xA66D1) [verified 2026-10-29: ``xbe \
+dis``; Europe 0xA6650].  qol_alloc_race's copy gate (AZ-817, Step 2.172g) runs it at level 3, on main or in the copy \
+thread."""
+run_wheel_advance = """\
+The run manager's per-frame step of the expiry wheel: the cursor [0x1BE324]'s slot moved to the expired list \
+0x1AA7F0, the cursor advanced mod 30 (plain RET; no inputs; callers 0x15FB8, 0x1622B, 0x52D06, the main loop's \
+0x59C90, 0xA66EB) [verified 2026-10-29: ``xbe dis``; Europe 0xA6430].  qol_alloc_race (AZ-817, Step 2.172g) takes \
+the CALL at 0x59C90 for its main tick."""
+run_evict_all = """\
+Dead in vanilla (no caller, jump or reference): evicts everything, 0xA64D0(-1, 3) (plain RET) [verified 2026-10-29: \
+``xbe calls``, ``find-refs``, ``insns``; Europe 0xA6840].  qol_alloc_race (AZ-817, Step 2.172g) jumps it to its copy \
+gate, which takes ECX (bytes to free, or an op) and returns AL: the door its sites and hooks call."""
+Sleep = """\
+XAPI's Sleep(milliseconds): SleepEx(ms, FALSE), KeDelayExecutionThread (RET 4; 203 callers) [verified 2026-10-23: \
+``xbe dis``; Europe 0xE1518].  qol_memory_budget's stream pump retry (AZ-687, Step 2.162e) waits 20 ms with it \
+between CreateThread tries."""
+XPhysicalAlloc = """\
+XAPI's XPhysicalAlloc(size, physical address, alignment, protect): MmAllocateContiguousMemoryEx(size, 0, highest, \
+alignment, protect), highest -1 when the address is -1, SetLastError(8) on NULL (RET 0x10) [verified 2026-10-23: \
+``xbe dis`` 0xF4EB0-0xF4EF0; Europe 0xF51D0].  The run allocator's mode-1 path calls it at 0xA48FA (size, -1, \
+0x1000, 0x404), which qol_memory_upper64_gpu (Step 2.162h) takes."""

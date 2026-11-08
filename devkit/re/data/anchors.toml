@@ -1,0 +1,562 @@
+# The game's VA anchors: each USA address a shim, a patch or a reader names, what the vanilla XBE holds there and
+# what is known of it. Ported from Modkit's shim header (shims/include/azurik.h) at its last cut (Step 4.11d1); its
+# structures are structs.h beside this file. A Modkit path, test or step in a note names Modkit's tree and history.
+#
+# Each anchor is a table: its USA `va`, the `section` that holds it and, outside .text, what the vanilla XBE holds
+# there: an `f32`, a `u32`, a `cstr` (an ASCII C string), a `wstr` (a UTF-16LE one) or `zero`, that many zero bytes
+# (the loader's zero-fill or the file's). One in .text is code: a function's entry, a patch site or a hook site.
+# Europe's address is the facts' address map's (src/azurkit/core/facts.europe.json). tests/test_re_xbe.py holds both
+# releases' XBEs to it, and devkit/re/xbe.py names each listed address (its name without AZURIK_ and _VA, lower
+# case; the first anchor at an address names it).
+
+# The pads and players (ControllerState in structs.h)
+
+[AZURIK_CONTROLLER_STATE_VA]
+va = 0x0037BE98
+section = ".data"
+zero = 4
+note = """\
+The 4 players' ControllerState array, player 0's first, 0x54 bytes apart (AZURIK_CONTROLLER_STRIDE), filled every \
+frame by the XInput polling loop (FUN_000a2df0 -> FUN_000a2880). Zero-filled at load."""
+
+[AZURIK_PLAYER_STATE_PTR_ARRAY_VA]
+va = 0x001BE314
+section = ".data"
+zero = 4
+note = """\
+Per-player state-object pointer array: 4 x 4-byte slots; slot i holds a pointer to player i's live state struct (or \
+NULL before that player joins). The XInput polling path FUN_000A2880 reads [player_idx * 4 + 0x001BE314] before \
+writing into the controller-state block. Zero-filled at load, set by the engine as each controller connects."""
+
+[AZURIK_ACTIVE_PLAYER_INDEX_VA]
+va = 0x001A7AE4
+section = ".data"
+u32 = 4
+note = """\
+The active player's index: 0..3, or 4 for no controller connected (its vanilla value). Not the air-power level. A \
+shim acting on the active player only dereferences &players[*0x001A7AE4] while it isn't 4."""
+
+# The boot state machine (BootState in structs.h)
+
+[AZURIK_BOOT_STATE_VA]
+va = 0x001BF61C
+section = ".data"
+zero = 4
+note = """\
+The global boot state (a BootState), stepped by FUN_0005f620. Read / write via *(BootState *)0x001BF61C from within \
+a shim. Writing advances the state machine; the game tolerates arbitrary forward jumps, but backward ones produce \
+visible glitches (e.g. from INGAME back to PLAY_LOGO mid-game)."""
+
+# Gravity, the player's character name and the shared run multiplier
+
+[AZURIK_GRAVITY_VA]
+va = 0x001980A8
+section = ".rdata"
+f32 = 9.8
+note = """\
+The world's gravity, 9.8 m/s^2: the single source of gravity for every falling entity. The player_physics gravity \
+slider rewrites it in place."""
+
+[AZURIK_SHARED_RUN_MULT_VA]
+va = 0x001A25BC
+section = ".rdata"
+f32 = 3.0
+note = """\
+3.0, read at 45 call sites. Not a run speed: Azurik has no run, and the player-movement reader, the FMUL at VA \
+0x849E4, is the developer cheat-buttons turbo (0 in retail). No pack rewrites that FMUL since Step 2.12 \
+(roll_speed_scale hooks the CALL at 0x8C745); touching the shared constant would affect every other reader. See \
+AZURIK_ROLL_BOOST_CONST_VA."""
+
+[AZURIK_PLAYER_CHAR_NAME_VA]
+va = 0x0019EA68
+section = ".rdata"
+cstr = "garret4"
+note = """\
+The player character's name, an 8-byte ASCII slot. The 4 bytes after it are a separate string, the drive root \
+\"d:\\\" at VA 0x0019EA70. The spawn reads the player's species from this name (0x58E80 stores its VA in 0x1BCDCC). \
+Nothing writes it since Step 2.21a: the player-model swap keeps species garret4 and edits config.xbr and fx.xbr \
+(D112). Modkit's code before its reorganisation used its file offset (0x001976C8) as if it were a VA; a DIR32 \
+relocation to the string must use this VA."""
+
+# Shared numerical constants: dozens of sites read each, so never patch their values; rewrite the instruction at the
+# site to read another address instead
+
+[AZURIK_FLOAT_ZERO_VA]
+va = 0x001A2508
+section = ".rdata"
+f32 = 0.0
+note = "0.0 (1 reader)."
+
+[AZURIK_FLOAT_HALF_VA]
+va = 0x001A9C84
+section = ".data"
+f32 = 0.5
+note = "0.5 (about 15 readers)."
+
+[AZURIK_FLOAT_ONE_VA]
+va = 0x001A9C88
+section = ".data"
+f32 = 1.0
+note = "1.0 (about 15 readers)."
+
+[AZURIK_FLOAT_RUN_MULT_VA]
+va = 0x001A25BC
+section = ".rdata"
+f32 = 3.0
+note = "3.0, not a run speed (45 readers): an alias of AZURIK_SHARED_RUN_MULT_VA."
+
+# The entity registry: a std::vector<Entity *> that entity_lookup (FUN_0004B510) scans to resolve names to entity
+# descriptors, set up at run time from the config files and grown as critters load (prefer the function: it matches
+# the game's own lookup, the fallback registration too)
+
+[AZURIK_ENTITY_REGISTRY_BEGIN_VA]
+va = 0x0038C1E4
+section = ".data"
+zero = 4
+note = "Entity **begin."
+
+[AZURIK_ENTITY_REGISTRY_END_VA]
+va = 0x0038C1E8
+section = ".data"
+zero = 4
+note = "Entity **end (one past the last)."
+
+[AZURIK_ENTITY_REGISTRY_CAP_VA]
+va = 0x0038C1EC
+section = ".data"
+zero = 4
+note = "Entity **capacity."
+
+# The boot movies' state, read every tick, set by play_movie_fn on first use and by poll_movie each frame
+
+[AZURIK_MOVIE_CONTEXT_PTR_VA]
+va = 0x001BCDC8
+section = ".data"
+zero = 4
+note = "PVOID: the current movie's context (a MovieContext), 0 when idle."
+
+[AZURIK_MOVIE_IDLE_FLAG_VA]
+va = 0x001BCDB4
+section = ".data"
+zero = 1
+note = "u8: play_movie_fn's AL-style return byte."
+
+[AZURIK_WALKING_STATE_FLAG_VA]
+va = 0x0037ADEC
+section = ".data"
+zero = 4
+note = """\
+The walking-state flag byte, tested by FUN_00085F50 and FUN_0008CCC0 at LAB_000863E4; set during the ground-walk \
+state transition."""
+
+[AZURIK_MOVIE_STAGED_PATH_VA]
+va = 0x001BCDD0
+section = ".data"
+zero = 4
+note = """\
+char *: the movie the boot state machine is about to play or is playing, read by boot_state_tick's case 0; non-null \
+means a movie is queued, NULL during normal gameplay. A cutscene-forcing shim would write it and \
+AZURIK_MOVIE_SKIP_TARGET_VA and set AZURIK_BOOT_STATE_VA to BOOT_STATE_INIT to play any Bink movie by path."""
+
+[AZURIK_MOVIE_SKIP_TARGET_VA]
+va = 0x001BCDD4
+section = ".data"
+zero = 4
+note = """\
+char *: the fallback path play_movie_fn is handed when the staged path isn't under movies/scenes/; 0x001A1E74 when \
+the global is NULL."""
+
+# The feature class registry
+
+[AZURIK_FEATURE_CLASS_REGISTRY_BEGIN_VA]
+va = 0x0038C1F4
+section = ".data"
+zero = 4
+note = """\
+FeatureClass **begin: a lookup table beside the entity registry, keyed by name string to a u32 value (struct \
+FeatureClass { char *name; u32 value; }; count = end - begin). FUN_000493D0, the helper that fills \
+CritterData.feature_class_id from a name string, looks it up. A shim could add feature classes at boot."""
+
+[AZURIK_FEATURE_CLASS_REGISTRY_END_VA]
+va = 0x0038C1F8
+section = ".data"
+zero = 4
+note = "FeatureClass **end (one past the last)."
+
+# The developer level-select hub
+
+[AZURIK_DEV_MENU_FLAG_VA]
+va = 0x001BCDD8
+section = ".data"
+zero = 4
+note = """\
+selector.xbr is a developer level-select hub (portals to every live level and direct cutscene playback), not the \
+in-game cheat UI. 0x52F50 (game_start_setup, Ghidra's name since D94) reads this dword on its selector branch only: \
+ESI = 3 when it holds -1 (vanilla), else its value; what ESI means is unknown. Whether levels/selector or \
+levels/training_room becomes the candidate is decided by a virtual call's AL result at VA 0x52F90, not by this dword \
+[verified 2026-10-10, capstone], and that candidate is only the second stage of a validator chain. The name and the \
+old claim that one store here force-loads the hub are wrong; it was never tried, and four other attempts to force \
+the hub had no in-game effect. See docs/RE_DATA.md, selector.xbr."""
+
+# Level and asset strings, for a shim that pushes a string's VA (a level load from a debug hotkey)
+
+[AZURIK_STR_LEVELS_SELECTOR_VA]
+va = 0x001A1E3C
+section = ".rdata"
+cstr = "levels/selector"
+note = "A portal path."
+
+[AZURIK_STR_LEVELS_TRAINING_VA]
+va = 0x001A1E4C
+section = ".rdata"
+cstr = "levels/training_room"
+note = "A portal path."
+
+[AZURIK_STR_INDEX_XBR_PATH_VA]
+va = 0x0019ADB0
+section = ".rdata"
+cstr = "index\\index.xbr"
+note = "The loader's path."
+
+# The save slots' UI strings (UTF-16LE): to rename save slots, localise the playtime's days or take over the
+# developer's scratch game entry
+
+[AZURIK_STR_SAVEGAME_FMT_W_VA]
+va = 0x0019E054
+section = ".rdata"
+wstr = "SaveGame #%d"
+note = "The save slot's format."
+
+[AZURIK_STR_START_NEW_GAME_W_VA]
+va = 0x0019E070
+section = ".rdata"
+wstr = "Start New Game"
+note = "The menu's label."
+
+[AZURIK_STR_SCRATCH_GAME_W_VA]
+va = 0x0019E54C
+section = ".rdata"
+wstr = "scratch game"
+note = "The developer's save key."
+
+[AZURIK_STR_DUMMY_TEMP_GAME_W_VA]
+va = 0x0019E56C
+section = ".rdata"
+wstr = "DummyTempGame"
+note = "A placeholder save key."
+
+[AZURIK_STR_DAYS_FMT_W_VA]
+va = 0x0019E038
+section = ".rdata"
+wstr = "%d days"
+note = "The playtime's plural format."
+
+[AZURIK_STR_ONE_DAY_W_VA]
+va = 0x0019E048
+section = ".rdata"
+wstr = "1 day"
+note = "The playtime's singular format."
+
+# The player physics' constants near its sites, each with its readers: only a single-reader constant can be
+# overwritten without touching others; for a shared one rewrite the instruction at the site
+
+[AZURIK_SLOPE_SLIDE_CONST_VA]
+va = 0x001AAB68
+section = ".data"
+f32 = 2.0
+note = """\
+The slope slide's state-3 velocity scalar. Single reader: the FMUL at VA 0x89B76 in player_slope_slide_tick. \
+Overwriting it had no in-game effect (slider deleted, D18)."""
+
+[AZURIK_CLIMB_SPEED_CONST_VA]
+va = 0x001980E4
+section = ".rdata"
+f32 = 2.0
+note = """\
+The climbing state's velocity scalar. Exactly 2 readers, both in player_climb_tick (VAs 0x87FA7 and 0x88357): the \
+rung step (2.0 x dt a tick, xemu sitting 2.185) and the rung clips' rate. climb_speed_scale scales both readers and \
+leaves the constant vanilla (Step 2.185)."""
+
+[AZURIK_GRAVITY_CONST_VA]
+va = 0x001980A8
+section = ".rdata"
+f32 = 9.8
+note = """\
+The global gravity constant. 16 references in .text (player states, the roll code, three boot initialisers). \
+gravity_integrate_raw (0x85700) doesn't read it; its callers pass g as an argument. The gravity slider overwrites it \
+on purpose (everything falls at the new g); jump_speed_scale and flap_height_scale instead rewrite their own FLD to \
+load an injected g * k^2 (D16)."""
+
+[AZURIK_FLAP_SUBSEQUENT_THRESHOLD_VA]
+va = 0x001A25B8
+section = ".rdata"
+f32 = 6.0
+note = """\
+The subsequent flap's height threshold. Shared: 19 references in the XBE; wing_flap's is the FCOMP at VA 0x893C0. A \
+flap more than 6 m below the flap ceiling (peak_z + h; the first flap too) has its v0 halved and calls \
+consume_fuel(100.0). No slider; an RE anchor."""
+
+[AZURIK_FLAP_HALVING_CONST_VA]
+va = 0x001A2510
+section = ".rdata"
+f32 = 0.5
+note = """\
+The subsequent flap's halving factor. Shared (260+ readers: the generic half). The flap_below_peak_scale slider \
+rewrites the FMUL at VA 0x893DD to read an injected float, not this constant."""
+
+[AZURIK_FLAP_BOOST_CONST_VA]
+va = 0x001A26C4
+section = ".rdata"
+f32 = 1.5
+note = """\
+The wing flap's final boost multiplier. Read at VA 0x893EB (wing_flap) and 10+ unrelated sites: rewrite per site \
+only."""
+
+[AZURIK_ROLL_BOOST_CONST_VA]
+va = 0x001A25BC
+section = ".rdata"
+f32 = 3.0
+note = """\
+Shared (45 readers). The FMUL at VA 0x849E4 (player_input_tick) uses it as the developer cheat-buttons turbo (input \
+flag 0x40, only while the cvar \"enable cheat buttons\" is on; 0 in retail). It is not the roll: roll_speed_scale \
+hooks the CALL at VA 0x8C745 instead (Step 2.12)."""
+
+[AZURIK_SWIM_BOOST_CONST_VA]
+va = 0x001A25B4
+section = ".rdata"
+f32 = 10.0
+note = """\
+The swim stroke's multiplier. Shared, but only one player-physics reader, at VA 0x8B7BF; swim_speed_scale rewrites \
+that FMUL to read an injected constant."""
+
+# The player physics' functions: their entry points
+
+[AZURIK_FUN_PLAYER_WALK_STATE_VA]
+va = 0x00085F50
+section = ".text"
+
+[AZURIK_FUN_PLAYER_CLIMB_TICK_VA]
+va = 0x00087F80
+section = ".text"
+
+[AZURIK_FUN_PLAYER_JUMP_INIT_VA]
+va = 0x00089060
+section = ".text"
+
+[AZURIK_FUN_WING_FLAP_VA]
+va = 0x00089300
+section = ".text"
+
+[AZURIK_FUN_PLAYER_AIRBORNE_TICK_VA]
+va = 0x00089480
+section = ".text"
+
+[AZURIK_FUN_PLAYER_SLOPE_SLIDE_TICK_VA]
+va = 0x00089A70
+section = ".text"
+
+[AZURIK_FUN_PLAYER_SWIM_TICK_VA]
+va = 0x0008B700
+section = ".text"
+
+[AZURIK_FUN_PLAYER_PHYSICS_STATE_VA]
+va = 0x0008CCC0
+section = ".text"
+
+[AZURIK_FUN_FALL_DAMAGE_DISPATCH_VA]
+va = 0x0008AB70
+section = ".text"
+
+[AZURIK_FUN_FALL_DEATH_DISPATCH_VA]
+va = 0x0008BE00
+section = ".text"
+
+[AZURIK_FUN_PLAYER_LANDING_VA]
+va = 0x0008C080
+section = ".text"
+
+[AZURIK_FUN_APPLY_DAMAGE_VA]
+va = 0x00044640
+section = ".text"
+
+[AZURIK_FUN_CONSUME_FUEL_VA]
+va = 0x000842D0
+section = ".text"
+
+[AZURIK_FUN_PLAYER_AIRBORNE_REINIT_VA]
+va = 0x00083F90
+section = ".text"
+
+[AZURIK_FUN_PLAYER_INPUT_TICK_VA]
+va = 0x00084940
+section = ".text"
+
+[AZURIK_FUN_PLAYER_ARMOR_STATE_TICK_VA]
+va = 0x00083D80
+section = ".text"
+
+[AZURIK_FUN_XINPUT_DEVICE_POLL_VA]
+va = 0x000A2DF0
+section = ".text"
+
+[AZURIK_FUN_LOAD_ARMOR_PROPS_VA]
+va = 0x0003C700
+section = ".text"
+
+[AZURIK_FUN_LOAD_ATTACKS_ANIMS_VA]
+va = 0x0007E2E0
+section = ".text"
+
+[AZURIK_FUN_CVAR_GET_DOUBLE_VA]
+va = 0x0005E620
+section = ".text"
+
+# The animation system's (for the root-motion shims): anim_apply_translation samples the banm and commits through
+# the vtable each frame, called from every player state's tick; anim_change swaps the animation;
+# player_physics_integrate_root_motion is the one FADD where the animation's deltas feed the entity's velocity, a
+# choke point that covers every state
+
+[AZURIK_FUN_ANIM_APPLY_TRANSLATION_VA]
+va = 0x00042E40
+section = ".text"
+
+[AZURIK_FUN_ANIM_CHANGE_VA]
+va = 0x00042910
+section = ".text"
+
+[AZURIK_FUN_PLAYER_PHYSICS_INTEGRATE_ROOT_MOTION_VA]
+va = 0x0008CE14
+section = ".text"
+
+# The player physics' patch sites: instruction addresses
+
+[AZURIK_PATCH_ROLL_FMUL_VA]
+va = 0x000849E4
+section = ".text"
+note = "The old roll target: the cheat turbo (see 0x001A25BC)."
+
+[AZURIK_PATCH_WALK_FLD_VA]
+va = 0x00085F62
+section = ".text"
+note = "The old walk target; the slider sets config.xbr's garret4 runSpeed (D53)."
+
+[AZURIK_PATCH_JUMP_FLD_VA]
+va = 0x00089160
+section = ".text"
+
+[AZURIK_PATCH_PEAK_Z_FADD_VA]
+va = 0x00089154
+section = ".text"
+note = """\
+The 6-byte FADD [ESI+0x144] in player_jump_init that feeds the peak_z latch (FSTP [ESI+0x164] at VA 0x8915A). The \
+wing_flap_ceiling_scale slider puts a 15-byte CALL-style shim here: load flap_height, FMUL by the scale, FADDP the \
+entity.z already on ST(0), RET, so peak_z = entity.z + K * flap_height. wing_flap (FUN_00089300) computes fVar1 = \
+peak_z + flap_height - current_z, so the hard ceiling grows to (K+1) * flap_height above the jump's starting ground \
+(vanilla K=1: 2 * flap_height). Orthogonal to flap_height_scale and flap_below_peak_scale."""
+
+[AZURIK_PATCH_FLAP_FLD_VA]
+va = 0x000893AE
+section = ".text"
+
+[AZURIK_PATCH_FLAP_SUB_FMUL_VA]
+va = 0x000893DD
+section = ".text"
+
+[AZURIK_PATCH_FLAP_DESCENT_FUEL_VA]
+va = 0x000893CE
+section = ".text"
+note = """\
+The 4-byte PUSH immediate (100.0f) in wing_flap feeding the consume_fuel(this, 100.0) call at VA 0x893D4 on the \
+descent branch (a flap more than 6 m below the flap ceiling, peak_z + h). The flap_descent_fuel_cost_scale slider \
+scales it: 0.0 removes the per-flap gauge drain that stops descent flaps in vanilla. The 6.0 threshold at 0x001A25B8 \
+can't be overwritten instead: 19 other functions read it."""
+
+[AZURIK_PATCH_FLAP_ENTRY_FUEL_VA]
+va = 0x0008934E
+section = ".text"
+note = """\
+The 4-byte PUSH immediate (1.0f) in wing_flap feeding the consume_fuel(this, 1.0) call at VA 0x89354: the per-flap \
+entry drain every flap pays, at any height. The flap_entry_fuel_cost_scale slider scales it: 0.1 gives about 10x the \
+flaps per gauge, 0.0 no drain (flaps per jump stay capped at Flaps, D17; not infinite), a negative a refund. \
+consume_fuel takes cost / Flaps (level+0x38: 1/2/5 for air 1/2/3) off the 1.0 gauge, so vanilla gives 1/2/5 flaps \
+per gauge."""
+
+[AZURIK_PATCH_FLAP_AT_PEAK_FLD_ST_VA]
+va = 0x0008939F
+section = ".text"
+note = """\
+The historical 2-byte FLD-ST site (the v2 byte patch's try at the fVar2 = min(fVar1, flap_height) cap), retired: \
+in-game testing showed no effect (docs/RE_MOVEMENT.md). An RE anchor."""
+
+[AZURIK_PATCH_SLOPE_SLIDE_FMUL_VA]
+va = 0x00089B76
+section = ".text"
+
+[AZURIK_PATCH_SWIM_FMUL_VA]
+va = 0x0008B7BF
+section = ".text"
+
+[AZURIK_PATCH_AIR_CTRL_12_IMM32_VA]
+va = 0x00083FAC
+section = ".text"
+
+[AZURIK_PATCH_AIR_CTRL_9_IMM32_VA]
+va = 0x00083FCE
+section = ".text"
+
+[AZURIK_PATCH_CLIMB_FLD_PRIMARY_VA]
+va = 0x00087FA7
+section = ".text"
+
+[AZURIK_PATCH_CLIMB_FLD_SECONDARY_VA]
+va = 0x00088357
+section = ".text"
+
+# The hook sites of the five shim packs Modkit deleted in its Step 1.10 (D18): each landed its bytes cleanly but had
+# no in-game effect (their code is in Modkit's history); RE anchors for a retry from another hook
+
+[AZURIK_SHIM_HOOK_FLAP_AT_PEAK_VA]
+va = 0x00089409
+section = ".text"
+note = """\
+The flap-at-peak floor: a minimum v0 for subsequent flaps near peak_z, past fVar2 = min(fVar1, flap_height) when \
+fVar1 is tiny. It hooked the final z-velocity FSTP and replayed it with max(vanilla_v0, sqrt(2g * flap_height) * \
+scale). docs/RE_MOVEMENT.md (the wing flap's v0 cap) says why vanilla's clamp is by design. Mostly superseded by \
+wing_flap_ceiling_scale (which raises peak_z instead)."""
+
+[AZURIK_SHIM_HOOK_ROLL_ANIM_APPLY_VA]
+va = 0x000866D9
+section = ".text"
+note = """\
+The old roll hook (root_motion_roll): it wrapped walk_state's CALL to anim_apply_translation and scaled the deltas \
+only under input flag 0x40, the cheat-buttons turbo. It had no effect: the roll is BLACK's attack move (state 0x100, \
+root motion in 0x8C630), and walk_state never runs it. The roll slider hooks the CALL at VA 0x8C745 since Step 2.12."""
+
+[AZURIK_SHIM_HOOK_CLIMB_ANIM_APPLY_VA]
+va = 0x000883FF
+section = ".text"
+note = "The climb's root motion: the roll's pattern, ungated, hooked in player_climb_tick."
+
+[AZURIK_SHIM_HOOK_SLOPE_FAST_SLIDE_VA]
+va = 0x0008A095
+section = ".text"
+note = """\
+The fast slope slide: scaled the state-4 fast slide's velocity from the surface normal by hooking the FLD that loads \
+its scalar."""
+
+[AZURIK_SHIM_HOOK_ANIM_APPLY_VTABLE_VA]
+va = 0x00043066
+section = ".text"
+note = """\
+The central root-motion scale (round 11.11), the only shim that hooked inside a vanilla function: the 6-byte CALL \
+[EAX+0xC0] at the end of anim_apply_translation (the vtable commit), after EAX takes the vtable from [EBX] and ECX \
+takes EBX (this), before the epilogue's RET 0x10. Its 38 bytes scaled param_1[0x6C..0x71] (6 translation-delta \
+floats) before the commit, for every caller: walk, roll, climb, jump, flap, slide, swim and about 5 non-player \
+callers."""
+
+[AZURIK_ANCHOR_PEAK_Z_FSTP_VA]
+va = 0x0008915A
+section = ".text"
+note = """\
+An RE anchor only: the peak_z FSTP in player_jump_init. wing_flap_ceiling_scale hooks the FADD that feeds it, at \
+0x89154."""

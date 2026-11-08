@@ -4,7 +4,11 @@ test_xbe_sections, leanly): each address maps through the XBE's own sections,
 the scans and listings find what they say and print no byte (but
 ``hexdump``'s), a refusal is one line and exit 2, the verbs read the image of
 the release asked for and name it, and a listing names what that release's
-facts know. The synthetic XBEs are neither release's; the rest read both
+facts, the Ghidra project's snapshot, the anchors and the packs know. The RE
+data (``devkit/re/data``, Step 4.11d1; Modkit's test_va_audit, its anchor and
+header guards, leanly) holds each anchor checkably, both releases' XBEs
+holding what it says, its structures compiling and a note for each function
+of the facts. The synthetic XBEs are neither release's; the rest read both
 images."""
 
 from __future__ import annotations
@@ -16,12 +20,16 @@ import re
 import struct
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
+import shimkit
 from azurkit.core import facts, gate, iso
 from devkit.re import xbe
 
 ROOT = Path(__file__).resolve().parent.parent
+HOLDS = {"f32": lambda v: struct.pack("<f", v), "u32": lambda v: struct.pack("<I", v),   # an anchor's value's bytes
+         "cstr": lambda v: v.encode("ascii") + b"\0", "wstr": lambda v: v.encode("utf-16-le") + b"\0\0", "zero": bytes}
 TEXT, RDATA, DATA = 0x11000, 0x14000, 0x15000   # the synthetic XBE's sections: at file 0x1000, 0x4000 and none
 
 
@@ -268,7 +276,8 @@ def test_the_verbs_read_the_image_of_the_release_asked_for_and_name_it(usa_iso, 
     assert (code, why.count("\n"), why.startswith(f"xbe: no image: {gate.USA.env} names no file")) == (2, 1, True)
 
 
-def test_the_reads_print_values_and_the_listings_name_what_the_facts_know(usa_iso, europe_iso, capsys):
+def test_the_reads_print_values_and_the_listings_name_what_the_facts_ghidra_the_anchors_and_packs_know(
+        usa_iso, europe_iso, capsys):
     """read prints a value at a VA, never its bytes (``bss`` where the loader
     zero-fills; a pointer's target section and its name or data C string,
     never code bytes as a string; FLT_MAX's shortest text, AZ-659); vtable
@@ -276,9 +285,11 @@ def test_the_reads_print_values_and_the_listings_name_what_the_facts_know(usa_is
     the section ends short of --slots; find-refs --data finds the data dwords
     holding a VA; insns and calls take --range and --in-fn, strings -i ignores
     case, dis --count N is VA:N, and the source flags go before the verb too.
-    A listing line names the address its operands hold from the release's
-    facts: a function, a kernel import's slot, Europe's at its own address.
-    sections is the table the facts hold, for both releases."""
+    A listing line names the address its operands hold: the release's facts'
+    function (``_alldiv``, not the snapshot's ``__alldiv``) or kernel import's
+    slot, else the Ghidra project's function or data label, an anchor or a
+    pack's site (a ``custom_apply``'s by its pack), Europe's at its own
+    address. sections is the table the facts hold, for both releases."""
     usa, europe = ["--iso", str(usa_iso)], ["--iso", str(europe_iso)]
     rows = [
         (["read", "0x1980A8", "--as", "f32", *usa], ["0x001980A8  f32   9.8"]),
@@ -310,6 +321,12 @@ def test_the_reads_print_values_and_the_listings_name_what_the_facts_know(usa_is
         ([*usa, "dis", "0x41F67", "--count", "1"], ["0x00041F67  call 0xcb2a0  ; anim_marker_position"]),
         (["dis", "0x8B763", "--count", "1", *usa], ["0x0008B763  test eax, 0x10000"]),
         ([*europe, "dis", "0x41F67:1"], ["0x00041F67  call 0xcb420  ; anim_marker_position"]),
+        (["calls", "0xED000", *usa], ["0x000E6C9D  call 0x000ED000  ; _alldiv"]),
+        (["calls", "0x9F630", *usa], ["0x000120AC  call 0x0009F630  ; cvar_get_or_create"]),
+        (["dis", "0x18A2C:1", *usa], ["0x00018A2C  push 0x187bc0  ; g_DeviceType_MU"]),
+        (["dis", "0x859DC:1", *usa], ["0x000859DC  fld dword ptr [0x1980a8]  ; gravity"]),
+        (["dis", "0x8598C:1", *europe], ["0x0008598C  fld dword ptr [0x19a250]  ; gravity"]),
+        (["dis", "0x59B37:1", *usa], ["0x00059B37  fld dword ptr [0x1983e8]  ; fps_unlock"]),
     ]
     missing = []   # each row whose exit isn't 0 with its lines (or 2, a refusal, with none)
     for argv, want in rows:
@@ -318,3 +335,42 @@ def test_the_reads_print_values_and_the_listings_name_what_the_facts_know(usa_is
             missing.append((argv, code))
     tables = [json.loads(run(capsys, "sections", "--json", *src)[1]) for src in (usa, europe)]
     assert (missing, tables) == ([], [[dataclasses.asdict(s) for s in facts.of(r).sections] for r in gate.RELEASES])
+
+
+def test_the_re_data_holds_each_anchor_checkably_its_structures_compiling_and_a_note_per_facts_function(tmp_path):
+    """Modkit's header guards (test_va_audit's AnchorCoverageDrift): each
+    anchor names its USA address and section and, outside .text, one thing
+    the vanilla XBE holds there, so the next test checks every one; the
+    anchors live in anchors.toml alone (structs.h defines none); structs.h
+    compiles with the shims' flags, its offset asserts holding; and the
+    notes name exactly the facts' functions."""
+    unchecked = [name for name, a in xbe.anchors().items()
+                 if not (isinstance(a["va"], int) and set(a) - {"note"} - set(HOLDS) == {"va", "section"}
+                         and len(set(a) & set(HOLDS)) == (a["section"] != ".text"))]
+    structs = (xbe.DATA / "structs.h").read_text(encoding="utf-8")
+    probe = tmp_path / "probe.c"
+    probe.write_text(f'#include "{(xbe.DATA / "structs.h").as_posix()}"\n', encoding="utf-8")
+    compiled = bool(shimkit.compile(probe))
+    notes = tomllib.loads((xbe.DATA / "function_notes.toml").read_text(encoding="utf-8"))
+    assert (unchecked, re.findall(r"#define\s+AZURIK_\w+_VA\b", structs), compiled, sorted(notes)) == (
+        [], [], True, sorted(facts.of(gate.USA).functions))
+
+
+def test_each_anchor_holds_what_anchors_toml_says_in_both_releases(usa_iso, europe_iso):
+    """Modkit's anchor guards (test_va_audit's VaAnchorAudit and
+    PhysicsAnchorsLandInText, AZ-079), over both releases: each anchor's
+    address (Europe's from the facts' address map) lands in its section, and
+    a data anchor's bytes, as the game sees them, are its value (a float32
+    exactly), its string to the NUL, or its zero bytes."""
+    wrong = []
+    for release, path in ((gate.USA, usa_iso), (gate.EUROPE, europe_iso)):
+        with iso.Reader(path) as r:
+            data = r.read("default.xbe")
+        known = facts.of(release)
+        for name, a in xbe.anchors().items():
+            va = known.va(a["va"])
+            section = xbe.address(data, va, "va").section
+            want = b"".join(HOLDS[k](v) for k, v in a.items() if k in HOLDS)
+            if section != a["section"] or b"".join(row.raw for row in xbe.hexdump(data, va, len(want))) != want:
+                wrong.append((release.name, name, f"0x{va:08X}", section))
+    assert wrong == []

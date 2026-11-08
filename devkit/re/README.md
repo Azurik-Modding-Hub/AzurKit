@@ -1,7 +1,8 @@
 # devkit/re: the reverse-engineering tools (dev only)
 
-The `re` area holds the offline XBE reads now; the Ghidra side (its client,
-serves, sync, snapshot and data) and shim authoring come with their own steps.
+The `re` area holds the offline XBE reads and the RE data now; the Ghidra
+side (its client, serves, sync and snapshot verb) and shim authoring come with
+their own steps.
 
 ## `xbe`: offline reads of a `default.xbe`
 
@@ -23,9 +24,14 @@ after it. A refusal (no image, not an XBE, an address no section maps, a
 Addresses in and out are the XBE's own (hex `0x...` or decimal), mapped
 through its own section table, so an appended `SHIMS` section and a section's
 zero-filled tail map right. A listing line ends `  ; name` where its operands
-hold an address the release's facts know: a function (`src/azurkit/core/facts.<release>.json`)
-or a kernel import's thunk slot. The Ghidra project's names join with the
-Ghidra side.
+hold an address with a name, the first of: the release's facts' function
+(`src/azurkit/core/facts.<release>.json`) or kernel import's thunk slot, the
+Ghidra project's function (`data/ghidra_snapshot.json`), an anchor
+(`data/anchors.toml`: its name without `AZURIK_` and `_VA`, lower case), the
+project's data label, and a pack's site (`pack:label`; a `custom_apply`'s
+places by the pack alone, their labels following its sliders). All but the
+facts' are USA addresses: Europe's XBE gets those its facts' address map
+holds, at its own addresses.
 
 | Verb | What it prints |
 |---|---|
@@ -59,3 +65,21 @@ uv run --locked python -m devkit re xbe --region europe dis 0x41F67:1      # cal
 `tests/test_re_xbe.py` pins these. AZ-108's guard, that each facts
 function pops what its declared ABI makes its caller push, is
 `tests/test_shims.py`'s.
+
+## The data: `devkit/re/data/`
+
+The RE knowledge AzurKit's player side has no use for, from Modkit's last
+cut; none of it reaches the wheel (`tests/test_wheel.py`: the wheel is
+`src/azurkit`'s files).
+
+| File | What it holds |
+|---|---|
+| `ghidra_snapshot.json` | the Ghidra project's names: 545 functions, 1,103 labels and 10 structures (Modkit's `docs/ghidra_snapshot.json`, as it was; only the Ghidra side's `ghidra-snapshot` writes it once that is ported) |
+| `anchors.toml` | the 83 VA anchors of Modkit's shim header: each USA address, its section, what the vanilla XBE holds there (an `f32`, a `u32`, a `cstr`, a `wstr` or `zero` bytes) or, in `.text`, nothing (code), and a note |
+| `structs.h` | the header's 10 structures and 2 enums with their offset asserts, the player entity's field offsets and flag bits and the vanilla step; no shim includes it (they include shimkit's headers) |
+| `function_notes.toml` | a note for each of the facts' 354 functions: what it does and what a shim calling it must know (Modkit's vanilla-symbol registry's docs) |
+
+`tests/test_re_xbe.py` holds both releases' XBEs to the anchors (Europe's
+addresses from the facts' address map), each anchor to one check, the
+anchors to `anchors.toml` alone, `structs.h` to compiling with shimkit's
+flags (its asserts holding) and the notes to the facts' functions.

@@ -10,8 +10,8 @@ must be that release's vanilla one. It names what it read, the release and
 the XBE's ``sha256[:12]`` on stderr; stdout is the verb's (``--json`` for a
 machine). Addresses in and out are that XBE's own, mapped through its own
 section table, so an appended section (``SHIMS``) and a section's zero-filled
-tail map right (AZ-140). A listing names each address its release's facts
-know: their functions and the kernel imports' thunk slots (:func:`names_for`).
+tail map right (AZ-140). A listing names each address its release's facts,
+the Ghidra project's snapshot, the anchors and the packs know (:func:`names_for`).
 
 Code is every section but the data ones (:data:`DATA_SECTIONS`), told by
 name, never by flags (``.rdata`` is flagged executable), decoded by a linear
@@ -24,12 +24,14 @@ jump table) can show as instructions. No verb prints the game's bytes but
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import math
 import re
 import struct
 import sys
+import tomllib
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -41,6 +43,7 @@ from azurkit.core import facts, gate, iso, xbe
 from azurkit.core.gate import RELEASES, Release
 from azurkit.core.xbe import Section
 
+DATA = Path(__file__).resolve().parent / "data"   # the RE data: the snapshot, the anchors, the notes, the structs
 DATA_SECTIONS = frozenset({".rdata", ".data", "BINKDATA", "DOLBY", "$$XTIMAGE"})
 STRING_SECTIONS = (".rdata", ".data")   # where the game keeps its string literals
 _NOT_ON_PENTIUM3 = frozenset({
@@ -114,15 +117,60 @@ def release_of(data: bytes) -> Release | None:
 
 
 def names_for(data: bytes) -> dict[int, str]:
-    """The names at the XBE's own addresses: its release's facts' functions
-    and its kernel imports (by their slots in the thunk table); none for an
-    XBE of neither release. Until the Ghidra side comes (Step 4.11d) these
-    are all the names there are."""
+    """The names at the XBE's own addresses, for an XBE of either release
+    (none for one of neither), only where its sections map: its release's
+    facts' functions and kernel imports (by their slots in the thunk table),
+    then the Ghidra project's functions (:data:`DATA`'s snapshot), the anchors
+    (:func:`anchors`), the project's data labels and the packs' sites
+    (``pack:label``; a ``custom_apply``'s places ``pack``); where two name one address the first wins (Modkit's
+    ``xbe_tools/names.py``, the facts in its registry's place). All but the
+    facts' are USA addresses: Europe's XBE gets those its facts' address map
+    holds, at its own addresses."""
     if (release := release_of(data)) is None:
         return {}
     known = facts.of(release)
-    names = {k.slot: k.name for k in known.kernel.values() if k.slot is not None}
-    return names | {f.va: f.name for f in known.functions.values()}
+    names = (_known(release) | {k.slot: k.name for k in known.kernel.values() if k.slot is not None}
+             | {f.va: f.name for f in known.functions.values()})
+    spans = [(s.va, s.va + s.vsize) for s in xbe.sections(data)]   # not the header page's labels
+    return {va: name for va, name in names.items() if any(lo <= va < hi for lo, hi in spans)}
+
+
+@functools.cache
+def anchors() -> dict[str, dict]:
+    """``anchors.toml``'s anchors by name, in its order: each one's USA ``va``,
+    its ``section``, what the vanilla XBE holds there and its ``note``."""
+    return tomllib.loads((DATA / "anchors.toml").read_text(encoding="utf-8"))
+
+
+@functools.cache
+def _known(release: Release) -> dict[int, str]:
+    """The snapshot's, the anchors' and the packs' sites' names at
+    ``release``'s own addresses, lowest priority first."""
+    from azurkit.tools import mods
+
+    snapshot = json.loads((DATA / "ghidra_snapshot.json").read_text(encoding="utf-8"))
+    base = int(snapshot["program"]["image_base"], 16)
+    functions = {int(f["address"], 16): f["name"] for f in snapshot["functions"]}
+    labels: dict[int, str] = {}
+    for label in snapshot["labels"]:   # data labels at VAs; not offsets, members or imports
+        if (label["type"] == "Label" and ":" not in label["address"] and int(label["address"], 16) >= base
+                and not set(".[") & set(label["name"])):
+            labels.setdefault(int(label["address"], 16), label["name"])
+    named: dict[int, str] = {}
+    for name, anchor in anchors().items():
+        named.setdefault(anchor["va"], name.removeprefix("AZURIK_").removesuffix("_VA").lower())
+    sites: dict[int, str] = {}
+    for pack in mods.PACKS.values():   # a custom_apply's places by its pack: their labels follow its sliders
+        for site in (*pack.sites, *pack.footprint):
+            if getattr(site, "va", 0) and site.on("usa"):   # not a virtual slider, nor another release's own site
+                sites.setdefault(site.va, f"{pack.name}:{site.label}" if getattr(site, "label", "") else pack.name)
+    known, out = facts.of(release), {}
+    for va, name in (sites | labels | named | functions).items():
+        try:
+            out.setdefault(known.va(va), name)
+        except LookupError:
+            pass
+    return out
 
 
 def operand_names(operands: str, names: dict[int, str]) -> str | None:
@@ -572,7 +620,8 @@ def not_on_pentium3(data: bytes, section: str | None = None) -> list[Insn]:
 DESCRIPTION = """\
 Offline reads of a default.xbe. A verb reads the XBE of --iso or --xbe (either takes an Xbox image or a raw XBE),
 else the image of --region's release (USA's when found, else the only one found), and names it, its release and its
-sha256[:12] on stderr. Addresses in and out are that XBE's own; a listing names what the release's facts know."""
+sha256[:12] on stderr. Addresses in and out are that XBE's own; a listing names what the release's facts, the
+Ghidra project's snapshot, the anchors and the packs know."""
 RECIPES = """\
 recipes (VAs are the XBE's own; --iso, --xbe, --region and --json go before the verb or after it):
   addr 0x85700                     a VA's file offset and section (addr 0x75700 --from file: back)
