@@ -361,6 +361,40 @@ def preview(made: Sequence[tuple[str, Mapping | None, str | None]]) -> list[dict
     return rows
 
 
+def compare(a: str, b: str, equal: bool = False) -> dict:
+    """Two entities' cells side by side (Modkit's ``entity diff``): each
+    table that holds either (its column of that exact name, the last when
+    repeated), its properties joined by name, sorted: a row ``{table,
+    property, kind, a_type, a_value, b_type, b_value}`` for each the two
+    hold differently (``different``: another type or value), one alone
+    holds (``a_only``, ``b_only``: an empty cell is none) and, with
+    ``equal``, each they hold alike; and the tables only one of them is in.
+    ``ValueError`` names an entity no table holds (AZ-145)."""
+    rows, only_a, only_b, found = [], [], [], {a: 0, b: 0}
+    for name, t in _vanilla_tables().items():
+        has = {e: e in t.cols for e in (a, b)}
+        if not any(has.values()):
+            continue
+        for e in (a, b):
+            found[e] += has[e]
+        if has[a] != has[b]:
+            (only_a if has[a] else only_b).append(name)
+        cells = {e: {prop: t.cell(t.column(e), r) for r, prop in enumerate(t.rows)
+                     if t.cell(t.column(e), r).kind != EMPTY} if has[e] else {} for e in (a, b)}
+        for prop in sorted(cells[a].keys() | cells[b].keys()):
+            x, y = cells[a].get(prop), cells[b].get(prop)
+            kind = ("b_only" if x is None else "a_only" if y is None
+                    else "different" if (x.kind, x.value) != (y.kind, y.value) else "equal")
+            if kind != "equal" or equal:
+                rows.append({"table": name, "property": prop, "kind": kind,
+                             "a_type": KIND[x.kind] if x else None, "a_value": x.value if x else None,
+                             "b_type": KIND[y.kind] if y else None, "b_value": y.value if y else None})
+    if missing := [e for e in dict.fromkeys((a, b)) if not found[e]]:
+        raise ValueError(f"no config.xbr table has {' or '.join(map(repr, missing))} (azurkit data TABLE lists a "
+                         "table's entities)")
+    return {"a": a, "b": b, "only_in_a": only_a, "only_in_b": only_b, "rows": rows}
+
+
 TEMPLATE = ("Made by `azurkit mod-template`: the vanilla values of config.xbr's number cells, by its own names "
             "(Modkit's mod file, _keyed_patches). Edit the values, then build with `azurkit build --mods <this file>` "
             "or Load it in the Tools tab; a value left as it is changes nothing.")

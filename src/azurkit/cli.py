@@ -13,6 +13,7 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit diff MODS [MODS ...]          each edit of mods files (Modkit's too), as a build makes it of config.xbr
     azurkit mod-template TABLE [TABLE ...] [--entity NAME] [--name NAME] [--out FILE]
                                           a mods file of config.xbr's vanilla values, to edit (JSON)
+    azurkit entity diff A B [--all] [--json]  two config.xbr entities side by side, table by table
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
@@ -57,7 +58,10 @@ when any edit would fail the build. ``mod-template`` writes (or prints) a
 mods file of the vanilla values of every number cell of the named tables,
 or of one entity there (Modkit's mod file, ``_keyed_patches``): edit it,
 then build with ``build --mods``; a table without the entity is left out
-with a line saying so.
+with a line saying so. ``entity diff`` sets two entities' cells side by
+side in each table that holds either: ``~`` a property they hold
+differently, ``-`` one only A holds, ``+`` one only B holds (``=`` alike,
+with ``--all``), or the rows as JSON.
 ``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
 ``--source`` or ``$AZURKIT_CONTENT_SOURCE``, a URL or a folder) and what the
 content folder holds of each; ``install`` and ``update`` copy one in, every
@@ -302,6 +306,31 @@ def _template(args: argparse.Namespace) -> int:
     return 0
 
 
+def _entity(args: argparse.Namespace) -> int:
+    try:
+        found = sdk.entity_diff({"a": args.a, "b": args.b, "all": args.all})
+    except ValueError as exc:
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(found, indent=1))
+        return 0
+    tables = list(dict.fromkeys(row["table"] for row in found["rows"]))
+    print(f"{args.a!r} vs {args.b!r}: {len(tables)} tables with differences ({len(found['rows'])} rows)")
+    for key, who in (("only_in_a", args.a), ("only_in_b", args.b)):
+        if found[key]:
+            print(f"  tables only {who!r} is in: {', '.join(found[key])}")
+    marks = {"different": "~", "a_only": "-", "b_only": "+", "equal": "="}
+    for table in sorted(tables):
+        print(f"\n[{table}]")
+        for row in (r for r in found["rows"] if r["table"] == table):
+            a, b = (f"{row[f'{x}_type']} {json.dumps(row[f'{x}_value'])}" for x in "ab")
+            print(f"  {marks[row['kind']]} {row['property']:<28}  "
+                  + {"different": f"A {a:<20}  B {b}", "a_only": f"A {a:<20}  (B has none)",
+                     "b_only": f"{'(A has none)':<22}  B {b}", "equal": a}[row["kind"]])
+    return 0
+
+
 def _plan(args: argparse.Namespace) -> int:
     try:
         given = {"seed": args.seed}
@@ -486,6 +515,18 @@ def main(argv: list[str] | None = None) -> int:
     templated.add_argument("--name", default="my-mod", help="the mod's name (default: my-mod)")
     templated.add_argument("--out", metavar="FILE", help="write it here (default: print it)")
     templated.set_defaults(run=_template)
+    entity = verbs.add_parser("entity", help="compare two config.xbr entities",
+                              description="Compare two config.xbr entities (each its column, by its exact name).")
+    compared = entity.add_subparsers(dest="action", required=True).add_parser(
+        "diff", help="two entities side by side", description="Set two entities' cells side by side in each table "
+                                                              "that holds either: what they hold differently, what "
+                                                              "only one holds, and the tables only one is in. It "
+                                                              "reads the config.xbr AzurKit ships.")
+    compared.add_argument("a", metavar="A", help="an entity (azurkit data TABLE lists a table's)")
+    compared.add_argument("b", metavar="B", help="another entity")
+    compared.add_argument("--all", action="store_true", help="the properties they hold alike too")
+    compared.add_argument("--json", action="store_true", help="the rows as JSON")
+    compared.set_defaults(run=_entity)
     planned = verbs.add_parser("plan", help="fill the randomizer for a seed and print (or write) the plan file",
                                description="Fill the randomizer's authored levels for --seed under the default "
                                            "settings (D144), a settings file's or a share string's, and print the "

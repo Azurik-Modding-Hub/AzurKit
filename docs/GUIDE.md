@@ -161,6 +161,8 @@ before you pick your image: AzurKit ships the game's original config.xbr, the sa
   and the build says so).
 - **Changes:** every value your edits or a loaded mods file change, the original beside it, and its byte edits: what
   a build will change, before you build (`azurkit diff` prints a mods file's, each edit numbered).
+- **Compare two entities:** `azurkit entity diff` sets two critters' (or any two entities') values side by side,
+  table by table, with what only one of them has.
 - **A template to edit:** `azurkit mod-template` writes a table's (or one entity's) original values as a mods file;
   change what you like and build with it.
 - **Undo and Redo,** Revert a cell, Reset a table, Clear edits. Your edits join each build after the packs, and a
@@ -259,6 +261,7 @@ azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]   # a p
 azurkit spoiler PLAN                     # that plan's spoiler
 azurkit diff MODS ...                    # what mods files (Modkit's too) change, before a build
 azurkit mod-template TABLE ... [--entity NAME] [--out FILE]   # their original values, as a mods file to edit
+azurkit entity diff A B [--all] [--json] # two entities' numbers side by side, table by table
 azurkit files | data | save              # an image's files, config.xbr's tables, a save slot (each --help)
 azurkit content [install ID | update ID] [--source URL|DIR]   # Azurik-Custom-Content's entries
 ```

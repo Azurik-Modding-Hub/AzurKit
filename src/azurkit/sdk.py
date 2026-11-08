@@ -16,7 +16,8 @@ tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
 :func:`saves`, and the command line's :func:`mods_diff` (what a mods file
-changes, before a build) and :func:`mod_template` (vanilla values to edit). JSON in and
+changes, before a build), :func:`mod_template` (vanilla values to edit) and
+:func:`entity_diff` (two entities side by side). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -121,7 +122,7 @@ from azurkit.tools.randomizer import layer as rando_layer
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_staged", "image_checks", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
-           "data", "data_edit", "mods_diff", "mod_template", "image_info", "verify_all", "files", "extract", "mods_file", "community",
+           "data", "data_edit", "mods_diff", "mod_template", "entity_diff", "image_info", "verify_all", "files", "extract", "mods_file", "community",
            "content_refusal", "file_entry", "saves"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
@@ -1163,6 +1164,19 @@ def mods_diff(given: Mapping) -> dict:
         made = [(f"xbr op {k}", op, None) for k, op in enumerate(read_mods(found).get("xbr", []), 1)]
         about = {}
     return about | {"edits": datatool.preview(made)}
+
+
+def entity_diff(given: Mapping) -> dict:
+    """Two config.xbr entities side by side (Modkit's ``entity diff``):
+    ``{"a", "b", "all"?}`` gives each table that holds either, every
+    property they hold differently or only one holds (with ``all``, alike
+    too), and the tables only one is in (``tools.data.compare``), from the
+    config.xbr AzurKit ships. An entity no table holds is refused by
+    name."""
+    if not (isinstance(given, Mapping) and set(given) <= {"a", "b", "all"} and isinstance(given.get("a"), str)
+            and isinstance(given.get("b"), str) and isinstance(given.get("all", False), bool)):
+        raise ValueError("entity_diff: {a, b, all?}: two entities' names")
+    return datatool.compare(given["a"], given["b"], given.get("all", False))
 
 
 def mod_template(given: Mapping) -> dict:

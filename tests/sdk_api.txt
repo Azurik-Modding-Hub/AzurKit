@@ -18,7 +18,8 @@ tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
 :func:`saves`, and the command line's :func:`mods_diff` (what a mods file
-changes, before a build) and :func:`mod_template` (vanilla values to edit). JSON in and
+changes, before a build), :func:`mod_template` (vanilla values to edit) and
+:func:`entity_diff` (two entities side by side). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -571,6 +572,16 @@ the counts and the tables that haven't the entity, which
 :func:`read_mods` and :func:`mods_file` take back as edits that change
 nothing until a value is. A table config.xbr hasn't, or an entity none
 of them has, is refused by name.
+
+
+def entity_diff(given: 'Mapping') -> 'dict':
+
+Two config.xbr entities side by side (Modkit's ``entity diff``):
+``{"a", "b", "all"?}`` gives each table that holds either, every
+property they hold differently or only one holds (with ``all``, alike
+too), and the tables only one is in (``tools.data.compare``), from the
+config.xbr AzurKit ships. An entity no table holds is refused by
+name.
 
 
 def image_info(path: 'str') -> 'dict':

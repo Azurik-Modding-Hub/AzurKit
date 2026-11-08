@@ -309,3 +309,28 @@ def test_a_mod_template_holds_each_number_cells_vanilla_value_and_reads_back_cha
     assert capsys.readouterr().err == "azurkit: no number cell of entity 'nope' in damage\n"
     with pytest.raises(ValueError, match="^config.xbr has no table 'nope'"):
         sdk.mod_template({"tables": ["nope"]})
+
+
+def test_entity_diff_sets_two_entities_cells_side_by_side_table_by_table_and_names_one_no_table_holds(capsys):
+    """Step 4.6i (P59, Modkit's ``entity diff``): ``sdk.entity_diff`` joins
+    two entities' cells by property in each table that holds either:
+    garret4 and air_elemental differ in dozens, their hit points among them,
+    and only air_elemental is in critters_damage_fx and critters_flocking;
+    ``all`` adds what they hold alike. ``azurkit entity diff`` prints them
+    by table or as JSON; an entity no table holds is refused by name, either
+    side (AZ-145)."""
+    found = sdk.entity_diff({"a": "garret4", "b": "air_elemental"})
+    assert len(found["rows"]) > 50 and {"critters_damage_fx", "critters_flocking"} <= set(found["only_in_b"])
+    [hp] = [r for r in found["rows"] if (r["table"], r["property"]) == ("critters_damage", "hitPoints")]
+    assert hp["kind"] == "different" and hp["a_type"] == hp["b_type"] == "number" and hp["a_value"] != hp["b_value"]
+    same = sdk.entity_diff({"a": "garret4", "b": "garret4", "all": True})
+    assert same["rows"] and {r["kind"] for r in same["rows"]} == {"equal"}
+    assert cli.main(["entity", "diff", "garret4", "air_elemental", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == found
+    assert cli.main(["entity", "diff", "garret4", "air_elemental"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0].startswith("'garret4' vs 'air_elemental': ") and "[critters_damage]" in out
+    for a, b in (("garret4", "no_such_entity"), ("no_such_entity", "garret4")):
+        assert cli.main(["entity", "diff", a, b]) == 1
+        assert capsys.readouterr().err == "azurkit: no config.xbr table has 'no_such_entity' (azurkit data TABLE lists " \
+                                          "a table's entities)\n"
