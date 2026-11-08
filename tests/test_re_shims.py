@@ -121,17 +121,18 @@ def test_new_shim_scaffolds_a_pack_whose_entry_compiles_to_the_symbol_its_trampo
 
 def test_new_shim_takes_the_convention_from_ghidras_parameter_storage():
     """Ghidra's parameters' storage gives the convention: all on the stack
-    is ``stdcall`` (its ``@N`` their bytes), ``ECX`` alone ``thiscall``,
-    ``ECX`` and ``EDX`` ``fastcall``; ``undefined`` returns ``void`` and
+    is ``stdcall``, ``ECX`` alone ``thiscall``, ``ECX`` and ``EDX``
+    ``fastcall``, its ``@N`` clang's: every parameter, a byte or a short
+    rounded up to 4, the registers' too; ``undefined`` returns ``void`` and
     ``undefined4`` ``unsigned int``; no parameters is the low-confidence
     default. A live client's answer is the scaffold's ABI and symbol; a
     failing one is a warning, the default kept."""
     stack, ecx, edx = "Stack[0x4]:4", "ECX:4", "EDX:4"
     cases = [  # signature, parameters' (type, storage) -> attribute, @N, return type, confidence
-        ("int f(int a, int b)", [("int", stack), ("int", stack)], ("stdcall", 8, "int", "high")),
+        ("int f(undefined1 a, short b)", [("undefined1", stack), ("short", stack)], ("stdcall", 8, "int", "high")),
         ("void m(void * this, int x)", [("void *", ecx), ("int", stack)], ("thiscall", 0, "void", "high")),
         ("undefined4 g(int a, int b, int c)", [("int", ecx), ("int", edx), ("int", stack)],
-         ("fastcall", 4, "unsigned int", "high")),
+         ("fastcall", 12, "unsigned int", "high")),
         ("undefined h(void)", [], ("stdcall", 0, "void", "low")),
     ]
     for signature, params, want in cases:
@@ -142,7 +143,7 @@ def test_new_shim_takes_the_convention_from_ghidras_parameter_storage():
         {"name": "a", "dataType": "int", "storage": ecx}, {"name": "b", "dataType": "int", "storage": edx},
         {"name": "c", "dataType": "int", "storage": stack}]))
     scaffold = new_shim.plan_scaffold("my_fast", root=Path("/nonexistent"), hook_va=0x85700, ghidra_client=live)
-    assert "__attribute__((fastcall))" in scaffold.shim_c_body and 'symbol="@c_my_fast@4"' in scaffold.pack_body
+    assert "__attribute__((fastcall))" in scaffold.shim_c_body and 'symbol="@c_my_fast@12"' in scaffold.pack_body
     dead = SimpleNamespace(get_function=lambda va: (_ for _ in ()).throw(OSError("connection refused")))
     scaffold = new_shim.plan_scaffold("my_dead", root=Path("/nonexistent"), hook_va=0x85700, ghidra_client=dead)
     assert scaffold.abi.confidence == "low" and any("Ghidra ABI lookup failed" in w for w in scaffold.planner_warnings)

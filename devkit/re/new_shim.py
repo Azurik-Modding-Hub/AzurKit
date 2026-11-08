@@ -79,8 +79,9 @@ class ABIGuess:
         ``(type, name)`` pairs in declaration order.  Empty tuple
         for argless functions.
     stdcall_n: int
-        Number of bytes the callee pops (``@N`` suffix).  Only
-        meaningful for stdcall / fastcall; 0 otherwise.
+        The ``@N`` suffix clang gives the C entry: every parameter's
+        bytes, each rounded up to 4 (fastcall's ``ECX``/``EDX`` ones
+        too).  Only meaningful for stdcall / fastcall; 0 otherwise.
     confidence: str
         ``"high"`` when sourced from Ghidra, ``"facts"`` from the
         facts' function the hook replaces a call to, ``"low"`` when
@@ -218,20 +219,20 @@ def guess_abi_from_signature(signature: str,
 
     # Parse params into (type, name)
     translated: list[tuple[str, str]] = []
-    stack_bytes = 0
-    for p, storage in zip(params, storages):
+    for p in params:
         c_type = _translate_ghidra_type(p.get("dataType", ""))
         name = p.get("name") or f"arg{len(translated)}"
         translated.append((c_type, name))
-        if storage == "STACK":
-            stack_bytes += _param_byte_size(c_type)
+    # clang's @N for the C entry: every parameter, each rounded up to 4
+    # bytes, ECX's and EDX's included for fastcall (the facts' rule).
+    arg_bytes = sum((_param_byte_size(t) + 3) // 4 * 4 for t, _ in translated)
 
     return ABIGuess(
         attribute=attribute,
         return_type=return_type,
         parameters=tuple(translated),
-        stdcall_n=stack_bytes if attribute in ("stdcall",
-                                               "fastcall") else 0,
+        stdcall_n=arg_bytes if attribute in ("stdcall",
+                                             "fastcall") else 0,
         confidence="high",
         raw_signature=raw,
         notes=tuple(notes),
