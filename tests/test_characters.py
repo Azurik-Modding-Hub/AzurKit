@@ -803,6 +803,25 @@ def test_a_reshapes_kept_dress_dresses_again_once_a_wav_is_edited_in_place_or_th
     assert sdk._reshape_kept("plan", stamp, character, {}, lambda: b"updated") == b"updated"
 
 
+def test_a_turned_clips_grid_time_is_as_far_from_its_keys_as_the_nearest_of_every_key_says():
+    """A clip's grid time is kept beside its keys only 2 ms from each
+    (``retarget.turned_over``, ``_sampled``): its distance from the nearest
+    is the two keys either side's (Step 4.6c: booblord's arms asked 11
+    million), the same float as the least over every key, at a key, between
+    keys, before the first and past the last."""
+    import random
+
+    from azurkit.tools.characters import retarget as rt
+
+    rng = random.Random(1408)
+    for _ in range(300):
+        length = rng.choice((0.1, 1.0, 3.7))
+        known = sorted({0.0, length} | {rng.uniform(0.0, length) for _ in range(rng.choice((0, 1, 5, 40)))})
+        n = max(2, math.ceil(length * rt.SAMPLE_HZ) + 1)
+        for t in [length * i / (n - 1) for i in range(n)] + known + [-0.5, length + 0.5]:
+            assert rt._off_keys(t, known) == min(abs(t - u) for u in known)
+
+
 def test_a_wavs_resampled_sound_is_the_windowed_sinc_worked_out_at_each_sample_bit_for_bit(tmp_path):
     """A WAV at another rate than the build's is resampled with a windowed
     sinc whose weights are worked out once a phase (Step 4.6c: booblord's

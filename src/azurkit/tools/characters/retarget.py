@@ -84,6 +84,7 @@ it.  This module rewrites them at build time, exactly:
 
 from __future__ import annotations
 
+import bisect
 import math
 import struct
 import weakref
@@ -870,6 +871,14 @@ def _tracks(k: int, rest: Quat, length: float, comps: list[list[Key]]) -> list[T
     return out
 
 
+def _off_keys(t: float, known: list[float]) -> float:
+    """``min(abs(t - u) for u in known)`` of the sorted floats ``known``:
+    the nearer of the two either side of ``t`` (a float subtraction keeps
+    their order), so a clip's grid asks two keys a time, not every one."""
+    i = bisect.bisect_left(known, t)
+    return min(abs(t - u) for u in known[max(0, i - 1):i + 1])
+
+
 def _sampled(rt: Retarget, k: int, length: float, chain: list[int], a: Quat, c: Quat, rot) -> list[Track]:
     """Bone ``k``'s rotation sampled at :data:`SAMPLE_HZ` and garret4's
     key times on its path (an animated folded bone makes it nonlinear),
@@ -878,7 +887,7 @@ def _sampled(rt: Retarget, k: int, length: float, chain: list[int], a: Quat, c: 
                                      if 0.0 <= key[0] <= length})
     n = max(2, math.ceil(length * SAMPLE_HZ) + 1)
     grid = [length * i / (n - 1) for i in range(n)]
-    times = sorted(set(known) | {t for t in grid if min(abs(t - u) for u in known) > 2e-3})
+    times = sorted(set(known) | {t for t in grid if _off_keys(t, known) > 2e-3})
     rows = _chain_rows([rt.garret4.bones[f] for f in chain], [rot.get(f, {}) for f in chain], a, c, times, length)
     return _tracks(k, rt.target.bones[k].q, length,
                    [[(t, q[r], i[r], o[r]) for t, q, i, o in rows] for r in range(4)])
@@ -1058,7 +1067,7 @@ def turned_over(rig: Rig, clip: Clip, k: int, axis, degrees: float, window: tupl
     n = max(2, math.ceil(clip.length * SAMPLE_HZ) + 1)
     known = sorted({0.0, clip.length} | {key[0] for tr in comps.values() for key in tr.keys if 0.0 <= key[0] <= clip.length})
     grid = [clip.length * i / (n - 1) for i in range(n)]      # as _sampled: no grid time within 2 ms of a key's
-    times = sorted(set(known) | {t for t in grid if min(abs(t - u) for u in known) > 2e-3})
+    times = sorted(set(known) | {t for t in grid if _off_keys(t, known) > 2e-3})
     h, rows = 1e-5, []
     for t in times:
         q = at(t)
