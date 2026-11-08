@@ -5685,6 +5685,45 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
         served.close()
 
 
+PARTS_KEPT = """async () => {   // parts.mjs: two copies' hints, a Check's keeping, then PART_HINTS more Checks
+    const { PARTS, PART_HINTS, keepParts, partsHint, partsOf } = await import("/parts.mjs");
+    const recipe = { base: "town_female_2", lods: { ratio: [0.5], at: [9.0] } }, one = (n) => new Uint8Array([n]);
+    const mine = partsHint("usa", { name: "mine", recipe: { ...recipe, title: "Mine", notes: "", voice: "silent" } });
+    const yours = partsHint("usa", { name: "yours", recipe });
+    await keepParts(mine, { a: one(1), b: one(2) }, []);
+    const offered = Object.keys(await partsOf(yours)).sort();
+    await keepParts(yours, { c: one(3) }, ["a"]);   // took a, worked out c: b is listed no more
+    const after = Object.entries(await partsOf(mine)).map(([key, bytes]) => [key, [...bytes]]).sort();
+    for (let k = 0; k < PART_HINTS; k += 1) {
+        await keepParts(partsHint("usa", { recipe: { ...recipe, scale: k } }), { [`k${k}`]: one(k) }, []);
+    }
+    const left = await new Promise((done) => {
+        const opened = indexedDB.open(PARTS, 1);
+        opened.onsuccess = () => {
+            const keys = opened.result.transaction("part").objectStore("part").getAllKeys();
+            keys.onsuccess = () => { opened.result.close(); done(keys.result.sort()); };
+        };
+    });
+    return [mine === yours, partsHint("usa", { name: "beamlord" }) === partsHint("usa", { name: "booblord" }), offered,
+            after, Object.keys(await partsOf(yours)), left];
+}"""
+
+
+def test_a_browser_keeps_a_checks_parts_by_its_recipes_content_and_offers_them_to_a_copy_under_any_name(browser, site):
+    """Step 4.6o (the Check design's L2): ``web/parts.mjs``, the worker's keeping of a Check's dress's parts in
+    IndexedDB's azurkit-parts: a copy of a recipe under another name, with its own title, notes and voice, has the
+    hint another's Check kept its parts under (a built-in's is its name), so it is offered them; a Check's keeping
+    lists the parts it took and worked out, and a part no hint lists is let go; past PART_HINTS hints the least
+    recently kept goes, its parts with it."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        assert page.evaluate(PARTS_KEPT) == [True, False, ["a", "b"], [["a", [1]], ["c", [3]]], [],
+                                             [f"k{k}" for k in range(8)]]
+    finally:
+        served.close()
+
+
 # Web Locks refused, as a browser that keeps no site data refuses them, query() too (Firefox with every cookie blocked:
 # "SecurityError: LockManager.request: request() is not allowed in this context"), on a page and in a worker
 LOCKS_REFUSED = """for (const call of ["request", "query"]) LockManager.prototype[call] = function () {

@@ -228,7 +228,7 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
                                                                                                 monkeypatch):
     """Step 4.6n (the Check design's R1): a dress's parts are kept by what they read, never the variant's name or
     folder, so PARTED checked again under another name in another folder takes each part the first Check kept (its
-    size, its body's mesh, rig and paint, both restyles, its LODs), and a copy with its spring edited keeps the mesh
+    size, its body's mesh, rig and paint, its kit's clips, both restyles, its LODs), and a copy with its spring edited keeps the mesh
     and works out the rest, each answering and dressing as a fresh Check of it (no part kept or taken) does, byte for
     byte; at a later visit (Step 4.6o: this process's parts gone, its host's store holding what the first Check's
     parts were handed it as, ``part_codec``'s bytes) the copy takes each of them from the store, answering the same;
@@ -252,7 +252,7 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
             sdk._CHECKED["last"]["characters"])
         missed[visit, name] = {stage: counts["miss"] for stage, counts in parts.HEARD.items()}
         heard[visit, name] = {stage: counts.get("stored", 0) for stage, counts in parts.HEARD.items()}
-    taken = dict.fromkeys(("size", "W24", "W29", "W30", "W28 arms", "W28 springs", "W39"), 0)
+    taken = dict.fromkeys(("size", "W24", "W29", "W30", "kit clips", "W28 arms", "W28 springs", "W39"), 0)
     assert missed[1, "second"] == missed[2, "second"] == taken and heard[2, "second"] == dict.fromkeys(taken, 1)
     assert answers[2, "second"] == answers[1, "second"]
     assert missed[1, "third"]["W24"] == 0 < missed[1, "third"]["W29"] and answers[1, "third"][0]["refusal"] is None

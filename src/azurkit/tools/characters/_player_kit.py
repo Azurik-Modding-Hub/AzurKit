@@ -194,20 +194,19 @@ def kit_style(characters_xbr: bytes, body: Body, lend: bool = False) -> Style | 
                  limbs={c: (tuple(p["limbs"]), tuple(kit["pads"][p["pad"]])) for c, p in clips.items() if "limbs" in p})
 
 
-_RIG_CLIPS: dict[tuple, dict[str, Clip]] = {}   # _rig_clips' reads by content, the newest _RIG_CLIPS_KEPT
-_RIG_CLIPS_KEPT = 8
-
-
 def _rig_clips(source: str, file: str, sha256: str, characters_xbr: bytes) -> dict[str, Clip]:
     """A rig's kit clips read onto its ``source`` body, the file's sha256
     and each clip's length checked against ``kit.json`` (D35). A read is
     kept per process by its inputs' content (the source, the file's
     sha256, the clips' ticks and what the read reads of ``characters_xbr``,
     :func:`~azurik_mod.assets.clip_import.read_key`: the source body, not
-    the clips each build adds to the archive, Step X.81c), so each body on
-    the same rig reads it once; its clips are frozen, and each call gets a
-    dict of its own (Step X.65b)."""
-    from azurkit.tools.characters import clip_import, mesh_edit
+    the clips each build adds to the archive, Step X.81c), a part
+    (:mod:`~azurkit.tools.characters.parts`, Step 4.6o), so each body on
+    the same rig reads it once, a later visit's too; each call gets clips
+    of its own (Step X.65b)."""
+    import pickle
+
+    from azurkit.tools.characters import clip_import, mesh_edit, parts
 
     path = KIT / file
     sha = mesh_edit.file_sha256(path) if path.is_file() else None
@@ -216,18 +215,18 @@ def _rig_clips(source: str, file: str, sha256: str, characters_xbr: bytes) -> di
                          "(scripts/townsfolk_kit.py writes both)")
     ticks = {c: p["ticks"] for c, p in _kit()["clips"].items()}
     read = clip_import.read_key(characters_xbr, source, list(ticks)) or hashlib.sha256(characters_xbr).hexdigest()
-    key = (source, sha, read, tuple(ticks.items()))
-    if key not in _RIG_CLIPS:
-        out = {}
-        for got in clip_import.read_clips(characters_xbr, source, path, list(ticks)):
-            if abs(got.clip.length - ticks[got.name] / 30.0) > 1e-6:
-                raise ValueError(f"the townsfolk kit's {file}: {got.name} lasts {got.clip.length:.4f} s, "
-                                 f"not kit.json's {ticks[got.name]} ticks")
-            out[got.name] = got.clip
-        _RIG_CLIPS[key] = out
-        while len(_RIG_CLIPS) > _RIG_CLIPS_KEPT:
-            del _RIG_CLIPS[next(iter(_RIG_CLIPS))]
-    return dict(_RIG_CLIPS[key])
+    key = parts.key("kit clips", source, sha, read, tuple(ticks.items()))
+    if (kept := parts.get(key, "kit clips")) is not None:
+        return pickle.loads(kept)
+    out = {}
+    for got in clip_import.read_clips(characters_xbr, source, path, list(ticks)):
+        if abs(got.clip.length - ticks[got.name] / 30.0) > 1e-6:
+            raise ValueError(f"the townsfolk kit's {file}: {got.name} lasts {got.clip.length:.4f} s, "
+                             f"not kit.json's {ticks[got.name]} ticks")
+        out[got.name] = got.clip
+    kept = parts.dump(out)
+    parts.put(key, kept, len(kept))
+    return out
 
 
 def swing_waves(style: Style) -> dict[str, list[int]]:

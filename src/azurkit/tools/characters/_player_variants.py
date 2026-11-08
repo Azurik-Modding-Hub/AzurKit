@@ -1416,10 +1416,6 @@ def clip_folder(variant) -> Path:
     return CLIPS / (variant.files or variant.name) if files_shipped(variant) else Path(variant.source).parent
 
 
-_GLTF_CLIPS: dict[tuple, object] = {}   # gltf_clip's reads by content, the newest _GLTF_CLIPS_KEPT
-_GLTF_CLIPS_KEPT = 64
-
-
 def gltf_clip(characters: bytes, body: Body, p: dict, markers: dict[str, int], *, folder: Path,
               builtin: bool = False, lent: bool = False) -> Clip:
     """A clip made in Blender (Step 2.158, D465): the animation
@@ -1435,12 +1431,15 @@ def gltf_clip(characters: bytes, body: Body, p: dict, markers: dict[str, int], *
     :data:`ROOT_TRAVEL_MAX` of the body's height is refused, and so is a
     built-in's file that carries a mesh or an image.  ``lent`` (a clip
     another body's recipe bakes, :func:`baked_clip`): its keys on nodes
-    that are no bone of ``body`` dropped.  A read is kept per
-    process by its inputs' content (the file's sha256, the animation and
+    that are no bone of ``body`` dropped.  A read is a part kept by its
+    inputs' content (:mod:`~azurkit.tools.characters.parts`, Step 4.6o;
+    the file's sha256, the animation and
     :func:`~azurik_mod.assets.clip_import.read_key`: what it reads of the
     body, not the clips a build adds; Step X.81c), so a recipe's builds
-    read each of its clips once."""
-    from azurkit.tools.characters import clip_import, mesh_edit
+    read each of its clips once, a later visit's too."""
+    import pickle
+
+    from azurkit.tools.characters import clip_import, mesh_edit, parts
     from azurkit.tools.characters.characters import height
 
     path = Path(folder) / _file("gltf: file", p["file"])
@@ -1456,14 +1455,14 @@ def gltf_clip(characters: bytes, body: Body, p: dict, markers: dict[str, int], *
             raise ValueError(f"gltf: file {p['file']!r}: a built-in's clip file holds bones and keys only, no mesh "
                              "or image")
     read = clip_import.read_key(characters, body.name, [p["animation"]])
-    key = (read, sha, p["animation"], lent) if read is not None else None
-    got = _GLTF_CLIPS.get(key) if key is not None else None
-    if got is None:
+    key = parts.key("clip", read, sha, p["animation"], lent) if read is not None else None
+    if key is not None and (kept := parts.get(key, "clip")) is not None:
+        got = pickle.loads(kept)
+    else:
         got = clip_import.read_clips(characters, body.name, path, [p["animation"]], bones_only=lent)[0]
         if key is not None:
-            _GLTF_CLIPS[key] = got
-            while len(_GLTF_CLIPS) > _GLTF_CLIPS_KEPT:
-                del _GLTF_CLIPS[next(iter(_GLTF_CLIPS))]
+            kept = parts.dump(got)
+            parts.put(key, kept, len(kept))
     tall = height(characters, body) or 1.0
     if got.root_travel > ROOT_TRAVEL_MAX * tall:
         raise ValueError(f"gltf: animation {p['animation']!r} moves its root bone {got.root_travel:.3f} model units "

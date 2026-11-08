@@ -51,6 +51,7 @@
 //      carries the engine's heap then (undefined where Pyodide hides it), which the page's two workers count (workers.mjs).
 import { DRESSING, hashed, hashedApart, md5Ready } from "./hasher.mjs";
 import { text } from "./memo.mjs";
+import { keepParts, partsHint, partsOf } from "./parts.mjs";
 import { PREFIX } from "./outputs.mjs";
 
 const base = new URL("./", import.meta.url);
@@ -1061,13 +1062,13 @@ function character(loaded, data) {
 // Check with game data (Step 4.6c): the dress this browser kept for the edit offered, as build()'s (D1015: the engine
 // takes it only under its own key, by what the edit holds), and the one it works out kept after its answer, so a
 // Check of content dressed before, here or in a worker since, answers without dressing again. And its dress's parts
-// (Step 4.6o): those kept for the recipe's content offered (partsHint: no name, a copy's under any name), and the
+// (Step 4.6o, parts.mjs): those kept for the recipe's content offered (no name: a copy's under any name), and the
 // ones it took and worked out kept after its answer, a refusal's too (a refusal itself is never a part).
 async function checked({ py, engine }, data) {
   let hint = null, parted = null;
   try {
     hint = text([ids.get(data.file) ?? null, data.type, data.given ?? null], true);
-    parted = partsHint(data.file, data.given);
+    parted = partsHint(ids.get(data.file), data.given);
   } catch {}   // a value JSON can't hold: nothing kept
   const [offered, parts] = await Promise.all([
     hint && dresses("readonly", (store) => store.get(hint)).catch(() => null),
@@ -1211,55 +1212,6 @@ const keep = (hint, kept) => dresses("readwrite", (store) => {   // kept null: a
     if (kept) store.put(kept, hint);
   };
   return order;
-});
-
-// The parts of Checks' dresses this browser keeps (Step 4.6o, the Check design's L2): each part (part_codec's bytes,
-// the engine's Parts) once, under its key ("part"), and for each recipe content's hint the keys its last Check took and
-// worked out ("hint": {keys, at}), so a copy of a variant under any name is offered what another's Check kept. The
-// engine takes a part only under its own key (what its stage reads, the code's digest): another's are a miss, never
-// another answer. PART_HINTS hints at most, the least recently checked dropped first with the parts no hint kept lists.
-const PARTS = "azurkit-parts", PART_HINTS = 8, LABELS = ["title", "notes"], SOUNDS = ["voice", "sfx", "wavs", "shouts"];
-// A Check's parts hint: the image and the recipe's content, its name, folder, labels and sounds left out (none reaches
-// a part); a built-in's by its name, its content.
-const partsHint = (file, { name, recipe } = {}) => text([ids.get(file) ?? null, recipe
-  ? Object.fromEntries(Object.entries(recipe).filter(([field]) => ![...LABELS, ...SOUNDS].includes(field))) : name],
-true);
-const parted = (mode, fn) => new Promise((resolve) => {   // the hints and parts; none where storage is refused
-  const opened = indexedDB.open(PARTS, 1);
-  opened.onupgradeneeded = () => ["hint", "part"].forEach((name) => opened.result.createObjectStore(name));
-  opened.onerror = () => resolve(null);
-  opened.onsuccess = () => {
-    const db = opened.result, done = db.transaction(["hint", "part"], mode);
-    const asked = fn(done.objectStore("hint"), done.objectStore("part"));
-    done.oncomplete = () => { db.close(); resolve(asked); };
-    done.onerror = done.onabort = () => { db.close(); resolve(null); };
-  };
-});
-const partsOf = (hint) => parted("readonly", (hints, stored) => {   // {key: bytes} kept for the hint
-  const found = {}, listed = hints.get(hint);
-  listed.onsuccess = () => {
-    for (const key of listed.result?.keys ?? []) {
-      const one = stored.get(key);
-      one.onsuccess = () => { if (one.result) found[key] = one.result; };
-    }
-  };
-  return found;
-});
-const keepParts = (hint, made, taken) => parted("readwrite", (hints, stored) => {
-  for (const [key, bytes] of Object.entries(made)) stored.put(bytes, key);
-  hints.put({ keys: [...new Set([...taken, ...Object.keys(made)])], at: Date.now() }, hint);
-  const kept = [], walk = hints.openCursor();
-  walk.onsuccess = () => {
-    if (walk.result) {
-      kept.push([walk.result.key, walk.result.value]);
-      return walk.result.continue();
-    }
-    kept.sort((a, b) => b[1].at - a[1].at);
-    for (const [old] of kept.splice(PART_HINTS)) hints.delete(old);
-    const used = new Set(kept.flatMap(([, value]) => value.keys)), all = stored.getAllKeys();
-    all.onsuccess = () => all.result.filter((key) => !used.has(key)).forEach((key) => stored.delete(key));
-  };
-  return {};
 });
 
 async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character, community, files, picked }) {

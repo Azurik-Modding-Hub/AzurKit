@@ -1044,7 +1044,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the app's engine sets (`parts.LOCK`: it dresses on a thread a call); a
     stage that raises keeps nothing, so a refusal is worked out again;
     `parts.OFF` dresses fresh, and `test_variant_editor.py` holds a copy's
-    Check to a fresh one. Across visits (Step 4.6o): each part kept is
+    Check to a fresh one. Across visits (Step 4.6o; the glTF clips a
+    recipe reads and its kit's clips are parts too, `gltf_clip` and
+    `_player_kit._rig_clips`, so a later visit reads none): each part kept is
     handed to the host's `parts.STORE` as `tools/characters/part_codec.py`
     keeps it (no pickle: `None`, numbers by their bits, strings, bytes,
     containers, `array`/numpy arrays and the dataclasses of the modules a
@@ -1726,7 +1728,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   worker's `Kept`, IndexedDB's `azurkit-dress` by the build's hint, the
   last 32; taken only under the engine's own key), and a Check's dress's
   parts (Step 4.6o: `parts.STORE` is the worker's `Parts`, IndexedDB's
-  `azurkit-parts`, each part once by its key and each hint's keys, the
+  `azurkit-parts` through `web/parts.mjs`, each part once by its key and each hint's keys, the
   hint the image and the Check's recipe with its name, folder, labels and
   sounds left out (a built-in's its name), the last 8 hints and the parts
   they list; offered with the Check, each let go of as it is taken, and
