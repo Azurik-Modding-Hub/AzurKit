@@ -74,7 +74,16 @@ element levels it holds) and gives Live's status and where it saw the
 player (``live``). ``POST api/live`` ``{"on", "plan", "marks",
 "endpoints"}`` turns Live on for a plan (reading the first of the
 endpoints that answers as xemu: the fork's shared RAM, or QMP; Modkit's
-grammar, empty for the defaults) or off. ``POST api/plan`` ``{"recipe"}`` plans a seed to track
+grammar, empty for the defaults; the private ones of the xemu Play started and of the admin attach's helper
+first) or off. ``POST api/play`` ``{"iso", "xemu"}`` launches the player's xemu with the saved build
+``iso`` in its tray and private endpoints Live reads (Modkit's Play, :mod:`.play`: ``xemu`` the one the
+player picked; the one it launched is remembered, the config's ``xemu``), or says what it needs first;
+``api/attach`` ``{"pid"}`` reads a running xemu of the player's through the macOS admin attach (one
+password prompt, a read-only root helper, :mod:`.live_helper`); ``api/tray`` ``{}`` gives the disc in a
+running xemu's tray (``iso``) and, for an AzurKit build, its recipe (``preset``), whose seed the tracker
+then tracks (D261). Each Build writes a log in the log folder (:mod:`.logs`), and ``api/logs``
+``{"open"}`` names that folder and the last log, and opens either (``"folder"``, ``"last"``) in this
+computer's own viewer. ``POST api/plan`` ``{"recipe"}`` plans a seed to track
 (``sdk.plan``), and ``POST api/tracked`` ``{"tracker"}`` remembers the
 plan last tracked and the marks of the last plans (``host.json``'s
 ``tracker``: the randomizer's names and numbers, never the image's).
@@ -172,7 +181,7 @@ from azurkit.tools.mods import community as communal
 from azurkit.tools.randomizer import dbcache, tracking
 from azurkit.tools.randomizer.live import link
 
-from . import ahead, live, swapcache, warm
+from . import ahead, live, logs, play, swapcache, warm, xemu
 from . import art as pictures
 from . import engine as engines
 from .engine import Cancelled
@@ -189,6 +198,7 @@ changes (``network.http.network-changed.timeout``), and a call that sent nothing
 a spoiler's of seconds, tens on a slow runner ("NetworkError"; a Mac's IPv6 changed every 1-8 min here, Step 4.4ci36)."""
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
 SAVES = ("out", "spoiler", "settings", "extract", "mods", "report", "saves")   # the kinds of save the save dialog chooses for
+UNFILTERED = ("replacement", "folder", "xemu")   # the open dialog's kinds that take any file (xemu: its .app or program)
 MODS = "AzurKit mods.json"   # the Tools tab's mods file, by default (web/tools.mjs's)
 NEVER_CLEARED = (".iso", ".xiso")   # an image AzurKit's Clear never removes, wherever it is (SEC-10)
 # text_select: pywebview otherwise injects a <style> to stop selection, which the page's CSP refuses
@@ -442,7 +452,8 @@ def kept() -> list[tuple[str, str, Path]]:
     return [("settings", "Your setup, theme, tracker marks, Content from and the last image's path", _config()),
             ("stamps", "The images AzurKit checked (each one's path, size and times)", swapcache.root() / "stamps.json"),
             ("swap", "The characters' dressed bodies, pictures and G4 matches", swapcache.root() / "swap"),
-            ("content", "Installed community content", user_data_path("AzurKit", appauthor=False) / "content")]
+            ("content", "Installed community content", user_data_path("AzurKit", appauthor=False) / "content"),
+            ("logs", "Each build's log (its recipe and report, or why it failed)", logs.folder())]
 
 
 def _size(path: Path) -> int:
@@ -534,6 +545,8 @@ class Server(http.server.ThreadingHTTPServer):
         self.source: Path | None = None     # and the image it was built from, which it never replaces (D36)
         self.tracking = threading.Lock()    # the tracker the page's asks and Live's feed share
         self.feed: live.Feed | None = None  # Live, while it is on
+        self.player = play.Player()         # Play's xemu and the admin attach's helper, their private folders
+        self.log: Path | None = None        # the last build's log, which its save is added to
         self.drawing = pictures.Drawing()   # the tracker's maps and icons, shipped with the page
         self.picks: dict[str, Path] = {}    # the files picked this session to replace the image's, by its path
         self.slots = ahead.Ahead(kill=self._quiet)   # the work ahead, each click's way to it (D1007)
@@ -558,6 +571,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.slots.close()   # every job ahead stops, and a click on one is let go (D1012)
         if (feed := self.feed) is not None:
             feed.stop()
+        self.player.close()   # Play's and the helper's private folders: the helper sees its socket gone and exits
         self.deadline = self.deadline or time.monotonic() + QUIT_WAIT
         if saved := self.writing.acquire(timeout=max(0.0, self.deadline - time.monotonic())):
             self.writing.release()
@@ -627,7 +641,7 @@ class Server(http.server.ThreadingHTTPServer):
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(kept),
                 "setup": kept.get("setup"), "tracker": kept.get("tracker"),
                 "content_source": kept.get("content_source"), "show_objects": kept.get("show_objects") is True,
-                "age": round(time.monotonic() - self.started, 3)}
+                "attach": xemu.can_attach(), "age": round(time.monotonic() - self.started, 3)}
 
     def _recipe(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
@@ -770,17 +784,23 @@ class Server(http.server.ThreadingHTTPServer):
 
     def build(self, body: dict) -> dict:
         recipe = self._recipe(body)
-        with self.busy, self.follow("build") as report:
-            if self.quitting:
+        self.log = log = logs.start({k: v for k, v in recipe.items() if k != "picked"})   # Modkit's build log
+        try:
+            with self.busy, self.follow("build") as report:
+                if self.quitting:
+                    raise ValueError(QUITTING)
+                try:   # the job of this recipe, if there is one (its records from its last)
+                    built = self.slots.take("build", ahead.key(recipe), self._image(recipe), report=report)
+                except Cancelled:
+                    raise ValueError(QUITTING if self.quitting else "Cancelled: nothing was built") from None
+                except engines.Gone as exc:
+                    raise ValueError(QUITTING if self.quitting else str(exc)) from None
+            if self.quitting:   # closed while it built (AZ-823)
                 raise ValueError(QUITTING)
-            try:   # the job of this recipe, if there is one (its records from its last)
-                built = self.slots.take("build", ahead.key(recipe), self._image(recipe), report=report)
-            except Cancelled:
-                raise ValueError(QUITTING if self.quitting else "Cancelled: nothing was built") from None
-            except engines.Gone as exc:
-                raise ValueError(QUITTING if self.quitting else str(exc)) from None
-        if self.quitting:   # closed while it built (AZ-823)
-            raise ValueError(QUITTING)
+        except (OSError, ValueError) as exc:
+            logs.failed(log, str(exc))
+            raise
+        logs.built(log, built["report"], built["size"])
         report = built["report"]
         self.seeded, self.spoiler, self.source = report.get("plan"), None, Path(recipe["iso"])
         _remember(iso=recipe["iso"])
@@ -816,7 +836,9 @@ class Server(http.server.ThreadingHTTPServer):
                 raise ValueError(QUITTING)
             self.out = out
             try:
-                return {"saved": self.engine.call("save", recipe, str(out), body.get("build"), progress=progress)}
+                saved = self.engine.call("save", recipe, str(out), body.get("build"), progress=progress)
+                logs.add(self.log, f"saved {saved['out']} · {saved['size']} bytes · sha256 {saved['sha256']}")
+                return {"saved": saved}
             except Cancelled:
                 raise ValueError("Cancelled: nothing was written") from None
             except engines.Gone as exc:   # its process ended mid-write: its part file goes here
@@ -908,8 +930,57 @@ class Server(http.server.ThreadingHTTPServer):
                     link.parse(endpoints)
                 except ValueError as exc:
                     raise ValueError(f"Endpoints: {exc}") from None
-                self.feed = live.Feed(body.get("plan"), body.get("marks"), endpoints, bool(body.get("gems"))).start()
+                self.feed = live.Feed(body.get("plan"), body.get("marks"), endpoints, bool(body.get("gems")),
+                                      launch=self.player.endpoints()).start()
         return {}
+
+    def play(self, body: dict) -> dict:
+        """``api/play``: Play the saved build ``iso`` (:meth:`.play.Player.play`), the xemu it launched
+        remembered for the next Play (never a Flatpak id)."""
+        if self.quitting:
+            raise ValueError(QUITTING)
+        chosen = body.get("xemu") if isinstance(body.get("xemu"), str) and body["xemu"] else None
+        remembered = _kept().get("xemu")
+        with self.follow("play"):
+            reply = self.player.play(_path(body.get("iso"), "saved build"), chosen,
+                                     remembered if isinstance(remembered, str) else None)
+        if remember := reply.pop("remember", None):
+            _remember(xemu=remember)
+        return reply
+
+    def attach(self, body: dict) -> dict:
+        """``api/attach``: a running xemu read through the macOS admin attach (:meth:`.play.Player.attach`)."""
+        pid = body.get("pid")
+        if pid is not None and (isinstance(pid, bool) or not isinstance(pid, int)):
+            raise ValueError("attach: pid is the process of the xemu picked")
+        with self.follow("attach"):
+            return self.player.attach(pid)
+
+    def tray(self, body: dict) -> dict:
+        """``api/tray``: the disc in a running xemu's tray (the player's own, D248), and, for an AzurKit build, its
+        recipe (``preset``: ``sdk.open_build`` of the files it changed), whose seed the tracker tracks (D261);
+        ``{}`` when no xemu holds one."""
+        with self.follow("tray"):
+            if (disc := xemu.tray_disc()) is None:
+                return {}
+            try:
+                return {"iso": str(disc), "name": disc.name, "preset": sdk.open_build(str(disc), whole=False)}
+            except (OSError, ValueError) as exc:   # not an AzurKit build
+                return {"iso": str(disc), "name": disc.name, "not": str(exc)}
+
+    def build_logs(self, body: dict) -> dict:
+        """``api/logs``: the log folder and the last log; ``open`` ``"folder"`` or ``"last"`` opens it in this
+        computer's own viewer (:func:`.logs.reveal`)."""
+        newest = logs.last()
+        if (which := body.get("open")) is not None:
+            if which not in ("folder", "last"):
+                raise ValueError("logs: open is folder or last")
+            if which == "last" and newest is None:
+                raise ValueError("No build log yet: build first")
+            if which == "folder":
+                logs.folder().mkdir(parents=True, exist_ok=True)
+            logs.reveal(logs.folder() if which == "folder" else newest)
+        return {"folder": str(logs.folder()), "last": str(newest) if newest else None}
 
     def dressed(self, job: str, body: dict) -> dict:
         """``api/preview`` and ``api/match``: the engine's, followed by its line (a variant's dress takes minutes); the
@@ -1058,7 +1129,7 @@ class Server(http.server.ThreadingHTTPServer):
         else:
             picked = self.window.create_file_dialog(
                 webview.FileDialog.FOLDER if body.get("kind") == "folder" else webview.FileDialog.OPEN, directory=folder,
-                **({} if body.get("kind") in ("replacement", "folder") else {"file_types": IMAGES}))
+                **({} if body.get("kind") in UNFILTERED else {"file_types": IMAGES}))
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
         if picked and body.get("kind") in SAVES:
@@ -1141,6 +1212,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/tracker": self.server.track,
                 "/api/plan": self.server.plan,
                 "/api/tracked": _set_tracked, "/api/live": self.server.live, "/api/art": self.server.art,
+                "/api/play": self.server.play, "/api/attach": self.server.attach, "/api/tray": self.server.tray,
+                "/api/logs": self.server.build_logs,
                 "/api/settings_file": self.server.settings_file,
                 "/api/pickers": lambda body: sdk.pickers(body.get("given")),
                 "/api/preview": lambda body: self.server.dressed("preview", body),

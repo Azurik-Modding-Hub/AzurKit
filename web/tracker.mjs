@@ -15,7 +15,8 @@
 // a plan's marks; the plan last tracked opens again when the view first shows. A randomized Build moves the tracker to
 // that build's own plan (D1043, app.mjs's built(): a worn body's size folded in), and marks made on the plan before it
 // stay with that plan, those still on their way too. Live (the app's alone, D882) marks what a running xemu shows taken
-// and follows the player.
+// and follows the player; ticked, it first tracks the seed of the AzurKit build in a running xemu's tray (tray(), D261),
+// and Play and Attach… (web/play.mjs) turn it on.
 import { artStore } from "./art.mjs";
 import { MapView } from "./mapview.mjs";
 
@@ -49,7 +50,7 @@ const el = (tag, props = {}, ...children) => {
   return node;
 };
 
-export function tracker({ call, app, say, kept, keep }) {
+export function tracker({ call, app, say, kept, keep, tray = null }) {
   const t = { plan: null, marks: {}, view: null, level: null, mode: "map", spoiler: false, gems: false, queue: [],
               running: null, collected: false, fresh: new Map(),   // fresh: Live's pickups, loc -> when (ms)
               kept: kept ?? { plan: null, marks: {} }, live: null,
@@ -450,6 +451,20 @@ export function tracker({ call, app, say, kept, keep }) {
     }
   };
 
+  // Live ticked (by hand, by Play or by Attach…): with ``fromTray``, the seed in xemu's tray tracked first (D261), then
+  // Live on for the plan shown; off, Live off.
+  const live = async (on, fromTray = true) => {
+    $("track-live").checked = on;
+    if (!on) return liveOff();
+    if (fromTray && tray) await tray();
+    if (!$("track-live").checked) return;
+    if (!t.plan) {
+      $("track-live").checked = false;
+      return say("xemu runs: open the seed you play to track it (Tools: Open a build…, Track this build)", true);
+    }
+    return liveOn();
+  };
+
   const findMe = () => {
     if (!t.live?.seen) return;
     show(t.live.seen.level, false);
@@ -515,7 +530,7 @@ export function tracker({ call, app, say, kept, keep }) {
   if (app) {
     $("track-live-bar").hidden = false;
     $("track-endpoints").value = t.kept.endpoints ?? "";
-    $("track-live").addEventListener("change", () => ($("track-live").checked ? liveOn() : liveOff()));
+    $("track-live").addEventListener("change", () => live($("track-live").checked));
     $("track-find").addEventListener("click", findMe);
     $("track-follow").addEventListener("change", () => {
       if (t.live) t.live.followed = $("track-follow").checked ? t.live.here : null;
@@ -544,7 +559,7 @@ export function tracker({ call, app, say, kept, keep }) {
     pending = null;
     return open(...given);
   }, first: (plan) => ({ plan, marks: t.kept.marks[plan.sha256] ?? {}, spoiler: t.spoiler, gems: t.gems }),   // open's ask
-  ask, state: t, art, map, draw: () => {
+  ask, live, state: t, art, map, draw: () => {
     if (pending && !shown()) return;
     return t.view ? draw() : preview();
   } };

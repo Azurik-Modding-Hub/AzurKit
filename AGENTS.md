@@ -1219,6 +1219,18 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     off and on) checks the game against their journal (that slot, the
     newest live mark's day clock), Reset with Live on reads the game again,
     and an error that ends the feed turns Live off.
+  - **Play and Attach…** (the app's alone, Step 4.6k: Modkit's
+    `live_launch` and `live_helper`; `web/play.mjs`): `api/play`
+    (`azurkit.app.play`, `azurkit.app.xemu`) launches the player's xemu with
+    the saved build and private endpoints the feed tries first, or asks
+    (attach to the xemu running, which one, where); `api/attach` starts the
+    macOS root helper (`azurkit.app.live_helper`, a file the app copies for
+    root and never imports: stdlib only, Python 3.9) behind one admin
+    prompt; `api/tray` gives the AzurKit build in a running xemu's tray,
+    whose seed a Live tick tracks first. Tests fake the discovery, the
+    launch, the prompt and the tray (`tests/test_hosts.py`'s
+    `_no_xemu_in_the_tray`): none reads this computer's xemus or prompts.
+    Each Build writes a log (`azurkit.app.logs`, the user's log folder).
   - **The maps** (Step 4.2c3, R1.41, R1.43; shipped since Step 4.3f, D961;
     `web/art.mjs`, `web/mapview.mjs`): Modkit's pictures of every level's
     floors, the world map and the one icon sheet (`icons.png`), with the maps' index

@@ -20,7 +20,9 @@ compiled library (``core/native.py``), named on its own because
 ``--collect-binaries`` every ``.so`` not named ``lib*`` (Step 4.3r4e); macOS's
 build rewrites and re-signs it, so its sha12 there isn't the committed file's.
 From a git checkout it carries the commit it was frozen from
-(``azurkit.STAMP``), which its About shows.
+(``azurkit.STAMP``), which its About shows. It carries Live's macOS admin
+helper as a file (``azurkit/app/live_helper.py``: the attach copies it for
+root to run, and nothing imports it, so ``--collect-data`` leaves it out).
 ``--check`` then runs the app (``serve``: no window, in this user's folders,
 so a CI runner's) and refuses one whose report says the library didn't load.
 """
@@ -73,6 +75,7 @@ def freeze(dist: Path, work: Path, check: bool = False) -> Path:
          "--distpath", str(dist), "--workpath", str(work), "--specpath", str(work),
          "--paths", str(ROOT / "src"), "--collect-data", "azurkit", "--add-data", f"{ROOT / 'web'}{os.pathsep}web",
          "--add-data", f"{shipped}{os.pathsep}{web_tools.SHIPPED}", *stamped,
+         "--add-data", f"{ROOT / 'src' / 'azurkit' / 'app' / 'live_helper.py'}{os.pathsep}azurkit/app",
          "--add-binary", f"{native.FOLDER / library}{os.pathsep}azurkit/core/_native",
          *(arg for module in EXCLUDE for arg in ("--exclude-module", module)),
          str(ROOT / "src" / "azurkit" / "__main__.py")])
@@ -82,6 +85,8 @@ def freeze(dist: Path, work: Path, check: bool = False) -> Path:
     data = next(d for f in folders(app) if (d := f / "azurkit/tools/randomizer/data").is_dir())
     if dbcache.entry(data, None).name != shipped.stem:
         raise SystemExit(f"the app's randomizer data isn't what its shipped database {shipped.name} was made from")
+    if not any((f / "azurkit/app/live_helper.py").is_file() for f in folders(app)):
+        raise SystemExit("the app lacks Live's admin helper (azurkit/app/live_helper.py), which its attach copies")
     if check and not (loaded := report(app))["loaded"]:
         raise SystemExit(f"the app runs the Python twins, not its compiled library: {loaded['why']}")
     return app

@@ -96,6 +96,7 @@ id="track-collected"> Show collected</label>
 <span id="track-live-bar" hidden><label class="on"><input type="checkbox" id="track-live"> Live</label>
 <label class="on" id="track-follow-box" hidden><input type="checkbox" id="track-follow" checked> Follow</label>
 <button id="track-find" type="button" disabled>Find me</button>
+<button id="track-attach" type="button" hidden title="Read an xemu you started yourself: one password prompt starts a read-only helper; no xemu setting changes">Attach…</button>
 <input type="text" id="track-endpoints" spellcheck="false" autocomplete="off" aria-label="Live's endpoints"
 placeholder="Endpoints: shared RAM, then QMP :4444" title="Where Live looks for xemu, in order: shm:NAME,
 qmp:HOST:PORT or qmp:unix:PATH, comma-separated (empty: the fork's shared RAM, then QMP on 127.0.0.1:4444)">
@@ -273,6 +274,7 @@ its own permissive licences).</li>
 <button id="build" type="button" disabled>Build</button>
 <button id="cancel" type="button" hidden>Cancel</button>
 <button id="save" type="button" disabled>Save ISO…</button>
+<button id="play" type="button" hidden disabled>Play</button>
 <button id="share" type="button" disabled>Copy link</button>
 <button id="reset" type="button" disabled
 title="Tick the packs on by default, set every setting to its default and forget the setup AzurKit remembers"
@@ -290,6 +292,12 @@ aria-labelledby="progress-line"></progress><span class="stripe" aria-hidden="tru
 <input type="text" id="out-path" spellcheck="false" autocomplete="off"></p>
 <p class="note">Keep the image where it is until the save finishes: the saved file is read from it.</p>
 </footer>
+<dialog id="xemu-ask" class="xemu-ask" aria-labelledby="xemu-ask-text"><p id="xemu-ask-text"></p>
+<p class="rando-row"><select id="xemu-ask-pick" aria-label="Which xemu" hidden></select>
+<input type="text" id="xemu-ask-path" spellcheck="false" autocomplete="off" aria-label="xemu's full path" hidden>
+<button id="xemu-ask-choose" type="button" hidden>Choose…</button></p>
+<p class="rando-row"><button id="xemu-ask-yes" type="button">Play</button>
+<button id="xemu-ask-no" type="button">Cancel</button></p></dialog>
 <noscript><p>AzurKit needs JavaScript and WebAssembly.</p></noscript>
 </body>
 </html>

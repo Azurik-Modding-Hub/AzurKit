@@ -1,7 +1,8 @@
 """The live tracker's link to a running xemu's guest memory (Step R1.26, D249).
 
-Live attaches to an xemu that is already running (it never launches one) and only reads guest memory (it never
-writes it), with no pause, through the first of the ways in that answers as xemu (:func:`open_first`):
+Live attaches to an xemu that is already running (it never launches one: the app's Play does, :mod:`azurkit.app.xemu`)
+and only reads guest memory (it never writes it), with no pause, through the first of the ways in that answers as xemu
+(:func:`open_first`; the macOS admin attach's helper too, :class:`MacHelperLink`):
 
 1. the fork's shared guest RAM (``XEMU_RAM_SHM``; macOS and Linux): read through a read-only view (Python maps
    it read-write), a VA through the guest's page tables (:mod:`azurik_mod.sim.pages`);
@@ -463,11 +464,11 @@ class _PhysProxy:
 
 class MacHelperLink(Link):
     """The macOS admin helper (D257): a unix socket to a root helper
-    (:mod:`azurkit.tools.randomizer.live_helper`) that reads xemu's process memory.
-    The helper serves physical reads only; this link walks the guest's page
-    tables over them (:func:`pages.ram_reader`), so no game read leaves the
-    unprivileged tracker. The helper is started before this link opens, by the
-    one admin prompt (:func:`azurkit.tools.randomizer.live_launch.start_helper`)."""
+    (:mod:`azurkit.app.live_helper`) that reads xemu's process memory. The
+    helper serves physical reads only; this link walks the guest's page tables
+    over them (:func:`pages.ram_reader`), so no game read leaves the
+    unprivileged app. The helper is started before this link opens, by the one
+    admin prompt (:func:`azurkit.app.xemu.start_helper`, the app's Attach)."""
 
     kind, period = "helper", 0.25
 

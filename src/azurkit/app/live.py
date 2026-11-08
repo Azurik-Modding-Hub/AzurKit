@@ -3,11 +3,13 @@ that looks for a running xemu and reads the game through it (Modkit's
 ``live.Session`` on the link ``tools.randomizer.live.link`` opens), as
 Modkit's tracker window's worker does: it looks every :data:`RETRY_S`
 until an xemu answers, then polls it, and looks again once the link is
-lost. Its events and the newest reading wait in the feed until the page's
+lost. It tries the private endpoints of the xemu Play started and of the
+admin attach's helper first (``launch``, :mod:`.xemu`), then the Endpoints
+box's. Its events and the newest reading wait in the feed until the page's
 next tracker ask (``api/tracker``) merges them into its marks
 (``tracking.view``'s ``events``), the reach holding the element levels the
 game holds (R1.41). Live only reads guest memory, never writes it, and
-never launches xemu; nothing here prints guest bytes.
+never launches xemu (Play does); nothing here prints guest bytes.
 
 The status the page shows (Modkit's): ``connecting`` (no xemu answers
 yet, and the one fix), ``waiting`` (xemu runs no Azurik), ``live``,
@@ -53,7 +55,8 @@ def page_text(text: str) -> str:
 class Feed:
     """One plan's Live: :meth:`start` its thread, :meth:`take` what it read since, :meth:`stop` it."""
 
-    def __init__(self, plan: Mapping, marks: Mapping | None, endpoints: str = "", gems: bool = False):
+    def __init__(self, plan: Mapping, marks: Mapping | None, endpoints: str = "", gems: bool = False,
+                 launch: list[link.Endpoint] | None = None):
         tracking.view({"plan": plan, "marks": marks})   # the plan and marks checked; the journal is the marks'
         t = tracking.tracker_of(plan)
         self.sha256, self.seed, self.share = plan["sha256"], plan["seed"], plan["share"]
@@ -62,6 +65,7 @@ class Feed:
         self.items = {loc: t.item(loc) for loc in t.spots}
         self.pool = t.logic.pool
         self.endpoints = endpoints
+        self.launch = list(launch or [])   # Play's xemu's and the admin helper's private endpoints, tried first
         self.lock, self.stopped = threading.Lock(), threading.Event()
         self.events: list = []
         self.reading: game.Reading | None = None   # the newest
@@ -91,6 +95,16 @@ class Feed:
         with self.lock:
             self.journal = dict(journal)
 
+    def _endpoints(self) -> list[link.Endpoint]:
+        """The private endpoints first, then the box's (or the defaults); a box Live can't read leaves the private
+        ones alone (Modkit's tracker worker)."""
+        try:
+            return [*self.launch, *link.endpoints(saved=self.endpoints)]
+        except link.LiveError:
+            if not self.launch:
+                raise
+            return list(self.launch)
+
     def _say(self, status: str, text: str) -> None:
         with self.lock:
             self.status, self.text = status, text
@@ -100,7 +114,7 @@ class Feed:
             with self.lock:
                 journal = self.journal
             try:
-                session = game.Session(link.open_first(link.endpoints(saved=self.endpoints)), self.spots, journal)
+                session = game.Session(link.open_first(self._endpoints()), self.spots, journal)
             except link.LiveError as exc:
                 self._say("connecting", page_text(str(exc)))
                 self.stopped.wait(RETRY_S)

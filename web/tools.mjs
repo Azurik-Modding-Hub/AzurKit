@@ -6,7 +6,9 @@
 // File as a download, no copy; the app: a new file where its dialog says, never the image or iso/, D36). Recipes and
 // files, no image needed: Open a build… (any AzurKit build, its recipe: Load it, Save its mods file, and a randomized
 // one's Track this build: the tracker on its own plan, replayed from its seed and share string), Load a mods
-// file…, Save the setup as a mods file…, a plan file's spoiler (View, Save) and the last build's report (View, Save).
+// file…, Save the setup as a mods file…, a plan file's spoiler (View, Save) and the last build's report (View, Save);
+// in the app, Build logs: the folder each Build's log is kept in and the last log, each opened in the computer's own
+// viewer (Modkit's Open log folder and Open last log).
 // AzurKit's storage: what it keeps on this computer, by name, and Clear (the site: its own named keys and databases
 // in this browser, and the release sw.js keeps for offline use, D1013, D1015; the app: the named entries its engine lists, never an image or the folder, SEC-10). Everything
 // that waits for an image is greyed with the line that says so until one is picked (D979). The engine decides every
@@ -32,6 +34,7 @@
 //                                               -> {out, size}
 //   plan_spoiler {plan}                      -> {lines}
 //   report       {text, out, name} (the app) -> {out, size}: a report or spoiler the tab shows, as a new file
+//   logs         {open?: "folder" | "last"} (the app) -> {folder, last}: where the build logs are; open shows one
 //   storage      {clear?}  (the app)         -> {entries: [{name, what, size}], cleared?}
 // It returns {open(), imaged(), built(report, saved?), state}: open when the tab shows, imaged when the picked image
 // changes, built after each build (its report, sdk.image's) and each save ({out, size, sha256}).
@@ -156,6 +159,9 @@ export function tools({ root, call, app, say, image, known = () => null, out, pi
                                                                    "AzurKit build report.txt")),
     reportLine: line("tools-report-line", "Build first to see its report."),
     reportText: el("pre", { id: "tools-report-text", hidden: true }),
+    logsFolder: button("tools-logs-folder", "Open the folder", () => logs("folder")),
+    logsLast: button("tools-logs-last", "Open the last log", () => logs("last")),
+    logsLine: line("tools-logs-line"),
     storage: el("tbody", { id: "tools-storage" }),
     clear: button("tools-clear", "Clear", clear),
     storageLine: line("tools-storage-line"),
@@ -173,6 +179,7 @@ export function tools({ root, call, app, say, image, known = () => null, out, pi
     el("p", {}, el("label", {}, "Load a mods file… ", ui.mods), " ", ui.modsSave),
     el("p", {}, el("label", {}, "A plan file's spoiler ", ui.plan), " ", ui.planView, " ", ui.planSave), ui.planText,
     el("p", {}, "The last build's report ", ui.reportView, " ", ui.reportSave), ui.reportLine, ui.reportText,
+    ...(app ? [el("p", {}, "Build logs ", ui.logsFolder, " ", ui.logsLast), ui.logsLine] : []),
     el("h2", { textContent: "AzurKit's storage" }),
     el("table", {}, el("thead", {}, el("tr", {}, el("th", { textContent: "What" }), el("th", { textContent: "Size" }))),
        ui.storage),
@@ -200,6 +207,17 @@ export function tools({ root, call, app, say, image, known = () => null, out, pi
     ui.planView.disabled = ui.planSave.disabled = !t.spoiler;
     ui.reportView.disabled = ui.reportSave.disabled = !t.report;
     ui.reportLine.hidden = Boolean(t.report);
+  }
+
+  // The app's build logs: where they are kept and the last one, and either opened in the computer's own viewer.
+  async function logs(open = null) {
+    if (!app) return;
+    const reply = await call("logs", open ? { open } : {});
+    if ("refused" in reply) return say(reply.refused, true);
+    const name = reply.last ? named(reply.last) : null;
+    ui.logsLine.textContent = `Each build's log is kept in ${reply.folder}${name ? `; the last is ${name}` : ""}`;
+    ui.logsLast.disabled = !name;
+    ui.logsLast.title = name ? `Open ${name}` : "Build first to keep its log";
   }
 
   function shown(text, toggle) {
@@ -455,6 +473,7 @@ export function tools({ root, call, app, say, image, known = () => null, out, pi
         info();
       }
       storage();
+      logs();
     },
     imaged: () => {
       if (t.shown) info();
@@ -466,6 +485,7 @@ export function tools({ root, call, app, say, image, known = () => null, out, pi
       ui.reportText.textContent = report ? reportText(report, saved) : "";
       if (!report) ui.reportText.hidden = true;
       lines();
+      if (t.shown) logs();
     },
     state: t,
   };

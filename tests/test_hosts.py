@@ -218,6 +218,16 @@ def _answered() -> None:
         time.sleep(0.02)
 
 
+TRAY_DISC = app.xemu.tray_disc   # the module's own, which the fixture below fakes for the app
+
+
+@pytest.fixture(autouse=True)
+def _no_xemu_in_the_tray(monkeypatch):
+    """No test here reads this computer's running xemus: Live's tick asks for the disc in a running xemu's tray
+    (``api/tray``), which a test that plays one fakes."""
+    monkeypatch.setattr(app.xemu, "tray_disc", lambda *args, **kwargs: None)
+
+
 @pytest.fixture(autouse=True)
 def _closed_servers_answered(monkeypatch):
     """Each test here ends once its closed servers have answered (:func:`_answered`), before its ``monkeypatch``
@@ -3274,6 +3284,520 @@ def test_lives_line_with_no_xemu_names_only_what_the_page_offers(monkeypatch):
         assert (live["status"], live["text"]) == ("connecting", app.live.NO_XEMU)
     finally:
         feed.stop()
+
+# ---------------------------------------------------------------- Play and the macOS admin attach (Modkit's, the app's)
+
+XEMU_COMMIT = b"0123456789abcdef0123456789abcdef01234567"
+# a library's version first (2.0.0 in the fork's binary), then xemu's own just before its commit
+FORK_BODY = (b"\x002.0.0\x00a library\x00its text\x00\x000.15.1-51-g68b69fc3ca\x00" + XEMU_COMMIT + b"\x00" + bytes(16)
+             + b"XEMU_RAM_SHM=name\x00")
+UPSTREAM_BODY = b"\x001.3.2\x00 release universal\x000.8.136\x00master\x00" + XEMU_COMMIT + b"\x00"
+
+
+def _fake_xemu(root: Path, where: str, body: bytes) -> Path:
+    """A macOS-style ``xemu.app`` whose binary holds ``body`` (version strings, and the fork's marker or not)."""
+    bundle = root / where / "xemu.app"
+    (bundle / "Contents" / "MacOS").mkdir(parents=True)
+    (bundle / "Contents" / "MacOS" / "xemu").write_bytes(body)
+    return bundle
+
+
+def _listener() -> socket.socket:
+    """A loopback TCP listener (any OS) for the helper's loop: the protocol is the one its unix socket serves."""
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    return srv
+
+
+def test_play_finds_xemu_tells_the_fork_from_upstream_and_launches_it_private_with_the_build(tmp_path):
+    """Modkit's Play (D256, the owner: "Yes, add Play"): it finds the player's
+    xemu (a running one's bundle, this OS's standard places, Spotlight; only
+    the player's own processes, never another account's, an automated one,
+    D248, or an agent sandbox, so Play's attach offer, D274, is never theirs;
+    on Windows its running xemu.exe, so Play starts no second one; the one
+    picked last only while it exists), ordered and deduplicated, reading
+    xemu's own version (not a library's) and whether it is the fork from its
+    binary (the XEMU_RAM_SHM marker), never a game byte. It launches the
+    chosen one with the build in the tray and a private QMP socket (a unix
+    socket on macOS and Linux, a loopback port on Windows and for Flatpak,
+    whose /tmp is its own) plus the fork's shared RAM under a private name,
+    changing no xemu setting, and hands Live those explicit endpoints: shared
+    RAM first (no pause) for the fork, QMP alone for upstream. Live tracks the
+    disc a running xemu holds open (D261), and a second Play knows its own
+    xemu still runs by its private QMP socket."""
+    from azurkit.tools.randomizer.live.link import Endpoint
+
+    xemu = app.xemu
+    fork = _fake_xemu(tmp_path, "a", FORK_BODY)
+    upstream = _fake_xemu(tmp_path, "b", UPSTREAM_BODY)
+    probes = xemu.Probes(
+        running=lambda _p: [(fork / "Contents" / "MacOS" / "xemu", 77)], dirs=lambda _p, _h: [tmp_path / "a"],
+        spotlight=lambda _p: [upstream, fork],          # repeats of the fork are deduplicated
+        which=lambda _n: None, flatpak=lambda: False, remembered=tmp_path / "gone.app")
+    found = xemu.discover("darwin", probes)
+    assert [x.label for x in found] == ["xemu 0.15.1-51-g68b69fc3ca (fork, running)", "xemu 0.8.136"]
+    v016 = _fake_xemu(tmp_path, "v", FORK_BODY.replace(b"0.15.1-51-g68b69fc3ca", b"0.16"))
+    assert xemu.describe(v016).label == "xemu 0.16 (fork)"    # an x.y release
+    assert [(x.path, x.pid) for x in found] == [(fork, 77), (upstream, None)]   # the running one's bundle
+    sandbox = "/private/tmp/azx-grp.a1b2/xemu.app/Contents/MacOS/xemu"     # an agent's xemu sandbox
+    ps = {"comm": f"  77 501 /A/xemu.app/Contents/MacOS/xemu\n  78 501 /B/xemu.app/Contents/MacOS/xemu\n"
+                  f"  79 501 /bin/zsh\n  80 501 {sandbox}\n  81 502 /C/xemu.app/Contents/MacOS/xemu\n",
+          "args": "  77 501 /A/xemu.app/Contents/MacOS/xemu\n"
+                  "  78 501 /B/xemu.app/Contents/MacOS/xemu -name xemu-fork-auto\n"
+                  f"  80 501 {sandbox} -config_path /private/tmp/azx-grp.a1b2/xemu.toml\n"
+                  "  81 502 /C/xemu.app/Contents/MacOS/xemu\n"}            # 81: another account's
+    fake_ps = lambda argv, **_k: types.SimpleNamespace(stdout=ps[argv[-1].split(",")[-1].rstrip("=")])   # noqa: E731
+    assert xemu.running_xemus("darwin", run=fake_ps, uid=501) == [(Path("/A/xemu.app/Contents/MacOS/xemu"), 77)]
+    tasks = types.SimpleNamespace(stdout='"xemu.exe","4242","Console","1","180,000 K"\n')
+    assert xemu.running_xemus("win32", run=lambda *_a, **_k: tasks) == [(Path("xemu.exe"), 4242)]
+    assert xemu.describe(Path("xemu.exe")).version == ""             # no path: nothing read
+
+    iso = tmp_path / "seed.iso"
+    run = tmp_path / "run"
+    run.mkdir()
+    mac = xemu.plan_launch(found[0], iso, run, platform="darwin", shm_name="azurik-play-aa")
+    sock = str(run / "qmp.sock")
+    assert mac.argv == ["open", "-n", "-a", str(fork), "--env", "XEMU_RAM_SHM=azurik-play-aa",
+                        "--args", "-dvd_path", str(iso), "-qmp", f"unix:{sock},server=on,wait=off"]
+    assert mac.env == {} and [str(e) for e in mac.endpoints] == ["shm:azurik-play-aa", f"qmp:unix:{sock}"]
+    up = xemu.plan_launch(found[1], iso, run, platform="darwin")
+    assert "--env" not in up.argv and [e.kind for e in up.endpoints] == ["qmp"]
+    win = xemu.plan_launch(found[0], iso, run, platform="win32", port=5123, shm_name="azurik-play-bb")
+    assert win.argv == [str(found[0].exe), "-dvd_path", str(iso), "-qmp", "tcp:127.0.0.1:5123,server=on,wait=off"]
+    assert win.env == {"XEMU_RAM_SHM": "azurik-play-bb"}
+    assert [e.kind for e in win.endpoints] == ["shm", "qmp"] and win.endpoints[1].target == ("127.0.0.1", 5123)
+    lin = xemu.plan_launch(found[0], iso, run, platform="linux", shm_name="azurik-play-cc")
+    assert lin.argv[0] == str(found[0].exe) and lin.env == {"XEMU_RAM_SHM": "azurik-play-cc"}
+    flat = xemu.plan_launch(xemu.describe(Path(xemu.BUNDLE_ID), flatpak=True), iso, run, platform="linux", port=5124)
+    assert flat.argv[:3] == ["flatpak", "run", xemu.BUNDLE_ID] and flat.endpoints[0].target[1] == 5124
+
+    iso.write_bytes(b"a built ISO")
+    lsof = types.SimpleNamespace(stdout=f"p77\nfcwd\nn/\nf9\nn{tmp_path / 'xemu.toml'}\nf12\nn{iso}\n")
+    assert xemu.disc_in_tray(77, "darwin", run=lambda *_a, **_k: lsof) == iso
+    assert TRAY_DISC("darwin", running=probes.running, tray=lambda _pid, _p: None) is None
+    assert TRAY_DISC("darwin", running=probes.running, tray=lambda _pid, _p: iso) == iso
+    qmp = _listener()
+    played = [Endpoint("shm", "azurik-play-aa", True), Endpoint("qmp", qmp.getsockname(), True)]
+    assert xemu.answers(played) and not xemu.answers(None)    # Play's xemu runs
+    qmp.close()
+    assert not xemu.answers(played)                           # it quit
+
+
+class _GuestRam:
+    """A guest RAM image of the test's own, as the helper reads it (physical): a page directory at CR3 that maps
+    itself, 4 KiB pages given frames as they are written, and one 4 MiB page."""
+
+    def __init__(self, size: int = 64 << 20):
+        from azurkit.tools.randomizer.live import pages
+
+        self.pages, self.ram, self.next = pages, bytearray(size), 0x100000   # the next free frame
+        self.u32_at(pages.CR3 + 4 * (pages.PDE_BASE >> 22), pages.CR3 | 1)
+
+    def u32_at(self, pa: int, v: int) -> None:
+        struct.pack_into("<I", self.ram, pa, v)
+
+    def map(self, va: int) -> int:
+        """The frame of ``va``'s page, given one if it has none."""
+        pde_at = self.pages.CR3 + 4 * (va >> 22)
+        if not (pde := struct.unpack_from("<I", self.ram, pde_at)[0]) & 1:
+            pde, self.next = self.next | 1, self.next + self.pages.PAGE
+            self.u32_at(pde_at, pde)
+        pte_at = (pde & 0xFFFFF000) + 4 * ((va >> 12) & 0x3FF)
+        if not (pte := struct.unpack_from("<I", self.ram, pte_at)[0]) & 1:
+            pte, self.next = self.next | 1, self.next + self.pages.PAGE
+            self.u32_at(pte_at, pte)
+        return pte & 0xFFFFF000
+
+    def write(self, va: int, data: bytes) -> None:
+        for at in range(va, va + len(data)):
+            self.ram[self.map(at) + (at & 0xFFF)] = data[at - va]
+
+    def read(self, va: int, n: int) -> bytes:
+        return self.pages.ram_reader(self.ram, self.pages.CR3)(va, n)
+
+
+def test_the_mac_admin_helper_serves_read_only_physical_reads_to_the_app_alone_and_lets_it_reconnect(monkeypatch):
+    """Modkit's admin attach (D257, the owner: "ask for authentication on
+    mac"): the macOS helper reads xemu's memory read-only and streams only
+    the physical byte ranges Live asks for; the app walks the guest's page
+    tables over them (``link.MacHelperLink``), so the same guest VAs come back
+    as shared RAM and QMP give, an unmapped page is None, and no write ever
+    goes to the helper. It serves one connection after another (Live off and
+    on again, a lost link: no new prompt) and only the app's own process (its
+    pid), and stops once it is told to go; it reads only a process of the
+    app's user (its uids, read before anything else: never another
+    account's); the page-directory check that validates a region is the one
+    the real helper runs as root, in Python 3.9, from a file the app copies
+    and never imports."""
+    import ast
+
+    from azurkit.app import live_helper
+    from azurkit.tools.randomizer.live import link
+
+    ram = _GuestRam()
+    ram.write(0x10FF0, bytes(range(0x80)))                                 # two neighbours on far-apart frames
+    ram.u32_at(ram.pages.CR3 + 4 * (0x00800000 >> 22), 0x02000000 | 0x81)  # a 4 MiB page
+    ram.ram[0x02000000:0x02000100] = bytes(range(256))
+    reader = lambda pa, n: bytes(ram.ram[pa:pa + n])                       # noqa: E731 (a physical read)
+    assert live_helper.validate(reader, len(ram.ram)) == ram.pages.CR3
+    assert live_helper.validate(reader, 1234) is None                      # not an Xbox RAM size
+    assert not live_helper.maps_itself(reader, 0x10000)                    # not a page directory
+    tree = ast.parse(app.xemu.HELPER_SRC.read_text(encoding="utf-8"), feature_version=(3, 9))   # the CLT's Python
+    imported = {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names} | {
+        node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
+    assert imported <= set(app.xemu._PY_PROBE.partition("\n")[0].removeprefix("import ").split(", "))   # root vets them
+    a, b = socket.socketpair()
+    with a, b:                                                             # no peer pid without unix sockets
+        assert live_helper.peer_pid(a) == (None if sys.platform == "win32" else os.getpid())
+    assert live_helper.owner(os.getpid()) == ((os.getuid(),) * 2 if sys.platform == "darwin" else None)
+
+    reads, stop = [], threading.Event()
+    srv, bad = _listener(), _listener()
+    logged = lambda pa, n: (reads.append((pa, n)), reader(pa, n))[1]       # noqa: E731
+    monkeypatch.setattr(live_helper, "TICK_S", 0.05)                       # how soon a waiting helper sees "go"
+    helpers = [threading.Thread(target=live_helper.listen, daemon=True,
+                                args=(s, logged, len(ram.ram), lambda _c, ok=ok: ok, lambda: not stop.is_set()))
+               for s, ok in ((srv, True), (bad, False))]
+    for t in helpers:
+        t.start()
+    ep = link.Endpoint("helper", srv.getsockname(), True)
+    wants = [(0x10FF0, 0x20), (0x00800010, 0x80), (0x11030, 0x10)]
+    try:
+        for _again in range(2):                                            # a second link, the same helper
+            linked = link.open_first([ep])
+            assert linked.label() == "xemu, admin helper"
+            assert [linked.read(va, n) for va, n in wants] == [ram.read(va, n) for va, n in wants]
+            assert linked.read_many([*wants, (0x30000, 4)]) == [ram.read(va, n) for va, n in wants] + [None]
+            linked.close()
+        assert reads and all(n <= live_helper.READ_MAX for _pa, n in reads)   # never more than a page
+        with pytest.raises(link.LiveError, match="can't read xemu: peer is not the app"):
+            link.open_first([link.Endpoint("helper", bad.getsockname(), True)])   # another process: refused
+    finally:
+        stop.set()
+        for t in helpers:
+            t.join(5)
+        srv.close()
+        bad.close()
+    assert not any(t.is_alive() for t in helpers)                          # told to go, each helper returned
+
+
+def test_the_mac_helper_runs_a_root_owned_copy_on_macos_own_root_owned_python_never_the_apps(tmp_path):
+    """Modkit's admin attach (D257): the admin command copies the helper into
+    a root-owned temp dir, locks the copy down and runs that copy detached,
+    with an interpreter root alone may change (its binary and every module it
+    loads, with each folder above them: never the app's own, whose
+    interpreter and standard library the user owns) in isolated mode, without
+    site, in an empty environment; it reads one pid and serves only the app's
+    process. A build with the hardened runtime is refused. D310: Xcode's
+    Python is taken too, under /Applications, which the admin group may write
+    (root:admin 0775); no other folder above it may be."""
+    from azurkit.tools.randomizer.live.errors import LiveError
+
+    xemu = app.xemu
+    src = tmp_path / "live_helper.py"
+    src.write_text("print('hi')\n", encoding="utf-8")
+    py = "/Library/Developer/CommandLineTools/usr/bin/python3"
+    cmd = xemu.mac_helper_command(4321, tmp_path / "s.sock", 501, 999, py, src=src)
+    assert "mktemp -d" in cmd and 'chmod 700 "$d"' in cmd and 'chmod 500 "$d/helper.py"' in cmd
+    assert f"/bin/cp {src} " in cmd and f'/usr/bin/env -i {py} -I -S "$d/helper.py"' in cmd   # the copy is run
+    assert "--pid 4321" in cmd and "--uid 501" in cmd and "--peer 999" in cmd
+    assert "nohup" in cmd and cmd.rstrip().endswith("& echo $!")
+
+    files = [py, "/Library/Developer/CommandLineTools/lib/os.py"]
+    probe = lambda argv, **_k: types.SimpleNamespace(stdout="" if "xcode-select" in argv[0] else json.dumps(files))  # noqa: E731
+    root = lambda _p: types.SimpleNamespace(st_uid=0, st_mode=0o40755)    # noqa: E731
+    assert xemu.root_python(run=probe, stat=root) == py
+    for odd in (types.SimpleNamespace(st_uid=501, st_mode=0o40755), types.SimpleNamespace(st_uid=0, st_mode=0o40775)):
+        stat = lambda p, odd=odd: odd if p == "/Library/Developer" else root(p)   # noqa: E731
+        with pytest.raises(LiveError, match="Command Line Tools"):
+            xemu.root_python(run=probe, stat=stat)                     # the user's, or a group may write it
+    assert not xemu._roots_alone(os.path.realpath(sys.executable), os.stat)   # the app's own: never
+
+    xcode = "/Applications/Xcode.app/Contents/Developer/usr/bin/python3"
+    only_xcode = lambda argv, **_k: types.SimpleNamespace(   # noqa: E731  (no Command Line Tools)
+        stdout=json.dumps([xcode, "/Applications/Xcode.app/Contents/Developer/Library/os.py"]) if xcode in argv
+        else "")
+    taken = []
+    for gid, mode in ((80, 0o40775), (20, 0o40775), (80, 0o40777)):     # admin's; staff's; anyone's
+        stat = lambda p, gid=gid, mode=mode: (types.SimpleNamespace(st_uid=0, st_gid=gid, st_mode=mode)  # noqa: E731
+                                              if p == "/Applications" else root(p))
+        try:
+            taken.append(xemu.root_python(run=only_xcode, stat=stat))
+        except LiveError:
+            taken.append(None)
+    assert taken == [xcode, None, None]
+
+    runtime = lambda *_a, **_k: types.SimpleNamespace(stderr="CodeDirectory v=20400 flags=0x10000(runtime) hashes=1")
+    adhoc = lambda *_a, **_k: types.SimpleNamespace(stderr="CodeDirectory v=20400 flags=0x2(adhoc) hashes=1")
+    assert xemu.hardened_runtime(src, run=runtime) is True      # the signed upstream build: refused
+    assert xemu.hardened_runtime(src, run=adhoc) is False       # the fork's ad-hoc build: readable
+
+
+def test_play_launches_the_found_xemu_private_with_the_saved_build_and_live_reads_it_first_or_offers_to_attach(
+        tmp_path, monkeypatch):
+    """Modkit's Play (D256; the app's alone, D882): ``api/play`` finds the
+    player's xemu and launches the only one with the saved build in its tray
+    and a private QMP socket (the fork's shared RAM too), remembers the pick,
+    and Live reads those private endpoints before the Endpoints box's; Play's
+    own xemu still running, a second Play launches nothing. Several found:
+    the page picks one (the one picked last first); none: it names where.
+    D274 (the owner: "Offer to attach"): with the player's xemu already
+    running Play starts no second one and offers to attach where the app can
+    (macOS), else says to quit it; ``api/attach`` reads it through the admin
+    helper (D257: one password prompt; a hardened build refused by name), and
+    a later Play gets Live on it with no second prompt. The helper's and
+    Play's private folders go when the app quits. The discovery, the launch
+    and the helper are faked: no xemu runs and nothing prompts."""
+    from dataclasses import replace
+
+    from azurkit.app import play
+    from azurkit.tools.randomizer.live import link
+
+    _home(monkeypatch, tmp_path / "home")
+    xemu, iso = app.xemu, tmp_path / "seed.iso"
+    iso.write_bytes(b"a saved build")
+    bundle = tmp_path / "xemu.app"
+    (bundle / "Contents" / "MacOS").mkdir(parents=True)
+    fake = xemu.Xemu(bundle, bundle / "Contents" / "MacOS" / "xemu", "0.15.1", fork=True)
+    other = xemu.Xemu(tmp_path / "up.app", tmp_path / "up.app" / "Contents" / "MacOS" / "xemu", "0.8.136")
+    (tmp_path / "up.app").mkdir()
+    found, launched, helpers, here, ours, tried = [replace(fake, running=True, pid=77), other], [], [], [False], [False], []
+    monkeypatch.setattr(xemu, "discover", lambda probes=None: list(found))
+    monkeypatch.setattr(xemu, "answers", lambda eps: ours[0] and bool(eps))
+    monkeypatch.setattr(xemu, "spawn", launched.append)
+    monkeypatch.setattr(xemu, "can_attach", lambda: here[0])
+    monkeypatch.setattr(xemu, "attachable", lambda: [x for x in found if x.running])
+
+    def helper(pid, run_dir):                     # the admin prompt and the root helper, faked
+        helpers.append(pid)
+        (run_dir / "helper.sock").touch()
+        return link.Endpoint("helper", str(run_dir / "helper.sock"), True)
+
+    def nothing(endpoints):
+        tried.append([str(e) for e in endpoints])
+        raise link.LiveError("no xemu answers")
+
+    monkeypatch.setattr(xemu, "start_helper", helper)
+    monkeypatch.setattr(link, "open_first", nothing)
+    server = app.serve(_page.WEB)
+
+    def call(name: str, body: dict) -> dict:
+        replies = []
+        _post(server.url, f"api/{name}", body, replies)
+        return replies[0]
+
+    def live_tries() -> list[str]:   # the endpoints Live's feed tries first, as it starts
+        tried.clear()
+        call("live", {"on": True, "plan": _profile("default"), "marks": {}})
+        end = time.monotonic() + 30
+        while not tried and time.monotonic() < end:
+            time.sleep(0.02)
+        call("live", {"on": False})
+        return tried[0]
+
+    try:
+        assert call("play", {"iso": str(tmp_path / "gone.iso")}) == {
+            "refused": f"{tmp_path / 'gone.iso'}: no saved build there: save the build first, then press Play"}
+        running = {"running": ["xemu 0.15.1 (fork, running)"], "attach": False, "text": play.NO_ATTACH}
+        assert call("play", {"iso": str(iso)}) == running                  # no attach here: quit it first
+        assert call("attach", {}) == {"refused": play.NO_ATTACH}
+        here[0] = True
+        assert call("play", {"iso": str(iso)}) == running | {"attach": True, "text": play.ATTACH}
+        found[0] = replace(found[0], hardened=True)
+        assert call("attach", {}) == {"refused": play.HARDENED}
+        found[0] = replace(found[0], hardened=False)
+        assert call("attach", {}) == {"attached": "xemu 0.15.1 (fork, running)"} and helpers == [77]
+        helped = server.player.helper[2]
+        assert call("play", {"iso": str(iso)}) == {"tracking": "helper"} and helpers == [77]   # no second prompt
+        assert live_tries()[0] == f"helper:{helped / 'helper.sock'}"
+        assert not launched                                                # never a second xemu
+
+        found[:] = [other, fake]                                           # none running: several found
+        assert call("play", {"iso": str(iso)}) == {"choose": [{"label": "xemu 0.8.136", "path": str(other.path)},
+                                                              {"label": "xemu 0.15.1 (fork)", "path": str(bundle)}],
+                                                   "picked": 0}
+        assert call("play", {"iso": str(iso), "xemu": str(bundle)}) == {"launched": "xemu 0.15.1 (fork)"}
+        launch = launched[0]
+        shm = launch.endpoints[0].target
+        assert "-dvd_path" in launch.argv and str(iso) in launch.argv
+        assert f"XEMU_RAM_SHM={shm}" in launch.argv or launch.env == {"XEMU_RAM_SHM": shm}   # macOS: open --env
+        assert [e.kind for e in launch.endpoints] == ["shm", "qmp"] and shm.startswith(xemu.SHM_PREFIX)
+        assert app._kept()["xemu"] == str(bundle) and launch.scratch.is_dir() and not helped.exists()
+        assert live_tries()[:2] == [str(e) for e in launch.endpoints]      # Play's first, then the box's
+        assert call("play", {"iso": str(iso)})["picked"] == 1             # the one picked last, first
+        ours[0] = True
+        assert call("play", {"iso": str(iso)}) == {"tracking": "played"} and len(launched) == 1
+        ours[0], found[:] = False, []
+        assert call("play", {"iso": str(iso)}) == {"none": play.NONE_FOUND}
+        assert call("play", {"iso": str(iso), "xemu": str(tmp_path / "nowhere")}) == {
+            "refused": f"{tmp_path / 'nowhere'}: no xemu there"}
+    finally:
+        server.close()
+    assert launched and not launched[0].scratch.exists()                  # Play's folder goes with the app
+
+
+def test_each_build_in_the_app_keeps_its_log_with_its_recipe_and_report_or_why_it_failed_and_its_save(
+        tmp_path, monkeypatch):
+    """Modkit's build logs (its Build page's, kept on disk): each Build the
+    app runs writes a log in this user's log folder,
+    ``build-<time>[-seed<seed>].log``: its header (the image, the packs, the
+    seed and share string, the whole recipe), then the build's report (its
+    plan left out) or why it failed, and each save of it. ``api/logs`` names
+    the folder and the last log and opens either in this computer's own
+    viewer (faked: nothing opens); Storage lists the logs and clears them.
+    The engine's build and save are canned: no image is read or written."""
+    _home(monkeypatch, tmp_path / "home")
+    opened = []
+    monkeypatch.setattr(app.logs, "reveal", opened.append)
+    report = {"label": "USA", "layers": [{"id": "pack fps_unlock", "sites": 1, "bytes": 4}], "conflicts": [],
+              "notes": [], "randomizer": {"seed": "7", "share": "S"}, "result": {"default.xbe": "ab" * 32},
+              "plan": {"sha256": "p" * 64, "placements": {"spot": "item"}}}
+
+    class Canned(engine.Here):
+        def call(self, job, *args, progress=None, fore=None):
+            if job == "image":
+                if "broken" in args[0]["packs"]:
+                    raise ValueError("packs: no pack 'broken'")
+                return {"report": report, "size": 5, "build": "b1", "peak": 0}
+            if job == "save":
+                return {"out": args[1], "size": 5, "sha256": "cd" * 32}
+            return super().call(job, *args, progress=progress, fore=fore)
+
+    server = app.serve(_page.WEB, Canned())
+
+    def call(name: str, body: dict) -> dict:
+        replies = []
+        _post(server.url, f"api/{name}", body, replies)
+        return replies[0]
+
+    image = str(tmp_path / "usa.iso")
+    try:
+        assert call("logs", {}) == {"folder": str(app.logs.folder()), "last": None}
+        assert call("logs", {"open": "last"}) == {"refused": "No build log yet: build first"}
+        built = call("build", {"iso": image, "packs": {"fps_unlock": {}}, "randomizer": {"seed": "7", "share": "S"}})
+        assert call("save", {"recipe": built["recipe"], "out": str(tmp_path / "out.iso"), "build": "b1"})["saved"][
+            "out"] == str(tmp_path / "out.iso")
+        assert call("build", {"iso": image, "packs": {"broken": {}}}) == {"refused": "packs: no pack 'broken'"}
+        first, failed = sorted(app.logs.folder().glob("build-*.log"), key=lambda p: "seed" not in p.name)
+        assert first.name.endswith("-seed7.log") and "seed" not in failed.name
+        text = first.read_text(encoding="utf-8")
+        assert text.startswith(f"# AzurKit build log\n# started   : ") and f"# image     : {image}\n" in text
+        assert "# packs     : fps_unlock\n# randomizer: seed 7, share S\n" in text
+        assert '# recipe    : {"packs": {"fps_unlock": {}}, "randomizer": {"seed": "7", "share": "S"}}' in text
+        logged = json.loads(text.partition("report: ")[2].partition("\n# ---")[0])
+        assert logged == {k: v for k, v in report.items() if k != "plan"}   # the seed's plan left out
+        assert f"saved {tmp_path / 'out.iso'} · 5 bytes · sha256 {'cd' * 32}\n" in text
+        assert "failed: packs: no pack 'broken'\n" in failed.read_text(encoding="utf-8")
+        assert call("logs", {"open": "folder"}) == {"folder": str(app.logs.folder()), "last": str(failed)}
+        assert call("logs", {"open": "last"})["last"] == str(failed) and opened == [app.logs.folder(), failed]
+        assert call("logs", {"open": "elsewhere"}) == {"refused": "logs: open is folder or last"}
+        assert "logs" in {e["name"] for e in call("storage", {})["entries"]}
+        assert "logs" in call("storage", {"clear": True})["cleared"] and not [*app.logs.folder().glob("*.log")]
+    finally:
+        server.close()
+
+
+def test_play_on_the_apps_page_tracks_the_saved_builds_seed_with_live_on_and_live_tracks_the_seed_in_xemus_tray(
+        browser, tmp_path, monkeypatch):
+    """The app's Play and Attach… (Modkit's Play button and its Tracker's
+    tray seed, D256, D261, D274; the app's alone, D882): Play, greyed until a
+    build is saved, launches xemu with the saved build and tracks that build's
+    seed on the Randomizer tab with Live on, Play's private endpoints tried
+    first; with xemu already running it asks in a small dialog whether to
+    attach, and Attach reads that xemu through the admin helper, Live on.
+    Live ticked by hand first tracks the seed of the AzurKit build in a
+    running xemu's tray when it isn't the one shown. The Tools tab names the
+    folder each build's log is kept in. The discovery, the launch, the
+    helper, the tray and the game are faked: no xemu runs, nothing prompts."""
+    from dataclasses import replace
+
+    from azurkit.app import play
+    from azurkit.tools.randomizer.live import link
+
+    _home(monkeypatch, tmp_path / "home")
+    monkeypatch.setattr(app.pictures, "folder", lambda: tmp_path / "no-maps")   # no pictures: the chips show
+    files = {"gamedata/config.xbr": fill("a", 64)}   # USA's name, ours bytes
+    vanilla = tmp_path / "vanilla.iso"
+    vanilla.write_bytes(image(files))
+    monkeypatch.setenv(gate.USA.env, str(vanilla))
+    at = vanilla.stat()
+    stamp = gate.Stamp(gate.USA, vanilla, at.st_size, at.st_mtime_ns, False, at.st_ctime_ns)
+    change = Change("gamedata/config.xbr", 0, hashlib.sha256(files["gamedata/config.xbr"][:4]).hexdigest(), b"AAAA",
+                    "a 1")
+    played, trayed = _profile("default"), _profile("strict")
+    for name, doc in (("saved", played), ("tray", trayed)):
+        edits.build(stamp, [Layer("randomizer", "randomizer", "plan", {"seed": doc["seed"], "share": doc["share"]},
+                                  [change])], tmp_path / f"{name}.iso")
+    bundle = tmp_path / "xemu.app"
+    fake = app.xemu.Xemu(bundle, bundle / "Contents" / "MacOS" / "xemu", "0.15.1", fork=True)
+    found, launched, helpers, tray, tried = [fake], [], [], [None], []
+    monkeypatch.setattr(app.xemu, "discover", lambda probes=None: list(found))
+    monkeypatch.setattr(app.xemu, "answers", lambda eps: False)
+    monkeypatch.setattr(app.xemu, "spawn", launched.append)
+    monkeypatch.setattr(app.xemu, "can_attach", lambda: True)
+    monkeypatch.setattr(app.xemu, "attachable", lambda: [x for x in found if x.running])
+    monkeypatch.setattr(app.xemu, "tray_disc", lambda: tray[0])
+
+    def helper(pid, run_dir):
+        helpers.append(pid)
+        (run_dir / "helper.sock").touch()
+        return link.Endpoint("helper", str(run_dir / "helper.sock"), True)
+
+    def nothing(endpoints):
+        tried.append([str(e) for e in endpoints])
+        raise link.LiveError("no xemu answers")
+
+    monkeypatch.setattr(app.xemu, "start_helper", helper)
+    monkeypatch.setattr(link, "open_first", nothing)
+    server = app.serve(_page.WEB)
+    live = "(sha) => azurkit.tracker.state.plan?.sha256 === sha && document.getElementById('track-live').checked"
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        button = "() => [document.getElementById('play').hidden, document.getElementById('play').disabled, " \
+                 "document.getElementById('play').title, document.getElementById('track-attach').hidden]"
+        assert page.evaluate(button) == [False, True, "Save a build first, then play it in xemu", False]
+        page.evaluate("(given) => { azurkit.played = given; document.getElementById('play').disabled = false; }",
+                      {"out": str(tmp_path / "saved.iso"), "plan": played})   # what a Save of that build sets
+        _page.click(page, "play")
+        _page.until(page, f"() => ({live})({json.dumps(played['sha256'])}) && azurkit.tab === 'randomizer'", 300)
+        assert page.evaluate("() => document.getElementById('status').textContent") == (
+            f"Started xemu 0.15.1 (fork) with saved.iso: tracking seed {played['seed']}, Live on")
+        assert len(launched) == 1 and str(tmp_path / "saved.iso") in launched[0].argv
+        end = time.monotonic() + 30
+        while not tried and time.monotonic() < end:
+            time.sleep(0.02)
+        assert tried[0][:2] == [str(e) for e in launched[0].endpoints]   # Play's xemu first
+
+        found[0] = replace(fake, running=True, pid=77)                    # the player's own xemu runs
+        _page.click(page, "play")
+        assert _page.until(page, "() => document.getElementById('xemu-ask').open && "
+                                 "document.getElementById('xemu-ask-text').textContent") == play.ATTACH
+        tried.clear()
+        _page.click(page, "xemu-ask-yes")
+        _page.until(page, "() => document.getElementById('status').textContent.startsWith('Attached to')")
+        end = time.monotonic() + 30
+        while not tried and time.monotonic() < end:
+            time.sleep(0.02)
+        assert helpers == [77] and tried[0][0].startswith("helper:") and len(launched) == 1
+
+        _page.click(page, "track-live")                                    # off, then on by hand
+        _page.until(page, "() => !azurkit.tracker.state.live")
+        tray[0] = tmp_path / "tray.iso"                                   # another seed's build in xemu's tray
+        _page.click(page, "track-live")
+        _page.until(page, f"() => ({live})({json.dumps(trayed['sha256'])})", 300)
+        assert page.evaluate("() => document.getElementById('status').textContent") == (
+            f"Tracking seed {trayed['seed']} (tray.iso in xemu's tray): the Randomizer tab's Tracker")
+        _page.click(page, "tab-tools")
+        assert _page.until(page, "() => document.getElementById('tools-logs-line').textContent") == (
+            f"Each build's log is kept in {app.logs.folder()}")
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
 
 # The tracker's looks (Step 4.2c2's looks seat), as the page measures them: WCAG's contrast ratio of each world-map
 # badge's text with the ground it sits on, [what, ratio]; each shown item icon (the Settings item rows', a level's

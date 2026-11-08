@@ -55,6 +55,7 @@ import { hashedApart, WAITED } from "./hasher.mjs";
 import { replaceFiles } from "./replace.mjs";
 import { savesSection } from "./saves.mjs";
 import { hold, letGo, sweep, written } from "./outputs.mjs";
+import { player } from "./play.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
 import { canon, workers } from "./workers.mjs";
@@ -66,7 +67,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
-                vouched: new Map(), resting: new Map(), tracking: null, recovered: [], launch: null,
+                vouched: new Map(), resting: new Map(), tracking: null, recovered: [], launch: null, played: null,
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null, noted: null, asked: null, recheck: false, probing: false,
                          moved: null, plan: null } };
@@ -218,6 +219,7 @@ const LABELS = { build: "Building", save: "Saving", save_check: "Saving", vanill
                  files: "Listing its files", extract: "Extracting the file", open: "Reading the build",
                  mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
                  storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit",
+                 play: "Starting xemu", attach: "Attaching to xemu", tray: "Reading xemu's disc", logs: "Opening the log",
                  flat: READYING };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other from its
 // first record, else after 1 s. Shown from the click too: Track this seed's plan and a plan file's spoiler (the logic's
@@ -860,6 +862,7 @@ function busy(on) {
   $("iso").disabled = on || !state.packs;
   for (const id of ["iso-path", "iso-choose", "out-path"]) $(id).disabled = on;
   $("save").disabled = on || !state.build || unready();
+  $("play").disabled = on || !state.played;
   $("cancel").hidden = !on;
   gate();
   lock();
@@ -891,6 +894,8 @@ function lines() {
   $("build-line").textContent = why;
   $("build").title = $("build").disabled ? why : "";
   $("save").title = $("save").disabled && !state.building ? (state.build ? why : "Save follows a build") : "";
+  $("play").title = state.played ? `Launch xemu with ${state.played.out} in its tray, then track it with Live on`
+    : "Save a build first, then play it in xemu";
   $("spoiler-note").textContent = state.file ? "Build with Randomize ticked to see its spoiler."
     : "Pick your image (1.), then build with Randomize ticked to see its spoiler.";
   for (const note of $("packs").querySelectorAll(".vanilla-note")) note.hidden = Boolean(state.vanilla);
@@ -1079,7 +1084,22 @@ function ready(catalog, version, commit) {
     renderPacks(catalog);
     renderRando(catalog.randomizer);
     state.tracker = tracker({ call: state.engine.call, app: state.app, say, kept: state.tracked, keep: keepTracked,
-                              image: () => state.file });
+                              image: () => state.file, tray: state.app ? trackTray : null });
+    if (state.app) {
+      player({ call: state.engine.call, say, saved: () => state.played, attach: state.host.attach,
+               choose: state.dialogs ? () => state.engine.choose("xemu", "") : null,
+               track: (plan) => {   // Play's build: its seed tracked, Live on (its xemu holds no disc yet to read)
+                 pick("randomizer");
+                 randoPane("tracker");
+                 state.tracker.open(plan);
+                 return state.tracker.live(true, false);
+               },
+               live: () => {
+                 pick("randomizer");
+                 randoPane("tracker");
+                 return state.tracker.live(true);
+               } });
+    }
     const shared = content({ call: state.engine.call, app: state.app, host: { ...state.host, catalog },
                              handoff: state.engine.content });
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
@@ -1372,6 +1392,7 @@ async function checkSave(build, name) {
 
 function saved({ saved: done }) {
   state.saved = done;
+  state.played = { out: done.out, plan: state.build?.report.plan ?? null };   // what Play plays (the app's)
   state.tools.built(done, done);   // the save's report (its build's, or the one it built again) and where it went
   report(`Saved ${done.out} · ${bytes(done.size)} · sha256 ${done.sha256.slice(0, 12)}`);
 }
@@ -1903,6 +1924,15 @@ async function trackBuild(preset, from) {
   pick("randomizer");
   randoPane("tracker");
   state.tracker.open(reply.plan, from);
+}
+
+// The seed in xemu's tray (the app's, D261; Modkit's Tracker opened it): a running xemu's disc, when it is a randomized
+// AzurKit build whose seed isn't the one tracked, is tracked instead (Track this build's way) before Live goes on.
+async function trackTray() {
+  const reply = await state.engine.call("tray", {});
+  const rando = reply.preset?.layers.find((layer) => layer.tool === "randomizer")?.recipe, now = state.tracker.state.plan;
+  if (!rando || now && String(rando.seed) === String(now.seed) && (rando.share ?? now.share) === now.share) return;
+  await trackBuild(reply.preset, `${reply.name} in xemu's tray`);
 }
 
 // The Randomizer tab's two views: its settings, and the tracker.

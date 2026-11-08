@@ -96,7 +96,13 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 - **Remembers your marks** for your last 20 seeds, never your image; Reset clears them.
 - **Live, in the app:** marks what you pick up in a running xemu and shows where you are, with Find me and Follow,
   which switches the map to the floor you stand on.
-- **Live only reads:** it never launches xemu, writes to it or pauses the game.
+- **Live only reads:** it never writes to xemu or pauses the game.
+- **Play, in the app:** starts your xemu with the build you saved last in its tray and tracks that build's seed with
+  Live on, changing no xemu setting; it finds xemu itself (or asks which, or where) and remembers your pick. With
+  xemu already running it starts no second one and offers to attach.
+- **Attach…, on a Mac:** reads an xemu you started yourself after one password prompt, through a small read-only
+  helper; an xemu signed with Apple's hardened runtime can't be read.
+- **Your game's seed:** turning Live on in the app first tracks the seed of the AzurKit build in xemu's tray.
 - **Live keeps up:** it finds an xemu started with QMP on port 4444, tells USA from Europe and follows deaths,
   reloads and save states.
 - **Live says what's off:** if xemu runs another seed or build, it counts the level's spots that differ and says
@@ -182,6 +188,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
   writes it where you choose, never over your image).
 - **Recipes and files:** open any AzurKit build for its recipe, load or save a mods file, view or save a plan file's
   spoiler and the last build's report.
+- **Build logs, in the app:** each build's log (its recipe and report, or why it failed, and where it was saved) is
+  kept on your computer; open the folder or the last one from the Tools tab.
 - **AzurKit's storage:** what AzurKit keeps on this computer, by name, and Clear; never your image.
 
 ## Building and sharing
