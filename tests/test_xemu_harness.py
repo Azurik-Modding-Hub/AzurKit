@@ -1,10 +1,12 @@
-"""The xemu oracle's core (Step 4.14a1), the harness's Unicorn-free parts: the
-sittings' first-come queue and the batch token that gives way to it
+"""The xemu oracle: its core (Step 4.14a1), the harness's Unicorn-free parts:
+the sittings' first-come queue and the batch token that gives way to it
 (``devkit.xemu.queue``), a sitting's warm build states (``devkit.xemu.warm``),
 the guest RAM snapshot's file (``devkit.sim.snapshot``), the observation both
-backends read (``devkit.sim.obs``) and the pad (``devkit.sim.inputs``). xemu
-is a dev-only oracle (D108): nothing here launches one, and every memory read
-is synthetic, no game bytes."""
+backends read (``devkit.sim.obs``) and the pad (``devkit.sim.inputs``); and
+the harness (Step 4.14a2, ``devkit.xemu.oracle``), by its offline selftest,
+with the build data its code check leaves out (``devkit.xemu.shim_ranges``).
+xemu is a dev-only oracle (D108): nothing here launches one, and every
+memory read is synthetic, no game bytes."""
 
 from __future__ import annotations
 
@@ -18,8 +20,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from azurkit.core import gate, iso
+from azurkit.edits.layer import compose
+from azurkit.tools import mods
+from azurkit.tools.characters import ports
+from azurkit.tools.mods import engine
 from devkit.sim import inputs, obs, snapshot
-from devkit.xemu import queue
+from devkit.xemu import queue, shim_ranges
 from devkit.xemu.warm import HDD, IDLE_S, WarmStore, sweep
 
 
@@ -273,3 +280,37 @@ def test_a_pad_string_is_controllerstates_floats_and_the_stick_a_real_pad_gives(
     x, yy = inputs.stick(r(75.0), r(30.0))
     assert math.hypot(x, yy) == pytest.approx(0.761, abs=1e-3) and x == pytest.approx(-yy)
     assert inputs.stick(None, 0.0) == (0.0, 0.0)
+
+
+@pytest.mark.xemu
+def test_the_harness_passes_its_offline_selftest_with_no_xemu_and_no_fixtures(capsys):
+    """Step 4.14a2 (D11): the harness's own logic against stand-ins, launching no xemu and reading no fixtures: the
+    scratch config (volume 0, the keyboard pad on scancodes no key reaches), the sandbox proof, the slots and their
+    admission (D108 as D174 and D263 amend it: a third sandbox waits while either suite's lock is held, Modkit's or
+    AzurKit's), the queue and the owner demo's lease, QMP, the gdbstub and the pad, readiness, parks, relaunches and
+    the teardown, the code check and a Europe disc's addresses."""
+    from devkit.xemu import oracle   # macOS's own calls: imported here, so the file collects on every platform
+
+    assert oracle.selftest() == 0, "\n".join(line for line in capsys.readouterr().out.splitlines()
+                                             if line.startswith("FAIL"))
+
+
+@pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
+                                     pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
+                                                  id="europe")])
+def test_xemus_code_check_leaves_out_the_copy_gates_state_a_running_build_writes(release, request):
+    """AZ-817's round-2 sitting: main's first frame writes the copy gate's g_main in SHIMS, and xemu's code check
+    (boot-build), which left out only the player-model shims' data, refused every default build. The harness reads
+    the gate's state from the build: the door's landing's .bss, all seven words the shim writes (the tick's and the
+    park's landings reach them through the door and write none of their own); vanilla has none, nor the
+    player-model shims' data, and neither has a build without the swap."""
+    with iso.Reader(request.getfixturevalue(f"{release.name}_iso")) as r:
+        vanilla = r.read(engine.XBE)
+    layer = mods.plan(mods.PACKS["qol_alloc_race"], release, {engine.XBE: vanilla})
+    built = bytes(compose({engine.XBE: vanilla}, [layer])[0][engine.XBE])
+    (lo, hi), = shim_ranges.copy_gate(built)
+    with shim_ranges.building(built):
+        words = [ports.trampoline_symbol_va(built, shim_ranges.COPY_GATE, f"_g_{name}")
+                 for name in ("lock", "main", "parked", "busy", "state", "size", "freed")]
+    assert hi - lo == 4 * len(words) and all(lo <= va <= hi - 4 for va in words)
+    assert shim_ranges.copy_gate(vanilla) == shim_ranges.player_model(vanilla) == shim_ranges.player_model(built) == []

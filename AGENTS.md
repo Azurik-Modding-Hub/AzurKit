@@ -1946,15 +1946,21 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   refuses any other launch. The frozen-app test runs the bundle only under
   `AZURKIT_NO_WINDOW` or as `serve`.
 - **xemu only (D601):** in-game checks run in xemu. Real hardware isn't a target.
-- **The xemu core (Step 4.14a1, devkit):** `devkit/xemu/queue.py` (the
-  sittings' first-come tickets and the batch token that gives way to them),
+- **The xemu harness (Steps 4.14a1, 4.14a2, devkit):** `devkit/xemu/oracle.py`
+  (`python -m devkit xemu oracle CMD`; `devkit/xemu/README.md`) runs
+  sandboxed clones of the owner's xemu fork on the oracle's fixtures
+  (`AZURIK_XEMU_FIXTURES`), never the owner's own xemu, never a visible
+  window but an owner demo's, at volume 0, each admitted by its slots
+  (D108). Its core needs no Unicorn: `devkit/xemu/queue.py` (the sittings'
+  first-come tickets and the batch token that gives way to them),
   `devkit/xemu/warm.py` (a sitting's warm build states) and
   `devkit/sim/{snapshot,obs,inputs}.py` (the guest RAM snapshot's file and
   its private store, `l3-snapshots/` in the user data folder; the player's
-  observation; the pad) need no Unicorn. They keep Modkit's folders
-  (`/tmp/azx-xemu-slots`, the owner-demo lease, the store), so both
-  harnesses share one D108 budget until Step 4.14a2 ports the harness. No
-  test launches xemu (D108): `tests/test_xemu_harness.py` reads synthetic
-  memory alone.
+  observation; the pad). It keeps Modkit's folders (`/tmp/azx-xemu-slots`,
+  the owner-demo lease, the store) and its admission watches both repos'
+  suite locks, so both harnesses share one D108 budget while Modkit lives.
+  No test launches xemu (D108): `tests/test_xemu_harness.py` reads
+  synthetic memory and runs the harness's offline `selftest` (marked
+  `xemu`, which CI's Linux and Windows legs deselect).
 - **Ask nothing (D115):** where a decision is missing, take the recorded default
   or your recommendation, and say so in your report.
