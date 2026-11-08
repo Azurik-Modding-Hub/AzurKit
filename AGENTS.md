@@ -1079,6 +1079,24 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     a Check by its recipe's content (the worker's `Parts`, below). Its
     objects stay pickles in the process (`parts.dump`'s `Pickled`), made
     into the codec's only for the store.
+    - **Shipped parts** (Step 4.6p, the Check design's L3): every part a
+      Check of each built-in variant and of its own copy (New from this)
+      works out at the page's defaults, on each release, ships: a `part`
+      row in `shipped.json` (its key, which is already what its stage
+      reads, its `part_codec.digest`, the answer, and its file) and its
+      bytes (`part_codec`'s at zstd 19) a file in the entry's
+      `variants/<entry>/shipped/parts/` in Azurik-Custom-Content, named for
+      their sha256 (a re-record writes only the parts that moved), which
+      Install brings with the entry. A part neither the process nor
+      `parts.STORE` holds is read from there (`shipped.part`: no further
+      than its size, held to its sha256), never handed to the store, so a
+      first Check of a built-in or its own copy, under any name, dresses
+      only the glue. `shipped.OFF` takes none; a fresh part is heard
+      (`shipped.SEEN`) by its digest, a set's items in one order in every
+      process, and the goldens' pin builds each own copy too
+      (`test_characters.py`'s `_own_copies`), so every part row is a fresh
+      dress's part under its key until `scripts/record_shipped.py`
+      re-records (`--check` names a row no Check works out).
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload

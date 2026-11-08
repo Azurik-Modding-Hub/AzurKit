@@ -188,7 +188,7 @@ class _Writer:
             if t is set and self.seen(x):
                 return
             out.append(b"f" if t is frozenset else b"e")
-            self.value(tuple(x), depth + 1)
+            self.value(tuple(sorted(x, key=_order)), depth + 1)   # one order in every process (a str's hash isn't)
         elif (t.__module__, t.__name__) == _PICKLED:   # an object its process pickled (its own): what it holds
             out.append(b"P")
             self.value(pickle.loads(x), depth + 1)
@@ -227,11 +227,12 @@ def _dtype(dtype) -> bytes:
     return dtype.str.encode()
 
 
-def encode(part: object) -> bytes:
-    """``part`` as :mod:`.parts` keeps it across visits, or ``ValueError``
-    naming a value the codec doesn't keep (nothing is kept then)."""
-    from compression import zstd
+def _order(x) -> tuple[str, str]:
+    """A set's items' order: by type and ``repr``, the same in every process."""
+    return type(x).__qualname__, repr(x)
 
+
+def _body(part: object) -> bytes:
     if not _LITTLE:
         raise ValueError("kept part: only a little-endian host keeps parts")
     w = _Writer()
@@ -242,7 +243,29 @@ def encode(part: object) -> bytes:
     body = b"".join([_U32.pack(len(head)), head, *w.out])
     if len(body) > MOST:
         raise ValueError(f"kept part: {len(body):,} bytes, past the {MOST:,} a part may hold")
-    return MAGIC + _U64.pack(len(body)) + zstd.compress(body, LEVEL)
+    return body
+
+
+def encode(part: object, level: int = LEVEL) -> bytes:
+    """``part`` as :mod:`.parts` keeps it across visits (zstd at ``level``;
+    a shipped one's at 19, ``scripts/record_shipped.py``'s), or
+    ``ValueError`` naming a value the codec doesn't keep (nothing is kept then)."""
+    from compression import zstd
+
+    body = _body(part)
+    options = {zstd.CompressionParameter.compression_level: level,
+               zstd.CompressionParameter.enable_long_distance_matching: int(level > LEVEL)}
+    return MAGIC + _U64.pack(len(body)) + zstd.compress(body, options=options)
+
+
+def digest(part: object) -> str:
+    """The sha256 of the values ``part`` holds as this codec lists them
+    (before zstd, whose bytes a library's version may move): the same
+    part's in every process of this host (a set's items in one order), the
+    shipped one's answer (``shipped.py``'s ``part`` rows)."""
+    import hashlib
+
+    return hashlib.sha256(_body(part)).hexdigest()
 
 
 def _made(cls, names: list[str], values, obj: object = None) -> object:
@@ -497,4 +520,4 @@ def decode(blob: bytes) -> object:
     return part
 
 
-__all__ = ["ARRAYS", "DEPTH", "FORMAT", "LEVEL", "MAGIC", "MODULES", "MOST", "decode", "encode"]
+__all__ = ["ARRAYS", "DEPTH", "FORMAT", "LEVEL", "MAGIC", "MODULES", "MOST", "decode", "digest", "encode"]

@@ -36,6 +36,18 @@ her content and the staged ``characters.xbr``, so a pack or a Data-tab edit
 to it misses (its release, the first that holds the image's file: USA's and
 Europe's are one, so one row serves both).
 
+A fourth kind is a Check's part (``part`` rows, Step 4.6p, the Check
+design's L3): each part (:mod:`.parts`) a Check of a built-in variant and
+of its own copy (New from this) works out at the page's defaults, on each
+release, so a first Check of either takes it in place of its dress's
+minutes. A part's key is already what it stands on (the bytes and fields
+its stage reads, never a name or a folder), so a row is that key, the
+part's :func:`~.part_codec.digest` (its ``answer``) and its file
+(:func:`part`): ``part_codec``'s bytes (no pickle) in the entry's
+``shipped/parts/`` folder, named for their sha256 (a part a re-record
+leaves alone keeps its file), read no further than its size and taken
+only when its sha256 is the row's.
+
 Each row's floats are its recording host's (:data:`TABLE`'s ``host``,
 :func:`host`). Another host's maths may round otherwise and that's close
 enough (D1016), so there the pin holds a size and places within
@@ -57,7 +69,7 @@ from pathlib import Path
 from azurkit.edits.layer import Change, Claim, Layer
 
 TABLE = Path(__file__).with_name("shipped.json")
-"""The rows, ``{"host": ..., "size": [...], "plan": [...], "places": [...]}`` (the recorder's)."""
+"""The rows, ``{"host": ..., "size": [...], "plan": [...], "places": [...], "part": [...]}`` (the recorder's)."""
 MAGIC = b"AZKP1\0"
 CHARACTERS = "gamedata/characters.xbr"
 LEVEL = 19
@@ -69,10 +81,10 @@ OFF = False
 fresh (``scripts/record_goldens.py`` and ``scripts/record_shipped.py`` set
 it, and the tests through the first)."""
 SEEN: list | None = None
-"""A list: each size, plan and parent's places the swap works out fresh is
-appended to it, ``{"size": row}``, ``{"plan": row, "found": (layer, lines,
-reasons)}`` or ``{"places": row}`` (the row it would have; the recorder's
-and the pin's)."""
+"""A list: each size, plan, parent's places and dress's part the swap works
+out fresh is appended to it, ``{"size": row}``, ``{"plan": row, "found":
+(layer, lines, reasons)}``, ``{"places": row}`` or ``{"part": row}`` (the
+row it would have, but a part's ``blob``; the recorder's and the pin's)."""
 ULPS = 8
 """How many float32 steps apart another host's float may be (D1016: what a dress writes is float32; AZ-833 saw 8)."""
 NEAR = 2e-12
@@ -190,6 +202,48 @@ def _blob(want: Mapping, root: Path) -> bytes | None:
     if len(data) != want["size"] or hashlib.sha256(data).hexdigest() != want["sha256"]:
         return None
     return data
+
+
+_INDEX: list = [None, {}]
+
+
+def _part_rows(name: str) -> Sequence[Mapping]:
+    """:data:`TABLE`'s ``part`` rows of the part ``name``, by name (indexed once a table)."""
+    held = table()
+    if _INDEX[0] is not held:
+        index: dict[str, list] = {}
+        for row in held.get("part", ()):
+            index.setdefault(row["part"], []).append(row)
+        _INDEX[:] = [held, index]
+    return _INDEX[1].get(name, ())
+
+
+def part(name: str, root: Path | None = None) -> bytes | None:
+    """The bytes (``part_codec``'s) of the part :mod:`.parts` keeps under
+    ``name`` as a row ships them in the content folder ``root`` (its
+    :data:`~.content.ROOT`), read no further than the row's size and held
+    to its sha256 (:func:`_blob`); ``None`` where no row lists it, none's
+    file is there as listed, or :data:`OFF`."""
+    from azurkit.tools.characters import content as kit
+
+    if OFF:
+        return None
+    for row in _part_rows(name):
+        if (data := _blob(row["blob"], root or kit.ROOT)) is not None:
+            return data
+    return None
+
+
+def heard_part(name: str, part: object, size: int) -> None:
+    """Hear a dress's part worked out fresh (:data:`SEEN`): its row but its
+    ``blob`` (none for a part the codec doesn't keep: it ships nowhere)."""
+    from azurkit.tools.characters import part_codec
+
+    if SEEN is not None:
+        try:
+            SEEN.append({"part": {"part": name, "answer": part_codec.digest((part, size))}})
+        except ValueError:
+            pass
 
 
 def answer(layer: Layer, lines: Sequence[str], reasons: Sequence[str], asked: Mapping,
@@ -364,9 +418,9 @@ def heard_plan(recipe: Mapping, release, folded: float | None, before: Sequence[
 
 
 KEYS = {"size": ("release", "recipe", "entries"), "plan": ("release", "recipe", "folded", "taken", "entries", "reads"),
-        "places": ("release", "recipe", "entries", "reads")}
-"""What a row stands on, by kind (the rest is its answer)."""
-ANSWERS = {"size": "value", "plan": "answer", "places": "places"}
+        "places": ("release", "recipe", "entries", "reads"), "part": ("part",)}
+"""What a row stands on, by kind (the rest is its answer; a part's key is what its stage reads)."""
+ANSWERS = {"size": "value", "plan": "answer", "places": "places", "part": "answer"}
 SLIDERS = ("scale", "attack_reach", "attack_damage", "attack_speed", "jiggle_strength", "jiggle_stiffness")
 """The recipe's multipliers: at 1.0 one is as if not given (the page leaves it out; Modkit's flags, the goldens',
 give it)."""
@@ -378,9 +432,12 @@ def _page(recipe: Mapping) -> dict:
 
 
 def name(kind: str, row: Mapping) -> str:
-    """How a message names a row: ``plan of {"species": "booblord"} on usa``."""
+    """How a message names a row: ``plan of {"species": "booblord"} on usa``, ``part W24:0123456789ab``."""
     from azurkit.core import gate
 
+    if kind == "part":
+        stage, _, key = row["part"].rpartition(":")
+        return f"part {stage}:{key[:12]}"
     release = next((r.name for r in gate.RELEASES if r.iso_sha256 == row["release"]), row["release"][:12])
     return f"{kind} of {json.dumps(row['recipe'], sort_keys=True)} on {release}"
 
@@ -420,12 +477,12 @@ def _floats(answer: object) -> list[float]:
 
 def agrees(kind: str, row: object, fresh: object, exact: bool) -> bool:
     """Whether a row's answer ``row`` holds the ``fresh`` one: equal on the
-    recording host (``exact``); off it (D1016) a plan's digest, the
-    recording host's bytes, says nothing and a size's or places' roles are
+    recording host (``exact``); off it (D1016) a plan's or a part's digest,
+    the recording host's bytes, says nothing and a size's or places' roles are
     equal and its floats :func:`near` (:data:`ULPS`)."""
     if exact or row == fresh:
         return row == fresh
-    if kind == "plan":
+    if kind in ("plan", "part"):
         return True
     if kind == "places" and sorted(row) != sorted(fresh):
         return False
@@ -440,7 +497,7 @@ def held(seen: Mapping, rows_: Mapping | None = None) -> tuple[list[str], list[s
     recipe that gives a slider at 1.0 standing for the page's (:func:`_page`:
     the goldens' recipes give them, and dress the same)."""
     kind = next(k for k in KEYS if k in seen)
-    fresh, good, stale = seen[kind] | {"recipe": _page(seen[kind]["recipe"])}, [], []
+    fresh, good, stale = seen[kind] | ({"recipe": _page(seen[kind]["recipe"])} if "recipe" in seen[kind] else {}), [], []
     rows_ = rows_ if rows_ is not None else table()
     for row in rows_.get(kind, ()):
         if all(row[k] == fresh[k] for k in KEYS[kind]):

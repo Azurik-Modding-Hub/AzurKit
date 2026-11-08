@@ -35,7 +35,15 @@ a stale one refused by name), under its key and the code's digest
 this process doesn't hold is asked of it before it is worked out. The
 app's store is its signed ``swap`` kind, written behind the answer; the
 site's, the parts IndexedDB kept for a recipe's content, which the page
-offers with a Check and keeps after its answer."""
+offers with a Check and keeps after its answer.
+
+And a part neither holds is asked of what ships (Step 4.6p, the design's
+L3): ``shipped.part``, the parts ``scripts/record_shipped.py`` recorded
+from a Check of each built-in and of its own copy, which Install brings
+with the entry (its ``shipped/`` folder) on every host, so their first
+Check needs no dress. A part taken from there is never handed to
+:data:`STORE` (it ships), and a fresh one is heard (``shipped.SEEN``) for
+the re-record pin."""
 
 from __future__ import annotations
 
@@ -53,8 +61,8 @@ ROOM = 256 << 20
 PAGE = 4096
 """The bytes a part's file is compared and kept in: each page that differs from the stage's input (:func:`delta`)."""
 HEARD: dict[str, dict[str, int]] | None = None
-"""A dict: each stage's parts taken (``hit``; ``stored``: of them, from :data:`STORE`) and worked out (``miss``), by
-stage name (a test's, a measure's)."""
+"""A dict: each stage's parts taken (``hit``; of them ``stored``, from :data:`STORE`, and ``shipped``) and worked out
+(``miss``), by stage name (a test's, a measure's)."""
 
 STORE = None
 """A host's store of parts across visits (``get(key) -> bytes | None``, ``put(key, bytes or what makes them)``, made
@@ -67,6 +75,7 @@ no threads); the app's engine sets a lock, as it runs each call on a thread of i
 
 _SLOTS: OrderedDict[str, tuple[object, int]] = OrderedDict()
 _HELD = [0]
+_SHIPPED: set[str] = set()   # the parts held here that were taken from what ships: never handed to STORE
 
 
 def key(stage: str, *reads: object) -> str:
@@ -162,19 +171,27 @@ def _stored(name: str) -> str:
     return hashlib.sha256(f"part\0{characters._code()}\0{name}".encode()).hexdigest()
 
 
-def _fetch(name: str) -> tuple[object, int] | None:
-    """The part :data:`STORE` keeps under ``name`` (and its size), held in
-    this process again; ``None`` where it keeps none, or none this codec reads."""
-    from azurkit.tools.characters import part_codec
+def _fetch(name: str) -> tuple[object, int, str] | None:
+    """The part :data:`STORE` keeps under ``name``, else the one shipped
+    (``shipped.part``), its size and where it came from (``stored`` or
+    ``shipped``), held in this process again; ``None`` where neither has
+    one, or none this codec reads."""
+    from azurkit.tools.characters import part_codec, shipped
 
-    if STORE is None or (blob := STORE.get(_stored(name))) is None:
+    blob, came = None if STORE is None else STORE.get(_stored(name)), "stored"
+    if blob is None:
+        blob, came = shipped.part(name), "shipped"
+    if blob is None:
         return None
     try:
         part, size = part_codec.decode(blob)
     except (ValueError, TypeError):   # a stale or spoiled part: worked out again
         return None
     _hold(name, part, size)
-    return part, size
+    if came == "shipped":
+        with LOCK:
+            _SHIPPED.add(name)
+    return part, size, came
 
 
 def get(name: str, stage: str | None = None) -> object | None:
@@ -185,16 +202,17 @@ def get(name: str, stage: str | None = None) -> object | None:
         found = None if OFF else _SLOTS.get(name)
         if found is not None:
             _SLOTS.move_to_end(name)
-    if found is not None and STORE is not None:
+        shipped = name in _SHIPPED
+    if found is not None and STORE is not None and not shipped:
         from azurkit.tools.characters import part_codec
 
         STORE.used(_stored(name), lambda held=found: part_codec.encode(held))
-    stored = found is None and not OFF and (found := _fetch(name)) is not None
+    came = found is None and not OFF and (found := _fetch(name)) is not None and found[2]
     if stage is not None:
         with LOCK:
             _heard(stage, "miss" if found is None else "hit")
-            if stored:
-                _heard(stage, "stored")
+            if came:
+                _heard(stage, came)
     return None if found is None else found[0]
 
 
@@ -209,11 +227,14 @@ def held(name: str) -> bool:
 
 def put(name: str, part: object, size: int) -> None:
     """Keep ``part`` (``size`` bytes) under ``name``, letting the least
-    recently taken go past :data:`ROOM`, and hand it to :data:`STORE`; one
-    larger than :data:`ROOM` is not kept."""
+    recently taken go past :data:`ROOM`, and hand it to :data:`STORE` (and
+    to ``shipped.SEEN``, the pin's); one larger than :data:`ROOM` is not kept."""
+    from azurkit.tools.characters import shipped
+
     if OFF or size > ROOM:
         return
     _hold(name, part, size)
+    shipped.heard_part(name, part, size)
     if STORE is not None:
         from azurkit.tools.characters import part_codec
 
@@ -224,6 +245,7 @@ def _hold(name: str, part: object, size: int) -> None:
     with LOCK:
         if (old := _SLOTS.pop(name, None)) is not None:
             _HELD[0] -= old[1]
+        _SHIPPED.discard(name)
         _SLOTS[name] = (part, size)
         _HELD[0] += size
         while _HELD[0] > ROOM and _SLOTS:
@@ -234,6 +256,7 @@ def clear() -> None:
     """Let every kept part go."""
     with LOCK:
         _SLOTS.clear()
+        _SHIPPED.clear()
         _HELD[0] = 0
 
 

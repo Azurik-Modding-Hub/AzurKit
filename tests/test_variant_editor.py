@@ -17,6 +17,7 @@ import hashlib
 import io
 import json
 import math
+import os
 import pickle
 import re
 import struct
@@ -364,6 +365,54 @@ def test_a_part_kept_across_visits_reads_back_as_it_was_and_a_spoiled_stale_or_f
     read = xbox_adpcm.read_wav(sound)
     kept = parts.get(parts.key("wav", hashlib.sha256(sound.read_bytes()).hexdigest()))
     assert part_codec.decode(part_codec.encode(kept)) == kept and xbox_adpcm.read_wav(sound) == read
+
+
+def test_a_part_shipped_for_a_built_in_is_taken_where_its_bytes_are_its_rows_and_its_answer_is_one_in_every_process(
+        tmp_path, monkeypatch):
+    """Step 4.6p (the Check design's L3): a part a ``part`` row of ``shipped.json`` ships (``record_shipped.py``'s: a
+    file in its entry's ``shipped/parts/`` in the content folder, at zstd 19) is taken in place of working it out, read
+    back as it was and heard as shipped, and taken again it is never handed to the host's store as one it made; one
+    whose file there isn't its row's (a byte spoiled, another part's, gone), or with ``shipped.OFF``, is worked out. A
+    fresh part is heard (``shipped.SEEN``) by its digest, the row's answer, which a set of names doesn't move from one
+    process to another (a str's hash does), so the re-record pin holds it to its row."""
+    from azurkit.tools.characters import content, part_codec, shipped
+
+    held = ((8192, array.array("q", [0, 4096]), b"\x01" * 4096), parts.dump({"bones": {"hip", "tail", "ear"}}), False)
+    blob, other = part_codec.encode((held, 64), 19), part_codec.encode(("another", 1))
+    path = tmp_path / "variants/x/shipped/parts/0.azkp"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(blob)
+    row = {"part": "W24:k", "answer": part_codec.digest((held, 64)), "blob": {
+        "path": "variants/x/shipped/parts/0.azkp", "sha256": hashlib.sha256(blob).hexdigest(), "size": len(blob)}}
+    table = {"part": [row], "host": shipped.host()}
+    used = []
+    store = type("Store", (), {"get": lambda *_: None, "put": lambda *_: None,
+                               "used": lambda _, key, make: used.append(key)})
+    monkeypatch.setattr(content, "ROOT", tmp_path)
+    monkeypatch.setattr(shipped, "table", lambda: table)
+    monkeypatch.setattr(shipped, "OFF", False)
+    monkeypatch.setattr(parts, "STORE", store())
+    monkeypatch.setattr(parts, "HEARD", {})
+    parts.clear()
+    assert _exact(parts.get("W24:k", "W24"), held) and parts.HEARD["W24"] == {"hit": 1, "miss": 0, "shipped": 1}
+    assert _exact(parts.get("W24:k"), held) and used == []
+    for why, spoil in {"a byte spoiled": lambda: path.write_bytes(blob[:-1] + bytes([blob[-1] ^ 1])),
+                       "another part's": lambda: path.write_bytes(other), "gone": path.unlink,
+                       "shipped.OFF": lambda: setattr(shipped, "OFF", True)}.items():
+        spoil()
+        parts.clear()
+        assert parts.get("W24:k") is None, why
+        path.write_bytes(blob)
+        shipped.OFF = False
+    monkeypatch.setattr(shipped, "SEEN", [])
+    parts.put("W24:k", held, 64)
+    assert shipped.SEEN == [{"part": {"part": "W24:k", "answer": row["answer"]}}]
+    assert shipped.held(shipped.SEEN[0], table) == (["part W24:k"], [])
+    digests = {subprocess.run([sys.executable, "-c", "from azurkit.tools.characters import part_codec, parts; print("
+                               "part_codec.digest((parts.dump({'bones': {'hip', 'tail', 'ear'}}), frozenset('abcd'))))"],
+                              env=os.environ | {"PYTHONHASHSEED": seed}, capture_output=True, text=True,
+                              check=True).stdout for seed in ("1", "2")}
+    assert len(digests) == 1
 
 
 def test_two_dresses_on_two_threads_take_and_keep_parts_at_once_and_hold_only_the_parts_kept(monkeypatch):

@@ -273,6 +273,9 @@ def _miss(job: tuple) -> tuple[str, tuple | None, list[str]]:
     shipped.SEEN = []
     try:
         stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": image_path})
+    except ValueError:   # a pinned case's refusal: the shipped rows its dress stood on before it still held
+        if not case.startswith(PINNED):
+            raise
     finally:
         seen, shipped.SEEN = shipped.SEEN, None
     held = [shipped.held(s) for s in seen]
@@ -1592,7 +1595,7 @@ def _variants(release, folder: Path) -> dict[str, dict]:
 
 @pytest.mark.parametrize("release", RELEASES)
 def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resource(release, request, booblords,
-                                                                                  tmp_path):
+                                                                                  tmp_path, monkeypatch):
     """Each of G3's variant cases (:func:`_variants`: on USA the five
     built-in variants' recipes applied to the player's image, booblord's
     clips and voice installed from Azurik-Custom-Content (:func:`booblords`),
@@ -1607,7 +1610,9 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     change to her bytes is red until ``scripts/record_shipped.py`` re-records.
     Its parent's shipped places (the row of the first release that holds the
     file: USA's and Europe's ``characters.xbr`` are one) are too, a fresh
-    ``_parent_places`` in booblord_high's case."""
+    ``_parent_places`` in booblord_high's case. And on USA each shipped part
+    (Step 4.6p: a Check's of a built-in or of its own copy, :func:`_own_copies`
+    built for them) is the part a fresh dress works out under its key."""
     cases = _variants(release, tmp_path)
     assert len(cases) == {"usa": 7, "europe": 1}[release.name]
     plans = [row for row in shipped.table().get("plan", ()) if row["release"] == release.iso_sha256]
@@ -1615,12 +1620,30 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     cases |= {f"{PINNED}{json.dumps(row['recipe'])}": {"packs": {name: {} for name, pack in mods.PACKS.items()
                                                                  if pack.default_on}, "character": row["recipe"]}
               for row in plans if row["recipe"] not in built}
+    cases |= _own_copies(tmp_path, monkeypatch) if release.name == "usa" else {}
     first = dict(sorted(cases.items(), key=lambda kv: "booblord" not in kv[0]))   # the longest builds start first
     held: set[str] = set()
     assert _missed(first, request.getfixturevalue(f"{release.name}_iso"), release, workers=4, held=held) == {}
     assert plans and {shipped.name("plan", row) for row in plans} <= held
     places = [row for row in shipped.table().get("places", ()) if row["release"] == release.iso_sha256]
     assert bool(places) == (release.name == "usa") and {shipped.name("places", row) for row in places} <= held
+    shipped_parts = {shipped.name("part", row) for row in shipped.table().get("part", ())}
+    assert release.name != "usa" or shipped_parts and shipped_parts <= held, sorted(shipped_parts - held)
+
+
+def _own_copies(folder: Path, monkeypatch) -> dict[str, dict]:
+    """``{case: its recipe}``: each built-in variant's own copy (New from this, ``library.copy_as``), made in a library
+    in ``folder`` and built as the editor's Check dresses it, the packs on by default, a :data:`PINNED` case (the
+    shipped parts' pin; one that refuses, as booblord_high's does, is held by the parts it worked out first)."""
+    from azurkit.tools.characters import library
+
+    monkeypatch.setattr(library, "ROOT", folder / "library")
+    out = {}
+    for name in _player_variants.builtins():
+        made = library.copy_as(f"{name}_own", dict(sdk.variant_open({"name": name})["recipe"]))
+        out[f"{PINNED}{name}'s own copy"] = {"packs": {n: {} for n, pack in mods.PACKS.items() if pack.default_on},
+                                             "character": {"species": f"{name}_own", "variant_file": str(made)}}
+    return out
 
 
 def test_a_dress_scans_the_levels_once_a_release_and_keeps_none_of_them(usa_iso, monkeypatch):
@@ -1930,7 +1953,8 @@ def test_a_reshape_takes_its_parents_shipped_places_where_they_stand_on_what_the
 def test_a_shipped_answer_holds_to_a_fresh_one_exactly_on_its_recording_host_and_close_enough_off_it(monkeypatch):
     """D1016 (X11): on the table's ``host`` a fresh answer must be a row's, bit for bit, or it names the row stale; off
     it a size and places hold within ``shipped.ULPS`` float32 steps (noise near zero too) and their roles exactly, a plan
-    (a digest of the recording host's bytes) by what it stands on, and a build takes a close size for a shipped one."""
+    and a Check's part (digests of the recording host's bytes) by what they stand on, and a build takes a close size for
+    a shipped one."""
     def step(x: float, n: int) -> float:   # ``x``, ``n`` float32 steps on
         return struct.unpack("<f", struct.pack("<I", struct.unpack("<I", struct.pack("<f", x))[0] + n))[0]
 
@@ -1942,7 +1966,8 @@ def test_a_shipped_answer_holds_to_a_fresh_one_exactly_on_its_recording_host_and
         return {"release": "r", "recipe": {"species": "x"}, "entries": {}, "value": float(value).hex()}
 
     plan = {"release": "r", "recipe": {"species": "x"}, "folded": None, "taken": [], "entries": {}, "reads": {}}
-    rows = {"places": [places(1.5)], "size": [size(1.5)], "plan": [plan | {"answer": "0" * 64}]}
+    part = {"part": "W24:k", "answer": "0" * 64}
+    rows = {"places": [places(1.5)], "size": [size(1.5)], "plan": [plan | {"answer": "0" * 64}], "part": [part]}
     near, far = step(1.5, shipped.ULPS), step(1.5, shipped.ULPS + 1)
     here = rows | {"host": shipped.host()}
     there = rows | {"host": "another host"}
@@ -1951,10 +1976,11 @@ def test_a_shipped_answer_holds_to_a_fresh_one_exactly_on_its_recording_host_and
         return tuple(map(len, shipped.held(seen, table)))
     for seen, good in (({"places": places(near)}, 1), ({"places": places(far)}, 0), ({"size": size(near)}, 1),
                        ({"size": size(far)}, 0), ({"places": places(1.5, "b")}, 0),
-                       ({"plan": plan | {"answer": "1" * 64}}, 1)):
+                       ({"plan": plan | {"answer": "1" * 64}}, 1), ({"part": part | {"answer": "1" * 64}}, 1)):
         assert verdict(seen, there) == (good, 1 - good), seen
     assert verdict({"places": places(near)}, here) == verdict({"size": size(near)}, here) == (0, 1)
-    assert verdict({"plan": plan | {"answer": "1" * 64}}, here) == (0, 1)
+    assert verdict({"plan": plan | {"answer": "1" * 64}}, here) == verdict({"part": part | {"answer": "1" * 64}},
+                                                                            here) == (0, 1)
     assert verdict({"places": places(1.5)}, here) == verdict({"size": size(1.5)}, here) == (1, 0)
     assert shipped.near(3e-13, -1e-12) and not shipped.near(1e-9, -1e-9)
     monkeypatch.setattr(shipped, "table", lambda: here)

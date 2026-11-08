@@ -6,7 +6,10 @@ Characters tab's community entries):
 - ``clips/booblord/``, ``sounds/booblord/``: booblord's own clips and
   voice (the built-in variants', ``_player_variants.CLIPS`` and ``SOUNDS``).
 - ``variants/booblord/shipped/``: her whole build at the page's defaults,
-  one file a release (``shipped.py``, D995), read in place of dressing her.
+  one file a release (``shipped.py``, D995), read in place of dressing her,
+  and the parts a Check of each built-in and its own copy works out
+  (``parts/``, one ``.azkp`` file a part, Step 4.6p), read in place of
+  those stages.
 
 The townsfolk's bare-hands kit (``clips/townsfolk/``, ``_player_kit.KIT``)
 and the air elemental's funnel (``fx/air_elemental/``,
