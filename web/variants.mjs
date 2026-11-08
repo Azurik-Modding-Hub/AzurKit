@@ -362,7 +362,8 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
       const value = typeof v.recipe[key] === "string" ? v.recipe[key] : "";
       if (document.activeElement !== input && input.value !== value) input.value = value;
     }
-    ui.bodyNote.textContent = from ? `${from}'s body (read-only): New from this… makes one to edit.`
+    ui.bodyNote.textContent = from   // only the body's fields are greyed: Title and Notes stay the recipe's own
+      ? `${from}'s body is read-only (New from this… makes one to edit); Title and Notes can be edited.`
       : base === "garret4" ? "garret4's own body: his height is garret4's; its scale, arms and rotate are made on his own build."
         : "Its size. Title and Notes are what the Models view shows for it.";
   };

@@ -5914,6 +5914,10 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         assert (shown["status"], shown["check"]) == (
             f"recipe {beam.sha} · {grade} · built in · Choose your image first (1.) to check it",
             [True, "Choose your image first (1.)"])
+        assert page.evaluate("() => [document.getElementById('var-body-note').textContent, "
+                             "document.getElementById('var-scale').disabled, document.getElementById('var-title')"
+                             ".disabled]") == ["beamlord's body is read-only (New from this… makes one to edit); Title "
+                                               "and Notes can be edited.", True, False]   # says only what is greyed
         assert [r for r in shown["rows"] if r[0] == "built-in"] == [["built-in", n] for n in _player_variants.builtins()]
         drawn = page.evaluate("""() => { const row = document.querySelector('#var-items button[data-name="beamlord"]');
             return [row.style.color, row.title, document.getElementById('var-legend').textContent]; }""")
