@@ -64,8 +64,9 @@ MOST_WAIT = 120.0
 """The longest wait between two asks: 15, 30, 60, 120 and 120 s, 5 min 45 s in all (Step 4.5t: run 42467070736's
 jobs lost Pyodide's core as GitHub's release downloads answered 504 for minutes, where 3 asks spanned 15 s)."""
 CAP = 600.0
-"""The most seconds :func:`download` spends on a file from its first ask: no wait starts that would end past it, so
-slow asks (a read may wait 120 s) cost asks, never more time."""
+"""The seconds from :func:`download`'s first ask of a file that its waits stay within: no wait starts that would end
+past it, so slow asks cost asks, not waits; the last ask, begun by then, may still run past it (each of its reads
+waits up to its 120 s timeout)."""
 # The web tests' engines (Step 4.1d3; Firefox D994): each test that takes the ``browser`` fixture runs in each. Each
 # one's name in Playwright's browsers.json, and its label.
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit"),
@@ -199,8 +200,8 @@ def download(url: str, out: Path, tries: int = TRIES) -> Path:
         wait, spent = min(WAIT * 2 ** (ask - 1), MOST_WAIT), time.monotonic() - start
         if ask == tries or spent + wait > CAP:
             break
-        print(f"{url}: ask {ask} of {tries} failed ({last}); again in {wait:g} s ({tries} asks, {CAP:g} s at most)",
-              file=sys.stderr)
+        print(f"{url}: ask {ask} of {tries} failed ({last}); again in {wait:g} s ({tries} asks, no wait past "
+              f"{CAP:g} s)", file=sys.stderr)
         time.sleep(wait)
     capped = f", and a {wait:g} s wait would pass the {CAP:g} s cap" if ask < tries else ""
     raise SystemExit(f"{url}: {ask} asks failed in {spent:.0f} s{capped}; the last: {last}")

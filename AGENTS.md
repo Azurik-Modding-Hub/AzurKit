@@ -1860,14 +1860,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (the game data's name their `--tries=6`) from
   `scripts/ci_retry.sh` (in any workflow: `tests/test_contracts.py`): 6
   tries, 7.5 min of waits, and `web_tools.download` fetches Pyodide's core
-  and wheels: 6 asks, 15 s to 2 min apart, 10 min at most, then a failure
-  by name (Steps 4.4ci46 and 4.5t: an outage of GitHub's release downloads
-  lasts minutes). What `scripts/web_tools.py` fetches (Pyodide, Playwright's
-  browsers) is kept in Actions' cache, keyed by the exact versions, the OS
-  and what is kept (`web_tools.py --cache`), restored before its step (on a
-  miss its folders go first, so a restore cut short leaves no part file) and
-  saved after it on a miss, before any key or image is on the runner (Step
-  4.5t). Each tier runs on xdist's
+  and wheels: 6 asks, 15 s to 2 min apart, no wait starting that would end
+  past 10 min from the first ask (the last ask may run on past it, each read
+  up to its 2 min timeout), then a failure by name (Steps 4.4ci46 and
+  4.5t: an outage of GitHub's release downloads lasts minutes). What
+  `scripts/web_tools.py` fetches (Pyodide, Playwright's browsers) is kept
+  in Actions' cache, keyed by the exact versions, the OS and what is kept
+  (`web_tools.py --cache`), restored before its step (on a miss its folders
+  go first, so a restore cut short leaves no part file) and saved after it
+  on a miss, before any key or image is on the runner (Step 4.5t). Each tier runs on xdist's
   workers (`--dist=loadgroup`, as the gate does) in a number each runner's
   memory sets, in the matrix: a killed worker ends the run by name
   (`--max-worker-restart=0`), where replacing one under loadgroup hangs it.
