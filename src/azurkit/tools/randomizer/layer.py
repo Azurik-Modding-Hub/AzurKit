@@ -293,7 +293,7 @@ def obsidian_reason(cost: float | None) -> str | None:
 # (Step 2.123): the move never ends [inferred from the layer update].
 LOCKS = {
     ("player_physics", "roll_time_scale"): "a roll played at a rate of 0 or less never ends, so the first "
-                                           "BLACK press holds the player in it",
+                                           "RB press holds the player in it",
     ("player_physics", "climb_speed_scale"): "rungs and climb moves played at a rate of 0 or less never end, "
                                              "so the first ladder or hoist holds the player on it",
 }

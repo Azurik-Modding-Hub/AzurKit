@@ -865,12 +865,15 @@ def test_moved_movement_sliders_plan_the_nearest_tiers_seed_by_the_physics_table
     moved = f"you moved sliders (player_physics jump_speed_scale 1.3), and {movement.PROMISE}"
     view = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"], "packs": JUMP})
     assert (view["share"], view["why_not"]) == (share, [moved, line])
-    packs = {"player_physics": {"roll_speed_scale": 0.5, "climb_speed_scale": 0.0} | JUMP["player_physics"],
-             "enemy_scaling": {"boss_health_scale": 2.0}, "qol_photo_mode": {"fly_speed": 2.0}}
+    packs = {"player_physics": {"roll_speed_scale": 0.5, "roll_time_scale": 0.0, "climb_speed_scale": 0.0}
+             | JUMP["player_physics"], "enemy_scaling": {"boss_health_scale": 2.0}, "qol_photo_mode": {"fly_speed": 2.0}}
     assert generator.movement_reasons(packs, sdk.catalog()["packs"]) == [
         "you moved sliders (enemy_scaling boss_health_scale 2, player_physics climb_speed_scale 0, player_physics "
-        f"jump_speed_scale 1.3, player_physics roll_speed_scale 0.5), and {movement.PROMISE}",
+        "jump_speed_scale 1.3, player_physics roll_speed_scale 0.5, player_physics roll_time_scale 0), and "
+        f"{movement.PROMISE}",
         "player_physics roll_speed_scale 0.5 is below vanilla's 1, movement the logic doesn't model (D83(c))",
+        "player_physics roll_time_scale 0 is a lock, not a speed: a roll played at a rate of 0 or less never ends, so"
+        " the first RB press holds the player in it",   # D1153: the modern pad's name
         "player_physics climb_speed_scale 0 is a lock, not a speed: " + layer.LOCKS["player_physics",
                                                                                     "climb_speed_scale"],
         "enemy_scaling boss_health_scale 2 is above vanilla's 1, enemy strength the logic doesn't model (D83(c))"]
