@@ -1144,7 +1144,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`native/mesh.c`, Step 4.6c): `mesh_edit._ray_at`, a round side's ray
   through a point (its form's exit, a drape's hull, the blend, the gate
   and the fades), on the side's numbers packed once (`_ray_row`); a
-  division by zero, which the twin raises, is the twin's.
+  division by zero, which the twin raises, is the twin's. The fifth is
+  the decimator's collapses (`native/decimate.c`, Step 4.6c):
+  `decimate.decimate`'s loop past its `_Work` setup (the offers, the link
+  test, the cost, the max_error's rehome and the collapse, the cheapest
+  first, ties by point) on its packing (`_compiled`); its sets are lists
+  there (no result reads their order), a NaN or a skin the twin refuses is
+  the twin's, and its pool and heap grow until they hold the cut.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

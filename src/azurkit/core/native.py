@@ -48,7 +48,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
-           "ray")
+           "ray", "decimate")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -106,6 +106,9 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_skinned", [vp, vp, vp, i64, vp, vp, i64, i64, vp]),
                          ("az_signed", [vp, i64, vp, vp, i64, f64, f64, vp, vp, vp]),
                          ("az_ray", [vp, f64, f64, f64, i64, f64, f64, f64, vp]),
+                         ("az_decimate_need", [i64] * 4),
+                         ("az_decimate", [i64, vp, vp, i64, vp, vp, vp, vp, vp, ctypes.c_char_p, i64, vp, vp, vp,
+                                          ctypes.c_char_p, vp, vp, i64, f64, i64, f64, vp, i64, i64, i64]),
                          ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
@@ -853,6 +856,42 @@ def ray(row: array, p, origin) -> tuple | None | bool:
     if code == 0:
         return (out[0], out[1], out[2]), out[3], out[4], out[5], out[6], out[7]
     return None if code == 1 else False
+
+
+def decimate(pos: array, flags: bytes, vpoint: array, twin: array, so: array, sb: array, sw: array, sbad: bytes,
+             tris: array, tp: array, alive: bytes, backed: bytes, quad: array, norm: array, count: int,
+             target: float, limit: float | None) -> tuple[array, bytearray] | None:
+    """``decimate.decimate``'s collapses (``native/decimate.c``) on its
+    ``_Work``'s packing (``decimate._compiled``): the triangles' corners
+    and which live after them, or ``None`` without the library or where
+    the twin answers (a NaN, a skin it refuses). Its pool and heap grow
+    until they hold the cut."""
+    if (lib := library()) is None:
+        return None
+    n, nt = len(pos) // 3, len(tris) // 3
+    bcap, hcap = 4 * n + 1024, 8 * n + 1024
+    for _ in range(4):   # each pass a pool or heap twice as large, else the twin
+        out_tris, out_tp, out_alive = array("q", tris), array("q", tp), bytearray(alive)
+        q, nm, pf = array("d", quad), array("d", norm), bytearray(flags)
+        scratch = array("q", [0]) * lib.az_decimate_need(n, nt, bcap, hcap)
+        code = lib.az_decimate(n, _at(pos), _buf(pf), len(vpoint), _at(vpoint), _at(twin), _at(so), _at(sb), _at(sw),
+                               sbad, nt, _at(out_tris), _at(out_tp), _buf(out_alive), backed, _at(q), _at(nm), count,
+                               float(target), int(limit is not None), 0.0 if limit is None else float(limit),
+                               _at(scratch), len(scratch), bcap, hcap)
+        if code == 0:
+            return out_tris, out_alive
+        if code == 1:
+            bcap *= 2
+        elif code == 2:
+            hcap *= 2
+        else:
+            return None
+    return None
+
+
+def _buf(b: bytearray) -> ctypes.c_void_p:
+    """A bytearray's address for a kernel that writes it (its first byte; an empty one: none)."""
+    return ctypes.addressof((ctypes.c_char * len(b)).from_buffer(b)) if b else None
 
 
 def runs(old: bytes, new: bytes) -> list[tuple[int, int]] | None:

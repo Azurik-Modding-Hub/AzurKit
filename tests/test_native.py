@@ -138,7 +138,12 @@ for doc, call in docs:
     graphs = tuple(native.Graph(*tup(g)) for g in doc.pop("graphs"))
     t = native.Tables(**{k: tup(v) for k, v in doc.items()} | {"discs": frozenset(doc["discs"])}, graphs=graphs)
     answers.append(_answer(native._native(native.library(), t, **call)))
-json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answer(case) for case in dress]})
+import random
+from azurkit.tools.characters import decimate
+rng = random.Random(1407)
+cuts = [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
+json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answer(case) for case in dress],
+            "cuts": cuts})
 """
 
 
@@ -315,13 +320,16 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
     (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress]), encoding="utf-8")
-    got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer) + _UNDER_PYODIDE,
-                  packages=(_pyodide.numpy(),))
+    got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer)
+                  + inspect.getsource(_mesh) + _UNDER_PYODIDE, packages=(_pyodide.numpy(),))
     assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
     assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):
         assert got["dress"] == json.loads(json.dumps([_dress_answer(case) for case in dress]))
+    from azurkit.tools.characters import decimate
+    rng = random.Random(1407)
+    assert got["cuts"] == [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
 
 
 def _dress_cases(seed: int, count: int):
@@ -512,6 +520,68 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):   # the twins' numpy on infinities
         assert got == [_dress_answer(case) for case in cases]
+
+
+def _mesh(rng: random.Random):
+    """A seeded LOD to cut: a jittered sheet (its edges a border) in two
+    materials (their shared column locked), a UV seam (a point's two
+    wedges), a two-sided patch (each triangle and its reverse twin) and a
+    few skins over four bones."""
+    from azurkit.tools.characters.body_codec import Group, Lod, Vertex, slot_code
+
+    w, h = rng.randint(6, 14), rng.randint(6, 14)
+
+    def vertex(x, y, u=0.0):
+        a = rng.random()
+        return Vertex((x * 0.05, y * 0.05, rng.uniform(-0.01, 0.01) if rng.random() < 0.7 else 0.0),
+                      (a, 1.0 - a, 0.0, 0.0), (0.0, 0.0, 1.0), (x / w + u, y / h),
+                      slots=(slot_code(rng.randrange(4)), slot_code(rng.randrange(4)), 0, 0))
+    groups = []
+    for g, (x0, x1) in enumerate(((0, w // 2), (w // 2, w))):
+        verts, at = [], {}
+        for y in range(h + 1):
+            for x in range(x0, x1 + 1):
+                at[x, y] = len(verts)
+                verts.append(vertex(x, y))
+        seam = {}
+        for y in range(h + 1):   # a UV seam down the middle column of the first material
+            if g == 0 and x0 < (x0 + x1) // 2 < x1:
+                seam[y] = len(verts)
+                verts.append(vertex((x0 + x1) // 2, y, 0.5))
+        tris = []
+        for y in range(h):
+            for x in range(x0, x1):
+                a, b, c, d = at[x, y], at[x + 1, y], at[x + 1, y + 1], at[x, y + 1]
+                if g == 0 and x >= (x0 + x1) // 2 and seam:
+                    a = seam.get(y, a) if x == (x0 + x1) // 2 else a
+                    d = seam.get(y + 1, d) if x == (x0 + x1) // 2 else d
+                tris += [(a, b, c), (a, c, d)]
+        if g == 1:   # a two-sided patch: its first triangles' reverse twins
+            tris += [(t[0], t[2], t[1]) for t in tris[:rng.randint(0, 6)]]
+        groups.append(Group(list(range(4)), verts, tris, (g, 0)))
+    return Lod(0, groups)
+
+
+def test_the_decimators_collapses_cut_its_twins_lod_bit_for_bit(monkeypatch):
+    """``native/decimate.c``'s collapse loop (Step 4.6c round 4) cuts the
+    LOD its twin, ``decimate.decimate``'s loop, cuts: each group's vertices
+    and triangles, to a ratio, a max_error, both and neither's stop, over
+    seeded random sheets with borders, a seam, a locked material border and
+    a two-sided patch."""
+    from azurkit.tools.characters import decimate
+
+    ran = collections.Counter()
+    monkeypatch.setattr(native, "decimate", lambda *a, real=native.decimate: ran.update(["kernel"]) or real(*a))
+    rng = random.Random(1406)
+    cases = [(_mesh(rng), stop) for _ in range(12)
+             for stop in ((0.5, None), (0.3, 0.004), (None, 0.002), (0.05, 0.02), (0.0, None))]
+    assert native.report()["loaded"]
+    got = [decimate.decimate(lod, ratio, max_error=error) for lod, (ratio, error) in cases]
+    assert ran["kernel"] == len(cases)
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    want = [decimate.decimate(lod, ratio, max_error=error) for lod, (ratio, error) in cases]
+    assert [repr(lod) for lod in got] == [repr(lod) for lod in want]
+    assert any(decimate.drawn(a) < decimate.drawn(lod) for a, (lod, _) in zip(got, cases))
 
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):

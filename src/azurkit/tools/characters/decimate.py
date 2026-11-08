@@ -481,6 +481,53 @@ class _Work:
         return Lod(None, out)
 
 
+def _compiled(work: _Work, target: float, limit: float | None) -> bool:
+    """:func:`decimate`'s collapses on ``work`` by the compiled kernel
+    (``core.native.decimate``, ``native/decimate.c``): its triangles and
+    which live, as the loop below leaves them; ``False`` where its twin, the
+    loop, runs instead (no library, a value it can't take, a NaN)."""
+    from array import array
+
+    from azurkit.core import native
+
+    floats = (float,)
+    pos = [x for p in work.pos for x in p]
+    if native.library() is None or not all(type(x) in floats for x in pos):
+        return False
+    so, sb, sw, sbad = [0], [], [], []
+    for v in range(len(work.verts)):
+        try:
+            skin = sorted(work.skin(v).items())
+        except ValueError:   # the twin raises it where a collapse reads it
+            skin, bad = [], 1
+        else:
+            bad = 0
+        if not all(type(b) is int and type(x) in floats for b, x in skin):
+            return False
+        sb += [b for b, _ in skin]
+        sw += [x for _, x in skin]
+        so.append(len(sb))
+        sbad.append(bad)
+    norm = [x for n in work.norm for x in n]
+    quad = [x for q in work.quad for x in q]
+    if not all(type(x) in floats for x in (*norm, *quad)):
+        return False
+    flags = bytes((1 if lk else 0) | (2 if bd else 0) | (4 if two else 0) | (8 if live else 0)
+                  for lk, bd, two, live in zip(work.locked, work.border, work.two, work.point_alive))
+    twin = array("q", [work.twin.get(c, -1) for c in range(len(work.verts))])
+    got = native.decimate(array("d", pos), flags, array("q", work.vpoint), twin, array("q", so), array("q", sb),
+                          array("d", sw), bytes(sbad), array("q", [c for t in work.tris for c in t]),
+                          array("q", [x for t in work.tp for x in t]), bytes(map(bool, work.alive)),
+                          bytes(t in work.back for t in range(len(work.tris))), array("d", quad), array("d", norm),
+                          work.count, target, limit)
+    if got is None:
+        return False
+    tris, alive = got
+    work.tris = [list(tris[3 * t:3 * t + 3]) for t in range(len(work.tris))]
+    work.alive = [bool(a) for a in alive]
+    return True
+
+
 def decimate(lod: Lod, ratio: float | None = None, *, max_error: float | None = None) -> Lod:
     """``lod`` cut to at most ``ratio`` of its drawn triangles, or as far
     as every input position stays within ``max_error`` metres of the cut
@@ -495,6 +542,8 @@ def decimate(lod: Lod, ratio: float | None = None, *, max_error: float | None = 
     work = _Work(lod)
     target = -1.0 if ratio is None else ratio * work.count
     limit = None if max_error is None else max_error * max_error
+    if _compiled(work, target, limit):
+        return work.lod()
     if limit is not None:
         work.hold()
     heap: list[tuple[float, int, int]] = []
