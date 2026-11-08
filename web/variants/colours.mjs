@@ -572,8 +572,10 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
       .map(([op, word]) => `${count(op)} ${word}${count(op) > 1 ? "s" : ""}`).join(", ");
     if (ops.length && !await ask(`The PNG replaces row ${c.row}'s colour edits (${edits || ops.length}); an exported PNG `
                                  + "holds them already. Replace them? (Undo takes it back.)")) return;
-    const name = v.name, row = c.row, picked = await read();
-    if (!picked) return;
+    const name = v.name, row = c.row;
+    pngSaid("Importing…");   // at once: the note never holds the last import's line while this one runs
+    const picked = await read();
+    if (!picked) return pngSaid("");
     const reply = await call("add_png", app ? { name, path: picked.path, size }
       : { given: { folder: folderOf(name), file: picked.name, size }, data: picked.data });
     if ("refused" in reply) return pngSaid(`Not imported: ${reason(reply.refused)}`, true);

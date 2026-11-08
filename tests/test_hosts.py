@@ -1440,10 +1440,11 @@ def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_png
     the hex box turns the main colour to the colour typed, the hue and saturation boxes keep any number (D23: 500),
     and text that isn't one is named, nothing written; a palette colour's swap takes its colour from the wheel
     picker. Export PNGs writes each row's texture into a folder of its own in Downloads. Import PNG asks for Save as
-    first, then a row; it asks before it replaces the row's edits (a no keeps them); a PNG of another size is named,
-    and one of the row's size is copied into the variant's folder as the row's only op (its palette the PNG's red, a
-    hue typed then turning it green after it); Undo (its button, then the keys) takes the edits back, a quick run of
-    them one step; Save keeps the ops."""
+    first, then a row; it asks before it replaces the row's edits (a no keeps them; a yes says Importing… at once, so
+    the last import's line never reads as this one's done); a PNG of another size is named, and one of the row's size
+    is copied into the variant's folder as the row's only op (its palette the PNG's red, a hue typed then turning it
+    green after it); Undo (its button, then the keys) takes the edits back, a quick run of them one step; Save keeps
+    the ops."""
     import numpy as np
 
     from azurkit.tools.characters import colour_preview, draw, paint, textures
@@ -1539,6 +1540,7 @@ def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_png
             _page.click(page, "var-png-use")
             _page.until(page, VARIANTS_ASKED)
             _page.click(page, f"var-ask-{answer}")
+        assert page.evaluate("() => document.getElementById('var-png-note').textContent") == "Importing…"
         png = {"op": "png", "file": "edited.png",
                "sha256": hashlib.sha256((tmp_path / "edited.png").read_bytes()).hexdigest()}
         assert _colours_drawn(page, "s.png.startsWith('Row 1')")["shown"] == [[255, 0, 0]] * 6
