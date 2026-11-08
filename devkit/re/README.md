@@ -1,8 +1,7 @@
 # devkit/re: the reverse-engineering tools (dev only)
 
-The `re` area holds the offline XBE reads, the RE data and shim authoring;
-the Ghidra side (its client, serves, sync and snapshot verb) comes with its
-own step.
+The `re` area holds the offline XBE reads, the RE data, shim authoring and
+the Ghidra side (its client, serves, plans, sync and snapshot).
 
 ## `xbe`: offline reads of a `default.xbe`
 
@@ -102,7 +101,7 @@ cut; none of it reaches the wheel (`tests/test_wheel.py`: the wheel is
 
 | File | What it holds |
 |---|---|
-| `ghidra_snapshot.json` | the Ghidra project's names: 545 functions, 1,103 labels and 10 structures (Modkit's `docs/ghidra_snapshot.json`, as it was; only the Ghidra side's `ghidra-snapshot` writes it once that is ported) |
+| `ghidra_snapshot.json` | the Ghidra project's names: 545 functions, 1,103 labels and 10 structures (Modkit's `docs/ghidra_snapshot.json`, as it was; only `ghidra-snapshot` writes it) |
 | `anchors.toml` | the 83 VA anchors of Modkit's shim header: each USA address, its section, what the vanilla XBE holds there (an `f32`, a `u32`, a `cstr`, a `wstr` or `zero` bytes) or, in `.text`, nothing (code), and a note |
 | `structs.h` | the header's 10 structures and 2 enums with their offset asserts, the player entity's field offsets and flag bits and the vanilla step; no shim includes it (they include shimkit's headers) |
 | `function_notes.toml` | a note for each of the facts' 354 functions: what it does and what a shim calling it must know (Modkit's vanilla-symbol registry's docs) |
@@ -111,3 +110,41 @@ cut; none of it reaches the wheel (`tests/test_wheel.py`: the wheel is
 addresses from the facts' address map), each anchor to one check, the
 anchors to `anchors.toml` alone, `structs.h` to compiling with shimkit's
 flags (its asserts holding) and the notes to the facts' functions.
+
+## The Ghidra side
+
+Modkit's Ghidra verbs (Step 4.11d2), on the **stock** GhydraMCP plugin's
+HTTP API through one client (`ghidra_client.py`), always on 127.0.0.1. The
+skill `azurik-ghidra-mcp` holds the rules for the owner's project (never
+opened headlessly or written while a Ghidra holds it; headless work on a
+copy) and the ports.
+
+```bash
+uv run bootstrap.py --with re [--allow-scripts]   # Ghidra 12.1.2, Temurin 25, ghidra-xbe, GhydraMCP and its bridge into .tools/
+uv run --locked python -m devkit re ghidra-serve start|status|stop [--project GPR] [--port 8212] [--max-seconds S] [--maxmem 2G] [--timeout S]
+uv run --locked python -m devkit re ghidra-query decompile|disasm|xrefs-to VA [--port 8212] [--json]
+uv run --locked python -m devkit re ghidra-sync [--apply --target PROJECT:/PROGRAM | --emit-plan FILE] [--force] [--push-structs [--recreate-structs]] [--port 8193] [--json]
+uv run --locked python -m devkit re ghidra-snapshot PATH [--port 8193] [--keep-default-names] [--no-labels] [--no-structs]
+uv run --locked python -m devkit re struct-diff [--offline] [--header H] [--verbose] [--port 8193] [--json]
+uv run --locked python -m devkit re ghidra-apply --plan P [--project GPR] [--apply --plan-sha256 SHA]
+uv run --locked python -m devkit re ghidra-backup list|restore NAME|prune [--project GPR] [--keep N]
+```
+
+| Verb | What it does |
+|---|---|
+| `ghidra-serve` | copies a project (reading it only; the content fingerprint before and after the copy must match, one retry) into `ghidra-serve/<port>/` in the user cache folder and serves the copy read-only with `.tools`' Ghidra (`ghidra_scripts/AzurikServe.java`: the program is temporary, so no save persists): its `programId` is `AzurikServe:/default.xbe`. One serve a port (default 8212; agents' 8212-8229), detached, ending by itself after `--max-seconds` (2 h); a busy port refuses, naming what answers there. `status` says clean or DIRTY (in-memory edits), current or STALE (the project changed) and the project's lock |
+| `ghidra-query` | the C text, the instructions (never their bytes) or the references of a VA, from a serve's copy only (another program refuses, exit 2) |
+| `ghidra-sync` | a dry run of renames and plate comments for every VA the USA facts' functions, the anchors and the packs' sites and places name; `--apply` writes only the program `--target` names and only the USA program, renames only a name Ghidra made up and keeps a hand-written plate comment unless `--force`; `--push-structs` makes `data/structs.h`'s structs at their sizes; `--emit-plan` writes the renames and the listed functions to create as a `ghidra-apply` plan |
+| `ghidra-snapshot` | functions, named labels and the root category's structs, Ghidra's made-up names dropped, as JSON: the only writer of `data/ghidra_snapshot.json`; refuses a dirty or stale serve and a program that isn't the USA XBE |
+| `struct-diff` | `data/structs.h`'s structs against Ghidra's: `header_only`, `ghidra_only`, `size_mismatch`, `field_mismatch`, `ok`; a failed listing or lookup exits 1 |
+| `ghidra-apply` | a plan (a JSON list of `rename`, `rename_label`, `comment`, `delete_equate`, `delete_category` and `create_function` lines, run by `ghidra_scripts/ApplyPlan.java`) dry-run on a copy, printing each line and the plan's sha256; with `--apply`, that sha256 and `--project`: refused while a Ghidra holds the project, backed up into `ghidra-backups/` beside its folder, written, verified on a copy, and put back byte-identical on any failure, timeout or Ctrl-C. Exit 0 applied, 1 failed (the project as before), 2 refused, 3 not put back |
+| `ghidra-backup` | `ghidra-apply`'s backups: `list`; `restore NAME` (the project as it is moves aside first); `prune` (the newest `--keep`, and the last verified apply's undo) |
+
+The pins are `tools.toml`'s (the bridge runs as `uv run --script`, in the
+environment its own header pins; ghidra-xbe, which has no licence, is only
+ever downloaded). `ghidra_scripts/` holds the four scripts the verbs and the
+bridge's `scripts_run` use: `AzurikServe`, `ApplyPlan`, `ImportHeader` and
+`CreateEquate`. `tests/test_ghidra.py` holds the side against
+`tests/mock_ghidra.py`, a fake `analyzeHeadless` and fake assets; its tests
+marked `ghidra` run the scripts in `.tools`' Ghidra (`-m "not ghidra"`
+deselects them).

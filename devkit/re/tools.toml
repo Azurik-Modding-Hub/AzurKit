@@ -1,0 +1,59 @@
+# tools.toml: the RE tools `uv run bootstrap.py --with re` installs into the checkout's .tools/ (dev only; nothing
+# here ships, and none of it is ever committed: .tools/ is ignored). Python packages are pinned in uv.lock.
+# Ported from Modkit's tools.toml at its last cut (Step 4.11d2), its pins unchanged. Every url and sha256 was checked
+# against the vendor's own digest when Modkit pinned it (each GitHub release asset's `digest`; Adoptium's published
+# `.sha256.txt` for the JDKs; the bridge, ghidra-xbe and Ghydra downloaded and hashed).
+#
+# bootstrap.py --with re (stdlib only), per entry: download -> verify sha256 (a missing hash is an error)
+#   -> unpack into .tools/<name>/ (stable path) -> write .tools/<name>/.ok = "<version> <sha256>".
+#   kind = "archive"          unpack, minus its one top-level folder (macOS JDK: JAVA_HOME is <dir>/Contents/Home)
+#   kind = "ghidra-extension" keep the zip there; unzip it into .tools/ghidra/Ghidra/Extensions/ on every run
+#   kind = "file"             keep the single file
+# A re-run fetches only an entry whose .ok differs. Then it rewrites its block at the end of
+# .tools/ghidra/support/launch.properties (absolute paths, so each checkout installs its own; never copy a .tools):
+#   JAVA_HOME_OVERRIDE=<checkout>/.tools/jdk[/Contents/Home]
+#   VMARGS=-Dapplication.settingsdir=<checkout>/.tools/ghidra-home
+#   VMARGS=-Dapplication.cachedir=<checkout>/.tools/ghidra-home/cache
+#   VMARGS=-Dghidra.user.scripts.dir=<checkout>/.tools/ghidra-home   (scripts_run's temp sources; not ~/ghidra_scripts)
+#   VMARGS=-Dghidra.mcp.bind.host=127.0.0.1
+#   VMARGS=-Dghidra.mcp.cors.origin=http://127.0.0.1:1
+#   VMARGS=-Dghydra.dev.allowScripts=true      (only with --allow-scripts)
+# Uninstall = delete .tools/ghidra, jdk, ghidra-xbe, ghydra, ghydra-bridge and ghidra-home. Outside the checkout,
+# Ghidra writes only to its temp dir. Bump = one commit that changes version + url + sha256 together.
+# Platforms: macos-arm64 macos-x86_64 linux-x86_64 linux-arm64 windows-x86_64 any
+schema = 1
+
+[tools.ghidra]          # Apache-2.0. Stock Ghydra rc.1 was built against it. The newest release whose decompiler runs
+# on macOS: 12.1.3 and 12.1.4 ship no macOS natives (upstream discussion #9536, 2026-08-21; the decompiler fails
+# with `os/mac_arm_64/decompile does not exist`). `support/gradle/gradlew buildNatives` builds them (verified
+# 2026-10-10) but was not adopted (owner, D89, 2026-10-10). 12.1.4 also upgrades the project's x86 language
+# 4.7 -> 4.9, one way: 12.1.2 can't open a program saved by 12.1.4 (verified 2026-10-10 on copies).
+version = "12.1.2"
+kind = "archive"
+assets.any = { url = "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.2_build/ghidra_12.1.2_PUBLIC_20260605.zip", sha256 = "b62e81a0390618466c019c60d8c2f796ced2509c4c1aea4a37644a77272cf99d" }
+
+[tools.jdk]             # Eclipse Temurin 25, the newest LTS; GPL-2.0 WITH Classpath-exception-2.0. Always downloaded, never reused.
+version = "25.0.4.1+1"  # Ghidra 12.1.2 runs on it: java.min=21, no java.max (verified 2026-10-10, Step 2.13b)
+kind = "archive"
+assets.macos-arm64    = { url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_aarch64_mac_hotspot_25.0.4.1_1.tar.gz", sha256 = "61979887f7506a24a57439ff99adb8b3a7fc89977d9cfe3b8984f58a981b7b9d" }
+assets.macos-x86_64   = { url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_mac_hotspot_25.0.4.1_1.tar.gz", sha256 = "e6229d9504f7922053ab31821b9e6bee8761daf7b026a3476d1a027563009880" }
+assets.linux-x86_64   = { url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz", sha256 = "dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e" }
+assets.linux-arm64    = { url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_aarch64_linux_hotspot_25.0.4.1_1.tar.gz", sha256 = "69df11a02cfa3ef7d7ca645e03edce6778ec090e100f6ae2b42097865730ac52" }
+assets.windows-x86_64 = { url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_windows_hotspot_25.0.4.1_1.zip", sha256 = "00c847d804f4a78e9f04f2683faf14fed898535b177b7fc704486cb0284e9283" }
+
+[tools.ghidra-xbe]      # NO LICENSE upstream: downloaded from upstream only, never redistributed or committed.
+version = "build-202602250354"   # built for 12.0.3; loads on 12.1.2 unpatched (unpacked extensions are not version-gated)
+kind = "ghidra-extension"        # bundled XbSymbolDatabaseCLI is x86-64 only: Rosetta 2 on Apple Silicon
+assets.any = { url = "https://github.com/XboxDev/ghidra-xbe/releases/download/build-202602250354/ghidra_12.0.3_PUBLIC_20260225_ghidra-xbe.zip", sha256 = "fc689e84a3940d840edac94491e28f83a0cfc1f177fffceed835932bdc2d54b1" }
+
+[tools.ghydra]          # Apache-2.0. STOCK upstream plugin; replaces the ghidra_plugin/ fork.
+version = "3.0.0-rc.1"
+kind = "ghidra-extension"
+assets.any = { url = "https://github.com/starsong-consulting/GhydraMCP/releases/download/v3.0.0-rc.1/Ghydra-v3.0.0-rc.1-20260618-063536-ghidra12.1.2.zip", sha256 = "02cb82209e20e2fa19528f15fface3ca9cf5663e1c6931f38cba595d4b081875" }
+
+[tools.ghydra-bridge]   # Apache-2.0. The `ghidra` MCP server: run as `uv run --script`, in the environment its own
+# inline header pins (mcp 1.6.0, requests 2.32.3), never AzurKit's: mcp 1 and 2 can't share one environment, and
+# requests in the project's would reach what the app freezes.
+version = "3.0.0-rc.1"
+kind = "file"
+assets.any = { url = "https://github.com/starsong-consulting/GhydraMCP/releases/download/v3.0.0-rc.1/bridge_mcp_hydra.py", sha256 = "c634976150ba6231075e2cc42ef715715ee47a43542384191e86316d21f8f876" }

@@ -565,12 +565,7 @@ def write_scaffold(plan: ScaffoldPlan) -> None:
 
 def _ghidra(port: int | None):
     """A live Ghidra client on ``port``, or ``None`` with a line saying why not."""
-    try:
-        from devkit.re.ghidra_client import GhidraClient   # the Ghidra side's (Step 4.11d2)
-    except ImportError:
-        print("new-shim: --ghidra: devkit has no Ghidra client yet (devkit/re/ghidra_client.py, the Ghidra "
-              "side's step); continuing without ABI pickup", file=sys.stderr)
-        return None
+    from devkit.re.ghidra_client import GhidraClient
     client = GhidraClient(port=port)
     if not client.ping():
         print(f"new-shim: --ghidra / --port passed but no live Ghidra on {client.base_url}; continuing "

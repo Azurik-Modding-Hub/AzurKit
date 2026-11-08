@@ -23,6 +23,7 @@ line is plain and short, with no step, D or AZ ids, and true on `main`.
 | This file | the rules: setup and tests, game data, the goldens, porting from Modkit, packs, the randomizer, characters, the engine's contracts, the two hosts, commits and landing |
 | `azurik-game-reference` (`.claude/skills/`) | VAs, structs, ABIs, measured movement and armor numbers, patches whose bytes landed with no in-game effect |
 | `azurik-xemu-oracle` (`.claude/skills/`) | the sitting card: in-game ground truth from the owner's xemu fork in a sandbox, the kit, demos, hazards and save states; only a seat that sits loads it (its history: `docs/archive/xemu-oracle-history.md`) |
+| `azurik-ghidra-mcp` (`.claude/skills/`) | devkit's Ghidra side: `bootstrap.py --with re`, the ports, `ghidra-serve` copies, `ghidra-apply` (the one writer of the owner's project), `ghidra-sync`, the snapshot; read it before anything opens `Azurik Ghidra.gpr` |
 | `.claude/agents/` | the seats' roles (D951's `azurik-*` names): `azurik-builder` (Opus: build, fix, gate, sitting), `azurik-reader` (Opus, read-only: RE, reads, reviews, skeptics), `azurik-scout` (Sonnet, read-only: locate and cite), `azurik-mechanic` (Haiku: a command list handed over); `tests/test_agent_files.py` pins each one's model, effort and denied tools |
 | `$EV`, the private evidence folder beside the main checkout | the brief (`$EV/tools/BRIEF.md`), the decisions, the ledger, plans, evidence and the tools the seats run (D951, D952); never copied into the repo |
 | Modkit (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout) | the reference: its skills and docs not ported yet |
@@ -151,6 +152,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - Read the game's code and constants with `python -m devkit re xbe`
     (`devkit/re/README.md`): `read` prints a value and `dis` and `fn` an
     instruction's text, never their bytes; its `hexdump` is a human's.
+    Ghidra's side (`ghidra-query` on a serve's copy, `ghidra-sync`, the
+    snapshot) follows the skill `azurik-ghidra-mcp`; the owner's Ghidra
+    project is never opened headlessly or written while a Ghidra holds it.
 - Recorded results are hashes and names, a convention and not a leak rule:
   the goldens and the facts hold sha256 and length, not
   raw vanilla spans.
