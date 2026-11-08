@@ -158,6 +158,15 @@ def test_a_check_dresses_a_built_in_and_one_it_cant_dress_still_lists_its_bases_
     assert cant["bones"] == sdk.base_bones({"iso": str(usa_iso), "species": "town_female_2"})["bones"]
 
 
+def test_a_check_of_a_dress_that_leaves_characters_xbr_vanilla_reads_the_images_own(usa_iso, tmp_path):
+    """A New on flicken (his own moves) dresses with characters.xbr left as the image holds it: Check answers from the
+    image's own file, as Modkit's (its dress holds the whole game) does, not a KeyError: his body and its bones, and
+    the own load Modkit's Check gives the same recipe."""
+    found = sdk.variant_check(_given(usa_iso, tmp_path, library.new("flicken")))
+    assert (found["refusal"], found["body"], found["load"]["own"]) == (None, "flicken", 253952)
+    assert found["bones"] == sdk.base_bones({"iso": str(usa_iso), "species": "flicken"})["bones"]
+
+
 def test_a_check_of_content_checked_before_answers_from_what_it_kept(usa_iso, tmp_path, monkeypatch):
     """Check with game data keeps by content (D1015): the same edit checked again answers at once, and in a process
     that kept its dress (another thread's call: another hidden recipe file) takes it by what the file dresses, its

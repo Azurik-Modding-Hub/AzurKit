@@ -526,11 +526,13 @@ def worn_by(vanilla, layers: Sequence[Layer], names: Mapping[str, str] | None = 
     their short names) as ``layers`` (a build's to its character's,
     :func:`plan`'s, last) leave them on ``vanilla`` (what
     ``picker.dressed`` draws from; the editor's Check reads default.xbe and
-    fx.xbr too)."""
+    fx.xbr too); a file no layer writes (a dress that leaves
+    characters.xbr as it was: a New on flicken) is ``vanilla``'s."""
     names = names or {CONFIG: "config.xbr", FILES[0]: "characters.xbr"}
     layers, reached = _reaching(layers, set(names))
-    files = compose({f: vanilla.read(f) for f in reached}, layers)[0]
-    return {short: bytes(files[full]) for full, short in names.items()}
+    base = {f: vanilla.read(f) for f in reached}
+    files = compose(base, layers)[0]   # only the files a change or claim names
+    return {short: bytes(files[full] if full in files else base[full]) for full, short in names.items()}
 
 
 MATCHED = ("scale", "attack_reach", "attack_speed", "attack_damage")
