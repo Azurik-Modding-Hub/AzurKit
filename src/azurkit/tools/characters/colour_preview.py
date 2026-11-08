@@ -15,8 +15,9 @@ in the player's image (:func:`vanilla`), or for a recipe whose build
 changes the body (:func:`dresses`) the body its build dresses (the sdk's
 Check), a prop on a bone root of its own left out (:func:`props`: the
 townswomen's vase, which the player's clips hold at zero size). A row's
-tile and its palette (:func:`palette`, its main colours) are recoloured at
-once while a slider moves; :func:`views` draws the two pictures.
+tile and its palette (:func:`palette`, its main colours; :func:`swatches`,
+the tab's, before its ops and after) are recoloured at once while a slider
+moves; :func:`views` draws the two pictures.
 
 The PNG round trip (Step 2.203, D544): :func:`rows` is each row's texture
 whole as the variant's build recolours it, which :func:`pngs` names
@@ -307,6 +308,25 @@ def palette(raw: np.ndarray, count: int = COLOURS) -> np.ndarray:
     return np.round(centres[np.argsort(-sizes, kind="stable")]).astype(np.uint8)
 
 
+def swatches(base_: Base, colours: tuple, row: int | None) -> tuple[np.ndarray, np.ndarray]:
+    """The Colours tab's palette of ``row`` (``None``: every row, and the
+    ops of an entry with no ``row``): its main colours as ``colours``'
+    ``png`` ops leave them (:func:`palette` of its texture, every row's
+    together), and the same colours after the ops past the last ``png``
+    op, one for one (RGB uint8 each): where the wheel's ``hsv`` op and a
+    swap take each."""
+    rows_ = base_.rows()
+    ops = ops_by_row(base_, colours).get(row, ()) if row is not None else tuple(
+        op for s in colours if s.row is None for op in s.ops)
+    cut = max((k + 1 for k, op in enumerate(ops) if op.op == "png"), default=0)   # a png's palette is its own
+    raws = [rows_[row]] if row in rows_ else list(rows_.values())
+    if not raws:
+        return np.zeros((0, 3), np.uint8), np.zeros((0, 3), np.uint8)
+    found = palette(np.concatenate([paint.recoloured(r, ops[:cut]).reshape(-1, 4) for r in raws])[:, None])
+    opaque = np.concatenate([found, np.full((len(found), 1), 255, np.uint8)], 1)[None]
+    return found, paint.recoloured(opaque, ops[cut:])[0, :, :3]
+
+
 __all__ = ["COLOURS", "SIZE", "TEXTURE_MAX", "TILE", "YAWS", "Base", "across", "base", "body_of", "dresses",
-           "ops_by_row", "palette", "pictures", "portrait", "props", "recoloured", "rows", "pngs", "specs", "tile",
-           "uncoloured", "vanilla", "views"]
+           "ops_by_row", "palette", "pictures", "portrait", "props", "recoloured", "rows", "pngs", "specs", "swatches",
+           "tile", "uncoloured", "vanilla", "views"]

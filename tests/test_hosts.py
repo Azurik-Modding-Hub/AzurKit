@@ -1432,6 +1432,139 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
         server.close()
 
 
+def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_pngs_out_and_back(
+        browser, tmp_path, monkeypatch, usa_iso):
+    """Step 4.6e in the app's page (Modkit's Colours tab, D772, D809 (a), Step 2.203, AZ-797): on town_female_3's
+    blue row, a drag round the wheel's rim writes the row's hsv op at each move (its main colour's hue turned there,
+    its saturation to the rim's), and a quick drag's views are drawn at its last value in two asks, not one a move;
+    the hex box turns the main colour to the colour typed, the hue and saturation boxes keep any number (D23: 500),
+    and text that isn't one is named, nothing written; a palette colour's swap takes its colour from the wheel
+    picker. Export PNGs writes each row's texture into a folder of its own in Downloads. Import PNG asks for Save as
+    first, then a row; it asks before it replaces the row's edits (a no keeps them); a PNG of another size is named,
+    and one of the row's size is copied into the variant's folder as the row's only op (its palette the PNG's red, a
+    hue typed then turning it green after it); Undo (its button, then the keys) takes the edits back, a quick run of
+    them one step; Save keeps the ops."""
+    import numpy as np
+
+    from azurkit.tools.characters import colour_preview, draw, paint, textures
+    from tests.test_site import (COLOURS_BOX, COLOURS_POINT, VARIANTS_ASKED, VARIANTS_TYPE, _colours_drawn,
+                                 _variants_shown)
+
+    _home(monkeypatch, tmp_path / "home")
+    monkeypatch.delenv("AZURKIT_ISO", raising=False)
+    monkeypatch.delenv("AZURKIT_ISO_EUROPE", raising=False)
+    folder = Path(platformdirs.user_data_dir("AzurKit", appauthor=False)) / "variants" / "mine"
+    small = tmp_path / "small.png"
+    small.write_bytes(colour_preview.pngs("x", {0: np.zeros((8, 8, 4), np.uint8)})["x_row0.png"])
+    ops = "() => azurkit.variants.state.recipe.colours?.find((e) => e.row === 1)?.ops ?? null"
+    c = (131 - 1) // 2   # the wheel's centre, px; its rim's points at 180, 270, 90 and 0 degrees
+    rim = (((0, c), 180), ((c, 2 * c), 270), ((c, 0), 90), ((2 * c, c), 0))
+
+    def turned(hue: float, ref) -> dict:   # the wheel's op for a pick on its rim, the row's main colour ref
+        op = {"op": "hsv", "hue": round((hue - ref[0] + 180) % 360 - 180, 1), "sat": round(1 / ref[1], 2)}
+        return {k: v for k, v in op.items() if (k, v) not in (("hue", 0), ("sat", 1))}
+
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.fill(page, "iso-path", str(usa_iso))
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.click(page, "var-new")
+        _page.until(page, "() => document.querySelector('#var-ask .picker-entry[data-name=\"town_female_3\"]')")
+        page.evaluate("() => document.querySelector('#var-ask .picker-entry[data-name=\"town_female_3\"]').click()")
+        _variants_shown(page, status="unsaved: Save as keeps it")
+        _page.click(page, "var-tab-colours")
+        assert _colours_drawn(page)["rows"] == [0, 1, 2]
+        page.evaluate(VARIANTS_TYPE, ["var-png-path", str(small)])
+        _page.click(page, "var-png-use")
+        assert _colours_drawn(page, "s.png")["png"] == "Save as first: Import copies the PNG into the variant's folder"
+        page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
+        _page.click(page, "var-save-as")
+        _variants_shown(page, status="· saved ·", name="mine")
+        _page.click(page, "var-png-use")
+        assert _colours_drawn(page, "s.png")["png"] == "Choose a row: a PNG is one row's texture"
+        page.evaluate("() => document.querySelector('#var-rows button[data-row=\"1\"]').click()")
+        ref = _colours_drawn(page, "azurkit.variants.colours.row === 1")["reference"]
+        assert round(ref[0]) == 240   # its main colour a blue
+        for i, ((x, y), hue) in enumerate(rim):   # one drag round the rim, slowly
+            page.evaluate(COLOURS_POINT, ["pointermove" if i else "pointerdown", x, y])
+            assert page.evaluate(ops) == [turned(hue, ref)], hue
+        page.evaluate(COLOURS_POINT, ["pointerup", 2 * c, c])
+        assert _colours_drawn(page)["drawn"]
+        asked = page.evaluate("() => azurkit.variants.colours.asks")
+        for i, ((x, y), _) in enumerate(rim):   # and quickly: its last value drawn in two asks
+            page.evaluate(COLOURS_POINT, ["pointermove" if i else "pointerdown", x, y])
+        page.evaluate(COLOURS_POINT, ["pointerup", 2 * c, c])
+        assert _colours_drawn(page)["asks"] - asked <= 2
+        for key, text in (("hex", "#00ff00"), ("sat", "1.5"), ("hue", "500"), ("hex", "abc"), ("hue", "x")):
+            page.evaluate(COLOURS_BOX, [f"var-{key}", text])
+        h, s, v = (float(x) for x in paint.hsv_of([0.0, 1.0, 0.0]))
+        shown = _colours_drawn(page)
+        assert (page.evaluate(ops), shown["boxes"][1], shown["note"]) == (
+            [{"op": "hsv", "hue": 500, "sat": 1.5, "value": round(v / ref[2], 3)}], "500", "'x' is not a number")
+        page.evaluate(COLOURS_BOX, ["var-hex", "#00ff00"])
+        assert page.evaluate(ops) == [{"op": "hsv", "hue": round((h - ref[0] + 180) % 360 - 180, 1),
+                                       "sat": round(s / ref[1], 3), "value": round(v / ref[2], 3)}]
+        drawn = _colours_drawn(page)
+        assert drawn["boxes"][0] == "#00ff00"
+        page.evaluate("() => document.querySelectorAll('#var-palette button')[1].click()")
+        _page.until(page, "() => document.getElementById('var-pick').open")
+        page.evaluate(COLOURS_BOX, ["var-pick-hex", "#ff0000"])
+        _page.click(page, "var-pick-ok")
+        assert page.evaluate(ops)[1] == {"op": "swap", "from": [round(x / 255, 3) for x in drawn["shown"][1]],
+                                         "to": [1, 0, 0]}
+        time.sleep(1)   # the wheel's and the swap's edits a step of their own (Undo's 0.6 s)
+        edits = page.evaluate(ops)
+        _page.click(page, "var-png-export")
+        out = Path(platformdirs.user_downloads_dir()) / "mine PNGs"
+        said = _colours_drawn(page, "/^\\d+ PNGs in /.test(s.png)")["png"]
+        names = sorted(p.name for p in out.iterdir())
+        assert said == f"{len(names)} PNGs in {out}: {', '.join(names)}" and "mine_row1.png" in names
+        row = textures.read_png((out / "mine_row1.png").read_bytes())
+        row[..., :3] = (255, 0, 0)
+        (tmp_path / "edited.png").write_bytes(draw.png_rgba(row, 6))
+        _page.click(page, "var-png-use")   # small.png
+        assert _page.until(page, VARIANTS_ASKED) == ("The PNG replaces row 1's colour edits (1 wheel edit, 1 swap); an "
+                                                     "exported PNG holds them already. Replace them? (Undo takes it "
+                                                     "back.)")
+        _page.click(page, "var-ask-yes")
+        assert _colours_drawn(page, "s.png.startsWith('Not')")["png"].startswith(
+            "Not imported: small.png is 8x8, the row's texture 128x128")
+        page.evaluate(VARIANTS_TYPE, ["var-png-path", str(tmp_path / "edited.png")])
+        for answer in ("no", "yes"):
+            _page.click(page, "var-png-use")
+            _page.until(page, VARIANTS_ASKED)
+            _page.click(page, f"var-ask-{answer}")
+        png = {"op": "png", "file": "edited.png",
+               "sha256": hashlib.sha256((tmp_path / "edited.png").read_bytes()).hexdigest()}
+        assert _colours_drawn(page, "s.png.startsWith('Row 1')")["shown"] == [[255, 0, 0]] * 6
+        assert page.evaluate(ops) == [png] and (folder / "edited.png").read_bytes() == (tmp_path / "edited.png").read_bytes()
+        time.sleep(1)
+        for hue in ("30", "120"):   # a quick run of edits: one step
+            page.evaluate(COLOURS_BOX, ["var-hue", hue])
+        assert page.evaluate(ops) == [png, {"op": "hsv", "hue": 120}]
+        assert _colours_drawn(page, "s.shown[0][1] === 255")["shown"][0] == [0, 255, 0]   # the PNG's red turned green
+        steps = []
+        for undo in ("() => document.getElementById('var-undo').click()",
+                     "() => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true, "
+                     "ctrlKey: true, bubbles: true }))"):
+            page.evaluate(undo)
+            steps.append(page.evaluate(ops))
+        assert steps == [[png], edits]
+        page.evaluate(COLOURS_BOX, ["var-hue", "120"])
+        _page.click(page, "var-save")
+        _variants_shown(page, status="· saved ·")
+        saved = json.loads((folder / "recipe.json").read_text(encoding="utf-8"))["mine"]["colours"]
+        assert [o["op"] for e in saved for o in e["ops"]] == ["hsv", "swap"] and saved[0]["ops"][0]["hue"] == 120
+        _page.check_csp(page)
+    finally:
+        server.close()
+
+
 def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(browser, tmp_path, monkeypatch):
     """D980, past 1 s an op shows where it is: a launch whose server had run ``SLOW_LAUNCH`` by its ``host.json``
     answer (``age``; Step 4.4ci56: a launch on a busy computer passed 1 s with nothing shown) shows its stages on the

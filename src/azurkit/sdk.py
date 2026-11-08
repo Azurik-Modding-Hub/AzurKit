@@ -1082,22 +1082,31 @@ def variant_colours(given: Mapping) -> dict:
     in its ``colours`` from the front and from behind (``front``,
     ``back``: PNG bytes, 160 px; its body the image's own of its base, or
     for a recipe whose build changes it the last Check's dress, which it
-    asks for), each material row's ``tile`` (PNG, 64 px), ``palette`` (its
-    six main colours, RGB) and texture ``size`` as recoloured (``rows``, by
-    row), and ``across``, how wide the body draws against how tall (the
-    views' portrait crop). A fraction of a second; a colour op the loader
-    refuses is a ``ValueError`` naming it."""
+    asks for), each material row's ``tile`` (PNG, 64 px) as recoloured and
+    texture ``size`` (``rows``, by row), the ``palette`` of ``given``'s
+    ``row`` (absent or ``None``: every row's; ``found``, its six main
+    colours as its ``png`` ops leave them, and ``shown``, each after its
+    other ops: RGB, :func:`~azurkit.tools.characters.colour_preview.swatches`),
+    ``across``, how wide the body draws against how tall (the views'
+    portrait crop), and the ``body`` drawn and whether a build ``dressed``
+    it. A fraction of a second; a colour op the loader refuses is a
+    ``ValueError`` naming it."""
     from azurkit.tools.characters import colour_preview, draw, paint
 
     name, variant, recipe = _editing(given, "variant_colours")
+    row = given.get("row")
+    if row is not None and type(row) is not int:
+        raise ValueError(f"variant_colours: row {row!r} is no material row's number")
     colours = _colours_of(variant)
     base = _base_of(given, name, variant, recipe)
     parts, by_row, rows = colour_preview.recoloured(base, colours), colour_preview.ops_by_row(base, colours), {}
-    for row, raw in base.rows().items():
-        tex = paint.recoloured(raw, by_row[row]) if by_row.get(row) else raw
-        rows[str(row)] = {"tile": draw.png_rgba(colour_preview.tile(tex), 6),
-                          "palette": colour_preview.palette(tex).tolist(), "size": list(base.sizes.get(row, ()))}
-    return {**colour_preview.pictures(parts), "rows": rows, "across": colour_preview.across(parts)}
+    for r, raw in base.rows().items():
+        tex = paint.recoloured(raw, by_row[r]) if by_row.get(r) else raw
+        rows[str(r)] = {"tile": draw.png_rgba(colour_preview.tile(tex), 6), "size": list(base.sizes.get(r, ()))}
+    found, shown = colour_preview.swatches(base, colours, row)
+    return {**colour_preview.pictures(parts), "rows": rows, "across": colour_preview.across(parts),
+            "palette": {"row": row, "found": found.tolist(), "shown": shown.tolist()}, "body": base.body,
+            "dressed": base.dressed}
 
 
 def variant_preview(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
@@ -1170,10 +1179,23 @@ def export_pngs(given: Mapping, *, progress: Callable[[dict], object] | None = N
     """The Colours tab's Export (Step 2.203): :func:`variant_rows`' files
     written into the folder ``out`` (made if missing), each whole (a part
     file renamed), none when ``out`` holds one of their names already (an
-    edited PNG is never overwritten, D35, D36): ``{"files": [names]}``."""
-    if not isinstance(given, Mapping) or not isinstance(given.get("out"), str) or not given["out"]:
+    edited PNG is never overwritten, D35, D36): ``{"files": [names]}``;
+    with no ``out`` (the site's download) the files zipped instead, under
+    the variant's folder's name: ``{"zip": bytes, "name": "<name>_pngs.zip",
+    "files"}``."""
+    if not isinstance(given, Mapping) or given.get("out") is not None and (not isinstance(given["out"], str)
+                                                                           or not given["out"]):
         raise ValueError("export_pngs: out names no folder to write the rows' PNGs into")
     found = variant_rows({k: v for k, v in given.items() if k != "out"}, progress=progress)
+    if given.get("out") is None:
+        import io
+        import zipfile
+
+        name, packed = given["name"], io.BytesIO()
+        with zipfile.ZipFile(packed, "w", zipfile.ZIP_STORED) as z:   # a PNG is deflated already
+            for n, data in found["files"].items():
+                z.writestr(zipfile.ZipInfo(f"{name}_pngs/{n}", (2026, 1, 1, 0, 0, 0)), data)
+        return {"zip": packed.getvalue(), "name": f"{name}_pngs.zip", "files": list(found["files"])}
     out = Path(given["out"])
     if there := [n for n in found["files"] if (out / n).exists()]:
         raise ValueError(f"{out} holds {', '.join(there)} already: export into another folder (an edited PNG is "

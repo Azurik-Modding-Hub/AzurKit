@@ -127,7 +127,9 @@ recipe.json, read by path) and ``api/variant_export`` ``{"name", "out"}``
 (the zip written to ``out``, else the Downloads folder);
 ``api/variant_check``, ``api/variant_pictures`` (its picture, after its
 answer) and Step 4.6b's calls on the dress it keeps run in the engine
-(:data:`EDITED`), its bar in ``api/progress``.
+(:data:`EDITED`), its bar in ``api/progress``; the Colours
+tab's ``api/add_png`` ``{"name", "path", "size"}`` copies an edited PNG
+into your variant's folder (Step 4.6e).
 The Tools tab's calls (Step 4.7c): ``POST api/info`` ``{"iso"}`` says what
 the image is (``sdk.image_info``), ``api/verify_all`` ``{"iso"}`` checks
 every file of it (``sdk.verify_all``: only what its kept check hasn't
@@ -1064,14 +1066,24 @@ class Server(http.server.ThreadingHTTPServer):
         the dress it keeps (its picture, ``variant_pictures``; Step 4.6b's ``variant_colours``,
         ``variant_preview``, ``variant_rows``, ``export_pngs``): the engine's,
         followed by its line; a build ahead stops at its next record, as no
-        dress runs beside it."""
+        dress runs beside it. An Export of the rows' PNGs (Step 4.6e) the
+        folder dialog chose no folder for goes into the Downloads folder, a
+        folder of its own (``<name> PNGs``, else ``<name> PNGs 2`` ..), which
+        its answer names (``out``)."""
         given = body.get("given")
         name = given.get("name") if isinstance(given, dict) else None
-        first = record("dress", "Previewing the shape" if job == "variant_preview"
-                       else f"Checking {name} with game data" if isinstance(name, str) else None)
+        if job == "export_pngs" and isinstance(name, str) and not given.get("out"):
+            stem = _downloads() / f"{name} PNGs"
+            given = given | {"out": str(next(out for n in range(1, 10_000) if not (
+                out := stem.with_name(stem.name if n == 1 else f"{stem.name} {n}")).exists()))}
+        said = {"variant_check": "Checking {} with game data", "variant_pictures": "Checking {} with game data",
+                "export_pngs": "Exporting {}'s PNGs", "variant_rows": "Exporting {}'s PNGs",
+                "variant_preview": "Previewing the shape"}.get(job, "Recolouring {}")
+        first = record("dress", said.format(name) if isinstance(name, str) else None)
         with self.follow(job, first) as report, self.slots.turn():
             self.slots.offer("build", self.slots.gen, None, None)
-            return self.engine.call(job, given, progress=lambda step: report(step | {"label": first["label"]}))
+            answer = self.engine.call(job, given, progress=lambda step: report(step | {"label": first["label"]}))
+        return answer | {"out": given["out"]} if job == "export_pngs" else answer
 
     def variant_import(self, body: dict) -> dict:
         """``api/variant_import``: ``{"path"}``, an Export's zip or a
@@ -1084,6 +1096,20 @@ class Server(http.server.ThreadingHTTPServer):
         if file.stat().st_size > library.MOST:
             raise ValueError(f"import: {file.name} is past the {library.MOST:,} B a variant's file holds")
         return sdk.variant_import({"data": file.read_bytes()})
+
+    def add_png(self, body: dict) -> dict:
+        """``api/add_png`` (Step 4.6e): ``{"name", "path", "size"}``, an
+        edited PNG of a row's texture the player picked, read (a share or
+        device path refused before it is opened) and copied into your
+        variant ``name``'s folder (``sdk.add_png``): ``{"name", "sha256"}``,
+        the row's ``png`` op's."""
+        from azurkit.tools.characters import library
+
+        name = body.get("name")
+        if not isinstance(name, str) or library.find(name) is None:
+            raise ValueError(f"Import PNG: {name!r} is no saved variant of yours (Save as first)")
+        file = _path(replaced.source(str(body.get("path") or "")), "PNG")
+        return sdk.add_png({"folder": str(library.root() / name), "file": str(file), "size": body.get("size")})
 
     def variant_export(self, body: dict) -> dict:
         """``api/variant_export``: ``{"name", "out"}``, the variant's zip
@@ -1317,6 +1343,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                    for name in VARIANT_CALLS},
                 **{f"/api/{job}": (lambda job: lambda body: self.server.edited(job, body))(job) for job in EDITED},
                 "/api/variant_import": self.server.variant_import, "/api/variant_export": self.server.variant_export,
+                "/api/add_png": self.server.add_png,
                 "/api/cancel": lambda body: self.server.cancel()}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose

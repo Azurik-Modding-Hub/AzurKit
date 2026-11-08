@@ -748,11 +748,15 @@ the variant ``given`` holds (as :func:`variant_check` takes it) drawn
 in its ``colours`` from the front and from behind (``front``,
 ``back``: PNG bytes, 160 px; its body the image's own of its base, or
 for a recipe whose build changes it the last Check's dress, which it
-asks for), each material row's ``tile`` (PNG, 64 px), ``palette`` (its
-six main colours, RGB) and texture ``size`` as recoloured (``rows``, by
-row), and ``across``, how wide the body draws against how tall (the
-views' portrait crop). A fraction of a second; a colour op the loader
-refuses is a ``ValueError`` naming it.
+asks for), each material row's ``tile`` (PNG, 64 px) as recoloured and
+texture ``size`` (``rows``, by row), the ``palette`` of ``given``'s
+``row`` (absent or ``None``: every row's; ``found``, its six main
+colours as its ``png`` ops leave them, and ``shown``, each after its
+other ops: RGB, :func:`~azurkit.tools.characters.colour_preview.swatches`),
+``across``, how wide the body draws against how tall (the views'
+portrait crop), and the ``body`` drawn and whether a build ``dressed``
+it. A fraction of a second; a colour op the loader refuses is a
+``ValueError`` naming it.
 
 
 def variant_preview(given: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
@@ -788,7 +792,10 @@ def export_pngs(given: 'Mapping', *, progress: 'Callable[[dict], object] | None'
 The Colours tab's Export (Step 2.203): :func:`variant_rows`' files
 written into the folder ``out`` (made if missing), each whole (a part
 file renamed), none when ``out`` holds one of their names already (an
-edited PNG is never overwritten, D35, D36): ``{"files": [names]}``.
+edited PNG is never overwritten, D35, D36): ``{"files": [names]}``;
+with no ``out`` (the site's download) the files zipped instead, under
+the variant's folder's name: ``{"zip": bytes, "name": "<name>_pngs.zip",
+"files"}``.
 
 
 def add_png(given: 'Mapping') -> 'dict':

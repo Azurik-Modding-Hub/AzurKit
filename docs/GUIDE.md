@@ -161,6 +161,12 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   are asked about before you leave them or build that variant. The app keeps your variants where Modkit does; the
   web page keeps them in your browser (Clear in the Tools tab removes them: Export one to keep a copy). Yours show
   under the models too, as Yours, and Edit… opens a chosen variant here.
+- **Colours (the Variants view's Colours tab):** pick a row of the body's textures (or all), then drag on the colour
+  wheel to move its main colour, with a bar for brightness and boxes for the hex colour, hue, saturation and value;
+  limit it to a range of hues, or click a palette colour to swap it for one you pick on a wheel. The row tiles and the
+  front and back views redraw as you drag. Export PNGs saves each row's texture as built (the app: a folder in
+  Downloads; the web page: a zip), and Import PNG brings an edited one back as that row's texture. Undo (⌘Z or
+  Ctrl+Z) takes back any edit in the view, a drag as one step.
 - **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install
   and Update (or `azurkit content install booblord`); every file's size and checksum is checked first, so a bad
   download keeps nothing, and an installed one stays at its version until you update it. An update only goes up, from

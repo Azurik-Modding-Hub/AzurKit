@@ -5933,6 +5933,26 @@ VARIANTS_TYPE = """([id, text]) => { const box = document.getElementById(id); bo
     box.dispatchEvent(new Event("input", { bubbles: true })); }"""
 VARIANTS_ROW = "(name) => document.querySelector(`#var-items button[data-name=\"${name}\"]`).click()"
 VARIANTS_ASKED = "() => document.getElementById('var-ask').open && document.getElementById('var-ask-text').textContent"
+# The Colours tab (Step 4.6e): its last answer once it is the edit's as it stands, and the recipe's colours.
+COLOURS_DRAWN = """() => { const c = azurkit.variants.colours, $ = (id) => document.getElementById(id);
+    return c.current() && c.answer && { rows: c.rows, reference: c.reference, found: c.found, shown: c.shown,
+      asks: c.asks, colours: azurkit.variants.state.recipe.colours ?? null, caption: $("var-colour-caption").textContent,
+      png: $("var-png-note").textContent, note: $("var-pick-note-row").textContent,
+      boxes: ["hex", "hue", "sat", "value"].map((k) => $(`var-${k}`).value),
+      drawn: ["var-colour-front", "var-colour-back"].every((id) => { const g = $(id).getContext("2d");
+        return g.getImageData(0, 0, $(id).width, $(id).height).data.some((x, i) => i % 4 === 3 && x); }) }; }"""
+# A pointer event on the wheel: its type at x, y (the wheel's own px).
+COLOURS_POINT = """([type, x, y]) => { const w = document.getElementById("var-wheel"), box = w.getBoundingClientRect();
+    w.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, buttons: type === "pointerup" ? 0 : 1,
+      clientX: box.left + w.clientLeft + x * w.clientWidth / 131, clientY: box.top + w.clientTop + y * w.clientHeight / 131
+    })); }"""
+COLOURS_BOX = """([id, text]) => { const box = document.getElementById(id); box.value = text;
+    box.dispatchEvent(new Event("change", { bubbles: true })); }"""
+
+
+def _colours_drawn(page, more: str = "true") -> dict:
+    """The Colours tab once its last answer is the edit's as it stands (and ``more``, of it as ``s``)."""
+    return _page.until(page, f"() => {{ const s = ({COLOURS_DRAWN})(); return s && ({more}) && s; }}", 120)
 
 
 def _variants_shown(page, *, status: str = "", name: str | None = None) -> dict:
@@ -6216,5 +6236,73 @@ def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_t
         assert (got["shape"], got["rows"], got["ops"][0], got["jiggle"], got["springs"]) == (
             "No shape sliders.", [], "Its mesh's ops: none", "No jiggle: it needs a recipe with a mesh of its own.", 0)
         _page.check_csp(page)
+    finally:
+        served.close()
+
+
+def test_the_colours_tab_recolours_on_the_sites_engine_and_keeps_an_imported_png_in_this_browser(
+        browser, site, usa_iso, tmp_path):
+    """Step 4.6e on the site (Modkit's Colours tab, D772, Step 2.203): with the image picked, the Colours tab of
+    golem's own copy draws on the page's engine, its rows' tiles, its palette and its views; a quick drag on the wheel
+    writes the row's hsv op and draws its views at the last value; Export PNGs downloads one zip of the rows' textures
+    as its build recolours them; Import PNG copies the picked file into the variant's folder in the engine as the row's
+    png op, its palette the PNG's, and keeps it in this browser beside the recipe, so a new page's engine draws the
+    saved variant from what this browser kept. No CSP violation, no request but GETs of the site's files."""
+    from azurkit.tools.characters import draw, textures
+
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.pick(page, "#iso", usa_iso)
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.click(page, "var-new")
+        _page.until(page, "() => document.querySelector('#var-ask .picker-entry[data-name=\"golem\"]')", 60)
+        page.evaluate("() => document.querySelector('#var-ask .picker-entry[data-name=\"golem\"]').click()")
+        page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
+        _page.click(page, "var-save-as")
+        _variants_shown(page, status="· saved ·", name="mine")
+        _page.click(page, "var-tab-colours")
+        assert _colours_drawn(page)["rows"] == [1, 2]
+        page.evaluate("() => document.querySelector('#var-rows button[data-row=\"1\"]').click()")
+        first = _colours_drawn(page, "azurkit.variants.colours.row === 1 && s.reference")
+        assert first["drawn"] and first["caption"].startswith("Front, back: ")
+        c, (h0, s0, _) = (131 - 1) // 2, first["reference"]
+        for i, (x, y) in enumerate(((0, c), (2 * c, c), (c, 0))):   # a quick drag on the rim, to 90 degrees
+            page.evaluate(COLOURS_POINT, ["pointermove" if i else "pointerdown", x, y])
+        page.evaluate(COLOURS_POINT, ["pointerup", c, 0])
+        op = {"op": "hsv", "hue": round((90 - h0 + 180) % 360 - 180, 1), "sat": round(1 / s0, 2)}
+        assert _colours_drawn(page)["colours"] == [{"row": 1, "ops": [
+            {k: v for k, v in op.items() if (k, v) not in (("hue", 0), ("sat", 1))}]}]
+        with page.expect_download(timeout=300_000) as caught:
+            _page.click(page, "var-png-export")
+        assert caught.value.suggested_filename == "mine_pngs.zip"
+        caught.value.save_as(tmp_path / "mine_pngs.zip")
+        with zipfile.ZipFile(tmp_path / "mine_pngs.zip") as z:
+            assert "mine_pngs/mine_row1.png" in z.namelist() and all(n.startswith("mine_pngs/mine_row") for n in z.namelist())
+            row = textures.read_png(z.read("mine_pngs/mine_row1.png"))
+        row[..., :3] = (255, 0, 0)
+        (tmp_path / "red.png").write_bytes(draw.png_rgba(row, 6))
+        _page.pick(page, "#var-png", tmp_path / "red.png")
+        _page.until(page, VARIANTS_ASKED)
+        _page.click(page, "var-ask-yes")
+        assert _colours_drawn(page, "s.png.startsWith('Row 1')")["shown"] == [[255, 0, 0]] * 6
+        kept = "() => Object.keys(azurkit.variants.state.folders.mine).sort()"
+        assert page.evaluate(kept) == ["recipe.json", "red.png"]
+        _page.click(page, "var-save")
+        _variants_shown(page, status="· saved ·")
+        _page.check_csp(page)
+        again = served.open()
+        _page.pick(again, "#iso", usa_iso)
+        _page.click(again, "tab-characters")
+        _page.click(again, "char-view-variants")
+        _variants_shown(again, name="mine")
+        _page.click(again, "var-tab-colours")
+        _colours_drawn(again)
+        again.evaluate("() => document.querySelector('#var-rows button[data-row=\"1\"]').click()")
+        assert _colours_drawn(again, "azurkit.variants.colours.row === 1")["shown"] == [[255, 0, 0]] * 6
+        assert served.stray() == []
     finally:
         served.close()

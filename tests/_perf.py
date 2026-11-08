@@ -171,6 +171,12 @@ OPS = {op.id: op for op in (
        "characters", first=False, content=True),   # Step 4.6d: the Shape tab (D1011's rough first)
     Op("A95", "let go -> its quick preview (the Check's dress, its vertices moved)", "characters", first=False, bar=True,
        content=True),   # D999's kind: a new shape's first picture
+    Op("A100", "the Colours tab, another of yours opened on it (its body read, its rows, palette and views drawn)",
+       "characters", first=False),   # Step 4.6e: the Variants view's Colours tab
+    Op("A101", "a drag on the colour wheel (30 pointer moves) -> its views drawn at its last value", "characters",
+       first=False),
+    Op("A102", "Export PNGs (a folder in the Downloads folder)", "characters", first=False),
+    Op("A103", "Import PNG (a row's edited texture, copied into its folder)", "characters", first=False),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -247,6 +253,13 @@ OPS = {op.id: op for op in (
        "characters", first=False, content=True),   # Step 4.6d: the Shape tab (D1011's rough first)
     Op("S81", "let go -> its quick preview (the Check's dress, its vertices moved)", "characters", first=False, bar=True,
        content=True),   # D999's kind: a new shape's first picture
+    Op("S100", "the Colours tab, another of yours opened on it (its body read, its rows, palette and views drawn)",
+       "characters", first=False),   # Step 4.6e: the Variants view's Colours tab
+    Op("S101", "a drag on the colour wheel (30 pointer moves) -> its views drawn at its last value", "characters",
+       first=False),
+    Op("S102", "Export PNGs (the browser's download of their zip)", "characters", first=False,
+       browser_bar=DOWNLOAD_BAR),
+    Op("S103", "Import PNG (a row's edited texture, copied into its folder)", "characters", first=False),
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
@@ -2301,6 +2314,123 @@ def site_variants(d: Driver, ctx, url: str) -> None:
     d.leave(p)
 
 
+# The Colours tab (Step 4.6e): its last answer once it is the edit's as it stands (the open variant's ``name``).
+COLOURS = "() => azurkit.variants.colours.current() && azurkit.variants.colours.answer"
+TINTED = (("tint_a", "town_female_3"), ("tint_b", "golem"), ("tint_c", "keylord"))   # each base's body read in turn
+WHEEL_DRAG = """(turn) => { const w = document.getElementById("var-wheel"), box = w.getBoundingClientRect();
+  const at = (deg) => [65 + 56 * Math.cos(deg * Math.PI / 180), 65 - 56 * Math.sin(deg * Math.PI / 180)];
+  const fire = (type, [x, y]) => w.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1,
+    buttons: type === "pointerup" ? 0 : 1, clientX: box.left + w.clientLeft + x * w.clientWidth / 131,
+    clientY: box.top + w.clientTop + y * w.clientHeight / 131 }));
+  fire("pointerdown", at(turn));
+  for (let i = 1; i < 30; i++) fire("pointermove", at(turn + 4 * i));
+  fire("pointerup", at(turn + 116)); }"""
+
+
+def _white_png(out: Path, side: int = 128) -> Path:
+    """A white ``side`` px RGBA PNG (a row's edited texture: town_female_3's are 128 px), written with the stdlib."""
+    import struct
+    import zlib
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    rows = b"".join(b"\0" + b"\xff" * 4 * side for _ in range(side))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", side, side, 8, 6, 0, 0, 0))
+                    + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+    return out
+
+
+def _colour_ops(d: Driver, p: Page, ops: tuple, exported: Callable[[str], None], imported: Callable[[Path], None]) -> None:
+    """The Colours tab's ops, the Variants view open on it with :data:`TINTED` yours: another of them opened (each
+    sample the next base, its body read from the image); a drag round the wheel's rim on town_female_3's row 1, each
+    sample from another angle; Export PNGs (``exported``, the op timed by it); Import PNG of a white texture
+    (``imported``: its file picked) after Reset row, so nothing is asked first."""
+    opened, drag, export, import_ = ops
+    n = 0
+    while d.need(opened):
+        n += 1
+        name = TINTED[n % len(TINTED)][0]
+        d.act(p, opened, f"() => document.querySelector('#var-items button[data-name=\"{name}\"]').click()",
+              f"() => azurkit.variants.state.name === '{name}' && ({COLOURS})()", 600)
+    if not d.needed((drag, export, import_)):
+        return
+    d.act(p, None, "() => document.querySelector('#var-items button[data-name=\"tint_a\"]').click()",
+          f"() => azurkit.variants.state.name === 'tint_a' && ({COLOURS})()", 600)
+    d.act(p, None, "() => document.querySelector('#var-rows button[data-row=\"1\"]').click()",
+          f"() => azurkit.variants.colours.row === 1 && ({COLOURS})()", 600)
+    while d.need(drag):
+        n += 1
+        d.act(p, drag, lambda: p.js(WHEEL_DRAG, 37 * n % 360), COLOURS, 600, change=True)
+    while d.need(export):
+        exported(export)
+    png = _white_png(d.scratch / "colours" / "white.png")
+    while d.need(import_):
+        d.act(p, None, click("var-colour-reset"), f"() => !azurkit.variants.state.recipe.colours && ({COLOURS})()", 600)
+        d.act(p, import_, lambda: imported(png),
+              f"() => /^Row 1's texture is white/.test(document.getElementById('var-png-note').textContent) "
+              f"&& ({COLOURS})()", 600)
+
+
+def app_colours(d: Driver, app: App, ctx) -> None:
+    """The Variants view's Colours tab in the app (Step 4.6e): three of yours on three bases in its library, then
+    A100-A103 (:func:`_colour_ops`): Export into the Downloads folder (a folder of its own each), Import by path."""
+    library = app.home / "Library" / "Application Support" / "AzurKit" / "variants"
+    for name, base in TINTED:
+        (library / name).mkdir(parents=True, exist_ok=True)
+        (library / name / "recipe.json").write_text(json.dumps({name: {"base": base, "mode": "own"}}), encoding="utf-8")
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA, 900)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES)
+    d.act(p, None, click("char-view-variants"), f"() => {VAR_READ}", 600)
+    d.act(p, None, click("var-tab-colours"), COLOURS, 600)
+
+    def exported(op: str) -> None:
+        d.act(p, op, click("var-png-export"),
+              "() => /^\\d+ PNGs in /.test(document.getElementById('var-png-note').textContent)", 600)
+        for out in (Path(app.home) / "Downloads").glob("* PNGs*"):
+            shutil.rmtree(out)
+
+    def imported(png: Path) -> None:
+        p.js(typed("var-png-path", str(png)))
+        p.js(click("var-png-use"))
+
+    _colour_ops(d, p, ("A100", "A101", "A102", "A103"), exported, imported)
+    app.quit(p)
+
+
+def site_colours(d: Driver, ctx, url: str) -> None:
+    """The Variants view's Colours tab on the site (Step 4.6e): three of yours on three bases imported, the image
+    picked, then S100-S103 (:func:`_colour_ops`): Export is the browser's download of the zip (its page part to the
+    download's start), Import picks a file."""
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES_LISTED, 600)
+    d.act(p, None, click("char-view-variants"), f"() => {VAR_READ}", 600)
+    for name, base in TINTED:
+        file = _recipe_file(d, name, base)
+        d.act(p, None, lambda: p.page.set_input_files("#var-import", str(file)),
+              VAR_SAVED + f" && azurkit.variants.state.name === '{name}'", 600)
+    d.act(p, None, click("var-tab-colours"), COLOURS, 600)
+
+    def exported(op: str) -> None:
+        t0 = p.now()
+        with p.page.expect_download(timeout=600_000) as caught:
+            p.js(click("var-png-export"))
+        started = p.now()
+        caught.value.path()
+        t1 = p.now()
+        d.ev += p.events()
+        d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, None, (started - t0) / 1000)
+        caught.value.delete()
+
+    _colour_ops(d, p, ("S100", "S101", "S102", "S103"), exported,
+                lambda png: p.page.set_input_files("#var-png", str(png)))
+    d.leave(p)
+
+
 SCENARIOS = {   # name: (host, its ops, the driver)
     "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11", "A81", "A82"),
                   app_start),
@@ -2321,6 +2451,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-plan": ("app", ("A97",), app_plan),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A120", "A121", "A94"), app_data),
     "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95"), app_variants),
+    "app-colours": ("app", ("A100", "A101", "A102", "A103"), app_colours),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17", "S64"),
                    site_start),
@@ -2342,6 +2473,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-plan": ("site", ("S83",), site_plan),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S120", "S121", "S80"), site_data),
     "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81"), site_variants),
+    "site-colours": ("site", ("S100", "S101", "S102", "S103"), site_colours),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)

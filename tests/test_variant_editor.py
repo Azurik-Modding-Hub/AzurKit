@@ -12,6 +12,7 @@ import array
 import concurrent.futures
 import dataclasses
 import hashlib
+import io
 import json
 import math
 import pickle
@@ -20,6 +21,7 @@ import struct
 import sys
 import time
 import wave
+import zipfile
 
 import numpy as np
 import pytest
@@ -407,14 +409,22 @@ def test_the_quick_preview_puts_each_drawn_vertex_where_a_dress_at_those_values_
 
 
 def test_a_rows_png_exports_and_an_edited_one_comes_back_as_the_rows_texture(usa_iso, tmp_path):
-    """The Colours tab's round trip (Step 2.203): Export writes each row's texture whole as its build recolours it;
-    an edited one comes back (``add_png``: its name and sha256) as the row's ``png`` op, which the rows and the views
-    then draw; a WAV comes in under a name a recipe's ``wavs`` take, the same bytes once. The app's engine runs the
-    views, its pictures base64."""
+    """The Colours tab's round trip (Step 2.203): Export writes each row's texture whole as its build recolours it
+    (the site's: the same files in a zip); an edited one comes back (``add_png``: its name and sha256) as the row's
+    ``png`` op, which the rows, the views and its palette (the wheel's, Step 4.6e: its main colours as the PNG
+    leaves them, then after the row's other ops, one for one, as Modkit's page reads them) then draw; a WAV comes in
+    under a name a recipe's ``wavs`` take, the same bytes once. The app's engine runs the views, its pictures base64."""
     out, folder = tmp_path / "out", tmp_path / "mine"
     given = _given(usa_iso, tmp_path, {"base": "town_female_2", "colours": HUMAN})
     written = sdk.export_pngs(given | {"out": str(out)})["files"]
     assert written == [f"mine_row{r}.png" for r in range(4)]
+    zipped = sdk.export_pngs(given)
+    with zipfile.ZipFile(io.BytesIO(zipped["zip"])) as z:
+        assert (zipped["name"], {n: z.read(n) for n in z.namelist()}) == (
+            "mine_pngs.zip", {f"mine_pngs/{n}": (out / n).read_bytes() for n in written})
+    turned = sdk.variant_colours(given | {"row": 1})["palette"]   # HUMAN's row 1: its blues turned, its browns kept
+    assert len(turned["found"]) == 6 and turned["found"][1] != turned["shown"][1] and turned["found"][5] == turned[
+        "shown"][5]
     row = 255 - art.unpng((out / written[0]).read_bytes())
     row[..., 3] = 255
     (tmp_path / "edited.png").write_bytes(colour_preview.pngs("e", {0: row})["e_row0.png"])
@@ -424,6 +434,8 @@ def test_a_rows_png_exports_and_an_edited_one_comes_back_as_the_rows_texture(usa
     edited = _given(usa_iso, tmp_path, {"base": "town_female_2", "colours": [
         {"row": 0, "ops": [{"op": "png", "file": op["name"], "sha256": op["sha256"]}]}]})
     assert np.array_equal(art.unpng(sdk.variant_rows(edited)["files"]["mine_row0.png"]), row)
+    png = sdk.variant_colours(edited | {"row": 0})["palette"]
+    assert png["found"] == png["shown"] == colour_preview.palette(row).tolist()
     assert sdk.variant_colours(edited)["front"] != sdk.variant_colours(given)["front"]
     assert engine.JOBS["variant_colours"](given) == engine._shown(sdk.variant_colours(given))
     with wave.open(str(tmp_path / "my take.wav"), "wb") as w:

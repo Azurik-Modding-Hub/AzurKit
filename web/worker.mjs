@@ -116,7 +116,7 @@ const refusal = (error) => {
 // and on a base species; each reads the loader, so numpy loads first. The engine's VARIANTS (ENGINE) holds the same.
 const VARIANTS = ["variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
                   "variant_export", "variant_check", "variant_pictures", "variant_colours", "variant_preview",
-                  "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources"];
+                  "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources", "add_png"];
 
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
@@ -142,7 +142,8 @@ from azurkit.tools.characters import parts, pool
 PIECE = "/tmp/azurkit-piece"
 VARIANTS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
             "variant_export", "variant_check", "variant_pictures", "variant_colours", "variant_preview",
-            "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources")   # page's VARIANTS
+            "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources", "add_png")   # page's VARIANTS
+PICKED = ("add_png",)   # a file the page read, copied into a variant's folder: its bytes in data, its name given's file
 BARRED = ("variant_check", "variant_preview", "variant_rows", "export_pngs")   # their steps posted: the bar moves
 
 
@@ -361,7 +362,14 @@ def engine(request):
         try:
             given = getattr(request, "given", None)
             given = (json.loads(JSON.stringify(given)) if given is not None else None) or {}
-            if getattr(request, "data", None) is not None:
+            if getattr(request, "data", None) is not None and request.type in PICKED:   # read from a file of its name
+                from pathlib import Path
+
+                picked = Path("/tmp/azurkit-picked") / (Path(str(given.get("file") or "")).name or "picked")
+                picked.parent.mkdir(parents=True, exist_ok=True)
+                picked.write_bytes(request.data.to_bytes())
+                given["file"] = str(picked)
+            elif getattr(request, "data", None) is not None:
                 given["data"] = request.data.to_bytes()
             if mounted := getattr(request, "iso", None):
                 given["iso"] = mounted

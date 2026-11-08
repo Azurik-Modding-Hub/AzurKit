@@ -19,6 +19,7 @@
 // starts and after each change. Text reaches the page through textContent only.
 import { keeper } from "./content.mjs";
 import { picker } from "./picker.mjs";
+import { coloursTab } from "./variants/colours.mjs";
 import { jiggleTab } from "./variants/jiggle.mjs";
 import { shapeTab } from "./variants/shape.mjs";
 
@@ -41,6 +42,9 @@ const canon = (value) => JSON.stringify(value, (_, v) => v && typeof v === "obje
 const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0)) : data;
 // A refusal's lead, the loader's "variant 'name' (its file): ", left to the line's title.
 const reason = (why) => why.replace(/^variant '[^']*'(?: \(.*?\))?: /, "");
+// Undo (Modkit's AZ-797): its most steps kept, and edits closer than this, ms, one step (a drag's moves).
+const UNDO_STEPS = 100, UNDO_GAP = 600;
+const TYPED = "input[type=text], input[type=search], textarea";   // a box with its own undo
 
 // variantsView({root, call, app, say, image, packs, dialog, share, changed, shared}): root the view's element; call the
 // engine's ask; app whether the host is the app; say the page's status line; image() the picked image (the site's File,
@@ -52,7 +56,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
                                shared = null }) {
   const v = { list: null, kind: "new", name: null, recipe: {}, saved: null, read: null, readFor: null, reading: false,
               again: false, checked: null, checking: null, ticket: 0, tab: "body", shown: "", folder: "", opened: false,
-              ships: null, folders: null, listed: 0, manifest: null };
+              ships: null, folders: null, listed: 0, manifest: null, undo: [], now: "{}", editAt: -Infinity };
   const kept = app ? null : keeper(globalThis.indexedDB, "azurkit-variants");
 
   // The view, built once: the list, the pictures with the status, and the editor.
@@ -99,6 +103,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     json: el("textarea", { id: "var-text", rows: 18, spellcheck: false, wrap: "off" }),
     save: button("var-save", "Save", "Write this variant's recipe again (yours only)"),
     check: button("var-check", "Check with game data", "Dress it on your image as a build does, and draw it"),
+    undo: button("var-undo", "Undo", "Undo the last edit (⌘Z, Ctrl+Z)"),
     asked: el("dialog", { id: "var-ask", className: "weapon-popup" }),
   };
   ui.mode.append(...Object.entries(MODES).map(([value, title]) => el("option", { value, textContent: title })));
@@ -117,9 +122,9 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     el("p", { className: "rando-row var-notes" }, field("Notes", ui.notes)));
   const json = el("div", { id: "var-json", hidden: true },
     el("p", { className: "rando-row" }, ui.apply, ui.revert, ui.jsonNote), el("p", { className: "rando-row" }, ui.json));
-  // The tabs, in Modkit's order: each {name, title, element, load?(read), checked?(), show?()}, its button
-  // var-tab-<name>; a module's tab builds on what the view hands it (ctx: the recipe open, its read, an edit, the
-  // engine, the pictures).
+  // The tabs, in Modkit's order: each {name, title, element, button?, load?(read), checked?(), show?(), shown?(on)},
+  // its button var-tab-<name> (its own, else made here); a module's tab builds on what the view hands it (ctx: the
+  // recipe open, its read, an edit, the engine, the pictures).
   const ctx = {
     root, state: v, app, el, button, text, field, typed, reason, canon, CHOOSE,
     call, image,
@@ -145,10 +150,15 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
       if (painting) painting.preview = preview;
     },
   };
+  const colours = coloursTab({ state: v, call, app, image, packs, dialog, say, given: () => given(), edit: () => edit(),
+                               ask: (question) => ask(question), folderOf: (name) => folderOf(name),
+                               keep: (name, file, data) => keepFolder(name, { ...v.folders?.[name] ?? {}, [file]: data }) });
   const tabs = [{ name: "body", title: "Body", element: body }, shapeTab(ctx), jiggleTab(ctx),
+                { name: "colours", title: "Colours", element: colours.pane, button: colours.tab, shown: colours.shown,
+                  checked: () => colours.load() },   // Step 4.6e: a body its build changes recoloured on the Check's dress
                 { name: "json", title: "JSON", element: json, show: () => showJson() }];
-  const tabButtons = tabs.map((t) => el("button", { id: `var-tab-${t.name}`, type: "button", role: "tab",
-                                                    textContent: t.title }));
+  const tabButtons = tabs.map((t) => t.button ?? el("button", { id: `var-tab-${t.name}`, type: "button", role: "tab",
+                                                                textContent: t.title }));
   tabs.forEach((t, i) => {
     t.element.hidden = i > 0;
     tabButtons[i].setAttribute("aria-selected", String(i === 0));
@@ -164,7 +174,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
        el("p", { className: "rando-row" }, ui.new, ui.from, ui.as, ui.saveAs, ui.delete),
        el("p", { className: "rando-row" }, ui.base, field("Gameplay", ui.mode), ui.reach),
        el("p", { className: "views", role: "tablist", ariaLabel: "The variant's fields" }, ...tabButtons),
-       ...tabs.map((t) => t.element), el("p", { className: "rando-row" }, ui.save, ui.check))));
+       ...tabs.map((t) => t.element), el("p", { className: "rando-row" }, ui.save, ui.check, ui.undo))));
   document.body.append(ui.asked);   // asked from any tab (a Build's question too), so never inside a hidden one
 
   // A question in the page's own dialog (no window of the browser's): a yes or a no, or with value a name (null: no).
@@ -293,6 +303,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
                        read: reply.read, readFor: canon(reply.recipe), checked: null, checkedBody: null, checking: null,
                        folder: reply.folder });
     ui.as.value = "";
+    restart();
     shown(true);
     pictures();
   };
@@ -302,6 +313,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     Object.assign(v, { kind: "new", name: null, recipe: species === "garret4" ? { base: species }
       : { base: species, mode: "own" }, saved: null, read: null, readFor: null, checked: null, checkedBody: null,
                        checking: null });
+    restart();
     shown(true);
     reread();
     pictures();
@@ -326,11 +338,40 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
       reread();
     }
   };
-  // A control wrote into the recipe: the status, the JSON and the list follow, the recipe read again.
+  // A control wrote into the recipe: the status, the JSON and the list follow, the recipe read again, and Undo keeps the
+  // recipe before it (edits closer than UNDO_GAP one step: a drag's).
+  const remember = () => {
+    const text = JSON.stringify(v.recipe);
+    if (text === v.now) return;
+    if (performance.now() - v.editAt > UNDO_GAP) v.undo = [...v.undo, v.now].slice(-UNDO_STEPS);
+    Object.assign(v, { now: text, editAt: performance.now() });
+  };
   const edit = () => {
+    remember();
     shown(false);
     reread();
   };
+  // Another recipe opened: nothing to undo, its Colours tab from its first row.
+  const restart = () => {
+    Object.assign(v, { undo: [], now: JSON.stringify(v.recipe), editAt: -Infinity });
+    colours.opened();
+  };
+  // Undo (Modkit's AZ-797: no edit could be undone but by leaving it): the recipe as it was before the last edit, every
+  // control from it; ⌘Z (Ctrl+Z) too, but in a text box, which has its own.
+  const undo = () => {
+    if (!v.undo.length) return;
+    Object.assign(v, { now: v.undo.at(-1), undo: v.undo.slice(0, -1), editAt: -Infinity });
+    v.recipe = JSON.parse(v.now);
+    shown(true);
+    reread();
+  };
+  ui.undo.addEventListener("click", undo);
+  document.addEventListener("keydown", (event) => {
+    if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "z"
+        || !v.opened || !root.isConnected || root.closest("[hidden]") || event.target?.closest?.(TYPED)) return;
+    event.preventDefault();
+    undo();
+  });
 
   // The status line, the base and gameplay rows, the buttons and (controls) every field, from the recipe as read.
   const shown = (controls = true) => {
@@ -352,12 +393,14 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     ui.export.title = v.kind !== "yours" ? "Save it as yours first: Export packs a saved variant"
       : edited() ? "Save first: Export packs it as saved" : "This variant as a zip: its recipe and the files it names";
     ui.from.disabled = v.kind === "new";
+    ui.undo.disabled = !v.undo.length;
     ui.check.disabled = !image() || Boolean(v.checking);
     ui.check.title = image() ? "Dress it on your image as a build does, and draw it" : CHOOSE;
     status(r);
     showJson();
     if (controls) fields(r);
     for (const t of tabs) t.load?.(r);   // each module's tab: its rows from the read (none: as they are)
+    if (controls) colours.load();
     draw();
   };
   const status = (r) => {
@@ -479,6 +522,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     v.recipe = recipe;
     v.read = reply;
     v.readFor = now();
+    remember();
     showJson(true);
     shown(true);
   });
@@ -488,6 +532,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     tabs.forEach((other, k) => {
       tabButtons[k].setAttribute("aria-selected", String(other === t));
       other.element.hidden = other !== t;
+      other.shown?.(other === t);
     });
     t.show?.();
   }));
@@ -738,6 +783,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     imaged: () => {
       if (v.opened) shown(false);
       if (v.opened && !v.pictured) pictures();
+      if (v.opened) colours.load();
     },
     // The open variant's name while it has edits not saved (a built-in's, yours), else null: what a build of that name
     // leaves out (it builds the saved recipe).
@@ -745,5 +791,6 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     ask,
     ready,
     state: v,
+    colours: colours.state,
   };
 }

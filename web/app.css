@@ -660,3 +660,35 @@ p.views { margin: 0; padding: 2px 10px; }
 #var-spring-line .field { display: inline-flex; align-items: center; gap: 4px; }
 #var-jiggle-entry { margin: 2px 0; color: var(--mark); }
 #var-jiggle-entry:empty { display: none; }
+/* Its Colours tab (Step 4.6e): the controls, the wheel beside its boxes, then the views, under them where narrow. */
+.var-colours { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: flex-start; }
+.var-colours canvas { width: auto; height: auto; }
+.var-colours .views { padding: 0; }
+.var-colours .views button[aria-pressed="true"] { color: var(--on); background: var(--accent); border-color: var(--accent); }
+.var-wheel { display: flex; gap: 10px; align-items: flex-start; padding: 3px 0; }
+.var-wheel input[type="range"] { display: block; width: 131px; accent-color: var(--accent); }
+.var-colours canvas.wheel, #var-pick canvas.wheel { border: 0; background: transparent; cursor: crosshair; touch-action: none; }
+canvas.wheel.off { cursor: default; opacity: .35; }
+.var-boxes { display: grid; grid-template-columns: auto 5.5rem auto; gap: 3px 6px; align-items: center; }
+.var-boxes input[type="text"] { width: 100%; }
+.var-boxes .note { grid-column: 1 / -1; margin: 0; max-width: 12rem; }
+.var-colours .warn, #var-pick .warn { color: var(--mark); }
+#var-window input { width: 3.5rem; }
+.var-swatch { display: inline-block; width: 18px; height: 18px; padding: 0; vertical-align: middle;
+  border: 1px solid var(--line); border-radius: 2px; }
+.var-swatch.small { width: 12px; height: 12px; }
+#var-palette { display: inline-flex; gap: 3px; }
+.var-swap { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; }
+.var-drop { height: 16px; padding: 0 4px; font-size: 10px; }
+.var-tiles { display: flex; flex-wrap: wrap; gap: 4px; }
+.var-tile { display: inline-flex; flex-direction: column; align-items: center; height: auto; padding: 1px;
+  font: 11px var(--mono); border: 2px solid transparent; background: transparent; }
+.var-tile[aria-pressed="true"] { border-color: var(--ring); }
+.var-colour-views .previews canvas { background: var(--field); border: 1px solid var(--soft); }
+#var-colour-caption { margin: 2px 0; max-width: 20rem; }
+#var-pick { position: fixed; top: 18%; left: 50%; width: 20rem; margin: 0; padding: 6px; transform: translateX(-50%); }
+#var-pick .note { margin: 0 0 4px; }
+#var-pick .rando-row { padding: 2px 0; }
+#var-pick .var-pick-side .rando-row { justify-content: flex-start; gap: 4px 8px; }
+#var-pick .var-pick-side input[type="range"] { width: 7rem; accent-color: var(--accent); }
+#var-pick-hex { width: 6rem; }

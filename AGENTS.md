@@ -1561,6 +1561,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     its Yours group (`#char-custom`) with Edit… on a chosen variant.
     `tests/test_variant_library.py`, `test_site.py` and `test_hosts.py`
     hold it; `tests/_perf.py`'s A87-A93, A95, A96, S73-S79, S81 and S82 time it.
+    Its tabs are modules of their own under `web/variants/`, so each tab's
+    lane edits its own file. The Colours tab (Step 4.6e,
+    `web/variants/colours.mjs`; Modkit's, D772, D809 (a)) draws on
+    `sdk.variant_colours` (one ask at a time, the newest edit asked once it
+    answers) and exports `pickColour`, the wheel picker another tab's colour
+    takes; its Import PNG is the app's `api/add_png` (by path) and the site
+    worker's `add_png` (the picked file's bytes, `PICKED`), the file kept
+    in this browser beside the recipe. The view's Undo keeps 100 steps,
+    edits closer than 0.6 s one (Modkit's AZ-797). `tests/_perf.py`'s
+    A100-A103 and S100-S103 time the tab.
   - **The Data tab** (Step 4.7a, `web/data.mjs`; D986, Modkit's Game Data
     editor): config.xbr's cells before an image (`sdk.data`, from the
     vanilla file `tools/data` ships): the Player, Critter, Item, Armor and
