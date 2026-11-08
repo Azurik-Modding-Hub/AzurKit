@@ -1772,7 +1772,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   after a Cancel, a launch, a reopen or a tab's open; work done ahead is
   free only while the page never freezes, so the page's freeze probe (a
   50 ms timer) fails a sample whose page froze over 250 ms in a gap between
-  actions (a head start, a dialog's wait, the warm-up's), and logs the
+  actions (a head start, a dialog's wait, the warm-up's), its error naming
+  the CPU the browser's processes used in that gap (a busy page told from
+  one its machine kept from running), and logs the
   lateness inside an action's own wait. The site's samples each take a
   persistent browser context on a new folder, with the storage a player's
   browser has; a later visit (`S02`, `S64`) opens in that browser closed and

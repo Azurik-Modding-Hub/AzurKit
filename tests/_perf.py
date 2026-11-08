@@ -43,6 +43,7 @@ the page's status lines, sizes."""
 
 from __future__ import annotations
 
+import collections
 import contextlib
 import dataclasses
 import functools
@@ -558,6 +559,7 @@ class Driver:
         self.gap: tuple[float, str, float | None] | None = None   # the worst gap since the last sample: its ms,
         #                                                           where, and the change a head start counted from
         self.memory: Memory | None = None    # the run's tree's CPU seconds (none: its samples have no ``cpu``)
+        self.watch: Memory | None = None     # the run's sampler, whose browser CPU a frozen gap names (:meth:`idle`)
         self.clicked = 0.0                   # those seconds at the last click
         self.retaking: dict[str, dict] = {}  # each op's starved sample, while it is taken once more
         self.ctx = None                      # the pass's browser context, the one reopen() gave last
@@ -668,8 +670,9 @@ class Driver:
              since: float | None = None) -> None:
         """A gap between actions (``why``): ``seconds`` slept, then ``done``
         waited for; the freeze probe's worst tick due in it is the gap's
-        (``since``: the change a head start counts from)."""
-        g0 = p.now()
+        (``since``: the change a head start counts from). A gap that froze
+        says how much CPU the browser's processes used in it (:meth:`Memory.ran`)."""
+        m0, g0 = time.monotonic(), p.now()
         if seconds > 0:
             self.sleep(seconds)
         if done:
@@ -677,6 +680,11 @@ class Driver:
         g1 = p.settled()
         self.ev += p.events()
         worst = p.worst(g0, g1)
+        if worst > FREEZE_MS and self.watch:   # a sample after the gap, then the browser's share of it
+            m1 = time.monotonic()
+            self.watch.take()
+            if (ran := self.watch.ran(m0, m1)) is not None:
+                why += f" (the browser ran {ran * 1000:.0f} ms of CPU in its {(g1 - g0) / 1000:.1f} s)"
         if self.gap is None or worst >= self.gap[0]:
             self.gap = (worst, why, since)
 
@@ -806,10 +814,14 @@ class Memory:
     """The peak resident size of the trees under ``roots(rows)`` (``rows``:
     ps's ``(pid, ppid, command, its start)``), sampled every 0.2 s, and the
     CPU seconds they have used (:attr:`used`): each process's highest figure
-    stays when it exits, so a child gone mid-op keeps what it used."""
+    stays when it exits, so a child gone mid-op keeps what it used. With
+    ``browser``, each sample keeps the CPU seconds of the processes
+    ``browser(rows)`` names, for :meth:`ran`."""
 
-    def __init__(self, roots: Callable[[list[tuple[int, int, str, str]]], list[int]]):
+    def __init__(self, roots: Callable[[list[tuple[int, int, str, str]]], list[int]],
+                 browser: Callable[[list[tuple[int, int, str, str]]], list[int]] | None = None):
         self.roots, self.peak, self.used, self._stop = roots, 0, 0.0, threading.Event()
+        self.browser, self._seen = browser, collections.deque(maxlen=150)   # (when, {pid: CPU s}): 30 s of samples
         self._cpu: dict[tuple[int, str], float] = {}   # by pid and start: a pid reused is another process
         self._lock = threading.Lock()
         self._thread = threading.Thread(target=self._sample, daemon=True)
@@ -847,17 +859,38 @@ class Memory:
             kids: dict[int, list[int]] = {}
             for pid, ppid, *_ in rows:
                 kids.setdefault(ppid, []).append(pid)
-            seen, todo = set(), list(self.roots(rows))
-            while todo:
-                if (pid := todo.pop()) not in seen:
-                    seen.add(pid)
-                    todo += kids.get(pid, [])
+
+            def tree(todo: list[int]) -> set[int]:
+                seen: set[int] = set()
+                while todo:
+                    if (pid := todo.pop()) not in seen:
+                        seen.add(pid)
+                        todo += kids.get(pid, [])
+                return seen
+            seen = tree(list(self.roots(rows)))
             self.peak = max(self.peak, sum(rss.get(pid, 0) for pid in seen) * 1024)
             for pid, _, _, start in rows:
                 if pid in seen:   # the most seen: a zombie, a killed child not reaped yet, reads 0:00.00
                     self._cpu[pid, start] = max(self._cpu.get((pid, start), 0.0), cpu[pid])
             self.used = sum(self._cpu.values())
+            if self.browser:
+                ran = tree(list(self.browser(rows)))
+                self._seen.append((time.monotonic(), {pid: cpu[pid] for pid in ran if pid in cpu}))
             return self.used
+
+    def ran(self, t0: float, t1: float) -> float | None:
+        """The CPU seconds the browser's processes used from the last sample
+        at or before ``t0`` to the first at or after ``t1`` (``time.monotonic``),
+        ``None`` without both: a page late while they ran was busy, one late
+        while they used none was kept from running (the machine's doing, not
+        the page's work)."""
+        with self._lock:
+            seen = list(self._seen)
+        first = next((cpu for t, cpu in reversed(seen) if t <= t0), None)
+        last = next((cpu for t, cpu in seen if t >= t1), None)
+        if first is None or last is None:
+            return None
+        return sum(max(0.0, used - first.get(pid, 0.0)) for pid, used in last.items())
 
     def _sample(self):
         while not self._stop.wait(0.2):
@@ -2126,9 +2159,10 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
         return browser_pids(rows, before)
     roots = (lambda rows: [pid for app in current for pid in app.pid()]) if run.host == "app" else site_roots
     try:
-        with sync_playwright() as pw, Memory(roots) as memory, \
+        with sync_playwright() as pw, Memory(roots, lambda rows: browser_pids(rows, before)) as memory, \
                 (served(site, run.lag) if run.host == "site" else contextlib.nullcontext()) as url:
             d.memory = None if run.lag else memory   # the lag run's reads wait by design: not a busy machine's waits
+            d.watch = memory
             engine = getattr(pw, run.browser)
             browser = engine.launch(headless=True, downloads_path=str(scratch)) if run.host == "app" else None
 

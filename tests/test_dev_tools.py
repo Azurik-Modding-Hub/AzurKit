@@ -883,6 +883,40 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_f
     assert len(made) == 1 and one != two and (two / "a").read_text() == "x"
 
 
+def test_a_gap_whose_page_froze_says_how_much_cpu_the_browser_ran_in_it(tmp_path, monkeypatch):
+    """A frozen gap's error names the CPU the browser's processes (their
+    whole tree) used across it, read from the run's sampler either side of it
+    (one sample taken as it ends): a page late while its browser ran was busy,
+    one late while it used none was kept from running. A gap that didn't
+    freeze takes no sample; with no sample either side it says nothing."""
+    start = "Sun Nov  1 08:22:00 2026"
+    reads = iter(["1 0 10 0:00.00 {0} /app\n5 0 10 0:01.00 {0} /browser\n6 5 10 0:00.50 {0} /page\n",
+                  "1 0 10 0:00.00 {0} /app\n5 0 10 0:01.01 {0} /browser\n6 5 10 0:00.50 {0} /page\n",
+                  "1 0 10 0:00.00 {0} /app\n5 0 10 0:01.02 {0} /browser\n6 5 10 0:00.51 {0} /page\n"])
+    monkeypatch.setattr(_perf.subprocess, "run",
+                        lambda *a, **k: types.SimpleNamespace(stdout=next(reads).format(start)))
+    memory = _perf.Memory(lambda rows: [1], lambda rows: [5])
+    for _ in range(3):
+        memory.take()
+    at = [t for t, _ in memory._seen]
+    assert [memory.ran(at[1], at[2]), memory.ran(at[0], at[2]), memory.ran(at[2] + 1, at[2] + 2)] == [
+        pytest.approx(0.02), pytest.approx(0.03), None]
+
+    def frozen(ticks, ran):
+        p = _Stub({"pick": {"picked": 500}, "build": {"built": 2000}}, ticks)
+        d = _perf.Driver(_perf.RUNS["app"], {"A12": 9}, tmp_path, tmp_path / "usa.iso", None)
+        d.sleep = lambda seconds: setattr(p, "t", p.t + seconds * 1000)
+        d.fresh(p)
+        taken = []
+        d.watch = types.SimpleNamespace(take=lambda: taken.append(p.t), ran=lambda t0, t1: ran)
+        d.act(p, None, "pick", "picked", change=True)
+        d.act(p, "A12", "build", "built")
+        return d.samples["A12"][0].get("error"), taken
+    assert [frozen([(1000, 400)], 0.02), frozen([(1000, 400)], None), frozen([(1000, 200)], 0.02)] == [
+        ("the page froze 400 ms in the head start before A12 (the browser ran 20 ms of CPU in its 2.5 s)", [3000]),
+        ("the page froze 400 ms in the head start before A12", [3000]), (None, [])]
+
+
 def test_the_sites_tracker_view_times_its_world_map_from_its_own_click_and_track_comes_after_the_head_start(
         tmp_path, monkeypatch):
     """S19 is the Tracker view's world map timed from the view's click (a
