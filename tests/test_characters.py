@@ -39,7 +39,8 @@ from azurkit.edits import preset
 from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
-from azurkit.tools.characters import _player_kit, _player_variants, content, picker, pool, ports, retarget, shipped
+from azurkit.tools.characters import _player_kit, _player_variants, content, parts, picker, pool, ports, retarget
+from azurkit.tools.characters import shipped
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
 from scripts import record_goldens, record_shipped
@@ -1631,9 +1632,9 @@ def test_a_dress_scans_the_levels_once_a_release_and_keeps_none_of_them(usa_iso,
 def test_a_worn_bodys_build_and_its_kept_variant_body_hold_each_file_of_the_image_once(usa_iso, monkeypatch):
     """Step 4.6c (the capped site's peak, a Check's dress): the files a worn
     body's dress reads are the build's own bytes, its ``Vanilla``'s, not a
-    second read of each (103 MiB on USA); and a variant body kept beside a
-    staged characters.xbr the layers before left as the image's holds the
-    image's one (64 MiB), still taken by a call on an equal copy."""
+    second read of each (103 MiB on USA); and a variant body's kept parts
+    hold no copy of characters.xbr (Step 4.6n: their runs over the staged
+    one), still taken by a call on an equal copy."""
     from azurkit.tools.characters import _player_character as swap
 
     read = {}
@@ -1646,13 +1647,15 @@ def test_a_worn_bodys_build_and_its_kept_variant_body_hold_each_file_of_the_imag
                                                               [], []))
     base = sdk._plan({"iso": str(usa_iso), "packs": {}, "character": {"species": "keylord"}})[1]
     assert all(base[f] is read[f] for f in characters.READS)
-    monkeypatch.setattr(swap, "_KEPT_BODY", [None])
+    parts.clear()
+    monkeypatch.setattr(parts, "HEARD", {})
     plain = dataclasses.replace(_player_variants.builtins()["booblord"], mesh=None, jiggle=None, textures=(),
                                 texture_scale=1.0, plain=None)
     stored, staged = bytes(64), bytes(bytearray(64))
     made = swap._variant_body(staged, stored, "town_female_2", plain)[0]
-    assert swap._KEPT_BODY[0][1] is stored and swap._variant_body(bytes(bytearray(64)), stored, "town_female_2",
-                                                                 plain)[0] is made
+    assert parts._HELD[0] < len(stored) and swap._variant_body(bytes(bytearray(64)), stored, "town_female_2",
+                                                               plain)[0] == made
+    assert parts.HEARD["W30"] == {"hit": 1, "miss": 1}
 
 
 def test_a_swap_under_the_apps_process_pool_is_its_goldens_file_for_file(usa_iso, no_content, tmp_path, monkeypatch):
@@ -1861,7 +1864,7 @@ def _places_rig(monkeypatch, tmp_path) -> tuple:
     release = SimpleNamespace(iso_sha256="a release", name="made up", files={CHARACTERS: (len(stored), _sha256(stored))})
     monkeypatch.setattr(gate, "RELEASES", (release,))
     monkeypatch.setattr(content, "ROOT", tmp_path)
-    monkeypatch.setattr(swap, "_KEPT_BODY", [None])
+    parts.clear()
     parent = SimpleNamespace(files="", name="her", mesh=("plain", 0.0), jiggle=("springs",))
     variant = SimpleNamespace(source="built-in", mesh=SimpleNamespace(gltf=None, name="sized"), jiggle=("springs",),
                               plain=None, textures=(), texture_scale=1)
@@ -1888,7 +1891,7 @@ def test_a_reshape_takes_its_parents_shipped_places_where_they_stand_on_what_the
     monkeypatch.setattr(shipped, "SEEN", [])
 
     def built(current: bytes = stored) -> tuple:
-        swap._KEPT_BODY[0] = None
+        parts.clear()
         worked_out.clear()
         swap._variant_body(current, stored, "body", variant)
         return len(worked_out), repr(rigged[-1])

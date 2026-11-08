@@ -1027,6 +1027,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
       within `shipped.ULPS` float32 steps and a plan to what it stands on
       (`shipped.agrees`), and a build takes a fresh size close to a shipped
       one (`shipped.same_size`), exact on that host.
+  - **A dress's parts** (Step 4.6n, `tools/characters/parts.py`): the
+    stages of a variant's dress whose output is a function of what they
+    read alone (its body's W24 mesh, W29 rig and W30 paint, three parts,
+    each keyed on the one before; its size, `size_shape`; W28's arms' and
+    springs' restyles; the LOD and shadow cuts and their writes) are kept
+    in the process under a key of those reads (a file by its sha256, the
+    recipe fields by `repr`, each file read in its folder by its bytes),
+    never the variant's name, its folder or its recipe file's path, which
+    reach only its sounds and its log, and taken in place of the stage: a
+    copy under any name (New from this) dresses only the glue between
+    them, and booblord and her own copy share her body. A part's file is
+    kept as the runs where it differs from the stage's input, its objects
+    pickled; the parts held are bounded (`parts.ROOM`, the least recently
+    taken let go first); a stage that raises keeps nothing, so a refusal
+    is worked out again; `parts.OFF` dresses fresh, and
+    `test_variant_editor.py` holds a copy's Check to a fresh one.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload

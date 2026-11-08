@@ -7404,19 +7404,39 @@ def size_shape(iso: Path, species: str, mode: str = DEFAULT_MODE, size: str = DE
     and touch use (2.133's critique, finding 2: X11's posed reach and
     W26's carried props move the drawn top), a ``variant`` (Step 2.137) with
     its recipe as the build dresses it, wearing ``weapon`` (Step 2.161b).
-    :class:`ValueError` as the build's, for a species it can't use."""
-    from azurkit.tools.characters.ports import IsoStaging
+    :class:`ValueError` as the build's, for a species it can't use.  On a
+    release's image, a part kept by what it reads (:mod:`.parts`, Step
+    4.6n): the release, the options and the variant's content
+    (:func:`~azurkit.tools.characters._player_variants.content_key`; a
+    species', the content installed), never its name."""
+    import pickle
+
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import parts
+    from azurkit.tools.characters.ports import IsoStaging, _BUILD
 
     scratch = IsoStaging(iso)
     check_player_model(scratch, species)
     if species == PLAYER:
         characters = scratch.stored("characters.xbr")
         return SizeShape(camera_shape(characters, read_body(characters, PLAYER)), None, 1.0)
+    build = _BUILD.get()
+    release = getattr(iso, "release_key", None) if build is None or not (build.taken or build.packs) else None
+    worn = variants.content_key(variant) if variant is not None else kit.installed()   # a species' own build's clips
+    key = None if release is None or worn is None else parts.key("size", release, species, mode, size, missing_anims,
+                                                                 weapon, variant is not None, worn)
+    if key is not None and (kept := parts.get(key, "size")) is not None:
+        return pickle.loads(kept)
     d = _dress(scratch, species, mode, missing_anims, size, variant=variant, weapon=weapon)   # at x1: only a clipless body's bake reads the
     sized, scale = body_scale(d.characters, d.body, d.theirs, mode, size)   # scale, and its shape reads no clip
-    return SizeShape(camera_shape(d.characters, d.body, d.fills, d.loadout.carriers), sized,
-                     1.0 if scale is None else scale,
-                     mode == "garret4")
+    found = SizeShape(camera_shape(d.characters, d.body, d.fills, d.loadout.carriers), sized,
+                      1.0 if scale is None else scale,
+                      mode == "garret4")
+    if key is not None:
+        kept = pickle.dumps(found, pickle.HIGHEST_PROTOCOL)
+        parts.put(key, kept, len(kept))
+    return found
 
 
 def movement_size(shape: SizeShape, model_scale: float) -> float:
@@ -8241,17 +8261,17 @@ def _his_look(game, variant, who: str) -> tuple:
     reads them (:func:`_variant_body`); its mesh plan, rig and W30's log
     lines.  :class:`ValueError` names the step that fails (D35)."""
     try:
-        made, reshaped, rigged, painted = _variant_body(bytes(game["characters.xbr"]), game.stored("characters.xbr"),
-                                                        PLAYER, variant)
+        made, reshaped, rigged, painted, known = _variant_body(bytes(game["characters.xbr"]),
+                                                               game.stored("characters.xbr"), PLAYER, variant)
     except ValueError as exc:
         sized = ", ".join(f"{s.title} {s.value:g}" for s in variant.shapes if s.value != 1.0)
         raise ValueError(f"{who}" + (f" at {sized}" if sized else "") + f": {exc}") from None
     game["characters.xbr"] = bytearray(made)
     if variant.lods is not None:   # W39's cuts (none of W36's)
-        _lods_ahead(made, PLAYER, variant.lods)
+        _lods_ahead(made, PLAYER, variant.lods, known)
     else:
         engine = XbrDocument.from_bytes(game.stored("config.xbr")).keyed_section("critters_engine")
-        _shadow_ahead(made, engine, PLAYER, PLAYER, variant.shadow)
+        _shadow_ahead(made, engine, PLAYER, PLAYER, variant.shadow, known)
     return reshaped, rigged, painted
 
 
@@ -8881,23 +8901,31 @@ class _Dressed:
     no attack clip, the :data:`CAST_DIR` copies or ``g4/`` timers its attack columns play)."""
     painted: tuple = ()
     """W30's log lines: the textures a variant repainted (Step 2.154)."""
+    known: tuple[str | None, str | None] = (None, None)
+    """The keys (:mod:`.parts`) of :attr:`dressed` and of what W24-W30 left, the rig's (``None``: none worked out)."""
 
 
-_KEPT_BODY: list = [None]
-"""The last variant body :func:`_variant_body` made (Step 2.176): its
-inputs and what it gave, pickled; a call of the same inputs takes it
-instead of making it again (size_shape's dress and the build's, a
-test's builds of one body: W24, W29 and W30 were half of booblord v4's
-build)."""
+def _body_keys(current: bytes, stored: bytes, body: str, variant, folder, parent=None, at=None
+               ) -> tuple[str, str, str]:
+    """The keys of a variant body's three parts (:mod:`.parts`, Step 4.6n;
+    W24, W29 and W30 were half of booblord v4's build, Step 2.176), each on
+    the one before: what each stage reads, its specs by ``repr``, not
+    ``==``, since 0.0 == -0.0 and a zero's sign reaches the bytes (as
+    ``mesh_edit._ray``'s memo refuses), both files by their sha256 and the
+    glTFs it reads in ``folder`` by their bytes, never the name or the
+    folder; ``parent``: the recipe whose jiggle places it takes
+    (:func:`_parent_places`), and ``at`` the shipped places taken for it."""
+    from azurkit.tools.characters import parts
 
-
-def _kept_key(body: str, variant, folder, read, parent=None) -> tuple:
-    """The key the kept body (:data:`_KEPT_BODY`) is reused on: its specs by
-    ``repr``, not ``==``, since 0.0 == -0.0 and a zero's sign reaches the
-    bytes (as ``mesh_edit._ray``'s memo refuses); ``parent``: the recipe
-    whose jiggle places it takes (:func:`_parent_places`)."""
-    return (body, repr((variant.mesh, variant.jiggle, variant.textures, variant.texture_scale)), folder, read,
-            repr((parent.mesh, parent.jiggle)) if parent is not None else None)
+    held = parts.digest(stored)
+    staged = held if current is stored or current == stored else parts.digest(current)
+    files = [spec.gltf[0] for spec in (variant.mesh, parent.mesh if parent is not None else None)
+             if getattr(spec, "gltf", None) is not None]
+    mesh = parts.key("W24", staged, held, body, repr(variant.mesh), variant.jiggle is not None,
+                     parts.stamps(folder, files))
+    rig = parts.key("W29", mesh, repr(variant.jiggle),
+                    repr((parent.mesh, parent.jiggle)) if parent is not None else None, repr(at))
+    return mesh, rig, parts.key("W30", rig, repr((variant.textures, variant.texture_scale)))
 
 
 def _parent_places(shared: tuple, _=None) -> dict:
@@ -8921,60 +8949,73 @@ def _parent_places(shared: tuple, _=None) -> dict:
 
 
 def _variant_body(current: bytes, stored: bytes, body: str, variant
-                  ) -> tuple[bytes, "mesh_edit.MeshPlan | None", "jiggles.Rigged | None", list[str]]:
+                  ) -> tuple[bytes, "mesh_edit.MeshPlan | None", "jiggles.Rigged | None", list[str], str]:
     """``variant``'s W24 mesh (Step 2.142), W29 jiggle bones (Step 2.143,
     D428) and W30 textures (Step 2.154) made on ``body`` in ``current``
     (the staged characters.xbr; ``stored``, the image's): the file they
-    leave, the mesh plan, the rig and W30's log lines.  The last one made
-    is kept (:data:`_KEPT_BODY`): a call on the same inputs (each byte of
-    both files, ``body``, the recipe's ``mesh``, ``jiggle``,
-    ``textures`` and ``texture_scale``, its folder and the sha256 of the one file they read
-    there, ``mesh.gltf``'s) takes it, each object its own copy.  A recipe
+    leave, the mesh plan, the rig, W30's log lines and the key of what they
+    left (:func:`_body_keys`, the file's content).  Each of the three is a
+    part kept by what it reads (:mod:`.parts`, Step 4.6n): a call that
+    reads the same (each byte of both files, ``body``, the recipe's
+    ``mesh``, ``jiggle``, ``textures`` and ``texture_scale``, and the
+    glTFs they read in its folder by their bytes, under any name or
+    folder) takes it, each object its own copy, and a change to the paint
+    keeps the mesh and the rig.  A recipe
     ``from`` another whose mesh differs places its jiggle bones where that
     one's build does (:func:`_parent_places`, Step 2.177b), and so does one
     whose shapes sized its mesh, where its build at its shapes' 1.0 does
     (Step 2.164b: her clips' rests hold); where a shipped row stands for
     those places (:func:`~azurkit.tools.characters.shipped.places`) none is worked out.
-    :class:`ValueError` names the step that fails (nothing kept)."""
+    :class:`ValueError` names the step that fails (that step keeps nothing)."""
     import pickle
 
     from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import paint, parts, pool, shipped
 
     folder = Path(variant.source).parent if variant.source != "built-in" else None
-    gltf = variant.mesh.gltf if variant.mesh is not None else None
-    read = None
-    if gltf is not None and (Path(folder or ".") / gltf[0]).is_file():
-        try:
-            read = mesh_edit.file_sha256(Path(folder or ".") / gltf[0])
-        except ValueError:   # the plan names it
-            pass
     parent = variants.parent_of(variant)
     if parent is None and variant.plain is not None:   # Step 2.164b: a sized shape moves no jiggle bone
         parent = replace(variant, mesh=variant.plain, plain=None)
     if parent is None or parent.jiggle is None or variant.jiggle is None or repr(parent.mesh) == repr(variant.mesh):
         parent = None
-    key = _kept_key(body, variant, folder, read, parent)
-    kept = _KEPT_BODY[0]
-    if kept is not None and kept[0] == key and kept[1] == current and kept[2] == stored:
-        return kept[3], *pickle.loads(kept[4])
-    from azurkit.tools.characters import paint, pool, shipped
-    reshaped = assembled = rigged = None
     at = shipped.places(current, stored, body, parent) if parent is not None else None   # her defaults' (R3-CP1)
-    placing = None if parent is None or at is not None else pool.later(   # in a child while hers is planned (Step 2.179)
+    keys = _body_keys(current, stored, body, variant, folder, parent, at)
+    mesh, rig, paint_ = (parts.get(k, stage) for k, stage in zip(keys, ("W24", "W29", "W30")))
+    rig = None if mesh is None else rig   # each on the one before
+    paint_ = None if rig is None else paint_
+    reshaped = pickle.loads(mesh[1]) if mesh is not None else None
+    if paint_ is not None:   # all three kept: the file the last one left, the dress's serial stages each a record
+        _progress.note("the mesh")   # (and a cancel point) for a call that notes them, as when worked out
+        if variant.jiggle is not None:
+            _progress.note("the springs")
+        if paint_[2]:
+            _progress.note("the paint")
+        return parts.undelta(current, paint_[0]), reshaped, pickle.loads(rig[1]), list(paint_[1]), keys[2]
+    assembled = rigged = None
+    placing = None if parent is None or at is not None or rig is not None else pool.later(   # in a child while hers
         pool.each, _parent_places, (current, stored, body, parent.mesh, parent.jiggle, folder), [None], None, 1)
-    edited = bytearray(current)
-    try:
-        if variant.mesh is not None:   # W24 (Step 2.142)
-            reshaped = mesh_edit.plan(stored, body, variant.mesh, folder)
-            if reshaped.mesh is not None and variant.jiggle is not None:   # a subdivided mesh: W29 rigs it, then writes
-                assembled = mesh_edit.assemble(edited, reshaped, stored)
-            else:
-                mesh_edit.write(edited, reshaped, stored)
-    except ValueError:
-        if placing is not None:   # the parent's refusal first, as when its places came first
-            placing.result()
-        raise
-    _progress.note("the mesh")   # the dress's serial stages, each a record (and a cancel point) for a call that notes them
+    if rig is not None:   # (is planned, Step 2.179)
+        edited = None   # W29's file, below
+    elif mesh is not None:   # a subdivided mesh's asset assembled again for W29 (not kept: 20 MB, most of the part)
+        edited = bytearray(parts.undelta(current, mesh[0]))
+        if reshaped is not None and reshaped.mesh is not None and variant.jiggle is not None:
+            assembled = mesh_edit.assemble(edited, reshaped, stored)
+    else:
+        edited = bytearray(current)
+        try:
+            if variant.mesh is not None:   # W24 (Step 2.142)
+                reshaped = mesh_edit.plan(stored, body, variant.mesh, folder)
+                if reshaped.mesh is not None and variant.jiggle is not None:   # a subdivided mesh: W29 rigs it, then
+                    assembled = mesh_edit.assemble(edited, reshaped, stored)   # writes
+                else:
+                    mesh_edit.write(edited, reshaped, stored)
+        except ValueError:
+            if placing is not None:   # the parent's refusal first, as when its places came first
+                placing.result()
+            raise
+        kept = (parts.delta(current, edited), pickle.dumps(reshaped, pickle.HIGHEST_PROTOCOL))
+        parts.put(keys[0], kept, parts.size_of(kept[0]) + len(kept[1]))
+    _progress.note("the mesh")
     if placing is not None:
         at = placing.result()[0]
         shipped.heard_places(current, stored, body, parent, at)
@@ -8984,18 +9025,24 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
                              reshaped.dropped if reshaped is not None else ())
     if specs or (reshaped is not None and reshaped.repaint):   # W30's bakes, in children while W29 rigs
         baking = pool.later(paint.bakes, stored, body, reshaped, specs)
-    if variant.jiggle is not None:   # W29: the jiggle bones, before any reader
+    if rig is not None:
+        rigged, edited = pickle.loads(rig[1]), bytearray(parts.undelta(current, rig[0]))
+    elif variant.jiggle is not None:   # W29: the jiggle bones, before any reader
         rigged = jiggles.rig(edited, stored, body, variant.jiggle, variant.mesh, folder, asset=assembled, at=at,
                              late=reshaped.late if reshaped is not None else None)
+    if rig is None:
+        kept = (parts.delta(current, edited), pickle.dumps(rigged, pickle.HIGHEST_PROTOCOL))
+        parts.put(keys[1], kept, parts.size_of(kept[0]) + len(kept[1]))
+    if variant.jiggle is not None:
         _progress.note("the springs")
     painted = []
     if baking is not None:   # W30
         painted = paint.write(edited, stored, body, reshaped, specs, baking.result())
         _progress.note("the paint")
-    made = bytes(edited)   # kept with the image's file in place of an equal staged one: a copy less held (Step 4.6c)
-    _KEPT_BODY[0] = (key, stored if current == stored else current, stored, made,
-                     pickle.dumps((reshaped, rigged, painted), pickle.HIGHEST_PROTOCOL))
-    return made, reshaped, rigged, painted
+    made = bytes(edited)
+    kept = (parts.delta(current, made), tuple(painted), baking is not None)
+    parts.put(keys[2], kept, parts.size_of(kept[0]) + sum(len(line) for line in painted))
+    return made, reshaped, rigged, painted, keys[2]
 
 
 def _dress(game, species: str, mode: str, missing_anims: str | None, size: str = DEFAULT_SIZE,
@@ -9026,12 +9073,12 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
     mine, theirs = rows[PLAYER], rows[species]
     characters = game.stored("characters.xbr")
     body = read_body(characters, theirs["body"])
-    reshaped = rigged = None
+    reshaped = rigged = known = None
     painted = []
     if variant is not None and (variant.mesh is not None or variant.jiggle is not None or variant.textures):
         try:   # W24, W29 and W30: first, so every reader measures them
-            made, reshaped, rigged, painted = _variant_body(bytes(game["characters.xbr"]), characters, body.name,
-                                                            variant)
+            made, reshaped, rigged, painted, known = _variant_body(bytes(game["characters.xbr"]), characters,
+                                                                   body.name, variant)
         except ValueError as exc:   # the shapes it was built at named (Step 2.164b's review D1)
             sized = ", ".join(f"{s.title} {s.value:g}" for s in variant.shapes if s.value != 1.0)
             raise ValueError(f"--player-character {variant.name!r} (a variant of {species})"
@@ -9039,9 +9086,9 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
         game["characters.xbr"] = bytearray(made)
         characters = made
         if variant.lods is not None:   # W39's cuts (and none of W36's: its LODs leave the shadow nothing to cut)
-            _lods_ahead(made, body.name, variant.lods)
+            _lods_ahead(made, body.name, variant.lods, known)
         else:
-            _shadow_ahead(made, engine, mine["body"], body.name, variant.shadow)
+            _shadow_ahead(made, engine, mine["body"], body.name, variant.shadow, known)
     garret4 = read_body(characters, PLAYER)
     # the mode's rule (Step 2.73a); a clipless body's only clips are
     # garret4's, whatever is asked
@@ -9330,11 +9377,14 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
             game["characters.xbr"], game["index.xbr"] = bytearray(grown), bytearray(index)
             characters = grown
             fills |= rated
-    styled = 0
+    styled, before = 0, None
     if variant is not None and (variant.arms or variant.arm_clips or variant.poses):   # W28 (Step 2.143, D428): every
         # clip's arms (and a recipe's poses, Step 2.154), each once
+        from azurkit.tools.characters import parts
+        before = parts.digest(dressed)   # the springs' pass reads it too
         try:
-            grown, styled, _ = variants.restyled(dressed, bytes(game["characters.xbr"]), first, body.name, variant)
+            grown, styled, _ = variants.restyled(dressed, bytes(game["characters.xbr"]), first, body.name, variant,
+                                                 known=(before, None, None))
         except ValueError as exc:
             raise ValueError(f"--player-character {who}: {exc}") from None
         game["characters.xbr"] = bytearray(grown)
@@ -9342,7 +9392,8 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
     return _Dressed(doc, engine, mine, theirs, characters, body, garret4, missing_anims, baked, fills, victory,
                     anims, columns, cells, clips, picks, copies, plan, timers, quiets, recipe_picks,
                     rows, reshaped, worn, swim, borrowed, surfaced, styled, rigged, dressed, first,
-                    style if styled_clips else None, took.get("take"), lo, bool(owned), spells, cast, tuple(painted))
+                    style if styled_clips else None, took.get("take"), lo, bool(owned), spells, cast, tuple(painted),
+                    (before, known))
 
 
 TWIN_SHARE = 0.05
@@ -10545,7 +10596,8 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         try:
             _progress.note("the springs' clips")
             grown, _, peaks = variants.restyled(d.dressed, bytes(game["characters.xbr"]), d.first, body.name,
-                                                variant, rigged, rates, drawn, arms=False)
+                                                variant, rigged, rates, drawn, arms=False,
+                                                known=(d.known[0], None, d.known[1]))
         except ValueError as exc:
             raise ValueError(f"--player-character {variant.name!r} (a variant of {species}): {exc}") from None
         game["characters.xbr"], grown = bytearray(grown), None   # the staged file is it: no copy held to the end
@@ -11116,27 +11168,46 @@ def _shadow_ratio(body: str, lod0: list, cast: bool, shadow: bool | float | None
     return decimate.SHADOW_RATIO if shadow is None or shadow is True else shadow
 
 
-def _shadow_ahead(characters: bytes, engine, player_body: str, body: str, shadow: bool | float | None) -> None:
+def _ahead(characters: bytes, body: str, how: tuple, known: str | None, start) -> None:
+    """A cut of ``body``'s LOD 0 in ``characters`` (``known``: its key,
+    :func:`_variant_body`'s) started ahead by ``start()``, which returns its
+    part's key (:mod:`.parts`), unless the cut ``how`` of that file was
+    started before and is kept or still runs: a dress of a body whose parts
+    were kept (another copy of it, a Check after its size) starts none, nor
+    reads its LOD 0 to ask (Step 4.6n)."""
+    from azurkit.tools.characters import decimate, parts
+
+    asked = parts.key("ahead", known or parts.digest(characters), body, repr(how))
+    if (cut := parts.get(asked)) is not None and (parts.held(cut) or decimate.pending(cut)):
+        return
+    if (cut := start()) is not None:
+        parts.put(asked, cut, len(cut))
+
+
+def _shadow_ahead(characters: bytes, engine, player_body: str, body: str, shadow: bool | float | None,
+                  known: str | None = None) -> None:
     """W36's cut of ``body`` as a variant's W24, W29 and W30 leave it in
     ``characters`` (the player's row still wearing ``player_body``), in a
     worker process while the build goes on (Step 2.179: booblord_high's
     was a sixth of her build; :func:`~azurik_mod.assets.decimate.cut_ahead`),
     where :func:`write_shadow_lod` would cut it: W36 takes it if its LOD 0
-    is still this one, and refuses as it would.  Once a body: a dress of
-    the kept body (:data:`_KEPT_BODY`) while its cut runs starts none."""
+    is still this one, and refuses as it would.  Once a body
+    (:func:`_ahead`)."""
     from azurkit.tools.characters import decimate, lods
     from azurkit.tools.characters.body_codec import read_asset
 
     if shadow is False or decimate.ahead_of(characters):
         return
-    lod0 = read_asset(characters, body).lods
     cast = any(w.shadow for w in lods.wearers(bytes(engine.document.raw), player_body) if w.species == PLAYER)
-    try:
-        ratio = _shadow_ratio(body, lod0, cast, shadow)
-    except ValueError:
-        return
-    if ratio is not None:
-        decimate.cut_ahead(lod0[0], ratio, source=characters)
+
+    def start() -> str | None:
+        lod0 = read_asset(characters, body).lods
+        try:
+            ratio = _shadow_ratio(body, lod0, cast, shadow)
+        except ValueError:
+            return None
+        return None if ratio is None else decimate.cut_ahead(lod0[0], ratio, source=characters)
+    _ahead(characters, body, ("shadow", shadow, cast), known, start)
 
 
 def write_shadow_lod(game, engine, body: str, shadow: bool | float | None = None) -> tuple[list[str], int]:
@@ -11193,7 +11264,7 @@ def _lod_errors(spec) -> list[float] | None:
     return None if spec.error_px is None else [lods.pixel_error(spec.error_px, d) for d in lods.thresholds(spec.at)]
 
 
-def _lods_ahead(characters: bytes, body: str, spec) -> None:
+def _lods_ahead(characters: bytes, body: str, spec, known: str | None = None) -> None:
     """W39's cuts of ``body``'s LOD 0 as a variant's W24, W29 and W30 leave
     it in ``characters``, started in a worker process while the build goes
     on (:func:`~azurik_mod.assets.decimate.chain_ahead`, as
@@ -11203,7 +11274,8 @@ def _lods_ahead(characters: bytes, body: str, spec) -> None:
     from azurkit.tools.characters.body_codec import read_asset
 
     if spec.ratio and not decimate.ahead_of(characters):
-        decimate.chain_ahead(read_asset(characters, body).lods[0], spec.ratio, _lod_errors(spec), source=characters)
+        _ahead(characters, body, ("lods", spec.ratio, _lod_errors(spec)), known, lambda: decimate.chain_ahead(
+            read_asset(characters, body).lods[0], spec.ratio, _lod_errors(spec), source=characters))
 
 
 def write_lods(game, engine, body: str, spec, vanilla: bytes | None = None) -> tuple[list[str], int]:

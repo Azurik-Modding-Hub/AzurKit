@@ -292,7 +292,7 @@ def _decode(blob: bytes, base: Mapping[str, bytes], asked: Mapping
 def _places_recipe(body: str, parent) -> dict:
     """What a parent's places are of: ``body``, whose content they read
     (``species``, :func:`entries`') and the sha256 of its mesh and jiggle
-    specs by ``repr`` (a zero's sign counts, as ``_kept_key``'s)."""
+    specs by ``repr`` (a zero's sign counts, as ``_body_keys``')."""
     return {"body": body, "species": parent.files or parent.name,
             "spec": hashlib.sha256(repr((parent.mesh, parent.jiggle)).encode()).hexdigest()}
 

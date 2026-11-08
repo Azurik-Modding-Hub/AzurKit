@@ -22,7 +22,7 @@ from azurkit import sdk
 from azurkit.app import engine
 from azurkit.core import iso
 from azurkit.tools import characters
-from azurkit.tools.characters import _player_variants, colour_preview, library
+from azurkit.tools.characters import _player_variants, colour_preview, library, parts
 from azurkit.tools.randomizer import art
 from tests import _hosts
 
@@ -83,6 +83,24 @@ HIPS = {"base": "town_female_2", "mesh": {"ops": [
     {"op": "scale", "name": "pelvis", "profile": "smooth", "bone": "root_joint", "offset": [0.0, -0.033, -0.175],
      "radius": [0.4, 0.16, 0.22], "factors": [1.4, 1.0, 1.0]}]},
     "shapes": {"hips": {"title": "Hips", "ops": ["pelvis"], "value": 1.0}}}
+
+
+#: A recipe on town_female_2 with each part a Check keeps (Step 4.6n): its mesh (her hips split, booblord's right
+#: glute), a jiggle bone in it, a texture, its arms and its LODs.
+PARTED = {"base": "town_female_2", "mode": "own", "arms": {"out_deg": 10.0}, "lods": {"ratio": [0.5], "at": [9.0]},
+          "mesh": {"ops": [{"op": "subdivide", "name": "hips", "bone": "root_joint", "offset": [0.0, -0.03, -0.1],
+                            "radius": [0.32, 0.24, 0.22], "edge": 0.05, "groups": [1]},
+                           {"op": "round", "name": "glute right", "bone": "root_joint", "offset": [0.08, -0.07, -0.085],
+                            "dir": [0.05, -1.0, 0.0], "origin": 0.07, "groups": [1],
+                            "radius": {"across": 0.105, "along": 0.17, "up": 0.145, "down": 0.167, "taper": 0.3},
+                            "blend": {"up": 0.05, "down": 0.06, "inner": [0.1, 0.11, 0.15]}}]},
+          "jiggle": {"frees": [], "bones": [
+              {"role": "glute_right", "bone": "glute_right", "parent": "root_joint", "shape": ["glute right"],
+               "groups": [1], "takes": ["root_joint", "right_hip"], "weight": 0.75,
+               "spring": {"freq": 3.1, "damping": 0.15, "travel": [0.03, 0.08, 0.12], "gain": 4.3}}]},
+          "textures": [{"row": 0, "size": 64, "ops": [{"op": "fill", "bone": "head", "offset": [0.0, -0.06, 0.06],
+                                                       "radius": [0.2, 0.2, 0.2], "groups": [0],
+                                                       "colour": [0.5, 0.2, 0.2], "mix": 0.5}]}]}
 
 
 def test_each_base_species_answers_the_editors_tabs_from_the_image(usa_iso):
@@ -198,6 +216,42 @@ def test_a_check_of_content_checked_before_answers_from_what_it_kept(usa_iso, tm
     sdk.variant_check(yours | {"recipe": recipe | {"notes": "kept"}})
     sdk.variant_check(given | {"recipe": recipe | {"scale": 1.5}})
     assert dressed[2:] == [("_size", "yours"), ("_plan", "yours"), ("_size", "mine"), ("_plan", "mine")]
+
+
+def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh_check_answers(usa_iso, tmp_path,
+                                                                                                monkeypatch):
+    """Step 4.6n (the Check design's R1): a dress's parts are kept by what they read, never the variant's name or
+    folder, so PARTED checked again under another name in another folder takes each part the first Check kept (its
+    size, its body's mesh, rig and paint, both restyles, its LODs), and a copy with its spring edited keeps the mesh
+    and works out the rest, each answering and dressing as a fresh Check of it (no part kept or taken) does, byte for
+    byte; and booblord and her own copy (New from this) read one body, so they share its parts."""
+    monkeypatch.setattr(parts, "HEARD", {})
+    parts.clear()
+    sdk.variant_check(_given(usa_iso, tmp_path, PARTED, name="first"))
+    springier = json.loads(json.dumps(PARTED))
+    springier["jiggle"]["bones"][0]["spring"]["freq"] = 2.5
+    copies, answers, missed = {"second": PARTED, "third": springier}, {}, {}
+    for name, recipe in copies.items():
+        parts.HEARD.clear()
+        sdk._CHECKED.clear()
+        answers[name] = sdk.variant_check(_given(usa_iso, tmp_path, recipe, name=name)), _sha12(
+            sdk._CHECKED["last"]["characters"])
+        missed[name] = {stage: counts["miss"] for stage, counts in parts.HEARD.items()}
+    assert missed["second"] == dict.fromkeys(("size", "W24", "W29", "W30", "W28 arms", "W28 springs", "W39"), 0)
+    assert missed["third"]["W24"] == 0 < missed["third"]["W29"] and answers["third"][0]["refusal"] is None
+    monkeypatch.setattr(parts, "OFF", True)
+    for name, recipe in copies.items():
+        sdk._CHECKED.clear()
+        assert (sdk.variant_check(_given(usa_iso, tmp_path, recipe, name=name)),
+                _sha12(sdk._CHECKED["last"]["characters"])) == answers[name]
+    builtin = _player_variants.builtins()["booblord"]
+    own = _player_variants.own_recipe(_player_variants.recipe_of(
+        json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8")), "booblord", "built-in")[0])
+    copy = _player_variants.load_variants(json.dumps({"mine": own}), str(tmp_path / "mine" / "recipe.json"),
+                                          tuple(_player_variants.builtins()))["mine"]
+    swap, stored = characters._swap(), b"the image's characters.xbr"
+    assert swap._body_keys(stored, stored, "town_female_2", builtin, None) == swap._body_keys(
+        stored, stored, "town_female_2", copy, tmp_path / "mine")
 
 
 def test_the_quick_preview_puts_each_drawn_vertex_where_a_dress_at_those_values_does(usa_iso, tmp_path):

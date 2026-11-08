@@ -113,6 +113,12 @@ class Vanilla:
             self._cache[path] = self._checked(path)
         return self._cache[path]
 
+    def digest_of(self, data: object) -> str | None:
+        """The sha256 :meth:`read` checked ``data`` to have, where it is one of
+        its reads itself (``None``: another object)."""
+        return next((self.digests[path] for path, held in self._cache.items()
+                     if held is data and path in self.digests), None)
+
     def peek(self, path: str) -> bytes:
         """:meth:`read`'s bytes, without keeping them when they weren't kept
         yet: a file read once to scan (every level's placements,

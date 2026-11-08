@@ -154,7 +154,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   arms out, rotate, title and notes, Gameplay its mode, and JSON shows the whole recipe (Apply checks it first and
   keeps the old one if it's refused). The status line gives its recipe's checksum, its grade, and whether it's saved
   and checked; Check with game data (once you pick your image) dresses it as a build would and draws it: a first Check
-  of new content takes a while, with a bar, and checking it again unchanged answers at once. Unsaved edits
+  of new content takes a while, with a bar, a copy of a variant checked before (New from this, under any name) takes a
+  fraction of that, and checking it again unchanged answers at once. Unsaved edits
   are asked about before you leave them or build that variant. The app keeps your variants where Modkit does; the
   web page keeps them in your browser (Clear in the Tools tab removes them: Export one to keep a copy). Yours show
   under the models too, as Yours, and Edit… opens a chosen variant here.
