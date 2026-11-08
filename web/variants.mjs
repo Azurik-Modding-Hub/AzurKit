@@ -461,14 +461,15 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     changed();
     await list();
   };
-  ui.save.addEventListener("click", async () => {
+  ui.save.addEventListener("click", async () => {   // what it sends is what it marks saved: an edit typed meanwhile isn't
     if (v.kind !== "yours") return;
-    const reply = await call("variant_save", { given: { name: v.name, recipe: v.recipe, files: !app } });
+    const mine = v.ticket, name = v.name, recipe = structuredClone(v.recipe);
+    const reply = await call("variant_save", { given: { name, recipe, files: !app } });
     if ("refused" in reply) return refused(reply.refused);
-    v.saved = canon(v.recipe);
+    if (mine === v.ticket) v.saved = canon(recipe);
     await wrote(reply);
     shown(false);
-    say(`Saved ${v.name}`);
+    say(`Saved ${name}`);
   });
   const copyAs = async (name) => {
     if (!name) return;

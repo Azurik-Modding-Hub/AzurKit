@@ -5870,13 +5870,13 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
     line, Check with game data greyed with D979's line, its Body note naming only the body read-only; an edit reads
     "built in: Save as keeps your edits"; Save as a species', a built-in's or a malformed name is refused by name,
     nothing kept; Save as "mine" keeps its own copy (listed under Yours, and in the Models view's group of that name);
-    a refused value is named and Save writes nothing; the JSON tab's Apply keeps the old recipe on a refusal or a new
-    base, saying why, and takes a good one; leaving unsaved edits is asked about (a no stays); New from this offers
-    mine_2; Export downloads the engine's zip; Delete (after a yes) and Import take it out and back; New offers the
-    species then the objects, each counted and in its grade's colour and mark; a New's unsaved edits are asked about
-    as the page closes (Modkit's AZ-792), a saved one's never; a new page lists what this browser keeps (IndexedDB's
-    azurkit-variants), which the Tools tab's Storage names and Clear removes. No CSP violation, no request but GETs
-    of the site's files and that source's."""
+    a refused value is named and Save writes nothing, and an edit typed while Save's call is out stays unsaved; the
+    JSON tab's Apply keeps the old recipe on a refusal or a new base, saying why, and takes a good one; leaving
+    unsaved edits is asked about (a no stays); New from this offers mine_2; Export downloads the engine's zip; Delete
+    (after a yes) and Import take it out and back; New offers the species then the objects, each counted and in its
+    grade's colour and mark; a New's unsaved edits are asked about as the page closes (Modkit's AZ-792), a saved
+    one's never; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which the Tools tab's
+    Storage names and Clear removes. No CSP violation, no request but GETs of the site's files and that source's."""
     from azurkit.tools.characters import _player_variants, content, picker
 
     beam = _player_variants.builtins()["beamlord"]
@@ -5952,6 +5952,15 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         _page.click(page, "var-save")
         _variants_shown(page, status="· saved ·")
         assert json.loads(page.evaluate(kept))["mine"]["scale"] == 1.5
+        page.evaluate("""() => { document.getElementById('status').textContent = '';
+            document.getElementById('var-save').click();   // and an edit typed while its call is out
+            const box = document.getElementById('var-arms'); box.value = '10';
+            box.dispatchEvent(new Event('input', { bubbles: true })); }""")
+        _page.until(page, "() => document.getElementById('status').textContent.startsWith('Saved mine')", 60)
+        assert "· unsaved edits ·" in _variants_shown(page)["status"]   # never marked saved unwritten
+        _page.click(page, "var-save")
+        _variants_shown(page, status="· saved ·")
+        assert json.loads(page.evaluate(kept))["mine"]["arms"] == {"out_deg": 10}
         _page.click(page, "var-tab-json")
         for text, why in (('{"base": "keylord", "scale": "big"}', "Kept the old recipe: "),
                           (json.dumps({"base": "golem"}), f"Kept the old recipe: the base is {beam.base}, fixed once "
