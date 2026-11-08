@@ -22,12 +22,15 @@ A part's file is kept as the pages where it differs from the file the dress
 handed the stage (:func:`delta`), so a kept part holds no second copy of
 the 70 MB ``characters.xbr``; its objects (a mesh plan, a rig, the cuts)
 pickled, so each taker gets its own. The parts held are bounded by
-:data:`ROOM`, the least recently taken let go first. The answer a part
-gives is the one the stage would work out, byte for byte: what a stage
-reads is all in its key, and the stage is a function of it."""
+:data:`ROOM`, the least recently taken let go first, under :data:`LOCK`
+(the app's engine dresses on a thread a call, so two dresses may take and
+keep at once). The answer a part gives is the one the stage would work
+out, byte for byte: what a stage reads is all in its key, and the stage is
+a function of it."""
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import pickle
 from collections import OrderedDict
@@ -41,6 +44,10 @@ PAGE = 4096
 """The bytes a part's file is compared and kept in: each page that differs from the stage's input (:func:`delta`)."""
 HEARD: dict[str, dict[str, int]] | None = None
 """A dict: each stage's parts taken (``hit``) and worked out (``miss``), by stage name (a test's, a measure's)."""
+
+LOCK: contextlib.AbstractContextManager = contextlib.nullcontext()
+"""Held over the kept parts by :func:`get`, :func:`held`, :func:`put` and :func:`clear`: none here (the engine holds
+no threads); the app's engine sets a lock, as it runs each call on a thread of its own."""
 
 _SLOTS: OrderedDict[str, tuple[object, int]] = OrderedDict()
 _HELD = [0]
@@ -103,17 +110,19 @@ def _heard(stage: str, how: str) -> None:
 
 def get(name: str, stage: str | None = None) -> object | None:
     """The part kept under ``name``, or ``None`` (``stage``: heard as taken or not)."""
-    found = None if OFF else _SLOTS.get(name)
-    if found is not None:
-        _SLOTS.move_to_end(name)
-    if stage is not None:
-        _heard(stage, "miss" if found is None else "hit")
+    with LOCK:
+        found = None if OFF else _SLOTS.get(name)
+        if found is not None:
+            _SLOTS.move_to_end(name)
+        if stage is not None:
+            _heard(stage, "miss" if found is None else "hit")
     return None if found is None else found[0]
 
 
 def held(name: str) -> bool:
     """Whether a part is kept under ``name`` (none taken, none heard)."""
-    return not OFF and name in _SLOTS
+    with LOCK:
+        return not OFF and name in _SLOTS
 
 
 def put(name: str, part: object, size: int) -> None:
@@ -121,18 +130,20 @@ def put(name: str, part: object, size: int) -> None:
     recently taken go past :data:`ROOM`; one larger than it is not kept."""
     if OFF or size > ROOM:
         return
-    if (old := _SLOTS.pop(name, None)) is not None:
-        _HELD[0] -= old[1]
-    _SLOTS[name] = (part, size)
-    _HELD[0] += size
-    while _HELD[0] > ROOM and _SLOTS:
-        _HELD[0] -= _SLOTS.popitem(last=False)[1][1]
+    with LOCK:
+        if (old := _SLOTS.pop(name, None)) is not None:
+            _HELD[0] -= old[1]
+        _SLOTS[name] = (part, size)
+        _HELD[0] += size
+        while _HELD[0] > ROOM and _SLOTS:
+            _HELD[0] -= _SLOTS.popitem(last=False)[1][1]
 
 
 def clear() -> None:
     """Let every kept part go."""
-    _SLOTS.clear()
-    _HELD[0] = 0
+    with LOCK:
+        _SLOTS.clear()
+        _HELD[0] = 0
 
 
 def delta(ref: bytes, out: bytes) -> tuple:
@@ -186,5 +197,5 @@ def size_of(part: tuple) -> int:
     return len(pages) + (0 if spans is None else spans.itemsize * len(spans))
 
 
-__all__ = ["HEARD", "OFF", "PAGE", "ROOM", "clear", "delta", "digest", "get", "held", "key", "pickled", "put",
+__all__ = ["HEARD", "LOCK", "OFF", "PAGE", "ROOM", "clear", "delta", "digest", "get", "held", "key", "pickled", "put",
            "size_of", "stamps", "undelta"]

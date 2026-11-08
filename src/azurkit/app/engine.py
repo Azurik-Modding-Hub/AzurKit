@@ -58,7 +58,7 @@ from azurkit.core import gate, iso, native
 from azurkit.core.progress import Steps, noting, record
 from azurkit.edits import files as replaced
 from azurkit.tools import characters, randomizer
-from azurkit.tools.characters import pool
+from azurkit.tools.characters import parts, pool
 from azurkit.tools.randomizer.planner import fill
 
 from . import procpool
@@ -75,6 +75,7 @@ class Gone(Exception):
 
 
 _WARM = threading.Lock()   # held while the randomizer's logic is built, so a seed's build or plan waits on it
+parts.LOCK = threading.Lock()   # each call dresses on its own thread, so two may take and keep a dress's parts at once
 _BUILDING = threading.Condition()   # held to count _BUILDS
 _BUILDS = 0   # the builds (KILLS' calls) this process has read and not yet answered, which an image's warm waits out
 _PLANS = 0   # the plan calls in flight, which the openers ahead wait out too

@@ -13,6 +13,8 @@ import hashlib
 import json
 import math
 import re
+import sys
+import time
 import wave
 
 import numpy as np
@@ -252,6 +254,31 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
     swap, stored = characters._swap(), b"the image's characters.xbr"
     assert swap._body_keys(stored, stored, "town_female_2", builtin, None) == swap._body_keys(
         stored, stored, "town_female_2", copy, tmp_path / "mine")
+
+
+def test_two_dresses_on_two_threads_take_and_keep_parts_at_once_and_hold_only_the_parts_kept(monkeypatch):
+    """Step 4.6n: the app's engine dresses on a thread a call, so a Check and a build take and keep parts at once,
+    under the lock it sets (``parts.LOCK``): a part let go while the other takes it is a miss, never a KeyError, and
+    the bytes held stay those of the parts kept, within ROOM."""
+    monkeypatch.setattr(parts, "ROOM", 3)
+    parts.clear()
+    names, switch = "abcd", sys.getswitchinterval()
+
+    def run(work) -> None:
+        stop = time.monotonic() + 0.2
+        while time.monotonic() < stop:
+            for name in names:
+                work(name)
+
+    sys.setswitchinterval(1e-6)
+    try:
+        with concurrent.futures.ThreadPoolExecutor(2) as pool:
+            for done in [pool.submit(run, parts.get), pool.submit(run, lambda name: parts.put(name, name, 1))]:
+                done.result()
+    finally:
+        sys.setswitchinterval(switch)
+    assert parts._HELD[0] == sum(size for _, size in parts._SLOTS.values()) == len(parts._SLOTS) <= 3
+    parts.clear()
 
 
 def test_the_quick_preview_puts_each_drawn_vertex_where_a_dress_at_those_values_does(usa_iso, tmp_path):
