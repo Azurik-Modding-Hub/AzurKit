@@ -1713,7 +1713,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   docstrings aside, hold its file name as a word, and below the top level
   one naming its folder or sitting in it (`namers`: `scripts/ci_retry.sh`
   picks `test_contracts`), one under `devkit/<area>/` the test files
-  reaching that package (`devkit/re/data/x.toml`: `devkit.re`'s), other docs nothing more; the suite's
+  reaching that package or a module naming its file name (`devkit/re/data/x.toml`: `devkit.re`'s and
+  what names `x.toml`), other docs nothing more; the suite's
   configuration, what every session runs (conftest's and its plugins' top
   levels and hooks, and every module and function they import or name,
   however deep, and the files they name; not the app, whose no-window mode

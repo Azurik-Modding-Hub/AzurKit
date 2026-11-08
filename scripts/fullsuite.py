@@ -483,7 +483,8 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     naming a changed file that isn't Python (:func:`namers`; a deleted one's
     users still name it; one under ``devkit/<area>/`` is that package's, which
     reads its data by ``__file__``: ``devkit/re/data/x.toml`` picks what
-    reaches ``devkit.re`` or a module in it), :data:`SRC_TESTS` for a change under src/, a path's
+    reaches ``devkit.re``, a module in it or one naming ``x.toml``, as
+    ``bootstrap.py`` names ``tools.toml``), :data:`SRC_TESTS` for a change under src/, a path's
     :data:`RULES` tests, and :data:`SMOKE`; nothing more for other docs. A
     change to the suite's configuration, to what every session runs
     (``deps.every_run``, a file one of its modules names too; for a plain
@@ -522,7 +523,8 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
         if (module := module_of(rel)) is None:
             head = rel.split("/")
             if head[0] == "devkit" and len(head) > 2 and (package := f"devkit.{head[1]}") in deps:   # its own data
-                touched |= {m for m in deps if m == package or m.startswith(f"{package}.")}
+                touched |= {m for m in deps if m == package or m.startswith(f"{package}.")} \
+                    | namers(rel.rpartition("/")[2], deps)   # and a module outside it naming the file
                 continue
             if not (named := namers(rel, deps)):
                 return None   # no module names it: who reads it isn't known

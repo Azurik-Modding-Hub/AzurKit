@@ -60,7 +60,8 @@ def test_a_dev_area_change_picks_its_importers_and_every_plan_lints_the_agent_fi
     src/, so a change to a dev module picks the test files reaching it through
     other dev modules, and a file under devkit/<area>/ that isn't Python or a
     doc is that package's (it reads its data by ``__file__``): it picks what
-    reaches the package, not the whole suite. Every plan holds the lint
+    reaches the package or a module outside it naming the file (bootstrap's
+    tools pin, review F1), not the whole suite. Every plan holds the lint
     files, the agent files' among them: their scan of every tracked text
     file for a home path or an ``$EV`` cite reads whatever a change touches
     (a doc's, a workflow's, a kernel's or a comment's edit alone; Step
@@ -70,7 +71,8 @@ def test_a_dev_area_change_picks_its_importers_and_every_plan_lints_the_agent_fi
     files = {"devkit/lab/snapshot.py": "", "devkit/rig/queue.py": "from devkit.lab import snapshot\n",
              "devkit/area/__init__.py": "", "devkit/area/reader.py": "", "shimkit/probe.py": "",
              "nativekit/probe.py": "", "tests/test_rig.py": "from devkit.rig import queue\n",
-             "tests/test_area.py": "from devkit.area import reader\n", "tests/test_other.py": "import json\n"}
+             "tests/test_area.py": "from devkit.area import reader\n", "tests/test_other.py": "import json\n",
+             "pins.py": 'TOOLS = "devkit/area/data/x.toml"\n', "tests/test_pins.py": "import pins\n"}
     for rel, text in files.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_text(text, encoding="utf-8")
@@ -78,7 +80,7 @@ def test_a_dev_area_change_picks_its_importers_and_every_plan_lints_the_agent_fi
     assert {"shimkit.probe", "nativekit.probe", "devkit.rig.queue"} <= deps.keys()
     assert "tests/test_agent_files.py" in fullsuite.LINT
     for changed, picks in ((["devkit/lab/snapshot.py"], {"tests/test_rig.py"}),
-                           (["devkit/area/data/x.toml"], {"tests/test_area.py"}),
+                           (["devkit/area/data/x.toml"], {"tests/test_area.py", "tests/test_pins.py"}),
                            (["AGENTS.md", "devkit/area/README.md"], set()),
                            ([".github/workflows/tests.yml", "native/reach.c"], set()), ([], set())):
         assert fullsuite.plan(changed, deps) == sorted({*SMOKE, *picks}), changed
