@@ -11,7 +11,6 @@ memory read is synthetic, no game bytes."""
 from __future__ import annotations
 
 import hashlib
-import importlib
 import json
 import math
 import os
@@ -307,8 +306,10 @@ def test_the_sitting_kit_and_its_model_rows_pass_their_offline_selftests_with_no
     row: its fresh process, boot and steps, a lost tick ending it, the zipline's and the camera's judges, and the
     frame's cost warned past vanilla's heaviest frame, never refused (D603), a real-time drop drafting the fork's
     request (D604)."""
-    module = importlib.import_module(f"devkit.xemu.{kit}")   # macOS's own calls: imported here, as the harness
+    from devkit.xemu import sitting   # macOS's own calls: imported here, as the harness
+    from devkit.xemu.sittings import model_kit
 
+    module = {"sitting": sitting, "sittings.model_kit": model_kit}[kit]
     assert module.selftest() == 0, "\n".join(line for line in capsys.readouterr().out.splitlines()
                                              if line.startswith("FAIL"))
 
