@@ -291,17 +291,27 @@ class Parts(Kept):
     """tools.characters.parts.STORE here (Step 4.6o): the parts this browser kept for a Check's recipe content
     (IndexedDB's, checked() in this file), handed in with the Check, each let go of as it is taken (part_codec's: no
     pickle, a stale one refused by name), and those its dress works out, made once its answer is out (the parts call)
-    and handed back with the keys of those it took, so the page keeps what that content's Check used."""
+    and handed back with the keys of those it took, so the page keeps what that content's Check used. A part this
+    worker held, taken again (used), is one it took if this browser keeps it (this worker took it or handed it back
+    made: known), else one worked out, so a copy checked after its original in one visit has its parts kept too."""
 
     def __init__(self):
         super().__init__()
-        self.took = []
+        self.took, self.known = [], set()
 
     def get(self, key):
         found = self.offered.pop(key, None)
         if found is not None:
             self.took.append(key)
         return found
+
+    def used(self, key, make):
+        if self.made is None:
+            return
+        if key not in self.known:
+            self.made[key] = make
+        elif key not in self.took:
+            self.took.append(key)
 
     def taken(self, made=True):
         """The parts to keep, made, by key, and the keys of those taken; none kept after (one the codec refuses left
@@ -313,6 +323,7 @@ class Parts(Kept):
                 out[key] = make if isinstance(make, bytes) else make()
             except ValueError:
                 pass
+        self.known.update(took, out)
         return {"made": out, "taken": took}
 
 

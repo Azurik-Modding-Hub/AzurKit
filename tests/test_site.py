@@ -5818,25 +5818,34 @@ def test_the_site_engine_offers_a_check_the_parts_kept_for_its_content_and_hands
     """Step 4.6o (the Check design's L2): worker.mjs's engine, its Python run here under CPython, takes a Check's
     dress's parts from those the page offers with it (``parts.STORE``, ``part_codec``'s bytes, each let go of as it is
     taken) and, at the parts ask after its answer, hands back the keys of those it took and the ones it worked out,
-    made then; an ask but a build's own lets go of what it held, so nothing is kept outside a Check."""
+    made then; a later Check (a copy's) that takes parts the worker still holds hands each back too, by key where the
+    page keeps it, else made, so the copy's content keeps them; an ask but a build's own lets go of what it held, so
+    nothing is kept outside a Check."""
     from azurkit.tools.characters import part_codec
 
-    ask, took = _site_engine(monkeypatch, tmp_path), []
+    ask, took, dressed = _site_engine(monkeypatch, tmp_path), [], ["W24:mesh", "W29:rig"]
     monkeypatch.setattr(sys.modules["js"].Object, "keys", lambda offered: list(vars(offered)), raising=False)
 
-    def check(given, progress=None):   # a dress: its mesh taken, its rig worked out
-        took.append(pickle.loads(parts.get("W24:mesh", "W24")[1]))
-        parts.put("W29:rig", (b"pages", parts.dump({"rig": [1.0]})), 9)
+    def check(given, progress=None):   # a dress: each of its parts taken, else worked out
+        for name in dressed:
+            if (part := parts.get(name, name[:3])) is None:
+                parts.put(name, part := (b"pages", parts.dump({name: [1.0]})), 9)
+            took.append(pickle.loads(part[1]))
         return {"refusal": None}
     monkeypatch.setattr(sdk, "variant_check", check)
     parts.clear()
-    mesh, rig = parts._stored("W24:mesh"), parts._stored("W29:rig")
+    mesh, rig, paint = (parts._stored(name) for name in ("W24:mesh", "W29:rig", "W30:paint"))
     offered = types.SimpleNamespace(**{mesh: types.SimpleNamespace(to_bytes=lambda: part_codec.encode(
         ((b"", parts.dump({"plan": -0.0})), 4)))})
     assert ask("variant_check", given={"name": "mine"}, parts=offered) == {"refusal": None}
     kept = ask("parts")
-    assert (took, kept["taken"], list(kept["made"])) == ([{"plan": -0.0}], [mesh], [rig])
+    assert (took[0], kept["taken"], list(kept["made"])) == ({"plan": -0.0}, [mesh], [rig])
     assert part_codec.decode(kept["made"][rig])[1] == 9
+    parts.put("W30:paint", (b"pages", parts.dump({"paint": 2.0})), 7)   # a build's dress's: never handed back
+    dressed.append("W30:paint")
+    assert ask("variant_check", given={"name": "copy"}) == {"refusal": None}
+    kept = ask("parts")
+    assert (kept["taken"], list(kept["made"]), part_codec.decode(kept["made"][paint])[1]) == ([mesh, rig], [paint], 7)
     ask("variant_check", given={"name": "mine"})
     ask("catalog")
     assert ask("parts") == {"made": {}, "taken": []}

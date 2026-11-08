@@ -235,7 +235,8 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
     and booblord and her own copy (New from this) read one body, so they share its parts."""
     stored = {}
     store = type("Store", (), {"get": lambda _, key: stored.get(key),
-                               "put": lambda _, key, made: stored.__setitem__(key, made())})
+                               "put": lambda _, key, made: stored.__setitem__(key, made()),
+                               "used": lambda *_: None})
     monkeypatch.setattr(parts, "HEARD", {})
     monkeypatch.setattr(parts, "STORE", store())
     parts.clear()

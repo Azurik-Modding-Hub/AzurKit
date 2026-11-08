@@ -287,6 +287,9 @@ class Parts:
     def put(self, key: str, make: Callable[[], bytes]) -> None:
         self.kept.put("swap", key, make)
 
+    def used(self, key: str, make: Callable[[], bytes]) -> None:
+        """Nothing: a part held here was put here or taken from here, kept by its key."""
+
 
 class Stamps:
     """``core.gate.STAMPS``: ``{key: the release's name}`` in one JSON file

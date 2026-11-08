@@ -1732,7 +1732,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   hint the image and the Check's recipe with its name, folder, labels and
   sounds left out (a built-in's its name), the last 8 hints and the parts
   they list; offered with the Check, each let go of as it is taken, and
-  those it took and worked out kept after its answer, a refusal's too). A build's changed files are hashed there too (`sdk.image_staged`,
+  those it took (from the page or, `parts.STORE.used`, the worker's memory)
+  and worked out kept after its answer, a refusal's too). A build's changed files are hashed there too (`sdk.image_staged`,
   `edits.staged`), one at a time, each handed over only for its digest. It posts its start's steps, a kept image's walk and a build's, a
   plan's and a tracker's stages as `core/progress.py`'s record, and each build's answer reports the heap,
   by which the pool keeps the worker or replaces it. A worker whose engine's wasm traps (Pyodide's fatal error: each

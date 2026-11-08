@@ -57,7 +57,8 @@ stage name (a test's, a measure's)."""
 
 STORE = None
 """A host's store of parts across visits (``get(key) -> bytes | None``, ``put(key, bytes or what makes them)``, made
-behind the answer), or ``None``: kept in this process only."""
+behind the answer, and ``used(key, what makes its bytes)``: a part this process held, taken again, so the site keeps
+it for the content asking too), or ``None``: kept in this process only."""
 
 LOCK: contextlib.AbstractContextManager = contextlib.nullcontext()
 """Held over the kept parts by :func:`get`, :func:`held`, :func:`put` and :func:`clear`: none here (the engine holds
@@ -156,11 +157,16 @@ def _fetch(name: str) -> tuple[object, int] | None:
 
 def get(name: str, stage: str | None = None) -> object | None:
     """The part kept under ``name``, here or in :data:`STORE`, or ``None``
-    (``stage``: heard as taken or not, and as taken from the store)."""
+    (``stage``: heard as taken or not, and as taken from the store); one
+    held here is told to :data:`STORE` as used."""
     with LOCK:
         found = None if OFF else _SLOTS.get(name)
         if found is not None:
             _SLOTS.move_to_end(name)
+    if found is not None and STORE is not None:
+        from azurkit.tools.characters import part_codec
+
+        STORE.used(_stored(name), lambda held=found: part_codec.encode(held))
     stored = found is None and not OFF and (found := _fetch(name)) is not None
     if stage is not None:
         with LOCK:
