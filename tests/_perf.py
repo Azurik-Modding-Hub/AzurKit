@@ -2227,8 +2227,10 @@ def app_variants(d: Driver, app: App, ctx) -> None:
 
 
 def site_variants(d: Driver, ctx, url: str) -> None:
-    """The Variants view on the site (Step 4.6c): three of yours imported, then a new page opens it (S73: the library
-    this browser keeps, handed to its engine as the page starts); S74-S79 (:func:`_variant_ops`): Import picks a
+    """The Variants view on the site (Step 4.6c): three of yours imported, then a later visit opens it, the browser
+    opened again on its profile as S02's is (:meth:`Driver.reopen`: a page beside the closed one would carry that one's
+    process, 1.5 GiB of capped-site's peak), S73: the library this browser keeps, handed to its engine as the page
+    starts; S74-S79 (:func:`_variant_ops`): Import picks a
     file, Export is the browser's download (its page part to the download's start)."""
     p = _site_page(d, ctx, url, None)
     p.js(click("tab-characters"))
@@ -2239,6 +2241,7 @@ def site_variants(d: Driver, ctx, url: str) -> None:
         d.act(p, None, lambda: p.page.set_input_files("#var-import", str(file)),
               VAR_SAVED + f" && azurkit.variants.state.name === '{name}'", 600)
     d.leave(p)
+    ctx = d.reopen(ctx)   # a later visit: the browser opened again on its profile (Driver.reopen)
     p = _site_page(d, ctx, url + "?again", None)
     _pick(d, p, None)
     p.js(click("tab-characters"))
