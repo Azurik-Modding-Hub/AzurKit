@@ -1135,8 +1135,11 @@ function report(text, error = false) {
 // temporary file Firefox keeps it in) took 3.7x the CPU: a seed's 835 MB 1.4 s and 4.1 CPU-s against 0.9 s and 1.1 on a
 // quiet box, and on a busy one R24 waited 4-7 s for it (Step 4.5q). A private window
 // refuses the origin's private file system (and keeps a Response's Blob in memory, a part that brings the parent's copy
-// back on top of the tab's: 7.2 GiB against the plain Blob's 4.8), so it keeps the plain Blob. The worker joined the
-// build's Blob (Step 4.3r4l); its pieces are its slices, each segment's, a copy's a slice of the File.
+// back on top of the tab's: 7.2 GiB against the plain Blob's 4.8), so it keeps the plain Blob. Where the file system
+// is there but the writer fails (a full disk's quota, a refused handle, its worker stopped), the bytes go into a
+// Response's Blob, Firefox's temporary file, as before Step 4.5q (copied()); its failure too leaves the plain Blob, so
+// Save always opens (Step 4.5u). The worker joined the build's Blob (Step 4.3r4l); its pieces are its slices, each
+// segment's, a copy's a slice of the File.
 const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3, FLAT_RUN = 16 << 20;
 async function byReference(segments, blob, heard = () => {}) {
   await navigator.storage.getDirectory();
@@ -1144,8 +1147,9 @@ async function byReference(segments, blob, heard = () => {}) {
   const parts = segments.map((s) => blob.slice(start, start += s.size));
   const kept = new Set(segments.map((s, i) => [s, i]).filter(([s]) => s.kind === "copy")
     .sort((a, b) => b[0].size - a[0].size).slice(0, KEPT).map(([, i]) => i));
+  const rest = new Blob(parts.filter((_, i) => !kept.has(i)));
   heard(0);
-  const { file: between, name } = await written(new Blob(parts.filter((_, i) => !kept.has(i))), FLAT_RUN, heard);
+  const { file: between, name } = await written(rest, FLAT_RUN, heard).catch(() => copied(rest, heard));
   heard(1);
   const flat = [];
   let at = 0, run = 0;
@@ -1164,6 +1168,20 @@ async function byReference(segments, blob, heard = () => {}) {
   }
   stretch();
   return { blob: new Blob(flat, { type: "application/octet-stream" }), name };
+}
+
+// rest's bytes as a Response's Blob, read a run of FLAT_RUN at a time, heard(the share read) after each: {file}.
+async function copied(rest, heard) {
+  let read = 0;
+  heard(0);
+  const file = await new Response(new ReadableStream({
+    async pull(out) {
+      if (read >= rest.size) return out.close();
+      out.enqueue(new Uint8Array(await rest.slice(read, read += FLAT_RUN).arrayBuffer()));
+      heard(Math.min(read / rest.size, 1));
+    },
+  }, { highWaterMark: 0 })).blob();
+  return { file };
 }
 
 function built(reply) {

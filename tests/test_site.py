@@ -1124,8 +1124,7 @@ def test_a_build_with_a_replaced_file_is_the_apps_image(browser, site, usa_iso, 
         _page.until(page, "() => /never carries a replaced file/.test(document.getElementById('status').textContent)", 60)
         page.evaluate("() => document.getElementById('tab-patches').click()")
         page.evaluate("() => document.getElementById('build').click()")
-        _page.until(page, "() => azurkit.build || document.getElementById('status').classList.contains('error')", 600)
-        assert page.evaluate("() => azurkit.build.report.result") == expected["result"]
+        assert _page.built(page)["result"] == expected["result"]   # Save open: Firefox greys it while its Blob is made
         with page.expect_download(timeout=600_000) as caught:
             page.evaluate("() => document.getElementById('save').click()")
         with open(caught.value.path(), "rb") as f:
@@ -3411,24 +3410,45 @@ def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_nev
         served.close()
 
 
-def test_a_private_window_keeps_the_plain_blob_its_save_reads(browser, site, usa_iso, tmp_path):
+FULL = """FileSystemSyncAccessHandle.prototype.write = function () {
+    throw new DOMException("The disk is full", "QuotaExceededError");
+};
+"""
+"""flat.mjs's first lines in the next test: its build file takes no byte, as a write past a full disk's room is refused."""
+
+
+@pytest.mark.parametrize("refused", ["private", "full"])
+def test_a_save_holds_where_the_origins_file_system_refuses_the_build_file(browser, site, usa_iso, tmp_path, refused):
     """D1057: Firefox's private window refuses the origin's private file system, and keeps ``Response.blob()`` in
     memory, so a Blob of few parts would hold more than the plain one (7.2 GiB against 4.8): there the page makes none
-    (no build file for its bytes between the copies), and the Save holds."""
-    prefs = {"firefox_user_prefs": {"browser.privatebrowsing.autostart": True}} if browser.browser_type.name == "firefox" else {}
+    (no build file for its bytes between the copies, nor a copy of them), and the Save holds. Where the file system is
+    there but takes no byte (a full disk), the build file is let go, its bytes go into a Response's Blob, Firefox's
+    temporary file, as before Step 4.5q, and Save opens and holds (Step 4.5u). Only Firefox makes either."""
+    firefox = browser.browser_type.name == "firefox"
+    prefs = {"firefox_user_prefs": {"browser.privatebrowsing.autostart": True}} if firefox and refused == "private" else {}
     served = Site(browser, site, tmp_path / "profile", **prefs)
     try:
+        if refused == "full":
+            flat = (site / "flat.mjs").read_text(encoding="utf-8")
+            served.context.route("**/flat.mjs", lambda route: route.fulfill(body=FULL + flat, content_type="text/javascript"))
         page = served.open()
-        page.evaluate("""() => { const real = LockManager.prototype.request; globalThis.made = 0;
-            LockManager.prototype.request = function (name, ...rest) {   // a build file's hold: none is made
-                globalThis.made += name.startsWith("azurkit-build-"); return real.call(this, name, ...rest); }; }""")
+        page.evaluate("""() => { const lock = LockManager.prototype.request, blob = Response.prototype.blob;
+            globalThis.made = globalThis.copied = 0;
+            LockManager.prototype.request = function (name, ...rest) {   // a build file's hold
+                globalThis.made += name.startsWith("azurkit-build-") && rest[0]?.mode === "shared";
+                return lock.call(this, name, ...rest); };
+            Response.prototype.blob = function () {   // the page's own copy, not a fetch's
+                globalThis.copied += !this.url; return blob.call(this); }; }""")
         _page.pick(page, "#iso", usa_iso)
-        _page.build(page, [])
+        _page.build(page, ["fps_unlock"])   # bytes between the copies (a build of no pack has none to write)
         _page.built(page)
         with page.expect_download(timeout=600_000) as caught:
             page.evaluate("() => document.querySelector('#save').click()")
         assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
-        assert page.evaluate("() => globalThis.made") == 0
+        made = int(firefox and refused == "full")
+        assert page.evaluate("() => [made, copied, azurkit.build.between ?? null]") == [made, made, None]
+        if refused == "full":
+            _page.until(page, f"async () => (await ({BUILD_FILES})()).length === 0", 60)   # the refused file removed
         caught.value.delete()
     finally:
         served.close()

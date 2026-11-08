@@ -43,7 +43,8 @@ export function letGo(name, saved = false) {
 // blob's bytes as a build file of their own, held by this page (letGo() it with its build), and its File:
 // {file, name}. A worker writes it (flat.mjs), heard(share) after each run of up to run bytes; started from its own URL
 // on a page sw.js controls, else from a blob: URL so it keeps the page's CSP, and held here until it ends: Firefox
-// collects a Worker nothing holds (hasher.mjs). A failure lets go of the file and throws.
+// collects a Worker nothing holds (hasher.mjs). A failure lets go of the file and throws: a worker refused or stopped, a
+// message the page can't read, the file system's refusal (a full disk's quota), each by name (Step 4.5u).
 const writers = new Set();
 export async function written(blob, run, heard = () => {}) {
   const name = `${PREFIX}${crypto.randomUUID()}.bin`;
@@ -51,12 +52,14 @@ export async function written(blob, run, heard = () => {}) {
   const entry = new URL("flat.mjs", import.meta.url).href;
   const url = navigator.serviceWorker?.controller?.scriptURL === new URL("sw.js", import.meta.url).href ? entry
     : URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
-  const worker = new Worker(url, { type: "module" });
-  writers.add(worker);
+  let worker = null;
   try {
+    worker = new Worker(url, { type: "module" });
+    writers.add(worker);
     return await new Promise((resolve, reject) => {
       worker.onmessage = ({ data }) => "share" in data ? heard(data.share)
         : data.file ? resolve({ file: data.file, name }) : reject(new Error(data.error));
+      worker.onmessageerror = () => reject(new Error("the build file's worker sent what the page can't read"));
       worker.onerror = (e) => {
         e.preventDefault();
         reject(new Error(e.message || "the build file's worker stopped"));
@@ -68,7 +71,7 @@ export async function written(blob, run, heard = () => {}) {
     throw error;
   } finally {
     writers.delete(worker);
-    worker.terminate();
+    worker?.terminate();
     if (url !== entry) URL.revokeObjectURL(url);
   }
 }

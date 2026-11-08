@@ -20,7 +20,9 @@ self.onmessage = async ({ data: { name, blob, run } }) => {
     sync = null;
     self.postMessage({ file: await handle.getFile() });
   } catch (error) {
-    sync?.close();
+    try {
+      sync?.close();
+    } catch {}   // the page hears the failure whatever the close says, or it would wait on it for good
     self.postMessage({ error: String(error?.message ?? error) });
   }
 };

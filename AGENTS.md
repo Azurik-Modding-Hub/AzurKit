@@ -1506,10 +1506,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     While it is made Save stays greyed with its own moving bar (R14 and R24
     end when it opens), so a click never waits for it and a Save's page part
     stays the click's (D1053); the worker's records never land on the page's
-    own waits. A private window has no private file system (and its
-    `Response.blob()` stays in memory, its tree higher than the plain
-    Blob's), so one, told by that file system refusing it, keeps the plain
-    Blob and its parent's copy.
+    own waits. A test clicks Save once it opens (`_page.built`): a click on
+    the greyed Save does nothing (Step 4.5u). A private window has no private
+    file system (and its `Response.blob()` stays in memory, its tree higher
+    than the plain Blob's), so one, told by that file system refusing it,
+    keeps the plain Blob and its parent's copy. Where the writer fails (a
+    full disk's quota, a refused handle, its worker stopped, each reported
+    to the page) the bytes go into a `Response.blob()` as before 4.5q, so
+    Save always opens (Step 4.5u).
   - **No stream through `sw.js`** (D1049, D1053; Step 4.3r4p's W-SAVE,
     keylord's and a seed's Save, three each, the Blob against the build's
     Blob streamed by `sw.js` to a hidden frame's download, its last bytes
