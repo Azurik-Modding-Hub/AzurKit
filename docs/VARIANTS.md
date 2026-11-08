@@ -18,9 +18,10 @@ authors who write or check one by hand, or share one as community content.
 
 ## The rules
 
-- Every field but `base` is optional. An unknown field or value is refused by name, and nothing is built.
+- Every field but `base` (or `from`) is optional. An unknown field or value is refused by name, and nothing is built.
 - A number is any finite number. Nothing is clamped: a slider's range is only a hint.
-- The recipe's checksum (the status line's `recipe …`) covers what builds: not `title`, `notes` or the sounds.
+- The recipe's checksum (the status line's `recipe …`) covers what builds, but not `title`, `notes`, `voice`,
+  `wavs`, `sfx` or `shouts`.
 - Check with game data dresses the recipe as a build would, so it shows the same refusals a build gives.
 
 ## The fields
