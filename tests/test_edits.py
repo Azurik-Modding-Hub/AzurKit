@@ -548,7 +548,8 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
     default apply, as Modkit's ``patch`` did): ``azurkit build --mods`` and
     both hosts' Load (``sdk.mods_file``) take it. A config.xbr byte edit
     with no original gets the vanilla file's; one already holding its value
-    has nothing to do. Every refusal names its edit and why, the whole mod's
+    has nothing to do; a null or empty shape is none, as Modkit read it.
+    Every refusal names its edit and why, the whole mod's
     in one message (D35): a retired registry.json name (AZ-123's and
     AZ-167's, naming the cell it wrote), a typo'd shape (AZ-215), a value or
     cell a build refuses, ``level_patches``, a level byte edit with no
@@ -585,6 +586,8 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
     assert sdk.read_mods(text) == {"xbr": ops}
     assert sdk.mods_file({"text": text})["preset"]["layers"] == [{"tool": "data", "kind": "xbr",
                                                                    "recipe": {"ops": ops}}]
+    assert sdk.read_mods(json.dumps({"patches": mod["patches"], "_keyed_patches": None, "xbr_edits": None,
+                                     "level_patches": [], "source_hashes": None})) == {"xbr": [golem]}
     retired = "a retired registry.json name (AZ-123, AZ-167): it wrote "
     refused = {
         json.dumps({"patches": [{"section": "damage", "entity": "octo", "property": "damage", "value": 9.0}]}):
@@ -599,7 +602,7 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
             "a string cell, not a number",
         '{"_keyed_patches": {"settings_foo": {"initial hp": {"Value": 1' + "0" * 400 + '}}}}':
             "_keyed_patches settings_foo/initial hp/Value: value: 1000",
-        json.dumps({"level": "a3", "level_patches": []}): "level_patches: AzurKit doesn't move or rename",
+        json.dumps({"level": "a3", "level_patches": [{}]}): "level_patches: AzurKit doesn't move or rename",
         json.dumps({"patches": {"section": "damage"}, "_keyed_patches": {"damage": ["catalisk"]}}):
             "patches must be a list of {section, entity, property, value} objects; _keyed_patches must be {table: "
             "{entity: {property: value}}}",

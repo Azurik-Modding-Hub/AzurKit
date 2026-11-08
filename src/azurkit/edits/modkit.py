@@ -29,6 +29,8 @@ and both hosts' Load take one and the Data tab shows what it changes.
 ``name``, ``author``, ``description``, ``source_dump`` and ``level`` are
 metadata; ``level_patches`` (a level's entities moved or renamed by name) is
 refused by name, as is any other key and a mod with no edit shape (AZ-215).
+A null or empty ``_keyed_patches``, ``xbr_edits``, ``level_patches`` or
+``source_hashes`` is none, as Modkit read it.
 :func:`edits` gives each edit its label, operation and refusal (a host's
 preview shows each); :func:`preset` refuses them all in one message (D35).
 """
@@ -259,12 +261,13 @@ def edits(mod: Mapping, config: bytes) -> list[Edit]:
     failed = []
     if unknown := [str(key) for key in mod if key not in KEYS]:
         failed.append(f"no key {', '.join(map(repr, unknown))} (Modkit's: {', '.join(KEYS)})")
-    if "level_patches" in mod:
+    if mod.get("level_patches"):
         failed.append("level_patches: AzurKit doesn't move or rename a level's entities by name; make each edit an "
                       "xbr_edits replace_bytes with its original")
-    elif not any(shape in mod for shape in SHAPES):
+    elif not any(shape in mod for shape in (*SHAPES, "level_patches")):
         failed.append(f"no edit shape ({', '.join(SHAPES)}); its keys: {', '.join(map(str, mod)) or 'none'}")
-    patches, sections, keyed = mod.get("patches", []), mod.get("sections", {}), mod.get("_keyed_patches", {})
+    # Modkit read a null or empty _keyed_patches, xbr_edits, level_patches or source_hashes as none
+    patches, sections, keyed = mod.get("patches", []), mod.get("sections", {}), mod.get("_keyed_patches") or {}
     if not (isinstance(patches, list) and all(isinstance(p, Mapping) for p in patches)):
         failed.append("patches must be a list of {section, entity, property, value} objects")
     if not isinstance(sections, Mapping):
@@ -272,9 +275,9 @@ def edits(mod: Mapping, config: bytes) -> list[Edit]:
     if not (isinstance(keyed, Mapping) and all(isinstance(rows, Mapping) and all(
             isinstance(props, Mapping) for props in rows.values()) for rows in keyed.values())):
         failed.append("_keyed_patches must be {table: {entity: {property: value}}}")
-    if not isinstance(mod.get("xbr_edits", []), list):
+    if not isinstance(xbr_edits := mod.get("xbr_edits") or [], list):
         failed.append("xbr_edits must be a list of edit objects")
-    if "source_hashes" in mod:
+    if mod.get("source_hashes") is not None:
         failed += _hashes(mod["source_hashes"])
     if failed:
         raise ValueError(f"{WHERE}: {'; '.join(failed)}")
@@ -289,7 +292,7 @@ def edits(mod: Mapping, config: bytes) -> list[Edit]:
     out += [_cell("sections", *leaf, True) for leaf in _sections(sections)]
     out += [_cell("_keyed_patches", section, entity, prop, value, False)
             for section, rows in keyed.items() for entity, props in rows.items() for prop, value in props.items()]
-    out += [_entry(k, raw, config) for k, raw in enumerate(mod.get("xbr_edits", []))]
+    out += [_entry(k, raw, config) for k, raw in enumerate(xbr_edits)]
     return out
 
 
