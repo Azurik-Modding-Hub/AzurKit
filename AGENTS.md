@@ -941,7 +941,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (Check with game data, a bar op) dresses it as a build does (its
     recipe written beside its files as a hidden file the dress's
     `variant_file` names, removed after; yours as saved by name, as its
-    Build dresses it, so the two keep one dress) and keeps that dress
+    Build dresses it, so in the app the two keep one dress; the site's
+    worker keeps a Check's under the Check's hint, a Build's under the
+    build's) and keeps that dress
     before its colours for the process (one, as `_DRESSED`; the app's in
     its engine, `engine.JOBS`) with its answer: a Check of what it
     checked last, unchanged (`sdk._check_key`, by content), answers at

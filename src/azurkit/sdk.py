@@ -863,7 +863,8 @@ def _dressing(given: Mapping, recipe: Mapping | None, steps: Steps = Steps()) ->
     the edit (over ``given``'s ``packs``) writes them, and its dress's
     lines: a built-in's by name, and yours as saved (its ``recipe.json`` in
     the library holds the edit) by name too, as its Build dresses it, so the
-    two keep one dress (``characters.cache_key``); any other edit from its
+    two share one dress key (``characters.cache_key``: one dress in the
+    app's store); any other edit from its
     recipe written for the dress beside its files (a hidden file in its
     folder, removed after; a folder not made yet: a temporary one), as
     ``variant_file`` names it, its dress kept by what it holds."""
