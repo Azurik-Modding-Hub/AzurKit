@@ -1,4 +1,4 @@
-"""A barrier crossed in simulator Level 3's whole steps (Step R1.29e): ``xemu_chain.py``'s ``Chain.staff``
+"""A barrier crossed in simulator Level 3's whole steps (Step R1.29e): ``devkit/xemu/chain.py``'s ``Chain.staff``
 recipe (r113's, closed loop) as a deterministic controller on an L3 simulator, so a douse can sit in a searched
 string between two searched legs and xemu replays it as it is (D170).
 
@@ -24,9 +24,9 @@ from typing import Callable
 from devkit.sim.inputs import camera, heading_to, stick
 from devkit.sim.l3 import Pad
 
-ELEM_BTN = {"earth": "a", "air": "y", "fire": "b", "water": "x"}   # LT + this adds the element (xemu_minigames.PICK)
+ELEM_BTN = {"earth": "a", "air": "y", "fire": "b", "water": "x"}   # LT + this adds the element (minigames.PICK)
 THROUGH_MAX, THROUGH_IN, THROUGH_EVERY = 300, 8, 24   # the walk's most ticks, the ticks in the to-node that end it, an
-                                                      # attack every these ticks on the way (``xemu_chain`` reads them)
+                                                      # attack every these ticks on the way (``chain`` reads them)
 FACE_TICKS, FACE_MAG = 12, 0.15      # the turn toward the shape: these ticks at this stick (the chain's)
 ATTACK_HOLD = 4                      # A held this many ticks for an attack (the chain's down at 0, up at 4)
 LT_DOWN, CAST_AT, CAST_GAP = 14, 16, 3   # LT down; the first element's button; the ticks between buttons

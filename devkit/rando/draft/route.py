@@ -36,7 +36,7 @@ Also the pilot's pad (Step X.4): :func:`stick`, the camera-relative
 analog stick a real pad's round gate allows, and :func:`air_target`, the
 air-control target that carries a body to a landing.
 
-Dev tooling for ``scripts/xemu_route.py`` (the pilot); the randomizer's
+Dev tooling for ``devkit/xemu/route.py`` (the pilot); the randomizer's
 planner and writer never import it.  Coordinates stay in memory.
 """
 

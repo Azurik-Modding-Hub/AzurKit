@@ -1222,15 +1222,26 @@ def test_l3_search_keeps_to_a_flap_budget_and_a_kit_is_part_of_the_problem():
 
 
 def test_a_douse_casts_then_walks_through_attacking_until_the_to_node_and_a_leg_runs_on_from_its_pads(
-        tmp_path):
+        tmp_path, monkeypatch):
     """Step R1.29e: ``sim.douse`` is ``Chain.staff``'s recipe as a closed loop in L3: it turns to the barrier (12
     ticks at a 0.15 stick), casts the staff's elements (LT from tick 14, water's X at 16, LT up at 21), then walks
     toward the shape's mirror point holding A 4 ticks every 24 until the feet stand in the to-node for 8 ticks; a
     toy fire wall an attack within 2 m opens once water is cast lets it through, the same start gives the same pads,
     and with nothing cast it never opens.  A leg runs on from those pads: ``Segment.tail`` (``l3.pads`` segments)
-    runs after the prefix, the camera ends at its last yaw and it joins the problem's identity.  A wall is in the
-    way when crossing to the body's mirror point through it brings the to-node nearer (else nothing crosses it, as
-    ``Chain.staff``)."""
+    runs after the prefix, the camera ends at its last yaw and it joins the problem's identity;
+    ``l3_certify.leg_pads`` runs a doused leg's parts in turn; ``l3_certify.crossing`` reads the barrier on
+    f1/g0/r1693's way there (f1.flameSpout15: its shape, water, water 1, the to-node's zone) and on the way back
+    ``plan`` sets up (its kit search and barrier crossings, AZ-517): none on f1/g0/r1693's, e2.FireWall_03 at water
+    1 on e2/g0/r4376's; ``crossings`` reads every barrier of a leg in turn (Step R1.29f: f1/g0/r1689's way back,
+    f1.flameSpout11 then f1.flameSpout13), and a leg doused twice keeps its five pieces in turn (to each barrier,
+    each douse's pads, on from the last) with their ticks and least robustness.
+    A wall is in the way when crossing to the body's mirror point through it brings the to-node nearer (else
+    nothing crosses it, as ``Chain.staff``); a leg's start is read from the snapshot (the leader's simulator ran
+    the last one's); and ``_verify`` meets a doused leg's goal at its last row and counts no goal row in a leg's
+    lead (an air kit's recast before a way back that starts in its goal)."""
+    import types
+    from pathlib import Path
+
     from devkit.sim import douse as dz, l3
     from devkit.sim.l3 import Pad
     from devkit.sim.l3_search import Limits, Segment, problem_sha12, segments, start_of
@@ -1269,9 +1280,52 @@ def test_a_douse_casts_then_walks_through_attacking_until_the_to_node_and_a_leg_
     assert (len(rows), cam, row.pos[0]) == (4, 0.7, pytest.approx(rows[0].pos[0] + 3.0))
     assert problem_sha12(Segment("s", settle=1, store=str(store), tail=tail), {"g": 1}, Limits()) != \
         problem_sha12(Segment("s", settle=1, store=str(store)), {"g": 1}, Limits())
+
+    from devkit.reach import l3_certify as cert
+    pads, cam = cert.leg_pads({"parts": [{"segs": [[3, 0.0, 0]]}, {"pads": segments(d.pads)},
+                                         {"segs": [[2, None, 0]]}]}, 0.0)
+    assert (len(pads), pads[3:-2], cam) == (len(d.pads) + 5, d.pads, d.cam)
+    c = cert.crossing({"level": "f1", "path": ["f1_core>f1_z011 #6 data"]})
+    assert {k: c[k] for k in ("barrier", "shape", "elements", "kit", "to_zones")} == {
+        "barrier": "f1.flameSpout15", "shape": "f1/g0/r1033", "elements": ["water"], "kit": {"water": 1},
+        "to_zones": ["f1.Z011"]}
+    assert cert.crossing({"level": "f1", "node": "f1_z011", "start_node": "f1_core"}, 1) is None
+    back = cert.crossing({"level": "e2", "node": "e2_z532", "start_node": "e2_core"}, 1)
+    assert (back["barrier"], back["edge"], back["kit"]) == ("e2.FireWall_03", "e2_z007>e2_z006 #83 data", {"water": 1})
+    two = cert.crossings({"level": "f1", "node": "f1_z001", "start_node": "f1_core"}, 1)
+    assert [(c["barrier"], c["edge"], c["kit"]) for c in two] == [
+        ("f1.flameSpout11", "f1_z001>f1_keylocks #56 data", {"water": 1}),
+        ("f1.flameSpout13", "f1_z003>f1_core #66 data", {"water": 1})]
+    to = [{"segs": [[3, 0.0, 0]], "ticks": 3, "robustness": 0.5, "cam": 0.4},
+          {"segs": [[2, None, 0]], "ticks": 2, "robustness": 0.25, "cam": 0.9}]
+    P = cert._doused(cert._doused(None, to[0], {"ticks": 7}, segments(d.pads)), to[1], {"ticks": 5}, [])
+    on = cert._doused_leg(P, {"goal": "back"}, {"segs": [[1, 0.0, 0]], "ticks": 1, "robustness": 1.0})
+    assert (on["parts"], on["ticks"], on["robustness"], on["cam"], len(on["douse"]), on["approach"]) == (
+        [{"segs": [[3, 0.0, 0]]}, {"pads": segments(d.pads)}, {"segs": [[2, None, 0]]}, {"pads": []},
+         {"segs": [[1, 0.0, 0]]}], 18, 0.25, 0.4, 2, to)
+    assert len(cert.leg_pads(on, 0.0)[0]) == len(d.pads) + 6
     ahead = lambda r: abs(10.0 - r.pos[1])                                   # noqa: E731  (the to-node at y 10)
     assert dz.in_the_way(ahead, (0.0, 3.0, 0.0), (0.0, 0.0, 1.0)) and not dz.in_the_way(ahead, (0.0, -3.0, 0.0),
                                                                                           (0.0, 0.0, 1.0))
+    seg = Segment("s", settle=1, store=str(store), tail=tail)
+    assert cert.leg_start(sim, seg)[1].pos == row.pos == cert.leg_start(sim, seg)[1].pos
+
+    class Walk:                          # y += 1 a tick; the goal: y >= 3
+        def reset(self):
+            self.y = 0.0
+
+        def step(self, pad):
+            self.y += 1.0
+            return _ToyRow((0.0, self.y, 1.0), 0, 200)
+    monkeypatch.setattr(cert, "start_of", lambda sim, seg: (None, None, 0.0, [Pad()], [sim.step(Pad())]))
+    monkeypatch.setattr(cert, "_goal", lambda router, t, target, air: types.SimpleNamespace(
+        reached=lambda r: r.pos[1] >= 3.0))
+    parts = [{"segs": [[1, 0.0, 0]]}, {"pads": segments([Pad()] * 3)}, {"segs": [[1, 0.0, 0]]}]   # in it from row 2
+    doused = {"snapshot": "s", "teleport": None, "target": "z", "parts": parts}
+    back = {"target": "z", "segs": [list(cert.RECAST), [1, 0.0, 0]], "lead": 3}       # in the goal from its start
+    t = {"kind": "spot", "kit": {}, "goal": "z"}
+    assert cert._verify(Walk(), t, [doused, back], None)["ok"] == [True, True]
+    assert cert._verify(Walk(), t, [doused, {**back, "lead": 0}], None)["ok"] == [True, False]
 
 def test_the_trick_explorer_keeps_a_charged_catch_in_its_own_cell_and_is_the_same_for_a_seed():
     """Step TD.1 (the trick-discovery plan §3.2): in the catch (0x101) the dynamic cell's speed bucket is linear in
@@ -2076,3 +2130,273 @@ def test_the_usa_image_passed_once_is_not_hashed_again_by_another_process_while_
         assert ports.vanilla_iso().samefile(usa_iso)
     finally:
         ports.vanilla_iso.cache_clear()
+
+
+def test_a_spot_leg_searches_longer_flights_recasts_an_air_kit_and_counts_its_cells_at_the_tick_cap(monkeypatch):
+    """Step R1.29e: ``devkit/reach/l3_certify.py``'s legs search strings up to 6,000 ticks a leg (less what it ran
+    before the search) whose branches may stay 210 ticks in the air (3 to 5 flaps take 123-185), an air kit's
+    recasting the armor (LT+Y) in 4% of its segments and its way back starting with a recast at rest (the armor is
+    on 2 ticks after it); a search's result counts the cells it left at the tick cap, which it never picks again."""
+    from pathlib import Path
+
+    from devkit.sim.l3_search import Limits, Seg, buttons, search
+
+    from devkit.reach import l3_certify as cert
+    air, plain = cert.leg_limits(1000, 60.0, 0.0, 1), cert.leg_limits(1000, 60.0, 0.25, 0)
+    assert (air.ticks, air.fall, air.cast, plain.fall, plain.cast, plain.dive) == (6000, 210, 0.04, 210, 0.0, 0.25)
+    assert cert.leg_limits(1000, 60.0, 0.0, 0, used=700).ticks == 5300          # a doused leg's way on from its wall
+    assert cert.leg_lead(1, 1) == [list(cert.RECAST)] and cert.leg_lead(0, 1) == cert.leg_lead(1, 0) == []
+    recast = Seg(*cert.RECAST)
+    assert recast.heading is None and [buttons(recast, t) for t in range(recast.n)] == [{"lt", "y"}, set(), set()]
+    sim = _Toy(wall=9.0)                 # the goal is 4 m away behind a wall: 8 ticks never get round it
+    res = search(sim, sim.save(), _ToyRow((0.0, 0.0, 1.0), 0, 200), _ToyGoal(),
+                 Limits(steps=4000, ticks=8, seg=4, hold=3), cam=1.2, seed=1)
+    assert not res.reached and 0 < res.capped < res.cells and res.summary()["capped"] == res.capped
+
+
+def test_certify_reads_a_zone_only_where_a_settled_body_stands_or_swims(monkeypatch):
+    """AZ-590 (D719): ``devkit/reach/l3_certify.py``'s run outcome (the zones a replay visited, which ``recheck``
+    re-zones a walk by) and its douse check read a row's zone only from a standing or swimming body, at the floor
+    its feet are on (``Router.zone_at`` with no fallback): a body that never stood in a zone, in the air over it or
+    on a rig's tooth over its floor (e5.Z580 under the entrance gear), is not in it."""
+    from pathlib import Path
+
+    from devkit.reach import l3_certify as cert
+
+    class Row(typing.NamedTuple):
+        state: int
+        pos: tuple
+        zone: str | None = None
+        hp: int = 200
+
+    class Router:   # e5.Z014 floor at z 0, e5.Z580's floor at z -18 with the gear's tooth over it at z -14
+        def zone_at(self, p, prefer_water=False, fallback=True):
+            if p[2] > -1.0:
+                return "e5.Z014"
+            if p[2] < -17.0:
+                return "e5.Z580" if p[0] < 10.0 else "e5.Z121"
+            return "e5.Z580" if fallback else None
+    rows = [Row(0, (0.0, 0.0, 1.0)), Row(2, (5.0, 0.0, -8.0)), Row(0, (5.0, 0.0, -13.0)), Row(0x100, (5.0, 0.0, -13.0)),
+            Row(2, (12.0, 0.0, -15.0)), Row(6, (12.0, 0.0, -17.5))]
+    got = cert._outcome(rows, Router())
+    assert (got["zones"], got["states"]) == (["e5.Z014", "e5.Z121"], ["0x0", "0x2", "0x0", "0x100", "0x2", "0x6"])
+    assert [cert._settled_zone(Router(), r) for r in rows] == ["e5.Z014", None, None, None, None, "e5.Z121"]
+
+
+def test_a_body_at_rest_on_near_flat_ice_is_settled_and_every_settled_read_uses_that_one_rule(monkeypatch):
+    """AZ-737 (Step R1.39): on a flat slippery floor a still body cycles 0, 3, 3 or stays in the slide state (L3 on
+    e6's, w2's, w3's and town's ice), so ``obs.settled`` counts state 3 at rest on a contact of nz at least the
+    derive's ``SLIP_FLAT_NZ``, never a body still sliding, held still on a slope or read with no observation; and
+    certify's zone read, the L3 goals and the reach engine all import that one rule."""
+    from pathlib import Path
+
+    from devkit.rando.draft import l3_goal   # first: it imports the art the shipped draft's geometry needs
+    from azurkit.tools.randomizer.draft import floors
+    from devkit.reach.engine import aim, fast, hold, macros
+    from devkit.sim import l3_search, obs
+
+    from devkit.reach import l3_certify as cert
+
+    class Row(typing.NamedTuple):
+        state: int
+        obs: object
+        pos: tuple = (0.0, 0.0, 1.0)
+        zone: str | None = None
+
+    def row(state, vel=(0.0, 0.0, 0.0), nz=1.0, seen=True):
+        o = obs.Obs((0.0, 0.0, 1.0), vel, state, 200, 200, 0, normal=(0.0, math.sqrt(1.0 - nz * nz), nz))
+        return Row(state, o if seen else None)
+
+    class Router:
+        def zone_at(self, p, prefer_water=False, fallback=True):
+            return "w2.Z034"
+    rows = [row(0), row(6), row(3), row(3, (0.03, -0.02, 0.0)), row(3, (0.6, 0.3, -0.01), 0.9998), row(3, nz=0.99),
+            row(3, seen=False), row(2)]
+    assert [cert._settled_zone(Router(), r) for r in rows] == ["w2.Z034"] * 4 + [None] * 4
+    assert obs.FLAT_NZ == floors.SLIP_FLAT_NZ
+    assert {id(m.settled) for m in (l3_search, l3_goal, cert, macros, hold, aim, fast)} == {id(obs.settled)}
+
+
+def test_certify_finds_a_step_x7_records_teleport_whose_yaw_is_minus_zero(tmp_path, monkeypatch):
+    """AZ-590's recheck (Step R1.24a): Step X.7's proof records hashed their R6 place with a -0.0 yaw's sign, which
+    ``place_bytes`` (``recipes.place_struct``) reads as 0.0, so ``_teleport`` never found e7's and e2's edge
+    records' teleports and ``recheck`` stopped on them."""
+    import hashlib
+    from pathlib import Path
+
+    from devkit.reach import l3_certify as cert
+
+    (tmp_path / "reach").mkdir()
+    (tmp_path / "reach" / "e7.pkl").write_bytes(b"")
+    feet = (12.5, -3.25, 4.0)
+    monkeypatch.setattr(cert, "private", lambda: tmp_path)
+    monkeypatch.setattr(cert, "load_router", lambda path, prof: mock.Mock(pt=lambda v: feet))
+    x7 = struct.pack("<3f4fH", *feet, 0.0, 0.0, math.sin(-0.0 / 2), math.cos(-0.0 / 2), 3)     # X.7's place_bytes
+    r6 = {"prof": "logic", "sample": 7, "yaw": -0.0, "cell": 3, "place_sha12": hashlib.sha256(x7).hexdigest()[:12]}
+    assert cert._teleport("e7", r6) == (feet, -0.0, 3)
+    assert cert._teleport("e7", dict(r6, place_sha12="000000000000")) is None
+
+
+def test_a_certify_verify_that_stops_is_run_once_more_then_kept_inconclusive_with_its_site(monkeypatch):
+    """AZ-640 (Step R1.34): ``l3_certify``'s end-to-end verify (``search_all``'s and a skip rung's ``_check_rung``)
+    runs ``_verify`` once more from a reset when L3 stops on the way (a warm render past its 5 s cap on a loaded
+    host); a second stop is recorded, not raised: unverified, inconclusive, the stop's site and why, with no
+    whole-steps verify, so the caller keeps the legs and the rest of the run."""
+    import types
+    from pathlib import Path
+
+    from devkit.sim import l3
+    from devkit.sim.l3 import Pad
+
+    from devkit.reach import l3_certify as cert
+
+    class Stops:                          # y += 1 a tick, after ``stops`` render timeouts (the first one each run)
+        def __init__(self, stops):
+            self.stops, self.resets = stops, 0
+
+        def reset(self):
+            self.y, self.resets = 0.0, self.resets + 1
+
+        def step(self, pad):
+            if self.stops:
+                self.stops -= 1
+                raise l3.L3Error("0x54800 did not return within 5000000 us", "render timeout@0xe35d6")
+            self.y += 1.0
+            return _ToyRow((0.0, self.y, 1.0), 0, 200)
+    monkeypatch.setattr(cert, "start_of", lambda sim, seg: (None, None, 0.0, [Pad()], [sim.step(Pad())]))
+    monkeypatch.setattr(cert, "_goal", lambda router, t, target, air: types.SimpleNamespace(
+        reached=lambda r: r.pos[1] >= 3.0))
+    t = {"kind": "edge", "level": "e2", "kit": {}, "goal": "z"}
+    legs = [{"snapshot": "s", "teleport": None, "target": "z", "segs": [[2, 0.0, 0]]}]
+    once = Stops(1)
+    v, fault = cert._verify_again(once, t, legs, None)
+    assert (v["ok"], len(v["rows"]), fault, once.resets) == ([True], 3, {}, 2)
+    assert cert._verify_again(Stops(2), t, legs, None)[0] is None
+    sims = []
+    monkeypatch.setattr(cert, "_router", lambda lvl: None)
+    monkeypatch.setattr(cert.l3, "snapshot_path", lambda label: label)
+    monkeypatch.setattr(cert.l3, "read_snapshot", lambda path: path)
+    monkeypatch.setattr(cert.l3, "L3", lambda snap, xbe, scene=False: sims.append(Stops(2)) or sims[-1])
+    rung = {"mode": "tick", "kit": {}, "legs": [{"segs": [[2, 0.0, 0]]}]}
+    chk = cert._check_rung(t, "s", {"teleport": None}, ["z"], rung, b"")
+    assert chk == {"v": None, "sv": None, "scene_ok": False, "verified": False, "inconclusive": True,
+                   "verify_fault": "render timeout@0xe35d6",
+                   "why": "the end-to-end verify stopped twice: 0x54800 did not return within 5000000 us"}
+    assert len(sims) == 1 and sims[0].resets == 2
+
+
+def test_a_start_chained_on_found_strings_starts_where_they_ended_camera_and_all_and_refuses_a_find_from_elsewhere(
+        tmp_path, monkeypatch):
+    """Step TD.2: a Segment's ``prefix`` may be a found string's ``l3.pads`` segments (each tick's camera the exact
+    f32 pair it read): ``start_of`` runs it after the settle, so a hop chained on an earlier find starts where that
+    find ended, its camera too, and the prefix, every value of it, joins the problem's identity.  The script's spec
+    ``prefix`` (found files, in order) takes only finds from the spec's own start and mode, each after the files
+    before it; any other is refused by name."""
+    import json
+    from pathlib import Path
+
+    from devkit.sim import l3
+    from devkit.sim.l3_search import Limits, Segment, problem_sha12, segments, start_of
+
+    class Row(typing.NamedTuple):
+        pos: tuple
+        state: int
+        cam: bytes
+
+    class Cam:   # the stick moves the body along the camera; a pad's camera (its f32 pair, else its yaw) is kept
+        def __init__(self):
+            self.s = (0.0, 0.0, (0.0, 1.0))
+
+        def save(self):
+            return self.s
+
+        def step(self, pad=l3.Pad(), writes=()):
+            x, y, c = self.s
+            if pad.cam is not None:
+                c = pad.cam
+            elif pad.yaw is not None:
+                c = struct.unpack("<2f", l3.camera_dir(pad.yaw))
+            h, m = math.atan2(-c[0], c[1]) + math.atan2(-pad.stick[0], pad.stick[1]), math.hypot(*pad.stick)
+            self.s = (x - m * math.sin(h), y + m * math.cos(h), c)
+            return Row((self.s[0], self.s[1], 1.0), 0, struct.pack("<2f", *c))
+
+    sim = Cam()
+    for _ in range(2):                                        # the start's settle
+        sim.step()
+    found = [l3.Pad((0.0, 1.0), frozenset(), 0.3 * k) for k in range(1, 6)]
+    rows = [sim.step(p) for p in found]
+    end, sim = sim.save(), Cam()
+    st, row, cam, pads, _ = start_of(sim, Segment("s", settle=2, prefix=segments(found, rows)))
+    assert st == end and row.pos == rows[-1].pos and len(pads) == 7 and math.isclose(cam, 1.5, abs_tol=1e-6)
+    with mock.patch("devkit.sim.l3_search.read_meta", return_value={"level": "w1"}), \
+            mock.patch("devkit.sim.l3_search.snapshot_path"):
+        ids = {problem_sha12(Segment("s", prefix=p), {"g": 1}, Limits())
+               for p in (segments(found, rows), segments(found[:4], rows[:4]),
+                         [dict(s, stick=[0.0, 0.5]) for s in segments(found, rows)])}
+    assert len(ids) == 3
+
+    from devkit.reach import l3_certify
+    from devkit.sim import explore as script
+    monkeypatch.setattr(l3_certify, "_reach_path", lambda level: tmp_path / "reach.pkl")
+    first, then = segments(found[:2], rows[:2]), segments(found[2:], rows[2:])
+
+    def find(name, string, prefix=(), **kw):
+        (tmp_path / name).write_text(json.dumps({"snapshot": "s", "teleport": None, "settle": script.SETTLE,
+                                                 "kit": {}, "scene": False, "prefix": list(prefix),
+                                                 "string": string, **kw}), encoding="utf-8")
+        return str(tmp_path / name)
+
+    a, b = find("a.json", first), find("b.json", then, first)
+    spec = {"key": "k", "snapshot": "s", "level": "w1", "goal": ["w1.Z001"]}
+    assert script.problem({**spec, "prefix": [a, b]}).seg.prefix == first + then
+    for more, why in (({"prefix": [b]}, "b.json.*prefix differ"), ({"prefix": [b, a]}, "b.json.*prefix differ"),
+                      ({"prefix": [a], "scene": True}, "a.json.*scene differ"),
+                      ({"prefix": [a], "kit": {"air": 1}}, "a.json.*kit differ"),
+                      ({"prefix": [find("c.json", first, snapshot="t")]}, "c.json.*snapshot differ"),
+                      ({"prefix": [find("d.json", None)]}, "d.json.*no string")):
+        with pytest.raises(ValueError, match=why):
+            script.problem({**spec, **more})
+
+
+def test_l3_gates_whole_step_mode_draws_and_replays_5000_whole_steps_and_the_corpus_keeps_them_as_such(tmp_path,
+                                                                                                         monkeypatch):
+    """Step TD.4b: ``devkit/reach/l3_gate.py --scene``: the long string is drawn and run in whole steps (each a scene
+    tick that runs the player's update, carries the body as a ride does, then the frame's render), the replay's L3
+    side runs it in whole steps too (against the guest's own whole steps: a player-tick side, with no ride, is off
+    from the first tick), the conformance corpus keeps it as a whole-step record, and the gate counts 5,000 whole
+    steps replayed exactly."""
+    import sys
+    from pathlib import Path
+
+    from devkit.sim import corpus, l3
+    from devkit.reach import l3_gate
+
+    ent, crit, ride = 0x100000, 0x103000, l3.SCENE_TICK + 37
+    tick = (b"\xb9" + struct.pack("<I", ent) + b"\xe8" + _rel(l3.SCENE_TICK + 5, 0x8C230)       # the update, then
+            + b"\xd9\x05" + struct.pack("<I", crit + 0x160) + b"\xd8\x05" + struct.pack("<I", ride)   # the ride:
+            + b"\xd9\x1d" + struct.pack("<I", crit + 0x160)                                          # body y += 0.01
+            + b"\xff\x05" + struct.pack("<I", ent + 0x84) + b"\xc2\x08\x00" + struct.pack("<f", 0.01))   # count; RET 8
+    store = tmp_path / "store"
+    store.mkdir(mode=0o700)
+    _l3_walker(store, {l3.SCENE_TICK: tick, l3.RENDER: b"\xc2\x08\x00", 0x83000000: bytes(4)}, at="scene",
+               scene=0x101000, dt=l3.DT_30)
+    monkeypatch.setattr(l3_gate.xo, "vanilla_iso", lambda: None)
+    monkeypatch.setattr(l3_gate.xo, "read_file", lambda iso, name: {})
+    sim = l3_gate._sim("s", store, scene=True)
+    segs, info = l3_gate.build(sim, 5000, 1, 1e9)
+    assert info["ticks"] >= 5000 and not info["refused"] and sim.u32(ent + 0x84) >= 5000   # scene ticks ran
+
+    class Sandbox:   # xemu's side: the guest's own whole steps from the snapshot, halted at the next entry
+        def _xbe(self, name):
+            return {}
+
+        def disc_source(self):
+            return None
+
+        def replay(self, pads, rows, meta, stops):
+            stops["at"] = "entry"
+            guest = l3.L3(l3.read_snapshot(l3.snapshot_path("s", store)), {}, scene=True).run(pads)
+            return [{"k": r.k, "pos": r.pos, "state": r.state, "hp": r.hp, "obs": r.obs} for r in guest]
+    out = l3_gate.replay(Sandbox(), "s", segs, store, scene=True)
+    assert (out["mode"], out["gate_5000"], out["exact_ticks"]) == ("scene", True, out["l3_ticks"])
+    assert corpus.read(store)[-1]["mode"] == "scene" and corpus.read(store)[-1]["passed"]

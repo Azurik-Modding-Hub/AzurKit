@@ -20,19 +20,19 @@ names its verbs in `VERBS` (`{verb: its line}`); the verb `v` is the module
 `main(argv) -> int` runs it. An unknown area or verb exits 2.
 
 Each arrives with its own step (`re`'s XBE verbs, data and shim authoring,
-`xemu`'s harness, sitting kit and demos, `sim`'s levels, `mcp`,
-`rando`'s database tools, derive and authoring, `reach`'s engine and
-`models`' first model verbs are here; the rest come after the first release,
+`xemu`'s harness, sitting kit, demos and chain driver, `sim`'s levels,
+`mcp`, `rando`'s database tools, derive and authoring, `reach`'s engine
+and certification and `models`' first model verbs are here; the rest come after the first release,
 4.4); this is what each will hold:
 
 | Area | What it holds |
 |---|---|
-| `xemu` | the in-game oracle: the harness, its slots and queue, the sittings and demos |
+| `xemu` | the in-game oracle: the harness, its slots and queue, the sittings and demos, the chain driver, the route pilot and the minigame solvers |
 | `sim` | the simulator: the snapshot, observations and inputs, its levels on Unicorn, L3's search and trick explorer |
 | `re` | the XBE verbs, the Ghidra side and its data, shim authoring |
 | `mcp` | the `azurik` MCP server (`.mcp.json` launches it; `docs/MCP.md`) |
 | `rando` | the randomizer database's tools and benches, the reach model's derive and the realm authoring |
-| `reach` | the reach engine, its native kernel and the patched Unicorn |
+| `reach` | the reach engine, its native kernel and the patched Unicorn; the L3 certification of the randomizer's spots, edges, skips and contact flights |
 | `models` | the model and effect verbs ModelKit's adapter calls |
 
 ## Its dependencies

@@ -35,7 +35,6 @@ import argparse
 import contextlib
 import datetime
 import hashlib
-import importlib
 import io
 import json
 import math
@@ -904,20 +903,10 @@ class Sitting:
 
     # -- the exec server --
     def namespace(self) -> dict:
-        xr = _Later("devkit.xemu.route")   # the route pilot: with the reach engine's xemu checks (Step 4.13d2)
+        from devkit.xemu import route as xr
         return {"s": self, "sb": self.sb, "xo": xo, "xr": xr, "xs": sys.modules[__name__], "recipes": recipes,
                 "l3": l3, "result": self.result, "__name__": "__sitting__"}
 
-
-class _Later:
-    """A module the exec namespace names that devkit may not hold yet: imported at its first attribute, so a driver
-    that uses it before it is ported fails by its name and every other driver runs."""
-
-    def __init__(self, name: str):
-        self.name = name
-
-    def __getattr__(self, attr: str):
-        return getattr(importlib.import_module(self.name), attr)
 
 
 # --- the game's own cheat codes (Step X.17; HM-50, HM-88) ------------------------------------------------------------
@@ -1347,7 +1336,7 @@ def _case(sit: Sitting, case: dict, i: int, builds: dict, routers: dict, spec_di
             if m != "inventory":
                 out.update(MEASURES[m](rows))
     elif "walk_to" in do:
-        from devkit.xemu import route as xr   # with the reach engine's xemu checks (Step 4.13d2)
+        from devkit.xemu import route as xr
         res = xr.walk_to(sit.sb, routers[(do["level"], do.get("prof", "logic"))], do["walk_to"],
                          tier=do.get("tier", "hard"), air=do.get("air", 0), ticks=do.get("ticks", 1800), label=lab)
         out.update({k: res.get(k) for k in ("reached", "why", "left_m", "end_zone", "replans", "dialogs")})
@@ -1390,7 +1379,7 @@ def run_spec(path: Path | str, *, dry_run: bool = False, redo: bool = False) -> 
         routers = {}
         for c in cases:
             if "walk_to" in c["do"] and (key := (c["do"]["level"], c["do"].get("prof", "logic"))) not in routers:
-                from devkit.xemu import route as xr   # (Step 4.13d2)
+                from devkit.xemu import route as xr
                 t0 = time.monotonic()
                 routers[key] = xr.router(iso, *key)
                 xo.log(f"router {key}: {time.monotonic() - t0:.0f} s")
@@ -1838,6 +1827,47 @@ def selftest() -> int:
               and isinstance(ran, Teardown) and "the RuntimeError after it is the signal's" in str(ran)
               and isinstance(ran_on[1], Teardown) and "ran on past it" in str(ran_on[1])
               and not sit2.cases and "ended by signal SIGTERM (the RuntimeError after it" in rep2, f"{said[-160:]!r}")
+        # AZ-379: a chain counts its replay and action ticks at the build's rate, read once from guest RAM (a 60 fps
+        # fps_unlock build here: half a second is 30 ticks), and reads it before a release quits xemu for a search,
+        # which grades at it
+        import types
+
+        from devkit.xemu import chain as xc
+        from devkit.xemu import minigames as xmg
+        ent, clocks, reads, parts, order = 0x1000, [10.5, 20.0, 20.5], [], [30, 10], []
+        g = types.SimpleNamespace(regs=lambda: {"ecx": ent},
+                                  read=lambda va, n: struct.pack("<d", clocks.pop(0)) if va == ent + 0x18 else bytes(n))
+
+        def replay(_pads, _rows, _m, *, stops, **_kw):   # a popup after 30 ticks, then the rest
+            stops["at"] = "stall" if len(parts) > 1 else "end"
+            return [{"k": j} for j in range(parts.pop(0))]
+        ch = xc.Chain.__new__(xc.Chain)
+        ch.s = types.SimpleNamespace(sb=types.SimpleNamespace(
+            read=lambda va, n: reads.append(va) or struct.pack("<d", 60.0), halt=lambda: g, replay=replay))
+        ch._rate, ch.k, ch._walk_up, ch.log, ch.save, ch.disc = None, 0, False, (lambda *_: None), (lambda: None), (
+            lambda: "dvd.iso")
+        ch.drain = lambda *_a, **_k: {"stop": "join", "ticks": 0}
+        ch.stations = lambda _seg: [({}, lambda _m: {"done": True})]
+        got, how = ch.replay([None] * 40, [None] * 40, {"entity": ent, "clock": 10.0}, False)
+        real_mg, xmg.Minigames = xmg.Minigames, (lambda *_a: None)
+        try:
+            acted = ch.action(0, {"kind": "button", "level": "w1"}, None, {"starts": []})
+        finally:
+            xmg.Minigames = real_mg
+        ch2 = xc.Chain.__new__(xc.Chain)
+        ch2.s = types.SimpleNamespace(sb=types.SimpleNamespace(
+            read=lambda va, n: order.append("rate") or struct.pack("<d", 60.0), alive=lambda: True,
+            _quit=lambda: order.append("quit")))
+        ch2._rate, ch2.release, ch2.park, ch2.log = None, True, True, (lambda *_: None)
+        ch2.maybe_release()
+        bad = [xc.player_rate(lambda va, n, v=v: struct.pack("<d", v)) for v in (0.0, float("nan"), -1.0)]
+        check("chain (AZ-379): a chain counts its ticks at the build's rate (60 on an fps_unlock build): a popup's "
+              "replay resumes with no lost tick and an action's half second is 30 ticks, the rate read once from "
+              "guest RAM, and before a release quits xemu for a search (graded at it); a rate that isn't a positive "
+              "number reads as 30",
+              len(got) == 40 and how["at"] == "end" and how["popups"] == 1 and acted["stations"][0]["act_ticks"] == 30
+              and ch.k == 30 and reads == [l3.MAIN_RATE] and order == ["rate", "quit"] and bad == [30.0, 30.0, 30.0],
+              f"{len(got)} {how} {acted.get('stations')} {ch.k} {order} {bad}")
         # AZ-397: an owner demo runs as long as the owner plays: it never yields, its serve never idles out (here
         # with IDLE_S 0, which ends any other serve at once), and it keeps W (input-record.txt) and its private folder
         xo.SLOTS, real_idle = tmp / "slots", IDLE_S
@@ -2028,6 +2058,37 @@ def selftest() -> int:
                 "[sitting] app 'nope'", "warp = {"]
         check("specs: a bad spec names each problem (an analog pipe line is a good action)",
               all(w in got for w in want) and "'axis lx 0.5'" not in got, f"{[w for w in want if w not in got]}")
+        # Step X.14: the route pilot's analog stick through the fork build's pipe: axis lines only when the stick
+        # changes, and no INPUT_BUILD hook (no RAM write); True keeps the RAM write at the input builder
+        from devkit.xemu import route as xr
+
+        class Router:   # a stand-in: no goal, no probe classes, no zones
+            def goal(self, target):
+                return None, None, None
+
+            def probe_classes(self):
+                return ()
+
+            def zone_at(self, p, prefer_water=False):
+                return None
+        pil = xr.Pilot(Router(), "t", analog="pipe")
+        lines = []
+        for st_ in ((0.0, 0.5), (0.0, 0.5), (-0.25, 0.5), (0.0, 0.0)):
+            pil.stick = st_
+            lines.append(pil._set(set()))
+        seen_hooks = []
+
+        class PilotBox:
+            def capture(self, n, on_tick=None, hooks=None, label=None):
+                seen_hooks.append(sorted(hooks or {}))
+                return {"rows": [], "meta": {"complete": True, "stop": None}}
+        piped = xr.walk_to(PilotBox(), Router(), "t", analog="pipe")["analog"]
+        xr.walk_to(PilotBox(), Router(), "t")
+        check("route pilot: analog='pipe' sends the stick as the pipe's axis lines when it changes, with no RAM "
+              "hook; the default keeps write_pad at the input builder",
+              lines == [[f"axis ly {xo.pipe_axis(0.5):.6f}"], [], [f"axis lx {xo.pipe_axis(-0.25):.6f}"],
+                        ["axis lx 0.000000", "axis ly 0.000000"]]
+              and seen_hooks == [[], [xo.INPUT_BUILD]] and piped == "pipe", f"{lines} {seen_hooks}")
         # Step X.17: cheat() on a model of the code walker 0x16D40 and the matcher 0x15C10, the pipe two updates
         # late: every code goes in (code 1's second step also satisfies its third); a dropped press costs a try
         def matched(step, held):

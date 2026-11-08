@@ -2,7 +2,7 @@
 against xemu offline.
 
 Each replay of an L3 string in xemu (``xemu_oracle.py replay``, the sitting kit's ``l3_replay``,
-``l3_certify.py``'s replays) appends a record to ``<store>/conformance.jsonl`` (:func:`record`): the
+``devkit/reach/l3_certify.py``'s replays) appends a record to ``<store>/conformance.jsonl`` (:func:`record`): the
 snapshot it started from (its label and metadata hash), the disc in the tray (its sha12 and the image's path), the
 mode, the string (``l3.pads`` segments with the
 camera as the f32 pairs L3 read, and the other writes at their ticks, a teleport's place request among them) and,

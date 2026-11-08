@@ -5,7 +5,9 @@ Modkit's at its freeze (Step 4.13d1): :mod:`.engine` is the engine (its nodes, l
 verdicts, aims, pair stage and rigs), :mod:`.native` its native movement and collision kernel (``kernel.c`` and
 ``controllers.c``, built by zig into the user cache) and the kernel's launch backend, :mod:`.l3_fast` FastL3 (L3 on
 the patched Unicorn ``unicorn/`` builds, its C step ``fastl3_step.c``) and :mod:`.l3_pool` the many-at-once L3 pool.
-:mod:`.models` reads the reach models the L3 store keeps.  The frozen truth set is read from ``reach-truth/`` in the
+:mod:`.models` reads the reach models the L3 store keeps.  :mod:`.l3_certify` certifies the randomizer's spots,
+edges and skips in L3 and xemu, :mod:`.l3_contact` measures its contact flights and :mod:`.l3_gate` is the trick
+explorer's starts and long-replay gate (Step 4.13d2).  The frozen truth set is read from ``reach-truth/`` in the
 user data folder.  Its verbs: :data:`VERBS`; ``devkit/reach/README.md`` has them and ``docs/REACH.md`` the engine.
 
 Beside the standard library it imports the randomizer's art, first: the shipped draft's geometry and the art import
@@ -22,4 +24,8 @@ VERBS: dict[str, str] = {
     "native-check": "the native kernel against a native-trace file: its moves, launches and speed",
     "native-census": "the platforms a snapshot's collision world doesn't hold, which the kernel leaves out",
     "build-unicorn": "build FastL3's patched libunicorn and its x87 check flavour into the user cache",
+    "l3-certify": "certify the randomizer's spots, edges and skips in L3: plan, search, the sittings' snapshots and "
+                  "replays, apply, recheck",
+    "l3-contact": "measure the randomizer's contact flights at modified movement in L3, and write contact.json",
+    "l3-gate": "the trick explorer's starts and the long-replay gate: states, start, build, replay, split",
 }

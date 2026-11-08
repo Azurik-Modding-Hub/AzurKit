@@ -1260,7 +1260,7 @@ def note_level(sb, iso, meta_path: Path) -> int:
     """Write the loaded level's switch and timer nodes into the recorder's meta file (a demo's setup driver, the
     guest halted): each one's record index in the main graph and its attributes' indices, which the recorder
     resolves against the live graph after every load. Returns how many."""
-    from devkit.xemu import minigames as mg   # with the reach engine's xemu checks (Step 4.13d2)
+    from devkit.xemu import minigames as mg
     level = recipes.level_path(sb.read, sb.read_u32)
     lf = mg.Minigames(sb, iso, level.rsplit("/", 1)[-1])
     nodes = {}

@@ -6,9 +6,13 @@ engine at its freeze (D1143), ported whole (Step 4.13d1): `engine/` is the
 engine, `native/` its native movement and collision kernel (`kernel.c`,
 `controllers.c`) and the kernel's launch backend, `l3_fast.py` FastL3 (its
 C step `fastl3_step.c`, its patched Unicorn `unicorn/`) and `l3_pool.py`
-the many-at-once L3 pool. [`docs/REACH.md`](../../docs/REACH.md) has the
-engine, its benches and its truth set; this page has its verbs, run from
-the checkout's root (`uv run --locked python -m devkit reach VERB`). The
+the many-at-once L3 pool. `l3-certify`, `l3-contact` and `l3-gate` (Step
+4.13d2) are the L3 certification of the randomizer's spots, edges and
+skips, its contact flights and the long-replay gate; their xemu side is
+`devkit/xemu`'s (the chain driver, the route pilot, the minigames).
+[`docs/REACH.md`](../../docs/REACH.md) has the engine, its benches and its
+truth set; this page has its verbs, run from the checkout's root (`uv run
+--locked python -m devkit reach VERB`). The
 simulator's own verbs that run on the pool, `explore` and `conformance`,
 are [`devkit/sim`](../sim/README.md)'s.
 
@@ -21,6 +25,8 @@ What it reads and writes, none of it in the repository:
 | The frozen truth set (frames and R's rows) | `reach-truth/<level>/truth/` in the user data folder, read where it is |
 | The engine's start snapshots | the L3 store's `reach-live/`, read where they are |
 | The levels' reach models | the L3 store's `x7/reach/`, Modkit's pickles read where they are (`models.py`: a fixed module table, any other class refused; a missing one is built beside them) |
+| Their route graphs | `x7/reach/routers-azurkit/`, beside them (Modkit's keys stay in its `routers/`) |
+| The certification's private starts and kit snapshots | the L3 store's `x7/` (`by-dir/`) and `x11/`, mode 700 |
 
 Cache keys hash the code at its devkit paths (`engine/cache.py`'s
 `CORE_FILES`, `native/backend.py`'s `FILES`), so Modkit's records are not
@@ -527,3 +533,406 @@ patch; about a minute. Revert: `rm -rf` the folder it prints.
 ```bash
 uv run --locked python -m devkit reach build-unicorn [--jobs 4] [--force]
 ```
+
+## `l3-certify`
+Certifies the randomizer's spots and edges with simulator Level 3 (Step
+X.7; D170, D172; [`SIMULATOR.md`](../../docs/SIMULATOR.md)): a spot or an edge is
+proven `by = "l3"` once an L3 input string that reaches it has replayed in
+xemu tick for tick and its record is in
+`src/azurkit/tools/randomizer/data/proofs.jsonl`. Dev only: never in pytest,
+never a player's verb; the sandbox rules are the `azurik-xemu-oracle` skill's.
+
+```bash
+uv run --locked python -m devkit reach l3-certify plan --impact IMPACT.json [MORE.json ...] --out DIR [--top 10]
+uv run --locked python -m devkit reach l3-certify plan --tour PROGRESS.json --out DIR   # R1.16: the golden tour's certify list
+uv run --locked python -m devkit reach l3-certify plan --spots ID [ID ...] --out DIR   # R1.29: spots at the logic's kit
+uv run --locked python -m devkit reach l3-certify sitting DIR <W> snapshots          # per level and kit: hop, kit, savevm, an L3 snapshot
+uv run --locked python -m devkit reach l3-certify adopt DIR                         # R1.16: each <level>-k0 group's newest earlier snapshot, no sitting
+uv run --locked python -m devkit reach l3-certify search DIR [--jobs 8] [--workers 16] [--steps 400000] [--only KEY ...] [--scene] [--dive 0.25] [--placed] [--touch 0.75] [--douse] [--plateau STEPS]
+uv run --locked python -m devkit reach l3-certify sitting DIR <W> replays [--only KEY ...] [--no-chain]
+uv run --locked python -m devkit reach l3-certify apply DIR --sitting NAME       # proofs.jsonl + the authoring files; then rando author
+uv run --locked python -m devkit reach l3-certify recheck [--level L ...] [--write]   # after a re-derive: re-run and re-zone
+uv run --locked python -m devkit reach l3-certify pickups DIR [--out FILE]         # AZ-389: the pickup proofs, judged again
+uv run --locked python -m devkit reach l3-certify plan-skips --out DIR [--only ID ...]   # the skips (Step R1.8g)
+uv run --locked python -m devkit reach l3-certify search-skips DIR [--jobs 6] [--steps 150000] [--only ID ...]
+uv run --locked python -m devkit reach l3-certify apply-skips DIR --sitting NAME [--unreplayed] [--only ID ...] [--zoning SHA256]   # proofs.jsonl skip records
+```
+
+- `plan` reads `devkit/rando/impact.py`'s rankings: a spot starts in the arrival
+  node from which the logic reaches it with nothing held, touches it and
+  comes back; an edge walks from its from-node to its to-node holding its
+  requirement when that is element levels; anything else (a button, a
+  flag, an event, a key) is reported as not set up.
+- `plan --spots` (Step R1.29, AZ-455): location ids, each from the arrival
+  whose way there and back over walk edges asks the least element levels
+  (a walk edge asking element levels alone counts, as the logic's own kit
+  for it, and a barrier the edge goes `through` asks its crossing with
+  the edge: its destroy requirement, or its bypass, AZ-517), that kit
+  lowered to the most `rando check` takes a proof at (AZ-570: the logic
+  may collect the spot holding less, going in or leaving with its own
+  item, `Logic.kit_short`; the way's own kept as `kit_way`, and a spot
+  it refuses at every kit not set up), set in L3 as a tour target's
+  (group `<level>-k0`, so `adopt` serves the searches); a spot whose way
+  needs a button, a flag, an event or a key
+  is not set up, nor one its generated `gated_by` gates (a keylord, a
+  boss, a lock or a geode gives its item, no touch; the skip names the
+  gate). Its search starts at the hop's own
+  arrival when that lies in the spot's arrival node (a teleport nearest
+  the goal may stand on the spot, which proves nothing), else by an R6
+  teleport into the node's start zone: the string must come back where
+  it started (D122), and `apply`'s record says its way back was walked
+  only then. After the search, its winner
+  in whole steps says whether L3 took the spot's own item there
+  (`l3_taken`: whole steps run the pickup's touch as the game does; the
+  goal's 0.75 m touch alone doesn't, AZ-483). `search --dive SHARE` lets
+  that share of the segments in the water dive (BLACK held), a spot's
+  depth under a swimming row counting in its cost: many pickups lie under
+  the surface, where walks and jumps never reach. A spot is at a location
+  as a pickup is (Step R1.29b): its goal is its item's own touch round
+  where it rests, and an R6 start stands in the item's own cell, where
+  alone it spawns (AZ-488). `search --placed` starts each spot by R6 on
+  its start zone's sample nearest the goal at least 2 m off the spot, or
+  2 m beyond its item's touch radius, not at the hop's arrival (its
+  distance band is recorded); a sample whose settle hangs in whole steps
+  is passed over.
+  `search --touch M` sets the goal reach around a spot's point (default
+  0.75 m) only for an item whose species has no touch; the searched spots
+  keep it in `targets.json`, so the end-to-end check and the replays judge
+  with the reach the search used, and a later search without it puts the
+  default back.
+- `plan --tour` (Step R1.16, D206): the targets are a progress file's
+  `certify` list (the golden seed's tour of the spheres xemu doesn't play,
+  progression only, and each counted item's pickup from its node): a walk
+  to its to-node's zones, an exit, a cart or a disc teleport into its
+  trigger (`ExitGoal`), a pickup to its location, each from its
+  from-node's zone at the tour's kit; actions and hops whose rule asks
+  world state a new game plus a hop doesn't give are not set up. A tour
+  target's kit is set in L3 (`Segment.kit`: the element levels, and with
+  air the armor cast by LT+Y), so each level needs one snapshot from a new
+  game (group `<level>-k0`, kit 0): 21 for R1.16 instead of one per level
+  and kit. `adopt` gives each such group the store's newest earlier one
+  (a sitting's `<name>-<level>-k0-<HHMMSS>`, format 3 first) so the
+  searches need no sandbox; `sitting snapshots` takes an adopted group
+  again, since a replay loads its state in the sandbox. `apply` writes
+  nothing for them: the folder's results and replays are the record.
+- `search`: edges first; the start is the snapshot's own spot when it lies
+  in the start zone, else an R6 teleport onto the zone's floor or water
+  sample nearest the goal that lands and settles (nearest by its cost to
+  go; where the route graph has no way there, nearest the item, AZ-531:
+  not the zone's most open samples wherever they lie; a pickup's or a counted
+  item's: into the item's own cell, on the nearest sample outside its
+  touch, AZ-488; an exit's: outside its trigger; where neither the item's
+  cell nor the snapshot's settles there, each other cell of the level's
+  list in turn, the rooms whose locations stand nearest the sample first,
+  AZ-382: w1's beach is another room); the guidance is the
+  logic profile's route graph, the light trick graph's at the leg's air
+  when the logic has no way from there and it has (`leg_guide`, Step
+  X.53, AZ-593: its sweep, one-sided recheck, hops, lifts and doubts; it
+  was the phys profile's, the envelope alone), else the straight line to
+  where the goal's field reaches (a goal with no vertex, a point no floor
+  is under: the direct line to it); seeds are the planner's plan and
+  earlier runs' winners from the same start. Every target of a level and kit runs at once on one
+  persistent worker pool on its snapshot (`l3_pool.solve_many`, Step
+  X.10; `--workers`, default the cores up to 16): `--jobs` derived seeds a
+  leg, each to a step budget, the lowest seed index that reached wins
+  (the same winners whatever the worker count); then every spot's way
+  back, chained on its first leg; the winner is checked again in whole
+  steps (a pickup or a counted item: its own item taken in L3 there,
+  `scene_outcome`; its goal is the item's own touch, AZ-483). An end to
+  end check L3 stops on the way (a render past its 5 s cap on a loaded
+  host) runs once more from the snapshot, and a second stop leaves the
+  target unverified and `inconclusive` with the stop's site
+  (`verify_fault`), its legs kept, as a skip rung's check does (AZ-640,
+  Step R1.34); `results.json` is written whole (a temp file renamed
+  over it) as each target ends. A failure
+  says whether every seed explored all it reached (the
+  logic is wrong or the move set misses a way) or the budget ran out; a
+  failure whose runs were tainted (they read what L3 doesn't model) is
+  `inconclusive`, never a refutation. Each leg (Step R1.29e) searches
+  strings up to 6,000 ticks a leg (`LEG_TICKS`, 2,400 before; a doused
+  leg's parts together) whose branches may
+  stay 210 ticks in the air (`LEG_FALL`, 120 before: 3 to 5 flaps take
+  123-185), an air kit's recasting the armor in 4% of its segments; an air
+  kit's way back starts with a recast at rest (`RECAST`, its string's
+  first segment, its `lead`: the leg's check counts no goal row in it),
+  since the way there may have spent the gauge; a way there wins only when
+  the body past the spot's touch, at rest or, in the air, on the string's
+  last stick, lives 10 ticks and then is settled (stands, swims or
+  rests on near-flat ice: `obs.settled`, AZ-737), or lives 300
+  (AZ-571, AZ-627: `l3_goal.SURVIVE`, `l3_search.LAND_CAP`; a touch on
+  the way to a death, also one high over a lethal drop, is no pickup), and
+  a leg whose start is dead, or off the floor and dying before it lands
+  both ways, isn't searched (`its start doesn't run: the leg starts dead`,
+  `... starts off the floor (state 0x2) and dies at rest and on its last
+  stick before it lands`); each leg
+  records and prints how many cells each seed left at the tick cap
+  (`capped`). `search --scene --douse` (Step R1.29e) makes a leg through a
+  barrier (a level edge of the way there, the target's `path`, or of the
+  way back `plan` sets up, its walk back to its start node at the least
+  kit, whose `through` names one) three in one: a search to within 3 m of
+  the barrier's shape on its near side, a douse (`devkit/sim/douse.py`:
+  the staff's elements cast, A on the walk through, the least element
+  levels its crossing asks added to the kit), then a search on to the
+  leg's goal; a leg through more barriers (Step R1.29f) crosses each in
+  turn the same way before the search on from the last; the leg
+  keeps its pieces as `parts` (the replays run them in turn) and the result
+  lists each douse's outcome (`douse`); a barrier the to-node's cost to go
+  says isn't in the way where the search reached it is crossed by nothing
+  (`not_in_the_way`, as `Chain.staff`). A proof record's and `apply`'s kit
+  is the one the string ran with (the douse's levels too).
+  Diagnostics (Step X.52): every target prints a line, one with no
+  snapshot or no start that settles too. With `--plateau STEPS` a seed
+  ends after that many steps with no new best cost to go, `plateau at
+  <edge>` (no part of the problem's identity; off by default, as a find
+  late in a budget would be cut). A leg
+  not found records its runs' faults by site (`faults`: `unmapped@EIP`,
+  `runaway@EIP`, `render timeout@EIP`, `assert <file>:<line>`, `no player
+  update`) and its kernel taints' game callers and files (`taint_at`),
+  prints both and each seed's stall, and its runs keep each seed's
+  `stall`: the region edge ahead of its least-cost cell (id, kind,
+  confidence, the zones at its ends) and `plan`, the plan's level edge it
+  lies at (the way there's `path` or the way back's walk); DIR's
+  `stalls.json` collects them per target, for R1.23's and R1.24's
+  `assumed` and `probe-needed` edges (measured candidates, never proof).
+  A leg whose every seed's start raised in the workers says `its start
+  doesn't run in the workers`; a worker's error stays with its seed.
+  Step X.52b: a stall also names its stage (`no zone`, `off the graph`
+  with the zone the fallback steers to, `walk` with its first other
+  zone, `edge`), the best row's state and whether the best cost still
+  fell (`last_fall`, `fall_10k_s`); a branch that fires a level exit ends
+  there untainted, and a leg not found prints and keeps those branches
+  by level (`exits`). `--wall-cap` defaults to `--steps` at 4 a second
+  (`l3_search.WALL_RATE`), for `search` and `search-skips`.
+- `replays`: a fresh snapshot, L3 reruns the string from it, then
+  `Sandbox.replay` and `l3_compare`; proven when every tick's body centre,
+  state and HP match; then a snapshot where the replay halted, linked to
+  its parent. A skip to a pickup is also proven where xemu takes it
+  (`pickup_at`): the first tick that differs differs in the inventory
+  hash alone, xemu took the goal's own item (the vanilla item's
+  inventory field changed, measured past the replay's own writes: not the
+  kit's levels or the cast's fuel), and the body centre is equal on every
+  tick before it (AZ-389: the hash once held the day clock, which
+  player-tick L3 doesn't advance, so it differed from tick 1). A tour
+  target's replay (AZ-474) has stops, so a level load ends it there, and
+  is judged by its outcome (`judge`): an exit only when its destination
+  or its movie (which plays first) loads within the string or a tail of
+  up to 150 neutral ticks after it (`tail`, also after a stall: a movie
+  or a fade; it ends at a load, or after 60 s with no tick of the
+  player's), a pickup or a counted item's reach only when xemu takes
+  the goal's own item there, each with the body, state and HP equal
+  through the goal's tick (an exit's load inside the string: through the
+  tick before it, never one in the settle); a walk by every tick equal.
+  A placed (R6) start within 1 m of where the string first stands in the
+  goal, or of where the load came when sooner, is `near` (its distance
+  band is recorded) and proves no hop, unless the target is at a
+  location; a tour replay judged before this rule is replayed again.
+  Since AZ-483 (rule `az483`) a pickup's goal is the item's own touch
+  (the body centre in its touch ellipsoid) and L3's whole-step rerun runs
+  on up to 150 neutral ticks until the item is taken, so the replay
+  compares those ticks too; the record's `sha12` is the string's own.
+  An outcome at or before the settle's last row is `settle` (the
+  placement took it: no proof, not even near; AZ-486); in whole steps an
+  item's take is the row L3's own inventory gained it (`outcome_at`),
+  since xemu's inventory hash then equals L3's. Since AZ-699 (an item's
+  rule `az699`) a take past the settle and more than a tick before the
+  goal's is another item on the way: the body must match through the
+  goal's tick, and xemu's inventory must change again from the tick
+  before it (or in a tail that started with the goal's fields
+  unchanged). An exit's goal is the
+  body centre inside its trigger mesh, and in whole steps L3 runs on to
+  its levelSwitch's fire (the tail plus a timer gate's wait), which ends
+  the replayed string (`outcome_at`, `outcome`: the level and movie);
+  the target's own outcome (its item's field, the exit's own level)
+  meets its goal even in the tail, and `scene_outcome` records it for a
+  search's winner.
+  A spot (`judge_spot`, Step R1.29) is proven when every tick there and
+  back is L3's, xemu took its own item (its vanilla item's inventory
+  field) and its start isn't a teleport within 1 m of where the string
+  first stands at it (`near`; the start's band is recorded); its replay
+  clears a popup on the way with A (`replay_clearing`: a first gem), the
+  event clock checked. `apply` marks a spot the authoring already holds
+  (a conservative-kit `requires`) in its own `[[location]]`, its note
+  gaining the proof's, and the record's set-up names the kit (R2) and
+  the cast. A target's private start is kept per folder (`_priv`): two
+  folders searching one key no longer overwrite each other's.
+- `pickups DIR` judges every recorded pickup proof in `DIR` again under
+  that rule, reading the folder only (`--out FILE`, outside `DIR`: the
+  result as JSON): the counts of results, replays and pickup proofs, and
+  each proof that no longer holds with why. A player-tick proof recorded
+  before AZ-389's fix can't be judged from its record (its first
+  difference was the clock's), nor an older record's element levels
+  (its raw offsets were measured before the kit's writes);
+  `sitting DIR <W> replays` replays every proof that no longer holds
+  again.
+- The public folder `DIR` holds targets, counts, strings and hashes; the
+  reach models and teleport points go to the L3 store's `x7` folder (mode
+  700), beside the snapshots. The committed record names a teleport by its
+  reach-model sample and the place struct's sha12, never a coordinate.
+- The reach model (`_reach_path`, which `devkit/reach/l3_contact.py` and `devkit/xemu/chain.py`
+  share) is the one built under the level's current zoning: `<level>.pkl`
+  while its `.stamp` names that zoning, else `<level>@<sha12>.pkl` keyed by
+  it, built from the vanilla ISO the first time (minutes). A re-derive
+  that renumbers the zones so gets a fresh model rather than searches
+  aimed at the old zones (AZ-362); the older ones stay, and `recheck`
+  finds a record's teleport in the one whose sample gives its place.
+  A route graph built on a model (`l3_goal.load_router`: 2 s for d1,
+  16.5 s for w1) is kept, the router with its model, in `routers/`
+  beside it under its content key (`router_key`: the model file's path
+  and identity, the profile, the draft's code and authoring,
+  `randomizer/physics.py` (the walk and swim speeds its costs divide
+  by), `xbr/collision.py`, the Python and numpy versions; Step X.95), loaded
+  again in 0.4-0.8 s by every process and pool worker after the first,
+  the newest key a model and profile only.
+- `recheck` re-runs every record's string from its kept snapshot and
+  re-zones its claim under the current derive (zones are renumbered by a
+  re-derive), reading a zone only where a standing or swimming body's
+  feet are, on that floor or in that water (AZ-590: never in the air,
+  climbing, or from the floor under a rig's tooth or a ledge's top it
+  stands on; the douse's to-node reads the same way); `rando author` refuses a `[[probed]]` walk whose record's
+  `zoning` (the sha256 of the level's derived `zones` section) isn't the
+  level's until then.
+- `replays` also adds each replay to the conformance corpus
+  (`l3_conformance.py`).
+- The skips (Step R1.8g; D183, D177, D178): `plan-skips` turns the
+  script's `SKIPS` table (each skip's level, start zone or the snapshot's
+  own spot, goal zone or pickup, way back, whether it rolls, whether it
+  needs whole steps, a loadvm state other than a new game) into targets;
+  the snapshots are taken with nothing held, since the kit is set in L3.
+  `search-skips` runs D183's ladder per skip: its top rung (air 3, the
+  armor's 5 flaps) first, then 0 flaps with no air, 1 with air 1, 2 with
+  air 2 and 3 with air 3, each with the kit set at the start (R2's levels
+  and the cast by LT+Y); the first rung that reaches and holds in whole
+  steps (a tick-mode winner whole steps refuse is searched again in
+  whole steps, seeded with it) is the skip's `requires`, its most flaps
+  in one jump and its robustness (32 jittered copies) its difficulty.
+  An easier variant (`rungs`) searches its own air only. After
+  `sitting DIR <W> replays`, `apply-skips` writes a record per replayed
+  skip (claim `kind = "skip"` with its kit and flaps), which `tricks.toml`'s
+  `confirmed = { by = "l3", ref }` names. D277 (Step R1.31): with
+  `--unreplayed` it writes one per winner that held in whole steps, with
+  no replay (`replay.rule` D277: the simulator's run confirms a skip);
+  `--zoning` names the zoning the search's reach model had, when the
+  level was re-derived since (`--only` takes skip ids).
+
+---
+
+## `l3-gate`
+
+The trick explorer's starts and the long-replay gate (Step TD.0, the
+trick-discovery plan's T0; [`SIMULATOR.md`](../../docs/SIMULATOR.md) § "The exact
+xemu replayer").
+
+```bash
+uv run --locked python -m devkit reach l3-gate states LABEL [LABEL ...] [--ticks 120] [--scene]          # L3 only
+uv run --locked python -m devkit reach l3-gate start <W> TAG LABEL [--state 0] [--settle 10] [--hold] [--scene]
+uv run --locked python -m devkit reach l3-gate build LABEL OUT [--ticks 5200] [--seed 1] [--radius 40] [--scene]   # L3
+uv run --locked python -m devkit reach l3-gate replay <W> LABEL OUT [--scene]
+uv run --locked python -m devkit reach l3-gate split LABEL IN OUT [--most 5000] [--scene]          # L3 only
+```
+
+- `--scene` (Step TD.4b): whole steps, so rigs, enemies and triggers run:
+  `start --scene` snapshots the next scene tick's entry, `build --scene`
+  draws and checks the string in whole steps, `replay --scene` runs L3's
+  side in whole steps (xemu's per-tick replay is the same; the corpus
+  keeps the record as `scene`) and the gate is then 5,000 whole steps
+  replayed exactly (met in sitting TD.4c: 5,215 from town's arrival,
+  [`SIMULATOR.md`](../../docs/SIMULATOR.md) § "The exact xemu replayer").
+- `split`: IN (a string from LABEL's own start, as `build`'s) run in L3
+  and cut into D172 pieces of at most `--most` ticks (`l3_explore.split`:
+  each ends at the last settle point in its reach, 10 ticks at rest on
+  the ground, else at `--most` ticks, `settled` false); OUT (mode 0600)
+  lists each piece's start, ticks, `settled`, string and sha12, for a
+  chained replay.
+
+- `states`: each snapshot's player over neutral L3 ticks: the states it
+  holds (counts), HP at the start and the end, taint. e6's four natural
+  arrival snapshots (`x7-e6-k0-041640`, `x7-e6-k0-205552`,
+  `x15g-e6-k0-070552`, `x8-e6-k0-080323`) stand in state 0 on all 120
+  ticks at 200/200; `x7-w1-k0-205806` swims on every tick (2026-10-18).
+- `start`: a natural start from a loadable state (the w1 beach spawn from
+  `vanilla-rz-new`): neutral player ticks after the load until the player
+  has stood in `--state` `--settle` ticks in a row, then an L3 snapshot of
+  the next update entry (state, HP, pages, sha12 printed); `--hold` keeps
+  the guest halted there for `replay`.
+- `build`: a seeded string of at least `--ticks` player ticks: segments
+  of 8-32 ticks (a heading in 24 sectors or the stick at rest; magnitude
+  0.35, 0.7 or 1.0; Y, BLACK or nothing held; the camera turned toward the
+  heading by at most 3.33° a tick, the stick along the heading under it),
+  each kept only when L3 runs it with the player
+  alive and unhurt, untainted, within `--radius` m of the start and at
+  most 90 ticks airborne (a refused draw is drawn again; 64 refusals drop
+  the last 3 segments). OUT (mode 0600): `l3.pads` segments.
+- `replay`: OUT run in L3 from LABEL and replayed in xemu from its held
+  start (`Sandbox.replay` with D172's stops: a load, a popup or a dialog
+  ends it, and so does the first tick off L3 by any distance, state or
+  HP), into the conformance corpus; prints the replayed and exact ticks,
+  `gate_5000` (exit 1 unless 5,000 ticks replayed exactly) and
+  `fields_differ` (per observed field, TD.0's too, the ticks off). The
+  longest exact replays before it: one string of 3,061 ticks and a
+  chain's run of 3,619 (R1.16's `chain-r116-s123`). Sitting TD.0
+  (2026-10-18, v0.15.1): `start` from `vanilla-rz-new` stood in state 0
+  from its first tick (200/200), and `build --seed 1`'s 5,214 ticks from
+  there (states 0, 2, 3, 0x100 and 0x102; 687 m of path) replayed exactly
+  on every observed field in 65 s: the gate passes.
+
+Positions and strings stay in the private store; printed output is counts,
+metres and hashes. Dev tooling, never in pytest.
+
+---
+
+## `l3-contact`
+Measures the randomizer's contact flights at modified movement in L3
+(Step X.11; [`SIMULATOR.md`](../../docs/SIMULATOR.md) § "Overlays"): a flight the
+movement calculator can't reproduce, or that sits at its limit (a lip
+lift, a roof, a curved jump, a walk-off), run by the game's own code on a
+vanilla snapshot with the slider's build laid over it, to the value past
+which no input string makes it.
+
+```bash
+uv run --locked python -m devkit reach l3-contact measure CASE PACK.SLIDER --out DIR [--lo X] [--hi Y] [--at V ...] [--steps N] [--seeds K] [--workers W] [--temp T] [--pursue P]
+uv run --locked python -m devkit reach l3-contact walkoff --out DIR [--ledges N]
+uv run --locked python -m devkit reach l3-contact apply DIR [DIR ...]     # src/azurkit/tools/randomizer/data/contact.json
+```
+
+- `measure`: per value, every string an earlier value won with is graded
+  again, and `--seeds` searches (`l3_pool.search_task`, seeded only by the
+  route planner's plan) run to their own ends from a teleport onto the
+  flight's start zone to its landing zone, on a worker pool of the case's
+  kit snapshot (its level's kit 0 snapshot, `BASES`, with air shield N
+  worn, placed: `kit_snapshot`). A case (`CASES`) names the level, the
+  derive's zone edge, the air rank, the hop its certificate witnesses and,
+  where the zone edge has two options of that rank, the certificate's
+  `dh` (`prof = "phys"`: the goal routes on the physical graph, where the
+  logic graph has no way for that rank). The start is the zone's floor
+  sample nearest the goal that a teleport settles on (then the nearest a
+  metre from the floor's edge; else one the body slides on, state 3). The
+  reach model is `devkit/reach/l3_certify.py`'s, of the level's current zoning. A value passes
+  frame_perfect when any string reaches, standard when one's robustness
+  (`l3_search.robustness`) is 0.5 or more (`TIERS`, D259; 0.8 until it),
+  or vanilla's own where L3 rates
+  vanilla lower (the best of its point and of every string won, graded at
+  vanilla); a value fails only after every string the case has won with
+  (rescaled to its frame rate for `target_fps`) is graded there too. At a
+  frame rate F the search's tick limits (its step budget, longest string,
+  segment, Y hold, air cap and the landing's ticks at rest) are F/30
+  times vanilla's, the same game time (`limits_at`, `spec_at`; AZ-372). Each
+  side (`--lo`, `--hi`: its far end) widens from vanilla (1/16 of the way,
+  1/8, ...) until a value fails, then bisects, twice (the second pass with
+  every string in). A failing value means no search found a string in
+  the budget, so a range errs toward less movement. A case's `.fly` twin
+  ends every branch that swims, so the string must make the flight itself
+  rather than swim round and climb out.
+- `walkoff`: the zones' free walk-off table (`physics.free_certs`) on real
+  w1 ledges (the reach model's walk-offs where a run at full speed leaves
+  within 0.5 m of the floor's end): each drop's reach past the floor's end
+  against the table's gap, at vanilla and, where vanilla has room, per
+  slider by bisection (one run per ledge, no search).
+- `apply`: the measured ranges into `contact.json`
+  ([`RANDOMIZER_DB.md`](../../docs/RANDOMIZER_DB.md) §17), with each one's evidence id;
+  a side where vanilla doesn't reach, or whose values pass again past one
+  that failed (a fragile flight's search luck), stays to the calculator.
+- Public results (values, verdicts, counts, robustness, problem and string
+  sha12s; no positions) go to `DIR`; teleports, strings and the kit
+  snapshots to the private store. Dev tooling, never in pytest.
+
+---

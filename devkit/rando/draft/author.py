@@ -690,7 +690,7 @@ def probed(L: Level, edges: list[Atomic], records: dict) -> list[Atomic]:
     the kit, so the walk applies) becomes probed (``L.proofs`` keeps its proof); its tier stays.  An L3 walk's
     proof must resolve to a ``proofs.jsonl`` record (``records``) claiming that walk under the level's current
     zoning (the derived ``zones`` section): a re-derive renumbers the zones, so a stale walk is an issue, never applied
-    (``scripts/l3_certify.py recheck`` re-runs the string and re-zones it).  A walk counts as exact for
+    (``python -m devkit reach l3-certify recheck`` re-runs the string and re-zones it).  A walk counts as exact for
     :func:`proven_by_data` (``L.robust``) only when its record's robustness is at least :data:`SAFE_P` (an xemu
     walk: always)."""
     from azurkit.tools.randomizer.planner.proofs import zoning
@@ -712,7 +712,7 @@ def probed(L: Level, edges: list[Atomic], records: dict) -> list[Atomic]:
                 continue
             if rec["claim"].get("zoning") != zones_now:
                 L.issues.append(f"{where}: its proof's zoning isn't the level's (a re-derive renumbered the "
-                                f"zones): run scripts/l3_certify.py recheck --level {L.name} --write")
+                                f"zones): run python -m devkit reach l3-certify recheck --level {L.name} --write")
                 continue
             robust = robust_enough(rec)
         walks.append((a, b, dnf(w.get("kit", "true")), pv, robust))

@@ -1215,10 +1215,11 @@ def test_the_goal_factories_share_one_router_per_reach_model_in_a_process(monkey
 def test_a_built_router_is_kept_by_its_content_key_beside_its_reach_model_and_built_again_once_the_model_changes(
         tmp_path, monkeypatch):
     """Step X.95 (X.93: router loads were 3-5 s of each sandbox; w1's router takes 16.5 s to build and 0.8 s to load):
-    ``load_router`` keeps the router it built in ``routers/`` beside its reach model under ``router_key`` and loads
-    it from there, equal, while the model file stands as it was; the model written again builds it again and its
-    older key's file goes.  The key reads ``physics.py``, whose run and swim speeds the router's costs divide by
-    (X.95's review: an edit there served the old costs)."""
+    ``load_router`` keeps the router it built in ``routers-azurkit/`` beside its reach model under ``router_key``
+    and loads it from there, equal, while the model file stands as it was; the model written again builds it again
+    and its older key's file goes, and Modkit's ``routers/`` beside it is never touched (Step 4.13d2: the L3 store
+    is shared, and Modkit's keys are other keys).  The key reads ``physics.py``, whose run and swim speeds the
+    router's costs divide by (X.95's review: an edit there served the old costs)."""
     import pickle
 
     from azurkit.tools.randomizer import physics
@@ -1228,16 +1229,20 @@ def test_a_built_router_is_kept_by_its_content_key_beside_its_reach_model_and_bu
                                                 for rel in l3_goal.ROUTER_CODE}
     reach = tmp_path / "t.pkl"
     reach.write_bytes(pickle.dumps(Reach(_level(_quad(-8, -8, 8, 8, 0.0)), flights.Env.kept())))
+    modkit = tmp_path / "routers" / "t-logic-0123456789ab.pkl"
+    modkit.parent.mkdir()
+    modkit.write_bytes(b"Modkit's router")
     builds, init = [], Router.__init__
     monkeypatch.setattr(Router, "__init__", lambda self, R, prof="logic": builds.append(prof) or init(self, R, prof))
     a, b = l3_goal.load_router(str(reach)), l3_goal.load_router(str(reach))
-    kept = [p.name for p in (tmp_path / "routers").glob("*.pkl")]
+    kept = [p.name for p in (tmp_path / "routers-azurkit").glob("*.pkl")]
     assert builds == ["logic"] and kept == [f"t-logic-{l3_goal.router_key(str(reach), 'logic')}.pkl"]
     assert np.array_equal(a.cost, b.cost) and np.array_equal(a.dst, b.dst) and np.array_equal(a.X, b.X)
     reach.write_bytes(reach.read_bytes())
     l3_goal.load_router(str(reach))
-    assert builds == ["logic", "logic"] and [p.name for p in (tmp_path / "routers").glob("*.pkl")] == [
+    assert builds == ["logic", "logic"] and [p.name for p in (tmp_path / "routers-azurkit").glob("*.pkl")] == [
         f"t-logic-{l3_goal.router_key(str(reach), 'logic')}.pkl"] != kept
+    assert modkit.read_bytes() == b"Modkit's router"
 
 
 def test_rando_author_of_some_authored_levels_names_the_ones_left_out(capsys):
@@ -1269,3 +1274,1574 @@ def test_rando_derive_check_in_its_process_pool_finds_the_committed_derived_data
     assert derive_verb.main(["airship", "--check", "--iso", str(usa_iso)]) == 0
     assert capsys.readouterr().out.endswith("1 derived files equal a fresh derivation\n")
 
+
+def test_a_leg_the_logic_has_no_way_for_searches_on_the_trick_graph_and_a_goal_with_no_vertex_on_its_direct_line(
+        monkeypatch):
+    """Step X.53 (AZ-593): ``l3_certify.leg_guide`` searches a leg on the logic's route graph, else, when the logic
+    has no way from the leg's start and the light trick graph at the leg's air does, on the trick graph (the spec's
+    profile ``trick``; it was the phys profile's, the envelope alone): with no air the 1.7 m ledge is the trick
+    graph's, the floor's own goal stays the logic's.  A goal with no vertex (a point no floor is
+    under) costs a row by its direct line, falling as the row nears and finite (it cost 1e6 everywhere), and the
+    guide heads there."""
+    import typing
+
+    from devkit.rando.draft import l3_goal
+
+    from devkit.reach import l3_certify as cert
+
+    reach = Reach(_level(_quad(0, 0, 14, 4, 0) + _quad(14, 0, 18, 4, 1.7) + _side((14, 0), (14, 4), 0, 1.7)),
+                  flights.Env.kept())
+    graphs = {"logic": Router(reach), "trick": l3_goal.TrickRouter(reach, 0)}
+
+    class Row(typing.NamedTuple):
+        pos: tuple
+        state: int
+        hp: int = 200
+        zone: str | None = None
+    start = Row((2.0, 2.0, 1.0), 0)
+
+    def make(target):
+        return lambda prof: (l3_goal.RouteGoal(graphs[prof], target), {"kwargs": {"prof": prof}})
+    prof, goal, spec = cert.leg_guide(make((17.0, 2.0, 1.7)), start)
+    assert (prof, spec["kwargs"]["prof"], goal.R) == ("trick", "trick", graphs["trick"]) and goal.finite_at(start)
+    assert cert.leg_guide(make((5.0, 2.0, 0.0)), start)[0] == "logic"
+    nowhere = l3_goal.RouteGoal(graphs["logic"], (50.0, 50.0, 5.0))
+    near = Row((5.5, 3.5, 1.0), 0)
+    assert nowhere.cost(start) == pytest.approx(math.hypot(48.0, 48.0) / route.WALK_MPS + 4.0 / l3_goal.RISE_MPS)
+    assert nowhere.cost(near) < nowhere.cost(start) < 1e6
+    assert nowhere.toward(start) == (l3_goal.heading_to((2.0, 2.0, 0.0), (50.0, 50.0, 5.0)), False)
+    assert nowhere.ahead(start)["stage"] == "no goal vertex"
+
+
+def test_a_pickup_touch_counts_only_once_the_body_lands_alive_and_a_leg_starting_dead_or_doomed_is_refused(monkeypatch):
+    """AZ-571, AZ-627: a pickup's goal (``l3_goal.RouteGoal`` on a point) counts a touch only when the body after it
+    lives ``l3_goal.SURVIVE`` ticks and then lands alive (``survive``, ``l3_search.lands_alive`` in ``confirm``), at
+    rest or, in the air, holding the string's last stick: on a floor whose far side of the item gives way two ticks
+    after a body reaches it, so that the body falls 15 ticks (past the 10-tick window) and dies where it lands, the
+    search passes over a seed string that touches it from that side (with no window it wins) and takes the one that
+    touches it from the near side; a touch mid-jump over a gap the body clears only on the stick counts.
+    ``devkit/reach/l3_certify.py``'s ``leg_start`` refuses a start whose row is dead (R1.29h's a3/g0/r1500 way backs:
+    state 7) by an ``L3Error`` at site ``dead start``, and one in the air whose body dies before it lands, at rest
+    and on its string's last stick (R1.29j's a3/g0/r1500 seed-4 way back), at site ``doomed start``; one that lands
+    alive either way is searched, the simulator left at its start."""
+    import typing
+
+    from devkit.rando.draft import l3_goal
+    from devkit.sim.l3 import L3Error, Pad
+    from devkit.sim.l3_search import Limits, Seg, Segment, confirm, search
+
+    class Row(typing.NamedTuple):
+        pos: tuple
+        state: int
+        hp: int = 200
+        zone: str | None = "t.Z000"
+
+    class Fall:          # 0.25 m a tick along the stick; past x 4.3 at y > 2.2 the floor gives way on the third tick
+        def __init__(self):
+            self.s = (2.0, 2.5, 0)
+
+        def save(self):
+            return self.s
+
+        def reset(self, s=(2.0, 2.5, 0)):
+            self.s = s
+
+        def step(self, pad):
+            x, y, n = self.s
+            h, m = pad.yaw + math.atan2(-pad.stick[0], pad.stick[1]), 0.25 * math.hypot(*pad.stick)
+            x, y = (x, y) if n > 2 else (x - m * math.sin(h), y + m * math.cos(h))
+            n = n + 1 if n or (y > 2.2 and x > 4.3) else 0
+            self.s = (x, y, n)
+            return Row((x, y, 1.0), 7 if n > 17 else 2 if n > 2 else 0, 0 if n > 17 else 200)
+
+    goal = l3_goal.RouteGoal(Router(Reach(_level(_quad(0, 0, 10, 4, 0)), flights.Env.kept())), (5.0, 2.0, 0.0))
+    far, near = [Seg(16, -math.pi / 2)], [Seg(2, math.pi), Seg(16, -math.pi / 2)]   # along y 2.5; to y 2 first
+    sim = Fall()
+
+    def won():
+        return search(sim, sim.save(), Row((2.0, 2.5, 1.0), 0), goal, Limits(steps=500), seeds=[far, near])
+    got = won()
+    assert (goal.survive, got.why, [s.heading for s in got.segs]) == (l3_goal.SURVIVE, "a seed string",
+                                                                       [math.pi, -math.pi / 2])
+    goal.survive = 0
+    assert [s.heading for s in won().segs] == [-math.pi / 2]
+    from devkit.reach import l3_certify as cert
+
+    class Drop:          # in the air: falls 20 more ticks, then dies there or stands; 12 on the stick clear the gap
+        def __init__(self, doomed):
+            self.s = (20, doomed, 0)
+
+        def save(self):
+            return self.s
+
+        def reset(self, s=None):
+            self.s = self.s if s is None else s
+
+        def step(self, pad):
+            left, doomed, moved = self.s
+            self.s = (left - 1, doomed, moved := moved + any(pad.stick))
+            body = (0.25 * moved, 0.0, 1.0)
+            return Row(body, 0) if moved >= 12 else Row(body, 2) if left > 0 else Row(body, 7, 0) if doomed else \
+                Row(body, 0)
+
+    class Touch:         # a pickup 0.5 m along the stick, touched in the air
+        settle, survive = 0, l3_goal.SURVIVE
+
+        def reached(self, row):
+            return row.pos[0] >= 0.5
+    assert confirm(Drop(True), (20, True, 0), [Seg(2, 0.0)], 0.0, Touch()) == 2
+    rows = {"alive": Row((0.0, 0.0, 1.0), 0), "dead": Row((0.0, 0.0, 1.0), 7, 0), "air": Row((0.0, 0.0, 1.0), 2),
+            "held": Row((0.0, 0.0, 1.0), 2)}
+    held = {"held": [Pad((0.0, 1.0), yaw=0.0), Pad()]}                  # the way there's stick, then a RECAST
+    monkeypatch.setattr(cert, "start_of", lambda sim, seg: (sim.save(), rows[seg.snapshot], 0.0,
+                                                            held.get(seg.snapshot, []), [rows[seg.snapshot]]))
+    assert cert.leg_start(sim, Segment("alive"))[1] == rows["alive"]
+    with pytest.raises(L3Error, match="the leg starts dead") as dead:
+        cert.leg_start(sim, Segment("dead"))
+    assert dead.value.site == "dead start"
+    lands = Drop(False)
+    assert cert.leg_start(lands, Segment("air"))[1] == rows["air"] and lands.save() == (20, False, 0)
+    clears = Drop(True)
+    assert cert.leg_start(clears, Segment("held"))[1] == rows["held"] and clears.save() == (20, True, 0)
+    with pytest.raises(L3Error, match=r"starts off the floor \(state 0x2\) and dies at rest before it lands") as doom:
+        cert.leg_start(Drop(True), Segment("air"))
+    assert doom.value.site == "doomed start"
+
+
+def test_a_stalled_search_names_where_its_best_cell_stalled_whether_it_still_fell_and_ends_at_a_plateau(monkeypatch):
+    """Step X.52: a search whose best cost to go stops falling ends its seed after ``Limits.plateau`` steps (a cut
+    of the same run: no part of the problem's shape) and names its stall: the least-cost cell's zone and the first
+    region edge on the goal's cheapest way from it (``RouteGoal.ahead``: by id, kind and confidence; the walk to
+    the goal when the way crosses none), never positions; it keeps its best cost to go as a curve.
+    ``devkit/reach/l3_certify.py`` puts each stall at the plan's level edge it lies at and collects the legs not found into
+    ``stalls.json``.  Step X.52b: the stall names its stage (a cell standing in no zone, AZ-538's, or on no floor
+    of the model, Step X.53's; off the graph, with the zone the fallback steers to and the way on from there; a
+    walk, with its first other zone; an edge),
+    its row's state and whether the best cost still fell (its last 0.1 s fall's step and its fall over the last
+    10,000 steps), and the explorer's result has the same record."""
+    import typing
+
+    from devkit.rando.draft import l3_goal
+    from devkit.sim import l3_explore
+    from devkit.sim.l3_search import Limits, search, stall_name
+
+    reach = Reach(_level(_quad(0, 0, 6, 4, 0) + _quad(6, 0, 10, 4, 1.7) + _side((6, 0), (6, 4), 0, 1.7)),
+                  flights.Env.kept())
+    reach.zone_of = np.arange(reach.W["logic"].nreg + 64, dtype=np.int64)     # the floor t.Z000, the ledge t.Z001
+    ledge = Router(reach)
+    goal = l3_goal.RouteGoal(ledge, (9.0, 2.0, 1.7), air=1)
+    flap = next(i for i, (_, _, e) in enumerate(ledge.edges) if e["kind"] == "flap")
+
+    class Row(typing.NamedTuple):
+        pos: tuple
+        state: int
+        hp: int = 200
+        zone: str | None = "t.Z000"
+        obs: object = None
+
+    class Stuck:                   # every pad leaves the body where it stands, below the ledge
+        def save(self):
+            return 0
+
+        def reset(self, s):
+            pass
+
+        def step(self, pad):
+            return Row((3.0, 2.0, 1.0), 0)
+    edge = {"zone": "t.Z000", "stage": "edge", "edge": flap, "kind": "flap", "conf": "modelled", "from": "t.Z000",
+            "to": "t.Z001"}
+    assert goal.ahead(Row((3.0, 2.0, 1.0), 0)) == edge
+    assert goal.ahead(Row((9.0, 2.0, 2.7), 0))["kind"] == "walk"
+    off = goal.ahead(Row((50.0, 50.0, 9.0), 2, zone=None))        # in the air far off the floors
+    no_floor = goal.ahead(Row((50.0, 50.0, 1.0), 0, zone=None))   # standing there: on no floor of the model (X.53)
+    assert (off["stage"], off["steer"], off["kind"]) == ("off the graph", "t.Z001", "walk")
+    assert stall_name(off) == "off the graph, steered to t.Z001: the walk to the goal"
+    assert no_floor == {**off, "stage": "on no floor"} and stall_name(no_floor) == f"on no floor: {stall_name(off)}"
+    flat = Reach(_level(_quad(0, 0, 12, 4, 0)), flights.Env.kept())
+    flat.zone_of = np.arange(flat.W["logic"].nreg + 64, dtype=np.int64)
+    walk = l3_goal.RouteGoal(Router(flat), (11.0, 2.0, 0.0))
+    lw = flat.W["logic"]
+    lw.reg_soft[np.nonzero(walk.R.X[:len(lw.col)] > 6.0)[0]] = 1   # the floor's east half another region, t.Z001
+    assert stall_name(walk.ahead(Row((3.0, 2.0, 1.0), 0))) == "the walk to the goal from t.Z000 into t.Z001"
+    lim = Limits(steps=5000, plateau=300, exhaust=10**6, seg=4)
+    res = search(Stuck(), 0, Row((3.0, 2.0, 1.0), 0), goal, lim, seed=1)
+    cost = round(goal.cost(Row((3.0, 2.0, 1.0), 0)), 1)
+    still = {"cost_s": cost, "ticks": 0, "state": 0, "last_fall": 0, "fall_10k_s": 0.0}
+    assert res.why == f"plateau at #{flap} flap (modelled) t.Z000>t.Z001" and 300 <= res.steps < 5000
+    assert res.summary()["stall"] == {**still, **edge} and res.curve[-1] == [res.steps, cost]
+    assert lim.shape() == Limits(exhaust=10**6, seg=4).shape()
+    ex = l3_explore.explore(Stuck(), 0, Row((3.0, 2.0, 1.0), 0), goal, l3_explore.Limits(steps=2000), seed=1)
+    assert not ex.found and ex.summary()["stall"] == {**still, **edge}
+
+    class Creeping(Stuck):         # the body creeps 0.1 s nearer every 125 steps for its first 1000, then stands
+        n = 0
+
+        def step(self, pad):
+            self.n += 1
+            return Row((3.0 + 5.6 * min(self.n, 1000) / 1000, 2.0, 1.0), 0)
+
+    class Ahead:
+        settle = 0
+
+        def reached(self, r):
+            return False
+
+        def cost(self, r):
+            return (10.0 - r.pos[0]) / 7
+
+        def toward(self, r):
+            return 0.0, False
+
+        def cell(self, r):
+            return (round(r.pos[0], 2),)
+    crept = search(Creeping(), 0, Row((3.0, 2.0, 1.0), 0), Ahead(), lim, seed=1)
+    assert crept.why == "plateau at the best cell" and 1000 < crept.steps < 5000   # counted from its last progress
+    assert crept.stall["fall_10k_s"] == 0.8 and 0 < crept.stall["last_fall"] <= 1000     # still fell in its window
+    flat_out = search(Creeping(), 0, Row((3.0, 2.0, 1.0), 0), Ahead(), Limits(steps=15_000, exhaust=10**6, seg=4),
+                      seed=1)
+    assert flat_out.stall["fall_10k_s"] == 0.0 and flat_out.stall["last_fall"] <= 1000   # flat for its last 10,000
+
+    from devkit.reach import l3_certify as cert
+    doc = {"node": [{"id": "t_low", "anchors": ["zone:t.Z000"]}, {"id": "t_top", "anchors": ["zone:t.Z001"]}],
+           "edge": [{"from": "t_low", "to": "t_top"}]}
+    steps = [(0, "t_low>t_top #0 assumed")]
+    assert cert.plan_edge(doc, steps, {"from": "t.Z000", "to": "t.Z001"}) == "t_low>t_top #0 assumed"
+    bare = {**edge, "from": None, "to": None}
+    assert cert.plan_edge(doc, steps, bare) == "t_low>t_top #0 assumed"           # the stalled cell's zone's way out
+    assert cert.plan_edge(doc, steps, {**bare, "zone": "t.Z009"}) is None
+    run = {"index": 0, **res.summary(), "stall": {**res.stall, "plan": "t_low>t_top #0 assumed"}}
+    results = {"k": {"legs": [{"n": 0, "goal": "the spot", "start_cost_s": cost, "runs": [run]}]},
+               "found": {"legs": [{"n": 0, "goal": "the spot", "segs": [[4, 0.0, 0]], "runs": [run]}]}}
+    assert cert.stalls(results) == {"k": [{"leg": 0, "goal": "the spot", "seed": 0, "why": res.why,
+                                           "best_cost_s": cost, "start_cost_s": cost, **run["stall"]}]}
+
+
+def test_l3s_reach_model_is_the_one_built_under_the_levels_current_zoning(tmp_path, monkeypatch):
+    """AZ-362: the L3 tools' reach model (``devkit/reach/l3_certify.py``'s
+    ``_reach_path``, which ``l3_contact`` and ``xemu_chain`` share: the
+    route graph their searches, goals and route seeds read) is the one
+    built under the level's derived zones: the first one built while its
+    stamp is their zoning; after a re-derive renumbers them, one keyed by
+    the new zoning, built once, while the old one stays for the records
+    made on it."""
+    import pickle
+    import types
+
+    from devkit.reach import l3_certify as cert
+    from devkit.reach import models
+    zones, built = [[0]], []
+    monkeypatch.setattr(models, "folder", lambda: tmp_path / "reach")
+    monkeypatch.setattr("devkit.rando.draft.author.read_derived", lambda level: {"zones": zones})
+    monkeypatch.setattr("devkit.sim.ports.vanilla_iso", lambda: "vanilla.iso")
+    monkeypatch.setattr("devkit.rando.derive.router", lambda iso, level: built.append(level) or types.SimpleNamespace(
+        R=json.dumps(zones)))
+    kept = tmp_path / "reach" / "w1.pkl"
+    kept.parent.mkdir()
+    kept.write_bytes(pickle.dumps("the first model"))
+    kept.with_suffix(".stamp").write_text(cert.pr.zoning({"zones": zones}), encoding="utf-8")
+    assert cert._reach_path("w1") == kept and built == []
+    zones = [[1], [0]]                                   # a re-derive renumbers the zones
+    fresh = cert._reach_path("w1")
+    assert fresh != kept and built == ["w1"] and pickle.loads(fresh.read_bytes()) == json.dumps(zones)
+    assert cert._reach_path("w1") == fresh and built == ["w1"]
+    assert pickle.loads(kept.read_bytes()) == "the first model"
+
+
+def test_r116s_l3_certify_list_sets_up_no_pickup_whose_location_gate_asks_world_state(tmp_path, monkeypatch):
+    """Step R1.16: ``devkit/reach/l3_certify.py plan --tour`` lists a pickup or a counted item's reach whose location has
+    its own gate a new game plus a hop doesn't give (w2's power behind the hose's blocker, event:w2.hose.won) as not
+    set up, as it does a hop whose rule asks one, while a gate of element levels the tour's kit holds is searched."""
+    from devkit.reach import l3_certify as cert
+    kit = {"water": 1, "air": 3}
+    certify = [{"key": k, "index": 0, "sphere": 3, "kind": kind, "level": goal.split("/")[0], "from": node,
+                "to": node, "goal": goal, "kit": kit, "requires": None}
+               for k, kind, goal, node in (("hose", "pickup", "w2/g0/r1346", "w2_z003"),
+                                           ("free", "pickup", "w2/g0/r1351", "w2_z011"),
+                                           ("air1", "reach", "w1/g0/r2078", "w1_z996"))]
+    (tmp_path / "progress.json").write_text(json.dumps({"sample": [], "certify": certify}), encoding="utf-8")
+    got = {t["key"]: t.get("skip") for t in cert.plan_tour(tmp_path / "progress.json", tmp_path / "out")}
+    assert got["hose"].startswith("its location asks event:w2.hose.won") and got["free"] is got["air1"] is None, got
+
+
+def test_a_pickup_proof_needs_xemu_to_take_the_goals_own_item(tmp_path, monkeypatch):
+    """AZ-389: ``devkit/reach/l3_certify.py`` proves a skip to a pickup where
+    xemu takes it only when the first difference is the inventory hash
+    alone, xemu took the goal's own item (its vanilla item's inventory
+    field changed, measured past the replay's own writes: not the day
+    clock, the kit's element levels or the cast's fuel) and the body was
+    equal until then (an error at tick 0 is one); a player-tick pickup
+    proof recorded with the clock in the hash, or an older record whose
+    raw offsets are only the kit's and the fuel's, no longer holds (a
+    sitting replays it again), and ``pickups`` reports which proofs hold,
+    reading the folder only."""
+    import types
+
+    from devkit.reach import l3_certify as cert
+    from azurkit.tools.randomizer.live import recipes
+    inv, one = 0x1000, (1).to_bytes(4, "little")
+    kit = types.SimpleNamespace(writes=((0, b""), (inv + recipes.INV_LEVEL["air"], one)))   # the pad, then R2's air 1
+    inv0, inv1 = bytes(recipes.INV_SAVED), bytearray(recipes.INV_SAVED)
+    for o in (0, recipes.INV_LEVEL["air"], recipes.SLOT0 + 12 + 4):     # the clock, the kit's air, the cast's air fuel
+        inv1[o:o + 4] = one
+    assert cert.inventory_fields(inv0, bytes(inv1), inv, [kit]) == ["af"]
+    o = recipes.frag_off("f", 3) + 4                                    # e5/g0/r4263's item, frag_fire_3
+    inv1[o:o + 4] = one
+    assert cert.inventory_fields(inv0, bytes(inv1), inv, [kit]) == ["af", "fgf3"]
+    skip = {"key": "skip-a", "kind": "skip", "goal": "e5/g0/r4263"}
+    cmp = {"first_diff": [120, ["inv_sha12"]], "first_err_tick": 121}
+    assert cert.pickup_at(skip, cmp, ["af", "fgf3"]) == (120, "")
+    assert [cert.pickup_at(t, c, fields)[0] for t, c, fields in (
+        (skip, cmp, ["af"]),                                      # the cast's fuel alone
+        (skip, cmp, ["fgf1"]),                                    # another item on the way
+        (skip, {**cmp, "first_err_tick": 0}, ["fgf3"]),           # the body differs from tick 0
+        (skip, {**cmp, "first_err_tick": 119}, ["fgf3"]),         # before the pickup
+        ({**skip, "kind": "walk"}, cmp, ["fgf3"]))] == [None] * 5
+    d = tmp_path / "certify"
+    d.mkdir()
+    reps = {"skip-a": {"l3_mode": "tick", "pickup_at": 1, "first_diff": [1, ["inv_sha12"]], "first_err_tick": 40,
+                       "inventory_changed_offsets": [0, 1, 292], "proven": True},
+            "skip-b": {"l3_mode": "scene", "pickup_at": 120, **cmp,             # the kit's earth and water, the fragment
+                       "inventory_changed_offsets": [0, 1, 2, 4, 16, 292], "proven": True},
+            "skip-c": {"l3_mode": "tick", "pickup_at": 50, "first_diff": [50, ["inv_sha12"]], "first_err_tick": None,
+                       "inventory_fields": ["af", "fgf3"], "inv_sha12_from": 4, "proven": True},
+            "skip-d": {"l3_mode": "scene", "pickup_at": 9, "first_diff": [9, ["inv_sha12"]], "first_err_tick": 10,
+                       "inventory_changed_offsets": [0, 1, 2, 8, 40], "proven": True},   # the kit's air, its fuel
+            "walk": {"l3_mode": "tick", "proven": True}}
+    cert._write(d / "targets.json", {"targets": [{**skip, "key": k} for k in reps]})
+    cert._write(d / "replays.json", reps)
+    cert._write(d / "results.json", {k: {"verified": True} for k in reps})
+    before = {p.name: p.read_bytes() for p in d.iterdir()}
+    out = tmp_path / "pickups.json"
+    cert.main(["pickups", str(d), "--out", str(out)])
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert {k: doc[k] for k in ("results", "replays", "proven", "pickup_proofs", "no_longer_hold")} == {
+        "results": 5, "replays": 5, "proven": 5, "pickup_proofs": 4, "no_longer_hold": ["skip-a", "skip-d"]}
+    assert doc["pickups"]["skip-d"]["why"] == "xemu's inventory changed ['af'], not the goal's ['fgf3']"
+    assert {p.name: p.read_bytes() for p in d.iterdir()} == before
+    with pytest.raises(SystemExit, match="outside DIR"):
+        cert.main(["pickups", str(d), "--out", str(d / "pickups.json")])
+
+
+def test_a_tour_replay_is_proven_by_its_outcome_and_a_near_placed_start_proves_no_hop(monkeypatch):
+    """AZ-474: ``devkit/reach/l3_certify.py`` judges a tour target's xemu
+    replay by its outcome: an exit only when its destination or its movie
+    loads within the string or its tail (a load or a stall inside the
+    string counts every tick before it), a pickup or a counted item's
+    reach only when xemu takes the goal's own item, each with the body,
+    state and HP L3's through the goal's tick; a walk by every tick equal
+    to the string's end.  A placed start within 1 m of where the string
+    first stands in the goal, or of where the load came when sooner, is
+    near and proves no hop, unless the target is at a location; a tour
+    replay judged before the rule is replayed again.  The tail stops at a load, at its outcome
+    or when the player's own ticks stop, so a replay past an exit never
+    hangs."""
+    from devkit.reach import l3_certify as cert
+    from devkit.sim.l3 import Row
+
+    def run(step: float, n: int = 6) -> list:
+        return [Row(k, (step * k, 0.0, 1.0), 0, 200, None, (), None) for k in range(n)]
+
+    def xemu(rows, split: int | None = None, n: int | None = None) -> list[dict]:
+        return [{"k": r.k, "pos": (r.pos[0] + (k == split), *r.pos[1:]), "state": r.state, "hp": r.hp}
+                for k, r in enumerate(rows[:n])]
+
+    exit_, pickup, walk = ({"key": "e", "kind": "exit", "tour": True, "exit": True, "goal": "w1/g0/r3353"},
+                           {"key": "p", "kind": "pickup", "tour": True, "goal": "e5/g0/r4263"},
+                           {"key": "w", "kind": "walk", "tour": True, "goal": ["w1.Z004"]})
+    entry, far, near = {"at": "entry", "k": 6}, run(1.0), run(0.1)
+
+    def verdict(t, rows, got, stop=entry, tail=None, fields=(), placed=True) -> tuple:
+        j = cert.judge(t, rows, got, goal_at=len(rows) - 1, start_at=0, stop=stop, tail_=tail, fields=list(fields),
+                       placed=placed)
+        return j["proven"], j["near"], j["start_goal_band"]
+    town = {"at": "load", "k": 3, "level": "levels/town"}
+    assert verdict(exit_, far, xemu(far), tail=town) == (True, False, "3-10 m")
+    assert verdict(exit_, far, xemu(far), tail={"at": "ticks", "k": 150})[0] is False      # the trigger, no load
+    assert verdict(exit_, far, xemu(far), tail={**town, "level": "levels/water/w2"})[0] is False
+    assert verdict(exit_, far, xemu(far, n=4), stop={**town, "k": 4})[0] is True          # the game's field is wider
+    assert verdict(exit_, far, xemu(far, split=2), tail=town)[0] is False                 # pushed off before it
+    assert verdict(exit_, near, xemu(near), tail=town) == (False, True, "<=1 m")            # the placement crossed it
+    assert verdict(exit_, near, xemu(near), tail=town, placed=False)[0] is True            # the snapshot's own spot
+    assert verdict(exit_, far, xemu(far, n=1), stop={**town, "k": 1}) == (False, True, "<=1 m")   # placed in its field
+    movie = {**exit_, "goal": "d1/g0/r2271"}                                                # bink:death.bik, then d2
+    assert verdict(movie, far, xemu(far), tail={**town, "level": "bink:death.bik"})[0] is True
+    assert verdict(movie, far, xemu(far, n=4), stop={"at": "stall", "k": 4},
+                   tail={**town, "level": "levels/death/d2"})[0] is True                  # the movie stalled the replay
+    assert verdict(pickup, far, xemu(far), tail={"at": "until", "k": 9}, fields=["af", "fgf3"])[0] is True
+    assert verdict(pickup, near, xemu(near), fields=["fgf3"]) == (True, True, "<=1 m")    # standing on it is the claim
+    assert verdict(pickup, far, xemu(far), tail={"at": "ticks", "k": 150}, fields=["af"])[0] is False
+    assert verdict(pickup, far, xemu(far, split=4), fields=["fgf3"])[0] is False
+    reach = {**pickup, "kind": "reach"}                                                     # a counted item's spot
+    assert verdict(reach, far, xemu(far), fields=["fgf3"])[0] is True
+    assert verdict(reach, far, xemu(far))[0] is False                                     # the body alone: no item
+    assert verdict(walk, far, xemu(far))[0] is True
+    assert verdict(walk, far, xemu(far, n=4), stop={**town, "k": 4})[0] is False          # an unplanned load
+    assert verdict(walk, near, xemu(near)) == (False, True, "<=1 m")
+    assert cert.stale(walk, {"proven": True}) and cert.stale(walk, {"proven": True, "rule": cert.RULE}) is None
+    assert cert.stale(walk, {"proven": True, "rule": "az474"}) is None                   # AZ-483 left walks alone
+    assert cert.stale(pickup, {"proven": True, "rule": "az474"}) and cert.stale(exit_, {"rule": "az474"})
+    assert cert.stale({**walk, "tour": None}, {"proven": True}) is None
+
+    import struct
+    import types
+
+    from devkit.sim.l3 import PLAYER_UPDATE
+
+    def tail(stops: list[dict], until=lambda: False, wait_s: float = 60.0) -> dict:
+        it, clock = iter(stops), itertools.count()
+        cur = {"r": next(it)}
+        g = types.SimpleNamespace(regs=lambda: cur["r"], read=lambda va, n: struct.pack("<d", next(clock)),
+                                  cmd=lambda c: None, cont=lambda: None)
+        sb = types.SimpleNamespace(halt=lambda: g, write_pad=lambda pad: None, _halted=True,
+                                   _wait=lambda s: cur.update(r=next(it)) or True)
+        xo = types.SimpleNamespace(LOAD_LEVEL=0x53750, arm=lambda g_, v: None, resume=lambda g_, v: None,
+                                   level_path=lambda g_: "levels/town")
+        return cert.tail(sb, xo, 0x100, until, wait_s=wait_s)
+    own, other, load = {"eip": PLAYER_UPDATE, "ecx": 0x100}, {"eip": PLAYER_UPDATE, "ecx": 0x200}, {"eip": 0x53750}
+    assert tail([own, own, load]) == {"at": "load", "k": 2, "level": "levels/town"}
+    calls = itertools.count()
+    assert tail([own] * 9, until=lambda: next(calls) == 3) == {"at": "until", "k": 3}
+    assert tail([other] * 9, wait_s=0.0) == {"at": "stall", "k": 0}         # another entity's updates alone
+
+
+def test_an_outcome_inside_the_placements_settle_proves_nothing_and_whole_steps_read_l3s_own_take(monkeypatch):
+    """AZ-486: ``devkit/reach/l3_certify.py``'s judge counts an item taken at or before the settle's last row as
+    ``settle`` (the placement took it): no proof, not even near.  In player ticks the take is the first tick
+    xemu's inventory hash differs from L3's; in whole steps L3 takes the item too, so the hashes agree and the take
+    is the row L3's own inventory gained it (``outcome_at``)."""
+    import types
+
+    from devkit.reach import l3_certify as cert
+    from devkit.sim.l3 import Row
+
+    def obs(h):
+        return types.SimpleNamespace(inv_sha12=h)
+
+    def rows(took_l3=None):                    # the settle (rows 0-2), then the string, 1 m a tick
+        return [Row(k, (float(k), 0.0, 1.0), 0, 200, None, (), None, obs=obs("b" if took_l3 is not None and k >= took_l3
+                    else "a")) for k in range(8)]
+
+    def got(rs, took_x):                       # xemu: the same body, its inventory changed from took_x on
+        return [{"pos": r.pos, "state": r.state, "hp": r.hp, "obs": obs("b" if k >= took_x else "a")}
+                for k, r in enumerate(rs)]
+    pickup = {"key": "p", "kind": "pickup", "tour": True, "goal": "e5/g0/r4263"}
+
+    def verdict(rs, gs, outcome_at=None) -> tuple:
+        j = cert.judge(pickup, rs, gs, goal_at=6, start_at=2, stop={"at": "entry"}, tail_=None, fields=["fgf3"],
+                       placed=True, outcome_at=outcome_at)
+        return j["proven"], j["settle"], j["near"], j["taken_at"]
+    tick = rows()                                                       # player ticks: L3 never takes it
+    assert verdict(tick, got(tick, 5)) == (True, False, False, 5)
+    assert verdict(tick, got(tick, 2)) == (False, True, False, 2)       # taken in the settle
+    scene = rows(took_l3=5)                                             # whole steps: L3 took it with xemu
+    assert verdict(scene, got(scene, 5), outcome_at=5) == (True, False, False, 5)
+    early = rows(took_l3=1)
+    assert verdict(early, got(early, 1), outcome_at=1)[:2] == (False, True)
+    late = rows(took_l3=6)
+    assert verdict(late, got(late, 5), outcome_at=6)[3] == 5            # xemu took it sooner than L3
+    exit_ = {"key": "e", "kind": "exit", "tour": True, "exit": True, "goal": "w1/g0/r3353"}
+    town = {"at": "load", "k": 3, "level": "levels/town"}
+    j = cert.judge(exit_, tick, got(tick, 99), goal_at=None, start_at=2, stop={"at": "entry"}, tail_=town,
+                   fields=[], placed=True)                                 # loaded in the tail, never in the trigger
+    assert (j["proven"], j["settle"]) == (False, False) and "before the goal's" in j["why"]
+    j = cert.judge(exit_, tick, got(tick, 99)[:2], goal_at=None, start_at=2, stop={**town, "k": 2}, tail_=None,
+                   fields=[], placed=True)                                 # loaded in the settle
+    assert (j["proven"], j["settle"]) == (False, True)
+
+
+def test_an_item_taken_on_the_way_is_not_the_goals_so_the_body_must_match_through_the_goal(monkeypatch):
+    """AZ-699: ``devkit/reach/l3_certify.py``'s judge reads a take past the settle and more than a tick before the
+    string stands in the goal's touch as another item on the way (an obsidian elsewhere), not the goal's, so the
+    replay must keep L3's body through the goal's tick: one that parts after that take and before the goal is not
+    proven.  The goal's own take must come too: xemu's inventory changes again from a tick before the touch on (or
+    in a tail that ran with the goal's fields unchanged).  A take a tick before the goal's is still the goal's (the
+    touch a tick ahead).  An item's replay judged before this rule (``az483``) is replayed again."""
+    import types
+
+    from devkit.reach import l3_certify as cert
+    from devkit.sim.l3 import Row
+
+    def obs(h):
+        return types.SimpleNamespace(inv_sha12=h)
+    rows = [Row(k, (float(k), 0.0, 1.0), 0, 200, None, (), None, obs=obs("a")) for k in range(12)]
+    pickup = {"key": "p", "kind": "pickup", "tour": True, "goal": "town/g1/r1611"}
+
+    def verdict(took_x: int, split: int, again: int = 99, tail_=None) -> tuple:
+        got = [{"pos": (r.pos[0] + (k >= split), *r.pos[1:]), "state": r.state, "hp": r.hp,
+                "obs": obs("c" if k >= again else "b" if k >= took_x else "a")} for k, r in enumerate(rows)]
+        j = cert.judge(pickup, rows, got, goal_at=10, start_at=2, stop={"at": "entry"}, tail_=tail_,
+                       fields=["obsi"], placed=True)
+        return j["proven"], j["taken_at"], j["why"]
+    assert verdict(4, 6, again=9) == (False, None, "the body, state or HP differ from tick 6, before the goal's "
+                                                   "(tick 10)")
+    assert verdict(4, 99, again=9) == (True, None, None)            # the goal's own take, a tick ahead of its touch
+    assert verdict(4, 99) == (False, None, "the goal's item not taken: xemu's inventory changed on the way (tick 4) "
+                                           "and not from tick 9")    # the same field's take on the way alone
+    assert verdict(4, 99, tail_={"at": "until", "k": 0})[0] is False      # the tail stopped on the way's take
+    assert verdict(4, 99, tail_={"at": "until", "k": 3})[0] is True       # the goal's own, taken in the tail
+    assert verdict(9, 9) == (True, 9, None)                         # taken a tick ahead, parted after it
+    assert cert.stale(pickup, {"proven": True, "rule": cert.RULE}) and cert.stale(
+        pickup, {"proven": True, "rule": cert.ITEM_RULE}) is None
+    assert cert.stale({**pickup, "kind": "exit", "exit": True}, {"rule": cert.RULE}) is None
+
+
+def test_a_pickup_goal_is_the_items_own_touch_round_where_it_rests_and_whole_steps_see_it_taken(monkeypatch):
+    """AZ-483: a pickup's L3 goal is the game's touch (0x8C520 -> 0x60870 -> the critter's 0x418B0): the body
+    centre, HP above 0, in any state, inside the ellipsoid of radius R = r * pcr / cr + 1 and half-height
+    Z = r * aspect + 1 (r = collisionRadius * scale, config.xbr's critters_engine, its defaults when empty) round
+    the item's centre, where it rests: on the surface below its point, hz = r * aspect over it, unless its bottom
+    already reaches that surface.  A verify in whole steps reads L3's own inventory: the item counts taken when its
+    field grows past the rows' own writes (the kit's levels), not when the cast spends fuel."""
+    import types
+
+    from devkit.rando.draft import l3_goal
+    from azurkit.tools.randomizer.live import recipes
+
+    cells = {("obsidian", "collisionRadius"): 0.3, ("obsidian", "collisionAspectRatio"): 2.0,
+             ("obsidian", "scale"): 1.5, ("bare", "name"): None}
+    engine = types.SimpleNamespace(
+        col_names=lambda: ["obsidian", "bare"],
+        find_cell=lambda sp, prop: None if cells.get((sp, prop)) is None else
+        types.SimpleNamespace(type_code=1, double_value=cells[(sp, prop)]))
+    assert l3_goal.item_touch(engine, "obsidian") == pytest.approx((1.45, 1.9, 0.9))
+    assert l3_goal.item_touch(engine, "bare") == (2.0, 2.0, 1.0) and l3_goal.item_touch(engine, "key") is None
+    reach = Reach(_level(_quad(-8, -8, 8, 8, 0.0)), flights.Env.kept())
+    router = Router(reach)
+    assert l3_goal.item_centre(router.lv, (1.0, 2.0, 3.0), 0.9) == (1.0, 2.0, pytest.approx(0.9))   # it falls
+    assert l3_goal.item_centre(router.lv, (1.0, 2.0, 0.5), 0.9) == (1.0, 2.0, 0.5)    # its bottom is on the floor
+    goal = l3_goal.RouteGoal(router, (0.0, 0.0, 3.0), touch=(1.45, 1.9, 0.9))
+    assert goal.touch_shape == (1.45, 1.9, 0.9) and goal.dist.min() == 0.0
+    row = lambda x, z, state=0, hp=200: types.SimpleNamespace(pos=(x, 0.0, z), state=state, hp=hp, zone=None)  # noqa
+    assert [goal.reached(row(x, 0.9)) for x in (1.4, 1.5)] == [True, False]       # the centre's height
+    assert [goal.reached(row(0.0, 0.9 + dz)) for dz in (1.85, 1.95, -1.85)] == [True, False, True]
+    assert goal.reached(row(0.5, 2.0, state=2)) and not goal.reached(row(0.5, 0.9, hp=0))   # airborne; no HP
+    old = l3_goal.RouteGoal(router, (0.0, 0.0, 3.0))                                 # no touch: 0.75 m round it
+    assert not old.reached(row(1.4, 1.0)) and old.touch_shape is None
+
+    from devkit.reach import l3_certify as cert
+    inv, mem = 0x1000, bytearray(recipes.INV_SAVED)
+    sim = types.SimpleNamespace(read=lambda va, n: bytes(mem[va - inv:va - inv + n]))
+
+    def put(field_off: int, v: int) -> None:
+        mem[field_off:field_off + 4] = v.to_bytes(4, "little", signed=True)
+    before = bytes(mem)
+    kit = types.SimpleNamespace(writes=((0, b""), (inv + recipes.INV_LEVEL["water"], (1).to_bytes(4, "little"))))
+    put(recipes.INV_LEVEL["water"], 1)                                                 # the kit's water level
+    assert not cert.gained(sim, inv, {"level.water"}, before, [kit])
+    put(recipes.SLOT0 + 12 + 4, -1)                                                    # the cast spends air fuel
+    assert not cert.gained(sim, inv, {"ef", "af", "ff", "wf"}, before, [kit])
+    put(recipes.SLOT0 + 12 * recipes.SLOTS.index("obsi") + 4, 1)                       # an obsidian taken
+    assert cert.gained(sim, inv, {"obsi"}, before, [kit])
+    obs = {"key": "p", "kind": "pickup", "goal": "town/g1/r1617"}
+    monkeypatch.setattr(cert, "_engine", lambda: engine)
+    assert cert.touch_of(obs) == pytest.approx((1.45, 1.9, 0.9)) and cert.touch_of({**obs, "kind": "walk"}) is None
+    assert cert.touch_of({**obs, "kind": "spot"}) == pytest.approx((1.45, 1.9, 0.9))     # a plan --spots spot too
+
+
+def test_an_r6_start_stands_in_the_items_own_cell_outside_its_touch_or_in_the_room_its_zone_settles_in(monkeypatch):
+    """AZ-488: ``devkit/reach/l3_certify.py`` places (R6) a pickup's or a counted item's start in the cell its generator
+    stands in (the level's cell list, which the place struct names), not the one the snapshot stood in, since the
+    item spawns only while the player is in its room; on the start zone's nearest sample whose body stands outside
+    1.2 times the item's touch (the placement would take it in the settle).  A ``plan --spots`` spot is at a
+    location too (Step R1.29b: placed with the snapshot's room, R1.29's f1/g0/r1403 key and f3/g0/r2390 obsidian
+    were touched in whole steps and never taken); placed (``--placed``), it stands 2 m out of the touch, so the
+    string walks to it.  Any other target keeps the player's cell and the nearest sample.  AZ-382 (Step R1.29e):
+    where neither cell settles in the start zone, every other cell of the level's list is tried, the rooms whose
+    locations stand nearest the sample first (a wrong room's placement can settle).  AZ-531 (Step R1.29f): where
+    the route graph has no way (every cost infinite) the samples nearest the item come first, not the zone's most
+    open ones anywhere in it (w4's off-graph obsidians never started)."""
+    import types
+
+    from devkit.reach import l3_certify as cert
+    town = json.loads((Path(cert.DATA_DIR) / "generated" / "town.json").read_text(encoding="utf-8"))
+    obs = {"key": "p", "kind": "reach", "level": "town", "goal": "town/g1/r1617", "start": "town.Z001"}
+    want = town["cells"].index("MainCellShape")
+    assert cert.item_cell(obs) == want and cert.item_cell({**obs, "kind": "walk"}) is None
+    spot = {**obs, "kind": "spot", "kit_l3": True, "back": ["town.Z001"]}
+    assert cert.item_cell(spot) == want
+
+    class Sim:
+        entity, placed = 0x100, []
+
+        def reset(self):
+            self.at = (-5.0, 0.0, 1.0)                     # the snapshot's spot, outside the start zone
+
+        def run(self, pads):
+            return [types.SimpleNamespace(state=0, pos=self.at)]
+
+        def u32(self, va):                                 # the critter, its cell pointer: cell 7
+            return {0x120: 0x2000, 0x2000 + 0x158: 0x1000 + 7 * 0xB4}.get(va, 0)
+
+        def teleport(self, p, yaw, cell):
+            self.placed.append(cell)
+            self.at = (p[0], p[1], p[2] + 1.0)
+    monkeypatch.setattr(cert.recipes, "chain", lambda u32: {"cells": 0x1000})
+    router = types.SimpleNamespace(
+        zone_at=lambda feet, prefer_water=False: "town.Z001" if feet[0] >= 0 else None,
+        R=types.SimpleNamespace(zone_of=np.array([1])), ns=3, node=np.zeros(3, dtype=np.int64),
+        w=types.SimpleNamespace(nreg=0), wg=types.SimpleNamespace(lab=np.zeros(0, dtype=np.int64), col=[]),
+        clear=np.zeros(3), pt=lambda v: (float(v), 0.0, 0.0))
+    goal = types.SimpleNamespace(dist=np.array([0.0, 1.0, 2.0, 3.0]), nxt=np.array([-1, -1, -1, -1]),
+                                 touch=((0.0, 0.0, 1.0), 1.45, 1.9), gp=None)
+    router.ns, router.node, router.clear = 4, np.zeros(4, dtype=np.int64), np.zeros(4)
+    got = cert._start(Sim(), router, obs, goal)
+    assert (got["sample"], got["cell"], Sim.placed) == (2, want, [want])       # 0 and 1 stand in its touch
+    Sim.placed.clear()                                                         # a placed spot: the item's cell,
+    small = types.SimpleNamespace(**{**vars(goal), "touch": ((0.0, 0.0, 1.0), 0.5, 1.9)})   # 2 m out of its touch
+    router.X, router.Y = np.arange(4.0), np.zeros(4)                           # the samples' places (router.pt)
+    got = cert._start(Sim(), router, spot, small, placed=True)                 # (2.5 m on: never near, AZ-474)
+    assert (got["sample"], got["cell"], Sim.placed) == (3, want, [want])
+    Sim.placed.clear()                                                         # it spawns at its point, 1 m over
+    assert cert._start(Sim(), router, obs, types.SimpleNamespace(**{**vars(goal), "gp": (1.0, 0.0, 1.5)}))[
+        "sample"] == 3                                                         # 2 stands in the spawn's touch
+    Sim.placed.clear()                                                         # no sample settles in its cell:
+    teleport = Sim.teleport                                                    # the start zone's room is another
+    Sim.teleport = lambda self, p, yaw, cell: teleport(self, (p[0] if cell == 7 else -9.0, *p[1:]), yaw, cell)
+    assert (cert._start(Sim(), router, obs, goal)["cell"], Sim.placed[-1]) == (7, 7)
+    Sim.placed.clear()                                                         # nor in the snapshot's: a third
+    Sim.teleport = lambda self, p, yaw, cell: teleport(self, (p[0] if cell == 4 else -9.0, *p[1:]), yaw, cell)
+    assert cert._start(Sim(), router, obs, goal)["cell"] == 4 and Sim.placed[-3:] == [2, 3, 4]   # room of town's 8
+    sewer = {x["id"] for x in town["locations"] if x.get("cell") == "SewerCellShape"}       # its locations by it
+    router.lv = types.SimpleNamespace(rec_points=lambda i: ([(2.0, 0.0, 0.0) if i in sewer else (90.0, 0.0, 0.0)], 0))
+    Sim.teleport = lambda self, p, yaw, cell: teleport(self, (p[0] if cell in (0, 5) else -9.0, *p[1:]), yaw, cell)
+    assert cert._start(Sim(), router, obs, goal)["cell"] == town["cells"].index("SewerCellShape") != 0
+    del router.lv
+
+    def hangs(self, p, yaw, cell):                                             # whole steps hang on sample 2's
+        if p[0] == 2.0:                                                        # settle (Step R1.29b): the next
+            raise cert.l3.L3Error("0x54800 did not return")                    # sample starts it
+        teleport(self, p, yaw, cell)
+    Sim.teleport = hangs
+    assert cert._start(Sim(), router, obs, goal)["sample"] == 3
+    Sim.teleport = teleport
+    Sim.placed.clear()                                                         # AZ-531: off the route graph the
+    router.Z, router.clear = np.zeros(4), np.array([0.0, 0.0, 0.0, 1.0])       # nearest the item outside its
+    off = types.SimpleNamespace(**{**vars(goal), "dist": np.full(4, np.inf)})  # touch, not the most open
+    assert cert._start(Sim(), router, obs, off)["sample"] == 2
+    router.clear = np.zeros(4)
+    Sim.placed.clear()
+    walk = cert._start(Sim(), router, {**obs, "kind": "walk"}, types.SimpleNamespace(dist=goal.dist, nxt=goal.nxt))
+    assert (walk["sample"], walk["cell"]) == (0, 7)
+    trigger = cert.ExitGoal.__new__(cert.ExitGoal)                         # an exit: outside its trigger too
+    trigger.reached = lambda row: row.pos[0] < 0.5
+    trigger.dist, trigger.nxt = goal.dist, goal.nxt
+    assert cert._start(Sim(), router, {**obs, "kind": "exit", "exit": True}, trigger)["sample"] == 1
+
+
+def test_an_exit_or_touch_goal_needs_the_body_centre_inside_its_shape_and_whole_steps_see_the_switch_fire(monkeypatch):
+    """AZ-483: an exit's L3 goal is the game's touch of its trigger (the player's query 0x60BD0 at the body centre,
+    a platform's 0x79D30 -> 0xD2A40): the body centre inside the mesh, the first triangle straight above it facing
+    down (the tern's winding), not the feet in the column 2 m under it; a timer gate's ``{>=N}`` s is its ``wait``
+    in ticks.  A touch event's approach takes the same test.  In whole steps ``_verify`` ends at the levelSwitch's
+    fire (0x6F050) as the outcome, after a tail when the string alone doesn't fire it (a fire of the exit's own
+    level there meets the leg; another switch's doesn't), and the chain reads a touch event's done from its shape's
+    ``touch`` (no longer "the approach stood on it")."""
+    import types
+
+    from devkit.rando.draft import l3_goal
+    trigger = [(a, c, b) for a, b, c in _box(4, 0, 1.5, 8, 2.5, 4)]      # a raised field, the tern's winding
+    reach = Reach(_level(_quad(0, 0, 12, 6, 0), (trigger, {})), flights.Env.kept())
+    reach.gen = {"exits": [{"id": "t/g0/r1", "gate_hint": "touch(p1)", "dest": "levels/x"},
+                           {"id": "t/g0/r2", "gate_hint": "timer[T](switch[S]{on=touch(p1)}.goal).currentTime{>=8}"
+                                                          "{w=1,f=0.01}", "dest": "levels/y"}]}
+    router = Router(reach)
+    goal, timed = l3_goal.ExitGoal(router, "t/g0/r1"), l3_goal.ExitGoal(router, "t/g0/r2")
+    row = lambda z, x=6.0: types.SimpleNamespace(pos=(x, 1.0, z), state=0, hp=200, zone=None)  # noqa: E731
+    assert [goal.reached(row(z)) for z in (1.0, 2.0, 4.5)] == [False, True, False]   # standing under it: no touch
+    assert not goal.reached(row(2.0, x=3.0)) and goal.dist.min() == 0.0
+    assert (goal.wait, timed.wait) == (0, 240)
+    pad = l3_goal.ObjectGoal(router, "p1", radius=0.0, inside=True)
+    assert pad.reached(row(2.0)) and not pad.reached(row(1.0))
+
+    from devkit.reach import l3_certify as cert
+    from devkit.xemu import chain as xc
+    from devkit.sim.l3 import Row
+
+    class Sim:
+        scene, k = True, 0
+
+        def __init__(self, fire_at, level="levels/x"):
+            self.fires, self.fire_at, self.level = [], fire_at, level
+
+        def reset(self):
+            self.k = 0
+
+        def step(self, pad):
+            self.k += 1
+            if self.k == self.fire_at:
+                self.fires.append((self.k, self.level, None))
+            return Row(self.k, (6.0, 1.0, 2.0 if self.k >= 4 else 1.0), 0, 200, None, (), None)
+    monkeypatch.setattr(cert, "start_of", lambda sim, seg: (None, None, 0.0, ["s"], [Row(0, (0.0, 1.0, 1.0), 0, 200,
+                                                                                           None, (), None)]))
+    monkeypatch.setattr(cert, "_router", lambda level: router)
+    t = {"key": "e", "kind": "exit", "exit": True, "goal": "t/g0/r1", "kit": {}}
+    legs = [{"snapshot": "s", "teleport": None, "target": "t/g0/r1", "segs": [(6, 0.0, 0)]}]
+    v = cert._verify(Sim(fire_at=4), t, legs, router, tail=10)
+    assert (v["outcome_at"], v["outcome"], len(v["rows"]), v["goal_at"], v["ok"]) == (4, ["levels/x", None], 5, [4],
+                                                                                         [True])
+    v = cert._verify(Sim(fire_at=9), t, legs, router, tail=10)             # the fire came in the tail: the leg met
+    assert (v["string_end"], v["outcome_at"], len(v["rows"]), v["ok"], v["goal_at"]) == (7, 9, 10, [True], [4])
+    v = cert._verify(Sim(fire_at=9, level="levels/z"), t, legs, router, tail=10)      # another switch's fire
+    assert (v["outcome_at"], v["outcome_own"], v["ok"]) == (9, False, [False])
+    assert cert._verify(Sim(fire_at=99), t, legs, router, tail=10)["outcome_at"] is None
+
+    seen = iter([0.0, 0.0, 1.0])
+    m = types.SimpleNamespace(get=lambda rec, attr: next(seen, 1.0), stick=None, by={"BeamShape": [0]},
+                              g=types.SimpleNamespace(names=["BeamShape"], links=lambda i: []))
+
+    def run(n, stick=None, on_tick=None, hook_at=None):
+        for _ in range(n):
+            if "stop" in on_tick(None, None, []):
+                break
+    m.run = run
+    chain = xc.Chain.__new__(xc.Chain)
+    assert chain.touched(m, "BeamShape") == {"done": True, "checked": True, "ticks": 2}
+    m.get = lambda rec, attr: 0.0
+    assert chain.touched(m, "BeamShape")["done"] is False
+
+
+def test_a_touch_event_on_a_platform_is_stood_on_by_its_flags_record_and_done_by_its_touch_or_a_rise_its_input_explains(
+        monkeypatch):
+    """R1.16e's sitting: d1's touch events (the walkway generators' BaseShape, 1.2 m boxes whose top is the walk
+    surface; BeamShape, four records of that name) approached with the trigger test took the body centre into the
+    shape only falling past its side, three of three to the player's death.  A touch approach takes the inside test
+    only for a shape a standing body centre can be inside (``holds_body``: a field on the floor, not a platform
+    under the feet), the event's object is the record its flag names (``event_object``).  AZ-501: d1's toggles are
+    3 s switches on an OR of three inputs, so ``touched`` counts one only when it rose (off before the approach,
+    read by ``action`` before it) at a tick its OR's input from this touch's way reads on; on before, unread
+    before, or set by another input, it is a miss that says which.  AZ-497: standing on, jumping on, X at and
+    swinging at a walkway generator's base turned on no toggle; its event is played at the same walkway's
+    pressure plate, which feeds the same combiner, and a plate the stand leaves untouched is tried again onto its
+    middle, with a hop and walked across, until one takes."""
+    import types
+
+    from devkit.rando.draft import l3_goal
+    rev = lambda tris: [(a, c, b) for a, b, c in tris]                  # noqa: E731  (the tern's winding)
+    field, platform = rev(_box(2, 0, 0, 5, 3, 2.5)), rev(_box(7, 0, -1.2, 10, 3, 0))
+    router = Router(Reach(_level(_quad(0, 0, 12, 6, 0), (field, {}), (platform, {})), flights.Env.kept()))
+    assert l3_goal.holds_body(router, "p1") and not l3_goal.holds_body(router, "p2")
+
+    from devkit.xemu import chain as xc
+    beam = {"level": "d1", "kind": "event", "how": "touch", "object": "BeamShape", "flag": "d1.BeamShape_g0r451.touch"}
+    pad = {**beam, "object": "walkwayGenerator:BaseShape", "flag": "d1.walkwayGenerator_BaseShape.touch"}
+    base2 = {**pad, "object": "walkwayGenerator2:BaseShape", "flag": "d1.walkwayGenerator2_BaseShape.touch"}
+    assert (xc.event_object(beam), xc.event_object(pad), xc.event_object(base2)) == (
+        "d1/g0/r451", "walkwayGenerator:PressurePlateShape", "walkwayGenerator2:PressurePlateShape")
+    monkeypatch.setattr(xc, "router", lambda level, prof="logic": router)
+    chain = xc.Chain.__new__(xc.Chain)
+    base = {"index": 8, "from": "a", "kit": {}, "tier": "standard"}
+    for obj, inside in (("p1", True), ("p2", False)):
+        (app, _), = chain.stations({**base, **pad, "level": "t", "object": obj, "flag": None})
+        assert (app["object"], app["radius"], app.get("inside", False)) == (obj, 0.0, inside)
+    order = []
+    chain.toggles_before = lambda seg: order.append("before") or {"W3_toggle": 0.0}
+    chain.station = lambda i, seg, k, app, fn, parent, rec: order.append("approach") or {"meta_sha12": "m"}
+    chain.acted = lambda seg, parent, rec: rec
+    chain.action(8, {**base, **pad, "level": "t", "object": "p2", "flag": None}, None, {"starts": []})
+    assert (order, chain._before) == (["before", "approach"], {"W3_toggle": 0.0})
+
+    Link = types.SimpleNamespace                 # the plate's touch and walkwayGenerator7 into W3_toggle's OR
+    links = {0: [Link(src_plug=3, dst=3, dst_plug=0), Link(src_plug=xc.TOUCH_PLUG, dst=1, dst_plug=0)],
+             1: [Link(src_plug=17, dst=2, dst_plug=0)], 2: [], 3: [], 4: [Link(src_plug=17, dst=1, dst_plug=1)]}
+    vals = {}
+    m = types.SimpleNamespace(by={"walkwayGenerator:PressurePlateShape": [0]}, stick=None,
+                              g=types.SimpleNamespace(names=["walkwayGenerator:PressurePlateShape", "<or>", "W3_toggle",
+                                                             "Other_toggle", "walkwayGenerator7"],
+                                                      links=lambda i: links[i], plug_name=lambda i, p: f"inputs[{p}]"),
+                              get=lambda rec, attr: vals.get((rec, attr), 0.0),
+                              ins=lambda j: [(i, lk, 0, "output", f"inputs[{lk.dst_plug}]") for i in links
+                                             for lk in links[i] if lk.dst == j])
+    m.run = lambda n, stick=None, on_tick=None, hook_at=None: [on_tick(None, None, []) for _ in range(n)]
+    assert xc.toggles(m, 0) == {"W3_toggle": (2, 1, "inputs[0]")}       # its touch plug's way only
+    for before, toggle, own, other, done, said in (
+            ({"W3_toggle": 0.0}, 1.0, 1.0, 0.0, True, "W3_toggle rose, its OR's input from this touch on"),
+            ({"W3_toggle": 1.0}, 1.0, 1.0, 0.0, False, "W3_toggle on before the approach"),
+            (None, 1.0, 1.0, 0.0, False, "W3_toggle on, not read before the approach"),
+            ({"W3_toggle": 0.0}, 1.0, 0.0, 1.0, False, "W3_toggle came on, not by this touch's input "
+                                                       "(walkwayGenerator7 on)"),
+            ({"W3_toggle": 0.0}, 0.0, 0.0, 0.0, False, "W3_toggle stayed off")):
+        vals.update({(2, "goal"): toggle, (1, "inputs[0]"): own, (1, "inputs[1]"): other})
+        got = chain.touched(m, xc.event_object(pad), before)
+        assert (got["done"], said in (got.get("by") or got["why"])) == (done, True), got
+    # AZ-497 (sitting r116f-final-c, segment 23: W3_toggle stayed off on walkwayGenerator's plate): a platform the
+    # stand leaves untouched is tried onto its mesh's middle, then with a hop there (here the landing fires it)
+    pos = [1.0, 0.0, 1.0]
+
+    def toward(target, mag):
+        pos[0] += max(-0.1, min(0.1, target[0] - pos[0]))
+        m.stick = ("toward", mag)
+
+    def run(n, stick=None, on_tick=None, hook_at=None):
+        for _ in range(n):
+            acts = on_tick(None, None, [])
+            if "down y" in acts:
+                vals.update({(2, "goal"): 1.0, (1, "inputs[0]"): 1.0})
+            if "stop" in acts:
+                break
+    stand_run = m.run
+    m.body, m.toward, m.run, m.level = (lambda: tuple(pos)), toward, run, "d1"
+    vals.update({(2, "goal"): 0.0, (1, "inputs[0]"): 0.0, (1, "inputs[1]"): 0.0})
+    chain._platform_centre = lambda m_, obj: (np.array([0.0, 0.0, 0.0]), 1.5)
+    got = chain.touched(m, xc.event_object(pad), {"W3_toggle": 0.0}, platform=True)
+    assert (got["done"], got["how"], [t["how"] for t in got["tries"]], abs(pos[0]) < xc.TOUCH_MID) == (
+        True, "hop", ["stand", "centre", "hop"], True), got
+    pos[:] = [0.6, 0.0, 1.0]                     # here only walking off its side fires it
+
+    def run_across(n, stick=None, on_tick=None, hook_at=None):
+        for _ in range(n):
+            acts = on_tick(None, None, [])
+            if abs(pos[0]) > 2.0:
+                vals.update({(2, "goal"): 1.0, (1, "inputs[0]"): 1.0})
+            if "stop" in acts:
+                break
+    m.run = run_across
+    vals.update({(2, "goal"): 0.0, (1, "inputs[0]"): 0.0})
+    got = chain.touched(m, xc.event_object(pad), {"W3_toggle": 0.0}, platform=True)
+    assert (got["done"], got["how"], pos[0] < -2.0) == (True, "across", True), got
+    m.run = stand_run
+    # EW_toggle's OR feeds it through an AND (the bridge's disable), on for any OR input: the way's input is the OR's
+    links.update({1: [Link(src_plug=17, dst=5, dst_plug=0)], 5: [Link(src_plug=17, dst=2, dst_plug=0)]})
+    m.g.names[1:3] = ["EW_Touch_orCombiner", "EW_toggle"]
+    m.g.names.append("DeathBridge_disable_andCombiner")
+    assert xc.toggles(m, 0) == {"EW_toggle": (2, 1, "inputs[0]")}
+    vals.update({(2, "goal"): 1.0, (1, "inputs[0]"): 0.0, (1, "inputs[1]"): 1.0, (5, "inputs[0]"): 1.0})
+    got = chain.touched(m, xc.event_object(pad), {"EW_toggle": 0.0})
+    assert not got["done"] and "(walkwayGenerator7 on)" in got["why"], got
+
+
+def test_a_skipped_barrier_is_not_done_a_same_node_one_ends_on_its_switch_and_a_carried_store_holds_lt_with_no_y(
+        monkeypatch):
+    """AZ-500 (R1.16e's sitting, row d): the chain skipped w1's IceBlock_01, whose from-node is its to-node, as "not
+    in the way" and marked it ok, so the record read every segment done; and the stored steam, released at W1_3, was
+    gone after the walk to the block.  A barrier behind the body is recorded skipped (not ok) and the chain goes on,
+    its result naming it, and one its approach left behind the body is recorded skipped too; a same-node one is in
+    the way and its walk ends, done, when its own switch moves, not done when none does; a ``carry`` segment holds LT
+    on the pipe (again after a relaunch), on the replay's settle tick, every pad and the drains' pads, its search has
+    no Y (its seeds' jumps dropped, ``hold`` 0, no flight in its goal), and its barrier presses no element and lets
+    LT go at the cast's tick."""
+    import struct
+    import types
+
+    from devkit.xemu import chain as xc
+    from devkit.sim import l3
+    wall = [(a, c, b) for a, b, c in _box(2, 4, 0, 5, 5, 2.5)]        # p1: its centre at y 4.5
+    router = Router(Reach(_level(_quad(0, 0, 12, 12, 0), (wall, {})), flights.Env.kept()))
+    monkeypatch.setattr(xc, "router", lambda level, prof="logic": router)
+    monkeypatch.setattr(xc, "zones", lambda node: {f"t.{node}"})
+    monkeypatch.setattr(xc, "barrier_switches", lambda seg: ["t/g0/r7"])
+    sent = []
+    chain = xc.Chain.__new__(xc.Chain)
+    chain.s = types.SimpleNamespace(sb=types.SimpleNamespace(hold=lambda b: sent.append(f"down {b}"),
+                                                             release_btn=lambda b: sent.append(f"up {b}"),
+                                                             alive=lambda: False, relaunch=lambda: sent.append("new"),
+                                                             unpark=lambda tag, meta: dict.fromkeys(
+                                                                 ("loadvm_s", "ready_s", "at_start"), 1)))
+    chain.s.signalled = None   # no signal came: the chain runs on (AZ-701)
+    chain.log = lambda msg: None
+    chain.goal = lambda seg, prof: types.SimpleNamespace(cost=lambda r: abs(10.0 - r.pos[1]))   # the to-node: y 10
+    hop = {"index": 1, "kind": "barrier", "level": "t", "from": "a", "to": "b", "goal": "t.Wall", "shapes": ["p1"]}
+    assert chain.in_the_way(hop, (3.5, 4.5, 1.25), (3.5, 2.0, 1.0)) is True
+    chain.body = lambda: (3.5, 7.0, 1.0)                                # past the wall
+    skipped = chain.action(1, hop, {"meta_sha12": "m"}, {"starts": [], "attempts": [], "ok": False})
+    assert (skipped["ok"], bool(skipped["skipped"]), skipped["stations"]) == (False, True, [])
+    late = chain.acted(hop, None, {"starts": [], "stations": [{"act": {"done": True, "not_in_the_way": True}}]})
+    assert (late["ok"], bool(late["skipped"])) == (False, True)
+    assert chain.in_the_way({**hop, "to": "a"}, (3.5, 4.5, 1.25), (3.5, 7.0, 1.0)) is True
+
+    chain.segs = [{"index": 0, "kind": "walk"}, hop, {"index": 2, "kind": "walk"}]
+    chain.rec, chain.progress, chain.on_miss, chain.k = {"segments": [], "plan": {}}, None, "stop", 0
+    chain.save = chain.close_pool = lambda: None
+    walked = {"ok": True, "starts": [{"meta_sha12": "m"}], "attempts": [], "string_sha12": "s", "drained": 0}
+    chain.segment = lambda i, seg, parent: chain.rec["segments"].append(r := {**seg, **(skipped if i == 1 else
+                                                                                          walked)}) or r
+    assert chain.run()["result"] == "the end reached; skipped (not played): [1]"
+
+    goals, ticks = {7: 0.0}, []
+
+    class M:                          # a level's live graph (g0): the block's switch r7 moves at the walk's tick 40
+        gi, stick = 0, None
+        melts = True
+
+        def body(self):
+            return (3.5, 2.0, 1.0)
+
+        def toward(self, target, mag):
+            pass
+
+        def get(self, rec, attr):
+            return goals[rec]
+
+        def run(self, n, on_tick=None, hook_at=None):
+            for k in range(1, n + 1):
+                if k == 22 + 40 and self.melts:
+                    goals[7] = 1.0
+                ticks.append(on_tick(None, None, []))
+                if "stop" in ticks[-1]:
+                    break
+            return {"stop": None}
+    block = {**hop, "to": "a"}
+    got = chain.staff(M(), block)
+    assert (got["done"], got["passed"], got["switches"], len(ticks)) == (True, None, {"t/g0/r7": [0.0, 1.0]}, 62)
+    goals[7], M.melts = 0.0, False
+    got = chain.staff(M(), block)
+    assert (got["done"], got["why"]) == (False, "no switch of the barrier moved")
+
+    chain.carry({"carry": ["fire", "water"]})
+    assert (chain._held, sent) == ({"lt"}, ["down ltrigger"])
+    assert xc.no_jump([[10, 0.5, 6], [4, None, 0, 2, 3]]) == [[10, 0.5, 0], [4, None, 0, 2, 0]]
+
+    class Sim:
+        def __init__(self, *a, **kw):
+            self.n = 0
+
+        def step(self, pad):
+            self.n += 1
+            return l3.Row(self.n, (0.0, 0.0, 1.0), 0, 200, None, (), struct.pack("<2f", 0.0, 1.0))
+
+        def save(self):
+            return None
+    monkeypatch.setattr(l3, "L3", Sim)
+    monkeypatch.setattr(l3, "read_snapshot", lambda path: None)
+    monkeypatch.setattr(l3, "snapshot_path", lambda label: label)
+    chain.xbe, chain.disc = (lambda: b""), (lambda: "disc")
+    pads, rows = chain.l3_run({"label": "s"}, [[3, 0.5, 0]], deep=False)
+    assert (len(pads), len(rows), {p.buttons for p in pads}) == (4, 4, {frozenset({"lt"})})
+    from devkit.rando.draft import l3_goal
+    seen = {}
+    monkeypatch.setattr(l3_goal, "route_seed", lambda R, feet, target, air=0: [[10, 0.5, 6]])
+    monkeypatch.setattr(xc, "known_strings", lambda seg: [])
+    monkeypatch.setattr(xc.lc, "_reach_path", lambda level: Path("t.pkl"))
+    monkeypatch.setattr(xc, "solve", lambda seg, spec, xbe, **kw: seen.update(kw, spec=spec) or {
+        "winner": None, "reached": False, "seconds": 0.0, "problem": None, "runs": []})
+    chain.goal, chain.pool, chain.rate = (lambda seg, prof: types.SimpleNamespace(R=None)), (lambda label: None), \
+        (lambda: 30.0)
+    chain.steps, chain.ticks, chain.wall_cap, chain.jobs = 1000, 100, 60.0, 1
+    chain.search({"kind": "walk", "level": "t", "goal": "b", "kit": {"air": 1}}, {"label": "s"}, 1, "logic",
+                 {"hold": 4}, [[[3, 0.5, 2]]])
+    assert (seen["limits"].hold, seen["strings"], seen["spec"]["kwargs"]["air"]) == (0, [[[10, 0.5, 0]],
+                                                                                         [[3, 0.5, 0]]], 0)
+    chain.halted_at_start, chain.park = False, True
+    chain.bring_back({"label": "s", "parked": "p", "meta": {}})
+    assert sent == ["down ltrigger", "new", "down ltrigger"]            # the new xemu's pipe holds LT again
+    clock, written, sb = iter(range(1, 99)), [], chain.s.sb
+    g = types.SimpleNamespace(regs=lambda: {"eip": l3.PLAYER_UPDATE, "ecx": 64}, cmd=lambda c: None,
+                              read=lambda a, n: struct.pack("<d", next(clock)))
+    for mod, name, fn in ((xc.xo, "arm", None), (xc.xo, "resume", None), (xc.recipes, "chain", {"player": 5}),
+                          (xc.recipes, "level_path", "t")):
+        monkeypatch.setattr(mod, name, lambda *a, _v=fn: _v)
+    sb.halt, sb.read_u32, sb.read, sb.write_pad, sb._wait = (lambda: g), (lambda a: 5), None, written.append, \
+        (lambda s: True)
+    assert chain.drain(lambda c: c["ticks"] >= 2)["stop"] == "join"
+    assert [p.buttons for p in written] == [frozenset({"lt"})] * 2
+    ticks.clear()
+    goals[7], M.melts = 0.0, True
+    got = chain.staff(M(), {**block, "cast": ["fire", "water"]})
+    acts = [a for t in ticks for a in t]
+    assert ("up ltrigger" in ticks[17], got["released_at"], chain._held) == (True, 18, frozenset())
+    assert [a for a in acts if a.startswith("down")] == ["down a"] * acts.count("down a")
+    chain.carry({})
+    assert sent == ["down ltrigger", "new", "down ltrigger"]            # the barrier let it go
+
+
+def test_a_chains_plateau_stops_seeds_on_every_rung_passes_over_the_4x_rung_it_would_replay_and_keeps_each_curve(
+        monkeypatch):
+    """Step X.95 (X.93's rank 1: searches that found nothing were 84 % of R1.25b's chain): ``run --plateau N`` sets
+    ``Limits.plateau`` to N on every rung (over ``SCENE_COST`` in whole steps), and none without it; the 4x rung, the
+    first rung's own problem and seeds, is passed over once every seed ended at its plateau, never for seeds the
+    wall cap ended; each run's curve, stall and steps a second stay in the attempt's record (the curves N is picked
+    from)."""
+    import types
+
+    from devkit.xemu import chain as xc
+    from devkit.rando.draft import l3_goal
+    from devkit.sim import l3
+    seen = []
+    run = {"index": 0, "why": "plateau at the best cell", "steps": 9000, "cells": 4, "best_cost_s": 3.2, "faults": 0,
+           "taint": [], "steps_per_s": 600, "curve": [[5000, 3.2], [9000, 3.2]], "stall": {"cost_s": 3.2},
+           "segs": [], "seconds": 15.0}
+    monkeypatch.setattr(xc, "solve", lambda seg, spec, xbe, **kw: seen.append(kw["limits"]) or {
+        "winner": None, "reached": False, "seconds": 15.0, "problem": "p", "runs": [run]})
+    monkeypatch.setattr(l3_goal, "route_seed", lambda R, feet, target, air=0: [])
+    monkeypatch.setattr(xc, "known_strings", lambda seg: [])
+    monkeypatch.setattr(xc, "start_of", lambda sim, seg: (None, types.SimpleNamespace(pos=(0.0, 0.0, 0.0)), 0.0,
+                                                           [], []))
+    monkeypatch.setattr(xc.lc, "_reach_path", lambda level: Path("t.pkl"))
+    monkeypatch.setattr(xc.lc, "_feet", lambda row: (0.0, 0.0, 0.0))
+    for name, fn in (("L3", lambda *a, **kw: None), ("read_snapshot", lambda path: None),
+                     ("snapshot_path", lambda label: label)):
+        monkeypatch.setattr(l3, name, fn)
+    chain = xc.Chain.__new__(xc.Chain)
+    chain.goal, chain.pool, chain.rate = (lambda seg, prof: types.SimpleNamespace(R=None)), (lambda label: None), \
+        (lambda: 30.0)
+    chain.xbe, chain.disc = (lambda: b""), (lambda: "disc")
+    chain.steps, chain.ticks, chain.wall_cap, chain.jobs, chain.plateau = 400_000, 3600, 480.0, 4, None
+    walk = {"kind": "walk", "level": "t", "goal": "b", "kit": {}}
+    got = chain.search(walk, {"label": "s"}, 1, "logic", {}, [])
+    assert seen[-1].plateau is None
+    assert got["runs"] == [{k: run[k] for k in ("index", "why", "steps", "cells", "best_cost_s", "faults", "taint",
+                                                 "steps_per_s", "curve", "stall")}]
+    chain.plateau = 60_000
+    for mult, scene, want in ((1, False, 60_000), (4, False, 60_000), (4, True, 6_000)):
+        chain.search(walk, {"label": "s"}, mult, "logic", {}, [], scene)
+        assert (seen[-1].plateau, seen[-1].steps) == (want, 400_000 * mult // (xc.SCENE_COST if scene else 1))
+    assert "plateau" not in seen[-1].shape()                            # a budget: the problem and its seeds stay
+    start = {"label": "s", "level": "levels/t", "meta_sha12": "m", "meta": {}}
+    chain.segs, chain.hints, chain.scene, chain.pilot, chain.park, chain._held = [walk], {}, None, False, True, ()
+    chain.s, chain.seg_cap = types.SimpleNamespace(signalled=None), None
+    chain.take_start, chain.off_logic = (lambda i, n, parent: start), (lambda *a: False)
+    chain.maybe_release, chain.save, chain.log = (lambda: False), (lambda: None), (lambda msg: None)
+    for why, rungs in (("plateau at the best cell", [(1, {}), (4, {"temp": 30.0, "pursue": 0.3}), (4, {})]),
+                       ("wall-cap", [(1, {}), (4, {}), (4, {"temp": 30.0, "pursue": 0.3}), (4, {})])):
+        ran = []
+        chain.search = lambda seg_, st, mult, prof, shape, strings, scene, wall: ran.append((mult, shape)) or {
+            "seconds": 1.0, "reached": False, "runs": [{**run, "why": why, "best_cost_s": c} for c in (3.2, 9.0)]}
+        rec = chain.searched(0, {**walk, "level": "t", "from": "a"}, None, {"starts": [], "attempts": [], "ok": False})
+        assert ran == rungs and rec["why"] == "the search found no string on every rung of the ladder", (ran, rec)
+
+
+def test_a_chains_l3_fast_pool_spawns_fastl3_workers_on_the_patched_library_and_base_clears_its_switches(monkeypatch):
+    """Step X.95: ``run --l3 fast`` makes each start's search pool a FastL3 one (``Pool(fast=True)``) with the patched
+    libunicorn's switches in the environment its workers are spawned with (``l3_fast.worker_env``, as the reach
+    engine's pool); ``--l3 base`` builds round 1's pool with the switches cleared, also after a fast one."""
+    import os
+
+    from devkit.xemu import chain as xc
+    from devkit.reach import l3_fast, l3_pool
+    made = []
+
+    class Pool:
+        def __init__(self, label, xbe, **kw):
+            made.append((label, kw.get("fast", False), os.environ.get("LIBUNICORN_PATH"),
+                         os.environ.get("UC_TLB_BITS")))
+
+        def close(self):
+            pass
+    monkeypatch.setattr(l3_pool, "Pool", Pool)
+    monkeypatch.setattr(l3_fast, "worker_env", lambda root=None: {"LIBUNICORN_PATH": "/lib", **l3_fast.SWITCHES})
+    monkeypatch.setattr(os, "environ", {k: v for k, v in os.environ.items()
+                                        if k not in ("LIBUNICORN_PATH", *l3_fast.SWITCHES)})
+    chain = xc.Chain.__new__(xc.Chain)
+    chain._pool, chain.jobs, chain.xbe, chain.disc = None, 2, (lambda: b""), (lambda: "disc")
+    for chain.l3, label in (("fast", "s0"), ("fast", "s0"), ("base", "s1"), ("fast", "s2")):
+        chain.pool(label)
+    assert made == [("s0", True, "/lib", "12"), ("s1", False, None, None), ("s2", True, "/lib", "12")]
+    assert (xc.l3_library("fast"), xc.l3_library("base")) == ("patched", "wheel")
+
+
+def test_a_chain_plays_the_segments_a_segments_print_holds_for_a_plan_its_database_refuses(tmp_path, monkeypatch):
+    """Step R1.25: the frozen plans (13ad9434b881, 066e456b52bd) are refused by a later database (``load_plan``'s
+    db_digest), so ``run --segments FILE`` plays the segments the code that made the plan printed (``segments``:
+    the plan's identity line, then a segment a line), the identity's tour, discs and keys with them; a file that
+    isn't such a print is refused by name."""
+    from devkit.xemu import chain as xc
+    ident = {"sha256": "13ad9434b881", "tour": [25], "discs": {"earth": 4}, "keys": {"d1k1": 3}}
+    segs = [{"index": 0, "kind": "walk", "level": "d1"}, {"index": 1, "kind": "exit", "level": "d1"}]
+    f = tmp_path / "final.jsonl"
+    f.write_text("".join(json.dumps(x) + "\n" for x in (ident, *segs)), encoding="utf-8")
+    assert xc.read_segments(f) == (segs, {**ident, "segments_file": "final.jsonl"})
+    f.write_text(json.dumps(segs[0]) + "\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="not a `segments` print"):
+        xc.read_segments(f)
+
+
+def test_a_resume_and_a_move_on_find_the_segments_start_on_the_drive(monkeypatch):
+    """Step R1.25b: ``run --resume`` starts at a segment's first parked start, its first station's approach's when
+    its own isn't parked (sitting r125-full-h, segment 34: its own start is the link after the button before it, no
+    tag).  AZ-819 (sitting r125-full-g, segment 29): the start restored from memory after the route pilot's retreat
+    ended in a death, the guest bugchecked and placing the player raised "no player tick to place the player at",
+    ending the chain, where a resume loading the same start from the drive moved on: a move-on that finds no player
+    tick quits xemu and goes again once from the start loaded from the drive (``bring_back``'s relaunch)."""
+    import types
+    from devkit.xemu import chain as xc
+    seg = {"starts": [{"meta_sha12": "m", "how": "after an action"}],
+           "stations": [{"approach": {"starts": [{"label": "s05", "parked": "p-s05"}]}}]}
+    assert xc.first_start(seg)["parked"] == "p-s05"
+    ch = xc.Chain.__new__(xc.Chain)
+    quits, tries = [], []
+    ch.s = types.SimpleNamespace(sb=types.SimpleNamespace(_quit=lambda: quits.append(1)))
+    ch.park, ch._seg_start, ch.halted_at_start, ch.log = True, {"parked": "p-s03"}, True, (lambda msg: None)
+
+    def move_on(i):
+        tries.append(ch.halted_at_start)
+        if len(tries) == 1:
+            raise SystemExit("no player tick to place the player at")
+        return {"placed": "onto d1_z025 (try 1)", "ok": True}
+    ch._move_on = move_on
+    got = ch.move_on(29)
+    assert (got["ok"], quits, tries) == (True, [1], [True, False]) and "relaunched" in got["again"], got
+
+
+def test_the_chain_rides_d1s_elevator_by_its_wiring_on_the_final_spheres_elevator_legs(monkeypatch):
+    """Step R1.16d: the golden final sphere's hops between two floors of d1's elevator are rides (``rig``), each
+    run of them one segment (floor 1 to 5, 5 to 8, the ride 7 to 1 the logic leaves out, 1 to 11, 11 to 9), and
+    ``devkit/xemu/chain.py`` plans each from the elevator's wiring: a ride on a colour's floor, a floor switch
+    pressed on its own floor once its key is in, flipping its toggle and giving the colour the toggle's new floor
+    (the owner's ways, X34's RP-E and RP-F: switch4 then green 4, switch3 then green 6; switch6 back to red 1); no
+    ride leaves floor 9, and floor 9 needs switch9's key.  AZ-498 (R1.16e's sitting: approaches searched from the
+    deck at another floor found no route, the route graph holding the deck only at its rest; a keylock approached
+    to 1.2 m stopped 3.04 m off): a ride boards from the call field unless the deck is there and the body by it,
+    steps off the deck after each ride onto the call field's walk vertex nearest it off the deck (the next side's
+    when one gives no headway: r116f-final-c's floors 5 and 3), and a keylock's approach stands within 0.5 m (a
+    floor switch's after its walk-up from 1.2 m stalled out of X's reach, R1.25b: switch9's 1.74 m off), and a walk-up
+    that stalls outside X's reach gives up (sitting r125b, 35: 480 ticks of X 1.72 m off while enemies took the HP).
+    A ride's switch or call field within 30 m of the body is walked to from there before its
+    searched approach (each searched to its cap in sitting r125-d1), and a death mid-ride is the ride's miss, the
+    station it came in too (sitting r125s, 35: a press counted done 487 m off, after the reload into w1); a
+    keylock's second press backs off out of its sphere first (r669 took from 0.69 m outside it, not from inside);
+    a boarding whose straight walk stalls goes by the floor's landing (r125-full-b's 27 never got onto the deck);
+    a call ends at a death, recording its tick and the largest floor read before it (r125b, 35's read from w1)."""
+    import json as json_
+    import types
+    from devkit.xemu import chain as xc
+    from devkit.xemu import minigames as mg
+
+    from azurkit.tools.randomizer.planner.plan import ELEVATORS, load_plan, merge_walks, spheres, tour_segments
+    logic = kept_logic()
+    golden = Path(__file__).resolve().parent / "goldens" / "rando_plans.json"
+    plan = load_plan(json_.loads(golden.read_text(encoding="utf-8"))["default"]["plan"], logic.db)
+    played = spheres(plan, logic)
+    final = merge_walks(tour_segments(plan, logic, [len(played)], played=played, victory=True))
+    floors = ELEVATORS["d1.elevator"]
+    legs = [(floors[x["from"]], floors[x["to"]], x["kind"]) for x in final if x.get("rig")]
+    assert legs == [(1, 5, "walk"), (5, 8, "walk"), (7, 1, "ride"), (1, 11, "walk"), (11, 9, "walk")], legs
+    new = {"red": 1, "green": 3, "blue": 5}, {t: 0 for _, _, t, _, _ in xc.LIFT_SWITCHES.values()}
+    keys = {x: x not in (651, 714) for x in xc.LIFT_SWITCHES}          # death_keylock in: switch4's key on
+    assert xc.lift_plan(1, 5, *new, keys) == [("ride", "blue")]
+    assert xc.lift_plan(5, 6, *new, keys) == [("press", 664), ("ride", "green"), ("press", 679), ("ride", "green")]
+    red8 = {**new[0], "red": 8}, {**new[1], 632: 1}                    # switch6 sent red to 8
+    assert xc.lift_plan(7, 1, *red8, keys) == [("press", 629), ("ride", "red")]
+    assert xc.lift_plan(11, 9, *new, keys) is None and xc.lift_plan(9, 1, *new, keys) is None
+    assert xc.lift_plan(11, 9, *new, {**keys, 714: True}) == [("press", 714), ("ride", "blue")]
+    assert xc.lift_plan(3, 3, *new, keys) == []
+
+    chain = xc.Chain.__new__(xc.Chain)
+    locks = [x for x in final if x.get("lock_toggle")]
+    assert locks and {chain.stations(x)[0][0]["radius"] for x in locks} == {xc.KEYLOCK_R} == {0.5}
+
+    deck, field = (np.array([-2.0, -2.0, 0.0]), np.array([2.0, 2.0, 0.2])), (np.array([-3.0, -3.0, 0.0]),
+                                                                              np.array([3.0, 3.0, 5.0]))
+    verts = np.array([(0.0, 0.0), (2.2, 0.0), (2.8, 0.0), (-2.8, 0.0), (5.0, 0.0)])   # on it, within 0.5 m, off
+    monkeypatch.setattr(xc, "lift_box", lambda level, rec: deck if rec == xc.LIFT_DECK else field)
+    monkeypatch.setattr(xc, "router", lambda level, prof="logic": types.SimpleNamespace(
+        X=verts[:, 0], Y=verts[:, 1], Z=np.zeros(5), node=np.zeros(5, dtype=int), lv=None))
+
+    class M:                          # d1's live graph: the deck called to floor 1 and there
+        level, gi, stick = "d1", 0, (0.0, 0.0)
+
+        def __init__(self, x):
+            self.p, self.aims = [x, 0.0, 1.0], []
+
+        def body(self):
+            return tuple(self.p)
+
+        def hp(self):
+            return 200
+
+        def loaded(self):
+            return "levels/death/d1"
+
+        def toward(self, target, mag):
+            self.aims.append(target)
+            self.p[0] += 0.1 if target[0] > self.p[0] else -0.1
+
+        def get(self, rec, attr):
+            return 1.0 if (rec, attr) == (xc.LIFT_CALLED, "inputs[14]") else 0.0
+
+        def run(self, n, stick=None, on_tick=None, hook_at=None):
+            for _ in range(n):
+                if "stop" in on_tick(None, None, []):
+                    break
+    m = M(1.5)
+    got = chain.step_off(m, 5)
+    assert (got["done"], set(m.aims), m.p[0] > 2.0) == (True, {(2.8, 0.0, 0.0)}, True)
+    m = M(1.5)                        # sitting r116f-final-c, floors 5 and 3: the nearest side gives no headway
+    walk = m.toward
+    m.toward = lambda target, mag: None if target[0] > 0 else walk(target, mag)
+    got = chain.step_off(m, 5)
+    assert (got["done"], [x["side"] for x in got["sides"]], m.p[0] < -2.0) == (True, ["+x", "-x"], True), got
+
+    from devkit.rando.draft import l3_goal
+    monkeypatch.setattr(l3_goal, "object_points", lambda lv, obj: np.array([deck[0], deck[1]]))
+    m = M(5.0)                                    # sitting r125-full-b, 27: a rail between the body and the deck
+    walk = m.toward
+    m.toward = lambda target, mag: None if target[0] == 0.0 and (m.p[0] > 3.0 or not jumps) else walk(target, mag)
+    m.use = lambda *a, **kw: {"done": False}
+    jumps = []                                    # and the deck's edge: walked over only with a jump
+
+    def run_jumps(n, stick=None, on_tick=None, hook_at=None):
+        for _ in range(n):
+            acts = on_tick(None, None, [])
+            jumps.extend(x for x in acts if x == "down y")
+            if "stop" in acts:
+                break
+    m.run = run_jumps
+    landed = []
+
+    def pilot(m_, point, st):                     # the route pilot onto the landing at the deck's edge
+        landed.append(point)
+        m_.p[0] = point[0]
+        return {"done": True, "ticks": 30, "left_m": 0.0, "pilot": True}
+    chain._pilot_to = pilot
+    got = chain.board(m, "blue", 5, 5)            # straight in: no headway; by the +x landing, then onto the deck
+    assert (got["why"], abs(m.p[0]) < 2.0, landed, len(jumps)) == (
+        "blue's button didn't call floor 5", True, [(2.8, 0.0, 0.0)], 1), got
+    m, landed[:] = M(25.0), []                    # r125-full-f, 27: called and there, the body 20-45 m off
+    got = chain.call(m, 1)                        # the pilot into the call field first
+    assert (got["done"], landed) == (True, [(2.8, 0.0, 0.0)]), got
+    m, hps = M(0.0), iter(range(10 ** 6))         # r125b, 35: floor 11's call ends at the death, at its tick
+    m.hp = lambda: 0 if next(hps) > 5 else 100
+    got = chain.call(m, 11)
+    assert (got["done"], got["lost_at"], got["ticks"], got["called_max"]) == (False, 6, 6, 1), got
+    u = mg.Minigames.__new__(mg.Minigames)
+    import struct as struct_                     # a keylock's second try: backs off out of its sphere, faces it, X
+    from devkit.xemu import route as xr
+    lock, pos, yaw, pressed = np.array([[-0.25, -0.25, 0.75], [0.25, 0.25, 1.25]]), [0.2, 0.0, 1.0], [0.0], []
+
+    def walk(target, mag):
+        dx, dy = target[0] - pos[0], target[1] - pos[1]
+        d = math.hypot(dx, dy) or 1.0
+        pos[0], pos[1], yaw[0] = pos[0] + 0.1 * mag * dx / d, pos[1] + 0.1 * mag * dy / d, math.radians(
+            xr.ang_of(dx, dy))
+
+    def run_x(n, on_tick=None, hook_at=None):
+        for _ in range(n):
+            acts = on_tick(u, {"ent": 0}, [])
+            pressed.extend(round(math.dist(pos, (0.0, 0.0, 1.0)) - math.dist(lock[0], lock[1]) / 2, 2)
+                           for a in acts if a == "down x")
+            if "stop" in acts:
+                break
+        return {"stop": None}
+    u.mesh = u.mesh_live = lambda n: lock
+    u.body, u.toward, u.run = (lambda: tuple(pos)), walk, run_x
+    u.g = types.SimpleNamespace(read=lambda a, n: struct_.pack("<f", yaw[0]))
+    got = u.use(669, lambda: len(pressed) > 0, n=400, standoff=xc.KEYLOCK_STANDOFF)
+    assert got["done"] and pressed[0] >= xc.KEYLOCK_STANDOFF - 0.4, (got, pressed)
+    pos[:], pressed[:] = [3.5, 0.0, 1.0], []        # r125b, 35: a walk-up that stalls out of X's reach gives up
+    u.toward = lambda target, mag: None
+    got = u.use(714, lambda: False, n=480)
+    assert (got["done"], pressed, got["ticks"] < 60, "stalled" in got["why"]) == (False, [], True, True), got
+    monkeypatch.setattr(xc, "lift_state", lambda m_: (dict(new[0]), dict(new[1]), keys))
+    chain.s, chain.disc, chain.log = types.SimpleNamespace(sb=None), (lambda: "disc"), (lambda msg: None)
+    chain._in, chain.acted = (lambda R, want: True), (lambda seg, parent, rec: rec)
+    for name in ("call", "board", "step_off"):
+        setattr(chain, name, lambda m_, *a, _n=name: played.append((_n, *a)) or {"done": True})
+
+    def station(i, seg, k, app, fn, parent, rec):
+        played.append(app.get("object"))
+        fn(m)
+        return {"meta_sha12": "m"}
+    chain.station, chain._lost = station, (lambda seg: None)
+    monkeypatch.setattr(l3_goal, "object_points", lambda lv, obj: np.array([[0.0, 0.0, 1.0], [1.0, 1.0, 1.0]]))
+    leg = {"index": 22, "kind": "walk", "level": "d1", "rig": "d1.elevator", "from": "d1_floor1", "to": "d1_z081"}
+    for x, first in ((40.0, ["d1/g0/r735", ("call", 1)]),            # far from the call field: its searched approach
+                     (10.0, [None, ("call", 1)]),                     # within 30 m of it: walked to from there
+                     (1.0, [])):                                      # by the deck: no call
+        played, m = [], M(x)
+        monkeypatch.setattr(mg, "Minigames", lambda sb, disc, level: m)
+        chain.ride(0, leg, None, {})
+        assert played == [*first, None, ("board", "blue", 5, 1), None, ("step_off", 5)], played
+    radii = []                                     # r125b, 35: switch9's walk-up from 1.2 m stalled out of reach
+
+    def stalls(i, seg, k, app, fn, parent, rec):
+        radii.append(app.get("radius"))
+        rec["stations"].append({"act": {"done": len(radii) > 2, "why": "the walk-up stalled 1.74 m outside its sphere"}})
+        return {"meta_sha12": "m"} if len(radii) > 2 else None
+    chain.station = stalls
+    monkeypatch.setattr(xc, "lift_state", lambda m_: (dict(new[0]), dict(new[1]), {**keys, 714: True}))
+    chain.ride(0, {**leg, "index": 35, "from": "d1_floor11", "to": "d1_floor9"}, None, {})
+    assert radii[:3] == [None, 1.2, xc.KEYLOCK_R], radii   # by X's walk-up, from 1.2 m, then from 0.5 m
+    chain.station = station
+    chain._lost = lambda seg: "the level changed (levels/water/w1): the player died [inferred]"
+    played, rec = [], {}                           # sitting r125-d1, segment 35: a death mid-ride is a miss
+    assert "the player died" in chain.ride(0, leg, None, rec)["why"] and played == []
+    g = types.SimpleNamespace(regs=lambda: {"ecx": 0}, read=lambda va, n: bytes(n))
+    chain.s = types.SimpleNamespace(sb=types.SimpleNamespace(halt=lambda: g))
+    chain.drain, chain.rate, chain.save = (lambda until, max_ticks: {"stop": "join", "ticks": 1}), (lambda: 30), \
+        (lambda: None)
+    rec = {"stations": []}                         # r125s, 35: the press read done after the reload, 487 m off
+    assert xc.Chain.station(chain, 0, leg, 1, {}, lambda m_: {"done": True}, None, rec) is None
+    assert (rec["stations"][-1]["ok"], "the player died" in rec["why"]) == (False, True), rec
+
+
+def test_an_unassisted_fight_enters_no_cheat_holds_ground_while_the_boss_is_far_and_swings_a_staff_as_he_closes(
+        monkeypatch):
+    """AZ-499 (R1.16e's sitting, row c): unassisted, the chain's fight chased Spideyzar at full stick; he stalks at
+    about 9 m and flees after each attack, so it never swung in 1,040 ticks.  ``fight(assisted=False)`` enters no
+    cheat, holds the stick neutral while he is beyond 2.6 m, steps in once he is within it and swings
+    there, and selects the next staff whose elements have fuel each piece (water's gauge empty here: EF, fire's
+    staff; R1.16f's single fire, air and earth were armors, cast, not staffs), counting its swings.  It swings from
+    2.2 m: in sitting r125-full-h he came no nearer than 1.8 m, so a 1.4 m reach never swung."""
+    import struct
+    import types
+
+    from devkit.xemu import chain as xc
+    from azurkit.tools.randomizer.live import recipes
+    cr, ent, pc, inv = 0x1000, 0x2000, 0x3000, 0x4000
+    mem = {cr + recipes.CR_HP: struct.pack("<ii", 3000, 3000), pc + recipes.CR_HP: struct.pack("<ii", 200, 200)}
+    for f in ("ef", "af", "ff", "wf"):
+        mem[inv + recipes.SLOT0 + 12 * recipes.SLOTS.index(f) + 4] = struct.pack("<ii", 0 if f == "wf" else 50, 50)
+    tick = {"k": 0, "dead": 0.0}
+
+    def read(a, n):
+        if a == cr + recipes.CR_BODY:                   # he stalks 9 m off for 30 ticks, closes to 2.4, attacks from 2
+            return struct.pack("<3f", 0.0, 9.0 if tick["k"] <= 30 else 2.4 if tick["k"] <= 40 else 2.0, 0.0)
+        if a == ent + 0x90:                             # the player faces +y, toward him
+            return struct.pack("<f", 0.0)
+        return mem[a][:n] if a in mem else mem[a - 4][4:4 + n]
+    sb = types.SimpleNamespace(read=read, read_u32=lambda a: {ent + 0x20: pc, ent + 0x94: 0}[a])
+
+    class M:
+        gi, stick, mask = 0, (0.0, 0.0), 0
+
+        def __init__(self):
+            self.sb, self.ticks, self.picked = sb, [], []
+
+        def body(self):
+            return (0.0, 0.0, 0.0)
+
+        def toward(self, target, mag):
+            self.stick = ("toward", mag)
+
+        def get(self, rec, attr):
+            return {"numDead": tick["dead"], "enable": 1.0}[attr]
+
+        def staff_mask(self):
+            return self.mask
+
+        def select(self, staff):
+            self.picked.append(staff)
+            return True
+
+        def run(self, n, stick=None, on_tick=None, hook_at=None):
+            for _ in range(n):
+                tick["k"] += 1
+                acts = on_tick(None, {"ent": ent}, [])
+                self.ticks.append((tick["k"], self.stick, tuple(acts)))
+                if "down a" in acts:                    # the swing kills him
+                    mem[cr + recipes.CR_HP], tick["dead"] = struct.pack("<ii", 0, 3000), 1.0
+                if "stop" in acts:
+                    break
+    monkeypatch.setattr(xc, "_generated", lambda m_, rec: cr)
+    monkeypatch.setattr(xc.recipes, "chain", lambda u32: {"inv": inv, "player": pc})
+    cheats = []
+    chain = xc.Chain.__new__(xc.Chain)
+    chain.s, chain.log = types.SimpleNamespace(cheat=cheats.append), (lambda msg: None)
+    chain.boss = lambda seg: {"id": "d1/g0/r9", "critter": "spideyzar"}
+    chain.drain = lambda until, max_ticks: {"stop": "join", "ticks": 1, "loads": []}
+    m = M()
+    got = chain.fight(m, {"level": "d1", "flag": "d1.spideyzar.killed"}, assisted=False)
+    assert (got["done"], got["assists"], cheats, m.picked) == (True, [], [], [("earth", "fire")])
+    assert (got["pieces"][0]["selected"], got["pieces"][0]["swings"]) == ({"staff": ["earth", "fire"], "ok": True}, 1)
+    far = [(stick, acts) for k, stick, acts in m.ticks if k <= 30]
+    assert len(far) == 30 and set(far) == {((0.0, 0.0), ())}            # neutral, no swing, while he is far
+    near = {(stick, acts) for k, stick, acts in m.ticks if 30 < k <= 40}
+    assert near == {(("toward", 1.0), ())}                              # within 2.6 m: a step in, no swing yet
+    assert any("down a" in acts for k, _, acts in m.ticks if k > 40)    # from his 2 m attack range: swings (2.2 m)
+
+
+def test_a_replay_an_unplanned_level_load_stops_is_searched_again_in_whole_steps_then_placed_past(monkeypatch):
+    """AZ-702 (sitting r116f-final-c, segments 9 and 10): each of five replays of one player-tick string stopped at
+    the same tick on a trigger's level load the segment doesn't plan (AZ-700's r2271 into d2), the chain playing
+    that string again each time.  A load that is neither the segment's exit nor the next one's ends the string's
+    tries: the segment is searched again in whole steps, which run the trigger (X.52b), and a replay that stops on
+    such a load in whole steps too is a miss (placed past, D240), after two replays."""
+    import types
+    from devkit.xemu import chain as xc
+    chain = xc.Chain.__new__(xc.Chain)
+    seg = {"index": 9, "kind": "walk", "level": "d1", "from": "d1_z056", "goal": "d1_z025"}
+    chain.segs, chain.hints, chain.scene, chain.pilot, chain.park, chain._held = [seg], {}, None, False, True, ()
+    chain.s = types.SimpleNamespace(signalled=None)
+    chain.seg_cap, chain.wall_cap, chain.repairs = None, 60.0, 4
+    start = {"label": "s9", "level": "levels/death/d1", "meta_sha12": "m", "meta": {}}
+    chain.take_start, chain.goal, chain.off_logic = (lambda i, n, parent: start), (lambda *a: None), (lambda *a: False)
+    chain.maybe_release, chain.save, chain.log = (lambda: False), (lambda: None), (lambda msg: None)
+    searched = []
+    chain.search = lambda seg_, st, mult, prof, shape, strings, scene, wall: searched.append((scene, len(strings))) \
+        or {"seconds": 1.0, "reached": True, "ticks": 600, "robustness": 1.0, "segs": [(6, 0.0, 0)], "runs": []}
+    chain.more_robust = lambda seg_, st, found, *a: found
+    chain.play = lambda i, seg_, st, found: {
+        "replay": {"stop": {"at": "load", "k": 519, "level": "levels/death/d2"}, "exact": True, "max_err_m": 0.0},
+        "ok": False, "why": "an unplanned level load", "string": {"sha12": "x"}, "drain": {"ticks": 0}}
+    chain.where = lambda: {"entry": True, "alive": True, "level": "levels/death/d2"}
+    rec = chain.searched(0, seg, None, {"starts": [], "attempts": [], "ok": False})
+    assert searched == [(False, 0), (True, 0)], searched
+    assert rec["why"] == "an unplanned level load (levels/death/d2) at tick 519, in whole steps too", rec["why"]
+
+
+def test_a_signal_ends_the_chain_though_a_station_or_a_callback_would_take_its_teardown(monkeypatch):
+    """AZ-701 (sitting r116f-s1): SIGTERM in segment 0 logged its teardown and the chain played segments 1 and 2;
+    a second SIGTERM did nothing.  Its ``Teardown`` was raised inside a weakref finaliser, which Python reports and
+    goes on from, and a station's handler takes any ``SystemExit`` as a miss.  A station and a touch event's toggle
+    read re-raise it, and once the sitting took a signal the chain stops before its next segment."""
+    import types
+    from devkit.xemu import chain as xc
+    from devkit.xemu import sitting as xs
+    chain = xc.Chain.__new__(xc.Chain)
+    g = types.SimpleNamespace(regs=lambda: {"ecx": 0}, read=lambda va, n: bytes(n))
+    chain.s = types.SimpleNamespace(signalled=None, sb=types.SimpleNamespace(halt=lambda: g))
+
+    def act(_m):
+        chain.s.signalled = "SIGTERM"
+        raise xs.Teardown("signal SIGTERM: tearing down")
+    with pytest.raises(xs.Teardown):
+        chain.station(0, {"kind": "warp", "level": "w1"}, 0, {}, act, None, {"stations": []})
+
+    def halt():
+        raise xs.Teardown("signal SIGTERM: tearing down")
+    chain.s.sb.halt = halt
+    with pytest.raises(xs.Teardown):         # the review of Step X.87: None here searched the approach to its end
+        chain.toggles_before({"kind": "event", "how": "touch", "level": "w1"})
+    played, chain.s.signalled = [], None
+
+    def segment(i, seg, parent):          # its Teardown swallowed inside a callback: the segment ends as if none came
+        played.append(i)
+        chain.s.signalled = "SIGTERM"
+        return {"ok": True, "starts": [{"meta_sha12": "m"}], "attempts": [], "string_sha12": "s", "drained": 0}
+    chain.segment, chain.save, chain.close_pool = segment, (lambda: None), (lambda: None)
+    chain.segs, chain.rec, chain.k, chain.progress, chain.on_miss = [{}, {}, {}], {"segments": []}, 0, None, "stop"
+    with pytest.raises(xs.Teardown):
+        chain.run()
+    assert played == [0]
+
+
+def test_a_spot_is_proven_from_its_arrival_at_its_ways_kit_by_xemu_taking_its_item(tmp_path, monkeypatch):
+    """Step R1.29 (AZ-455): ``devkit/reach/l3_certify.py plan --spots`` starts a spot from the arrival whose way there
+    and back asks the least element levels (w4's earth fragment: none, by its roll-jump skip, Step R2.18), that kit set in L3
+    (group ``<level>-k0``); a spot whose way asks a key or a button isn't set up.  Its replay proves it only when
+    every tick is L3's, xemu took its own item and the start isn't a teleport within a metre of it (the hop's own
+    arrival never is); ``apply`` marks a spot the authoring already holds (a conservative-kit requires) in its own
+    ``[[location]]``, once; and each folder keeps its own private start for a key two folders search (an older
+    flat one still reads).  Its string starts in the arrival node, at the snapshot's own spot or by R6 into it, and
+    its record says it walked back only from there (D122): f1's key from f1_core, not from the f1_town_side spot
+    where the level's one snapshot settles.  Its record's kit is the one its string ran with (Step R1.29e: a
+    douse's element levels too)."""
+    from types import SimpleNamespace as NS
+
+    from azurkit.tools.randomizer.planner import proofs as pr
+    from devkit.reach import l3_certify as cert
+    none = np.zeros(0, dtype=np.int64)
+
+    class Settled:                                   # a snapshot that settles on a floor in ``zone``, no R6 sample
+        def __init__(self, zone):
+            self.router = NS(zone_at=lambda feet, prefer_water: zone, R=NS(zone_of=np.zeros(1, dtype=np.int64)),
+                             ns=0, node=none, w=NS(nreg=0), wg=NS(lab=none, col=none))
+
+        def reset(self):
+            pass
+
+        def run(self, pads):
+            return [NS(state=0, pos=(0.0, 0.0, 1.0))]
+
+    key = {"kind": "spot", "kit_l3": True, "level": "f1", "id": "f1/g0/r1403", "kit": {}, "start": "f1.Z000",
+           "back": ["f1.Z000", "f1.Z230"]}
+    starts = {z: cert._start(sim, sim.router, key, None) for z in ("f1.Z008", "f1.Z230") for sim in [Settled(z)]}
+    assert starts["f1.Z008"] is None and starts["f1.Z230"]["zone"] == "f1.Z230"
+    rep = {"sha12": "a" * 12, "meta_sha12": "b" * 12, "label": "x", "pages_sha12": "c" * 12, "ticks": 1,
+           "l3_mode": "scene", "outcome": {}, "inventory_changed": True, "max_err_m": 0.0}
+    snap = {"kit": {}, "level": "levels/fire/f1", "tag": "x", "xemu": "x", "iso_sha12": "d" * 12, "hp": 200}
+    res = {"segments": [{"n": 1}], "legs": [], "scene_ok": [True, True]}
+    assert [pr.record_problem(cert._record("s", key, snap, res, rep, {"start": {"teleport": None, "zone": z}}))
+            for z in ("f1.Z230", "f1.Z008")] == [None, "a location proof walks back to where it started (D122: "
+                                                       "reach and come back)"]
+    doused = cert._record("s", key, snap, {**res, "kit": {"water": 1}}, rep, {"start": {"teleport": None,
+                                                                                          "zone": "f1.Z230"}})
+    assert (doused["claim"]["kit"], doused["start"]["setup"][-1]) == ({"water": 1}, ["R2", {"water": 1}])  # R1.29e
+    got = {t["id"]: t for t in cert.plan([], tmp_path / "out", 10, ["w4/g0/r645", "d1/g0/r2147"])}
+    frag = got["w4/g0/r645"]
+    assert (frag["kit"], frag["start"], frag["group"], frag["kit_l3"]) == ({}, "w4.Z001", "w4-k0", True)
+    assert got["d1/g0/r2147"]["skip"].startswith("no arrival of the level reaches it and back with element levels")
+    spot = {"goal": "w4/g0/r645"}                                   # frag_earth_1: the inventory's fge1
+    verdicts = [cert.judge_spot(spot, *case) for case in (
+        (True, ["af", "fge1"], 4.2, True), (True, ["af", "fge1"], 0.4, False),     # placed 4 m off; the hop's own
+        (True, ["af"], 4.2, True), (False, ["fge1"], 4.2, True), (True, ["fge1"], 0.6, True))]
+    assert [v["proven"] for v in verdicts] == [True, True, False, False, False]
+    assert (verdicts[0]["start_goal_band"], verdicts[4]["near"], verdicts[2]["why"]) == (
+        "3-10 m", True, "the goal's item not taken: xemu changed ['af']")
+    text = '[[location]]\nid = "a3/g0/r2591"\nrequires = "air>=2"\nnote = "on a3.Z079"\n\n[[location]]\nid = "x"\n'
+    marked = cert._mark_location(text, "a3/g0/r2591", 'proven = { by = "l3", ref = "s/a@b" }', "step R1.29")
+    assert marked.split("\n")[:5] == ['[[location]]', 'id = "a3/g0/r2591"', 'proven = { by = "l3", ref = "s/a@b" }',
+                                      'requires = "air>=2"', 'note = "on a3.Z079. Step R1.29"']
+    assert cert._mark_location(marked, "a3/g0/r2591", "proven = 1", "again") is None
+    monkeypatch.setattr(cert, "private", lambda: tmp_path / "x7")    # two folders, one key: two private starts
+    (tmp_path / "x7").mkdir()
+    cert._write(tmp_path / "x7" / "spot-k.json", {"start": "older, flat"})
+    a, b = tmp_path / "a", tmp_path / "b"
+    assert cert._read_priv(a, "spot-k") == {"start": "older, flat"}
+    cert._write_priv(a, "spot-k", {"start": "a's"})
+    cert._write_priv(b, "spot-k", {"start": "b's"})
+    assert (cert._read_priv(a, "spot-k"), cert._read_priv(b, "spot-k")) == ({"start": "a's"}, {"start": "b's"})
+
+
+def test_plan_spots_skips_a_spot_only_its_gate_gives_and_asks_a_ways_barriers_in_its_kit(tmp_path, monkeypatch):
+    """AZ-517: ``devkit/reach/l3_certify.py plan --spots`` reads a spot's generated ``gated_by``, so the keylord's public
+    key (w1/g0/r1717, gated by the keylord w1/g0/r321) and the guardian slot (w3/g1/r1160, by the boss
+    w3/g1/r1157) are not set up as walks to a touch, the skip naming the gate; and a way's ``through`` barriers ask
+    their crossing with the edge, so f1's obsidian past the firewall f1.flameSpout15 is set up at water 1."""
+    from devkit.reach import l3_certify as cert
+    got = {t["id"]: t for t in cert.plan([], tmp_path / "out", 10, ["w1/g0/r1717", "w3/g1/r1160", "f1/g0/r1693"])}
+    assert [got[s].get("skip") for s in ("w1/g0/r1717", "w3/g1/r1160")] == [
+        "its item only its gate gives, not a touch: gated_by w1/g0/r321 (keylords)",
+        "its item only its gate gives, not a touch: gated_by w3/g1/r1157 (bosses)"]
+    assert (got["f1/g0/r1693"]["kit"], got["f1/g0/r1693"].get("skip")) == ({"water": 1}, None)
+
+
+def test_plan_spots_sets_a_spot_at_the_kit_the_logic_collects_it_at_so_rando_check_takes_its_proof(tmp_path,
+                                                                                                  monkeypatch):
+    """AZ-570: ``devkit/reach/l3_certify.py plan --spots`` lowers a spot's way kit to the most rando check
+    (``Logic.kit_short``) takes a proof at, the way's own kept as ``kit_way``: a3/g0/r1500's way asks water 2, but
+    its string leaves holding its own water power-up and the logic collects it holding water 2 with nothing there, so
+    water 1; f3/g0/r1002's way asks air 3, the logic's kit air 1 (air 2 is refused too); e2/g0/r4402's asks air 1,
+    the logic's none.  Three of the six kits R1.29h found refused (its kitlower.txt)."""
+    from devkit.reach import l3_certify as cert
+    a3 = {"air": 2, "earth": 2, "fire": 3}
+    want = {"a3/g0/r1500": ({**a3, "water": 2}, {**a3, "water": 1}), "f3/g0/r1002": ({"air": 3}, {"air": 1}),
+            "e2/g0/r4402": ({"air": 1, "water": 1}, {"water": 1})}
+    got = {t["id"]: (t["kit_way"], t["kit"]) for t in cert.plan([], tmp_path / "out", 10, list(want))}
+    logic = kept_logic()
+    assert got == want
+    assert [(logic.kit_short(loc, way) is None, logic.kit_short(loc, kit)) for loc, (way, kit) in got.items()] == [
+        (False, None)] * 3
+
+
+def test_a_contact_search_at_a_higher_frame_rate_spans_the_same_game_time(monkeypatch):
+    """AZ-372: ``devkit/reach/l3_contact.py`` searches a flight at a frame rate
+    in that rate's ticks: at 60 fps its step budget, longest string,
+    segment, Y hold, air cap and the landing's ticks at rest are twice
+    vanilla's (f3_z042 > f3_z235's 2.3-3.4 s flight fits no 120-tick air
+    cap there), at 30 they are vanilla's own, and a shape it is given
+    wins."""
+    from devkit.reach import l3_contact as lc
+    from devkit.sim.l3_search import Limits
+    base = Limits()
+    assert lc.limits_at(30.0, 60_000) == Limits(steps=60_000, wall_cap_s=3600.0)
+    at60 = lc.limits_at(60.0, 60_000, {"temp": 30.0, "seg": 9})
+    assert (at60.steps, at60.ticks, at60.hold, at60.fall, at60.seg, at60.temp) == (
+        120_000, 2 * base.ticks, 2 * base.hold, 2 * base.fall, 9, 30.0)
+    spec = {"module": "m", "factory": "make_goal", "kwargs": {"target": "f3.Z235", "air": 3}}
+    assert lc.spec_at(spec, 30.0) == spec and lc.spec_at(spec, 60.0)["kwargs"] == {"target": "f3.Z235", "air": 3,
+                                                                                   "settle": 20}
+
+
+def test_a_robustness_trial_moves_a_press_by_the_same_game_time_at_the_builds_frame_rate(monkeypatch):
+    """AZ-388: ``l3_search.robustness`` moves each press a 30 fps tick
+    earlier or later; at a build's 120 fps that is 4 of its ticks, by the
+    same draws (so 30 fps keeps its trials), where it was 1 at any rate,
+    and ``devkit/reach/l3_contact.py`` grades a string at the build's rate."""
+    import types
+
+    from devkit.sim import l3_search
+    from devkit.sim.l3_search import Seg, Segment, jittered
+    segs = [Seg(40, 0.0), Seg(40, 0.5, hold=24), Seg(40, 1.0), Seg(40, None, roll=12)]
+
+    def moves(rate):
+        return [[a.n - b.n for a, b in zip(jit, segs)] for jit in jittered(segs, trials=16, seed=7, rate=rate)]
+    at30 = moves(30.0)
+    assert {d for m in at30 for d in m} == {-1, 0, 1} and moves(120.0) == [[4 * d for d in m] for m in at30]
+    from devkit.reach import l3_contact as lc
+    rates = []
+    monkeypatch.setattr(l3_search, "start_of", lambda sim, seg: ("start", None, 0.0, [], []))
+    monkeypatch.setattr(l3_search, "confirm", lambda *a: 40)
+    monkeypatch.setattr(l3_search, "robustness", lambda *a, **k: rates.append(k["rate"]) or 0.5)
+    w = types.SimpleNamespace(sim=lambda *a, **k: None, goal=lambda spec: None)
+    assert lc.grade(w, Segment("s"), {}, [list(s) for s in segs], 16, True, 120.0)["robustness"] == 0.5
+    assert rates == [120.0]

@@ -8,6 +8,7 @@ owner demo's, at volume 0 (D108). Its verb:
 uv run --locked python -m devkit xemu oracle CMD [ARGS ...]   # the harness (below); also python -m devkit.xemu.oracle
 uv run --locked python -m devkit xemu sitting CMD [ARGS ...]  # the sitting kit: run a spec, serve, exec, queue
 uv run --locked python -m devkit xemu demo CMD [ARGS ...]     # the owner demos: record, replug, add-body, replay
+uv run --locked python -m devkit xemu chain CMD [ARGS ...]    # the chain driver: segments, run, park-check
 ```
 
 - `oracle.py`: the harness (Step 4.14a2, Modkit's `scripts/xemu_oracle.py`
@@ -24,10 +25,13 @@ uv run --locked python -m devkit xemu demo CMD [ARGS ...]     # the owner demos:
   ported): the sitting kit and its example specs, the model-swap rows
   (`sittings/model_kit.py`, the frame's cost and rate: D603, D604) and
   the owner demos' recorder; builds through AzurKit's own (`sdk.build`).
+- `chain.py`, `route.py` and `minigames.py` (Step 4.13d2, Modkit's
+  `scripts/xemu_chain.py`, `xemu_route.py` and `xemu_minigames.py`
+  ported): the reach engine's xemu checks, the D172 chain driver, the
+  route pilot and the progression minigames' solvers (below).
 
 How to sit is the `azurik-xemu-oracle` skill (`.claude/skills/`), which
-only a seat that sits loads. The chain, route and minigame sittings come
-with the reach engine (Step 4.13d2). Modkit's kit and this one share the
+only a seat that sits loads. Modkit's kit and this one share the
 slots folder, the owner-demo lease and the private store, so they keep
 one D108 budget while Modkit lives.
 
@@ -448,7 +452,7 @@ holds halted is saved where it is and stays held, as `park` saves
 (AZ-732, Step R1.36): letting it go first ran it for as long as the
 QMP stop took on the host, past a player tick on a loaded host, so a
 cold `boot-build`'s warm save halted about 1 boot in 20 one to three
-ticks late. The chain's parks and re-anchors and `l3_certify.py`'s
+ticks late. The chain's parks and re-anchors and `devkit/reach/l3_certify.py`'s
 snapshots go through them.
 **In-memory checkpoints (v0.14-36):** `Sandbox.checkpoint_save(name)`,
 `checkpoint_restore(name)`, `checkpoint_delete(name)` and `checkpoints()`
@@ -1192,7 +1196,7 @@ under the file's lock).
 **Held games and the guest's strings (Step X.45).** `boot()` and
 `loadvm()` are quiet by default (`quiet=False` not; an owner demo never):
 every first-pickup popup marked seen (inv+0x14, as
-`xemu_chain.boot_start` does), so no hint popup holds the player tick
+`chain.boot_start` does), so no hint popup holds the player tick
 (AZ-484). A capture that stops for want of the tick takes a census of
 what holds the game (`census()`: the scene tick's exits and the
 first-pickup bits; `meta["held_by"]`'s class `popup`, `dialog`, `hold` or
@@ -1707,6 +1711,381 @@ uv run --locked python -m devkit xemu demo fit-cams <trace.jsonl> --lines A:B --
 
 USA VAs only. The harness's selftest checks the recorder on a fake
 (`python -m devkit xemu oracle selftest`). `note_level` reads the level
-through the minigames' reader and `fit-cams` runs L3: each comes with
-the reach engine's ports (`devkit.xemu.minigames`, Step 4.13d2;
-`devkit.sim.l3`, Step 4.13a).
+through the minigames' reader (`devkit.xemu.minigames`) and `fit-cams`
+runs L3 (`devkit.sim.l3`).
+
+## The route pilot: `devkit/xemu/route.py`
+The xemu oracle's route pilot (Steps X.2, X.4): it walks the player to a
+target with pad input, in closed loop, on a sandbox
+`devkit/xemu/oracle.py` runs. A library for sitting scripts (no commands);
+dev-only like the harness: never in pytest, never a CLI verb.
+
+```python
+from devkit.xemu import oracle as xo, route as xr
+router = xr.router(iso, "w2")            # the level's reach model and route graph (minutes: build once, keep it)
+res = xr.walk_to(sb, router, "w2/g0/r1357", tier="hard", air=0, ticks=2400, label="r1357-0",
+                 log="legs.jsonl")          # one JSONL line per leg: planned against actual
+res["reached"], res["why"], res["left_m"], res["legs"]   # no coordinates
+```
+
+A target is a point (feet), a zone (`w2.Z013`), a node of the level
+file (`w2_z013`, through its `zone:` anchors) or a generated id
+(`w2/g0/r1357`: a pickup's point). `xr.router(iso, level, "phys")`
+routes over R_phys's floors instead (any landable face, slippery ones
+too). The planner is `devkit/rando/draft/route.py`: A* over
+the reach model's walk samples, swim nodes, shore steps and flights
+(`Reach.usable` decides which region edges the tier, air level, probe
+classes (by default the level authoring's admitted ones) and gates
+allow); `plan(sb, router, target)` only plans.
+
+On each player tick the pilot reads the body centre (critter+0x15C)
+and the camera yaw (input+0x10, EAX at 0x8CCC0) and steers on a look-
+ahead point on the way-points. **The pad (Step X.4):** the left stick is
+analog: the pilot's stick for the next tick is written into the active
+`ControllerState`'s left-stick floats when the game builds that tick's
+input (a `capture` hook on `xo.INPUT_BUILD`, 0x84F90, which reads them
+after its entry, calling `Sandbox.write_pad(l3.Pad(stick=...),
+stick_only=True)`, the harness's one RAM pad writer), within what a real
+pad's round gate gives (`route.stick`: an axis reaches 1.0, a diagonal
+0.76 after each axis's dead zone; within 5 degrees of an axis the other
+axis stays in its dead zone). Sitting x4 measured it: walk speed 7.0 x
+the magnitude, the heading the camera's plus atan2(-x, y). That write is
+its only RAM write: the pad's state as the game polls it. The right stick (turning the camera so the heading lies
+along a stick axis) and the buttons go through the FIFO. `analog="pipe"`
+(Step X.14) sends the same stick through the fork build's pipe instead
+(`axis lx|ly` lines when it changes, `xo.pipe_axis` past the dead zone):
+the pad's own path with no RAM write, a tick or two later than the hook.
+`analog=False` keeps X.2's FIFO-only pad
+(four cardinal directions), as a skip confirmation needs (D114). When
+the game ignores the stick (input+0x30 set: an exit's camera field
+walking the player out, say) the pilot waits, then replans; walks pay
+120 s to step into a level exit's trigger unless the target is there.
+
+It runs a flight along its track at the takeoff speed it needs (full
+speed for a gap or a lip lift) and presses Y at `at`; in the air it
+holds the air-control target that lands it on the aim
+(`route.air_target`), or pushes into a lip lift's face; it flaps while a
+flap leg's landing is out of reach, swims, and walks off at a drop. A
+jump onto a ledge above the kit's apex less 0.15 m is a lip lift: its
+takeoff stands in the tier's window before the face (`envelope.
+lip_lift_window`), its track through the middle of the face's width; it
+pushes into the face until the lift has the body over the ledge, then
+lands on the aim. In a flight's last 3 m of run-up the camera turns to
+its track (full stick at the takeoff), and a flight that needs speed but
+starts slow near its takeoff backs up first; off its track it replans a
+walk to the run-up rather than heading straight there. Y goes down half
+a tick's run before `at`; a body already falling fast there counts as
+taken off. A climb leg hops into the face every 20 ticks (the climb
+checks run in the air) and on the wall pushes the stick up. On border floors steeper than nz 0.9 it walks at
+0.45 stick, but not in a flight's run-up. A ride leg goes to its decoded trigger pad first
+(touch; X for an action pad, A for a whack), then stands on the deck
+(the derive guesses no ride on machinery or on a rig whose motion is
+decoded, AZ-353). No progress for
+1.5 s: a sidestep, a hop, then a replan around the spot (a flight that
+failed twice, a swim's shore step, a ride that doesn't move in 10 s, is
+banned); a fall or slide off the route replans, after a slope landing
+only once walking back up fails. HP falling 30 (or 10 % of max) within
+2 s, away from a landing, and under 60 % of max: it retreats 4 m along
+its way, holds 2 s and
+replans around where the hits came (twice, then it presses on). Flights
+landing on a face under nz 0.95 cost 3 s more, onto a floor's border 3
+s more (1 s one sample in). Walking up a slippery
+face, or in R_phys one steeper than the step-up's 0.8, is never planned
+(the body slides back). A dialog stops the player tick: A clears it and
+the walk goes on. `res` holds why it ended (`reached`, `died`, `stuck;
+replans used up`, ...), the distance left, the end zone and state, the
+legs walked, every plan and the HP; the captures (positions) go to the
+sandbox's out folder. `log=` appends one JSONL line per leg, coordinate-
+free: the leg and its edge as planned (kind, rise, gap, takeoff speed,
+lip window) against what happened (takeoff offset and speed, apex,
+landing error, ticks, HP lost) and a flight's arc relative to its
+takeoff: calibration data for the movement model.
+
+**When to use**: a sitting that needs the player somewhere by real
+input (a proven spot, an assumed connection, a skip's approach).
+
+**Known issues**: see the `azurik-xemu-oracle` skill §4.6 for what
+sittings x2 and x4 measured.
+
+## The minigames: `devkit/xemu/minigames.py`
+The progression minigames' solvers for the xemu oracle (Step R1.8f): each
+plays one minigame with real pad input in closed loop, reading its state
+from guest RAM (the level's node graph, read from the vanilla ISO, gives
+the names, links and curves; the live nodes give the values). A library
+for sitting scripts, like `devkit/xemu/route.py`: dev-only, never in pytest,
+never a CLI verb.
+
+```python
+from devkit.xemu import oracle as xo, minigames as mg
+m = mg.Minigames(sb, iso, "w2")      # the level's graph and collision; binds to the loaded level's live graph
+m.hose()                             # the console, the joystick, the six fires: {"solved": True, ...}
+m = mg.Minigames(sb, iso, "e6")
+m.song()                             # the tree song at the giant crystal: {"solved": True, "hits": 7, "order": [...]}
+m.aim_light(m.panel_ways("BluePanel_Toggle8")[0])   # one spotlight onto one orb, from its pad
+m.spotlights(to_pad, up, down)       # both machines, the owner's order (to_pad(pad, light), up, down: the sitting's moves)
+m.vent_beam()                        # from beside the steam vent: the blue beam to frag_earth_3
+```
+
+The solvers: `hose` (w2), `song`, `aim_light`, `spotlights`, `lift` and
+`vent_beam` (e6; Step R1.8i: both spotlight machines, the red lift and the
+steam vent onto the blue beam: frag_earth_3 3 of 3 in sitting r18i), `laser` (a6),
+`cannon` (a5), `cores` (life) and `torpedo` (w1, Step R1.8h: the
+periscope turned onto the tower by `torpedo_window`'s timer interval, then
+let go, which fires; sitting r18h toppled it 3 of 3). The player must be at the
+minigame first (walked there with `devkit/xemu/route.py`, or placed); `use()`
+presses X on an object the way the game's interaction test (0x4E870)
+wants it: the body centre within 1.5 m of the object's bounding sphere
+and the object faced. The left stick is written right after the main
+loop's pad poll returns (0xA2EB6): a platform's joystick reads it outside
+the player's input build, so a stick written at `xo.INPUT_BUILD` reached
+an e6 spotlight only every other frame. Moving transforms are computed
+from the links that drive them (`xform_live`; their nodes keep no
+attribute block where other nodes keep theirs). Nothing it returns holds
+a coordinate.
+
+**When to use**: a sitting that proves a spot behind a minigame, and
+Step R1.16's playthrough with real input.
+
+**Known issues**: sitting r18f ran
+each solver; `cores` lit at most 3 of the 20 filament cores before the
+player died. A spotlight's joystick rises 1.5 m once its pad's mirror
+toggle runs (every pad's, when a machine turns on or off), so
+`engage_light` walks up to where it stands now (sitting r18i; r18h's
+presses from the pad missed it). The red and blue machines' cameras hold
+the stick about 20 s and 29 s after each turns on, and a death reloads
+the level (`relink()` binds to it again).
+
+---
+
+## The chain: `python -m devkit xemu chain`
+The D172 chain driver (Step X.12; [`SIMULATOR.md`](../../docs/SIMULATOR.md) §
+"Chains"): a plan's spoiler paths, or with `--tour` a tour of whole
+spheres item to item (Step X.19), as segments (walk, exit, cart,
+teleport, pickup; minigame, barrier, button, event, warp), each hop with
+its search hints (whole steps, a ride's fall, seed strings), each
+played snapshot → L3 search → exact xemu replay → drain in one sandbox,
+each start an L3 snapshot exactly where the last segment halted, linked
+to its parent and parked (`savevm` into the sandbox's HDD clone) so xemu
+can be released while L3 searches. Failures are repaired (a bigger or
+broader search, the phys graph, a re-anchor) or stop the chain, named;
+a replay stopped by a level load the segment doesn't plan is searched
+again in whole steps, which run its trigger, and a miss if it stops so
+there too (AZ-702). A SIGTERM or SIGHUP ends it at the next segment or
+search, also where a callback swallowed its `Teardown` (AZ-701).
+Its sandbox is deterministic by default (Step X.22, the kit's default:
+a replay from a parked start ends on the same RAM every time;
+`chain.json`'s `settings.deterministic` records it). Its replay and
+action ticks are counted, and its search's robustness trials jitter, at
+the build's own rate (`l3.MAIN_RATE` read once from guest RAM: 60 on a
+60 fps `fps_unlock` build, AZ-379). Dev only: never
+in pytest, never a player's verb; the sandbox rules are the
+`azurik-xemu-oracle` skill's.
+
+```bash
+uv run --locked python -m devkit xemu chain segments [--plan PLAN] [--sphere N] [--item I] [--back] [--tour S...] \
+    [--start NODE] [--victory] [--no-counted] [--no-merge]
+uv run --locked python -m devkit xemu chain run BUILD [--plan PLAN] [--sphere N] [--item I] [--back] [--tour S...] \
+    [--start NODE] [--victory] [--no-counted] [--no-merge] [--segments FILE] [--hints FILE] [--progress FILE] \
+    [--tag vanilla-ig-new] [--save 2] [--first K] [--hop LEVEL SPOT] [--no-park] [--release no|yes|waiting] \
+    [--robust 2] [--jobs N] [--steps 200000] [--repairs 2] [--keep] [--scene yes|no|diverged] [--name NAME] [--ev DIR] \
+    [--resume CHAIN_JSON [--resume-at I [--start-of K]] [--resume-missed]] [--last I] [--seg-cap S] [--pilot] \
+    [--on-miss stop|place] [--unassisted] [--plateau N] [--l3 fast|base]
+uv run --locked python -m devkit xemu chain park-check                                       # the parked-start measurement
+```
+
+- `--plan`: the plan the build was made from; by default the golden
+  seed's under the defaults (`devkit.rando.DEFAULT_SEED`, which
+  `devkit/rando/restack.py` moves), so build it with `azurkit build --seed`
+  that seed.
+- `--tour 1 2`: spheres 1 and 2 as one chain from the start
+  (`plan.tour_segments`); `--back` returns to the start at the end,
+  `--victory` ends at the victory flag's event instead (the final
+  sphere), `--start` names the first node, `--no-counted` leaves the
+  obsidians out. Consecutive plain walks of a level and sphere play as one
+  segment (`plan.merge_walks`, up to four hops; `--no-merge` keeps them
+  apart). A tour starting past sphere 1 boots with the disc fragments its
+  first sphere holds (R2, placed) besides the element levels, and the
+  keys its keylocks use (by fourcc in the five key slots: the final
+  sphere's six `d2k1` lenses and three `d1k1` diamond batteries).
+- `--segments FILE` (Step R1.25): the segments a `segments` run printed
+  (the plan's identity line, then a segment a line), played instead of
+  the plan's: a plan a later database refuses (`load_plan`'s
+  `db_digest`: the frozen plans `13ad9434b881` and `066e456b52bd` after
+  R1.24's logic changes) plays from the print the code that made it
+  wrote (a scratch worktree at that commit: `segments --plan ... --tour
+  25 --victory > FILE`), its tour, discs and keys with it.
+- `--hints FILE`: seed strings by segment index (`"81.1"`: an action's
+  station 1's approach), tried first. `--progress FILE`: R1.16's
+  `progress.json`, whose `sample` entry for each segment (by its tour and
+  index) is set ok or failed as the segment ends. `--resume CHAIN_JSON`:
+  go on from that record's first segment not ok, at its parked start (a
+  `--keep` run's `parked/<W name>` drive and kept L3 snapshot; no boot);
+  give the resumed run a new `--name` (each writes
+  `results/chain-<name>.json`). A segment's start is its first parked
+  one: its own, else its first station's approach's (since Step R1.25b:
+  an action's own start can be the unparked link after the action
+  before it). `--resume-at I` resumes at segment I
+  instead; `--resume-missed` moves on at once from the resumed segment,
+  the earlier run's miss (no search again); `--start-of K` starts it at
+  segment K's parked start instead, a later segment from the same node
+  (d1's seal from the chromatic gate walk's start in `d1_core`). `--last
+  I` stops after segment I. In an exec server's sitting
+  (`devkit/xemu/sitting.py serve` with `AZURIK_XEMU_HDD` a later run's parked
+  drive, which holds every earlier run's tags too),
+  `chain.main(["run", ...], sitting=s)` resumes in that sandbox, so
+  several resumes share one slot.
+- Step R1.16 (D240: a segment's search capped at about 10 minutes, then
+  the miss recorded and the chain moved on): `--seg-cap S` caps each
+  segment's search seconds over every rung and re-anchor; `--pilot` runs
+  the route pilot (`route.walk_to`: closed loop, real pad, decoded
+  rides ridden from their pads) first on a hop that rides a rig and after
+  a search or replay miss (no string: the record says
+  `input = route pilot`); `--on-miss place` records a miss and moves on
+  [placed]: an R6 placement onto the next segment's from-node, or for a
+  missed exit into its trigger (the game's own load), else the R7 request
+  its levelSwitch posts. `progress.json` keeps the miss with `moved_on`.
+  A move-on that finds no player tick to place at quits xemu and goes
+  again once from the segment's start loaded from the drive (since Step
+  R1.25b, AZ-819: the start restored from memory after a death in the
+  route pilot's retreat bugchecked), its record's `again`; a move-on
+  that still fails is recorded, never raised past the chain's record.
+- Step R1.16d: a segment on d1's central elevator (`rig`: a hop between
+  two of its floors, `plan.ELEVATORS`, a run of them merged into one, or
+  the tour's ride from floor 7 back to floor 1) is ridden, not searched:
+  the elevator read live (each colour's floor, the floor switches'
+  toggles and keys), the fewest presses and rides planned from its
+  wiring (`lift_plan`, RE_DATA §8) and played with real pad input, each
+  a station, planned again after each: a floor switch pressed with X, the
+  floor's call field walked into until the deck has come, the deck
+  boarded and its colour's button pressed until it stops with the
+  player on it; then a walk into the to-node. The record's `lift` lists
+  each action.
+- Step R1.17a (AZ-500): a barrier behind the body (the hop's walk routes
+  on, `in_the_way`) is recorded `skipped`, not ok: the chain goes on, its
+  result names it (`skipped (not played)`) and `progress.json` marks it
+  `skipped`. A barrier whose from-node is its to-node (a hop's
+  `.destroyed` need, an item inside it: w1's IceBlock_01) is always in
+  the way, and done when one of its own switches (the generated
+  barrier's `switches`) moves; every barrier's switches are read before
+  and after its walk (`switches`). A segment with `"carry"` (a stored
+  power carried to its gate, set by the sitting's driver) is played with
+  LT held and no jump (Y with LT held toggles air): no Y in its searches,
+  LT on its replay's settle tick and every pad, its drains and the pipe
+  (again after a relaunch), no route pilot (its Y); its barrier presses
+  no element and lets LT go at the cast's tick. A touch event (AZ-501)
+  reads the toggles its touch drives before its approach and counts done
+  on its own touch, or on a toggle that rose at a tick its OR's input
+  from this touch reads on; the record keeps each toggle's reading
+  before, the wait's tick it read on and its own input's, and the OR's
+  other inputs on then.
+- Step R1.16f: a touch event on a walkway generator's base (d1's
+  `walkwayGeneratorN:BaseShape`, a box whose top is the floor) is
+  played at the same walkway's `PressurePlateShape`, stood on, whose
+  touch feeds the same combiner (AZ-497); since Step R1.25 a plate the
+  stand leaves untouched is tried onto its mesh's middle (an approach
+  to its box may end in a corner of a turned plate's box, off it), with
+  a hop there and walked across and back, watched as the stand is, the
+  record naming each try and the one that took (`how`). A ride boards from the
+  floor's call field unless the deck stands there and the body within
+  1.5 m of it, and after each ride steps off the deck onto the call
+  field's walk vertex nearest it, 0.5 m or more off the deck (the route
+  graph holds the deck only at its rest, so an approach searched from
+  it found no route); a keylock's approach stands within 0.5 m
+  (AZ-498). Since Step R1.25 the step-off tries one vertex per side of
+  the deck, nearest first, at full stick, with a jump where its vertex
+  stands higher and no headway comes (the record's `sides`); a keylock
+  X doesn't open is pressed once more from 0.7 m outside its sphere,
+  backing off to it first (the record keeps its `ActionButton_toggle`,
+  which X turns on with or without a key). Since Step R1.25b X's walk-up
+  that stalls farther than its reach (1.5 m) outside the object's sphere
+  gives up there (the act's `why`), and a floor switch whose walk-up
+  stalled so is tried again from a 0.5 m approach (segment 35's switch9:
+  from 1.2 m it stalled 1.74 m off).
+  A ride's switch or call field within 30 m of the body (3 m up or
+  down) is walked to from where it stands first (X's own walk-up, the
+  call's walk into its field), its searched approach only after a miss;
+  a death or another level loaded mid-ride is the ride's miss. Since
+  Step R1.25b a call ends at the player's death (HP 0, or another level
+  loaded), its record's `lost_at` (the tick, the route pilot's counted)
+  and `called_max` (the largest floor it read before: segment 35's end
+  read had come from w1 after the reload). A
+  boarding whose straight walk to the deck makes no headway goes by
+  the floor's landings at the deck's edge (the route pilot to each,
+  nearest first, then onto the deck with a jump at its first stall). `--unassisted`: a boss fight enters no cheat (the kit's own
+  HP and fuel), holds ground while the boss is beyond 2.6 m, steps in
+  to 2.2 m (since Step R1.25; 1.4 m before, which he never came within) and swings as he closes, and selects the next staff whose
+  elements have fuel each piece (AZ-499; since Step R1.25 config.xbr's
+  staffs W, EF, EA, EW and FW: E, A and F alone are armors, which
+  R1.16f's single-element turn cast; each piece records its swings,
+  its ticks in reach and his nearest distance); by default it is
+  [assisted] (the no-damage and refill cheats, EAFW).
+- `--plateau N` (Step X.95; off by default): a search's seed ends once its
+  best cost to go hasn't fallen by 0.1 s in N steps (`l3_search`'s
+  `Limits.plateau`, `plateau at <the edge>`), the same N on every rung
+  (over `SCENE_COST` in whole steps); the 4x rung, the first rung's own
+  problem and seeds, is passed over when every seed ended at its
+  plateau (or ran out of new cells), as they would end there again. It
+  is a cut of the same run (a budget, not the problem's shape), so a
+  string found before it is the same string; a seed whose find came
+  after N steps with no fall becomes a miss, and the time a miss saves
+  goes to the ladder's next rungs inside `--seg-cap`. Step X.95 picked
+  N = 100,000 from re-runs of R1.25b's 40 searches and R1.25's kept
+  late find from their starts: the longest stretch with no fall before
+  any find was 6,965 whole steps (a whole-step find at 7,226, about
+  70,000 player steps), 4,654 in player steps; on R1.25b's segments
+  21-26 on FastL3, 100,000 cut the row's wall 1,127 s to 1,009 and 50,000
+  to 795, but 50,000 would have lost that find. X.95's sitting (R1.25's
+  segments 31-35 and R1.25b's 21-26 against main) found every segment
+  the same with N = 100,000 on either L3 and a row's wall 13-29 % shorter
+  on FastL3, by load (the plateau counts steps, the cap seconds). N is
+  not proven out of sample: its sweep holds segments 21-26, a row's
+  finds took at most 810 steps, 4 of R1.25b's seeds fell again after
+  115,000-163,000 flat steps (misses) and 18 of its finds past 100,000
+  steps kept no curve; a row with such a late find runs before the flag
+  is on in a chain. That held-out check (Step X.96, D906: seed x96a's
+  sphere 1-2 tour, segments 0-14 from a boot of its build, no segment
+  X.95's sweep saw, on main's code with and without `--plateau 100000`
+  side by side) lost a find: segment 0's first search, the same problem
+  and seed in both arms, found its string at 327,458 steps without the
+  flag after at least 120,779 steps with no fall (the curve at one value
+  from 20,583 to 141,362), and with it that seed ended at its plateau at
+  114,807 (another seed found a different string). So the flag stays off
+  by default. The closest kept find under N: 77,294 steps after at most
+  77,294 flat. The flagged row ran longer (3,470 s against 2,777: its
+  starts parted from the other arm's after segment 0 and it missed 9
+  segments to 2). Every run's
+  `curve` (its best cost to go every twentieth of its budget), `stall`
+  and `steps_per_s` stay in the attempt's record.
+- `--l3 fast|base` (Step X.95; default `fast`): each start's search
+  pool runs FastL3 (`sim.l3_fast`: on the patched libunicorn once
+  `devkit/reach/unicorn/build_unicorn.py` has built it, else on the stock wheel),
+  as `reach_engine.py --l3 fast` does, or round 1's L3 on the stock
+  wheel (`base`). FastL3's records are base L3's, so the strings, ticks
+  and robustness are the same; a search the wall or segment cap ends
+  runs more steps on it. `chain.json`'s `settings` name `l3` and
+  `l3_library` (`patched` or `wheel`). The replay's own L3 rows and the
+  start's row stay on base L3 in the driver's process.
+- `run` takes a slot through the sitting kit, boots the build from
+  `--tag`'s save menu (by default `vanilla-ig-new`'s SaveGame #2, the
+  new-game character) with the plan's kit (`boot_start`; placed), takes
+  `--hop` if given (an R7 level hop, placed), then plays the segments from
+  `--first` and writes `results/chain-<name>.json` in the sitting's evidence
+  folder (counts, hashes and input strings; no positions). Exit 0 when
+  every segment reached its goal.
+- `--release`: quit xemu during each search (`yes`), only while another
+  sitting waits for a slot (`waiting`), or hold it (`no`, the default).
+- `--robust N`: a winner whose robustness supports a harder tier than the
+  plan's is searched again in up to N other shapes; the most robust is
+  replayed. Not where the plan's tier isn't needed (a hop in logic at the
+  safe tier: a pickup, an approach, an edge with no difficulty) nor for a
+  whole-step winner (Step R1.16). Only a search's winner is graded: its
+  robustness trials run across the pool (`l3_pool`).
+  Parked starts outlive W (the private store's `parked/<W name>/`; after a
+  reboot, `Sandbox(hdd=...)` and `adopt_parked`).
+- `--scene`: search and run whole steps (enemies, machinery) for every
+  segment (`yes`), never (`no`), or once a segment's replay diverged
+  (`diverged`, the default).
+- `park-check`: on `vanilla-beach-shield5`, park a snapshot's start,
+  bring it back in the same xemu and after a relaunch, and compare every
+  user page, the registers and the start with the original, replaying a
+  known string from each.

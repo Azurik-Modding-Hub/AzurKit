@@ -11,7 +11,7 @@ whatever its age, when it is:
   LABEL`` takes it) or its file's path;
 - the start of a ``proofs.jsonl`` record (``start.snapshot.label``) in a checkout given (by default this
   checkout's ``git worktree list``: the main checkout and its lanes, as prune's), so a proof's L3 replay re-runs
-  on its own file (``l3_certify.py recheck``).
+  on its own file (``python -m devkit reach l3-certify recheck``).
 
 ``$EV/tools/prune`` reads it (its R5 rows; ``--apply`` and ``--check`` refuse a path holding a held snapshot), and
 any other cleanup of the store asks it first: ``uv run --locked python -m devkit sim l3-hold --check PATH ...``

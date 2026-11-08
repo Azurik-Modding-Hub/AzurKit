@@ -210,7 +210,7 @@ numbers are the skill's (Step 2.216 moved this text here word for word).
     no pipe line pending they save alone
     (`_keeps_run`), otherwise they reload (`savevm T`, `loadvm T`, then
     on: `_reload`, 0.02-0.08 s), so the chain's parks and re-anchors and
-    `l3_certify.py`'s snapshots stay checkpoints. Frame numbers count
+    `devkit/reach/l3_certify.py`'s snapshots stay checkpoints. Frame numbers count
     the current process's vblanks, not the state's: after a load a
     recorded or remembered `@N` is wrong; tag a line `@<frame()+N>`
     (`at=`), as `play_recording` does. `+N` (`after=`) counts from the

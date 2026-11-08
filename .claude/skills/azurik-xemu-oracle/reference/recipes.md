@@ -124,12 +124,12 @@ Skips seen in a speedrun video go first in the queue
 flaps inside the measured envelope are not skips.
 
 **4.6 Walking to a target: the route pilot (Steps X.2, X.4).** A sitting asks
-`devkit/xemu/route.py` (with the reach engine, Step 4.13d2) to walk the player there
+`devkit/xemu/route.py` (Step 4.13d2) to walk the player there
 with real pad input; set the start up first (`loadvm`, a hop, R6, the
 kit), then:
 
 ```python
-from devkit.xemu import route as xr                # with the reach engine (Step 4.13d2)
+from devkit.xemu import route as xr
 R = xr.router(iso, "e2")                           # reach model + route graph: minutes; build once (or pickle the Reach)
 res = xr.walk_to(sb, R, "e2.Z006", tier="hard", air=0, ticks=2400, label="z191-z006", log="legs.jsonl")
                                                    # a zone; or "e2_z006" (a level-file node), "e2/g0/r733", (x, y, z)
@@ -184,7 +184,7 @@ res["reached"], res["why"], res["left_m"], res["end_zone"], res["legs"], res["pl
 
 **4.7 Chains: snapshot → search → replay (D172, Step X.12).** For a
 playthrough or any run of segments (R1.16's golden seed), use
-`devkit/xemu/chain.py` (with the reach engine, Step 4.13d2; `docs/SIMULATOR.md` § "Chains"), not a hand loop:
+`devkit/xemu/chain.py` (Step 4.13d2; `docs/SIMULATOR.md` § "Chains"), not a hand loop:
 `xc.boot_start(s, build, segs[0]["kit"])` (the build booted at SaveGame
 #1, or `tag="vanilla-ig-new", save=2` the new-game character's save, the
 plan's kit set: a placed start; never a vanilla state with the

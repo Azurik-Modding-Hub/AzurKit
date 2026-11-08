@@ -348,6 +348,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   folder and the reach models from the L3 store's `x7/reach/`, in place
   (`devkit/reach/models.py`); `tests/test_reach_engine.py` holds it and
   [`docs/REACH.md`](docs/REACH.md) describes it.
+- **The certification's cut (Step 4.13d2):** `devkit/reach`'s `l3-certify`,
+  `l3-contact` and `l3-gate` and `devkit/xemu`'s `chain`, `route` and
+  `minigames` are Modkit's `scripts/l3_certify.py`, `l3_contact.py`,
+  `l3_gate.py`, `xemu_chain.py`, `xemu_route.py` and `xemu_minigames.py`
+  at `f482ea041`, each its code with its imports renamed; the level's
+  reach model is `devkit/reach/models.py`'s, the route graph's builder
+  `devkit/rando/derive.py`'s, and the routers this checkout builds are
+  kept apart from Modkit's (`routers-azurkit/` beside the store's reach
+  models). `tests/test_reach_model.py` and `tests/test_simulator.py` hold
+  them, and the sitting kit's selftest the chain's rate and the pilot's
+  pipe.
 - **Coverage:** Modkit's planner tests don't guard AzurKit's copy. A step
   that edits a module from the cut ports the Modkit tests that pin what it
   changes, or names the golden that pins it.
@@ -2001,7 +2012,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   A sitting runs on its kit (Step 4.14a3): `python -m devkit xemu sitting`
   (a spec's cases, or a serve its drivers run in), the model-swap rows
   (`devkit/xemu/sittings/model_kit.py`: the frame's cost warned, never
-  refused, D603, D604) and the owner demos (`python -m devkit xemu demo`);
+  refused, D603, D604), the owner demos (`python -m devkit xemu demo`) and
+  the reach engine's xemu checks (Step 4.13d2: the chain driver, `python -m
+  devkit xemu chain`, the route pilot and the minigame solvers);
   its builds are AzurKit's (`sdk.build`), and how to sit is the
   `azurik-xemu-oracle` skill, which only a seat that sits loads. Agent
   save states never go on the oracle's drive (D102).

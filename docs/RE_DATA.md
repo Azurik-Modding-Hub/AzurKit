@@ -2092,7 +2092,7 @@ Not randomizable (destination is the shell, not a level).
   AZ-476).
 - **The elevator's wiring as records** (Step R1.16d, read from the
   vanilla `d1.xbr`'s graph g0; the chain driver's `LIFT_*` tables in
-  `scripts/xemu_chain.py`). A floor switch is
+  `devkit/xemu/chain.py`). A floor switch is
   `switchN:public_switchShape` (X, `actionButton`) AND its `Key_toggle`;
   that combiner toggles its `FloorNtoAorB_toggle` and pulses two ANDs
   with the toggle's goal, one through an inverting curve, into its

@@ -836,10 +836,11 @@ def router_key(reach: str, prof: str) -> str:
 def load_router(reach: str, prof: str = "logic"):
     """A ``Router`` for profile ``prof`` from a pickled reach model (the certification script keeps one per level
     in the private store).  Built once per content key (:func:`router_key`, Step X.95: d1's took 2 s to build and
-    0.4 s to load, w1's 16.5 s and 0.8 s) and kept, the router with its reach model, in ``routers/`` beside the
-    reach model (the store's privacy: they hold positions), the newest key a model and profile only; one writer at
-    a time (a ``.writing`` mark), so a pool's workers building one router together write it once."""
-    folder = Path(reach).resolve().parent / "routers"
+    0.4 s to load, w1's 16.5 s and 0.8 s) and kept, the router with its reach model, in ``routers-azurkit/`` beside
+    the reach model (the store's privacy: they hold positions; Modkit's own keys live in ``routers/`` there, which
+    this keeps apart, Step 4.13d2), the newest key a model and profile only; one writer at a time (a ``.writing``
+    mark), so a pool's workers building one router together write it once."""
+    folder = Path(reach).resolve().parent / "routers-azurkit"
     stem = f"{Path(reach).stem}-{prof}-"
     try:
         cached = folder / f"{stem}{router_key(reach, prof)}.pkl"

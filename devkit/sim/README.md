@@ -28,7 +28,7 @@ only (`$EV/tools/prune` loads the file by its path).
 Re-runs the local L3 conformance corpus offline after an engine change
 (Step X.10; [`SIMULATOR.md`](../../docs/SIMULATOR.md)). Every xemu replay of an L3
 string (`xemu_oracle.py replay`, the sitting kit's `l3_replay`,
-`l3_certify.py`'s replays) is kept in the private store's
+`devkit/reach/l3_certify.py`'s replays) is kept in the private store's
 `conformance.jsonl`; this runs each string in L3 again from its kept
 snapshot and compares the new trace with xemu's per-tick digests.
 
@@ -73,7 +73,7 @@ uv run --locked python -m devkit sim explore census LEVEL [--kit air=2] [--runs 
 ```
 
 - A problem: a start (the snapshot `LABEL`, a natural start; with
-  `--start` a private file holding an R6 `teleport`, as `l3_certify.py`'s
+  `--start` a private file holding an R6 `teleport`, as `devkit/reach/l3_certify.py`'s
   `x7/<key>.json`, a placed start whose finds are `partial`), a kit
   (element levels set in L3 by R2, 0 for each it doesn't name, so an
   empty kit is kit 0; `snapshot` keeps the snapshot's own levels, AZ-528;

@@ -19,10 +19,12 @@ the native kernel and the reach engine are `devkit/reach` (Step 4.13d1,
 [`REACH.md`](REACH.md)), the trick explorer's and the conformance corpus's
 commands `python -m devkit sim explore` and `conformance`
 ([`devkit/sim/README.md`](../devkit/sim/README.md)). The commands it names
-by Modkit's script names (`xemu_oracle.py`, `l3_certify.py`,
-`xemu_chain.py` and their kind) arrive in `devkit` with the xemu harness's
-and the certification's steps; until then those sections describe
-Modkit's.
+by Modkit's script names are devkit's: the xemu harness, its sitting kit
+and the owner demos `devkit/xemu` (Steps 4.14a2-a3,
+[`devkit/xemu/README.md`](../devkit/xemu/README.md)), the certification
+`python -m devkit reach l3-certify`, `l3-contact` and `l3-gate`, and the
+chain driver, the route pilot and the minigame solvers `devkit/xemu`'s
+(Step 4.13d2).
 
 ## L3: the game's own step from a snapshot
 
@@ -183,7 +185,7 @@ wrong:
   opens; a kernel variable read through its thunk, the reading EIP. At
   most 8 sites a taint.
 - **Searches carry it.** A search `Result` holds the union of every
-  explored run's taint; `l3_certify.py` reports a not-found leg whose runs
+  explored run's taint; `devkit/reach/l3_certify.py` reports a not-found leg whose runs
   were tainted as `inconclusive`, never as a refutation. Measured over
   70 runs from the store: player-tick runs
   were clean or `read` (16 of them, from tick 60 on); every whole-step run
@@ -228,7 +230,7 @@ sim = L3(snap, vanilla_xbe, overlay=ov)                    # the snapshot is che
 - **Searches:** a `Segment`'s `overlay` runs its search on that build
   (part of the problem's identity); a pool worker keeps the simulators of
   its last four overlays, so a bisection over slider values reuses its
-  pool. `scripts/l3_contact.py` measures the randomizer's contact flights
+  pool. `devkit/reach/l3_contact.py` measures the randomizer's contact flights
   that way ([`SCRIPTS.md`](SCRIPTS.md)).
 - **The copies:** a constant the game copied out when the world was built
   is rewritten where it went, where the snapshot holds vanilla's value
@@ -296,7 +298,7 @@ Guest RAM holds console key material, so snapshots are private:
   proof (none of the 21 starts `proofs.jsonl` names was left on
   2026-10-24) is re-taken from its record's recipe, not its file: a
   sitting runs the record's `start.setup` up to the snapshot (the load,
-  the R7 hop, the R2 kit; `l3_certify.py sitting DIR W snapshots`), its
+  the R7 hop, the R2 kit; `python -m devkit reach l3-certify sitting DIR W snapshots`), its
   string re-runs in L3 from the new
   snapshot and replays in xemu (`sitting DIR W replays`), and `apply`
   writes the record with its new ref (`<sitting>/<string
@@ -326,8 +328,8 @@ hash of the entity and body: the replayer's start check), the loadvm
 Take one in a sitting (the `azurik-xemu-oracle` skill's sandbox):
 
 ```bash
-uv run --locked python scripts/xemu_oracle.py loadvm <W> vanilla-rz-new
-uv run --locked python scripts/xemu_oracle.py snapshot <W> w1-start [--scene] [--hold] [--store DIR]
+uv run --locked python -m devkit xemu oracle loadvm <W> vanilla-rz-new
+uv run --locked python -m devkit xemu oracle snapshot <W> w1-start [--scene] [--hold] [--store DIR]
 ```
 
 It runs to the player's next update entry (`--scene`: the next scene tick
@@ -554,7 +556,7 @@ protocol; `sim` imports nothing from the randomizer.
   point), not 0.75 m round the point (docs/RE_DATA.md "Pickups and exit
   triggers"). Only whole steps run the item: its generator spawns it
   while the player is in its cell and near it, and player-tick L3 never
-  takes one, so `l3_certify.py`'s whole-step check reads L3's own
+  takes one, so `devkit/reach/l3_certify.py`'s whole-step check reads L3's own
   inventory (`outcome_at`, `scene_outcome`).
 - **An exit's goal is the game's trigger test (AZ-483):** `ExitGoal`
   takes the body centre inside one of the trigger meshes its gate hint
@@ -567,8 +569,8 @@ protocol; `sim` imports nothing from the randomizer.
   exit's own level in that tail meets the leg (`outcome_own`). `ObjectGoal(inside=True)` is the same touch of any shape: the
   chain's touch events take it only for a shape a standing body centre can be inside (`l3_goal.holds_body`, a trigger
   volume); a platform the player stands on (d1's walkway generators' bases) is stood on, the event's object is the
-  record its flag names (`xemu_chain.event_object`: d1 has four `BeamShape`s), and it counts done on its own touch,
-  or when a toggle its touch drives (`xemu_chain.toggles`) rose, off before the approach, at a tick the toggle's OR
+  record its flag names (`chain.event_object`: d1 has four `BeamShape`s), and it counts done on its own touch,
+  or when a toggle its touch drives (`chain.toggles`) rose, off before the approach, at a tick the toggle's OR
   reads its input from this touch on (AZ-501: d1's are 3 s switches each fed by a beam and two walkways, so a
   toggle on alone doesn't show the event's own touch). Sitting R1.16e: the inside approach took the body centre into d1's
   walkway bases and `BeamShape` r451 only falling past their sides, 3 of 3 to the player's death [inferred].
@@ -716,7 +718,7 @@ protocol; `sim` imports nothing from the randomizer.
   `Segment.kit` is the kit set at the start (R2's levels, then the cast
   when it has air), so one snapshot serves every kit. The budget, the
   move shares and the kit join the problem's identity only when set (an
-  X.7 problem keeps its own). `scripts/l3_certify.py`'s skip ladder
+  X.7 problem keeps its own). `devkit/reach/l3_certify.py`'s skip ladder
   (`plan-skips`, `search-skips`, `apply-skips`) searches each skip at
   0 flaps with no air, then 1 flap with air 1, 2 with air 2 and 3 or
   more with air 3 (its top rung first: is it reachable at all?); the
@@ -731,12 +733,12 @@ protocol; `sim` imports nothing from the randomizer.
   snapshot in xemu, search here, replay the winner there from the same
   halted state, then `Sandbox.snapshot(label, here=True, parent=...)`
   exactly where the replay halted (the next tick's update entry), so no
-  tick between two segments goes unrecorded; `scripts/xemu_chain.py`
+  tick between two segments goes unrecorded; `devkit/xemu/chain.py`
   drives it (§ "Chains" below).
 
 ### A douse in whole steps (Step R1.29e)
 
-`devkit/sim/douse.py` is `scripts/xemu_chain.py`'s `Chain.staff` recipe
+`devkit/sim/douse.py` is `devkit/xemu/chain.py`'s `Chain.staff` recipe
 as a closed-loop controller on L3: from a row, it turns to the barrier's
 shape (12 ticks at a 0.15 stick toward its centre), casts the staff's
 elements (LT from tick 14, each element's button for a tick from tick 16,
@@ -745,7 +747,7 @@ mirror point, A held 4 ticks every 24, until the feet stand in the
 crossing's to-node for 8 ticks (at most 300 ticks of walking). Each tick's
 pad is decided from the row before it, so a start gives one fixed pad
 string, which xemu replays as it is (D170). Only whole steps run a
-barrier's node graph, so it runs in whole steps. `scripts/l3_certify.py
+barrier's node graph, so it runs in whole steps. `devkit/reach/l3_certify.py
 search --scene --douse` makes a leg through a barrier on the logic's way
 (a level edge's `through`, on the way there or back) three in one: a
 search to within 3 m of the shape on its near side (`ObjectGoal`), the
@@ -795,7 +797,7 @@ ran it: one worker and sixteen give the same rows and the same winners.
 `solve_many(pool, problems)` runs many search problems at once (every
 seed of every `Problem` a task; a problem's winner is decided once every
 lower seed index has finished, and its seeds still running stop between
-rounds); `l3_search.solve` is one problem on a pool, and `l3_certify.py
+rounds); `l3_search.solve` is one problem on a pool, and `devkit/reach/l3_certify.py
 search` runs every target of a level and kit on one. The pool runs under
 `xemu_queue.BatchToken`: one task in flight while an xemu sitting waits
 for free cores, and while an owner demo plays its workers at background
@@ -819,7 +821,7 @@ Measured on a private snapshot at load 55-58 on 24 CPUs
 296 ticks/s on 1 worker, 1,172 on 4 (4.0x), 1,970 on 8 (6.7x), 2,991 on
 16 (10.1x), the same rows at every count; a pool starts in 0.2-0.6 s.
 
-`scripts/l3_certify.py` is the pipeline for the randomizer's spots and
+`devkit/reach/l3_certify.py` is the pipeline for the randomizer's spots and
 edges (`docs/SCRIPTS.md`): a proof is the string's exact xemu replay, and
 its record goes into `src/azurkit/tools/randomizer/data/proofs.jsonl`
 (`src/azurkit/tools/randomizer/planner/proofs.py`: the claim, the start as a
@@ -1501,7 +1503,7 @@ long string into D172 pieces of at most 5,000 ticks (the long-replay
 gate), each ending at the last settle point in its reach (10 ticks at
 rest on the ground), else at 5,000 ticks marked unsettled (a join in
 motion, which counts only from the snapshot where the last piece's
-replay halted); `scripts/l3_gate.py split` applies it to a stored string.
+replay halted); `python -m devkit reach l3-gate split` applies it to a stored string.
 
 `python -m devkit sim explore` runs problems ([`devkit/sim/README.md`](../devkit/sim/README.md)).
 
@@ -1548,7 +1550,7 @@ builds them from `limits.options`, and a direct call passes its own.
 
 `devkit/sim/tricks_detect.py` (§3.5) names the tricks a string
 used, the same way for an L3 string (`from_l3(rows, pads)`) and an
-owner's demo trace (`from_trace`: `scripts/xemu_demo.py`'s recorder
+owner's demo trace (`from_trace`: `devkit/xemu/demo.py`'s recorder
 rows; older traces have no stored normal or clip, and the rules that
 need them fall back or stay silent). `mine(ticks)` counts each button's
 presses, takeoffs (entries into the air), slope contacts (entries into
@@ -1598,7 +1600,7 @@ air 3 castable (AZ-528).
 
 ### The exact xemu replayer
 
-`scripts/xemu_oracle.py replay <W> <label> <inputs.json>` runs the input
+`python -m devkit xemu oracle replay <W> <label> <inputs.json>` runs the input
 string in L3 from the snapshot, then replays it in xemu from the same
 start and prints the comparison (errors, state and HP mismatches, xemu's
 state changes; no positions). The guest must still be halted where
@@ -1619,9 +1621,9 @@ then `rows = L3(...).run(pads)`, then
 one string of 3,061 ticks and a chain's exact run of 3,619 (R1.16's
 `chain-r116-s123`), then sitting TD.0's one string of 5,214 player ticks
 from the w1 beach spawn (2026-10-18: exact on every observed field, every
-tick's observation distinct). `scripts/l3_gate.py build` draws a seeded safe string
+tick's observation distinct). `python -m devkit reach l3-gate build` draws a seeded safe string
 of 5,000 ticks or more from a snapshot (alive, unhurt, untainted, near its
-start) and `l3_gate.py replay` replays it with D172's stops, ending at the
+start) and `python -m devkit reach l3-gate replay` replays it with D172's stops, ending at the
 first tick off L3 by any distance, state or HP: the gate passes at 5,000
 exact ticks. With `--scene` (Step TD.4b) the start is taken at the
 scene tick's entry and the string is drawn and run in whole steps, so
@@ -1635,7 +1637,7 @@ halted, L3 finishing that frame on the snapshot's stack. The CLI's
 `replay` lets the guest run when it ends, so a chained replay is a
 driver's (`l3_gate.replay`, then `snapshot(here=True)`, per piece).
 **Demo traces (AZ-475, AZ-508)** replay per tick with
-`scripts/xemu_demo.py replay`: the trace's pad block at each update entry
+`python -m devkit xemu demo replay`: the trace's pad block at each update entry
 and its camera (recorded by the fork's PC hook at 0x85276, or fitted in L3
 by `fit-cams` for an older trace) at 0x85276, as above. A trace recorded
 with the hook replays exactly but on rows the recorder read mid-update
@@ -1646,7 +1648,7 @@ poller's row that holds the tick before's.
 
 ### Chains: the D172 driver (Step X.12)
 
-`scripts/xemu_chain.py` plays a list of segments in one sandbox,
+`devkit/xemu/chain.py` plays a list of segments in one sandbox,
 snapshot → L3 search → xemu replay, each segment starting exactly where
 the one before halted, with every player update under a recorded pad.
 The segments are a plan's spoiler paths
@@ -1708,7 +1710,7 @@ no RAM. Snapshots stay in the private store; parked states outlive W
 (below).
 
 ```python
-import sys; sys.path.insert(0, "scripts"); import xemu_sitting as xs, xemu_chain as xc
+from devkit.xemu import sitting as xs, chain as xc
 segs, ident = xc.plan_segments(plan, sphere=1, item=0)        # back=True: the return path too
 with xs.Sitting("chain", step="R1.16") as s:
     xc.park_check(s)                                          # optional: the measurement below
@@ -1722,7 +1724,7 @@ platform nearest the beach; `tag="vanilla-ig-new", save=2`: the D98
 drive's new-game character in w1, AZ-354), sets the plan's kit (R2:
 those element levels, the others 0) and, with `quiet` (the default),
 marks every first-pickup popup
-seen, as `l3_certify.py`'s kit does: a popup's wall-clock time to clear
+seen, as `devkit/reach/l3_certify.py`'s kit does: a popup's wall-clock time to clear
 let the world drift between two replays of one string near enemies. It is
 a placed start. The build must boot: a vanilla state `loadvm`'d with the
 build in the tray plays the levels its own boot cached on the HDD
@@ -1784,7 +1786,7 @@ SpoutPush1Shape is touched) is a ride in whole steps with a 600-tick fall
 and a seed onto the spout's foot; enemies have no data, so `"diverged"`
 still switches a segment to whole steps after a push or hit.
 
-`tour_segments(plan, logic, spheres, back=True)` (`xemu_chain.py
+`tour_segments(plan, logic, spheres, back=True)` (`devkit/xemu/chain.py
 --tour`) plays whole spheres as one chain (each segment names its
 `sphere`; `counted=False` leaves the obsidians out; `victory=True` ends
 at the victory flag's event, d1's Spideyzar killed, in place of the way
@@ -1821,7 +1823,7 @@ hop's level-file edge has a `difficulty` above safe).
 The driver plays `cart` and `teleport` as exits; `minigame`, `barrier`,
 `button` and `event` walk up to their object (an `l3_goal.ObjectGoal`,
 searched and replayed as a walk) and then act with real pad input in
-closed loop: `xemu_minigames.py`'s solvers, a barrier's staff cast
+closed loop: `devkit/xemu/minigames.py`'s solvers, a barrier's staff cast
 (LT, each element's button, release), three attacks and the walk
 through (sitting r113's recipe), X at a button (a seal, whose toggle
 fires on a touch of its shape, is stood on instead: d1's), a touch pad
@@ -1957,8 +1959,8 @@ w2/g0/r1364, FireWall_02, back by W2_W1b and the cove.
 
 ### The conformance corpus (Step X.10)
 
-Every xemu replay of an L3 string (`xemu_oracle.py replay`, the sitting
-kit's `l3_replay`, `l3_certify.py`'s replays) appends a record to the
+Every xemu replay of an L3 string (`python -m devkit xemu oracle replay`, the sitting
+kit's `l3_replay`, `devkit/reach/l3_certify.py`'s replays) appends a record to the
 private store's `conformance.jsonl` (`devkit/sim/corpus.py`): the
 snapshot's label and metadata hash, the mode, the string (segments with
 the camera as the f32 pairs L3 read, and its other writes, a teleport's
