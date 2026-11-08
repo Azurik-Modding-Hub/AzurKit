@@ -359,7 +359,8 @@ def _dress_cases(seed: int, count: int):
         chain = [comps() for _ in range(links)]
         old = bytes(rng.randrange(3) for _ in range(rng.choice((0, 1, 5, 300))))
         new = bytes(b if rng.random() < 0.8 else rng.randrange(3) for b in old[:rng.randint(0, len(old))])
-        yield {"bones": bones, "tracks": tracks + [[0, 3, [[float("nan"), 1.0, 0.0, 0.0]]]] * (not i),
+        yield {"rays": _ray_cases(random.Random(seed * 1000 + i)),
+               "bones": bones, "tracks": tracks + [[0, 3, [[float("nan"), 1.0, 0.0, 0.0]]]] * (not i),
                "times": [rng.uniform(-1.0, 4.0) for _ in range(rng.randint(1, 8))] + [k[0] for t in tracks[:3] for k in t[2]],
                "linear": [lin, [f() for _ in range(4)], [[f() for _ in range(4)] for _ in range(4)],
                           sorted({k[0] for ks in lin.values() for k in ks} | {rng.uniform(-1.0, 4.0)})],
@@ -373,6 +374,42 @@ def _dress_cases(seed: int, count: int):
                         [[[f() for _ in range(3)] for _ in range(4)] for _ in range(2 * m)],
                         [[[f() for _ in range(3)] for _ in range(3)] for _ in range(n)], [[f() for _ in range(3)] for _ in range(n)],
                         [[rng.uniform(-0.2, 0.2) for _ in range(3)] for _ in range(rng.randint(1, 9))]]}
+
+
+def _ray_cases(rng: random.Random) -> list:
+    """A round side's op fields and frame (each optional field given or
+    not; a taper or a blend's span that divides by zero, which the twin
+    raises; signed zeros) and the points its rays are asked through (its
+    origin's own among them), as JSON: [op, side, origin, points]."""
+    def u(lo=-0.4, hi=0.4):
+        return rng.choice((0.0, -0.0)) if rng.random() < 0.05 else rng.uniform(lo, hi)
+
+    def maybe(value):
+        return value if rng.random() < 0.5 else None
+
+    out = []
+    for _ in range(3):
+        radius = [rng.uniform(0.03, 0.4) for _ in range(4)]
+        span = rng.random() < 0.05   # a span of zero width: the twin's ZeroDivisionError
+        op = {"radius": radius, "blend": [rng.uniform(0.005, 0.1), rng.uniform(0.005, 0.1)],
+              "taper": rng.choice((0.0, 0.0, rng.uniform(0.0, 0.9), 1.0)), "taper_in": rng.choice((0.0, rng.random())),
+              "taper_back": rng.choice(([0.0, 0.0], [rng.random(), rng.choice((0.0, 0.2))])),
+              "taper_low": rng.choice(([0.0, 0.0], [rng.random(), rng.choice((0.0, 0.2))])),
+              "back": rng.choice((0.0, rng.uniform(0.05, 0.4))), "inner": rng.choice((0.0, rng.uniform(0.05, 0.4))),
+              "drape": maybe([u(), u(), 0.3, 0.3 if span else 0.9, u(-1.0, 1.0)]), "ease": rng.choice((0.0, 0.05)),
+              "inner_blend": maybe([rng.uniform(0.01, 0.1), 0.02, 0.02 if span else 0.08]),
+              "gate": maybe([-0.5, rng.choice((-0.5, 0.5)) if span else 0.5]),
+              "midline": maybe([-0.1, 0.1, 0.05, u(), 0.02][:rng.choice((3, 4, 5))]),
+              "behind": maybe([0.0, 0.1, rng.uniform(0.1, 1.0), sorted([[u(), u()] for _ in range(rng.randint(0, 3))])]),
+              "window": maybe([-0.3, -0.1, 0.1, 0.3])}
+        frame = [[u(-1.0, 1.0) for _ in range(3)] for _ in range(3)]
+        side = {"centre": [u() for _ in range(3)], "frame": frame, "rays": [u(-0.1, 0.1) for _ in range(6)],
+                "inward_sign": rng.choice((-1.0, 1.0))}
+        origin = maybe([0.0, u(), u()])
+        start = [side["centre"][i] + side["rays"][0] * frame[1][i] + side["rays"][1] * frame[0][i]
+                 + side["rays"][2] * frame[2][i] for i in range(3)] if origin is None else origin
+        out.append([op, side, origin, [[u() for _ in range(3)] for _ in range(25)] + [start]])
+    return out
 
 
 def _dress_answer(case: dict) -> list:
@@ -416,7 +453,27 @@ def _dress_answer(case: dict) -> list:
     pts = {"B": np.array(skin[0], dtype=np.int64).reshape(-1, 4), "W": np.array(skin[1]).reshape(-1, 4),
            "U": np.array(skin[2][:len(skin[0])]).reshape(-1, 4, 3), "UN": np.array(skin[2][len(skin[0]):]).reshape(-1, 4, 3)}
     R, O = np.array(skin[3]), np.array(skin[4])
-    return [engine(rt.origins_at, rig, clip, case["times"]), engine(rt.pose, rig, clip, case["times"][0]), bits(rows),
+    from azurkit.tools.characters import mesh_edit as me
+
+    rays = []
+    for op, side, origin, points in case["rays"]:
+        tup = (lambda v: None if v is None else tuple(v))
+        behind = None if op["behind"] is None else (*op["behind"][:3], tuple(map(tuple, op["behind"][3])))
+        o = me.RoundOp("b", tuple(op["radius"]), 0.0, tuple(op["blend"]), drape=tup(op["drape"]), ease=op["ease"],
+                       inner=op["inner"], back=op["back"], taper=op["taper"], taper_in=op["taper_in"],
+                       taper_back=tuple(op["taper_back"]), taper_low=tuple(op["taper_low"]),
+                       midline=tup(op["midline"]), inner_blend=tup(op["inner_blend"]), gate=tup(op["gate"]),
+                       behind=behind, window=tup(op["window"]))
+        s = me._Placed("ops[0]", o, tuple(side["centre"]), tuple(map(tuple, side["frame"])), frozenset(),
+                       rays=tuple(side["rays"]), origin=tup(origin), inward_sign=side["inward_sign"])
+        for p in points:
+            try:
+                got = me._ray_at(tuple(p), s, s.origin)
+                rays.append("None" if got is None else bits([*got[0], *got[1:]]))
+            except ZeroDivisionError:
+                rays.append("ZeroDivisionError")
+    return [rays,
+            engine(rt.origins_at, rig, clip, case["times"]), engine(rt.pose, rig, clip, case["times"][0]), bits(rows),
             characters._runs(*map(bytes.fromhex, case["runs"])), bits(_boxes(*case["boxes"])),
             bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist()),
             *(bits(jiggle._skinned(pts, R, O, normals=normals).tolist()) for normals in (False, True)),
@@ -432,14 +489,16 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     over seeded random inputs, every NaN a NaN (its sign and payload aren't
     held: the compiler may order an operation's two NaN inputs either way)."""
     cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
-    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs"):
+    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray"):
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
                             ran.update([name]) or real(*a, **k))
     assert native.report()["loaded"]
     with numpy.errstate(all="ignore"):   # case 0's sample is the twin's
         got = [_dress_answer(case) for case in cases]
+    asked = sum(len(points) for case in cases for *_, points in case["rays"])
     assert ran == {"origins": 798, "linear": 400, "chain": 400, "boxes": 400, "sample": 399, "heights": 400,
-                   "skinned": 1600, "signed": 400, "runs": 400}   # every call answered by the library but case 0's clip's
+                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked}   # by the library but case 0's clip's
+    assert 0 < sum(r == "ZeroDivisionError" for g in got for r in g[0]) < asked / 10   # some divide by zero
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):   # the twins' numpy on infinities
         assert got == [_dress_answer(case) for case in cases]

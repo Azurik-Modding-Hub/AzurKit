@@ -287,7 +287,7 @@ from pathlib import Path
 
 import numpy as np
 
-from azurkit.core import fdlibm
+from azurkit.core import fdlibm, native
 from azurkit.tools.characters.characters import (
     VERTEX_SIZE, MeshGroup, body_at, bone_records, inverse_binds, mesh_groups, read_body)
 from azurkit.tools.characters.gltf import HELPER
@@ -1925,8 +1925,49 @@ def _ray(p: Vec, side: _Placed, origin: Vec | None = None):
     return ans
 
 
+_ROWS: dict[int, tuple] = {}
+"""Each round side's :func:`_ray_row`, by its id (with the side, so the id stays its own while kept)."""
+
+
+def _ray_row(side: _Placed):
+    """``side``'s doubles as ``native/mesh.c``'s ``az_ray`` reads them
+    (its centre, frame, rays and inward sign, then its op's numbers, each
+    optional one after a flag), or ``None`` where the twin must read it."""
+    got = _ROWS.get(id(side))
+    if got is not None and got[0] is side:
+        return got[1]
+    from array import array
+
+    op = side.op
+    try:
+        drape = op.drape is not None
+        if drape and len(side.rays) < 6:
+            return None
+        midline = tuple(op.midline or ())
+        line = tuple(op.behind[3]) if op.behind is not None else ()
+        row = array("d", [*side.centre, *side.frame[0], *side.frame[1], *side.frame[2], *side.rays[:3],
+                          *(side.rays[3:6] if drape else (0.0,) * 3), side.inward_sign, *op.radius, op.taper,
+                          op.taper_in, *op.taper_back, *op.taper_low, op.back, op.inner, float(drape),
+                          *(op.drape if drape else (0.0,) * 5), op.ease, float(op.inner_blend is not None),
+                          *(op.inner_blend or (0.0,) * 3), *op.blend, float(op.gate is not None),
+                          *(op.gate or (0.0,) * 2), float(len(midline)), *midline, *(0.0,) * (5 - len(midline)),
+                          float(op.behind is not None), *(op.behind[:3] if op.behind is not None else (0.0,) * 3),
+                          float(len(line)), float(op.window is not None), *(op.window or (0.0,) * 4),
+                          *(x for q in line for x in q)])
+    except (TypeError, ValueError):
+        return None
+    if len(row) != 63 + 2 * len(line) or len(midline) not in (0, 3, 4, 5):
+        return None
+    if len(_ROWS) >= 4096:
+        _ROWS.clear()
+    _ROWS[id(side)] = (side, row)
+    return row
+
+
 def _ray_at(p: Vec, side: _Placed, origin: Vec | None = None):
-    """:func:`_ray`, asked."""
+    """:func:`_ray`, asked: the compiled kernel's (``core.native.ray``), else its twin's."""
+    if (row := _ray_row(side)) is not None and (got := native.ray(row, p, origin)) is not False:
+        return got
     op, c = side.op, side.centre
     n, sa, ta = side.frame
     if origin is None:

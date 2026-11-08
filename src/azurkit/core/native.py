@@ -47,7 +47,8 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("win32", "x86_64"): "windows-x86_64.dll",
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
-KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs")
+KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
+           "ray")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -104,6 +105,7 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_heights", [vp, vp, i64, vp, vp, i64, vp, vp]),
                          ("az_skinned", [vp, vp, vp, i64, vp, vp, i64, i64, vp]),
                          ("az_signed", [vp, i64, vp, vp, i64, f64, f64, vp, vp, vp]),
+                         ("az_ray", [vp, f64, f64, f64, i64, f64, f64, f64, vp]),
                          ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
@@ -829,6 +831,28 @@ def signed(p: int, n: int, x: int, normals: int, nx: int, reach: float, cell: fl
         return False
     keep = array("q", bytes(8 * nx))
     return lib.az_signed(p, n, x, normals, nx, reach, cell, d, near, _at(keep)) == 0
+
+
+_EIGHT = bytes(64)
+
+
+def ray(row: array, p, origin) -> tuple | None | bool:
+    """``mesh_edit._ray_at`` of the point ``p`` for the round side
+    ``row`` packs (``mesh_edit._ray_row``; from ``origin``, a pair's,
+    where given): ``(u, r, R, k, w, ramp)``, ``None`` at the origin, or
+    ``False`` without the library or where the twin raises (a division
+    by zero), which then answers."""
+    if (lib := library()) is None:
+        return False
+    out = array("d", _EIGHT)
+    at = out.buffer_info()[0]
+    if origin is None:
+        code = lib.az_ray(row.buffer_info()[0], p[0], p[1], p[2], 0, 0.0, 0.0, 0.0, at)
+    else:
+        code = lib.az_ray(row.buffer_info()[0], p[0], p[1], p[2], 1, origin[0], origin[1], origin[2], at)
+    if code == 0:
+        return (out[0], out[1], out[2]), out[3], out[4], out[5], out[6], out[7]
+    return None if code == 1 else False
 
 
 def runs(old: bytes, new: bytes) -> list[tuple[int, int]] | None:
