@@ -259,10 +259,10 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     $("char-community").replaceChildren(...groups.length ? groups
       : [el("p", { className: "note", textContent: c.why ? "None read yet." : "None listed." })]);
     $("char-name").textContent = chosen.name + (chosen.community ? "  · community" : "");
-    $("char-info").replaceChildren(...chosen.info.map(([label, text, colour]) => {
+    $("char-info").replaceChildren(...chosen.info.map(([label, text, colour, tip]) => {
       const value = el("td", { textContent: text });
       if (colour) value.style.color = paint(colour);
-      return el("tr", {}, el("th", { textContent: label }), value);
+      return el("tr", tip ? { title: tip } : {}, el("th", { textContent: label }), value);
     }));
     const locked = chosen.locked, live = chosen.live, defaults = chosen.defaults, ch = c.character;
     $("char-mode").replaceChildren(...view.modes.map((m) => el("option", { value: m.id, textContent: m.title })));

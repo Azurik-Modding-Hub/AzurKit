@@ -135,7 +135,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   its attack sets; Chain on any press (off by default, beside Gameplay; `"chain": "any"`) lets any press in the
   window chain instead, for any model.
 - **Attack sets:** a creature with more than one set of attacks switches sets with LB in game, the set's moves
-  shown top-left; the tab names them once your image is read.
+  shown top-left; once your image is read the tab says so, each set's moves in the line's tip.
 - **Voice:** the creature's own sounds, or Garret's.
 - **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both, each a recipe over a
   creature's body applied to your own copy; or your own recipe file, its shapes sized as you like (a moved shape

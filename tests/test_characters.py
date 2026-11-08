@@ -664,16 +664,17 @@ def test_the_characters_tab_and_the_builds_in_game_line_name_the_attack_sets_lb_
         usa_iso, no_content):
     """D1153: with the image read, the Characters tab's pick says what LB
     (the original pad's WHITE) does when the body plays 2 or more attack
-    sets: spideyzar's 3, by the names X36 shows (``played_set_lines``: the
-    build's picks as W3 places them, whirlwind moved into its finish), and
-    its build's X36 cycles those 3, so the build's "In game" line has LB.
-    garret4's own body, Skin only and a body of one set say nothing."""
-    line = ("LB switches its 3 attack sets: attack_1 attack_2 attack_3 whirlwind | attack_4 attack_5 attack_6 attack_7"
-            " | deathbeam jump")
-    for character, want in (({"species": "spideyzar"}, [line]), ({"species": "garret4"}, []),
+    sets, in a short line, and its tip names spideyzar's 3 sets as X36
+    shows them (``played_set_lines``: the build's picks as W3 places them,
+    whirlwind moved into its finish); its build's X36 cycles those 3, so
+    the build's "In game" line has LB. garret4's own body, Skin only and a
+    body of one set say nothing."""
+    row = ["LB switches between its 3 attack sets", None, "Attack set 1/3: attack_1 attack_2 attack_3 whirlwind\n"
+           "Attack set 2/3: attack_4 attack_5 attack_6 attack_7\nAttack set 3/3: deathbeam jump"]
+    for character, want in (({"species": "spideyzar"}, [row]), ({"species": "garret4"}, []),
                             ({"species": "spideyzar", "mode": "garret4"}, []), ({"species": "keylord"}, [])):
         info = sdk.pickers({"iso": str(usa_iso), "character": character})["chosen"]["info"]
-        assert [text for label, text, _ in info if label == "In game"] == want, character
+        assert [r[1:] for r in info if r[0] == "In game"] == want, character
     _, _, layers, _, _ = sdk._plan({"iso": str(usa_iso), "character": {"species": "spideyzar"}})
     assert sdk._ingame(layers) == ["LB: next attack set (3)"]
     assert ("; WHITE cycles its 3 attack sets (Attack set 1/3: attack_1 attack_2 attack_3 whirlwind | Attack set 2/3: "

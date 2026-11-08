@@ -10,8 +10,8 @@ nothing of its own.
   Azurik-Custom-Content's entries as the community group (D913: each
   marked community, its state Install, installed or Update, its variants
   once installed), and the chosen model's info panel (with the image read,
-  an "In game" line naming the attack sets LB switches, where it plays 2
-  or more, D1153), its Weapon box (each
+  an "In game" line saying LB switches between its attack sets, where it
+  plays 2 or more, each set's line in the row's tip, D1153), its Weapon box (each
   pick marked by its fit and coloured by the grade its build would read:
   an untested model's picks grey), which options its recipe decides and
   the character recipe a build takes from the tab. With no image read,
@@ -241,9 +241,9 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     sets = swap.played_set_lines(config_xbr, characters_xbr, base, wear_mode, worn.size if worn is not None else size,
                                  unit, None if worn is not None else character.get("anims"), worn, weapon) if (
         config_xbr is not None and characters_xbr is not None) else []
-    if len(sets) > 1:   # D1153: X36's sets, as its line names them in game
-        rows.append(["In game", f"LB switches its {len(sets)} attack sets: "
-                     + " | ".join(line.split("\n", 1)[1].replace("\n", " ") for line in sets), None])
+    if len(sets) > 1:   # D1153: X36's sets; the row's tip (a 4th item) has each set's line as X36 shows it in game
+        rows.append(["In game", f"LB switches between its {len(sets)} attack sets", None,
+                     "\n".join(line.replace("\n", ": ", 1).replace("\n", " ") for line in sets)])
     if worn is not None:
         rows += [["Notes", worn.notes, None], ["Source", source, None]]
     else:
