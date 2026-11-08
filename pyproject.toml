@@ -77,6 +77,12 @@ proxy-tools = { path = "vendor/proxy_tools-0.1.0-py3-none-any.whl" }
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = ["-rfEs", "--strict-markers", "-p", "no:cacheprovider"]
+# Every run, here and in CI, keeps a test's tmp_path only when it failed, and of the failed sessions' folders (their
+# failed tests' and their module- and session-wide ones: a browser's downloads, the site, the wheel) only the
+# newest's (Step 4.5v2): pytest's own defaults kept each test's for 3 sessions, and one 8-worker gate's built images
+# held 44 GB. A passing session's folder goes at its end.
+tmp_path_retention_policy = "failed"
+tmp_path_retention_count = 1
 markers = [
     "vanilla: reads the verified USA image; a run that selects one fails without it, so deselect with -m \"not vanilla\" (D26)",
     "europe: reads the verified Europe image, and is vanilla too; a run that selects one fails without it, so deselect with -m \"not europe\" (D26)",

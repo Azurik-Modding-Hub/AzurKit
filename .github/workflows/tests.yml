@@ -405,7 +405,7 @@ jobs:
           fi
           trap 'echo "--- a signal stopped the tier: the log'"'"'s tail"; tail -n 20 "$log" | cut -c 1-240; touch "$stop"; exit 143' TERM
           status=0
-          tier -m vanilla --shard=${{ matrix.label }}:${{ matrix.shard }}/${{ matrix.shards }} -o tmp_path_retention_policy=failed -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 --durations=60 --durations-min=60 > "$log" 2>&1 &
+          tier -m vanilla --shard=${{ matrix.label }}:${{ matrix.shard }}/${{ matrix.shards }} -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 --durations=60 --durations-min=60 > "$log" 2>&1 &
           pid=$!
           tier_id=$pid
           if [ "$RUNNER_OS" = Windows ]; then tier_id="$(cat "/proc/$pid/winpid" 2> /dev/null || true)"; fi

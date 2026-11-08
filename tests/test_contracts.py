@@ -93,6 +93,17 @@ def test_import_linter_contracts_hold(capsys):
     assert lint_imports(config_filename=str(ROOT / "pyproject.toml"), no_cache=True) == 0, capsys.readouterr().out
 
 
+def test_every_run_keeps_only_its_failed_tests_temp_folders_and_only_the_newest_failed_sessions():
+    """Step 4.5v2: pytest's defaults kept every test's ``tmp_path`` for 3
+    sessions, so a gate's site tests' built images piled up (one 8-worker
+    gate's held 44 GB). Every run, local or CI's (no workflow overrides it),
+    keeps a passing test's folder not at all, and of the failed sessions'
+    (their module- and session-wide folders too) only the newest's."""
+    options = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["pytest"]["ini_options"]
+    assert (options["tmp_path_retention_policy"], options["tmp_path_retention_count"]) == ("failed", 1)
+    assert [p.name for p in WORKFLOWS.glob("*.yml") if "tmp_path_retention" in p.read_text(encoding="utf-8")] == []
+
+
 def test_the_engine_holds_no_threads_processes_prints_or_exits_numpy_stays_in_its_homes_and_swaps_call_no_libm():
     caught = {   # each form the rules name, in an engine module
         "import threading": "imports threading",
