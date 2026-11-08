@@ -3779,10 +3779,10 @@ def test_play_on_the_apps_page_tracks_the_saved_builds_seed_with_live_on_and_liv
         tried.clear()
         _page.click(page, "xemu-ask-yes")
         _page.until(page, "() => document.getElementById('status').textContent.startsWith('Attached to')")
-        end = time.monotonic() + 30
-        while not tried and time.monotonic() < end:
+        end = time.monotonic() + 30   # Play's feed may retry (every RETRY_S) before the attach replaces it
+        while not any(t[0].startswith("helper:") for t in tried) and time.monotonic() < end:
             time.sleep(0.02)
-        assert helpers == [77] and tried[0][0].startswith("helper:") and len(launched) == 1
+        assert helpers == [77] and any(t[0].startswith("helper:") for t in tried) and len(launched) == 1
 
         _page.click(page, "track-live")                                    # off, then on by hand
         _page.until(page, "() => !azurkit.tracker.state.live")
