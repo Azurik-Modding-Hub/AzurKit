@@ -17,13 +17,13 @@ Private output (positions): a pickle at OUT (mode 0600); stdout prints counts on
 
 from __future__ import annotations
 
+import argparse
 import collections
 import json
 import os
 import pickle
 import random
 import struct
-import sys
 import time
 from pathlib import Path
 
@@ -169,8 +169,16 @@ def stratified(rows, n: int, rnd: random.Random):
 
 
 def main(argv=None) -> None:
-    level, label, n_fan, n_aim, seed, out = (sys.argv[1:] if argv is None else argv)[:6]
-    n = {"fan": int(n_fan), "aim": int(n_aim)}
+    ap = argparse.ArgumentParser(prog="python -m devkit reach native-trace", description=__doc__.split("\n\n")[0])
+    ap.add_argument("level")
+    ap.add_argument("snapshot")
+    ap.add_argument("n_fan", type=int, help="launches sampled from the R0 fan plan")
+    ap.add_argument("n_aim", type=int, help="launches sampled from the aims plan's first pass")
+    ap.add_argument("seed")
+    ap.add_argument("out", help="the trace pickle (mode 0600)")
+    a = ap.parse_args(argv)
+    level, label, seed, out = a.level, a.snapshot, a.seed, a.out
+    n = {"fan": a.n_fan, "aim": a.n_aim}
     t0 = time.process_time()
     snap = RE._snap(label)
     cands = candidates(level, snap)

@@ -1743,3 +1743,16 @@ def test_a_reach_model_modkit_pickled_loads_onto_its_homes_here_and_any_other_gl
     for evil in (shutil.rmtree, math.floor):
         with pytest.raises(pickle.UnpicklingError, match=f"names {evil.__module__}.{evil.__name__}"):
             models.load(io.BytesIO(pickle.dumps(evil, protocol=0)))
+
+
+def test_every_reach_verb_prints_its_usage_on_help_and_exits_0(capsys):
+    """Step 4.13d1: ``python -m devkit reach VERB --help`` prints the verb's usage and exits 0 for every verb,
+    the positional ones (native-trace, native-census) too, and runs nothing."""
+    import devkit.reach
+    from devkit import __main__ as dk
+
+    for verb in devkit.reach.VERBS:
+        with pytest.raises(SystemExit) as stop:
+            dk.main(["reach", verb, "--help"])
+        assert stop.value.code == 0, verb
+        assert "usage:" in capsys.readouterr().out, verb

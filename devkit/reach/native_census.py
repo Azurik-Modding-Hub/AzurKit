@@ -8,8 +8,8 @@ caches it per snapshot itself; this prints its counts and writes the absent owne
 
 from __future__ import annotations
 
+import argparse
 import json
-import sys
 from pathlib import Path
 
 from devkit.reach import reach_engine as RE  # noqa: E402
@@ -22,7 +22,12 @@ from devkit.reach.l3_pool import Worker  # noqa: E402
 
 
 def main(argv=None) -> None:
-    level, label, out = (sys.argv[1:] if argv is None else argv)[:3]
+    ap = argparse.ArgumentParser(prog="python -m devkit reach native-census", description=__doc__.split("\n\n")[0])
+    ap.add_argument("level")
+    ap.add_argument("snapshot")
+    ap.add_argument("out", help="the absent owners' indices, as JSON")
+    a = ap.parse_args(argv)
+    level, label, out = a.level, a.snapshot, a.out
     W = Worker(label, RE._store(None), read_file(str(vanilla_iso()), "default.xbe"), None)
     got = census_of(W.sim(False, deep=False), Level.read(vanilla_iso(), level))
     Path(out).write_text(json.dumps({"level": level, "absent": got["absent"]}), encoding="utf-8")
