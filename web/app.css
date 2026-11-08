@@ -649,6 +649,7 @@ p.views { margin: 0; padding: 2px 10px; }
 .var-pick-label { min-width: 6.5rem; }
 .var-pick { width: 11rem; height: 20px; padding: 0 6px; overflow: hidden; text-align: left; white-space: nowrap;
   text-overflow: ellipsis; }
+#var-weapon { width: auto; min-width: 11rem; }   /* its pick shown whole, as Modkit's fit_shown widens the box */
 .var-columns { columns: 3 17rem; column-gap: 18px; }
 .var-columns .var-pick-row { break-inside: avoid; }
 .var-columns .var-pick-label { min-width: 5.5rem; }

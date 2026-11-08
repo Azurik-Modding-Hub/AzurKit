@@ -1346,10 +1346,10 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
 def test_the_apps_moves_and_attacks_tabs_offer_the_images_bodies_and_weapons_and_save_what_they_pick(
         browser, tmp_path, monkeypatch, usa_iso):
     """Step 4.6f in the app's page, with the image: on a new variant on town_female_3 the Attacks tab's Weapon box
-    lists what the Models view offers her (Default first, with her own weapon named), and a weapon picked leaves the
-    columns out, saying so, and the Moves tab offers her own clips alone; back at Default, the Jump slot's menu offers
-    garret4's clips, a submenu each by their first word, and his jump picked shows as his; Save as writes both into
-    ``variants/mine/recipe.json``, as the loader takes them."""
+    lists what the Models view offers her (Default first, with her own weapon named) and shows a long pick whole, and
+    a weapon picked leaves the columns out, saying so, and the Moves tab offers her own clips alone; back at Default,
+    the Jump slot's menu offers garret4's clips, a submenu each by their first word, and his jump picked shows as his;
+    Save as writes both into ``variants/mine/recipe.json``, as the loader takes them."""
     from tests.test_site import VARIANTS_MENU, VARIANTS_TAB, VARIANTS_TYPE, _variants_shown
 
     _home(monkeypatch, tmp_path / "home")
@@ -1380,6 +1380,10 @@ def test_the_apps_moves_and_attacks_tabs_offer_the_images_bodies_and_weapons_and
         shown = page.evaluate(VARIANTS_TAB)
         assert (shown["note"], shown["content"], shown["kit"]["weapon"][0].startswith("Axion staff")) == (
             "Its weapon axion_staff plays every attack: Weapon Default picks clips.", False, True)
+        # the box widens to show a long pick whole (Modkit's fit_shown): barnacle's longest label, cut at 11rem
+        assert page.evaluate("""() => { const box = document.getElementById('var-weapon'), was = box.textContent;
+            box.textContent = "Balthazar's magic (look only)"; const whole = box.scrollWidth <= box.clientWidth;
+            box.textContent = was; return whole; }""")
         _page.click(page, "var-tab-moves")
         _page.until(page, "() => document.getElementById('var-moves-note').textContent === "
                           "'Its weapon axion_staff plays every attack.'", 120)   # the bodies' clips read
