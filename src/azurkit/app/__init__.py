@@ -360,31 +360,42 @@ def _set_setup(body: dict) -> dict:
     tab's (``randomizer``: on, the seed the player typed, the settings and
     the obsidian cost) is checked as a build checks it
     (``tools.randomizer.remembered``), and the Characters tab's
-    (``character``) as a share link carries one: names and numbers."""
+    (``character``) as a share link carries one: names and numbers. A
+    refused setup leaves the kept one as it was, the tick kept still (the
+    site keeps it whatever its setup)."""
     if not isinstance(remember := body.get("remember", False), bool):
         raise ValueError(f"remember: {remember!r} is neither true nor false")
     if (setup := body.get("setup") if remember else None) is not None:
-        if not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
-            raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")
-        ticked, values, ops = setup.get("ticked", []), setup.get("values", {}), setup.get("xbr", [])
-        if not (isinstance(ticked, list) and all(map(_named, ticked))):
-            raise ValueError("setup: ticked holds pack names only")
-        if not (isinstance(values, dict) and all(_named(pack) and _numbers(settings) for pack, settings in values.items())):
-            raise ValueError("setup: values holds {pack: {setting: number}} only")
-        if not (isinstance(ops, list) and all(isinstance(op, dict) and op.get("op") == "set" for op in ops)):
-            raise ValueError("setup: xbr holds config.xbr set operations only (Q174)")
-        xbr.normalize(ops)   # each set with exactly its keys, else refused by name
-        if "randomizer" in setup:
-            try:
-                randomizer.remembered(setup["randomizer"])
-            except ValueError as exc:
-                raise ValueError(f"setup: randomizer: {exc}") from None
-        if "character" in setup and (lost := sdk.restore({"character": setup["character"]})["dropped"]):
-            raise ValueError(f"setup: {lost[0]}")   # by name and numbers, never a recipe file's path
-        if "community" in setup:
-            communal.normalize(setup["community"])   # ids and pins only, else refused by name
+        try:
+            _check_setup(setup)
+        except ValueError:
+            _remember(remember=True)
+            raise
     _remember(remember=remember or None, setup=setup)
     return {}
+
+
+def _check_setup(setup: object) -> None:
+    """Refuse, by name, a setup :func:`_set_setup` can't keep."""
+    if not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
+        raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")
+    ticked, values, ops = setup.get("ticked", []), setup.get("values", {}), setup.get("xbr", [])
+    if not (isinstance(ticked, list) and all(map(_named, ticked))):
+        raise ValueError("setup: ticked holds pack names only")
+    if not (isinstance(values, dict) and all(_named(pack) and _numbers(settings) for pack, settings in values.items())):
+        raise ValueError("setup: values holds {pack: {setting: number}} only")
+    if not (isinstance(ops, list) and all(isinstance(op, dict) and op.get("op") == "set" for op in ops)):
+        raise ValueError("setup: xbr holds config.xbr set operations only (Q174)")
+    xbr.normalize(ops)   # each set with exactly its keys, else refused by name
+    if "randomizer" in setup:
+        try:
+            randomizer.remembered(setup["randomizer"])
+        except ValueError as exc:
+            raise ValueError(f"setup: randomizer: {exc}") from None
+    if "character" in setup and (lost := sdk.restore({"character": setup["character"]})["dropped"]):
+        raise ValueError(f"setup: {lost[0]}")   # by name and numbers, never a recipe file's path
+    if "community" in setup:
+        communal.normalize(setup["community"])   # ids and pins only, else refused by name
 
 
 TRACKED = 20   # the plans whose marks the app keeps (the page's KEEP)

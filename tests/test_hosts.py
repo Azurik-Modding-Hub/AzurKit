@@ -874,7 +874,7 @@ def test_the_app_gives_the_next_page_its_setup_only_with_remember_settings_ticke
     false and a setup holding anything but pack and setting names, numbers
     and config.xbr ``set`` cells (an image's path as a pack or setting name,
     a ``replace_bytes``, a character's recipe file) are refused by name, the
-    config as it was. A setup AzurKit 1.0 kept, with no choice, is forgotten
+    config as it was but for the tick, kept still. A setup AzurKit 1.0 kept, with no choice, is forgotten
     at the next launch, unread."""
     _home(monkeypatch, tmp_path / "home")   # where the app remembers
     (page := tmp_path / "page").mkdir()
@@ -935,6 +935,9 @@ def test_the_app_gives_the_next_page_its_setup_only_with_remember_settings_ticke
         assert call("api/setup", {"remember": False, "setup": setup}) == {}
         host = call("host.json")
         assert [kept(), host["remember"], host["setup"]] == [[{"theme": "light"}, ["app.json"]], False, None]
+        why, given = next(iter(refused.items()))   # ticked with a setup it can't keep: the tick is kept still
+        assert call("api/setup", {"remember": True, "setup": given}) == {"refused": why}
+        assert kept() == [{"theme": "light", "remember": True}, ["app.json"]]
     finally:
         server.close()
     app._config().write_text(json.dumps({"theme": "light", "setup": setup}), encoding="utf-8")   # AzurKit 1.0's
