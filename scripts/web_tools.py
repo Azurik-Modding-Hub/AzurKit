@@ -248,9 +248,14 @@ def fetch_browser(engine: str, root: Path = ROOT) -> Path:
     if browser_missing(engine, root):
         spec = importlib.util.find_spec("playwright")
         cli = Path(spec.origin).parent / "driver/package/cli.js"
-        subprocess.run(["node", str(cli), "install", *(["--only-shell"] if engine == "chromium" else []), engine],
-                       check=True, timeout=900, env=os.environ | {"PLAYWRIGHT_BROWSERS_PATH": str(browsers_dir(root))})
+        subprocess.run(["node", str(cli), "install", *install_args(engine)], check=True, timeout=900,
+                       env=os.environ | {"PLAYWRIGHT_BROWSERS_PATH": str(browsers_dir(root))})
     return browser_dir(engine, root)
+
+
+def install_args(engine: str) -> list[str]:
+    """``playwright install``'s arguments for ``engine``: Chromium's headless shell alone."""
+    return [*(["--only-shell"] if engine == "chromium" else []), engine]
 
 
 def cache(root: Path = ROOT) -> dict[str, str]:
@@ -260,8 +265,11 @@ def cache(root: Path = ROOT) -> dict[str, str]:
     this script runs and saves it after, so a run fetches nothing a run on its
     OS kept): its ``key``, from the exact versions (Pyodide's and its
     :data:`PACKAGES`, the locked playwright's, which names each browser's
-    revision) and the host (Playwright's builds differ by macOS release and
-    Linux distribution, and by CPU), and its two folders, ``pyodide`` and
+    revision), the host (Playwright's builds differ by macOS release and
+    Linux distribution, and by CPU) and a short digest of what is kept
+    (:data:`FILES`, each of :data:`BROWSERS`' names and its
+    :func:`install_args`, Chromium's ``--only-shell`` too), so an edit to what is kept
+    moves it with no version moved, and its two folders, ``pyodide`` and
     ``browsers``, as paths from ``root``, POSIX style. Nothing of the game's
     is ever in them."""
     if sys.platform == "darwin":
@@ -271,7 +279,8 @@ def cache(root: Path = ROOT) -> dict[str, str]:
         host = f"{release['ID']}{release.get('VERSION_ID', '')}"
     else:
         host = sys.platform
-    versions = (f"pyodide{VERSION}", *PACKAGES, f"playwright{importlib.metadata.version('playwright')}")
+    kept = digest(repr((FILES, [(name, install_args(engine)) for engine, (name, _) in BROWSERS.items()])))[:8]
+    versions = (f"pyodide{VERSION}", *PACKAGES, f"playwright{importlib.metadata.version('playwright')}", f"kept{kept}")
     return {"key": "-".join(("web-tools", host, platform.machine(), *versions)),
             "pyodide": Path(os.path.relpath(pyodide_dir(root), root)).as_posix(),
             "browsers": Path(os.path.relpath(browsers_dir(root), root)).as_posix()}

@@ -310,7 +310,8 @@ WEB_CACHE = """          key: ${{ steps.web-tools.outputs.key }}
 """The web tools' cache's key and folders, alike in its restore and its save (``web_tools.cache``)."""
 
 
-def test_ci_keeps_what_web_tools_fetches_in_a_cache_keyed_by_its_versions_and_os_restored_before_it_saved_after():
+def test_ci_keeps_what_web_tools_fetches_in_a_cache_keyed_by_its_versions_os_and_kept_files_restored_before_it_saved_after(
+        monkeypatch):
     """Step 4.5t: run 42467070736's jobs (911040d) failed as GitHub's release
     downloads answered Pyodide's core 504 for minutes. In each ``tests.yml``
     job that runs ``scripts/web_tools.py``, the step before its fetch
@@ -320,7 +321,9 @@ def test_ci_keeps_what_web_tools_fetches_in_a_cache_keyed_by_its_versions_and_os
     Playwright's browsers', nothing else, both saved before any step reads a
     secret or the tier's folder (no key or image is on the runner yet); no
     other step of any workflow names a cache action. The key names the exact
-    versions (Pyodide's, its packages, the locked playwright's) and the host."""
+    versions (Pyodide's, its packages, the locked playwright's) and the host,
+    and moves when what is kept does (a file of Pyodide's, an engine's name
+    or its install, as Chromium's headless shell alone) with no version moved."""
     from importlib.metadata import version
     import platform
 
@@ -354,6 +357,13 @@ def test_ci_keeps_what_web_tools_fetches_in_a_cache_keyed_by_its_versions_and_os
         "key", "pyodide", "browsers"}
     assert {f"pyodide{web_tools.VERSION}", *web_tools.PACKAGES, f"playwright{version('playwright')}",
             platform.machine()} <= set(made["key"].split("-")), made["key"]
+    chromium = web_tools.BROWSERS["chromium"]
+    for name, value in (("FILES", web_tools.FILES[:-1]), ("install_args", lambda engine: [engine]),
+                        ("BROWSERS", web_tools.BROWSERS | {"chromium": ("chromium", chromium[1])})):
+        with monkeypatch.context() as patched:
+            patched.setattr(web_tools, name, value)
+            assert web_tools.cache(ROOT)["key"] != made["key"], name
+    assert web_tools.cache(ROOT)["key"] == made["key"]
 
 
 GITHUB_ED25519 ="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"

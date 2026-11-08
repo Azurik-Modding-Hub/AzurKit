@@ -1863,8 +1863,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and wheels: 6 asks, 15 s to 2 min apart, 10 min at most, then a failure
   by name (Steps 4.4ci46 and 4.5t: an outage of GitHub's release downloads
   lasts minutes). What `scripts/web_tools.py` fetches (Pyodide, Playwright's
-  browsers) is kept in Actions' cache, keyed by the exact versions and the
-  OS (`web_tools.py --cache`), restored before its step and saved after it
+  browsers) is kept in Actions' cache, keyed by the exact versions, the OS
+  and what is kept (`web_tools.py --cache`), restored before its step and saved after it
   on a miss, before any key or image is on the runner (Step 4.5t). Each tier runs on xdist's
   workers (`--dist=loadgroup`, as the gate does) in a number each runner's
   memory sets, in the matrix: a killed worker ends the run by name
