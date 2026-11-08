@@ -12,6 +12,8 @@ says of a dress, and the Shape tab's quick preview. The sdk's
 - :func:`kit_throw`: what a base's default weapon throws and the columns
   that throw it;
 - :func:`move_sources`: the clips the Moves tab offers a body;
+- :func:`laid`: what the Moves and Attacks tabs show, read-only, of a
+  recipe ``from`` another;
 - :func:`add_wav` and :func:`add_png`: a WAV or an edited row's PNG
   copied into a variant's folder whole, under a name a recipe takes;
 - :func:`effect_bytes`: the bytes each ``effects`` row adds, as a build's
@@ -131,6 +133,36 @@ def move_sources(config: bytes, characters: bytes, body: str, bodies: dict[str, 
             variants[name] = (on, lent)
     return MoveSources(tuple(c for c in columns if c != ROLL), tuple(sorted(clips.get(body.casefold(), ()))),
                        lenders, variants)
+
+
+def laid(variant) -> dict:
+    """What the Moves and Attacks tabs show of a recipe ``from`` another,
+    read-only, as the loader lays it (Modkit's tabs read the ``Variant``):
+    its ``idles``, ``slots``, ``columns`` and ``clips``, its idles' ``wait``,
+    ``cancel`` (``victory_cancel``), ``drain``, ``carry`` and ``held``, and
+    its ``attacks`` numbers and switches as it plays them (a weapon over
+    moves of its own plays its default's, ``unarmed``: booblord's Axion
+    staff; balance and ground its mode's where it gives none), with
+    ``over``, the titles of that weapon and of the pick its moves make, or
+    ``None``."""
+    from azurkit.tools.characters._player_character import ATTACK_DEFAULTS
+    from azurkit.tools.characters._player_variants import unarmed
+    from azurkit.tools.characters._player_weapons import weapons
+
+    found = weapons()
+    worn = found.get(variant.weapon) if variant.columns else None
+    played = unarmed(variant) if variant.columns and variant.weapon not in (None, "default", "own") else variant
+    balance, ground = ATTACK_DEFAULTS.get(variant.mode, ATTACK_DEFAULTS["own"])
+    pick = next((w for w in found.values() if w.style.variant == (variant.files or variant.name)), None)
+    return {"idles": dict(variant.idles), "slots": dict(variant.slots), "columns": dict(variant.columns),
+            "clips": json.loads(json.dumps(variant.clips)), "wait": list(variant.idle_wait),
+            "cancel": variant.victory_cancel, "drain": variant.drain, "carry": list(variant.carry),
+            "held": list(variant.held),
+            "attacks": {"reach": played.reach, "damage": played.damage, "speed": played.speed,
+                        "balance": balance if played.balance is None else played.balance,
+                        "ground": ground if played.ground is None else played.ground,
+                        "through_walls": played.through_walls},
+            "over": None if worn is None else {"weapon": worn.title, "pick": pick.title if pick is not None else None}}
 
 
 def _copy_in(folder: Path, source: Path, data: bytes, suffix: str, fallback: str) -> str:

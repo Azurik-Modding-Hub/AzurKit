@@ -177,6 +177,10 @@ OPS = {op.id: op for op in (
        first=False),
     Op("A102", "Export PNGs (a folder in the Downloads folder)", "characters", first=False),
     Op("A103", "Import PNG (a row's edited texture, copied into its folder)", "characters", first=False),
+    Op("A110", "the Variants view's Moves tab, first open (the bodies' clips read)", "characters"),   # Step 4.6f
+    Op("A111", "a clip of another body picked on Moves (the recipe read again)", "characters", first=False),
+    Op("A112", "the Attacks tab, first open (its weapons read)", "characters"),
+    Op("A113", "a weapon picked on Attacks (the recipe read again)", "characters", first=False),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -260,6 +264,10 @@ OPS = {op.id: op for op in (
     Op("S102", "Export PNGs (the browser's download of their zip)", "characters", first=False,
        browser_bar=DOWNLOAD_BAR),
     Op("S103", "Import PNG (a row's edited texture, copied into its folder)", "characters", first=False),
+    Op("S110", "the Variants view's Moves tab, first open (the bodies' clips read)", "characters"),   # Step 4.6f
+    Op("S111", "a clip of another body picked on Moves (the recipe read again)", "characters", first=False),
+    Op("S112", "the Attacks tab, first open (its weapons read)", "characters"),
+    Op("S113", "a weapon picked on Attacks (the recipe read again)", "characters", first=False),
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
@@ -2314,6 +2322,81 @@ def site_variants(d: Driver, ctx, url: str) -> None:
     d.leave(p)
 
 
+# The Moves and Attacks tabs (Step 4.6f), on a new variant on town_female_3: the Moves tab's note once the bodies' clips
+# are read, its Jump picker's text once a pick is read, the Weapon box once its list is read and once a pick is read.
+VAR_NEW = "document.querySelector('#var-ask .picker-entry[data-name=\"town_female_3\"]')"
+VAR_MOVES = ("() => !document.getElementById('var-moves').hidden "
+             "&& document.getElementById('var-moves-note').textContent === \"— is the build's own pick.\"")
+VAR_JUMP = "document.querySelector('#var-moves .var-pick[data-key=\"jump\"]')"
+VAR_WEAPONS = ("() => !document.getElementById('var-attacks').hidden "
+               "&& document.getElementById('var-weapon').textContent.startsWith('Default (')")
+
+
+def _menu_entry(path: str, prefix: bool = False) -> str:
+    """The tabs' menu's entry at ``path`` (its labels joined by " › "; ``prefix``: the first that starts so)."""
+    return f"document.querySelector('#var-menu button[data-path{'^' if prefix else ''}=\"{path}\"]')"
+
+
+def _moves_ops(d: Driver, p: Page, ops: tuple) -> None:
+    """The Moves and Attacks tabs' ops on the new variant the view has open: Moves opened (its first), a clip of
+    garret4's picked for Jump, his jump and his standing jump in turn, then Jump back to the build's pick (the lent clip
+    dropped, so a weapon may be picked); Attacks opened (its first) and a weapon picked, Axion staff and Default in
+    turn."""
+    moves, picked, attacks, armed = ops
+    d.act(p, moves, click("var-tab-moves"), VAR_MOVES, 600)
+    n = 0
+    while d.need(picked):
+        n += 1
+        clip = ("jump_standing", "jump")[n % 2]
+        p.js(f"() => {VAR_JUMP}.click()")
+        p.wait(f"() => {_menu_entry(f'garret4 › jump (2) › {clip}')}", 600)
+        d.act(p, picked, f"() => {_menu_entry(f'garret4 › jump (2) › {clip}')}.click()",
+              f"() => {VAR_READ} && {VAR_JUMP}.textContent === '{clip} · garret4'", 600)
+    p.js(f"() => {VAR_JUMP}.click()")
+    p.wait(f"() => {_menu_entry('— the build', True)}", 600)
+    d.act(p, None, f"() => {_menu_entry('— the build', True)}.click()", f"() => {VAR_READ} && {VAR_JUMP}.textContent === '—'",
+          600)
+    d.act(p, attacks, click("var-tab-attacks"), VAR_WEAPONS, 600)
+    while d.need(armed):
+        n += 1
+        weapon = ("Axion staff", "Default")[n % 2]
+        p.js(click("var-weapon"))
+        p.wait(f"() => {_menu_entry(weapon, True)}", 600)
+        d.act(p, armed, f"() => {_menu_entry(weapon, True)}.click()",
+              f"() => {VAR_READ} && document.getElementById('var-weapon').textContent.startsWith('{weapon}')", 600)
+
+
+def _new_variant(d: Driver, p: Page) -> None:
+    """The Variants view on a new variant on town_female_3 (New's species picker), its recipe read."""
+    d.act(p, None, click("char-view-variants"), f"() => {VAR_READ}", 600)
+    p.js(click("var-new"))
+    p.wait(f"() => {VAR_NEW}", 600)
+    d.act(p, None, f"() => {VAR_NEW}.click()", f"() => {VAR_READ} && azurkit.variants.state.kind === 'new'", 600)
+
+
+def app_variant_moves(d: Driver, app: App, ctx) -> None:
+    """The Moves and Attacks tabs in the app (Step 4.6f): A110-A113 (:func:`_moves_ops`), the image picked."""
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA, 900)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES_LISTED, 600)   # the community list read: the Variants view's first list stands on it
+    _new_variant(d, p)
+    _moves_ops(d, p, ("A110", "A111", "A112", "A113"))
+    app.quit(p)
+
+
+def site_variant_moves(d: Driver, ctx, url: str) -> None:
+    """The Moves and Attacks tabs on the site (Step 4.6f): S110-S113 (:func:`_moves_ops`), the image picked and
+    checked first (its engine asks with the File)."""
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES_LISTED, 600)
+    _new_variant(d, p)
+    _moves_ops(d, p, ("S110", "S111", "S112", "S113"))
+    d.leave(p)
+
+
 # The Colours tab (Step 4.6e): its last answer once it is the edit's as it stands (the open variant's ``name``).
 COLOURS = "() => azurkit.variants.colours.current() && azurkit.variants.colours.answer"
 TINTED = (("tint_a", "town_female_3"), ("tint_b", "golem"), ("tint_c", "keylord"))   # each base's body read in turn
@@ -2452,6 +2535,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A120", "A121", "A94"), app_data),
     "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95"), app_variants),
     "app-colours": ("app", ("A100", "A101", "A102", "A103"), app_colours),
+    "app-variant-moves": ("app", ("A110", "A111", "A112", "A113"), app_variant_moves),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17", "S64"),
                    site_start),
@@ -2474,6 +2558,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S120", "S121", "S80"), site_data),
     "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81"), site_variants),
     "site-colours": ("site", ("S100", "S101", "S102", "S103"), site_colours),
+    "site-variant-moves": ("site", ("S110", "S111", "S112", "S113"), site_variant_moves),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)

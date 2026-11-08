@@ -153,8 +153,10 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   one as a zip (naming any file in it made from the game's, which isn't yours to share). Body sets its size, scale,
   arms out, rotate, title and notes, Gameplay its mode, Shape a slider for each of its shapes (a drag shows the
   nearest shape at once, marked Preview; let go, a quick preview of it once checked, else the Check) with its mesh's
-  ops, Jiggle each spring's stiffness, damping and strength (add one on a free bone, or remove one), and JSON shows
-  the whole recipe (Apply checks it first and keeps the old one if it's refused). The status line gives its recipe's checksum, its grade, and whether it's saved
+  ops, Jiggle each spring's stiffness, damping and strength (add one on a free bone, or remove one), Moves and Attacks
+  the clip each move and attack plays (its own, or once you pick your image another body's, Garret's too; Attacks also
+  sets its weapon and attack numbers and switches), and JSON shows the whole recipe (Apply checks it first and keeps
+  the old one if it's refused). The status line gives its recipe's checksum, its grade, and whether it's saved
   and checked; Check with game data (once you pick your image) dresses it as a build would, answers, then draws it: a
   first Check of new content takes a while, with a bar, a copy of a variant checked before (New from this, under any
   name, on a later visit too) takes a few seconds, and checking it again unchanged answers at once. Unsaved edits

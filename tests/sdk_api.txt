@@ -26,7 +26,8 @@ with game data), :func:`variant_colours`, :func:`variant_preview`,
 shape preview and its rows' PNGs, on the dress a Check keeps),
 :func:`add_png` and :func:`add_wav` (a file copied into a variant's
 folder) and :func:`base_bones`, :func:`own_sounds`, :func:`kit_throw`
-and :func:`move_sources` (what its tabs read of a base species), with
+and :func:`move_sources` (what its tabs read of a base species),
+:func:`variant_weapons` (the Attacks tab's Weapon box), with
 the Variants view's :func:`variants` (its list), :func:`variant_open`,
 :func:`variant_read` (a recipe as the library would hold it),
 :func:`variant_save` (Save, Save as, New from this), :func:`variant_delete`,
@@ -846,8 +847,23 @@ The clips the Moves tab offers a base species' body (``{"iso",
 "species"}``; D768, D785): ``{"columns"}`` (the attack columns a recipe
 may name, the roll's left out), ``"own"`` (its body's clips),
 ``"lenders"`` ({body: its clips}: garret4 and each humanoid body whose
-clips the bake can put on it) and ``"variants"`` ({built-in: [the body
-they're read on, its Blender clips]}).
+clips the bake can put on it), ``"variants"`` ({built-in: [the body
+they're read on, its Blender clips]}) and ``"names"`` ({a lender's
+body: the species the tab names it by}: garret4's his own, else the
+first species on it, as Modkit's tab names a body).
+
+
+def variant_weapons(given: 'Mapping') -> 'dict':
+
+The Attacks tab's Weapon box (Modkit's): what the variant the editor
+has open (``given`` as :func:`variant_check` takes it; ``iso``
+optional) takes as its weapon in its gameplay mode, wearing its recipe
+less its weapon (``_player_weapons.offers``, the Models view's list):
+``{"weapons": [{"name", "label"}, ...]}``, "Default (its title)" first
+(``name`` ``None``: the recipe's ``weapon`` left out), then each other
+weapon, its fit marked as the Models view marks it; with no image every
+weapon by name, its fit unknown (D1061). A ``weapon`` the recipe names
+that the list doesn't offer is kept, last, as Modkit's box keeps it.
 
 
 def variants(given: 'Mapping | None' = None) -> 'dict':
@@ -888,8 +904,11 @@ recipe ``from`` another's from that one), its Shape tab's ``shapes``
 and ``ops`` (``editor.shape_rows``) and the sliders' ``track`` (a
 display hint), its Jiggle tab's ``jiggle`` as it builds
 (``editor.jiggle_of``; ``None``: none) and ``rows_max``, the spring
-rows the game swings at most; or ``{"refusal"}``, the loader's or the
-library's words.
+rows the game swings at most, its mode's attack balance and reach to
+the ground where it gives none (``attack_defaults``) and, for a recipe
+``from`` another, the moves and attacks that one lays (``laid``,
+``editor.laid``: the Moves and Attacks tabs show them); or
+``{"refusal"}``, the loader's or the library's words.
 
 
 def variant_save(given: 'Mapping') -> 'dict':

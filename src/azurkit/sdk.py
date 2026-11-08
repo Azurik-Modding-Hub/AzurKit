@@ -24,7 +24,8 @@ with game data), :func:`variant_colours`, :func:`variant_preview`,
 shape preview and its rows' PNGs, on the dress a Check keeps),
 :func:`add_png` and :func:`add_wav` (a file copied into a variant's
 folder) and :func:`base_bones`, :func:`own_sounds`, :func:`kit_throw`
-and :func:`move_sources` (what its tabs read of a base species), with
+and :func:`move_sources` (what its tabs read of a base species),
+:func:`variant_weapons` (the Attacks tab's Weapon box), with
 the Variants view's :func:`variants` (its list), :func:`variant_open`,
 :func:`variant_read` (a recipe as the library would hold it),
 :func:`variant_save` (Save, Save as, New from this), :func:`variant_delete`,
@@ -141,7 +142,7 @@ __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_st
            "data", "data_edit", "mods_diff", "mod_template", "entity_diff", "image_info", "verify_all", "files", "extract", "mods_file", "community",
            "content_refusal", "file_entry", "saves", "variant_check", "variant_pictures", "variant_colours",
            "variant_preview", "variant_rows", "export_pngs", "add_png", "add_wav", "base_bones", "own_sounds", "kit_throw", "move_sources",
-           "variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import", "variant_export"]
+           "variant_weapons", "variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import", "variant_export"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -1305,13 +1306,49 @@ def move_sources(given: Mapping) -> dict:
     "species"}``; D768, D785): ``{"columns"}`` (the attack columns a recipe
     may name, the roll's left out), ``"own"`` (its body's clips),
     ``"lenders"`` ({body: its clips}: garret4 and each humanoid body whose
-    clips the bake can put on it) and ``"variants"`` ({built-in: [the body
-    they're read on, its Blender clips]})."""
+    clips the bake can put on it), ``"variants"`` ({built-in: [the body
+    they're read on, its Blender clips]}) and ``"names"`` ({a lender's
+    body: the species the tab names it by}: garret4's his own, else the
+    first species on it, as Modkit's tab names a body)."""
     from azurkit.tools.characters import editor, picker
+    from azurkit.tools.characters._player_variants import PLAYER
 
     _, config, bodies, _, body = _species(given, "move_sources")
-    worn = {species: b for species, b, _ in picker.species_list()}
-    return editor.move_sources(config, bodies, body, worn).to_json()
+    rows = [(species, b) for species, b, _ in picker.species_list()]
+    found = editor.move_sources(config, bodies, body, dict(rows)).to_json()
+    names = {PLAYER: PLAYER}
+    for species, b in rows:
+        names.setdefault(b.casefold(), species)
+    return found | {"names": {b: names[b] for b in found["lenders"] if b in names}}
+
+
+def variant_weapons(given: Mapping) -> dict:
+    """The Attacks tab's Weapon box (Modkit's): what the variant the editor
+    has open (``given`` as :func:`variant_check` takes it; ``iso``
+    optional) takes as its weapon in its gameplay mode, wearing its recipe
+    less its weapon (``_player_weapons.offers``, the Models view's list):
+    ``{"weapons": [{"name", "label"}, ...]}``, "Default (its title)" first
+    (``name`` ``None``: the recipe's ``weapon`` left out), then each other
+    weapon, its fit marked as the Models view marks it; with no image every
+    weapon by name, its fit unknown (D1061). A ``weapon`` the recipe names
+    that the list doesn't offer is kept, last, as Modkit's box keeps it."""
+    from azurkit.tools.characters import colour_preview, picker
+    from azurkit.tools.characters._player_weapons import weapons
+
+    _, variant, _ = _editing(given, "variant_weapons", image=False)
+    if isinstance(given.get("iso"), str):
+        _, config, bodies = _game(given["iso"])
+        body = colour_preview.body_of(config, bodies, variant.base)
+        offered = picker._offers(bodies, hashlib.sha256(bodies).hexdigest(), body, variant.mode,
+                                 dataclasses.replace(variant, weapon=None))
+    else:
+        offered = dict.fromkeys(weapons(), (None, ""))
+    entries = [{"name": e["name"], "label": e["label"]}
+               for e in picker._weapons(offered, None, lambda name, fit: (None, "", True))]
+    if variant.weapon is not None and variant.weapon not in {e["name"] for e in entries}:
+        kept = picker._weapons({variant.weapon: ("good", "")}, None, lambda name, fit: (None, "", True))[1]
+        entries.append({"name": variant.weapon, "label": kept["label"]})
+    return {"weapons": entries}
 
 
 # ------------------------------------------------- the Variants view's library calls (Step 4.6c, on Step 4.6a's)
@@ -1404,10 +1441,14 @@ def variant_read(given: Mapping) -> dict:
     and ``ops`` (``editor.shape_rows``) and the sliders' ``track`` (a
     display hint), its Jiggle tab's ``jiggle`` as it builds
     (``editor.jiggle_of``; ``None``: none) and ``rows_max``, the spring
-    rows the game swings at most; or ``{"refusal"}``, the loader's or the
-    library's words."""
+    rows the game swings at most, its mode's attack balance and reach to
+    the ground where it gives none (``attack_defaults``) and, for a recipe
+    ``from`` another, the moves and attacks that one lays (``laid``,
+    ``editor.laid``: the Moves and Attacks tabs show them); or
+    ``{"refusal"}``, the loader's or the library's words."""
     from azurkit.tools.characters import _player_variants as kinds
     from azurkit.tools.characters import editor, jiggle_rt, library, picker
+    from azurkit.tools.characters._player_character import ATTACK_DEFAULTS
 
     name = _named(given, "variant_read")
     recipe = given.get("recipe")
@@ -1425,7 +1466,8 @@ def variant_read(given: Mapping) -> dict:
     return {"refusal": None, "sha": v.sha, "base": v.base, "mode": v.mode, "mesh": v.mesh is not None, "grade": grade,
             "size": v.size, "scale": v.scale, "arms": v.arms, "rotate": v.rotate, "weapon": v.weapon,
             **editor.shape_rows(v, recipe), "track": picker.TRACKS["shape"],
-            "jiggle": editor.jiggle_of(v, recipe, name), "rows_max": jiggle_rt.MAX_ROWS}
+            "jiggle": editor.jiggle_of(v, recipe, name), "rows_max": jiggle_rt.MAX_ROWS,
+            "attack_defaults": list(ATTACK_DEFAULTS[v.mode])} | ({"laid": editor.laid(v)} if "from" in recipe else {})
 
 
 def _saved(name: str, given: Mapping) -> dict:

@@ -959,11 +959,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `variant_preview` (the
     Shape tab's quick preview, no dress: a bar op, its steps told), `variant_rows` and
     `export_pngs`; `add_png`, `add_wav`,
-    `base_bones`, `own_sounds`, `kit_throw` and `move_sources` need no
-    dress. The library's calls stand on Step 4.6a's library (Step 4.6c):
+    `base_bones`, `own_sounds`, `kit_throw` and `move_sources` (with each
+    lender body's species, Step 4.6f) need no dress, nor does
+    `variant_weapons` (Step 4.6f: the Attacks tab's Weapon box, the Models
+    view's offers for the recipe less its weapon; every weapon by name
+    with no image, D1061). The library's calls stand on Step 4.6a's library (Step 4.6c):
     `sdk.variants` (the list: built-ins, yours with each refusal, the
     species New starts on), `variant_open`, `variant_read` (a recipe as
-    the library would hold it, never raised), `variant_save` (Save; with
+    the library would hold it, never raised; with its mode's attack
+    defaults and, for a recipe `from` another, what that one lays,
+    `editor.laid`, which the Moves and Attacks tabs show), `variant_save` (Save; with
     `as`, Save as and New from this, `library.copy_as`), `variant_delete`,
     `variant_import` (an Export's zip or a recipe.json alone,
     `library.import_`: its other files left out, a path outside its folder
@@ -1535,18 +1540,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     refused one marked), New (a species from `web/picker.mjs` in the
     page's own dialog), New from this, Save, Save as, Delete (after a
     yes), Import and Export (a zip; the site's download, the app's
-    Downloads folder or save dialog), Gameplay, the Body, Shape, Jiggle
-    and JSON tabs (each tab but Body's and JSON's a module of
+    Downloads folder or save dialog), Gameplay, the Body, Shape, Jiggle,
+    Moves, Attacks and JSON tabs (each tab but Body's and JSON's a module of
     `web/variants/`, Step 4.6d, handed the view's `ctx`: the recipe, its
     read, an edit, the engine, the shared pictures; Shape's drag shows the
     nearest shape held marked Preview, D1011, and its let-go the quick
     preview or, unchecked, the Check; Jiggle's Add lists the last Check's
-    bones, else `base_bones`),
+    bones, else `base_bones`; Moves and Attacks, Step 4.6f,
+    `web/variants/moves.mjs` and `attacks.mjs`: Modkit's, their picks, lent
+    clip names, drain, carry and held, seeks, clip numbers, weapon and
+    attack numbers with no clamp, D23; the bodies' clips greyed with D979's
+    line until an image; their menus in the page's own `#var-menu`),
     Check with game data (greyed with D979's line until an image; its bar
     the bottom bar's) and the status line (sha12, grade, saved, checked);
     the engine decides every recipe (`sdk.variants`, `variant_open`,
     `variant_read`, `variant_save`, `variant_delete`, `variant_import`,
-    `variant_export`, `variant_check`). Unsaved edits are asked about in
+    `variant_export`, `variant_check`, `move_sources`, `variant_weapons`). Unsaved edits are asked about in
     the page's own dialog (`#var-ask`, on the body: a Build's question
     comes from any tab) before another opens and before a Build of that
     variant, and the site's `beforeunload` asks before the page goes. The
@@ -1559,8 +1568,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     and after each change; the view's calls load numpy first), and the
     work ahead's key counts each handoff. The Models view lists yours as
     its Yours group (`#char-custom`) with Edit… on a chosen variant.
-    `tests/test_variant_library.py`, `test_site.py` and `test_hosts.py`
-    hold it; `tests/_perf.py`'s A87-A93, A95, A96, S73-S79, S81 and S82 time it.
+    `tests/test_variant_library.py`, `test_variant_editor.py` (the Moves
+    and Attacks tabs' logic under Node), `test_site.py` and `test_hosts.py`
+    hold it; `tests/_perf.py`'s A87-A93, A95, A96, S73-S79, S81, S82,
+    A110-A113 and S110-S113 time it.
     Its tabs are modules of their own under `web/variants/`, so each tab's
     lane edits its own file. The Colours tab (Step 4.6e,
     `web/variants/colours.mjs`; Modkit's, D772, D809 (a)) draws on

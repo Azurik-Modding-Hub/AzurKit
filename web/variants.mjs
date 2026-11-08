@@ -7,20 +7,24 @@
 // as (the name in its box) and Delete (after a yes); Import (an Export's zip, or a recipe.json alone) and Export (a
 // zip, naming the files in it that aren't yours to share). The Base, fixed once chosen; Gameplay, the recipe's mode.
 // Body: its size (its own or Garret's height), scale, arms out, rotate, title and notes; Shape and Jiggle (each a
-// module of web/variants/, as each later tab is): its shape sliders and its springs; JSON: the whole recipe, whose
-// Apply checks it first and keeps the old one on a refusal. Check with game data dresses it on your image as a build
-// does (greyed until one is picked, D979), its bar the bottom bar's, and draws it. The status line: its recipe's
-// sha256[:12], its grade (unseen for an edit: no sitting graded it), saved or not, checked or not. Unsaved edits are
-// asked about before another opens, before a Build of that variant and before the page closes.
-// The engine decides every recipe (sdk.variants, variant_open, variant_read, variant_save, variant_delete,
-// variant_import, variant_export, variant_check): this view sends the recipe and draws the answers. The app keeps
+// module of web/variants/, as each later tab is): its shape sliders and its springs; Moves and Attacks (Step 4.6f,
+// variants/moves.mjs and variants/attacks.mjs): the clips its slots and attack columns play, its weapon and attack
+// numbers; JSON: the whole recipe, whose Apply checks it first and keeps the old one on a refusal. Check with game
+// data dresses it on your image as a build does (greyed until one is picked, D979), its bar the bottom bar's, and
+// draws it. The status line: its recipe's sha256[:12], its grade (unseen for an edit: no sitting graded it), saved or
+// not, checked or not. Unsaved edits are asked about before another opens, before a Build of that variant and before
+// the page closes. The engine decides every recipe (sdk.variants, variant_open, variant_read, variant_save,
+// variant_delete, variant_import, variant_export, variant_check, move_sources, variant_weapons): this view sends the
+// recipe and draws the answers. The app keeps
 // your variants in the user data folder (where Modkit keeps them); the site keeps them in this browser (IndexedDB's
 // azurkit-variants, which the Tools tab's Storage names and its Clear removes) and hands them to its engine as the page
 // starts and after each change. Text reaches the page through textContent only.
 import { keeper } from "./content.mjs";
 import { picker } from "./picker.mjs";
+import { attacksTab } from "./variants/attacks.mjs";
 import { coloursTab } from "./variants/colours.mjs";
 import { jiggleTab } from "./variants/jiggle.mjs";
+import { bodyClips, menus, movesTab } from "./variants/moves.mjs";
 import { shapeTab } from "./variants/shape.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -153,9 +157,25 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const colours = coloursTab({ state: v, call, app, image, packs, dialog, say, given: () => given(), edit: () => edit(),
                                ask: (question) => ask(question), folderOf: (name) => folderOf(name),
                                keep: (name, file, data) => keepFolder(name, { ...v.folders?.[name] ?? {}, [file]: data }) });
+  // The Moves and Attacks tabs (Step 4.6f): the recipe open, as read, its edits read again, the engine asked with the
+  // image (the site's File, the app's path), their menus in a dialog of the page's own.
+  const engineAsk = (type, asked) => call(type, app ? { given: { ...asked, iso: image() || null } }
+    : { ...image() ? { file: image() } : {}, given: asked })
+    .catch((error) => ({ refused: error?.message ?? String(error) }));
+  const movesCtx = { v, choose: CHOOSE, image: () => image(), read: () => v.readFor === now() ? v.read : null,
+                     edit: () => edit(), given: () => given(), ask: engineAsk, menus: menus() };
+  movesCtx.clips = bodyClips(movesCtx, () => {
+    moves.show();
+    attacks.show();
+  });
+  const moves = movesTab(movesCtx), attacks = attacksTab(movesCtx);
   const tabs = [{ name: "body", title: "Body", element: body }, shapeTab(ctx), jiggleTab(ctx),
                 { name: "colours", title: "Colours", element: colours.pane, button: colours.tab, shown: colours.shown,
                   checked: () => colours.load() },   // Step 4.6e: a body its build changes recoloured on the Check's dress
+                { name: "moves", title: "Moves", element: moves.element, load: () => moves.show(),
+                  shown: () => moves.show() },   // Step 4.6f: both shown again at a read and at any tab's click
+                { name: "attacks", title: "Attacks", element: attacks.element, load: () => attacks.show(),
+                  shown: () => attacks.show() },
                 { name: "json", title: "JSON", element: json, show: () => showJson() }];
   const tabButtons = tabs.map((t) => t.button ?? el("button", { id: `var-tab-${t.name}`, type: "button", role: "tab",
                                                                 textContent: t.title }));

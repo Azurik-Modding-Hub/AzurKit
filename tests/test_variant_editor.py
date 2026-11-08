@@ -4,7 +4,9 @@ calls past the library's rules): the colour views
 (``tools/characters/colour_preview.py``) and the sdk's ``variant_*`` calls
 (``tools/characters/editor.py``): what a base species' tabs read, an
 edit's refusals by name, Check with game data, the quick shape preview and
-the rows' PNG round trip."""
+the rows' PNG round trip; and the Moves and Attacks tabs' logic
+(``web/variants/moves.mjs`` and ``attacks.mjs``, Step 4.6f) under Node
+on the engine's answers, each recipe it writes one the loader takes."""
 
 from __future__ import annotations
 
@@ -17,11 +19,13 @@ import json
 import math
 import pickle
 import re
+import subprocess
 import struct
 import sys
 import time
 import wave
 import zipfile
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -445,3 +449,220 @@ def test_a_rows_png_exports_and_an_edited_one_comes_back_as_the_rows_texture(usa
         w.writeframes(b"\x01\x00" * 2205)
     assert [sdk.add_wav({"folder": str(folder), "file": str(tmp_path / "my take.wav")})["name"] for _ in "ab"] == [
         "my_take.wav", "my_take.wav"]
+
+
+# The Moves and Attacks tabs' own logic (Step 4.6f, web/variants/moves.mjs and attacks.mjs) under Node, as the page runs
+# it: the given engine answers in, each step's recipe and what the tab shows out (the drivers below).
+TABS = """
+import * as moves from %s;
+import * as attacks from %s;
+let input = "";
+for await (const chunk of process.stdin) input += chunk;
+const given = JSON.parse(input), out = {};
+const copy = (x) => JSON.parse(JSON.stringify(x));
+const find = (entries, ...path) => path.reduce((at, label) => (Array.isArray(at) ? at : at.entries)
+  .find((e) => e.label === label), entries);
+const leaves = (entries) => entries.filter((e) => !e.separator && !e.entries).map((e) => e.label);
+%s
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def _tabs(steps: str, given: dict) -> dict:
+    """``steps`` (JS over ``given``, writing ``out``) run under Node on the tabs' modules."""
+    web = Path(__file__).resolve().parent.parent / "web" / "variants"
+    script = TABS % (json.dumps((web / "moves.mjs").as_uri()), json.dumps((web / "attacks.mjs").as_uri()), steps)
+    run = subprocess.run(["node", "--input-type=module", "--eval", script], input=json.dumps(given), capture_output=True,
+                         text=True, timeout=120)
+    assert run.returncode == 0, run.stderr[-2000:]
+    return json.loads(run.stdout)
+
+
+def _loaded(recipe: dict, tmp_path):
+    """``recipe`` as the loader reads it from your variant's folder (``sdk.variant_read`` taking it too)."""
+    assert sdk.variant_read({"name": "mine", "recipe": recipe})["refusal"] is None, recipe
+    return _player_variants.load_variants(json.dumps({"mine": recipe}), str(tmp_path / "mine" / library.RECIPE),
+                                          tuple(_player_variants.builtins()))["mine"]
+
+
+MOVES = """
+const { sources, barnacle } = given;
+const recipe = { base: "town_female_3", mode: "own" };
+const jump = moves.menuOf(sources, recipe, null);
+const lent = jump.filter((e) => e.entries).map((e) => e.label), g4 = find(jump, "garret4").entries;
+out.menu = [lent[0], lent.at(-1), find(jump, "Townspeople").entries.map((e) => e.label).includes("town_male_1"),
+            leaves(jump), g4.length < 20, leaves(find(g4, "jump (2)").entries)];
+moves.pick(recipe, "slots", "jump", find(jump, "garret4", "jump (2)", "jump").value, sources);
+moves.pick(recipe, "idles", "idle", find(moves.menuOf(sources, recipe, null), "booblord (Blender clips)", "hip_idle").value,
+           sources);
+out.lent = [copy(recipe), moves.shownText("g4_jump", recipe.clips, sources.names)];
+moves.pick(recipe, "slots", "jump", null, sources);
+out.dropped = copy(recipe);
+const fidgets = () => [1, 2].map((k) => moves.gated("idles", `idle_${k}`, moves.named(recipe, null)));
+out.gated = [fidgets()];
+moves.pick(recipe, "idles", "idle_1", "sit", sources);
+moves.pick(recipe, "idles", "idle_2", "listen", sources);
+out.gated.push(fidgets());
+out.waits = [moves.setWait(recipe, ["2", ""]), moves.setWait(recipe, ["2.5", "8"]), moves.setCancel(recipe, "fast"),
+             moves.setCancel(recipe, "0.75")];
+out.fidgets = copy(recipe);
+moves.pick(recipe, "idles", "idle", null, sources);
+delete recipe.victory_cancel;
+out.cleared = [copy(recipe), fidgets(), moves.setWait(recipe, ["1", "2"])];
+const armed = { base: "town_female_3", mode: "own", weapon: "farmers_hoe" };
+const hoe = moves.menuOf(sources, armed, null);
+moves.pick(armed, "idles", "idle", "listen", sources);
+out.armed = [hoe.some((e) => e.entries), leaves(hoe).includes("listen"), copy(armed)];
+const lone = moves.menuOf(barnacle, { base: "barnacle", mode: "own" }, null);
+out.barnacle = [lone.some((e) => e.entries), leaves(lone).length > 1];
+out.fixed = [moves.whyFixed({ from: "beamlord" }, null), moves.whyFixed({ base: "keylord", mode: "garret4" }, null),
+             moves.whyFixed({ base: "garret4" }, { mode: "own" })];
+"""
+
+
+@pytest.mark.web
+def test_a_moves_pick_writes_the_recipes_slot_and_offers_only_what_the_loader_takes(usa_iso, tmp_path, monkeypatch):
+    """The Moves tab (Step 4.6f; Modkit's, D768, D785 "Any humanoid body's"): a slot's menu offers the build's pick,
+    the body's own clips and, a submenu each, garret4's clips (first, grouped by their first word), every humanoid
+    body's the bake can put on it (the townsfolk in one submenu, each by its species) and booblord's Blender clips; a
+    pick of another's writes a ``bake`` clip under a short name (W3 holds a column's in a vanilla string, Modkit's
+    names) that the slot plays, shown as its clip and body, and "—" takes the slot out and drops the clip no slot
+    plays. A fidget waits for the slot before it ("—" on the base clears those after it); the idles' wait takes both
+    ends or neither, after a base, and Cancel after a number, each named otherwise. A recipe whose weapon plays every
+    column, and a body the bake doesn't serve, are offered their own clips alone; a recipe from another is read-only
+    and Skin only plays Garret's. Every recipe written is one the loader takes."""
+    monkeypatch.setenv(library.ENV, str(tmp_path / "variants"))
+    asked = lambda species: sdk.move_sources({"iso": str(usa_iso), "species": species})   # noqa: E731
+    got = _tabs(MOVES, {"sources": asked("town_female_3"), "barnacle": asked("barnacle")})
+    hip = {"generator": "bake", "body": "townspeople/female_2", "variant": "booblord", "clip": "hip_idle"}
+    lent = {"base": "town_female_3", "mode": "own", "slots": {"jump": "g4_jump"}, "idles": {"idle": "b_hip_idle"},
+            "clips": {"g4_jump": {"generator": "bake", "body": "garret4", "clip": "jump"}, "b_hip_idle": hip}}
+    assert got["menu"] == ["garret4", "booblord (Blender clips)", True,
+                           ["— the build's pick", "idle", "listen", "sit", "talk", "walk"], True, ["jump", "jump_standing"]]
+    assert got["lent"] == [lent, "jump · garret4"]
+    assert got["dropped"] == {"base": "town_female_3", "mode": "own", "idles": {"idle": "b_hip_idle"},
+                              "clips": {"b_hip_idle": hip}}
+    assert got["gated"] == [[False, True], [False, False]]
+    assert got["waits"] == ["Wait: give both ends as numbers, or neither", "", "Cancel after: 'fast' is not a number", ""]
+    assert (got["fidgets"]["idles"], got["fidgets"]["victory_cancel"]) == (
+        {"idle": "b_hip_idle", "idle_1": "sit", "idle_2": "listen", "wait": [2.5, 8]}, 0.75)
+    assert got["cleared"] == [{"base": "town_female_3", "mode": "own"}, [True, True], "Wait: pick an idle base first"]
+    assert got["armed"] == [False, True, {"base": "town_female_3", "mode": "own", "weapon": "farmers_hoe",
+                                          "idles": {"idle": "listen"}}]
+    assert got["barnacle"] == [False, True]
+    assert got["fixed"] == [["beamlord's moves (read-only): New from this… makes one to edit.", True],
+                            ["Skin only plays Garret's moves.", False], ["", True]]
+    worn = [_loaded(recipe, tmp_path) for recipe in (lent, got["dropped"], got["fidgets"], got["armed"][2])]
+    assert (worn[0].clips["g4_jump"], worn[2].idle_wait, worn[2].victory_cancel, worn[3].idles) == (
+        lent["clips"]["g4_jump"], (2.5, 8.0), 0.75, {"idle": "listen"})
+
+
+ATTACKS = """
+const { sources, offers, built, booblord, beamlord } = given, names = sources.columns, tip = attacks.FLAG_LISTS[0][2];
+const recipe = { base: "town_female_2", mode: "own" };
+attacks.setDrain(recipe, "all");
+out.drain = [copy(recipe.drain)];
+attacks.setDrain(recipe, "nearest");
+out.drain.push("drain" in recipe);
+for (const [key, column] of [["carry", "basic3"], ["carry", "basic1"], ["held", "finish"]]) {
+  attacks.setFlag(recipe, null, key, column, true, names);
+}
+out.flags = [copy(recipe), attacks.flagText(attacks.listed(recipe, null, "carry"), tip),
+             attacks.flagText(attacks.listed(recipe, null, "held"), tip)[0]];
+for (const column of ["basic1", "basic3"]) attacks.setFlag(recipe, null, "carry", column, false, names);
+out.flags.push("carry" in recipe, attacks.flagText(attacks.listed(recipe, null, "carry"), tip)[0]);
+delete recipe.held;
+const kick = find(moves.menuOf(sources, recipe, null), "garret4", "attack (19)", "attack_back_kick").value;
+moves.pick(recipe, "columns", "basic1", kick, sources);
+attacks.setSeek(recipe, "g4_1", true);
+out.seek = [copy(recipe), attacks.playedOf(recipe, null, names)[0]];
+moves.pick(recipe, "columns", "basic1", null, sources);
+out.kit = [attacks.kitOf(recipe, built, offers).weapons.map((w) => w.label)];
+attacks.setWeapon(recipe, "axion_staff");
+out.kit.push(recipe.weapon, attacks.offOf(recipe));
+attacks.setWeapon(recipe, null);
+const shown = attacks.kitOf(recipe, built, offers).switches;
+attacks.setAttack(recipe, "reach", 1.25);
+attacks.setAttack(recipe, "damage", 2);
+attacks.setSwitch(recipe, "balance", false, built.attack_defaults);
+attacks.setSwitch(recipe, "through_walls", true, built.attack_defaults);
+out.numbers = [shown, copy(recipe), moves.number("fast"), moves.repr("fast")];
+attacks.setSwitch(recipe, "balance", true, built.attack_defaults);
+attacks.setSwitch(recipe, "through_walls", false, built.attack_defaults);
+attacks.setAttack(recipe, "reach", 1);
+attacks.setAttack(recipe, "damage", 1);
+moves.pick(recipe, "columns", "basic1", "talk", sources);
+const kit = attacks.kitOf(recipe, built, offers);
+out.refused = ["attacks" in recipe, kit.refused, kit.open];
+out.parents = [beamlord, booblord].map(([open, read]) => {
+  const k = attacks.kitOf(open, read, offers);
+  return [k.values, k.switches, k.parent, k.open, attacks.attacksWhyFixed(open, read)[0],
+          attacks.flagText(attacks.listed(open, read, "carry"), tip)[0]];
+});
+out.garret4 = [attacks.kitOf({ base: "garret4" }, { base: "garret4", mode: "own" }, offers).hidden,
+               moves.whyFixed({ base: "garret4" }, { base: "garret4", mode: "own" })];
+const spins = given.spins;
+out.made = [attacks.playedOf(spins, null, names)[1].map(([, title]) => title)];
+attacks.setNumber(spins, "spin", "turns", 3);
+attacks.setNumber(spins, "hspin", "tilt_deg", 60.5);
+out.made.push(copy(spins));
+"""
+
+
+@pytest.mark.web
+def test_the_attacks_tab_writes_the_columns_lists_weapon_and_numbers_the_build_reads(usa_iso, tmp_path, monkeypatch):
+    """The Attacks tab (Step 4.6f; Modkit's, D480, D495, D804, X33): life drain writes ``drain`` (its default,
+    nearest, no key); the Moves with stick and Chains held menus tick a column into ``carry`` or ``held`` in the
+    columns' order (none left: the key out), shown in words or counted; a column picks a clip as the Moves tab does,
+    and a recipe clip a column plays takes its ``seek``. The Weapon box offers what the Models view offers its base
+    less its weapon (Default, the key out) and, while the recipe plays clips of its own, is refused, saying why; a
+    weapon over the columns leaves them out. Reach, Damage and Speed write ``attacks`` multipliers (1: the key out),
+    Balance and Reaches the ground show the mode's default while unset (back at it: the key out), Hits through walls
+    is off. A recipe from beamlord shows his numbers, from booblord those her Axion staff plays (her moves her
+    Booblord spin pick's), read-only, her carry counted; garret4's own body has no weapon row and its columns are
+    his to pick. The Clip line edits the numbers of a recipe clip a column plays (booblord's spins). Every recipe
+    written is one the loader takes, as the build reads it."""
+    monkeypatch.setenv(library.ENV, str(tmp_path / "variants"))
+    sources = sdk.move_sources({"iso": str(usa_iso), "species": "town_female_2"})
+    built = sdk.variant_read({"name": "mine", "recipe": {"base": "town_female_2", "mode": "own"}})
+    offers = sdk.variant_weapons({"iso": str(usa_iso), "name": "mine", "recipe": {"base": "town_female_2"},
+                                  "folder": str(tmp_path / "mine")})["weapons"]
+    opened = {name: [sdk.variant_open({"name": name})[k] for k in ("recipe", "read")] for name in ("beamlord", "booblord")}
+    spins = {k: v for k, v in json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["booblord"].items()
+             if k != "weapon"}
+    got = _tabs(ATTACKS, {"sources": sources, "offers": offers, "built": built, "spins": spins, **opened})
+    columns, tip = sources["columns"], "These columns' swings follow the stick; a held A or B chains them."
+    assert got["drain"] == [{"targets": "all"}, False]
+    flags = got["flags"][0]
+    assert (flags["carry"], flags["held"], got["flags"][1:]) == (["basic1", "basic3"], ["finish"], [
+        ["2 columns", f"{tip}\nBasic 1, Basic 3."], "Finish", False, "none"])
+    worn = _loaded(flags, tmp_path)
+    bit = lambda *names: sum(1 << columns.index(c) for c in names)   # noqa: E731
+    assert (_player_variants.carried(worn, columns), _player_variants.held(worn, columns)) == (
+        bit("basic1", "basic3"), bit("finish"))
+    kick = {"generator": "bake", "body": "garret4", "clip": "attack_back_kick", "seek": True}
+    assert (got["seek"][0]["columns"], got["seek"][0]["clips"], got["seek"][1]) == ({"basic1": "g4_1"}, {"g4_1": kick},
+                                                                                    ["g4_1"])
+    assert _loaded(got["seek"][0], tmp_path).clips["g4_1"]["seek"] is True
+    assert got["kit"] == [["Default (Bare hands)", "Axion staff", "Farmer's hoe", "Balthazar's magic", "Booblord spin"],
+                          "axion_staff", "Its weapon axion_staff plays every attack: Weapon Default picks clips."]
+    assert got["numbers"][0] == {"balance": True, "ground": True, "through_walls": False}
+    assert (got["numbers"][1]["attacks"], got["numbers"][2:]) == (
+        {"reach": 1.25, "damage": 2, "balance": False, "through_walls": True}, [None, "'fast'"])
+    v = _loaded(got["numbers"][1], tmp_path)
+    assert (v.reach, v.damage, v.speed, v.balance, v.ground, v.through_walls) == (1.25, 2.0, 1.0, False, None, True)
+    assert got["refused"] == [False, "A weapon plays every attack column: clear its columns first.", False]
+    him, her = _player_variants.builtins()["beamlord"], _player_variants.builtins()["booblord"]
+    theirs = "'s moves (read-only): New from this… makes one to edit."
+    assert got["parents"] == [
+        [{"reach": him.reach, "damage": him.damage, "speed": him.speed}, {"balance": False, "ground": True,
+                                                                          "through_walls": True},
+         True, False, "beamlord" + theirs, "none"],
+        [{"reach": 1, "damage": 1, "speed": 1}, {"balance": True, "ground": True, "through_walls": False}, True, False,
+         "booblord" + theirs + " Its Axion staff plays every attack; these moves are its Booblord spin pick's.",
+         f"{len(her.carry)} columns"]]
+    assert got["garret4"] == [True, ["", True]]
+    assert got["made"][0] == ["hspin (hand_spin)", "pony_whip (gltf)", "spin (t_spin)", "stomp (t_spin)",
+                              "twirl (t_spin)"]
+    v = _loaded(got["made"][1], tmp_path)
+    assert (v.clips["spin"]["turns"], v.clips["hspin"]["tilt_deg"], v.clips["spin"]["length"]) == (3, 60.5, 0.4)

@@ -249,7 +249,8 @@ const LABELS = { build: "Building", save: "Saving", save_check: "Saving", vanill
                  variant_import: "Importing the variant", variant_export: "Exporting the variant",
                  variant_check: "Checking with game data", variant_pictures: "Drawing the variant",
                  variant_preview: "Previewing the shape", variant_colours: "Recolouring the variant",
-                 export_pngs: "Exporting its PNGs", add_png: "Importing the PNG", flat: READYING };
+                 export_pngs: "Exporting its PNGs", add_png: "Importing the PNG", move_sources: "Reading the bodies' clips",
+                 variant_weapons: "Reading the weapons it takes", flat: READYING };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other from its
 // first record, else after 1 s. Shown from the click too: Track this seed's plan and a plan file's spoiler (the logic's
 // read), and the site's Save's check, which is over when it is: no later Build, Cancel, pick or engine's ready ends it

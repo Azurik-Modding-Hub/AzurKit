@@ -1343,6 +1343,72 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
         server.close()
 
 
+def test_the_apps_moves_and_attacks_tabs_offer_the_images_bodies_and_weapons_and_save_what_they_pick(
+        browser, tmp_path, monkeypatch, usa_iso):
+    """Step 4.6f in the app's page, with the image: on a new variant on town_female_3 the Attacks tab's Weapon box
+    lists what the Models view offers her (Default first, with her own weapon named), and a weapon picked leaves the
+    columns out, saying so, and the Moves tab offers her own clips alone; back at Default, the Jump slot's menu offers
+    garret4's clips, a submenu each by their first word, and his jump picked shows as his; Save as writes both into
+    ``variants/mine/recipe.json``, as the loader takes them."""
+    from tests.test_site import VARIANTS_MENU, VARIANTS_TAB, VARIANTS_TYPE, _variants_shown
+
+    _home(monkeypatch, tmp_path / "home")
+    data = Path(platformdirs.user_data_dir("AzurKit", appauthor=False))
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.fill(page, "iso-path", str(usa_iso))
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.click(page, "var-new")
+        entry = "document.querySelector('#var-ask .picker-entry[data-name=\"town_female_3\"]')"
+        _page.until(page, f"() => {entry}")
+        page.evaluate(f"() => {entry}.click()")
+        _variants_shown(page, status="unsaved: Save as keeps it")
+        _page.click(page, "var-tab-attacks")
+        listed = "() => !document.getElementById('var-weapon').disabled && document.getElementById('var-weapon').textContent"
+        assert _page.until(page, listed, 120).startswith("Default (")
+        _page.click(page, "var-weapon")
+        offered = _page.until(page, "() => document.getElementById('var-menu').open && [...document"
+                                    ".querySelectorAll('#var-menu button[data-path]')].map((b) => b.dataset.path)")
+        assert offered[0].startswith("Default (") and any(w.startswith("Axion staff") for w in offered)
+        page.evaluate("() => document.querySelector('#var-menu button[data-path^=\"Axion staff\"]').click()")
+        _variants_shown(page, status="unsaved")
+        shown = page.evaluate(VARIANTS_TAB)
+        assert (shown["note"], shown["content"], shown["kit"]["weapon"][0].startswith("Axion staff")) == (
+            "Its weapon axion_staff plays every attack: Weapon Default picks clips.", False, True)
+        _page.click(page, "var-tab-moves")
+        _page.until(page, "() => document.getElementById('var-moves-note').textContent === "
+                          "'Its weapon axion_staff plays every attack.'", 120)   # the bodies' clips read
+        page.evaluate("() => document.querySelector('#var-moves .var-pick[data-key=\"jump\"]').click()")
+        armed = _page.until(page, "() => document.getElementById('var-menu').open && [...document.querySelectorAll("
+                                  "'#var-menu [data-path]')].map((b) => b.dataset.path)")
+        assert armed == ["— the build's pick", "idle", "listen", "sit", "talk", "walk"]
+        _page.click(page, "var-menu-close")
+        _page.click(page, "var-tab-attacks")
+        _page.click(page, "var-weapon")
+        _page.until(page, "() => document.getElementById('var-menu').open")
+        page.evaluate("() => document.querySelector('#var-menu button[data-path^=\"Default\"]').click()")
+        _page.click(page, "var-tab-moves")
+        page.evaluate("() => document.querySelector('#var-moves .var-pick[data-key=\"jump\"]').click()")
+        _page.until(page, "() => document.querySelector('#var-menu [data-path=\"garret4 › jump (2) › jump\"]')", 120)
+        page.evaluate(VARIANTS_MENU, "garret4 › jump (2) › jump")
+        _variants_shown(page, status="unsaved")
+        assert page.evaluate(VARIANTS_TAB)["picks"]["jump"] == ["jump · garret4", False]
+        page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
+        _page.click(page, "var-save-as")
+        _variants_shown(page, status="· saved ·", name="mine")
+        saved = json.loads((data / "variants" / "mine" / "recipe.json").read_text(encoding="utf-8"))["mine"]
+        assert (saved["slots"], saved["clips"], "weapon" in saved) == (
+            {"jump": "g4_jump"}, {"g4_jump": {"generator": "bake", "body": "garret4", "clip": "jump"}}, False)
+        _page.check_csp(page)
+    finally:
+        server.close()
+
+
 def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds_a_spring_on_its_bases_bones(
         browser, tmp_path, monkeypatch, usa_iso):
     """Step 4.6d in the app's page, the image picked (Modkit's Shape and Jiggle tabs): a recipe on town_female_2

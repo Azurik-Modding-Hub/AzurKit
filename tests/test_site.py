@@ -6149,6 +6149,121 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         served.close()
 
 
+VARIANTS_CHANGE = """([selector, text]) => { const box = document.querySelector(selector); box.value = text;
+    box.dispatchEvent(new Event("change", { bubbles: true })); }"""
+VARIANTS_MENU = """(path) => { const at = document.querySelector(`#var-menu [data-path="${path}"]`);
+    if (at.tagName === "LABEL") at.querySelector("input").click(); else at.click(); }"""
+VARIANTS_TAB = """() => { const $ = (id) => document.getElementById(id), on = (id) => !$(id).hidden;
+    const pane = on("var-moves") ? "var-moves" : "var-attacks";
+    return { note: $(`${pane}-note`).textContent, content: !$(`${pane}-content`).hidden,
+        picks: Object.fromEntries([...document.querySelectorAll(`#${pane} .var-pick[data-key]`)].map((b) => [
+            b.dataset.key, [b.textContent, b.disabled]])),
+        kit: !$("var-kit").hidden && { weapon: [$("var-weapon").textContent, $("var-weapon").disabled, $("var-weapon").title],
+            numbers: ["reach", "damage", "speed"].map((k) => [$(`var-attack-${k}`).value, $(`var-attack-${k}`).disabled]),
+            switches: ["balance", "ground", "through-walls"].map((k) => [$(`var-${k}`).checked, $(`var-${k}`).disabled]),
+            note: $("var-kit-note").textContent },
+        drain: [...document.querySelectorAll("input[name=var-drain]")].find((i) => i.checked)?.value,
+        flags: ["carry", "held"].map((k) => [$(`var-${k}`).textContent, $(`var-${k}`).disabled]),
+        seeks: [...document.querySelectorAll("#var-seeks input")].map((i) => [i.dataset.clip, i.checked, i.disabled]),
+        entry: $("var-moves-entry").textContent, made: $("var-made-note").textContent }; }"""
+VARIANTS_RECIPE = "() => azurkit.variants.state.recipe"
+
+
+def test_the_variants_moves_and_attacks_tabs_show_a_built_ins_moves_read_only_and_edit_your_copys(browser, site):
+    """Step 4.6f on the site, no image picked (Modkit's Moves and Attacks tabs; D768, D480, X33): beamlord opens with
+    his moves read-only, saying so, his columns' clips, his reach, damage and speed and his switches as he plays them,
+    his life drain and his held columns counted; New from this makes them yours: a column's menu offers the build's
+    pick and the recipe's clips (the bodies' clips wait for an image, D979's line), and a pick writes the column; the
+    Weapon box is refused while the recipe plays clips of its own, saying why; a speed that isn't a number is named
+    and the old one kept, a number written as typed (no clamp, D23); nearest drops the drain, a held column unticked
+    leaves the rest, a seek unticked and a clip's number typed write that clip; the Moves tab's Cancel after writes
+    victory_cancel and its Wait names a half-given range. Save keeps it all. A new variant's weapon picked, then
+    Default again, leaves no weapon key. No CSP violation, no request but GETs of the site's files."""
+    from azurkit.tools.characters import _player_variants
+
+    beam = _player_variants.builtins()["beamlord"]
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        page.evaluate(VARIANTS_ROW, "beamlord")
+        _variants_shown(page, status=beam.sha)
+        _page.click(page, "var-tab-attacks")
+        shown = page.evaluate(VARIANTS_TAB)
+        theirs = "beamlord's moves (read-only): New from this… makes one to edit."
+        assert (shown["note"], shown["content"], shown["picks"]["basic1"], shown["picks"]["jump attack"]) == (
+            theirs, True, ["beam (beam)", True], ["blast (air_blast)", True])
+        assert shown["kit"]["weapon"][:2] == ["Default", True] and shown["kit"]["numbers"] == [
+            [f"{beam.reach:g}", True], [f"{beam.damage:g}", True], [f"{beam.speed:g}", True]]
+        assert (shown["kit"]["switches"], shown["drain"], shown["flags"], shown["seeks"]) == (
+            [[False, True], [True, True], [True, True]], "all", [["none", True], [f"{len(beam.held)} columns", True]],
+            [["beam", True, True], ["blast", False, True], ["nova", False, True], ["sweep", True, True]])
+        _page.click(page, "var-tab-moves")
+        assert page.evaluate(VARIANTS_TAB)["note"] == theirs
+        _page.click(page, "var-from")
+        _page.until(page, VARIANTS_ASKED)
+        _page.click(page, "var-ask-yes")
+        _variants_shown(page, status="· saved ·", name="beamlord_2")
+        moves = page.evaluate(VARIANTS_TAB)
+        assert (moves["note"], moves["picks"]["jump"], moves["picks"]["idle_1"]) == (
+            "Choose your image first (1.) to offer the bodies' clips", ["—", False], ["—", True])
+        page.evaluate(VARIANTS_CHANGE, ["#var-cancel", "0.5"])
+        page.evaluate(VARIANTS_CHANGE, ["#var-wait-from", "3"])
+        assert page.evaluate(VARIANTS_TAB)["entry"] == "Wait: give both ends as numbers, or neither"
+        _page.click(page, "var-tab-attacks")
+        shown = page.evaluate(VARIANTS_TAB)
+        assert shown["kit"]["weapon"] == ["Default", True, "A weapon plays every attack column: clear its clips, "
+                                                           "columns, held first."]
+        assert [b for _, b in shown["picks"].values()] == [False] * len(beam.columns)
+        page.evaluate("() => document.querySelector('#var-attacks .var-pick[data-key=\"basic1\"]').click()")
+        assert _page.until(page, "() => document.getElementById('var-menu').open && [...document.querySelectorAll("
+                                 "'#var-menu button[data-path]')].map((b) => b.dataset.path)") == [
+            "— the build's pick", "beam (beam)", "blast (air_blast)", "nova (nova)", "sweep (beam)"]
+        page.evaluate(VARIANTS_MENU, "nova (nova)")
+        page.evaluate(VARIANTS_CHANGE, ["#var-attack-speed", "fast"])
+        assert page.evaluate(VARIANTS_TAB)["kit"]["note"] == "Speed: 'fast' is not a number"
+        page.evaluate(VARIANTS_CHANGE, ["#var-attack-speed", "7.25"])
+        page.evaluate("() => document.querySelector('input[name=var-drain][value=nearest]').click()")
+        _page.click(page, "var-held")
+        _page.until(page, "() => document.getElementById('var-menu').open")
+        page.evaluate(VARIANTS_MENU, "Basic 1")
+        _page.click(page, "var-menu-close")
+        page.evaluate("() => document.querySelector('#var-seeks input[data-clip=\"beam\"]').click()")
+        page.evaluate(VARIANTS_CHANGE, ['#var-made p[data-clip="beam"] input[data-key="length"]', "1.2"])
+        shown = _variants_shown(page, status="unsaved edits")
+        recipe = page.evaluate(VARIANTS_RECIPE)
+        assert (recipe["columns"]["basic1"], recipe["attacks"]["speed"], "drain" in recipe, sorted(recipe["held"]),
+                "seek" in recipe["clips"]["beam"], recipe["clips"]["beam"]["length"], recipe["victory_cancel"]) == (
+            "nova", 7.25, False, sorted(c for c in beam.held if c != "basic1"), False, 1.2, 0.5)
+        assert page.evaluate(VARIANTS_TAB)["flags"][1] == [f"{len(beam.held) - 1} columns", False]
+        _page.click(page, "var-save")
+        _variants_shown(page, status="· saved ·")
+        kept = json.loads(page.evaluate("() => new TextDecoder().decode("
+                                        "azurkit.variants.state.folders.beamlord_2['recipe.json'])"))["beamlord_2"]
+        assert kept == recipe
+        # a new one's weapon picked, then Default again, leaves no key (the site's engine hands Default's null as
+        # undefined)
+        _page.click(page, "var-new")
+        keylord = "document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')"
+        _page.until(page, f"() => {keylord}", 60)
+        page.evaluate(f"() => {keylord}.click()")
+        _variants_shown(page, name="(new, unsaved)")
+        for weapon in ("Axion staff", "Default"):
+            _page.until(page, "() => !document.getElementById('var-weapon').disabled", 60)
+            _page.click(page, "var-weapon")
+            _page.until(page, "() => document.getElementById('var-menu').open")
+            page.evaluate(VARIANTS_MENU, weapon)
+            _variants_shown(page, name="(new, unsaved)")
+        assert (page.evaluate("() => 'weapon' in azurkit.variants.state.recipe"),
+                page.evaluate(VARIANTS_TAB)["kit"]["weapon"][0]) == (False, "Default")
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 VARIANTS_DRAG = """([name, values]) => { const box = document.getElementById(`var-shape-${name}`);
     const track = box.previousElementSibling;
     for (const x of values) { track.value = String(x); track.dispatchEvent(new Event("input", { bubbles: true })); }
