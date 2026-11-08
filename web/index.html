@@ -71,7 +71,7 @@ and back. Counted by the logic, so it can add seed variety.</span></p>
 <div id="rando-items"></div></div>
 <div><h3>Skips <span id="rando-held" class="note"></span></h3>
 <p id="rando-groups" class="rando-row groups"></p>
-<details id="rando-skip-list"><summary><b>Specific skips</b> · <span id="rando-skip-count">loading…</span></summary>
+<details id="rando-skip-list" class="fold"><summary><b>Specific skips</b> · <span id="rando-skip-count">loading…</span></summary>
 <p class="rando-row"><input type="search" id="rando-filter" placeholder="Filter the skips" aria-label="Filter the skips"
 spellcheck="false" autocomplete="off"> <button id="rando-clear" type="button">Clear toggles</button></p>
 <div id="rando-skips"><p class="note">Loading the randomizer's database…</p></div></details></div>
@@ -131,16 +131,18 @@ type="button" role="tab" aria-selected="false">Variants</button></span></h2>
 <p class="rando-row"><input type="search" id="char-filter" placeholder="Search the models" aria-label="Search the models"
 spellcheck="false" autocomplete="off"> <label class="on" title="Pickups, keys and statues: one rigid body with no moves of
 its own"><input type="checkbox" id="char-objects"> Show objects</label> <span id="char-count" class="note"></span></p>
-<h3>Species <span class="note">✓ green: fully playable · ~ yellow: rough edges · ✕ red: not playable · ? grey: not yet
-tested</span></h3>
-<div id="char-species" role="listbox" aria-label="Species"></div>
-<h3>Community <span class="note">our variants from Azurik-Custom-Content</span></h3>
+<details id="char-species-group" class="fold" open><summary><b>Species</b><span class="tally"></span> · ✓ fully
+playable · ~ rough edges · ✕ not playable · ? not yet tested<span class="chosen"></span></summary>
+<div id="char-species" role="listbox" aria-label="Species"></div></details>
+<details id="char-community-group" class="fold"><summary><b>Community</b><span class="tally"></span> · our variants from
+Azurik-Custom-Content<span class="chosen"></span></summary>
 <div id="char-community"><p class="note">Reading the community content…</p></div>
 <p class="rando-row"><label class="field">Content from <input type="text" id="char-source" spellcheck="false"
 autocomplete="off"></label> <button id="char-source-reset" type="button">Reset</button></p>
-<p id="char-content-note" class="note"></p>
-<h3>Yours <span class="note">your own variants: make them in the Variants view</span></h3>
-<div id="char-custom"><p class="note">None saved yet.</p></div>
+<p id="char-content-note" class="note"></p></details>
+<details id="char-custom-group" class="fold"><summary><b>Yours</b><span class="tally"></span> · your own variants: make
+them in the Variants view<span class="chosen"></span></summary>
+<div id="char-custom"><p class="note">None saved yet.</p></div></details>
 </div>
 <div class="chars-info">
 <p id="char-previews" class="previews"><canvas id="char-front" width="160" height="160" aria-label="The model from the front"></canvas><canvas

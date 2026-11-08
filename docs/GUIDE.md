@@ -173,6 +173,9 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   front and back views redraw as you drag. Export PNGs saves each row's texture as built (the app: a folder in
   Downloads; the web page: a zip), and Import PNG brings an edited one back as that row's texture. Undo (⌘Z or
   Ctrl+Z) takes back any edit in the view, a drag as one step.
+- **Three drop-downs:** the models list folds into Species (open), Community and Yours (shut until you open one);
+  each heading counts its models and names the one you chose, its group opens when you choose one in it, and a
+  search opens the groups it finds models in.
 - **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install
   and Update (or `azurkit content install booblord`); every file's size and checksum is checked first, so a bad
   download keeps nothing, and an installed one stays at its version until you update it. An update only goes up, from

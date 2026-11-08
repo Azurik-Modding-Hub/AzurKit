@@ -300,11 +300,15 @@ button:disabled { color: var(--faint); background: transparent; }
 .rando .groups { gap: 2px 12px; padding-top: 0; }
 .rando .groups .group { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .rando .groups .group input { margin: 0; accent-color: var(--accent); }
-#rando-skip-list > summary { display: block; padding: 2px 0; font-size: 11.5px; color: var(--muted); cursor: default; list-style: none; }
-#rando-skip-list > summary::-webkit-details-marker { display: none; }
-#rando-skip-list > summary::before { content: "▾"; display: inline-block; width: 12px; }
-#rando-skip-list:not([open]) > summary::before { content: "▸"; }
-#rando-skip-list > summary b { font-weight: 700; color: var(--text); }
+/* The folds inside a list (the specific skips; the Characters tab's Species, Community and Yours): a muted summary,
+   its title bold and its tally beside it, a wrapped line hung under the title, shut until opened (D1061). */
+.fold > summary { display: block; padding: 2px 0 2px 12px; text-indent: -12px; font-size: 11.5px; color: var(--muted);
+  cursor: default; list-style: none; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: "▾"; display: inline-block; width: 12px; text-indent: 0; }
+.fold:not([open]) > summary::before { content: "▸"; }
+.fold > summary b { font-weight: 700; color: var(--text); }
+.fold > summary .chosen { color: var(--text); }   /* the chosen model, named while its group is shut */
 #rando-skips h4 { margin: 3px 0 0; padding: 0 4px; font-size: 10.5px; font-weight: 400; color: var(--muted); }
 .rando .file { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; font-weight: 600;
   border: 1px solid var(--line); border-radius: 3px; background: var(--pane); }
@@ -563,8 +567,8 @@ p.views { margin: 0; padding: 2px 10px; }
 }
 
 /* The Characters tab (Step 4.3d): the models' list (every species in its grade's colour, the untested greyed, then the
-   community group under it beside Content from, D1035), the chosen one's pictures and info, and its options with a G4
-   button beside each number. */
+   community group under it beside Content from, D1035, then yours; each group a fold, Step 4.21), the chosen one's
+   pictures and info, and its options with a G4 button beside each number. */
 /* The list gives way first: the pictures keep their 2 x 160 px and the options a number row with its G4 button;
    narrower, the options go under the list and the pictures, then all three in one column. */
 .chars-cols { display: grid; grid-template-columns: minmax(0, 20rem) minmax(20.5rem, 22rem) minmax(22rem, 1fr);
@@ -579,6 +583,7 @@ p.views { margin: 0; padding: 2px 10px; }
 #char-filter { width: 14rem; }
 .chars-list .field, #char-source { flex: 1 1 0; min-width: 0; }   /* Content from fills its row, Reset beside it */
 #char-species { max-height: 24rem; overflow: auto; border: 1px solid var(--soft); }
+.chars-list > .fold { margin-top: 4px; }
 .chars .model { display: block; width: 100%; height: var(--row); padding: 0 6px; text-align: left; border: 0;
   border-bottom: 1px solid var(--soft); border-radius: 0; background: transparent; font: 11.5px var(--mono); }
 .chars .model:nth-child(even) { background: var(--zebra); }

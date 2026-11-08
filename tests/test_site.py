@@ -653,22 +653,25 @@ COLUMNS = """(pack) => {
             [...item.querySelectorAll(".l3 .mark:not(:empty)")].map((mark) =>
                 mark.getBoundingClientRect().right <= mark.parentElement.getBoundingClientRect().left)];
 }"""
-# The Characters tab's layout at the page's width: [Content from and its Reset inside the list's column, on one line;
-# no sideways scroll, every G4 button in view; the pictures inside their column].
 # The Characters tab's columns (D1035: the community group under the species, Content from under it, all in the list's
-# column): [Content from and Reset in the list's column, no sideways scroll with every G4 in view, the pictures in
-# theirs, the species then the community entries (each with its button) then Content from].
+# column; Step 4.21: each group a drop-down, the community's opened here): [Content from and Reset in the list's column,
+# on one line; no sideways scroll with every G4 in view; the pictures in theirs; the species, then the community's
+# summary, its entries (each with its button) and Content from, then yours' summary].
 CHARS_LAYOUT = """() => {
+    document.getElementById("char-community-group").open = true;
     const r = (el) => el.getBoundingClientRect(), tab = document.getElementById("characters");
+    const above = (a, b) => a.bottom <= b.top + 0.01;   // edges that meet: Firefox's 1/60 px units as floats
     const [list, info] = [".chars-list", ".chars-info"].map((s) => r(document.querySelector(s)));
     const [source, reset, species, community] = ["char-source", "char-source-reset", "char-species", "char-community"]
         .map((id) => r(document.getElementById(id)));
+    const [fold, yours] = ["community", "custom"].map((id) => r(document.querySelector(`#char-${id}-group > summary`)));
     const g4 = [...tab.querySelectorAll(".g4")], entries = [...document.querySelectorAll("#char-community .entry")];
     return [source.right <= list.right && reset.right <= list.right && Math.abs(reset.top - source.top) < 2,
             tab.scrollWidth <= tab.clientWidth && g4.length > 0 && g4.every((b) => r(b).right <= innerWidth),
             r(document.getElementById("char-back")).right <= info.right,
-            entries.length > 0 && entries.every((e) => e.querySelector("button, .note")) && species.bottom <= community.top
-            && community.bottom <= source.top && community.left >= list.left && community.right <= list.right];
+            entries.length > 0 && entries.every((e) => e.querySelector("button, .note")) && above(species, fold)
+            && above(fold, community) && above(community, source) && above(source, yours)
+            && community.left >= list.left && community.right <= list.right];
 }"""
 # Every visible text drawn in --faint (given true: in a grade's colour, on the Characters tab), and its contrast with
 # the ground it sits on (WCAG's ratio): [what, ratio].
@@ -1806,6 +1809,98 @@ def test_the_characters_tab_hides_the_objects_until_show_objects_and_keeps_a_wor
             e.textContent).find((t) => t.includes("Whether the Characters tab lists objects"))""")
         _page.check_csp(page)
         assert served.stray() == []
+    finally:
+        served.close()
+
+
+# The Models view's three drop-downs, in order: [open, its summary's words].
+FOLDS = """() => ["species", "community", "custom"].map((id) => { const fold = document.getElementById(`char-${id}-group`);
+    return [fold.open, fold.querySelector("summary").textContent.replace(/\\s+/g, " ")]; })"""
+
+
+def test_the_models_groups_fold_species_open_and_each_opens_when_its_model_is_chosen_searched_or_its_source_fails(
+        browser, site, tmp_path):
+    """Step 4.21 (D1169, D1061): the Models view's groups each fold under a drop-down, in today's order, Species open
+    and Community (with Content from) and Yours shut, at every visit (D1156: never remembered); each summary counts
+    its models and names the chosen one when it is in it; a group opens when its model becomes the chosen one (a
+    link's, a recipe's or the remembered setup's: the tab's set), and shut again stays shut while it stays chosen; a
+    search typed opens a shut group it finds models in, each count saying how many of all, and cleared shuts it again;
+    a source that can't be read opens Community to say so. No CSP violation."""
+    from azurkit.tools.characters import _player_variants, content
+
+    repo, path = tmp_path / "repo", "variants/beamlord/variant.json"
+    (repo / path).parent.mkdir(parents=True)
+    (repo / path).write_text(json.dumps({"beamlord": json.loads(
+        _player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"]}), encoding="utf-8")
+    (repo / "manifest.json").write_text(json.dumps(content.filled({
+        "format": content.FORMAT, "schema_version": 1, "entries": [
+            {"author": "Azurik-Modding-Hub", "licence": "MIT", "version": 1, "requires": [], "id": "beamlord",
+             "kind": "variant", "title": "Beamlord", "files": [{"path": path}]}]},
+        lambda p: (repo / p).read_bytes())), encoding="utf-8")
+    served = Site(browser, site)
+    served.context.route(f"{served.origin}/content-test/**", lambda route, request: route.fulfill(
+        path=str(repo / urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/"))))
+    species = "Species (%s) · ✓ fully playable · ~ rough edges · ✕ not playable · ? not yet tested%s"
+    community, yours = "Community (%s) · our variants from Azurik-Custom-Content%s", "Yours (%s) · your own variants: " \
+                                                                                     "make them in the Variants view%s"
+    chosen = "() => azurkit.characters.state.view?.chosen.name === '%s'"
+    shut = "(ids) => ids.forEach((id) => { document.getElementById(`char-${id}-group`).open = false; })"
+    try:
+        page = served.open()
+        page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view?.community.length === 1", 300)
+        assert page.evaluate(FOLDS) == [[True, species % (102, " · garret4 chosen")], [False, community % (1, "")],
+                                        [False, yours % (0, "")]]
+        _page.fill(page, "char-filter", "beam")
+        assert page.evaluate(FOLDS) == [[True, species % ("0 of 102", " · garret4 chosen")],
+                                        [True, community % ("1 of 1", "")], [False, yours % (0, "")]]
+        _page.fill(page, "char-filter", "")
+        assert [fold[0] for fold in page.evaluate(FOLDS)] == [True, False, False]
+        page.evaluate("() => azurkit.characters.set({species: 'beamlord'})")   # as a link or a recipe sets it
+        _page.until(page, chosen % "beamlord", 120)
+        assert page.evaluate(FOLDS) == [[True, species % (102, "")], [True, community % (1, " · Beamlord chosen")],
+                                        [False, yours % (0, "")]]
+        page.evaluate(shut, ["species", "community"])
+        _page.click(page, "char-objects")   # drawn again, beamlord still chosen: shut, it stays shut
+        _page.click(page, "char-objects")
+        assert [fold[0] for fold in page.evaluate(FOLDS)] == [False, False, False]
+        page.evaluate("() => azurkit.characters.set({species: 'keylord'})")
+        _page.until(page, chosen % "keylord", 120)
+        assert page.evaluate(FOLDS) == [[True, species % (102, " · keylord chosen")], [False, community % (1, "")],
+                                        [False, yours % (0, "")]]
+        _page.click(page, "char-view-variants")   # one of yours, saved in the Variants view
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.click(page, "var-new")
+        _page.until(page, "() => document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')")
+        page.evaluate("() => document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]').click()")
+        _variants_shown(page, status="unsaved: Save as keeps it")
+        page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
+        _page.click(page, "var-save-as")
+        _variants_shown(page, status="· saved ·")
+        _page.click(page, "char-view-model")
+        _page.until(page, "() => document.querySelector('#char-custom button[data-model=\"mine\"]')", 120)
+        assert page.evaluate(FOLDS)[2] == [False, yours % (1, "")]
+        page.evaluate("() => azurkit.characters.set({species: 'mine'})")
+        _page.until(page, chosen % "mine", 120)
+        assert page.evaluate(FOLDS) == [[True, species % (102, "")], [False, community % (1, "")],
+                                        [True, yours % (1, " · mine chosen")]]
+        page.evaluate("() => azurkit.characters.set(null)")   # garret4 again, so no setup is kept to open a group
+        _page.until(page, chosen % "garret4", 120)
+        _page.until(page, "() => localStorage.getItem('azurkit.setup') === null")
+        page.evaluate(shut, ["species"])
+        page.evaluate("() => { document.getElementById('char-community-group').open = true; }")
+        _page.check_csp(page)
+        page = served.open()   # a visit: the drop-downs as they start, none of the last page's kept
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view?.community.length === 1", 300)
+        assert [fold[0] for fold in page.evaluate(FOLDS)] == [True, False, False]
+        page.evaluate("""() => { const box = document.getElementById("char-source"); box.value = "./content-gone/";
+            box.dispatchEvent(new Event("change")); }""")
+        _page.until(page, "() => document.getElementById('char-community-group').open", 120)
+        assert page.evaluate("() => document.getElementById('char-content-note').textContent") != ""
+        _page.check_csp(page)
     finally:
         served.close()
 

@@ -2,7 +2,10 @@
 // grade's colour and mark (green fully playable, yellow rough edges, red not playable, grey not yet tested: the untested
 // greyed and marked, D877; the objects only with Show objects, D1034), then under it the community group beside Content
 // from (D1035; D913: our variants from Azurik-Custom-Content beside the built-ins, each marked community, with Install
-// and Update); the chosen model's pictures from the front and from behind (D772,
+// and Update); each group a drop-down (Step 4.21, D1169), the species open and the community and yours shut each visit
+// (D1156: never remembered), each summary counting its models and naming the chosen one in it, which opens its group
+// when it becomes the chosen one (as the source's failure opens the community's); the chosen model's pictures from the
+// front and from behind (D772,
 // D919: the engine's draw.py, on both hosts), its info and its options, each number with a G4 button that sets it to
 // match garret4 (P52). The engine decides everything shown (sdk.pickers, sdk.preview, sdk.match): this page sends the
 // tab's choices and draws what comes back. Its answer with no image and each species' and built-in variant's two
@@ -59,7 +62,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, choice: 0, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
               shown: null, pictures: new Map(), shipped: new Map(), wanted: null, dressing: false, settling: null,
-              panels: new Map(), asking: false, again: false };
+              panels: new Map(), asking: false, again: false, unfolded: null, found: {}, holds: null, searched: new Set() };
   const fallback = () => host.catalog?.characters?.source ?? "";
   // Show objects (D1034): off by default, remembered: by the site in this browser's storage, by the app in its config.
   c.objects = app ? host.show_objects === true : (() => {
@@ -168,6 +171,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     return reading.then(() => {
       $("char-content-note").textContent = !c.why ? "" : `${c.why}${app ? "" : " Every built-in model below works."}${
         c.manifest ? " (the last list read is shown)" : ""}`;
+      if (c.why) $("char-community-group").open = true;   // the source's failure shown, not folded away
       return ask();
     });
   };
@@ -245,7 +249,12 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     $("char-count").textContent = [`${listed.length} species`, untested && `${untested} not yet tested`,
                                    hidden && `${hidden} objects hidden`].filter(Boolean).join(", ")
       + (view.why && !reading() ? ` · ${view.why}` : "");   // its "Choose your image…": not while one is read
-    const groups = view.community.map((e) => {
+    // the search's matches in every group (the species' the picker's): an entry by its title, a variant by its name
+    const matches = (...texts) => !filter || texts.some((text) => text?.toLowerCase().includes(filter));
+    const none = (text) => [el("p", { className: "note", textContent: filter ? "None match the search." : text })];
+    const groups = view.community.flatMap((e) => {
+      const whole = matches(e.title, e.id), variants = e.variants.filter((v) => whole || matches(v.name, v.title));
+      if (!whole && !variants.length) return [];
       const state = e.state === "install" ? "Install" : e.state === "update" ? `Update to v${e.version}` : null;
       const action = state && el("button", { type: "button", textContent: state, disabled: !!c.installing });
       action?.addEventListener("click", () => install(e));
@@ -254,21 +263,42 @@ export function characters({ call, app, host, say, image, packs, changed, shared
                       action ?? el("span", { className: "note",
                                              textContent: c.installing === e.id ? "installing…" : `installed v${e.installed}` }),
                       el("span", { className: "what", textContent: `${e.author} · ${e.licence} · v${e.version}` }),
-                      ...e.variants.filter((v) => !filter || v.name.includes(filter))
-                        .map((v) => row(v.name, `${v.name}  (variant of ${v.base})`, v.colour)));
+                      ...variants.map((v) => row(v.name, `${v.name}  (variant of ${v.base})`, v.colour)));
       item.dataset.entry = e.id;
-      return item;
+      return [item];
     });
-    $("char-community").replaceChildren(...groups.length ? groups
-      : [el("p", { className: "note", textContent: c.why ? "None read yet." : "None listed." })]);
-    const mine = (view.custom?.variants ?? []).filter((v) => !filter || v.name.includes(filter)).map((v) => {
+    $("char-community").replaceChildren(...groups.length ? groups : none(c.why ? "None read yet." : "None listed."));
+    const custom = view.custom?.variants ?? [];
+    const mine = custom.filter((v) => matches(v.name, v.title)).map((v) => {
       if (!v.refusal) return row(v.name, `${v.name}  (variant of ${v.base})`, v.colour);
       const refused = el("button", { type: "button", className: "model refused", textContent: `${v.name} (refused)`,
                                      title: v.refusal, disabled: true });
       refused.dataset.model = v.name;
       return refused;
     });
-    $("char-custom").replaceChildren(...mine.length ? mine : [el("p", { className: "note", textContent: "None saved yet." })]);
+    $("char-custom").replaceChildren(...mine.length ? mine : none("None saved yet."));
+    // Each group's drop-down (Step 4.21, D1169): its summary counts what it lists (of all, while a search narrows it)
+    // and names the chosen model when it is in it, so a pick is never folded away, and the group opens when its model
+    // becomes the chosen one (a pick, a link, a recipe, the remembered setup); shut again, it stays shut.
+    const yours = custom.find((v) => v.name === chosen.name);
+    const entry = yours || !chosen.community ? null : view.community.find((e) => e.id === chosen.community);
+    const holds = yours ? "custom" : chosen.community ? "community"
+      : view.species.some((s) => s.name === chosen.name) ? "species" : null;
+    const named = { species: chosen.name, custom: yours?.title ?? chosen.name,
+                    community: entry?.variants.find((v) => v.name === chosen.name)?.title ?? entry?.title ?? chosen.name };
+    const all = { species: listed.length, community: view.community.length, custom: custom.length };
+    c.found = { species: $("char-species").querySelectorAll(".model").length, community: groups.length,
+                custom: mine.length };
+    for (const id of Object.keys(all)) {
+      const fold = $(`char-${id}-group`);
+      fold.querySelector(".tally").textContent = filter && all[id] ? ` (${c.found[id]} of ${all[id]})` : ` (${all[id]})`;
+      fold.querySelector(".chosen").textContent = id === holds ? ` · ${named[id]} chosen` : "";
+    }
+    c.holds = holds;
+    if (holds && c.unfolded !== `${holds} ${chosen.name}`) {
+      $(`char-${holds}-group`).open = true;
+      c.unfolded = `${holds} ${chosen.name}`;
+    }
     $("char-edit").hidden = !chosen.variant;
     $("char-name").textContent = chosen.name + (chosen.community ? "  · community" : "");
     $("char-info").replaceChildren(...chosen.info.map(([label, text, colour, tip]) => {
@@ -563,9 +593,20 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     changed({ rest: REST });
     ask();
   };
+  // The search (the picker's own handler has narrowed the species): typed, it opens each shut group it finds models in;
+  // cleared, it shuts those again, but the chosen model's, so the list goes back as it was (Step 4.21).
   $("char-filter").addEventListener("input", () => {
     c.filter = $("char-filter").value.trim();
-    if (c.view) render();
+    if (!c.view) return;
+    render();
+    for (const [id, found] of Object.entries(c.found)) {
+      const fold = $(`char-${id}-group`);
+      if (c.filter && found && !fold.open) {
+        fold.open = true;
+        c.searched.add(id);
+      } else if (!c.filter && c.searched.has(id) && id !== c.holds) fold.open = false;
+    }
+    if (!c.filter) c.searched.clear();
   });
   $("char-mode").addEventListener("change", () => option("mode", $("char-mode").value, defaults().mode));
   $("char-chain").addEventListener("change", () => option("chain", $("char-chain").checked ? "any" : "hit", "hit"));
