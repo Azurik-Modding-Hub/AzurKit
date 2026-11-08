@@ -276,3 +276,36 @@ def test_a_mods_files_edits_preview_against_vanilla_on_the_command_line_and_in_t
         "catalisk / Damage", {"read": damage}, "20", damage, "damage")
     assert raw["blocks"][0]["rows"] == [["gamedata/a1.xbr 0x800", [{"read": "2 B"}]]]
     assert sdk.data({"what": "view", "kind": "changes"})["sections"] == []
+
+
+def test_a_mod_template_holds_each_number_cells_vanilla_value_and_reads_back_changing_nothing(tmp_path, capsys):
+    """Step 4.6i (P22, Modkit's ``mod-template``): ``sdk.mod_template``
+    and ``azurkit mod-template`` make Modkit's mod file of the vanilla value
+    of every number cell of the named tables (a repeated entity's last
+    column, the one its name edits), by config.xbr's own names, which reads
+    back (``azurkit diff``, a build's ``--mods``) as edits that change
+    nothing. With ``--entity`` a table without it is left out, saying so; an
+    entity none has, or a table config.xbr hasn't, is refused by name and
+    nothing written."""
+    tables = Document(data.vanilla()).tables
+    made = sdk.mod_template({"tables": ["critters_flocking", "settings_foo"], "name": "mine"})
+    mod = json.loads(made["text"])
+    assert (mod["name"], list(mod["_keyed_patches"])) == ("mine", ["critters_flocking", "settings_foo"])
+    held = [(t, e, p, v) for t, rows in mod["_keyed_patches"].items() for e, props in rows.items()
+            for p, v in props.items()]
+    assert len(held) == made["cells"] and all(tables[t].find(e, p).value == v for t, e, p, v in held)
+    assert len(held) == sum(1 for t in ("critters_flocking", "settings_foo") for c, e in enumerate(tables[t].cols)
+                            if tables[t].column(e) == c for r in range(len(tables[t].rows))
+                            if tables[t].cell(c, r).kind == 1)
+    path = tmp_path / "template.json"
+    path.write_text(made["text"], encoding="utf-8")
+    assert cli.main(["diff", str(path)]) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == f"0 changed, 0 errors, {len(held)} unchanged"
+    one, none = tmp_path / "catalisk.json", tmp_path / "none.json"
+    assert cli.main(["mod-template", "damage", "settings_foo", "--entity", "catalisk", "--out", str(one)]) == 0
+    assert "settings_foo has no number cell of 'catalisk': left out" in capsys.readouterr().err
+    assert list(json.loads(one.read_text(encoding="utf-8"))["_keyed_patches"]) == ["damage"]
+    assert cli.main(["mod-template", "damage", "--entity", "nope", "--out", str(none)]) == 1 and not none.exists()
+    assert capsys.readouterr().err == "azurkit: no number cell of entity 'nope' in damage\n"
+    with pytest.raises(ValueError, match="^config.xbr has no table 'nope'"):
+        sdk.mod_template({"tables": ["nope"]})

@@ -11,6 +11,8 @@ turns its flags into the sdk's JSON and prints what comes back.
                                           an image's files (each size and path), or one of them written to FILE
     azurkit data [TABLE [ENTITY]]         config.xbr's tables, a table's entities, or an entity's cells
     azurkit diff MODS [MODS ...]          each edit of mods files (Modkit's too), as a build makes it of config.xbr
+    azurkit mod-template TABLE [TABLE ...] [--entity NAME] [--name NAME] [--out FILE]
+                                          a mods file of config.xbr's vanilla values, to edit (JSON)
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
@@ -51,7 +53,11 @@ of an entity by its property's name (a repeated entity, each column).
 numbered, ``~`` a cell or bytes it changes (its vanilla value -> its new
 one), ``=`` one that changes nothing, ``?`` a byte edit of a file only a
 build reads, and ``ERROR`` one a build refuses, then the counts; exit 1
-when any edit would fail the build.
+when any edit would fail the build. ``mod-template`` writes (or prints) a
+mods file of the vanilla values of every number cell of the named tables,
+or of one entity there (Modkit's mod file, ``_keyed_patches``): edit it,
+then build with ``build --mods``; a table without the entity is left out
+with a line saying so.
 ``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
 ``--source`` or ``$AZURKIT_CONTENT_SOURCE``, a URL or a folder) and what the
 content folder holds of each; ``install`` and ``update`` copy one in, every
@@ -278,6 +284,24 @@ def _diff(args: argparse.Namespace) -> int:
     return 1 if tally["errors"] else 0
 
 
+def _template(args: argparse.Namespace) -> int:
+    try:
+        made = sdk.mod_template({"tables": args.tables, "name": args.name}
+                                | ({"entity": args.entity} if args.entity is not None else {}))
+        for table in made["left_out"]:
+            print(f"azurkit: {table} has no number cell of {args.entity!r}: left out", file=sys.stderr)
+        if args.out is None:
+            sys.stdout.write(made["text"])
+            return 0
+        Path(args.out).write_text(made["text"], encoding="utf-8")
+    except (OSError, ValueError) as exc:
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    print(f"{args.out}: {made['cells']} values of {made['entities']} entities in {made['tables']} tables; edit them, "
+          f"then: azurkit build --iso PATH --out PATH --mods {args.out}")
+    return 0
+
+
 def _plan(args: argparse.Namespace) -> int:
     try:
         given = {"seed": args.seed}
@@ -452,6 +476,16 @@ def main(argv: list[str] | None = None) -> int:
                                           "if any would fail the build.")
     diffed.add_argument("mods", nargs="+", metavar="MODS", help="a mods file")
     diffed.set_defaults(run=_diff)
+    templated = verbs.add_parser("mod-template", help="write a mods file of config.xbr's vanilla values to edit",
+                                 description="Write (or print) a mods file holding the vanilla value of every number "
+                                             "cell of each TABLE (or of --entity there), by config.xbr's own names, "
+                                             "as Modkit's mod files hold them (_keyed_patches): edit the values, then "
+                                             "build with build --mods. It reads the config.xbr AzurKit ships.")
+    templated.add_argument("tables", nargs="+", metavar="TABLE", help="a table (azurkit data lists them)")
+    templated.add_argument("--entity", metavar="NAME", help="only this entity (a table without it is left out)")
+    templated.add_argument("--name", default="my-mod", help="the mod's name (default: my-mod)")
+    templated.add_argument("--out", metavar="FILE", help="write it here (default: print it)")
+    templated.set_defaults(run=_template)
     planned = verbs.add_parser("plan", help="fill the randomizer for a seed and print (or write) the plan file",
                                description="Fill the randomizer's authored levels for --seed under the default "
                                            "settings (D144), a settings file's or a share string's, and print the "

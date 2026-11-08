@@ -18,7 +18,7 @@ tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
 :func:`saves`, and the command line's :func:`mods_diff` (what a mods file
-changes, before a build). JSON in and
+changes, before a build) and :func:`mod_template` (vanilla values to edit). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -558,6 +558,19 @@ new values, a byte edit's span, one of another file left to the build,
 or why a build refuses it), as ``{"edits"}``, with a Modkit mod's
 ``name`` and ``description``. What refuses the whole file is refused
 by name.
+
+
+def mod_template(given: 'Mapping') -> 'dict':
+
+A mods file of vanilla values to edit (Modkit's ``mod-template``):
+``{"tables", "entity"?, "name"?}`` gives Modkit's mod file of every
+number cell of those config.xbr tables (or one entity's), by the
+file's own names, as ``_keyed_patches`` (``tools.data.template``):
+``{"text", "tables", "entities", "cells", "left_out"}``, its JSON text,
+the counts and the tables that haven't the entity, which
+:func:`read_mods` and :func:`mods_file` take back as edits that change
+nothing until a value is. A table config.xbr hasn't, or an entity none
+of them has, is refused by name.
 
 
 def image_info(path: 'str') -> 'dict':

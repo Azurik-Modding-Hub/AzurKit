@@ -361,6 +361,45 @@ def preview(made: Sequence[tuple[str, Mapping | None, str | None]]) -> list[dict
     return rows
 
 
+TEMPLATE = ("Made by `azurkit mod-template`: the vanilla values of config.xbr's number cells, by its own names "
+            "(Modkit's mod file, _keyed_patches). Edit the values, then build with `azurkit build --mods <this file>` "
+            "or Load it in the Tools tab; a value left as it is changes nothing.")
+
+
+def template(names: Sequence[str], entity: str | None = None, name: str = "my-mod") -> dict:
+    """A mods file of the vanilla values of every number cell of the tables
+    ``names`` (Modkit's ``mod-template``): Modkit's mod file, its
+    ``_keyed_patches`` ``{table: {entity: {property: value}}}`` (a repeated
+    property: its first row's; a repeated entity: its last column's, the
+    one a name edits), an entity with none left out; with ``entity`` only
+    that entity, a table that hasn't it left out (``left_out``). ``{mod,
+    left_out}``; ``ValueError`` names a table config.xbr hasn't, or an
+    entity none of the tables has."""
+    tables = _vanilla_tables()
+    if not names or (unknown := [n for n in names if n not in tables]):
+        raise ValueError(f"config.xbr has no table {', '.join(map(repr, unknown)) if names else '(none named)'} "
+                         f"(its tables: {', '.join(tables)})")
+    keyed, left = {}, []
+    for table in dict.fromkeys(names):
+        t, cells = tables[table], {}
+        for col, column in enumerate(t.cols):
+            numbers = {}
+            for row, prop in enumerate(t.rows):
+                if t.cell(col, row).kind == NUMBER:
+                    numbers.setdefault(prop, t.cell(col, row).value)
+            cells[column] = numbers
+        cells = {e: numbers for e, numbers in cells.items() if numbers}
+        if entity is not None:
+            if entity not in cells:
+                left.append(table)
+                continue
+            cells = {entity: cells[entity]}
+        keyed[table] = cells
+    if entity is not None and not keyed:
+        raise ValueError(f"no number cell of entity {entity!r} in {', '.join(dict.fromkeys(names))}")
+    return {"mod": {"name": name, "description": TEMPLATE, "_keyed_patches": keyed}, "left_out": left}
+
+
 def _ref(op: Mapping, tables: Mapping[str, Table]) -> tuple[str, int, int] | None:
     """The cell a ``set`` operation writes, by position, else ``None``."""
     if op["op"] != "set" or op["file"] != FILE or op["table"] not in tables:

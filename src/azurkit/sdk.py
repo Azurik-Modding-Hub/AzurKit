@@ -16,7 +16,7 @@ tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
 :func:`saves`, and the command line's :func:`mods_diff` (what a mods file
-changes, before a build). JSON in and
+changes, before a build) and :func:`mod_template` (vanilla values to edit). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -121,7 +121,7 @@ from azurkit.tools.randomizer import layer as rando_layer
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_staged", "image_checks", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
-           "data", "data_edit", "mods_diff", "image_info", "verify_all", "files", "extract", "mods_file", "community",
+           "data", "data_edit", "mods_diff", "mod_template", "image_info", "verify_all", "files", "extract", "mods_file", "community",
            "content_refusal", "file_entry", "saves"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
@@ -1163,6 +1163,27 @@ def mods_diff(given: Mapping) -> dict:
         made = [(f"xbr op {k}", op, None) for k, op in enumerate(read_mods(found).get("xbr", []), 1)]
         about = {}
     return about | {"edits": datatool.preview(made)}
+
+
+def mod_template(given: Mapping) -> dict:
+    """A mods file of vanilla values to edit (Modkit's ``mod-template``):
+    ``{"tables", "entity"?, "name"?}`` gives Modkit's mod file of every
+    number cell of those config.xbr tables (or one entity's), by the
+    file's own names, as ``_keyed_patches`` (``tools.data.template``):
+    ``{"text", "tables", "entities", "cells", "left_out"}``, its JSON text,
+    the counts and the tables that haven't the entity, which
+    :func:`read_mods` and :func:`mods_file` take back as edits that change
+    nothing until a value is. A table config.xbr hasn't, or an entity none
+    of them has, is refused by name."""
+    if not (isinstance(given, Mapping) and set(given) <= {"tables", "entity", "name"}
+            and isinstance(given.get("tables"), list) and all(isinstance(t, str) for t in given["tables"])
+            and isinstance(given.get("entity", ""), str) and isinstance(given.get("name", ""), str)):
+        raise ValueError("mod_template: {tables: [names], entity?, name?}")
+    made = datatool.template(given["tables"], given.get("entity"), given.get("name", "my-mod"))
+    keyed = made["mod"]["_keyed_patches"]
+    return {"text": json.dumps(made["mod"], indent=2) + "\n", "tables": len(keyed),
+            "entities": sum(len(e) for e in keyed.values()),
+            "cells": sum(len(p) for e in keyed.values() for p in e.values()), "left_out": made["left_out"]}
 
 
 DATA = ("what", "ops", "packs", "kind", "name", "table")   # what a Data tab's ask holds (:func:`data`)
