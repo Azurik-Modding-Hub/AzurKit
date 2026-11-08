@@ -429,3 +429,53 @@ API i64 az_runs(const unsigned char *old, i64 nold, const unsigned char *new, i6
     }
     return count;
 }
+
+/* clip_import._thin_track past its stepped test (its twin, _thin_kept): a track's n keys (time, value, in, out) sampled
+ * at each key and halfway between (samples, 2n - 1 doubles of work, then dense, 2n - 1, then slope, n), each sample's
+ * value retarget.evaluate's; -1 where every one holds rest within eps (the twin's None), else the keys it keeps, each
+ * one's index into kept (a key kept where the Hermite run from the last kept one to the key after it misses a sample
+ * between them by more than eps), and how many: n keeps them all. -2 hands the track to the twin: a time not finite,
+ * past 1e300 or not after the one before (the twin's sort and its divisions then decide). */
+API i64 az_thin(const double *k, i64 n, double eps, double rest, double *work, i64 *kept) {
+    if (n < 1) return -2;
+    for (i64 i = 0; i < n; i++) {
+        double t = k[4 * i];
+        if (!(fab(t) < 1e300) || (i && !(k[4 * (i - 1)] < t))) return -2;
+    }
+    i64 m = 2 * n - 1;
+    double *s = work, *dense = work + m, *slope = work + 2 * m;
+    for (i64 i = 0; i < n; i++) {   /* np.sort of the times and the halfway points: in order already */
+        s[2 * i] = k[4 * i];
+        if (i + 1 < n) s[2 * i + 1] = (k[4 * i] + k[4 * (i + 1)]) / 2;
+    }
+    int held = 1;
+    for (i64 i = 0; i < m; i++) {
+        dense[i] = evaluate(k, n, s[i]);
+        if (!(fab(dense[i] - rest) <= eps)) held = 0;
+    }
+    if (held) return -1;
+    if (n <= 2) {
+        for (i64 i = 0; i < n; i++) kept[i] = i;
+        return n;
+    }
+    for (i64 i = 0; i < n; i++) slope[i] = (k[4 * i + 2] + k[4 * i + 3]) / 2;
+    slope[0] = k[3];
+    slope[n - 1] = k[4 * (n - 1) + 2];
+    i64 count = 0;
+    kept[count++] = 0;
+    for (i64 j = 1; j < n - 1; j++) {
+        i64 a = kept[count - 1], b = j + 1;
+        double t0 = k[4 * a], v0 = k[4 * a + 1], o0 = slope[a], t1 = k[4 * b], v1 = k[4 * b + 1], i1 = slope[b];
+        double d = t1 - t0;
+        int fits = 1;
+        for (i64 i = 0; i < m && fits; i++) {   /* the samples from t0 to t1, as the twin's mask takes them */
+            if (!(s[i] >= t0 && s[i] <= t1)) continue;
+            double u = (s[i] - t0) / d, c = u * u * u, q = u * u;
+            double got = (2 * c - 3 * q + 1) * v0 + d * (c - 2 * q + u) * o0 + (-2 * c + 3 * q) * v1 + d * (c - q) * i1;
+            if (!(fab(got - dense[i]) <= eps)) fits = 0;
+        }
+        if (!fits) kept[count++] = j;
+    }
+    kept[count++] = n - 1;
+    return count;
+}

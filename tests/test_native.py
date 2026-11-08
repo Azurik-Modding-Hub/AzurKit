@@ -10,6 +10,7 @@ from __future__ import annotations
 import collections
 import inspect
 import json
+import math
 import random
 import re
 
@@ -127,6 +128,7 @@ def _answer(solved) -> dict:
 
 _UNDER_PYODIDE = """
 import json
+import math
 from azurkit.core import native
 
 def tup(x):
@@ -367,7 +369,7 @@ def _dress_cases(seed: int, count: int):
         chain = [comps() for _ in range(links)]
         old = bytes(rng.randrange(3) for _ in range(rng.choice((0, 1, 5, 300))))
         new = bytes(b if rng.random() < 0.8 else rng.randrange(3) for b in old[:rng.randint(0, len(old))])
-        yield {"rays": _ray_cases(random.Random(seed * 1000 + i)),
+        yield {"rays": _ray_cases(random.Random(seed * 1000 + i)), "thin": _thin_cases(random.Random(seed * 2000 + i)),
                "bones": bones, "tracks": tracks + [[0, 3, [[float("nan"), 1.0, 0.0, 0.0]]]] * (not i),
                "times": [rng.uniform(-1.0, 4.0) for _ in range(rng.randint(1, 8))] + [k[0] for t in tracks[:3] for k in t[2]],
                "linear": [lin, [f() for _ in range(4)], [[f() for _ in range(4)] for _ in range(4)],
@@ -382,6 +384,31 @@ def _dress_cases(seed: int, count: int):
                         [[[f() for _ in range(3)] for _ in range(4)] for _ in range(2 * m)],
                         [[[f() for _ in range(3)] for _ in range(3)] for _ in range(n)], [[f() for _ in range(3)] for _ in range(n)],
                         [[rng.uniform(-0.2, 0.2) for _ in range(3)] for _ in range(rng.randint(1, 9))]]}
+
+
+def _thin_cases(rng: random.Random) -> list:
+    """Tracks the clip import thins, as JSON: [keys, eps, rest] (a sine's
+    keys and slopes at the clip rates and between, some with noise, one
+    held at its rest, a repeated or NaN time and an infinite or huge value
+    now and then)."""
+    out = []
+    for _ in range(4):
+        n, t, ts = rng.choice((1, 2, 3, 8, 40, 120)), rng.uniform(-0.5, 0.5), []
+        for _ in range(n):
+            ts.append(t)
+            t += rng.choice((1 / 30, 1 / 60, rng.uniform(1e-3, 0.2)))
+        a, w, ph, noise = rng.uniform(-2.0, 2.0), rng.uniform(0.1, 8.0), rng.uniform(-3.0, 3.0), rng.choice((0.0, 0.0, 1e-4, 1e-2))
+        keys = [[x, a * math.sin(w * x + ph) + rng.uniform(-noise, noise), *[a * w * math.cos(w * x + ph)] * 2] for x in ts]
+        if rng.random() < 0.1:
+            keys = [[k[0], 0.25, 0.0, 0.0] for k in keys]
+        if n > 2 and rng.random() < 0.1:
+            keys[1][0] = keys[0][0]
+        if n > 2 and rng.random() < 0.05:
+            keys[2][0] = float("nan")
+        if rng.random() < 0.05:
+            keys[rng.randrange(n)][rng.randrange(1, 4)] = rng.choice((float("inf"), -1e300))
+        out.append([keys, rng.choice((1e-4, 1e-3, 1e-2)), rng.choice((0.0, 0.25, keys[0][1]))])
+    return out
 
 
 def _ray_cases(rng: random.Random) -> list:
@@ -480,6 +507,14 @@ def _dress_answer(case: dict) -> list:
                 rays.append("None" if got is None else bits([*got[0], *got[1:]]))
             except ZeroDivisionError:
                 rays.append("ZeroDivisionError")
+    from azurkit.tools.characters import clip_import
+
+    thinned = []
+    for keys, eps, rest in case["thin"]:
+        track = rt.Track(0, 3, tuple(map(tuple, keys)))
+        got = clip_import._thin_track(track, eps, rest)
+        thinned.append("None" if got is None else "same" if got is track else bits([x for k in got.keys for x in k]))
+
     def springs():   # a spring's chain and the clear's body, as jiggle poses them (the engine model on them alone)
         chain = jiggle._chain(rig, len(bones) - 1)
         whole = jiggle._posed_all(rig, clip, [len(bones) - 1, 0])
@@ -490,7 +525,7 @@ def _dress_answer(case: dict) -> list:
                 got = [{ks[-1]: one(t)} if one else whole(t) for t in case["times"]]
             out.append([[*g[k][0], *g[k][1]] for g in got for k in (ks[-1:] if one else ks)])
         return out
-    return [rays, engine(springs),
+    return [rays, thinned, engine(springs),
             engine(rt.origins_at, rig, clip, case["times"]), engine(rt.pose, rig, clip, case["times"][0]), bits(rows),
             characters._runs(*map(bytes.fromhex, case["runs"])), bits(_boxes(*case["boxes"])),
             bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist()),
@@ -507,7 +542,7 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     over seeded random inputs, every NaN a NaN (its sign and payload aren't
     held: the compiler may order an operation's two NaN inputs either way)."""
     cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
-    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray"):
+    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray", "thin"):
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
                             ran.update([name]) or real(*a, **k))
     assert native.report()["loaded"]
@@ -515,7 +550,7 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
         got = [_dress_answer(case) for case in cases]
     asked = sum(len(points) for case in cases for *_, points in case["rays"])
     assert ran == {"origins": 1597, "linear": 400, "chain": 400, "boxes": 400, "sample": 399, "heights": 400,
-                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked}   # by the library but case 0's clip's
+                   "skinned": 1600, "signed": 400, "runs": 400, "ray": asked, "thin": 1594}   # by the library but case 0's clip's
     assert 0 < sum(r == "ZeroDivisionError" for g in got for r in g[0]) < asked / 10   # some divide by zero
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):   # the twins' numpy on infinities

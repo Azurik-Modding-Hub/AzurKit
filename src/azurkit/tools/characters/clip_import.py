@@ -74,7 +74,7 @@ from pathlib import Path
 
 import numpy as np
 
-from azurkit.core import fdlibm
+from azurkit.core import fdlibm, native
 from azurkit.tools.characters import gltf as gx
 from azurkit.tools.characters import mesh_edit
 from azurkit.tools.characters.retarget import FLT_MAX, Clip, Track, _linear, add_clips, evaluate, write_clip
@@ -366,12 +366,10 @@ def _hermite_at(t0, v0, out0, t1, v1, in1, t):
             + (-2 * fdlibm.cube(s) + 3 * fdlibm.sq(s)) * v1 + d * (fdlibm.cube(s) - fdlibm.sq(s)) * in1)
 
 
-def _thin_track(track: Track, eps: float, rest: float) -> Track | None:
-    """``track`` thinned within ``eps`` (module docstring), or ``None``
-    when it holds ``rest`` within ``eps`` throughout."""
-    keys = track.keys
-    if any(k[3] > FLT_MAX for k in keys[:-1]):   # stepped: held between keys
-        return None if all(abs(k[1] - rest) <= eps for k in keys) else track
+def _thin_kept(keys, eps: float, rest: float) -> list[int] | None:
+    """The keys (by index) :func:`_thin_track` keeps of a track not
+    stepped, or ``None`` where it holds ``rest`` within ``eps``
+    throughout: ``native.thin``'s twin."""
     times = np.array([k[0] for k in keys])
     mids = (times[:-1] + times[1:]) / 2
     samples = np.sort(np.concatenate([times, mids]))
@@ -379,7 +377,7 @@ def _thin_track(track: Track, eps: float, rest: float) -> Track | None:
     if np.all(np.abs(dense - rest) <= eps):
         return None
     if len(keys) <= 2:
-        return track
+        return list(range(len(keys)))
     slope = [(k[2] + k[3]) / 2 for k in keys]
     slope[0], slope[-1] = keys[0][3], keys[-1][2]
 
@@ -393,8 +391,24 @@ def _thin_track(track: Track, eps: float, rest: float) -> Track | None:
         if not fits(kept[-1], j + 1):
             kept.append(j)
     kept.append(len(keys) - 1)
+    return kept
+
+
+def _thin_track(track: Track, eps: float, rest: float) -> Track | None:
+    """``track`` thinned within ``eps`` (module docstring), or ``None``
+    when it holds ``rest`` within ``eps`` throughout."""
+    keys = track.keys
+    if any(k[3] > FLT_MAX for k in keys[:-1]):   # stepped: held between keys
+        return None if all(abs(k[1] - rest) <= eps for k in keys) else track
+    kept = native.thin(keys, eps, rest)   # the compiled kernel's, else its twin's
+    if kept is False:
+        kept = _thin_kept(keys, eps, rest)
+    if kept is None:
+        return None
     if len(kept) == len(keys):
         return track
+    slope = [(k[2] + k[3]) / 2 for k in keys]
+    slope[0], slope[-1] = keys[0][3], keys[-1][2]
     out = []
     for n, i in enumerate(kept):
         t, v, a, o = keys[i]

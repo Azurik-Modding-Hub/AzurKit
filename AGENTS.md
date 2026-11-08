@@ -1150,7 +1150,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   test, the cost, the max_error's rehome and the collapse, the cheapest
   first, ties by point) on its packing (`_compiled`); its sets are lists
   there (no result reads their order), a NaN or a skin the twin refuses is
-  the twin's, and its pool and heap grow until they hold the cut.
+  the twin's, and its pool and heap grow until they hold the cut. The
+  sixth is the clip import's thinning (`native/dress.c`'s `az_thin`):
+  `clip_import._thin_track`'s keys kept past its stepped test (its twin
+  `_thin_kept`: each sample's value `retarget.evaluate`'s, the Hermite run
+  from the last kept key checked against the samples between), a time not
+  finite or not after the one before the twin's.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

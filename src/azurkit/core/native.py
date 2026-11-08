@@ -48,7 +48,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
-           "ray", "decimate")
+           "ray", "decimate", "thin")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -109,7 +109,8 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_decimate_need", [i64] * 4),
                          ("az_decimate", [i64, vp, vp, i64, vp, vp, vp, vp, vp, ctypes.c_char_p, i64, vp, vp, vp,
                                           ctypes.c_char_p, vp, vp, i64, f64, i64, f64, vp, i64, i64, i64]),
-                         ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64])):
+                         ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64]),
+                         ("az_thin", [vp, i64, f64, f64, vp, vp])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
         return None, f"{name} doesn't load: {e}", None
@@ -856,6 +857,28 @@ def ray(row: array, p, origin) -> tuple | None | bool:
     if code == 0:
         return (out[0], out[1], out[2]), out[3], out[4], out[5], out[6], out[7]
     return None if code == 1 else False
+
+
+def thin(keys, eps: float, rest: float) -> list[int] | None | bool:
+    """``clip_import._thin_kept``: the keys (time, value, in, out) of a
+    track thinned within ``eps`` keep, by index, or ``None`` where it
+    holds ``rest`` within ``eps`` throughout; ``False`` without the library
+    or where the twin answers (a time not finite or not after the one
+    before)."""
+    if (lib := library()) is None or not keys:
+        return False
+    n = len(keys)
+    try:
+        flat = array("d", [x for key in keys for x in key])
+    except TypeError:
+        return False
+    if len(flat) != 4 * n:
+        return False
+    kept, work = array("q", bytes(8 * n)), array("d", bytes(40 * n))
+    code = lib.az_thin(_at(flat), n, eps, rest, _at(work), _at(kept))
+    if code == -1:
+        return None
+    return kept[:code].tolist() if code > 0 else False
 
 
 def decimate(pos: array, flags: bytes, vpoint: array, twin: array, so: array, sb: array, sw: array, sbad: bytes,
