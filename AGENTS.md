@@ -1130,7 +1130,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   are logged and told after the call in its order, so an attempt's cancel
   point is its end. The third is
   the dress's (`native/dress.c`, Step 4.3r4d4): `retarget`'s engine
-  model (`pose`, `origins`, `origins_at` over many times),
+  model (`pose`, `origins`, `origins_at` over many times; `jiggle`'s
+  springs' chains and the clear's body at every time at once, on those
+  bones alone: `_posed_at`),
   `bake_clip`'s rows (`_linear_rows`, `_chain_rows`), the damage boxes
   (`characters._boxes`), the crossfade's `sample` and `_heights`,
   `jiggle`'s skinning loops (`_skinned`, `_signed`) and the byte runs

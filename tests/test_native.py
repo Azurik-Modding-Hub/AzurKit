@@ -472,7 +472,17 @@ def _dress_answer(case: dict) -> list:
                 rays.append("None" if got is None else bits([*got[0], *got[1:]]))
             except ZeroDivisionError:
                 rays.append("ZeroDivisionError")
-    return [rays,
+    def springs():   # a spring's chain and the clear's body, as jiggle poses them (the engine model on them alone)
+        chain = jiggle._chain(rig, len(bones) - 1)
+        whole = jiggle._posed_all(rig, clip, [len(bones) - 1, 0])
+        out = []
+        for ks, one in ((chain, jiggle._posed(rig, clip, chain)), (whole.order, None)):
+            got = jiggle._posed_at(rig, clip, ks, case["times"])
+            if got is None:   # the twins'
+                got = [{ks[-1]: one(t)} if one else whole(t) for t in case["times"]]
+            out.append([[*g[k][0], *g[k][1]] for g in got for k in (ks[-1:] if one else ks)])
+        return out
+    return [rays, engine(springs),
             engine(rt.origins_at, rig, clip, case["times"]), engine(rt.pose, rig, clip, case["times"][0]), bits(rows),
             characters._runs(*map(bytes.fromhex, case["runs"])), bits(_boxes(*case["boxes"])),
             bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist()),
@@ -496,7 +506,7 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     with numpy.errstate(all="ignore"):   # case 0's sample is the twin's
         got = [_dress_answer(case) for case in cases]
     asked = sum(len(points) for case in cases for *_, points in case["rays"])
-    assert ran == {"origins": 798, "linear": 400, "chain": 400, "boxes": 400, "sample": 399, "heights": 400,
+    assert ran == {"origins": 1597, "linear": 400, "chain": 400, "boxes": 400, "sample": 399, "heights": 400,
                    "skinned": 1600, "signed": 400, "runs": 400, "ray": asked}   # by the library but case 0's clip's
     assert 0 < sum(r == "ZeroDivisionError" for g in got for r in g[0]) < asked / 10   # some divide by zero
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))

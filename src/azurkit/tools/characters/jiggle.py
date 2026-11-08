@@ -1014,6 +1014,31 @@ def _posed(rig: Rig, clip: Clip, chain: list[int]):
     return at
 
 
+def _posed_at(rig: Rig, clip: Clip, ks: list[int], times: list[float]) -> list[dict] | None:
+    """At each of ``times``, the bones ``ks`` (each one's ancestors among
+    them, roots first) posed as :func:`_posed` and :func:`_posed_all` pose
+    them, {k: (world rotation, origin)} in ``ks``' order: by the compiled
+    engine model (retarget's ``core.native.origins``) on those bones alone,
+    or ``None`` where its twins answer (no library, a bone or key it can't
+    take)."""
+    from azurkit.tools.characters import retarget
+
+    at = {k: i for i, k in enumerate(ks)}
+    try:
+        sub = Rig(rig.name, tuple(replace(rig.bones[k], parent=at[rig.bones[k].parent] if rig.bones[k].parent >= 0
+                                          else -1) for k in ks), (), (), ())
+    except KeyError:   # an ancestor left out: the twins'
+        return None
+    tracks = tuple(replace(tr, target=at[tr.target]) for tr in clip.bones if tr.target in at and 0 <= tr.comp <= 6)
+    got = retarget._engine(sub, Clip(clip.length, tracks, ()), times, True)
+    if got is None:
+        return None
+    world, origin = got
+    n = len(ks)
+    return [{k: (tuple(world[4 * (i * n + j):4 * (i * n + j) + 4]), tuple(origin[3 * (i * n + j):3 * (i * n + j) + 3]))
+             for j, k in enumerate(ks)} for i in range(len(times))]
+
+
 def _binomial(n: int) -> list[int]:
     row = [1]
     for _ in range(n):
@@ -1094,14 +1119,20 @@ def keyed(rig: Rig, clip: Clip, placed: tuple[Placed, ...], keys: float, rate: f
         dtau = h / sub
         dt = dtau / rate
         n = (n_keys - 1) * sub + 1
-        at = _posed(rig, clip, _chain(rig, pl.parent))
+        chain = _chain(rig, pl.parent)
+        times = [dtau * i for i in range(n)]
+        if (posed := _posed_at(rig, clip, chain, times)) is not None:
+            posed = [got[pl.parent] for got in posed]
+        else:
+            at = _posed(rig, clip, chain)
+            posed = [at(t) for t in times]
         bind = rig.world[pl.parent]
         sides = [_turn(qinv(bind), (pl.origin[0] + sign * pl.sides - home[pl.parent][0],
                                     pl.origin[1] - home[pl.parent][1], pl.origin[2] - home[pl.parent][2]))
                  for sign in (-1.0, 1.0)]
         rel, anchors = [], ([], [])
         for i in range(n):
-            w, o = at(dtau * i)
+            w, o = posed[i]
             rel.append(qmul(w, qinv(bind)))   # the parent turned from its bind, in the model
             for s in range(2):
                 anchors[s].append(tuple(a + b for a, b in zip(o, _turn(w, sides[s]))))
@@ -1285,6 +1316,7 @@ def _posed_all(rig: Rig, clip: Clip, ks):
                 w, o = out[b.parent]
                 out[k] = (qmul(w, local), tuple(a + d for a, d in zip(o, _turn(w, tl))))
         return out
+    at.order = order   # each bone after its parent: what _posed_at poses
     return at
 
 
@@ -1342,10 +1374,12 @@ def _clear(rig: Rig, clip: Clip, col: Collider, flats: list) -> None:
     tail, target, owner = col.tail, col.tail["target"], col.tail["owner"]
     count = n_keys - 1 if loop else n_keys
     frames = []        # CLEAR_SUB a key's span: the body, its skin and the chain on its springs alone (their keys lerped)
-    for f in range((n_keys - 1) * CLEAR_SUB + (0 if loop else 1)):
-        j, q = divmod(f, CLEAR_SUB)
+    spans = [divmod(f, CLEAR_SUB) for f in range((n_keys - 1) * CLEAR_SUB + (0 if loop else 1))]
+    times = [clip.length * (j + q / CLEAR_SUB) / (n_keys - 1) for j, q in spans]
+    every = _posed_at(rig, clip, at.order, times)   # each frame's body at once, compiled
+    for f, (j, q) in enumerate(spans):
         u = q / CLEAR_SUB
-        posed = at(clip.length * (j + u) / (n_keys - 1))
+        posed = every[f] if every is not None else at(times[f])
         R, O = np.zeros((len(rig.bones), 3, 3)), np.zeros((len(rig.bones), 3))
         for k, (qq, o) in posed.items():
             R[k], O[k] = _matrix(qq), o
