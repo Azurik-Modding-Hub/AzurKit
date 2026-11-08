@@ -60,7 +60,9 @@ def load(path: str | Path, original: str | Path | None = None) -> Build:
     """The build at ``path`` (an image or a raw XBE) and its release's
     vanilla XBE (``original``, an image or a raw XBE, else the player's image)."""
     data, config = read(path)
-    xbe.sections(data)   # refuses what isn't an XBE, or a table that runs off it
+    # refuses what isn't an XBE, a table that runs off it, or a section past its end (a cut copy)
+    if cut := next((s.name for s in xbe.sections(data) if s.raw + s.raw_size > len(data)), None):
+        raise ValueError(f"{path}: its default.xbe is cut short ({len(data)} B): section {cut} runs past its end")
     if (release := release_of(data)) is None:
         raise ValueError(f"{path}: its default.xbe is of neither release (its kernel thunk table's address is "
                          "neither's)")

@@ -61,8 +61,8 @@ def test_verify_patches_reads_each_packs_sites_of_a_build_and_fails_a_mismatch_a
     does a character's build, its swap sites written. A fixed
     patch's byte changed is a mismatch shown by digests, a step-cap byte a
     failed guard, exit 1; a header, a .text and two tail bytes are named
-    runs that fail only --strict. A build of neither release, or a vanilla
-    image that isn't, is one line, exit 2."""
+    runs that fail only --strict. A build of neither release, one cut short
+    or a vanilla image that isn't is one line, exit 2."""
     image = request.getfixturevalue(f"{release.name}_iso")
     known = facts.of(release)
     recipe = {"player_physics": PHYSICS, "qol_gem_popups": {}, "qol_skip_logo": {}, "fps_unlock": {},
@@ -105,7 +105,9 @@ def test_verify_patches_reads_each_packs_sites_of_a_build_and_fails_a_mismatch_a
     assert f"file 0x{len(xbe):06X}  (no section): 2 B" in out and "3 run(s), 4 B (--strict fails on them)" in out
     assert run(capsys, verify_patches, "--xbe", tmp_path / "s.xbe", "--original", image, "--strict")[0] == 1
     (tmp_path / "neither.xbe").write_bytes(vanilla[:0x158] + bytes(4) + vanilla[0x15C:])
-    for argv in (("--xbe", tmp_path / "neither.xbe"), ("--xbe", tmp_path / "b.xbe", "--original", tmp_path / "b.xbe")):
+    (tmp_path / "cut.xbe").write_bytes(xbe[:len(xbe) // 2])
+    for argv in (("--xbe", tmp_path / "neither.xbe"), ("--xbe", tmp_path / "cut.xbe", "--original", image),
+                 ("--xbe", tmp_path / "b.xbe", "--original", tmp_path / "b.xbe")):
         code, _, err = run(capsys, verify_patches, *argv)
         assert code == 2 and len(err.splitlines()) == 1 and err.startswith("verify-patches: "), err
 

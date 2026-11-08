@@ -8,7 +8,7 @@ read at that release's own address (the facts, `src/azurkit/core/facts.<release>
 and compared with the release's vanilla `default.xbe`: `--original IMAGE|XBE`,
 else the player's image (`AZURKIT_ISO` or `AZURKIT_ISO_EUROPE`, else the
 user data folder). Nothing prints a byte: a site that holds neither is its
-length and sha256[:12]. A build it can't read, of neither release, or no
+length and sha256[:12]. A build it can't read (or cut short), of neither release, or no
 vanilla XBE to compare with is one `VERB: ...` line on stderr and exit 2.
 
 ```bash
