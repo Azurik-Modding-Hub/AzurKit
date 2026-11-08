@@ -7,7 +7,9 @@ the dress passed (D35), never inside the checkout (D36); ``inspect`` counts a
 body and names each budget it passes; ``export`` writes a body as glTF from
 the image or from a built ``characters.xbr``; ``jiggle`` and ``pose`` drive
 a dressed variant's springs with X41's twin (Step 4.15a3), ``rest`` poses
-its frozen mesh at other values. Each reads the USA image."""
+its frozen mesh at other values. ``python -m devkit models fx LEAF``
+(Modkit's ``azurik-mod fx``) reads, plans and clones the fx graphs. Each
+reads the USA image."""
 
 from __future__ import annotations
 
@@ -16,18 +18,21 @@ import dataclasses
 import hashlib
 import json
 import os
+import re
 import struct
 from pathlib import Path
 
 import pytest
 
 from azurkit.core.xbr.append import NewResource, append_resources, rewrite_payloads
-from azurkit.core.xbr.nodes import runs
+from azurkit.core.xbr.nodes import named_resources, parse_toc, runs
 from azurkit.tools.characters import body_codec, model_inspect
 from azurkit.tools.characters._player_variants import BUILTIN, UNGRADED, _mesh, _variant, recipe_sha
 from azurkit.tools.characters.characters import mesh_groups, mesh_points
+from azurkit.tools.characters.index_xbr import parse_index_xbr
+from azurkit.tools.characters.textures import read_png
 from devkit.models import dress as dressing
-from devkit.models import image, model
+from devkit.models import fx, image, model
 
 ROOT = Path(__file__).resolve().parent.parent
 FEMALE_2 = "townspeople/female_2"
@@ -363,3 +368,107 @@ def test_model_rest_poses_other_values_on_the_frozen_mesh_where_their_plans_put_
     code, said = rest(tmp_path / "refused", {**mesh, "ops": mesh["ops"][1:]})
     assert code == 1 and "model rest: mesh.ops: not the prepared spec's ops" in said
     assert not (tmp_path / "refused").exists()
+
+
+FX_KEY = "characters/balthazar_airship/fx/fx_default"
+"""The airship boss's (beamlord's base's) fx graph, TOC 115."""
+
+
+def _fx(capsys, *argv: str) -> tuple[int, str]:
+    """``python -m devkit models fx ARGV``, in this process: (exit code, stdout and stderr)."""
+    code = fx.main(list(argv))
+    out = capsys.readouterr()
+    return code, out.out + out.err
+
+
+def test_fx_verbs_read_plan_and_clone_graphs_printing_names_numbers_and_hashes_only(usa_iso, tmp_path, capsys):
+    """``fx`` (Modkit's Step 2.157, D443, D446): ``list``, ``show``,
+    ``closure``, ``texture``, ``templates``, ``plan`` and ``clone`` each exit
+    0 on the boss's graph and the electric shield, printing names, decoded
+    numbers, sizes and sha256[:12] (no hex run past 12 digits); ``plan`` of
+    a user recipe names the clone, its graft and its new texture, of the air
+    elemental's overlay its stand's clone (Step 2.155b) and its funnel mesh
+    (Step 2.155e), of a recipe's ``effects`` row its template, values and
+    the projectile W30 makes (Step 2.167b), and of a shield's or beam's its
+    own graph on X38's bound key (Step 2.167c); ``clone --as`` writes
+    characters.xbr and index.xbr whose new key resolves through both while
+    every vanilla payload stays; ``clone`` refuses an --out in the image's
+    folder (D36), writing nothing; and ``closure`` with neither a key nor
+    --toc is refused in one line."""
+    shield = "fx/magic/fx_shield_electric1"
+    edits = {"fx": [{"record": 35, "name": "pRendererB2", "type": "pRendererB", "set": {"alpha1": 0.45},
+                     "texture": {"recolor": {"ramp": [[0, 0, 0], [0.1, 0.2, 0.6], [0.9, 0.95, 1.0]]}}}],
+             "fx_grafts": [{"template": "electric_shield", "parent": 5}]}
+    (tmp_path / "edits.json").write_text(json.dumps(edits), encoding="utf-8")
+    (tmp_path / "recipes.json").write_text(json.dumps({"stormlord": {"base": "balthazar", **edits}}), encoding="utf-8")
+    cases = json.loads((ROOT / "tests" / "goldens" / "cases.json").read_text(encoding="utf-8"))["pipelines.json"]
+    fixture = "tests/fixtures/effects.json"   # G3's firelord case's recipe file (Steps 2.167b, 2.167c)
+    effects = next(case["files"][fixture] for case in cases.values() if fixture in case.get("files", {}))
+    (tmp_path / "effects.json").write_text(json.dumps(effects), encoding="utf-8")
+    png = tmp_path / "bolt.png"
+    runs = {
+        "list": (["list", "--match", "balthazar_airship/fx/fx_def"],
+                 [f"TOC   115  {FX_KEY}  64 records, 11340 B", "1 graphs"]),
+        "show": (["show", FX_KEY, "--record", "35"],
+                 ["[35] pRendererB2 (pRendererB)", "blendMode 5", "+0x18: surf 111 (11136 B), DXT1 128x128"]),
+        "show shield": (["show", shield, "--record", "5"],
+                        ["[5] StaticField_s (shader)", "texture1FrameRate 5", "+0x18: gshd 1602 (1152 B), row 0"]),
+        "closure": (["closure", FX_KEY], ["16 entries, 93160 B (characters.xbr)"]),
+        "texture": (["texture", FX_KEY, "--record", "35", "--png", str(png)],
+                    ["[35] pRendererB2: surf 111 (DXT1 128x128)"]),
+        "show system": (["show", FX_KEY, "--record", "37"],
+                        ["renderer: [35] pRendererB2", "component: [24] pBurstEmitterShape1, [39] pSinkShape2"]),
+        "templates": (["templates"], ["electric_shield: fx.xbr fx/magic/fx_shield_electric1",
+                                      "[12] StaticFieldBaseShape (platform)", "fireball (projectile, throw, at the hand)",
+                                      "laser (beam, bound, at the hand): Laser"]),
+        "plan": (["plan", "--player-character", "stormlord", "--player-variant-file", str(tmp_path / "recipes.json")],
+                 ["-> characters/balthazar_airship/v/fx/fx_default (X40: the player alone)", "68 records (64 its own)",
+                  "graft electric_shield (fx.xbr fx/magic/fx_shield_electric1): [64] <- [4]", "[67] <- [12]",
+                  "new surf    11136 B  from fx[0].texture (from surf 111)"]),
+        "plan effects": (["plan", "--player-character", "firelord", "--player-variant-file",
+                          str(tmp_path / "effects.json")],
+                         ["effects row fireball@", "(projectile, throw, at the hand) on basic3, finish",
+                          "speed 18, arc 0.2, size 0.12, radius 0.4, life 2; colour (1.0, 0.45, 0.1)",
+                          "W30: debug wearing a copy of bosses/boulder at x0.127, 1 texture(s) recoloured",
+                          "blaze_blast grafted (17 records)",
+                          "its break a copy of characters/bosses/fire_guardian/fx/fx_small_explosion; its hits the player's "
+                          "(X42), with X32's small flash (D700)",
+                          "6 named entries (characters/debug, "]),
+        "plan bound": (["plan", "--player-character", "shieldlord", "--player-variant-file",
+                        str(tmp_path / "effects.json")],
+                       ["effects row bubble@", "(shield, bound, at the centre) on basic1",
+                        "X38's bound key characters/keylord/v/fx/fx_bubble_0: 6 records (holder, holder, "
+                        "electric_shield grafted on characters/key_battery/fx/fx_default), under its effectOrigin "
+                        "root (the wearer's model), its holder bound to m_root",
+                        "(beam, bound, at the hand) on basic2", "range auto (the build's reach)",
+                        "its holder where the build places it; shown at 1 attribute(s), fading over 0.3 s"]),
+        "plan stand": (["plan", "--player-character", "air_elemental"],
+                       ["characters/balthazar_spider/fx/fx_default -> characters/air_elemental/v/fx/fx_stand "
+                        "(X38's stand key: the player alone)", "new rdms    24140 B  from fx[21].mesh (air_funnel.glb)",
+                        "19 entries appended, 319228 B"]),
+        "clone": (["clone", FX_KEY, "--as", "characters/balthazar_airship/fx/fx_storm", "--edits",
+                   str(tmp_path / "edits.json"), "--out", str(tmp_path / "out")],
+                  ["-> characters/balthazar_airship/fx/fx_storm (characters.xbr)", "68 records"]),
+    }
+    iso = ["--iso", str(usa_iso)]
+    for name, (argv, wanted) in runs.items():
+        code, out = _fx(capsys, *argv, *(iso if argv[0] != "templates" else ()))
+        assert code == 0, (name, out)
+        assert [w for w in wanted if w not in out] == [], (name, out)
+        assert not re.search(r"[0-9a-fA-F]{13,}", out), name
+    assert read_png(png.read_bytes()).shape == (128, 128, 4)
+    vanilla = image.read(usa_iso, "gamedata/characters.xbr")[0]
+    built = (tmp_path / "out" / "gamedata" / "characters.xbr").read_bytes()
+    old, new = parse_toc(vanilla), parse_toc(built)
+    shift = new[0].file_offset - old[0].file_offset
+    assert all(built[e.file_offset + shift:][:e.size] == vanilla[e.file_offset:][:e.size] for e in old)
+    key = "characters/balthazar_airship/fx/fx_storm"
+    assert [new[i].tag for i, n in named_resources(built).items() if n == key] == ["node"]
+    assert [(r.archive, r.fourcc) for r in parse_index_xbr(
+        (tmp_path / "out" / "gamedata" / "index" / "index.xbr").read_bytes()).records if r.key == key] == [
+        ("characters.xbr", "node")]
+    refused = usa_iso.parent / "fx-clone-refused"
+    code, out = _fx(capsys, "clone", FX_KEY, "--as", key, "--out", str(refused), *iso)
+    assert (code, refused.exists()) == (1, False) and out.startswith("fx clone: --out ") and "an image's folder" in out
+    assert _fx(capsys, "closure", *iso) == (1, "fx closure: a KEY or --toc N\n")
+
