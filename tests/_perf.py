@@ -1457,6 +1457,7 @@ def _download(d: Driver, p: Page, op: str | None) -> None:
 
 def site_start(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, "S01")
+    p.js(TICK_REMEMBER)   # S02's return visit restores the setup only with Remember settings ticked (D1156)
     d.act(p, "S16", click("tab-randomizer"), "() => azurkit.rando.view")
     d.act(p, "S17", SEED_ASK, "() => azurkit.rando.view")
     d.act(p, None, UNTICK, "() => azurkit.rando.view")
