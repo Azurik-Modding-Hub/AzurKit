@@ -27,6 +27,7 @@ means "the patched code computes this from this state", not "the game does this"
 from __future__ import annotations
 
 import math
+import os
 import struct
 import typing
 from unittest import mock
@@ -304,23 +305,12 @@ def _l3_xbe(text: bytes, ordinals: list[int], extra=()) -> bytes:
 
 def test_l3_snapshot_store_and_a_step_with_the_scheduler_clock_allocation_and_fs(tmp_path):
     """Steps X.5-X.6, X.10 (D168, D170): a snapshot read through the page tables' self-map round-trips with its
-    metadata, mode 0600 in a private store (a store others may enter is refused: guest RAM holds console
-    keys), in format 2 (a format 1 file still reads, an unknown format is refused by name); a step runs the
-    player update with the scheduler's now set from the event time entity+0x18, NtAllocateVirtualMemory
-    mapping a new region and FS on the KPCR, and a reset unmaps that region so the rerun allocates the same
-    one."""
-    import json
-
+    metadata, mode 0600 (the store's refusal and the formats: test_xemu_harness); a step runs the player update
+    with the scheduler's now set from the event time entity+0x18, NtAllocateVirtualMemory mapping a new region and
+    FS on the KPCR, and a reset unmaps that region so the rerun allocates the same one."""
     from unicorn import UcError
 
-    from devkit.sim.l3 import L3, read_meta, read_snapshot, snapshot_path, store
-
-    shared = tmp_path / "shared"
-    shared.mkdir(mode=0o755)
-    shared.chmod(0o755)
-    with pytest.raises(ValueError, match="must be private"):
-        store(shared)
-    assert snapshot_path("w1-start", tmp_path / "s").parent.stat().st_mode & 0o777 == 0o700
+    from devkit.sim.l3 import L3, read_meta, read_snapshot
 
     ent, kernel = 0x100000, 0x80016000
     upd = 0x8C230
@@ -335,21 +325,11 @@ def test_l3_snapshot_store_and_a_step_with_the_scheduler_clock_allocation_and_fs
     store_dir.mkdir(mode=0o700)
     path, info = _l3_snapshot(store_dir, {upd: code, 0x8C3F1: b"\xc3", 0x18F424: struct.pack("<I", kernel)},
                               {"level": "levels/water/w1"})
-    assert (info["pages"], info["runs"], path.stat().st_mode & 0o777) == (13, 10, 0o600)
+    assert (info["pages"], info["runs"]) == (13, 10)
+    assert os.name != "posix" or path.stat().st_mode & 0o777 == 0o600   # modes say nothing on Windows
     assert read_meta(path) == {"entity": ent, "at": "update", "level": "levels/water/w1"}
     snap = read_snapshot(path)
     assert snap.meta == read_meta(path) and [va for va, _ in snap.runs][:3] == [0x85000, 0x8C000, 0x100000]
-    raw = path.read_bytes()                       # format 2: the pages from a 4 KiB boundary; format 1 (no
-    n = struct.unpack_from("<I", raw, 8)[0]       # "format"): right after the header, still read; others refused
-    hdr = json.loads(raw[12:12 + n])
-    for fmt, name in ((1, "old.l3snap"), (9, "new.l3snap")):
-        head = json.dumps({**{k: v for k, v in hdr.items() if k != "format"}, **({"format": 9} if fmt == 9 else {})})
-        (store_dir / name).write_bytes(b"AZL3SNAP" + struct.pack("<I", len(head)) + head.encode()
-                                       + raw[-sum(size for _, size in hdr["runs"]):])
-    old = read_snapshot(store_dir / "old.l3snap")
-    assert hdr["format"] == 2 and [(va, bytes(d)) for va, d in old.runs] == [(va, bytes(d)) for va, d in snap.runs]
-    with pytest.raises(ValueError, match="of format 9; this reader reads formats 1 to 3"):
-        read_snapshot(store_dir / "new.l3snap")
 
     sim = L3(snap, {kernel: "NtAllocateVirtualMemory"})
     sim.step()
