@@ -2950,14 +2950,23 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
     refused by name and replaced by a record of its heap and size alone
     (no hash to wait on at a start), and a restore whose grow is refused (as
     where memory is short: Pyodide swallowed the throw and never settled its
-    load) starts cold, saying why: each page gets ready."""
+    load) starts cold, saying why: each page gets ready. Step 4.5p: each
+    page runs its one engine, F (it says 2 cores, :data:`TWO_CORES`: no B),
+    and closes before the next opens, so one engine runs at a time, each
+    start the claim's: on GitHub's Apple Silicon runner WebKit's page
+    process crashed here in JavaScriptCore's tier-up of an engine's wasm (a
+    loop's OSR entry, on its worker's thread) with memory free, while the
+    test held up to four pages' eight engines (run 42435914930)."""
     served = Site(browser, site, tmp_path / "profile")   # persistent: WebKit's ephemeral storage refuses a big heap's put
     try:
         served.context.add_init_script(HEARD)
+        served.context.add_init_script(TWO_CORES)
         first = served.open()
         _page.until(first, SNAPSHOT_KEPT, 60)
+        assert first.evaluate("() => starts") == ["cold"]
+        _page.close(first)
         again = served.open()
-        assert first.evaluate("() => starts[0]") == "cold" and set(again.evaluate("() => starts")) == {"snapshot"}
+        assert again.evaluate("() => starts") == ["snapshot"]
         _page.pick(again, "#iso", usa_iso)
         _page.until(again, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.build(again, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})
@@ -2965,8 +2974,7 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
         made, report = sdk.image({"iso": str(usa_iso), "packs": again.evaluate("() => azurkit.sent")})
         assert (built["report"], built["segments"]) == (report, _signature(made))
         again.evaluate(SNAPSHOT_GONE)
-        first.close()
-        again.close()
+        _page.close(again)
 
         worker = (site / "worker.mjs").read_text(encoding="utf-8")
         imports = 'IMPORTS = "import azurkit\\n'
@@ -2976,15 +2984,17 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
             content_type="text/javascript"))
         grew = served.open()
         _page.until(grew, SNAPSHOT_KEPT, 60)
+        assert grew.evaluate("() => starts") == ["cold"]
+        _page.close(grew)
         after = served.open()
-        assert grew.evaluate("() => starts[0]") == "cold" and set(after.evaluate("() => starts")) == {"snapshot"}
-        for page in (grew, after):   # each B loaded: one loading would read the cut record and replace it first
-            _page.until(page, "() => azurkit.pool.state().b?.loaded", 300)
+        assert after.evaluate("() => starts") == ["snapshot"]
         cut, size = after.evaluate(SNAPSHOT_CUT)
+        _page.close(after)
         refused = served.open()
-        assert refused.evaluate("() => [starts[0], colds[0]]") == [
-            "cold", f"the kept snapshot was refused: its heap is {cut} bytes, not {size}"]
+        assert refused.evaluate("() => [starts, colds]") == [
+            ["cold"], [f"the kept snapshot was refused: its heap is {cut} bytes, not {size}"]]
         _page.until(refused, SNAPSHOT_WHOLE, 60)   # replaced by a whole one
+        _page.close(refused)
         served.context.unroute("**/worker.mjs")
         served.context.route("**/worker.mjs", lambda route: route.fulfill(body=GROW_REFUSED + worker,
                                                                           content_type="text/javascript"))
