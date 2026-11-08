@@ -165,6 +165,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   again unchanged answers at once. Unsaved edits are asked about before you leave them or build that variant. The app
   keeps your variants where Modkit does; the web page keeps them in your browser (Clear in the Tools tab removes them:
   Export one to keep a copy). Yours show under the models too, as Yours, and Edit… opens a chosen variant here.
+  Writing a recipe by hand, or sharing one: [VARIANTS.md](VARIANTS.md).
 - **Colours (the Variants view's Colours tab):** pick a row of the body's textures (or all), then drag on the colour
   wheel to move its main colour, with a bar for brightness and boxes for the hex colour, hue, saturation and value;
   limit it to a range of hues, or click a palette colour to swap it for one you pick on a wheel. The row tiles and the

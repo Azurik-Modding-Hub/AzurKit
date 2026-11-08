@@ -49,7 +49,8 @@ the tracker's maps and icons).
 - **Item tracker and maps:** what you've collected and can reach now, on every level's map and the world map,
   spoiler-free; in the app, Play starts xemu with your build and Live marks your pickups as you play.
 - **Characters:** play as 178 of the game's 184 creatures, with moves and speed fitted to each body, any weapon and
-  any size, seen front and back before you build; or make your own variants in the Variants view.
+  any size, seen front and back before you build; or make your own variants in the Variants view, with their own
+  sounds and effects ([writing one](https://github.com/Azurik-Modding-Hub/AzurKit/blob/main/docs/VARIANTS.md)).
 - **Community content:** character variants, and packs as they're published, from Azurik-Custom-Content or any https
   content repository, each file checked before it's kept.
 - **Data:** edit every critter's, item's, armor's and spell's numbers.
