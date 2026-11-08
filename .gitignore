@@ -23,6 +23,7 @@ build/
 *eeprom*.bin
 gamedata/
 movies/
+!/devkit/movies/
 
 # Tools fetched for the tests (Pyodide: scripts/web_tools.py), shared by every lane
 /.tools/

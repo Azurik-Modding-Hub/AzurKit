@@ -35,6 +35,8 @@ and certification and `models`' first model verbs are here; the rest come after 
 | `reach` | the reach engine, its native kernel and the patched Unicorn; the L3 certification of the randomizer's spots, edges, skips and contact flights |
 | `models` | the model and effect verbs ModelKit's adapter calls |
 | `xbr` | the XBR file tools: inspect, diff, edit, xref and verify (here) |
+| `movies` | a Bink movie's header and frame table, its frames by ffmpeg (here) |
+| `audio` | an XBR's waves written out with their WAVs and a manifest (here) |
 
 ## Its dependencies
 
