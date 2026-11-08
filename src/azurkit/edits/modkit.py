@@ -18,9 +18,13 @@ and both hosts' Load take one and the Data tab shows what it changes.
   Studio's ``original``, ``fill_empty``, ``label``): ``set_keyed_double``,
   ``set_keyed_string`` and ``point_keyed_string`` are ``set``;
   ``replace_bytes`` and ``replace_string_at`` (a NUL-ended ASCII string, NUL
-  padded to its old length) are ``replace_bytes``, whose ``expected`` is the
-  original they name, else, in config.xbr, what the vanilla file holds there
-  (one already holding the new value is applied: dropped). A file name is
+  padded to its old length) are ``replace_bytes``. As in Modkit, each is
+  checked against what the mod's earlier edits left (its original may be an
+  earlier edit's value; one already holding the new value is applied:
+  dropped); its operation's ``expected`` is the vanilla bytes (config.xbr's
+  as AzurKit ships it, a level's as the originals name them), and one a
+  build would drop part of an earlier edit for (D28) covers both
+  (:class:`_Chain`). A file name is
   looked for as Modkit did: in gamedata/, gamedata/index/, then the root.
 - ``source_hashes`` (``{file: sha256}``, Level Studio's): each file must
   be a release's vanilla file (only gamedata/index/index.xbr differs
@@ -37,6 +41,7 @@ preview shows each); :func:`preset` refuses them all in one message (D35).
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import hashlib
 import json
@@ -133,8 +138,8 @@ def _file(name: object) -> str | None:
                  if p.casefold() in known), None)
 
 
-def _entry(k: int, raw: object, config: bytes) -> Edit:
-    """``xbr_edits[k]`` as an operation."""
+def _entry(k: int, raw: object, chains: dict[str, _Chain], gid: int) -> Edit:
+    """``xbr_edits[k]`` as an operation, ``gid`` its place in the mod's edits."""
     label = f"xbr_edits[{k}]"
     if not isinstance(raw, Mapping):
         return label, None, "not an edit object"
@@ -169,7 +174,10 @@ def _entry(k: int, raw: object, config: bytes) -> Edit:
         if op != "set_keyed_double" and (hexed or not isinstance(value, str) or not value.isascii() or "\0" in value):
             return label, None, f"{op} needs ASCII text without NULs"
         made = {"op": "set", "file": file, "table": names[0], "entity": names[1], "prop": names[2], "value": value}
-        return label, made | ({"col": col} if col is not None else {}) | ({"fill": True} if fill else {}), None
+        made |= ({"col": col} if col is not None else {}) | ({"fill": True} if fill else {})
+        if file == CONFIG:
+            chains[CONFIG].cell(gid, made)
+        return label, made, None
     offset = raw.get("offset")
     if type(offset) is not int or offset < 0:
         return label, None, f"offset {offset!r} is not a non-negative integer"
@@ -188,46 +196,119 @@ def _entry(k: int, raw: object, config: bytes) -> Edit:
                 return label, None, "replace_string_at needs ASCII text"
             if expected is not None and not (isinstance(expected, str) and expected.isascii() and "\0" not in expected):
                 return label, None, "expected is not ASCII text"
-            after = was = None
     except ValueError:
         return label, None, "value or expected is not hex"
-    if file == CONFIG:
-        return _config_bytes(label, op, offset, value, after, was, expected, config)
-    if expected is None:
-        return label, None, (f"no expected or original: AzurKit replaces {file}'s bytes only where it knows what the "
-                             "vanilla file holds there (give the original bytes)")
-    if op == "replace_string_at":
+    chain = chains.setdefault(file, _Chain())
+    if op == "replace_string_at" and file == CONFIG:   # its slot, as the earlier edits left it, ends at its NUL
+        held = chain.now
+        end = held.find(b"\0", offset)
+        if offset >= len(held) or end < 0:
+            return label, None, f"no NUL-ended string at 0x{offset:08X} of {CONFIG}"
+        text = held[offset:end].decode("ascii", "replace")
+        if text == value:
+            return label, None, None
+        if expected is not None and text != expected:
+            return label, None, f"at 0x{offset:08X} the file holds neither the expected original nor the new value"
+        if len(value) > end - offset:
+            return label, None, f"{value!r} is longer than the {end - offset + 1} B slot at 0x{offset:08X}"
+        after, was = value.encode("ascii").ljust(end + 1 - offset, b"\0"), None
+    elif op == "replace_string_at":
+        if expected is None:
+            return label, None, _UNKNOWN.format(file=file)
         if len(value) > len(expected):
             return label, None, f"{value!r} is longer than the {len(expected) + 1} B slot of {expected!r}"
         was = expected.encode("ascii") + b"\0"
         after = value.encode("ascii").ljust(len(was), b"\0")
-    return label, _bytes(file, offset, after, was), None
+    elif file == CONFIG and offset + len(after) > len(chain.now):
+        return label, None, f"0x{offset:X}+{len(after)} is past {CONFIG}'s {len(chain.now):,} B"
+    return chain.replace(gid, label, file, offset, after, was)
 
 
-def _config_bytes(label: str, op: str, offset: int, value: str, after: bytes | None, was: bytes | str | None,
-                  expected: object, config: bytes) -> Edit:
-    """A byte edit of config.xbr, checked against the vanilla file AzurKit ships (both releases hold it)."""
-    if op == "replace_string_at":
-        end = config.find(b"\0", offset)
-        if offset >= len(config) or end < 0:
-            return label, None, f"no NUL-ended string at 0x{offset:08X} of {CONFIG}"
-        held_text = config[offset:end].decode("ascii", "replace")
-        if held_text == value:
+_UNKNOWN = ("no expected or original: AzurKit replaces {file}'s bytes only where it knows what the vanilla file holds "
+            "there (give the original bytes)")
+
+
+class _Chain:
+    """An XBR file as a Modkit mod's edits so far leave it in a build.
+    Modkit wrote each edit in order over what the earlier ones left and
+    checked a byte edit's expected against that; AzurKit's layer plans
+    each operation against the vanilla file and drops an earlier one whole
+    where a later one gives a byte of it another value (D28,
+    ``edits.layer.compose``). So a byte edit is checked against what the
+    mod's earlier edits left, and one that would drop bytes of an earlier
+    edit it doesn't overwrite is made one ``replace_bytes`` over both, from
+    the vanilla bytes to Modkit's. A config.xbr ``set`` counts with the
+    writes a build plans for it (``cells``: when the mod has a byte edit).
+    config.xbr's bytes are known (``vanilla``, the file AzurKit ships); a
+    level's only where an edit's original named them (Q225)."""
+
+    def __init__(self, vanilla: bytes | None = None, cells: bool = False) -> None:
+        self.vanilla, self.cells, self.documents = vanilla, cells, {}
+        self.van: dict[int, int] = {}   # a level's vanilla bytes an original named
+        self.now: bytearray | dict[int, int] = {} if vanilla is None else bytearray(vanilla)   # what a build leaves
+        self.holders: dict[int, list[int]] = {}   # a byte -> the edits (their places) whose operation writes it
+        self.spans: dict[int, list[tuple[int, int]]] = {}
+
+    def base(self, at: int) -> int | None:
+        return self.van.get(at) if self.vanilla is None else self.vanilla[at]
+
+    def held(self, at: int) -> int | None:
+        return self.now.get(at, self.van.get(at)) if isinstance(self.now, dict) else self.now[at]
+
+    def _hit(self, writes: list[tuple[int, bytes]]) -> set[int]:
+        """The edits whose operation a build drops for ``writes``: each that wrote a byte of them another value."""
+        return {g for at, data in writes for i, b in enumerate(data, at) for g in self.holders.get(i, ())
+                if self.held(i) != b}
+
+    def _put(self, gid: int, writes: list[tuple[int, bytes]]) -> None:
+        for g in self._hit(writes):   # dropped whole: a byte no other edit holds is back to vanilla
+            for lo, hi in self.spans.pop(g):
+                for i in range(lo, hi):
+                    self.holders[i].remove(g)
+                    if not self.holders[i]:
+                        del self.holders[i]
+                        if isinstance(self.now, dict):
+                            del self.now[i]
+                        else:
+                            self.now[i] = self.vanilla[i]
+        for at, data in writes:
+            for i, b in enumerate(data, at):
+                self.now[i] = b
+                self.holders.setdefault(i, []).append(gid)
+        self.spans[gid] = [(at, at + len(data)) for at, data in writes]
+
+    def cell(self, gid: int, op: Mapping) -> None:
+        """A config.xbr ``set``, by the writes a build plans for it (one it refuses, ``tools.data.preview`` names)."""
+        if self.cells:
+            with contextlib.suppress(LookupError, ValueError):
+                self._put(gid, xbr.writes(op, gate.USA, {CONFIG: self.vanilla}, self.documents)[1])
+
+    def replace(self, gid: int, label: str, file: str, offset: int, after: bytes, was: bytes | None) -> Edit:
+        """The bytes ``after`` at ``offset``, where Modkit's file held ``was``
+        (``None``: anything) or ``after`` already (nothing to do)."""
+        span = range(offset, offset + len(after))
+        held = [self.held(i) for i in span]
+        if was is None and None in held:
+            return label, None, _UNKNOWN.format(file=file)
+        now = bytes(w if h is None else h for h, w in zip(held, was or after))   # an unknown byte: as its original
+        if now == after and None not in held:
             return label, None, None
-        if expected is not None and held_text != expected:
+        if was is not None and now not in (was, after):
             return label, None, f"at 0x{offset:08X} the file holds neither the expected original nor the new value"
-        if len(value) > end - offset:
-            return label, None, f"{value!r} is longer than the {end - offset + 1} B slot at 0x{offset:08X}"
-        held, after = config[offset:end + 1], value.encode("ascii").ljust(end + 1 - offset, b"\0")
-        return label, _bytes(CONFIG, offset, after, held), None
-    if offset + len(after) > len(config):
-        return label, None, f"0x{offset:X}+{len(after)} is past {CONFIG}'s {len(config):,} B"
-    held = config[offset:offset + len(after)]
-    if held == after:
-        return label, None, None
-    if was is not None and held != was:
-        return label, None, f"at 0x{offset:08X} the file holds neither the expected original nor the new value"
-    return label, _bytes(CONFIG, offset, after, held), None
+        if self.vanilla is None:
+            for i, b in zip(span, now):
+                self.van.setdefault(i, b)
+        writes, hit = [(offset, after)], self._hit([(offset, after)])
+        if any(i not in span and not set(self.holders[i]) - hit and self.held(i) != self.base(i)
+               for g in hit for lo, hi in self.spans[g] for i in range(lo, hi)):
+            lo = min(offset, *(a for g in hit for a, _ in self.spans[g]))
+            hi = max(offset + len(after), *(b for g in hit for _, b in self.spans[g]))
+            made = bytearray(self.held(i) for i in range(lo, hi))
+            made[offset - lo:offset - lo + len(after)] = after
+            writes = [(lo, bytes(made))]
+        at, data = writes[0]
+        self._put(gid, writes)
+        return label, _bytes(file, at, data, bytes(self.base(i) for i in range(at, at + len(data)))), None
 
 
 def _bytes(file: str, offset: int, after: bytes, was: bytes) -> dict:
@@ -292,7 +373,13 @@ def edits(mod: Mapping, config: bytes) -> list[Edit]:
     out += [_cell("sections", *leaf, True) for leaf in _sections(sections)]
     out += [_cell("_keyed_patches", section, entity, prop, value, False)
             for section, rows in keyed.items() for entity, props in rows.items() for prop, value in props.items()]
-    out += [_entry(k, raw, config) for k, raw in enumerate(xbr_edits)]
+    chain = _Chain(config, cells=any(isinstance(raw, Mapping) and raw.get("op") in BYTES for raw in xbr_edits))
+    for gid, (_, op, why) in enumerate(out):
+        if op and not why:
+            chain.cell(gid, op)
+    chains = {CONFIG: chain}
+    for k, raw in enumerate(xbr_edits):
+        out.append(_entry(k, raw, chains, len(out)))
     return out
 
 

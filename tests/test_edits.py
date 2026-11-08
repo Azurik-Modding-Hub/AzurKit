@@ -573,8 +573,8 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
                           "value_kind": "hex", "original": "0000"},
                          {"op": "replace_bytes", "xbr_file": "config.xbr", "offset": at, "value": "00" * 4,
                           "value_kind": "hex"},
-                         {"op": "replace_bytes", "xbr_file": "config.xbr", "offset": at,
-                          "value": config[at:at + 4].hex(), "value_kind": "hex", "expected": "11" * 4}]}
+                         {"op": "replace_bytes", "xbr_file": "config.xbr", "offset": at, "value": "00" * 4,
+                          "value_kind": "hex", "expected": "11" * 4}]}
     ops = [golem, {"op": "set", "file": "gamedata/config.xbr", "table": "settings_foo", "entity": "initial_fuel",
                    "prop": "Value", "value": 9999.0},
            {"op": "set", "file": "gamedata/config.xbr", "table": "damage", "entity": "octo", "prop": "Damage",
@@ -631,6 +631,56 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
     assert cli.main(["build", "--iso", str(tmp_path / "none.iso"), "--out", str(tmp_path / "out.iso"),
                      "--mods", str(bad)]) == 1
     assert "azurkit: Modkit mod: patches[0] damage/octo/damage: a retired" in capsys.readouterr().err
+
+
+def test_a_modkit_mods_byte_edits_apply_in_order_each_checked_against_what_the_earlier_edits_left():
+    """Step 4.6i (P19b): Modkit wrote a mod's edits in order over one
+    buffer, each byte edit's original checked against what the earlier ones
+    left. So a byte edit's original may be an earlier edit's value (a cell
+    the mod set, another byte edit, in config.xbr or a level), its
+    operation's expected is the vanilla bytes (a level's as the first
+    original names them), and one that overwrites part of an earlier edit
+    covers both, so the build's layer, which drops an overwritten operation
+    whole (D28), leaves Modkit's bytes. An original that is neither what the
+    earlier edits left nor the new value is refused."""
+    import struct
+
+    from azurkit.core.xbr import Document
+    from azurkit.edits import xbr
+    from azurkit.tools import data
+
+    config, a1 = data.vanilla(), "gamedata/a1.xbr"
+    at = Document(config).tables["critters_damage"].find("golem", "hitPoints").at + 8   # its double
+    hp = struct.pack("<d", 500.0)
+    edits = [{"op": "replace_bytes", "xbr_file": "config.xbr", "offset": at, "value": hp.hex(), "value_kind": "hex",
+              "expected": struct.pack("<d", 400.0).hex()},   # the value the patch below set
+             {"op": "replace_bytes", "xbr_file": "config.xbr", "offset": at, "value": "01020304", "value_kind": "hex"},
+             {"op": "replace_bytes", "file": "a1.xbr", "offset": 0x800, "value": "aabb", "value_kind": "hex",
+              "original": "0000"},
+             {"op": "replace_bytes", "file": "a1.xbr", "offset": 0x801, "value": "cc", "value_kind": "hex",
+              "original": "bb"}]
+    mod = {"patches": [{"section": "critters_damage", "entity": "golem", "property": "hitPoints", "value": 400}],
+           "xbr_edits": edits}
+    ops = sdk.read_mods(json.dumps(mod))["xbr"]
+    vanilla = config[at:at + 8].hex()
+    assert ops == [{"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
+                    "prop": "hitPoints", "value": 400},
+                   {"op": "replace_bytes", "file": "gamedata/config.xbr", "offset": at, "expected": vanilla,
+                    "value": hp.hex()},
+                   {"op": "replace_bytes", "file": "gamedata/config.xbr", "offset": at, "expected": vanilla,
+                    "value": "01020304" + hp[4:].hex()},
+                   {"op": "replace_bytes", "file": a1, "offset": 0x800, "expected": "0000", "value": "aabb"},
+                   {"op": "replace_bytes", "file": a1, "offset": 0x800, "expected": "0000", "value": "aacc"}]
+    in_order = bytearray(config)
+    in_order[at:at + 8], in_order[at:at + 4] = hp, bytes([1, 2, 3, 4])
+    made, _ = compose({"gamedata/config.xbr": config},
+                      [xbr.plan(ops[:3], gate.USA, {"gamedata/config.xbr": config})])
+    assert made["gamedata/config.xbr"] == in_order
+    stale = edits[3] | {"offset": 0x800, "value": "dd", "original": "00"}
+    with pytest.raises(ValueError, match="^" + re.escape("Modkit mod: xbr_edits[4] (replace_bytes on a1.xbr): at "
+                                                         "0x00000800 the file holds neither the expected original")):
+        sdk.read_mods(json.dumps(mod | {"xbr_edits": [*edits, stale]}))
+
 
 def test_a_preset_round_trips_and_refuses_what_isnt_one_by_name():
     """``sdk.preset_encode`` makes a link's fragment of a recipe's packs,
