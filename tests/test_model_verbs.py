@@ -125,8 +125,9 @@ def test_model_export_takes_a_built_characters_xbr(usa_iso, tmp_path, capsys):
 
 def test_model_inspect_counts_a_body_and_names_what_passes_its_budgets(usa_iso, tmp_path, capsys, monkeypatch):
     """``model inspect`` (Modkit's Step 2.154, D443): vanilla female_2 is 93
-    bones, 6 groups, 3,427 vertices and 5,151 triangles with every budget met
-    and no problem; her own load runs are 13 runs, 0.367 MiB (the load runs
+    bones, 6 groups, 3,427 vertices and 5,151 triangles, over 1 tall, with
+    every budget met and no problem, and a payload's size is no budget; her
+    own load runs are 13 runs, 0.367 MiB (the load runs
     of characters.xbr's 2,655 and fx.xbr's 2,091, every entry in one, Step
     2.158); a zero ``banm`` under her name of the warning line's size makes
     a warning, of the error line's an error, and so does a ``bake`` (what a
@@ -145,7 +146,8 @@ def test_model_inspect_counts_a_body_and_names_what_passes_its_budgets(usa_iso, 
         report = model_inspect.inspect(data, FEMALE_2)
         assert (report["bones"], len(report["groups"]), report["lods"][0]["vertices"],
                 report["lods"][0]["triangles"]) == (93, 6, 3427, 5151)
-        assert not report["problems"] and not any(b["over"] for b in report["budgets"])
+        assert not report["problems"] and not any(b["over"] for b in report["budgets"]) and report["extent"]["height"] > 1
+        assert not any("payload" in b["what"] for b in report["budgets"])
         assert report["own_runs"] == {"bytes": 385024, "runs": 13, "largest": 208896, "by_tag": {
             "bmsh": 208896, "banm": 94208, "surf": 40960, "body": 32768, "gshd": 4096, "sprv": 4096}}
         assert [(len(r.runs), len(r.orphans)) for r in map(runs, (data, fx))] == [(2655, 0), (2091, 0)]
