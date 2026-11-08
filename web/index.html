@@ -57,7 +57,11 @@ autocomplete="off"></label> <button id="rando-copy" type="button">Copy</button>
 <label class="file" id="rando-load-box" title="Take a settings file's settings (Modkit's and AzurKit's .toml)">Load
 settings… <input type="file" id="rando-load" accept=".toml,text/plain"></label>
 <button id="rando-save" type="button" title="Write these settings to a settings file">Save settings…</button>
+<label class="file" id="rando-plan-box" title="Build a plan file (azurkit plan's) as it is: its own seed and settings"
+>Open a plan… <input type="file" id="rando-plan" accept=".json,application/json"></label>
 <span id="rando-locked" class="note">Tick Randomize to change these.</span></p>
+<p id="rando-plan-line" class="rando-row" hidden><span id="rando-plan-name" class="note"></span>
+<button id="rando-plan-close" type="button" title="Build the seed and settings again, not the plan file">Close plan</button></p>
 <p id="rando-warn" class="warn" hidden></p>
 <div class="rando-cols">
 <div><h3>Items <span class="note">ticked: shuffled; unticked: its items stay vanilla</span></h3>

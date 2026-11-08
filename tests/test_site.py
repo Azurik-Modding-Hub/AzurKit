@@ -4241,7 +4241,11 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
     its skips, whatever their rating, its box what's on: unticking one
     leaves it half, "5 of 6", and a click on the half turns them all on again
     (D1061), a tick right after a Skips change by the new ceiling, not the
-    last answer's; Load settings… takes a settings file's settings (D144)."""
+    last answer's; Load settings… takes a settings file's settings (D144).
+    Open a plan… (P31, Modkit's ``randomize-full --plan``) shows a plan
+    file's seed and settings, locked but the obsidian cost and Close plan,
+    and the page's recipe (Build's, Copy link's) is the plan whole; an edited
+    one is refused, naming the file; Close plan unlocks the tab again."""
     on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
     other = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"],
                                      "packs": on | {"player_physics": {"jump_speed_scale": 1.3}}})["share"]
@@ -4310,6 +4314,29 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         _page.until(page, "() => !azurkit.rando.load && document.getElementById('rando-ceiling').value === '3'", 120)
         assert _page.until(page, SETTLED, 120)["settings"] == given
         assert box("storage") == [True, False, "6 of 6 · up to Standard"]   # a loaded setting's groups show
+        doc = sdk.plan({"seed": "5", "settings": given})
+        (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
+        (tmp_path / "edited.json").write_text(json.dumps(doc | {"seed": "6"}), encoding="utf-8")
+        _page.pick(page, "#rando-plan", tmp_path / "plan.json")
+        opened = _page.until(page, "() => azurkit.rando.plan && !azurkit.rando.load && !azurkit.rando.waiting "
+                                   "&& azurkit.rando.view", 120)
+        enabled = page.evaluate("""() => [...document.querySelectorAll('#rando-settings :is(input, select, button)')]
+            .filter((f) => !f.disabled && !f.dataset.vanilla).map((f) => f.id)""")
+        assert (opened["settings"], page.evaluate(TAB)[1], sorted(enabled)) == (given, "5", [
+            f"rando-{id_}" for id_ in sorted(("copy", "cost", "filter", "on", "plan", "plan-close", "save"))])
+        assert page.evaluate("() => document.getElementById('rando-plan-name').textContent") == (
+            f"Building a plan file as it is (plan.json: seed 5, plan {doc['sha256'][:12]}): its seed and settings "
+            "are locked.")
+        _page.click(page, "share")
+        assert _page.until(page, "() => azurkit.link") == (
+            f"{served.origin}/{sdk.preset_encode({'packs': mods.normalize(on), 'randomizer': {'plan': doc}})}")
+        _page.pick(page, "#rando-plan", tmp_path / "edited.json")
+        assert _page.until(page, "() => !azurkit.rando.load && document.getElementById('rando-warn').textContent") == (
+            "⚠ edited.json: its sha256 doesn't match its content (an edited plan)")
+        _page.click(page, "rando-plan-close")
+        assert _page.until(page, SETTLED, 120)["settings"] == given
+        assert page.evaluate("() => [azurkit.rando.plan, document.getElementById('rando-plan-line').hidden]") == [
+            None, True] and set(page.evaluate(TAB)[2]) == {False}
 
         packs = mods.normalize(on)
         loaded = served.context.new_page()

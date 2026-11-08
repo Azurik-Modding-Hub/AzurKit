@@ -48,6 +48,8 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 - **Seeds:** any text is a seed, or New draws one; the same seed and settings give the same game everywhere.
 - **Share strings and files:** one `AZR-` string holds every setting; settings files save and load,
   Azurik_Modkit's too.
+- **Plan files:** Open a plan… builds a plan file (`azurkit plan`'s, Azurik_Modkit's too) exactly, its seed and
+  settings locked until Close plan; one from another version, edited, or not beatable is refused, saying why.
 - **Warns before you build** when your settings can't make a seed, saying why and what to change, and greys Build
   until you do. Keeping obsidians vanilla is one: most of the spots the disc fragments and elemental powers may take
   hold an obsidian, so tick Obsidians, or keep those two vanilla too.

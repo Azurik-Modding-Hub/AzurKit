@@ -105,6 +105,7 @@ OPS = {op.id: op for op in (
     Op("A05", "tabs, a pack's Settings, Copy link (the slowest)", "start"),
     Op("A06", "Randomizer tab, first open", "randomizer"),
     Op("A07", "seed typed, its ask", "randomizer"),
+    Op("A97", "Open a plan… on the Randomizer tab: its seed and settings shown (Step 4.6j)", "randomizer"),
     Op("A08", "Characters tab, no image", "characters"),
     Op("A09", "Characters tab with the image", "characters"),
     Op("A10", "choose keylord (options and pictures)", "characters"),
@@ -213,6 +214,7 @@ OPS = {op.id: op for op in (
     Op("S72", "Build keylord after a number's change (its dress kept)", "build", first=False, head_start=True),
     Op("S15", "Build booblord", "build", content=True, head_start=True),   # her shipped dress (the content repo's entry)
     Op("S16", "Randomizer tab, first ask", "randomizer"),
+    Op("S83", "Open a plan… on the Randomizer tab: its seed and settings shown (Step 4.6j)", "randomizer"),
     Op("S17", "seed typed, its ask", "randomizer"),
     Op("S18", "Track this seed", "tracker", head_start=True),
     Op("S19", "the Tracker view's world map, first open", "tracker"),   # the view's click: no Track work (C10)
@@ -1686,6 +1688,30 @@ def _plan_file(d: Driver) -> Path:
     return plan
 
 
+# Open a plan…'s done-state: the plan open, read back and checked, the tab's answer to it in; or its refusal.
+PLAN_OPEN = ("() => azurkit.rando.plan && !azurkit.rando.load && !azurkit.rando.waiting ? 'open' "
+             ": document.getElementById('rando-warn').classList.contains('error') "
+             "&& 'error: ' + document.getElementById('rando-warn').textContent")
+
+
+def app_plan(d: Driver, app: App, ctx) -> None:
+    """Open a plan… on the Randomizer tab, once the tab has answered (the logic read)."""
+    plan = _plan_file(d)   # made before the launch: untimed, no head start
+    p = app.launch(d, ctx, None)
+    d.act(p, None, click("tab-randomizer"), "() => azurkit.rando.view", 600)
+    d.act(p, "A97", lambda: p.page.set_input_files("#rando-plan", str(plan)), PLAN_OPEN, 600)
+    app.quit(p)
+
+
+def site_plan(d: Driver, ctx, url: str) -> None:
+    """Open a plan… on the Randomizer tab, once the tab has answered (the logic read)."""
+    plan = _plan_file(d)
+    p = _site_page(d, ctx, url, None)
+    d.act(p, None, click("tab-randomizer"), "() => azurkit.rando.view", 600)
+    d.act(p, "S83", lambda: p.page.set_input_files("#rando-plan", str(plan)), PLAN_OPEN, 600)
+    d.leave(p)
+
+
 def _tools(d: Driver, p: Page, ops: tuple[str, ...], plan: Path) -> None:
     """The Tools tab's first ops (the image picked): its info as the tab opens, a plan file's spoiler asked at once
     (cold, as a player who goes straight to Tools gets it: nothing has read the randomizer's logic but what the tab's
@@ -2066,6 +2092,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-reshape-pictures": ("app", ("A59", "A60", "A61"), app_reshape_pictures),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
+    "app-plan": ("app", ("A97",), app_plan),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A94"), app_data),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17", "S64"),
@@ -2085,6 +2112,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-ahead-build": ("site", ("S61",), site_ahead_build),
     "site-ahead-stale": ("site", ("S59",), site_ahead_stale),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
+    "site-plan": ("site", ("S83",), site_plan),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S80"), site_data),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(

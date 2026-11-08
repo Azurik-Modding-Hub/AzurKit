@@ -309,7 +309,7 @@ export function tools({ root, call, app, say, image, known = () => null, out, pi
     }
     const { preset } = reply, from = file ? file.name : named(path);
     const recipe = (tool) => preset.layers.find((layer) => layer.tool === tool)?.recipe;
-    const packs = Object.keys(recipe("mods") ?? {}).length, seed = recipe("randomizer")?.seed;
+    const packs = Object.keys(recipe("mods") ?? {}).length, seed = recipe("randomizer")?.seed ?? recipe("randomizer")?.plan?.seed;
     const character = recipe("characters"), ops = recipe("data")?.ops?.length ?? 0;
     t.opened = { preset, from };
     ui.openLine.textContent = [`${from}: ${preset.base?.release === "europe" ? "Europe" : "USA"}`,

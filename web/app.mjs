@@ -69,7 +69,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 vouched: new Map(), resting: new Map(), tracking: null, recovered: [], launch: null,
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null, noted: null, asked: null, recheck: false, probing: false,
-                         moved: null } };
+                         moved: null, plan: null } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 // The theme (D897): dark, or light once the toggle picks it, which is remembered: by the site in this browser's
@@ -117,10 +117,11 @@ function ahead() {
   if (!state.app) return aheadOnSite();
   if (!state.ready || state.building || state.saving) return;
   const seed = R("seed").value.trim(), share = state.rando.view?.share, t = state.tracker?.state;
-  state.engine.prefetch(state.gen, seed && share ? { seed, share } : null, { spoiler: t?.spoiler, gems: t?.gems });
+  state.engine.prefetch(state.gen, seed && share && !state.rando.plan ? { seed, share } : null,
+                        { spoiler: t?.spoiler, gems: t?.gems });
   const randomizer = randoRecipe();
   if (state.build) return;
-  if (!state.file || state.opened || (randomizer && !randomizer.seed) || state.characters?.refused()
+  if (!state.file || state.opened || (randomizer && !randomizer.seed && !randomizer.plan) || state.characters?.refused()
       || state.characters?.waiting() || state.community?.waiting()) return void state.engine.speculate(state.gen, null);
   state.engine.speculate(state.gen, state.file, chosen(), state.xbr, randomizer,
                          state.characters?.character() ?? null, extras());
@@ -142,7 +143,7 @@ function aheadOnSite(begin = false, rest = 0) {   // none while a Save is checke
   const seed = R("seed").value.trim(), share = state.rando.view?.share, rando = randoRecipe(), tracking = !$("tracker").hidden;
   const character = state.characters?.choice() ?? null, plans = [], builds = [];
   if (character || state.vanilla) state.engine.warm();   // numpy and the dress's imports: S14's second, in its head start
-  if (seed && share && (rando || tracking)) {
+  if (seed && share && !state.rando.plan && (rando || tracking)) {
     const asked = { seed, share }, known = JSON.stringify(asked);
     plans.push(state.engine.planning(asked, ({ reply }) => {
       if (!reply?.plan) return;
@@ -152,7 +153,7 @@ function aheadOnSite(begin = false, rest = 0) {   // none while a Save is checke
     if (state.planned?.known === known) plans.push(state.engine.viewing(state.tracker.first(state.planned.plan)));
   }
   if (state.vanilla && state.read === state.file && !state.opened && state.replace && !state.characters?.refused()
-      && !state.community?.waiting() && (!rando || rando.seed) && !reshaped(character)) {
+      && !state.community?.waiting() && (!rando || rando.seed || rando.plan) && !reshaped(character)) {
     builds.push(state.engine.building(state.file, chosen(), state.xbr, rando, character,
                                       { ...extras(), ...state.replace.picked() }));
   }
@@ -966,7 +967,8 @@ function load(preset, from) {
   remember();
   const made = preset.azurkit ? ` (made with AzurKit ${preset.azurkit})` : "";
   const cells = state.xbr.length ? ` and ${state.xbr.length} config.xbr edit${state.xbr.length > 1 ? "s" : ""}` : "";
-  const seed = (rando ? ` and the randomizer (seed ${rando.seed})` : "") + (character ? ` and ${character.species}` : "");
+  const seed = (rando ? ` and the randomizer (${rando.plan ? "a plan file, " : ""}seed ${rando.seed ?? rando.plan.seed})`
+    : "") + (character ? ` and ${character.species}` : "");
   say(`Loaded ${from}'s recipe${made}: ${packs ? `${Object.keys(packs).length} packs` : "the packs as ticked"}${cells}`
       + `${seed}, marked ●. `
       + `${(preset.settled ?? []).join(" ")}${preset.settled ? " " : ""}Pick your vanilla image, then Build.`);
@@ -1054,7 +1056,7 @@ function opened(preset) {
   state.opened = preset;
   const packs = Object.keys(preset.layers.find((layer) => layer.tool === "mods")?.recipe ?? {}).length;
   const label = preset.base?.release === "europe" ? "Europe" : "USA";
-  const seed = preset.layers.find((layer) => layer.tool === "randomizer")?.recipe.seed;
+  const rando = preset.layers.find((layer) => layer.tool === "randomizer")?.recipe, seed = rando?.seed ?? rando?.plan?.seed;
   $("picked").textContent = `◆ AzurKit build · ${label} · ${packs} packs${seed === undefined ? "" : ` · seed ${seed}`}: `
     + "load its recipe, then pick your vanilla image to build it again.";
   $("load-build").hidden = false;
@@ -1519,7 +1521,8 @@ function renderGroups() {
     const full = on.filter((value) => value === true).length;
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: full === on.length,
                                                                  indeterminate: full < on.length && on.some((value) => value !== false),
-                                                                 disabled: state.building || !R("on").checked });
+                                                                 disabled: state.building || !R("on").checked
+                                                                   || Boolean(state.rando.plan) });
     box.dataset.group = group.id;
     const row = Object.assign(document.createElement("label"), { className: "group", title: [
       ...(group.tip ? [group.tip] : []),
@@ -1536,9 +1539,11 @@ function randoCost() {
   return cost === randoOptions().obsidian_cost ? {} : { obsidian_cost: cost };
 }
 
-// The build's randomizer: the seed, the settings and the obsidian cost, or null while Randomize is off.
+// The build's randomizer: the seed, the settings and the obsidian cost (or an open plan file and the cost), or null
+// while Randomize is off.
 function randoRecipe() {
   if (!state.packs || !R("on").checked) return null;
+  if (state.rando.plan) return { plan: state.rando.plan.doc, ...randoCost() };
   return { seed: R("seed").value.trim(), settings: randoSettings(), ...randoCost() };
 }
 
@@ -1560,10 +1565,12 @@ function randoSetup() {
                           ...(typeof cost.obsidian_cost === "number" ? cost : {}) };
 }
 
-// Set the tab to `rando` (the engine's: its settings as the tab holds them), marked ● where `from` (a link, a build)
-// changed it; then ask the engine what they give.
-function setRando({ on, seed, settings, obsidian_cost: cost }, from = null) {
+// Set the tab to `rando` (the engine's: its settings as the tab holds them, and the plan file it builds, if any),
+// marked ● where `from` (a link, a build, a plan file) changed it; then ask the engine what they give.
+function setRando({ on, seed, settings, obsidian_cost: cost, plan = null }, from = null) {
   const before = JSON.stringify(randoSetup());
+  state.rando.plan = plan;
+  renderPlan();
   state.rando.note = null;
   R("on").checked = on;
   R("seed").value = seed;
@@ -1597,9 +1604,11 @@ function loadRando(rando, from) {
     gate();
     return;
   }
-  state.rando.load = { on: true, seed: rando.seed, obsidian_cost: rando.obsidian_cost, from };
-  askRando({ ...(rando.share !== undefined ? { share: rando.share }   // a seed alone: D144's defaults
-                 : { settings: rando.settings ?? randoOptions().defaults }),
+  const plan = rando.plan ? { doc: rando.plan, name: from } : null;
+  state.rando.load = { on: true, seed: String(rando.seed ?? rando.plan.seed), obsidian_cost: rando.obsidian_cost, from,
+                       plan };
+  askRando({ ...(plan ? { plan: plan.doc } : rando.share !== undefined ? { share: rando.share }   // a seed alone: D144's
+                 : { settings: rando.settings ?? randoOptions().defaults }),   // defaults
              obsidian_cost: rando.obsidian_cost ?? randoOptions().obsidian_cost });
 }
 
@@ -1616,8 +1625,8 @@ function askRando(given = null, wait = 100) {
   state.rando.waiting = true;
   if (!state.ready || state.building) return;
   state.rando.later = setTimeout(() => {
-    const asked = state.rando.given ?? { settings: randoSettings() };
-    state.rando.probing = !state.rando.given && state.rando.recheck && "seed_difficulty" in asked.settings;
+    const asked = state.rando.given ?? (state.rando.plan ? { plan: state.rando.plan.doc } : { settings: randoSettings() });
+    state.rando.probing = !state.rando.given && state.rando.recheck && "seed_difficulty" in (asked.settings ?? {});
     if (state.rando.probing) delete asked.settings.seed_difficulty;   // the engine refuses a level above the settings
     state.rando.given = null;
     const character = state.characters?.character() ?? null;   // its size folds into the walk and roll, as a build's
@@ -1634,8 +1643,9 @@ function randoView(reply, ticket) {
   const probed = state.rando.probing;
   state.rando.probing = false;
   if ("refused" in reply) {
+    const from = state.rando.load?.plan ? `${state.rando.load.from}: ` : "";   // a plan file refused: named
     state.rando.load = null;
-    return warn([reply.refused], true);
+    return warn([from + reply.refused], true);
   }
   if (state.rando.load) {
     const { from, ...rest } = state.rando.load;
@@ -1717,7 +1727,7 @@ function skipRow(skip) {
   const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: on === true,
                                                                indeterminate: on === null });
   box.dataset.skip = skip.id;
-  box.disabled = state.building || !R("on").checked;
+  box.disabled = state.building || !R("on").checked || Boolean(state.rando.plan);
   row.append(box, Object.assign(document.createElement("span"), { className: "name", textContent: skip.name }),
              Object.assign(document.createElement("span"), { className: "rating", textContent: skip.rating }),
              Object.assign(document.createElement("span"), { className: "by", textContent: toggle !== null ? "toggle" : "ceiling" }));
@@ -1732,15 +1742,42 @@ function toggleSkip(id) {
   else state.rando.overrides[id] = turned;
 }
 
-// The tab's settings are locked (still readable) until Randomize is ticked, and while a build runs (D907).
+// The tab's settings are locked (still readable) until Randomize is ticked, and while a build runs (D907); an open plan
+// file locks its seed and settings too, all but the obsidian cost (Modkit's --plan takes --obsidian-cost).
 function lockRando() {
-  const off = state.building || !R("on").checked;
+  const off = state.building || !R("on").checked, open = new Set(["cost", "copy", "save", "filter", "plan", "plan-close"]);
   R("on").disabled = state.building || !state.packs;
   for (const field of $("randomizer").querySelectorAll(".rando-top :is(input, select, button), #rando-share, "
     + "#rando-copy, #rando-filter, #rando-clear, #rando-items input[data-category], #rando-skips input, "
-    + "#rando-groups input, #rando-load, #rando-save")) {
-    if (field !== R("on")) field.disabled = off;
+    + "#rando-groups input, #rando-load, #rando-save, #rando-plan, #rando-plan-close")) {
+    if (field !== R("on")) field.disabled = off || (Boolean(state.rando.plan) && !open.has(field.id.slice(6)));
   }
+}
+
+// Open a plan… (Modkit's randomize-full --plan, P31): a plan file's object, which the engine reads back and checks
+// beatable under its own settings (sdk.randomizer_settings' plan) and a build takes as it is: the tab shows its seed
+// and settings, locked, until Close plan; a refusal names the file.
+async function openPlan() {
+  const file = R("plan").files[0];
+  R("plan").value = "";
+  if (!file) return;
+  let doc = null;
+  try {
+    doc = JSON.parse(await file.text());
+  } catch {}
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
+    return warn([`${file.name}: not a plan file (not a JSON object)`], true);
+  }
+  const plan = { doc, name: file.name };
+  state.rando.load = { on: true, seed: String(doc.seed), obsidian_cost: randoCost().obsidian_cost, from: file.name, plan };
+  askRando({ plan: doc, ...randoCost() });
+}
+
+function renderPlan() {
+  const plan = state.rando.plan;
+  R("plan-line").hidden = !plan;
+  R("plan-name").textContent = plan ? `Building a plan file as it is (${plan.name}: seed ${plan.doc.seed}, plan `
+    + `${String(plan.doc.sha256).slice(0, 12)}): its seed and settings are locked.` : "";
 }
 
 // D144's settings files: Load settings… takes a file's settings (the engine reads it and names what it refuses);
@@ -1853,6 +1890,11 @@ function storedTracked() {
 async function trackBuild(preset, from) {
   const rando = preset.layers.find((layer) => layer.tool === "randomizer")?.recipe;
   if (!rando) return say(`${from} isn't randomized: it has no plan to track`, true);
+  if (rando.plan) {   // built from a plan file: that plan
+    pick("randomizer");
+    randoPane("tracker");
+    return state.tracker.open(rando.plan, from);
+  }
   const { seed, share, settings } = rando;
   say(`Planning ${from}'s seed ${seed} to track it…`);
   const asked = { seed, ...(share !== undefined ? { share } : { settings }) };
@@ -1876,6 +1918,7 @@ function randoPane(view) {
 // sliders, so the plan is the one a build of them makes) planned by the engine, then tracked.
 async function trackSeed() {
   const seed = R("seed").value.trim(), share = state.rando.view?.share;
+  if (state.rando.plan) return state.tracker.open(state.rando.plan.doc, state.rando.plan.name);   // the plan file open
   if (!seed || !share) return say("Set a seed on the Randomizer tab's Settings first", true);
   $("track-seed").disabled = true;
   say(`Planning seed ${seed} to track it…`);
@@ -1926,6 +1969,14 @@ function randoEvents(changed) {
   });
   R("load").addEventListener("change", loadSettings);
   R("save").addEventListener("click", saveSettings);
+  R("plan").addEventListener("change", openPlan);
+  R("plan-close").addEventListener("click", () => {
+    state.rando.plan = null;
+    renderPlan();
+    lockRando();
+    edited();
+    say("Closed the plan file: Build plans the seed and settings shown");
+  });
   R("seed").addEventListener("input", changed);
   R("cost").addEventListener("input", edited);
   R("new").addEventListener("click", () => {
@@ -2101,13 +2152,16 @@ async function main() {
   });
   $("build").addEventListener("click", () => {
     const randomizer = randoRecipe(), character = state.characters.character();
-    if (randomizer && !randomizer.seed) return say("Type a seed on the Randomizer tab, or press New", true);
+    if (randomizer && !randomizer.seed && !randomizer.plan) {
+      return say("Type a seed on the Randomizer tab, or press New", true);
+    }
     if (state.characters.refused()) return say(state.characters.refused(), true);
     if (state.community.waiting()) return say("Reading the community packs: try again in a moment", true);
     forget();
     if (!state.app) state.ready = false;   // until the site's engine answers: then kept, or replaced
     busy(true);
-    say((randomizer ? "Checking your image, planning the seed and building…" : "Checking your image and building…")
+    say((randomizer?.plan ? "Checking your image and the plan file and building…"
+      : randomizer ? "Checking your image, planning the seed and building…" : "Checking your image and building…")
         + (character ? ` (as ${character.species})` : ""));
     state.sent = chosen();
     asking("build");
