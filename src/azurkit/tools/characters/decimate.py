@@ -724,7 +724,7 @@ def ahead_of(source: object) -> bool:
 
 
 def shadow_lod(characters_xbr: bytes, body: str, ratio: float = SHADOW_RATIO,
-               max_error: float | None = SHADOW_ERROR) -> tuple[bytes, Lod]:
+               max_error: float | None = SHADOW_ERROR, *, known: str | None = None) -> tuple[bytes, Lod]:
     """``characters_xbr`` with the one-LOD body ``body``'s LOD 0, its
     groups joined by material and welded (:func:`by_material`: its seams'
     UVs and normals are no shadow's), cut to ``ratio`` of its triangles
@@ -735,10 +735,11 @@ def shadow_lod(characters_xbr: bytes, body: str, ratio: float = SHADOW_RATIO,
     regrouped), and that LOD: what a realtime shadow draws
     (:data:`~azurik_mod.assets.lods.SHADOW_LOD`) in LOD 0's place.
     :class:`ValueError` for a body with more LODs.  What it gives is a
-    part kept by what it reads (:mod:`.parts`, Step 4.6n)."""
+    part kept by what it reads (:mod:`.parts`, Step 4.6n): ``known``, the
+    file's name by content where the caller has it (else its sha256)."""
     from azurkit.tools.characters import parts
 
-    key = parts.key("W36", parts.digest(characters_xbr), body, repr((ratio, max_error)))
+    key = parts.key("W36", known or parts.digest(characters_xbr), body, repr((ratio, max_error)))
     if (kept := parts.get(key, "W36")) is not None:
         return parts.undelta(characters_xbr, kept[0]), pickle.loads(kept[1])
     asset = read_asset(characters_xbr, body)
@@ -752,7 +753,8 @@ def shadow_lod(characters_xbr: bytes, body: str, ratio: float = SHADOW_RATIO,
 
 
 def screen_lods(characters_xbr: bytes, body: str, ratios: Sequence[float],
-                max_errors: Sequence[float | None] | None = None) -> tuple[bytes, list[Lod]]:
+                max_errors: Sequence[float | None] | None = None, *, known: str | None = None
+                ) -> tuple[bytes, list[Lod]]:
     """``characters_xbr`` with the body ``body``'s LODs past LOD 0 cut anew
     from its LOD 0 (Step 2.166d, W39): its groups joined by material
     (:func:`by_material`, so no palette split locks a border; its seams,
@@ -763,11 +765,12 @@ def screen_lods(characters_xbr: bytes, body: str, ratios: Sequence[float],
     regrouped; the old ones stay in the file unreferenced); no ``ratios``
     drops them.  The cuts :func:`chain_ahead` started of the same LOD 0
     are taken.  The file and the new LODs: a part kept by what it reads
-    (:mod:`.parts`, Step 4.6n)."""
+    (:mod:`.parts`, Step 4.6n), ``known`` the file's name by content where
+    the caller has it (else its sha256)."""
     from azurkit.tools.characters import parts
 
     shared = (tuple(ratios), None if max_errors is None else tuple(max_errors))
-    key = parts.key("W39", parts.digest(characters_xbr), body, repr(shared))
+    key = parts.key("W39", known or parts.digest(characters_xbr), body, repr(shared))
     if (kept := parts.get(key, "W39")) is not None:
         return parts.undelta(characters_xbr, kept[0]), pickle.loads(kept[1])
     asset = read_asset(characters_xbr, body)

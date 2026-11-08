@@ -92,8 +92,9 @@ HIPS = {"base": "town_female_2", "mesh": {"ops": [
 
 
 #: A recipe on town_female_2 with each part a Check keeps (Step 4.6n): its mesh (her hips split, booblord's right
-#: glute), a jiggle bone in it, a texture, its arms and its LODs.
+#: glute), a jiggle bone in it, a texture, its arms, its LODs and (Step 4.6q) a sound of its own.
 PARTED = {"base": "town_female_2", "mode": "own", "arms": {"out_deg": 10.0}, "lods": {"ratio": [0.5], "at": [9.0]},
+          "sfx": {"spin": {"generator": "whoosh", "length": 0.2, "swells": 2, "seed": 1, "columns": ["basic1"]}},
           "mesh": {"ops": [{"op": "subdivide", "name": "hips", "bone": "root_joint", "offset": [0.0, -0.03, -0.1],
                             "radius": [0.32, 0.24, 0.22], "edge": 0.05, "groups": [1]},
                            {"op": "round", "name": "glute right", "bone": "root_joint", "offset": [0.08, -0.07, -0.085],
@@ -228,7 +229,8 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
                                                                                                 monkeypatch):
     """Step 4.6n (the Check design's R1): a dress's parts are kept by what they read, never the variant's name or
     folder, so PARTED checked again under another name in another folder takes each part the first Check kept (its
-    size, its body's mesh, rig and paint, its kit's clips, both restyles, its LODs), and a copy with its spring edited keeps the mesh
+    size, its body's mesh, rig and paint, its kit's clips, its bakes, both restyles, its LODs and, Step 4.6q, its
+    sounds' encodings, each later file named from the one before it), and a copy with its spring edited keeps the mesh
     and works out the rest, each answering and dressing as a fresh Check of it (no part kept or taken) does, byte for
     byte; at a later visit (Step 4.6o: this process's parts gone, its host's store holding what the first Check's
     parts were handed it as, ``part_codec``'s bytes) the copy takes each of them from the store, answering the same;
@@ -253,7 +255,8 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
             sdk._CHECKED["last"]["characters"])
         missed[visit, name] = {stage: counts["miss"] for stage, counts in parts.HEARD.items()}
         heard[visit, name] = {stage: counts.get("stored", 0) for stage, counts in parts.HEARD.items()}
-    taken = dict.fromkeys(("size", "W24", "W29", "W30", "kit clips", "W28 arms", "W28 springs", "W39"), 0)
+    taken = dict.fromkeys(("size", "W24", "W29", "W30", "kit clips", "bake", "W28 arms", "W28 springs", "W39",
+                           "wave"), 0)
     assert missed[1, "second"] == missed[2, "second"] == taken and heard[2, "second"] == dict.fromkeys(taken, 1)
     assert answers[2, "second"] == answers[1, "second"]
     assert missed[1, "third"]["W24"] == 0 < missed[1, "third"]["W29"] and answers[1, "third"][0]["refusal"] is None

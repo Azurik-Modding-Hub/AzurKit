@@ -75,15 +75,20 @@ def _payload(data: bytes, e) -> bytes:
     return data[e.file_offset:e.file_offset + e.size]
 
 
-def test_every_body_reads_and_encodes_back_and_appended_resources_resolve_by_name(usa_iso):
+def test_every_body_reads_whole_or_light_and_encodes_back_and_appended_resources_resolve_by_name(usa_iso):
     """Each of characters.xbr's 158 bodies decodes and encodes back byte for
     byte (its ``body`` and each LOD's ``bmsh``; both releases hold the same
-    file), and a body written back unchanged leaves the file as it was.
-    Appending nothing changes nothing; 186 clips appended (one past what
+    file), and a body written back unchanged leaves the file as it was; its
+    light reads (Step 4.6q) answer as the whole one: without its vertices,
+    all else read alike, and its bounds read as columns the walk's over
+    its points, a zero's sign and a NaN too (garret4's first points made
+    them). Appending nothing changes nothing; 186 clips appended (one past what
     the TOC's page holds, so the data area moves a page) with a body grown
     in place resolve by their names to their payloads, each on a page and
     in a load run of its own, while every old payload, offset, per-tag
     row, relocation and named row stays as it was."""
+    from azurkit.tools.characters.characters import _walked_bounds, mesh_bounds, mesh_groups
+
     with iso.Reader(usa_iso) as r:
         data = r.read(CHARACTERS)
     toc, names = parse_toc(data), named_resources(data)
@@ -94,6 +99,15 @@ def test_every_body_reads_and_encodes_back_and_appended_resources_resolve_by_nam
         assert bc.encode_body(asset)[0] == _payload(data, toc[asset.index]), name
         for lod in asset.lods:
             assert bc.encode_bmsh(lod)[0] == _payload(data, toc[lod.bmsh]), name
+        light = bc.read_asset(data, name, vertices=False)
+        for lod in asset.lods:
+            for group in lod.groups:
+                group.vertices = []
+        assert light == asset and repr(mesh_bounds(data, name)) == repr(_walked_bounds(data, name)), name
+    signed, first = bytearray(data), mesh_groups(data, "garret4")[0]
+    for k, point in enumerate([(0.0, -0.0, math.nan), (-0.0, 0.0, 0.0), (math.nan, math.nan, -0.0)]):
+        struct.pack_into("<3f", signed, first.vertices + 60 * k, *point)
+    assert repr(mesh_bounds(bytes(signed), "garret4")) == repr(_walked_bounds(bytes(signed), "garret4"))
     assert bc.write_asset(data, bc.read_asset(data, "townspeople/female_2")) == data
     assert append_resources(data) is data and appended(len(toc), data) == []
 

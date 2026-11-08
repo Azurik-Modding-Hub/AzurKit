@@ -391,7 +391,42 @@ def mesh_points(characters_xbr: bytes, body: str) -> list[tuple[float, float, fl
 
 def mesh_bounds(characters_xbr: bytes, body: str) -> tuple[tuple[float, ...], tuple[float, ...]] | None:
     """The model-space bounds (low, high) of the body ``characters/<body>``'s
-    most detailed mesh (:func:`mesh_points`), or ``None`` when it has none."""
+    most detailed mesh (:func:`mesh_points`), or ``None`` when it has none:
+    on each axis the first point's value that no later one passes (a NaN
+    passes none), read as numpy columns (Step 4.6q: a dress asks it of
+    every clip it imports), each the value the walk over the points keeps,
+    a zero's sign too."""
+    import numpy as np
+
+    at = _body_at(characters_xbr, body)
+    columns = []
+    if at is not None and _i32(characters_xbr, at + 8) > 0:
+        toc = parse_toc(characters_xbr)
+        bmsh = toc[_i32(characters_xbr, _ptr(characters_xbr, at + 12))].file_offset
+        groups = _ptr(characters_xbr, bmsh + 4)
+        for k in range(_i32(characters_xbr, bmsh)):
+            group = groups + 40 * k
+            count, vertices = _i32(characters_xbr, group + 24), _ptr(characters_xbr, group + 28)
+            if count <= 0:
+                continue
+            if vertices < 0 or vertices + 60 * (count - 1) + 12 > len(characters_xbr):   # the walk's refusal
+                return _walked_bounds(characters_xbr, body)
+            columns.append(np.ndarray((count, 3), "<f4", characters_xbr, vertices, (60, 4)))
+    if not columns:
+        return None
+    points = np.concatenate(columns) if len(columns) > 1 else columns[0]
+    low, high = [], []
+    for axis in range(3):
+        values = points[:, axis]
+        least, most = np.fmin.reduce(values), np.fmax.reduce(values)   # NaN only where every value is
+        low.append(float(values[np.argmax(values == least)]) if least == least else math.inf)
+        high.append(float(values[np.argmax(values == most)]) if most == most else -math.inf)
+    return (tuple(low), tuple(high)) if low[0] <= high[0] else None
+
+
+def _walked_bounds(characters_xbr: bytes, body: str) -> tuple[tuple[float, ...], tuple[float, ...]] | None:
+    """:func:`mesh_bounds` point by point (:func:`mesh_points`): where a group's vertices run past the file, its
+    refusal."""
     low, high = [math.inf] * 3, [-math.inf] * 3
     for point in mesh_points(characters_xbr, body):
         for axis, v in enumerate(point):

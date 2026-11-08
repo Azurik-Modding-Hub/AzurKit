@@ -349,9 +349,13 @@ def _body_entry(data: bytes, body: str) -> tuple[int, str]:
     return index, names[index][len("characters/"):]
 
 
-def read_asset(characters_xbr: bytes, body: str) -> BodyAsset:
+def read_asset(characters_xbr: bytes, body: str, *, vertices: bool = True) -> BodyAsset:
     """The body ``characters/<body>`` (case-blind) and its LODs' meshes
-    (module docstring); :class:`ValueError` names what doesn't parse."""
+    (module docstring); :class:`ValueError` names what doesn't parse.
+    ``vertices`` False leaves each group's vertices out (``[]``), all else
+    read and checked as with them, a group whose vertices run past the
+    file refused as their read refuses it: what a reader of its bones or
+    triangle counts asks (Step 4.6q)."""
     index, name = _body_entry(characters_xbr, body)
     toc = parse_toc(characters_xbr)
     at, size = toc[index].file_offset, toc[index].size
@@ -391,7 +395,10 @@ def read_asset(characters_xbr: bytes, body: str) -> BodyAsset:
                 vb = struct.unpack_from("<3I", data, ga + 0xC)
                 nv = _i32(data, ga + 24)
                 va = _rel(data, ga + 28)
-                verts = [Vertex.unpack(data, va + VERTEX_SIZE * j) for j in range(nv)]
+                inside = 0 <= va and va + VERTEX_SIZE * (nv - 1) + 56 <= len(data)
+                verts = [Vertex.unpack(data, va + VERTEX_SIZE * j) for j in range(nv)] if vertices or not inside else []
+                if not vertices:   # read only for the refusal, if any
+                    verts = []
                 material = struct.unpack_from("<II", data, ga + 32)
                 rec = records + LOD_RECORD * g
                 pb_at, tri_count = _rel(data, rec), _u32(data, rec + 4)

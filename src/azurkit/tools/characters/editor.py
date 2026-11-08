@@ -40,7 +40,7 @@ def bones(characters: bytes, body: str) -> list[list[str]]:
     """``characters/<body>``'s bones, each ``[name, its parent's]`` (``""`` for a root)."""
     from azurkit.tools.characters.body_codec import read_asset
 
-    rig = read_asset(characters, body).bones
+    rig = read_asset(characters, body, vertices=False).bones
     return [[b.name, rig[b.parent].name if 0 <= b.parent < len(rig) else ""] for b in rig]
 
 

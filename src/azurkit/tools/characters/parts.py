@@ -98,6 +98,20 @@ class Pickled(bytes):
 def dump(obj: object) -> Pickled:
     """``obj`` as a part holds it: its pickle, so each taker unpickles its own copy."""
     return Pickled(pickle.dumps(obj, pickle.HIGHEST_PROTOCOL))
+def since(ref: bytes, ref_key: str | None, out: bytes) -> str:
+    """``out``'s name by content with no hash of all of it (Step 4.6q, the
+    Check design's chained keys): ``ref_key`` (``ref``'s: a part's key, or
+    its digest) and the pages where ``out`` differs from ``ref``
+    (:func:`delta`'s runs), those hashed; a dress's later files share
+    most of their pages with the one its body's parts left, so two files
+    of one name are one file. Its sha256 (:func:`digest`) where most of it
+    differs, or ``ref_key`` is ``None``."""
+    if ref_key is None:
+        return digest(out)
+    size, spans, pages = delta(ref, out)
+    if size is None:
+        return digest(out)
+    return key("since", ref_key, size, tuple(spans), hashlib.sha256(pages).hexdigest())
 
 
 def pickled(obj: object) -> str:
@@ -267,4 +281,4 @@ def size_of(part: tuple) -> int:
 
 
 __all__ = ["HEARD", "LOCK", "OFF", "PAGE", "ROOM", "STORE", "Pickled", "clear", "delta", "digest", "dump", "get",
-           "held", "key", "pickled", "put", "size_of", "stamps", "undelta"]
+           "held", "key", "pickled", "put", "since", "size_of", "stamps", "undelta"]

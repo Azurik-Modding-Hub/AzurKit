@@ -1030,14 +1030,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - **A dress's parts** (Step 4.6n, `tools/characters/parts.py`): the
     stages of a variant's dress whose output is a function of what they
     read alone (its body's W24 mesh, W29 rig and W30 paint, three parts,
-    each keyed on the one before; its size, `size_shape`; W28's arms' and
-    springs' restyles; the LOD and shadow cuts and their writes) are kept
+    each keyed on the one before; its size, `size_shape`; B's bakes,
+    `retarget.bake_kept`; W28's arms' and springs' restyles; the LOD and
+    shadow cuts and their writes; each sound's ADPCM, `wave_entry`, by its
+    samples, and each WAV's read, `read_wav`, by its bytes) are kept
     in the process under a key of those reads (a file by its sha256, the
     recipe fields by `repr`, each file read in its folder by its bytes),
     never the variant's name, its folder or its recipe file's path, which
     reach only its sounds and its log, and taken in place of the stage: a
     copy under any name (New from this) dresses only the glue between
-    them, and booblord and her own copy share her body. A part's file is
+    them, and booblord and her own copy share her body. A file a part
+    left is named by that part's key, and a later one by its pages that
+    differ from the dressed file (`parts.since`, Step 4.6q): no 70 MB
+    hash where the chain knows it. The glue's own reads are light: a
+    body's bounds as numpy columns (`characters.mesh_bounds`), its bones
+    and triangle counts without its vertices
+    (`read_asset(vertices=False)`). A part's file is
     kept as the 4 KiB pages where it differs from the stage's input, in
     one block, its objects pickled; the parts held are bounded
     (`parts.ROOM`, the least recently taken let go first), under the lock

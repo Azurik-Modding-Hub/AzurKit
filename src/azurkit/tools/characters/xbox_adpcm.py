@@ -25,6 +25,8 @@ Ported from the Azurik Dialogue Studio (``audio_formats.py`` at
 from __future__ import annotations
 
 import functools
+import hashlib
+import io
 import math
 import struct
 import wave
@@ -113,9 +115,25 @@ def wave_entry(samples: Sequence[int]) -> bytes:
     """A wave entry for mono ``samples`` at :data:`RATE`: the 16-byte
     header (rate, count = 64 x blocks, 1 channel, 4 bits, inline, codec 1
     Xbox ADPCM, 0) and the payload, so 0xAC6F0's length,
-    ``(count >> 6) * 36``, is the payload's."""
-    payload = encode(samples)
-    return struct.pack("<II4BI", RATE, len(payload) // BLOCK * FRAMES, 1, 4, 0, 1, 0) + payload
+    ``(count >> 6) * 36``, is the payload's.  A part kept by its samples
+    (:mod:`~azurkit.tools.characters.parts`, Step 4.6q: a variant's
+    sounds are named for it, so a copy under another name encodes the same
+    samples again), where each is a Python int an int16 holds."""
+    from array import array
+
+    from azurkit.tools.characters import parts
+
+    values = list(samples)
+    named = None
+    if values and all(type(v) is int and -32768 <= v <= 32767 for v in values):
+        named = parts.key("wave", hashlib.sha256(array("h", values).tobytes()).hexdigest())
+        if (kept := parts.get(named, "wave")) is not None:
+            return kept
+    payload = encode(values)
+    entry = struct.pack("<II4BI", RATE, len(payload) // BLOCK * FRAMES, 1, 4, 0, 1, 0) + payload
+    if named is not None:
+        parts.put(named, entry, len(entry))
+    return entry
 
 
 class WavInfo(NamedTuple):
@@ -182,9 +200,24 @@ def read_wav(path: str | Path) -> tuple[list[int], WavInfo]:
     with a windowed sinc to ``ceil(frames x RATE / rate)`` samples).  A
     file stdlib ``wave`` can't read (a float or compressed WAV), more
     than two channels or no frames raise :class:`ValueError` naming the
-    file (D35).  There is no length limit."""
+    file (D35).  There is no length limit.  A part kept by the file's
+    bytes (:mod:`~azurkit.tools.characters.parts`, Step 4.6q: a copy of a
+    variant reads its WAVs again), each call given its own list."""
+    from azurkit.tools.characters import parts
+
+    data = Path(path).read_bytes()
+    named = parts.key("wav", hashlib.sha256(data).hexdigest())
+    if (kept := parts.get(named)) is not None:
+        return list(kept[0]), kept[1]
+    samples, info = _read_wav(path, data)
+    parts.put(named, (tuple(samples), info), 36 * len(samples))   # an int object and its slot each
+    return samples, info
+
+
+def _read_wav(path: str | Path, data: bytes) -> tuple[list[int], WavInfo]:
+    """:func:`read_wav`'s work on the file's ``data``."""
     try:
-        with wave.open(str(path), "rb") as source:
+        with wave.open(io.BytesIO(data), "rb") as source:
             channels, width, rate = source.getnchannels(), source.getsampwidth(), source.getframerate()
             frames = source.getnframes()
             raw = source.readframes(frames)

@@ -1234,6 +1234,47 @@ def bake_body(characters_xbr: bytes, index_xbr: bytes, body: str, clips: Iterabl
     under :func:`baked_key` and, with ``grow``,
     :data:`ADDED_MARKERS` added to its marker table.  :class:`ValueError`
     names what blocks it (D35)."""
+    return bake_kept(characters_xbr, index_xbr, body, clips, grow=grow, stand=stand, drawn=drawn, lift=lift,
+                     centre=centre, lunges=lunges, lender=lender, into=into, quiet_markers=quiet_markers, post=post,
+                     given=given)[:2]
+
+
+def bake_kept(characters_xbr: bytes, index_xbr: bytes, body: str, clips: Iterable[str], *,
+              grow: bool = True, stand: str | None = None, drawn: float = 1.0,
+              lift: float = 0.0, centre: Iterable[str] = (), lunges: Iterable[str] = (), lender: str = PLAYER,
+              into: str = BAKED_DIR, quiet_markers: Iterable[str] = (),
+              post: Callable[[str, Clip, Clip], Clip] | None = None,
+              given: dict[str, Clip] | None = None, known: str | None = None) -> tuple[bytes, bytes, str | None]:
+    """:func:`bake_body`, and the name by content of the ``characters.xbr``
+    it gives: a part kept by what it reads
+    (:mod:`~azurkit.tools.characters.parts`, Step 4.6q) where ``known``
+    names ``characters_xbr`` by its content and no ``post`` changes a
+    clip: that name, its options by ``repr`` and ``given``'s clips by
+    their pickle (its ``index.xbr`` gains the records of the clips it
+    added, as worked out); else ``None`` and the bake each time."""
+    import pickle
+
+    from azurkit.tools.characters import parts
+
+    clips, centre, lunges, quiet_markers = sorted(set(clips)), sorted(set(centre)), sorted(set(lunges)), \
+        tuple(quiet_markers)
+    named = None if known is None or post is not None else parts.key(
+        "bake", known, body, clips, grow, stand, repr(drawn), repr(lift), centre, lunges, lender, into,
+        quiet_markers, None if given is None else parts.pickled(given))
+    if named is not None and (kept := parts.get(named, "bake")) is not None:
+        records = [IndexRecord(name, "characters.xbr", "banm") for name in kept[1]]
+        return parts.undelta(characters_xbr, kept[0]), add_index_records(index_xbr, records), named
+    grown, index, new = _bake(characters_xbr, index_xbr, body, clips, grow, stand, drawn, lift, centre, lunges,
+                              lender, into, quiet_markers, post, given)
+    if named is not None:
+        kept = (parts.delta(characters_xbr, grown), tuple(r.name for r in new))
+        parts.put(named, kept, parts.size_of(kept[0]))
+    return grown, index, named
+
+
+def _bake(characters_xbr: bytes, index_xbr: bytes, body: str, clips, grow, stand, drawn, lift, centre, lunges,
+          lender, into, quiet_markers, post, given) -> tuple[bytes, bytes, list]:
+    """:func:`bake_kept`'s work: both files and the resources it added."""
     rt = Retarget(characters_xbr, body, grow=grow, stand=stand, lift=lift, lender=lender)
     centre, lunges = set(centre), set(lunges)
     names_of = [m.casefold() for m in (*rt.target.markers, *(n for n, _ in rt.added))]
@@ -1266,7 +1307,7 @@ def bake_body(characters_xbr: bytes, index_xbr: bytes, body: str, clips: Iterabl
     if stop is not None:
         raise stop
     grown = append_resources(characters_xbr, new, rewrite={index: payload})
-    return grown, add_index_records(index_xbr, [IndexRecord(r.name, "characters.xbr", r.tag) for r in new])
+    return grown, add_index_records(index_xbr, [IndexRecord(r.name, "characters.xbr", r.tag) for r in new]), new
 
 
 def _baked(shared: tuple, job: tuple):
@@ -1307,6 +1348,6 @@ def add_clips(characters_xbr: bytes, index_xbr: bytes, body: str, clips: dict[st
 
 __all__ = ["ADDED_MARKERS", "AIM", "BAKED_DIR", "CENTRAL", "Clip", "FAMILIES", "FLOOR_FINE", "FLOORED", "LIFTS", "MAPS",
            "REQUIRED", "Retarget", "Rig", "SAMPLE_HZ", "TARGETS", "TARGETS_EXTRA", "Track", "add_clips", "bake_body",
-           "bake_clip", "baked_key",
+           "bake_clip", "bake_kept", "baked_key",
            "centred", "evaluate", "floored", "grow_markers", "named_clip", "origins", "pose", "qangle", "qinv", "qmul",
            "quiet", "read_clip", "role_map", "stretched", "turned", "write_clip"]
