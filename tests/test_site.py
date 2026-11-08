@@ -5864,18 +5864,19 @@ def _variants_shown(page, *, status: str = "", name: str | None = None) -> dict:
 def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_and_asks_before_edits_go(
         browser, site, tmp_path):
     """Step 4.6c on the site (Modkit's Variants page; D372, D480, D1087), no image picked: the Variants view lists
-    the built-ins, each in its grade's colour with its words as its title under the Models view's legend, and opens
-    beamlord as a recipe from it, its sha, grade and "built in" in the status line, Check with game data greyed with
-    D979's line; an edit reads "built in: Save as keeps your edits"; Save as a species', a built-in's or a malformed
-    name is refused by name, nothing kept; Save as "mine" keeps its own copy (listed under Yours, and in the Models
-    view's group of that name); a refused value is named and Save writes nothing; the JSON tab's Apply keeps the old
-    recipe on a refusal or a new base, saying why, and takes a good one; leaving unsaved edits is
-    asked about (a no stays); New from this offers mine_2; Export downloads the engine's zip; Delete (after a yes)
-    and Import take it out and back; a New's unsaved edits are asked about as the page closes (Modkit's AZ-792), a
-    saved one's never; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which the Tools tab's
-    Storage names and Clear removes. The built-ins a community list holds (booblord's, from a Content from of the
-    test's own) sit under Community, as the Models view lists them, the rest under Built-in. No CSP violation, no
-    request but GETs of the site's files and that source's."""
+    the built-ins, each in its grade's colour with its words as its title under the Models view's legend (those a
+    community list holds, booblord's from a Content from of the test's own, under Community, as the Models view lists
+    them, the rest under Built-in), and opens beamlord as a recipe from it, its sha, grade and "built in" in the status
+    line, Check with game data greyed with D979's line, its Body note naming only the body read-only; an edit reads
+    "built in: Save as keeps your edits"; Save as a species', a built-in's or a malformed name is refused by name,
+    nothing kept; Save as "mine" keeps its own copy (listed under Yours, and in the Models view's group of that name);
+    a refused value is named and Save writes nothing; the JSON tab's Apply keeps the old recipe on a refusal or a new
+    base, saying why, and takes a good one; leaving unsaved edits is asked about (a no stays); New from this offers
+    mine_2; Export downloads the engine's zip; Delete (after a yes) and Import take it out and back; New offers the
+    species then the objects, each counted and in its grade's colour and mark; a New's unsaved edits are asked about
+    as the page closes (Modkit's AZ-792), a saved one's never; a new page lists what this browser keeps (IndexedDB's
+    azurkit-variants), which the Tools tab's Storage names and Clear removes. No CSP violation, no request but GETs
+    of the site's files and that source's."""
     from azurkit.tools.characters import _player_variants, content, picker
 
     beam = _player_variants.builtins()["beamlord"]
@@ -6001,6 +6002,17 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         _page.click(page, "var-new")
         keylord = "document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')"
         _page.until(page, f"() => {keylord}", 60)
+        ships = json.loads((site / "characters" / "index.json").read_text(encoding="utf-8"))["view"]
+        green = next(g for g, c in ships["colours"].items()
+                     if c == next(s["colour"] for s in ships["species"] if s["name"] == "keylord"))
+        things = sum(bool(o) for _, _, o in picker.species_list())
+        offered = page.evaluate(f"""() => [document.getElementById('var-new-lead').textContent,
+            [...document.querySelectorAll('#var-ask .picker-group')].map((h) => h.textContent),
+            {keylord}.dataset.grade, {keylord}.style.color.startsWith('var(--grade-' + {keylord}.dataset.grade + ', '),
+            {keylord}.title]""")
+        assert offered == [f"A new variant on a species' body: {len(picker.species_list()) - things} species, then "
+                           f"{things} objects.", ["Species", "Objects"], green, True,
+                           f"keylord · {picker.GRADE_WORDS[green]}"]   # graded and counted, as the Models view lists them
         page.evaluate(f"() => {keylord}.click()")
         _variants_shown(page, name="(new, unsaved)")
         assert page.evaluate(closing) is True   # a New's unsaved edits: asked about as the page closes

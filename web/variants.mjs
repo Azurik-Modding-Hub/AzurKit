@@ -502,18 +502,29 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     await open("built-in", v.list.builtins[0].name);
     say(`Deleted ${gone}`);
   });
-  const newPicker = picker({ label: "Species", placeholder: "Search the species", pick: (name) => {
+  // New's species, each in its grade's colour and mark as the Models view first lists it (the shipped answer's), the
+  // species then the objects, each group counted in the lead.
+  const newPicker = picker({ label: "Species", placeholder: "Search the species", count: null, pick: (name) => {
     ui.asked.close();
     fresh(name);
-  } });
+  }, decorate: (row, e) => e.grade && tint(row, e.grade, e.colours) });
   ui.new.addEventListener("click", async () => {
     const ships = await shipped();
-    const species = v.list?.species ?? [];
-    newPicker.set(species.map((name) => ({ name, label: name === "garret4" ? `${name}  (his own body)` : name,
-      ...ships?.species?.[name] ? { picture: `characters/${ships.species[name]}.front.png` } : {} })), null);
+    const species = v.list?.species ?? [], seen = new Map((ships?.view?.species ?? []).map((s) => [s.name, s]));
+    const colours = ships?.view?.colours ?? v.list?.colours ?? {}, words = v.list?.grades ?? {};
+    const gradeOf = (colour) => colour && Object.keys(colours).find((grade) => colours[grade] === colour);
+    const objects = species.filter((name) => seen.get(name)?.object).length;
+    newPicker.set(species.map((name) => {
+      const s = seen.get(name), grade = gradeOf(s?.colour);
+      return { name, label: name === "garret4" ? `${name}  (his own body)` : s?.label ?? name, colours,
+               group: s?.object ? "Objects" : "Species",
+               ...grade ? { grade, title: `${name} · ${words[grade] ?? grade}` } : {},
+               ...ships?.species?.[name] ? { picture: `characters/${ships.species[name]}.front.png` } : {} };
+    }), null);
     const cancel = button("var-new-cancel", "Cancel");
     cancel.addEventListener("click", () => ui.asked.close());
-    ui.asked.replaceChildren(el("p", { className: "note", textContent: "A new variant on a species' body:" }),
+    ui.asked.replaceChildren(el("p", { className: "note", id: "var-new-lead", textContent: "A new variant on a species' "
+                               + `body: ${species.length - objects} species, then ${objects} objects.` }),
                              newPicker.element, el("p", { className: "rando-row" }, cancel));
     ui.asked.show();
   });
