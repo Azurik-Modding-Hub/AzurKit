@@ -388,13 +388,15 @@ def test_two_dresses_on_two_threads_take_and_keep_parts_at_once_and_hold_only_th
 def test_the_quick_preview_puts_each_drawn_vertex_where_a_dress_at_those_values_does(usa_iso, tmp_path):
     """The Shape tab's preview (Modkit's ``preview``) moves the last Check's drawn vertices to a shape's new value
     with no dress: HIPS' pelvis at 1.5 drawn as a Check of it at 1.5 draws it (its scale op makes no new vertex, so
-    every one is found), in a fraction of a second; one whose mesh changed beyond its shapes asks for the Check."""
+    every one is found), in a fraction of a second, its edit under another name and folder than the Check's (a
+    built-in checked by its name, then dragged, is an edit of it); one whose mesh changed beyond its shapes asks for
+    the Check."""
     given = _given(usa_iso, tmp_path, HIPS)
     sdk.variant_check(given)
     first = sdk.variant_pictures(given)
     wider = json.loads(json.dumps(HIPS))
     wider["shapes"]["hips"]["value"] = 1.5
-    quick = sdk.variant_preview(given | {"recipe": wider})
+    quick = sdk.variant_preview(_given(usa_iso, tmp_path, wider, name=sdk.UNSAVED))
     assert quick["front"] != first["front"] and quick["seconds"] < 3
     sdk.variant_check(given | {"recipe": wider})
     assert {k: quick[k] for k in ("front", "back")} == sdk.variant_pictures(given | {"recipe": wider})

@@ -859,6 +859,14 @@ def _edit_key(given: Mapping, recipe: Mapping | None, leave: tuple[str, ...] = (
                        _packs({"packs": given.get("packs", {})})], sort_keys=True)
 
 
+def _place(given: Mapping) -> str:
+    """The image and packs an edit dresses over: a quick preview moves a
+    kept Check's dress made over the same, whatever the edit's name or
+    folder (a built-in checked by its name, then dragged: an edit of it)."""
+    stamp = _stamp(given["iso"])
+    return json.dumps([str(stamp.path), stamp.release.name, _packs({"packs": given.get("packs", {})})])
+
+
 def _dressing(given: Mapping, recipe: Mapping | None, steps: Steps = Steps()) -> tuple[dict[str, bytes], list[str]]:
     """``default.xbe``, config.xbr, characters.xbr and fx.xbr as a build of
     the edit (over ``given``'s ``packs``) writes them, and its dress's
@@ -977,7 +985,7 @@ def variant_check(given: Mapping, *, progress: Callable[[dict], object] | None =
 
     with noting(Steps(progress)) as steps:
         name, variant, recipe = _editing(given, "variant_check")
-        place = _edit_key(given, None)   # the image checked and the packs read first: their refusals are raised
+        place = _place(given)   # the image checked and the packs read first: their refusals are raised
         asked = _check_key(given, name, recipe)
         if (last := _CHECKED.get("last")) is not None and last["asked"] == asked:   # checked last, unchanged
             return dict(last["answer"])
@@ -1110,7 +1118,7 @@ def variant_preview(given: Mapping) -> dict:
     name, variant, recipe = _editing(given, "variant_preview")
     kept = _CHECKED.get("last")
     ref, plain = kept and kept["variant"], variant.plain or variant.mesh
-    if (kept is None or kept["place"] != _edit_key(given, None) or plain is None or variant.base != ref.base
+    if (kept is None or kept["place"] != _place(given) or plain is None or variant.base != ref.base
             or repr(plain) != repr(ref.plain or ref.mesh)):
         raise ValueError(f"variant {name!r}: no Check of its mesh is kept (none yet, another variant's, or its mesh "
                          "changed beyond its shapes since): Check with game data dresses it")
