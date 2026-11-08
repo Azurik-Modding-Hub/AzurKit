@@ -172,8 +172,8 @@ def size_params(enabled, params: Mapping, s: float) -> tuple[list[str], dict[str
 
 def checked_plan(doc: Mapping, logic):
     """A plan file's object ``doc`` read back on ``logic``'s database
-    (:func:`~.planner.plan.load_plan`: its format, generator, sha256 and
-    ``db_digest``) and beatable under its settings (:func:`~.planner.fill.verify`,
+    (:func:`~.planner.plan.load_plan`: its keys' types, format, generator,
+    sha256 and ``db_digest``) and beatable under its settings (:func:`~.planner.fill.verify`,
     the fill's own check: victory, every location but the forfeitable, no new
     trick-free trap), as a :class:`~.planner.plan.Plan`;
     :class:`~.planner.plan.PlanError` names each refusal (an edited plan's
@@ -181,10 +181,6 @@ def checked_plan(doc: Mapping, logic):
     from azurkit.tools.randomizer.planner.fill import verify
     from azurkit.tools.randomizer.planner.plan import PlanError, load_plan
 
-    if {"share", "placement"} <= set(doc) and not (
-            isinstance(doc["share"], str) and isinstance(doc["placement"], Mapping)
-            and all(isinstance(k, str) and isinstance(v, str) for k, v in doc["placement"].items())):
-        raise PlanError("not a plan file: its share is a share string and its placement maps location ids to items")
     plan = load_plan(doc, logic.db)
     if problems := verify(logic, plan.settings, plan.placement):
         raise PlanError(f"plan {doc['sha256'][:12]} isn't beatable under its settings: {'; '.join(problems)}")

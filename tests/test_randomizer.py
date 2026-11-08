@@ -652,6 +652,8 @@ def test_a_plan_reads_back_into_its_spoiler_and_what_the_randomizer_cant_take_is
                        ({"plan": "plan.json"}, "plan is a plan file's object"), ({"plan": edited}, "edited plan"),
                        ({"plan": signed(doc | {"db_digest": "0" * 64})}, "made from another database"),
                        ({"plan": signed(doc | {"placement": [fragment]})}, "its placement maps location ids to items"),
+                       ({"plan": signed(doc | {"settings": []})}, "its settings a table"),
+                       ({"plan": signed(doc | {"db_digest": 5})}, "its share and db_digest are strings"),
                        ({"plan": unbeatable}, fr"^plan {unbeatable['sha256'][:12]} isn't beatable under its settings: "
                                               r"victory \(flag:d1\.spideyzar\.killed\) does not hold; \d+ locations"),
                        ({"seed": 2}, "seed is a string"),

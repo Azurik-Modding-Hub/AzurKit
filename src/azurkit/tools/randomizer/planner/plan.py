@@ -110,6 +110,11 @@ def load_plan(source: Path | str | Mapping, db) -> Plan:
     doc = dict(source) if isinstance(source, Mapping) else json.loads(Path(source).read_text(encoding="utf-8"))
     if set(doc) != _KEYS:
         raise PlanError(f"not a plan file: keys {sorted(set(doc) ^ _KEYS)} differ from {PLAN_FORMAT}'s")
+    if not (isinstance(doc["share"], str) and isinstance(doc["db_digest"], str) and isinstance(doc["settings"], Mapping)
+            and isinstance(doc["placement"], Mapping)
+            and all(isinstance(k, str) and isinstance(v, str) for k, v in doc["placement"].items())):
+        raise PlanError("not a plan file: its share and db_digest are strings, its settings a table "
+                        "and its placement maps location ids to items")
     for key, want in (("format", PLAN_FORMAT), ("generator", GENERATOR)):
         if doc[key] != want:
             raise PlanError(f"{key} {doc[key]!r}: this tool reads {want!r}")
@@ -120,9 +125,9 @@ def load_plan(source: Path | str | Mapping, db) -> Plan:
         raise PlanError(f"made from another database (db_digest {doc['db_digest'][:12]}, this one's "
                         f"{db_digest(db)[:12]}): replay is refused (plan §3.5)")
     skips = {sid: s for sid, (_, s) in db.skips.items()}
-    table = dict(doc["settings"]) if isinstance(doc["settings"], Mapping) else doc["settings"]
-    made = table.pop("seed_difficulty_fill", None) if isinstance(table, dict) else None
-    if isinstance(table, dict) and table.get("seed_difficulty") and made != SEED_DIFFICULTY_FILL:
+    table = dict(doc["settings"])
+    made = table.pop("seed_difficulty_fill", None)
+    if table.get("seed_difficulty") and made != SEED_DIFFICULTY_FILL:
         raise PlanError(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill "
                         f"{SEED_DIFFICULTY_FILL}: the same seed would place items differently")
     try:     # the movement sliders it was asked under ride in its share string (AZ-383)
