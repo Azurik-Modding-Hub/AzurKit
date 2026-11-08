@@ -1662,3 +1662,417 @@ def test_the_trick_explorer_records_touched_faces_entered_volumes_regions_and_zo
     assert guide.site_prior(Row((20 / 3, 20 / 3, top / 3 + 1.0), 3, None), seen) > 1.0 and seen   # on the slope
     runs = [X.explore(sim, start, r0, guide, X.Limits(steps=3000), seed=2, digest=True) for _ in range(2)]
     assert runs[0].archive == runs[1].archive
+
+
+@pytest.mark.parametrize("native", [False, True], ids=["python", "c-step"])
+def test_fast_l3_steps_pokes_and_resets_bit_for_bit_as_l3_does(tmp_path, monkeypatch, native):
+    """Step R2.19a (R2.17's emulator prototype): FastL3 (Unicorn's virtual TLB, data pages R+W, translation drops
+    over code pages only) gives L3's rows and memory: an input string with a camera turn, a teleport, a data write
+    and resets, and a poke of the update's code takes effect on the next step and a reset brings the old code back.
+    Step R2.19m: so does its C step (the fill, and each tick without ``deep`` with the update's hooks in C), on
+    ticks with and without ``deep`` (the C step's and the Python hooks swapped in turn); ``FASTL3_STEP=python`` (X1's
+    re-proof) steps every tick in Python and leaves the library's inline exit test out of a worker's switches."""
+    import math
+
+    from devkit.sim.l3 import L3, L3Error, Pad, read_snapshot
+    from devkit.reach.l3_fast import LIB_NAME, FastL3, library, step_lib, worker_env
+
+    assert not native or step_lib() is not None, "the C step needs the ziglang wheel (uv sync)"
+    monkeypatch.setenv("FASTL3_STEP", "c" if native else "python")
+    (lib := library(tmp_path / "cache")).mkdir(parents=True)
+    (lib / LIB_NAME).touch()
+    assert ("UC_TB_EXIT_INLINE" in worker_env(tmp_path / "cache")) == native
+
+    def drive(sim):
+        y = frozenset({"y"})
+        rows = sim.run([Pad((0.0, 1.0), y), Pad((0.0, 0.5), y, math.pi / 2), Pad()])
+        start = sim.save()
+        rows += [sim.teleport((1.0, 2.0, 3.0), math.pi), *sim.run([Pad((0.0, 2.0))] * 2)]
+        sim.write(0x100050, b"\x07")
+        rows += sim.run([Pad((0.0, 1.0), y)])
+        sim.reset(start)
+        rows += sim.run([Pad((0.0, -1.0))] * 2)
+        sim.reset()
+        return rows + sim.run([Pad((0.0, 1.0), y)]), sim.read(0x100000, 0x1000)
+
+    walker = read_snapshot(_l3_walker(tmp_path))
+    for deep in (True, False, True) if native else (True,):
+        fast, base = FastL3(walker, {}, code={0x8C, 0x85}), L3(walker, {})
+        fast.deep = base.deep = deep
+        assert drive(fast) == drive(base) and fast.data_fetch == 0 and fast.inval_skipped > 0
+        assert (fast.native_steps > 0) == (native and not deep) and (fast.fills > 0) == fast.vtlb
+        assert (fast.walk != {"mode": 0}) == native   # FASTL3_STEP=python loads no C step at all
+    if native:                            # one simulator, its hooks swapped as deep goes off and on again
+        fast, base = FastL3(walker, {}, code={0x8C, 0x85}), L3(walker, {})
+        for deep in (False, True, False):
+            fast.deep = base.deep = deep
+            assert drive(fast) == drive(base)
+        assert fast.native_steps == 2 * 10     # the two drives without deep, every tick
+
+    ent, upd = 0x100000, 0x8C230
+    code = bytes.fromhex("89c8" "c7405011000000") + b"\xe9" + _rel(upd + 2 + 7, 0x8C3F1)
+    (tmp_path / "p").mkdir(mode=0o700)
+    sim = FastL3(read_snapshot(_l3_snapshot(tmp_path / "p", {upd: code, 0x8C3F1: b"\xc3"}, {})[0]), {}, code={0x8C})
+    sim.deep = not native
+    got = []
+    for poke in (None, b"\x22", None):
+        if poke:
+            sim.write(upd + 5, poke)
+        elif got:
+            sim.reset()
+        sim.step()
+        got.append(sim.u32(ent + 0x50))
+    assert got == [0x11, 0x22, 0x11]
+    sim.write(upd, b"\xeb\xfe")                               # jmp $: its watchdog stops a runaway
+    with pytest.raises(L3Error, match="did not return within 200000 us"):
+        sim.step(timeout_us=200_000)
+    assert sim.native_steps == (4 if native else 0)
+
+
+def test_the_c_walk_drops_the_faces_the_games_face_loop_drops_and_leaves_its_state(tmp_path, monkeypatch, usa):
+    """Step R2.19m (m4): the game's own face loop of the collision walk (0xD1E80 to 0xD2303, the vanilla XBE's bytes)
+    over a seeded chunk and query frame, run on FastL3 with the C walk off, dropping faces and in check mode (the face
+    test 0xB9E60 a stub that hits, each hit taking 1.0 off the query's [ebp+0x10], so a tested face skipped shows),
+    leaves the same registers, x87 status word, frame and query; the C walk drops faces and the check mode's decision
+    is the game's on every face (one face with a vertex index past the chunk's is outside the envelope)."""
+    import random
+
+    from azurkit.tools.randomizer.ports import resolve_va_to_file
+    from devkit.sim.l3 import _STOP, read_snapshot
+    from devkit.reach.l3_fast import WALK_HEAD, FastL3, step_lib
+    from unicorn import x86_const as X
+
+    assert step_lib() is not None, "the C step needs the ziglang wheel (uv sync)"
+    xbe = usa["default.xbe"]
+    loop_end = 0xD2303
+    off = resolve_va_to_file(xbe, WALK_HEAD)
+    loop = xbe[off:off + loop_end - WALK_HEAD]
+    rng = random.Random(7)
+    frame, ebp, chunk, n = 0x104000, 0x104800, 0x105000, 60
+    verts = sorted(tuple(rng.randrange(-2000, 2000) for _ in range(3)) for _ in range(n))   # by x, as a chunk's
+    faces = [[i, i + 1, i + 2, 0] for i in (rng.randrange(n - 2) for _ in range(150))]     # small faces
+    faces[70][1] = n + 3                                         # past the chunk's vertices: the game's own path
+    data = bytearray(0x16) + struct.pack(f"<{3 * n}h", *(c for v in verts for c in v))
+    data[6] = n
+    data += bytes(b for f in faces for b in f)
+    fr = bytearray(0x150)
+    struct.pack_into("<i", fr, 0x14, 3)                          # the loop's index (from face 3)
+    struct.pack_into("<i", fr, 0x30, len(faces))                 # and its end
+    for k, v in zip((0x80, 0x84, 0x88, 0x90, 0x94, 0x98, 0xA0, 0xA4, 0xA8, 0xB0, 0xB4, 0xB8),
+                    (0.0039, 0.0002, -0.0001, -0.0003, 0.0038, 0.0004, 0.0001, -0.0002, 0.0039, 0.25, -0.5, 0.125)):
+        struct.pack_into("<f", fr, k, v)
+    for k, v in zip((0x18, 0x1C, 0x20, 0xCC, 0xE8, 0xEC), (-1.5, -1.5, -1.5, 1.5, 1.5, 1.5)):
+        struct.pack_into("<f", fr, k, v)
+    q = bytearray(0x40)                                          # the query: a hit's fld [ebp+0x10], fsub [esi+0x1C]
+    struct.pack_into("<f4xI", q, 0x10, 100.0, ebp + 0x20)        # with esi = [ebp+0x18] = ebp+0x20,
+    struct.pack_into("<If", q, 0x38, 0x5A5A, 1.0)                # whose +0x18 goes to [esp+0x74]
+    code = {WALK_HEAD: loop[:0xD2000 - WALK_HEAD], 0xD2000: loop[0xD2000 - WALK_HEAD:],   # a page each
+            loop_end: b"\xe9" + _rel(loop_end, _STOP),
+            0xB9E60: bytes.fromhex("b001c21800"),                # the face test: a hit (mov al, 1; ret 0x18)
+            frame: bytes(fr), ebp: bytes(q), chunk: bytes(data)}
+    path, _ = _l3_snapshot(tmp_path, code, {})
+    ends, walks = [], []
+    for mode in ("0", "1", "check"):
+        monkeypatch.setenv("FASTL3_WALK", mode)
+        sim = FastL3(read_snapshot(path), {}, code={0xD1, 0xD2, 0xB9, 0x8C, 0x85})
+        sim._run(WALK_HEAD, None, {X.UC_X86_REG_ESP: frame, X.UC_X86_REG_EBP: ebp, X.UC_X86_REG_EBX: chunk,
+                                   X.UC_X86_REG_ECX: 3}, 2_000_000)
+        regs = [sim.uc.reg_read(r) for r in (X.UC_X86_REG_EAX, X.UC_X86_REG_EBX, X.UC_X86_REG_ECX, X.UC_X86_REG_EDX,
+                                             X.UC_X86_REG_ESI, X.UC_X86_REG_EDI, X.UC_X86_REG_EBP,
+                                             X.UC_X86_REG_ESP, X.UC_X86_REG_FPSW)]
+        ends.append((regs, sim.read(frame, 0x150), sim.read(ebp, 0x40)))
+        walks.append(sim.walk)
+    off_, drop, check = walks
+    assert ends[0] == ends[1] == ends[2] and ends[0][0][2] == len(faces)
+    hits = 100.0 - struct.unpack_from("<f", ends[0][2], 0x10)[0]           # the faces the game tested
+    assert hits > 0 and hits + drop["dropped"] <= len(faces) - 3
+    assert off_["heads"] == 0 and drop["dropped"] > 50 and drop["unsafe"] >= 1
+    assert (check["checked"], check["differ"], check["unsafe"]) == (len(faces) - 3 - 1, 0, 1)
+
+
+def test_l3_pool_keeps_its_workers_and_gives_the_same_winners_whatever_their_count(tmp_path, monkeypatch):
+    """Step X.10: a persistent pool per snapshot (spawned workers, each loading the snapshot once and serving tasks
+    from one queue) runs input strings and many search problems at once; every task starts from the snapshot, so
+    one worker and three give the same rows and the same winners (the lowest seed index that reached), and the
+    same processes serve every call.  Step R1.16: only the winner is graded, its robustness trials run as tasks
+    across the pool, to the value ``l3_search.robustness`` gives it in one process, at the problem's frame rate
+    (AZ-379: a chain on a 60 fps build grades at 60)."""
+    import json
+
+    from devkit.reach import l3_pool
+    from devkit.reach.l3_pool import Pool, Problem, pids, solve_many, trace
+    from devkit.sim.l3_search import Limits, Segment
+
+    store = tmp_path / "store"
+    store.mkdir(mode=0o700)
+    _l3_walker(store)
+    strings = [[{"n": 3, "stick": [0.0, 1.0], "buttons": ["y"]}], [{"n": 2, "stick": [0.0, 0.5], "yaw": 1.0}],
+               [{"n": 4, "stick": [0.0, -1.0]}]]
+    spec = {"module": __name__, "factory": "_ReachX"}
+    problems = [Problem(Segment("s", settle=1, store=str(store)), {**spec, "kwargs": {"x": x}},
+                        Limits(steps=300, ticks=40, seg=2, hold=1, exhaust=40), seeds=3, rate=rate)
+                for x, rate in ((7.0, 30.0), (4.0, 120.0), (99.0, 30.0))]
+    rates, real_jittered = [], l3_pool.jittered
+    monkeypatch.setattr(l3_pool, "jittered", lambda segs, **k: rates.append(k.get("rate")) or real_jittered(segs, **k))
+    got = []
+    for n in (1, 3):
+        with Pool("s", {}, store=store, workers=n) as pool:
+            ids = {*pool.map(pids, [()] * 6), *pool.map(pids, [()] * 6)}
+            runs = pool.map(trace, [(False, s) for s in strings])
+            res = solve_many(pool, problems)
+        assert len(ids) <= n
+        got.append((runs, json.loads(json.dumps(res), object_hook=lambda d: {k: v for k, v in d.items()
+                                                                              if k not in ("seconds", "steps_per_s")})))
+    assert got[0] == got[1]
+    runs, res = got[0]
+    assert [(len(r), e) for r, e in runs] == [(3, None), (2, None), (4, None)] and runs[0][0][0][1:3] == (0, 200)
+    assert [r["reached"] for r in res] == [True, True, False] and res[0]["winner"]["index"] == 0
+    assert len(res[2]["runs"]) == 3 and all(not x["taint"] for r in res for x in r["runs"])
+    from devkit.sim import l3
+    from devkit.sim.l3_search import robustness, start_of
+    sim = l3.L3(l3.read_snapshot(l3.snapshot_path("s", store)), {})
+    assert sorted(rates) == [30.0, 30.0, 120.0, 120.0]   # the two winners graded, once per pool size
+    for r, x, p in zip(res[:2], (7.0, 4.0), problems):
+        w = r["winner"]
+        start, _, cam, _, _ = start_of(sim, problems[0].seg)
+        assert w["robustness"] == robustness(sim, start, w["segs"], _ReachX(x), cam=cam, trials=16, seed=w["seed"],
+                                             rate=p.rate)
+    assert ["robustness" in x for r in res for x in r["runs"]] == [x is r["runs"][-1] and r["reached"]
+                                                                   for r in res for x in r["runs"]]
+
+
+def test_a_seeds_error_stays_with_its_seed_and_the_batch_goes_on(tmp_path, monkeypatch):
+    """Step X.52: in a batch of problems, a seed whose start raises ``L3Error`` in its worker (whole steps hanging
+    in the render after a teleport) is a run that failed at its start, its site counted; a task that raises any
+    other error is that seed's run, its error counted; both are tainted (no refutation); a winner's trial that
+    raises is counted and not graded; the other problems still find their winners, and only a broken pool ends the
+    batch.  The explorer's seeds too (Step X.52b): a start that raises fails that seed's run (``start: <the
+    error>``, the problem's verdict when every seed's did, inconclusive) and the batch's other problems run on.  A
+    pool started inside a spawned process (a script without the ``__main__`` guard, run again in each worker) is
+    refused at once, by name."""
+    import concurrent.futures
+
+    from devkit.reach import l3_pool
+    from devkit.sim import l3
+    from devkit.reach.l3_pool import Pool, Problem, Worker, solve_many
+    from devkit.sim.l3_search import Limits, Segment
+
+    store = tmp_path / "store"
+    store.mkdir(mode=0o700)
+    _l3_walker(store)
+
+    class Here:                    # a pool of one worker in this process (so the patched start reaches it)
+        snapshot, name, workers = "s", "l3 test", 1
+
+        def __init__(self):
+            self.store, self.stop = str(store), bytearray(l3_pool.SLOTS)
+            self.w = Worker("s", self.store, {}, self.stop)
+
+        def submit(self, fn, *args):
+            f = concurrent.futures.Future()
+            try:
+                f.set_result(fn(self.w, *args))
+            except Exception as exc:
+                f.set_exception(exc)
+            return f
+    real = l3_pool.start_of
+
+    def start_of(sim, seg):        # settle 2: the start hangs in the render, as w4/g0/r645's did
+        if seg.settle == 2:
+            raise l3.L3Error("0x54800 did not return within 5000000 us (at 0xf4edf)", "render timeout@0xf4edf")
+        return real(sim, seg)
+    monkeypatch.setattr(l3_pool, "start_of", start_of)
+    tried = []
+
+    def trial(*args, **kw):        # the winner's first trial raises, the other reaches
+        tried.append(1)
+        if len(tried) == 1:
+            raise RuntimeError("a worker's wall clock")
+        return True
+    monkeypatch.setattr(l3_pool, "trial", trial)
+    spec = {"module": __name__, "factory": "_ReachX", "kwargs": {"x": 7.0}}
+    lim = Limits(steps=300, ticks=40, seg=2, hold=1, exhaust=40)
+    res = solve_many(Here(), [Problem(Segment("s", settle=1, store=str(store)), spec, lim, seeds=2, trials=2),
+                              Problem(Segment("s", settle=2, store=str(store)), spec, lim, seeds=2),
+                              Problem(Segment("s", settle=1, store=str(store)), {**spec, "factory": "_NoSuchGoal"},
+                                      lim, seeds=2)])
+    assert [r["reached"] for r in res] == [True, False, False]
+    assert (res[0]["winner"]["robustness"], res[0]["winner"]["trial_errors"]) == (1.0, 1)
+    assert [(x["why"], x["fault_sites"], x["taint"]) for x in res[1]["runs"]] == [
+        ("start: 0x54800 did not return within 5000000 us (at 0xf4edf)", {"render timeout@0xf4edf": 1},
+         ["failed:start"])] * 2
+    assert all(x["why"].startswith("error: AttributeError") and not x["reached"] and x["fault_sites"] == {"other": 1}
+               and x["taint"] == ["failed:error"] for x in res[2]["runs"])
+    from devkit.sim import l3_explore as X
+    monkeypatch.setattr(X, "start_of", start_of)
+    got = X.explore_many(Here(), [X.Problem(Segment("s", settle=1, store=str(store)), spec, X.Limits(steps=2000)),
+                                  X.Problem(Segment("s", settle=2, store=str(store)), spec, X.Limits(steps=2000), 2)])
+    hung = "start: 0x54800 did not return within 5000000 us (at 0xf4edf)"
+    assert got[0]["found"] and (got[1]["verdict"], got[1]["inconclusive"]) == (hung, True)
+    assert [(x["verdict"], x["fault_sites"], x["taint"]) for x in got[1]["runs"]] == [
+        (hung, {"render timeout@0xf4edf": 1}, ["failed:start"])] * 2
+
+    class Broken(Here):
+        def submit(self, fn, *args):
+            f = concurrent.futures.Future()
+            f.set_exception(concurrent.futures.process.BrokenProcessPool("a worker died"))
+            return f
+    with pytest.raises(concurrent.futures.process.BrokenProcessPool):
+        solve_many(Broken(), [Problem(Segment("s", settle=1, store=str(store)), spec, lim, seeds=2)])
+    monkeypatch.setattr(l3_pool.mp.current_process(), "_inheriting", True, raising=False)   # a child importing it
+    with pytest.raises(RuntimeError, match='started inside a spawned worker process.*__name__ == "__main__"'):
+        Pool("s", {}, store=store)
+
+
+def test_l3_conformance_corpus_keeps_each_replay_and_reruns_it_against_xemu(tmp_path):
+    """Step X.10: each xemu replay of an L3 string goes into the private corpus (the string with its teleport,
+    both backends' per-tick digests, a coordinate-free verdict: passed, the first diverging tick); a rerun runs
+    every string in L3 again from its kept snapshot and compares with xemu, so a record that passed and now
+    diverges is a regression, and a change in L3's own trace is named by its first tick."""
+    import json
+    import math
+
+    from devkit.sim import corpus
+    from devkit.sim.l3 import L3, Pad, read_snapshot
+
+    store = tmp_path / "store"
+    store.mkdir(mode=0o700)
+    snap = read_snapshot(_l3_walker(store))
+    sim = L3(snap, {})
+    pads = [Pad(), Pad((0.0, 1.0), frozenset({"y"}), 0.3), Pad((0.0, 0.5)), Pad()]
+    rows = [sim.teleport((1.0, 2.0, 3.0), math.pi), *sim.run(pads[1:])]
+    got = [{"k": r.k, "pos": r.pos, "state": r.state, "hp": r.hp, "obs": r.obs} for r in rows]
+    off = [*got[:2], {**got[2], "obs": got[2]["obs"]._replace(pos=(9.0, 9.0, 9.0))}, got[3]]
+    assert [{k: v[k] for k in ("passed", "divergence", "ticks")} for v in
+            (corpus.record(snap.meta, False, pads, rows, g, store=store) for g in (got, off))] == [
+        {"passed": True, "divergence": None, "ticks": 4}, {"passed": False, "divergence": 2, "ticks": 4}]
+    assert corpus.corpus_path(store).stat().st_mode & 0o777 == 0o600
+    res = corpus.rerun({}, store=store)
+    assert [(r["passes_now"], r["divergence_now"], r["l3_changed_at"], r["error"]) for r in res] == [
+        (True, None, None, None), (False, 2, None, None)]
+    recs = corpus.read(store)                    # an engine change: L3 now differs from xemu (and itself) at tick 1
+    recs[0]["l3"][1] = recs[0]["xemu"][1] = ["0" * 12, "0" * 12]
+    corpus.corpus_path(store).write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    res = corpus.rerun({}, store=store)
+    assert (res[0]["passes_now"], res[0]["divergence_now"], res[0]["l3_changed_at"]) == (False, 1, 1)
+    assert corpus.report(res) == {"records": 2, "missing": 0, "passed": 1, "passes_now": 0, "regressions": 1,
+                                  "l3_changed": 1}
+
+
+def test_l3_conformance_reruns_a_builds_record_on_its_own_disc_or_names_it_missing(tmp_path):
+    """AZ-380: a corpus record keeps the disc in the tray (the snapshot's sha12 and the image's path), and the
+    rerun runs a build's record on that image's XBE with the game's reads served from it, or on an image ``discs``
+    names (``--disc``) that hashes the same once it moved, and names the record missing when the disc is gone; it
+    ran every record on vanilla's XBE and no disc.  It compares CORE digests: AZ-389 changed the whole
+    observation's (the inventory hash), so a whole digest of an older record no longer changes the verdict."""
+    import hashlib
+    import json
+
+    from devkit.sim import corpus
+    from devkit.sim.l3 import L3, Pad, read_snapshot
+    from tests._xiso import image as synthetic_xiso
+
+    text = bytes(dict(read_snapshot(_l3_walker(tmp_path)).runs)[0x8C000])
+    image = tmp_path / "build.iso"
+    image.write_bytes(synthetic_xiso({"default.xbe": _l3_xbe(text, [])}))   # the build: the walker's code
+    sha12 = hashlib.sha256(image.read_bytes()).hexdigest()[:12]
+    store = tmp_path / "store"
+    store.mkdir(mode=0o700)
+    snap = read_snapshot(_l3_walker(store, iso_sha12=sha12))
+    pads = [Pad((0.0, 1.0))] * 3
+    rows = L3(snap, {}).run(pads)
+    corpus.record(snap.meta, False, pads, rows, [{"obs": r.obs} for r in rows], store=store, disc=image)
+    rec = corpus.read(store)[0]
+    assert (rec["iso_sha12"], rec["disc"]) == (sha12, str(image))
+    rec["l3"] = [[c, "0" * 12] for c, _ in rec["l3"]]          # whole digests of before AZ-389, CORE equal
+    corpus.corpus_path(store).write_text(json.dumps(rec) + "\n", encoding="utf-8")
+    other = _l3_xbe(bytes(0x1000), [])                          # another build's code: L3 refuses the snapshot on it
+    assert [(r["passes_now"], r["error"], r["l3_changed_at"]) for r in corpus.rerun(other, store=store)] == [
+        (True, None, None)]
+    moved = tmp_path / "moved.iso"
+    image.rename(moved)
+    gone = corpus.rerun(other, store=store)
+    assert gone[0]["missing"] == f"its disc {sha12} is gone ({image}): pass --disc"
+    assert corpus.report(gone)["missing"] == 1
+    assert [r["passes_now"] for r in corpus.rerun(other, store=store, discs=[tmp_path / "none.iso", moved])] == [True]
+
+
+def test_an_explorer_spec_with_an_empty_kit_runs_at_kit_0_and_one_saying_snapshot_at_the_snapshots_levels(
+        tmp_path, monkeypatch):
+    """AZ-528: ``devkit/sim/explore.py`` turned an empty kit (``{}`` or none) into no kit step, which keeps the
+    snapshot's own element levels (vanilla-flat's 3/3/3/3: a "kit 0" problem could cast air 3); an empty kit now
+    writes R2's zeros (``start_of``'s kit step, ``L3.kit_writes``), and only ``"snapshot"`` keeps the snapshot's."""
+    from devkit.reach import models
+    from devkit.sim import explore as script
+    monkeypatch.setattr(models, "reach_path", lambda level: tmp_path / "reach.pkl")
+    spec = {"key": "k", "snapshot": "s", "level": "w1", "goal": ["w1.Z001"]}
+    assert [script.problem({**spec, **more}).seg.kit for more in ({}, {"kit": {}}, {"kit": None}, {"kit": "snapshot"},
+                                                                  {"kit": {"air": 1}})] == [{}, {}, {}, None, {"air": 1}]
+
+
+def test_the_trick_explorer_refuses_a_start_from_an_x36_snapshot_by_name_the_blind_protocol(tmp_path, monkeypatch):
+    """Step TD.4b (the trick-discovery plan §4's blind protocol): the explorer reads no ``x36-*`` snapshot or file:
+    a problem or a pool task starting from one (in any case), a store under an X.36 folder or a start file there
+    (the script's, before it reads it) is refused by name before any state is read; other starts pass."""
+    import types
+
+    from devkit.sim import l3_explore as X
+    from devkit.sim.l3_search import Segment
+
+    pool = types.SimpleNamespace(snapshot="X36-M2-A-start", store=None, stop={}, name="t", workers=1)
+    with pytest.raises(ValueError, match="'X36-M2-A-start' is an X.36 snapshot"):
+        X.explore_many(pool, [X.Problem(Segment("X36-M2-A-start"), {})])
+    with pytest.raises(ValueError, match="X.36 snapshot"):
+        X.explore_task(None, Segment("x36-M2-B-fall-start"), {}, X.Limits(), 0, 0, 0)
+    with pytest.raises(ValueError, match="X.36"):
+        X.blind(Segment("td0-w1-beach-rz-new", store=str(tmp_path / "X36-demos")))
+    from devkit.sim import explore as script
+    with pytest.raises(ValueError, match="X.36"):    # the file isn't there: a read first would fail otherwise
+        script.problem({"key": "k", "snapshot": "td0-w1-beach-rz-new", "level": "w1",
+                        "start": str(tmp_path / "x36-owner-hop-demos" / "start.json")})
+    assert X.blind(Segment("td0-w1-beach-rz-new"), str(tmp_path / "start.json")) is None
+
+
+def test_a_second_explorer_run_never_overwrites_the_first_runs_results_a_taken_name_gets_the_next_number(
+        tmp_path, monkeypatch, capsys):
+    """Step X.51: ``devkit/sim/explore.py``'s ``--out`` (``run``/``bench`` and ``census``), as ``l3_gate.py``'s and
+    ``xemu_demo.py``'s outputs, goes through ``l3.private_out``: a run under a name a file holds already, or under
+    one that differs from it only by case (on a case-insensitive disk that is the same file: sitting TD.0's
+    ``B-replay.json`` replaced its ``b-replay.json``), writes the first free ``<stem>.<n><suffix>`` (n = 2, 3, ...)
+    and says so on stderr; every earlier file keeps its results, and each is mode 0600."""
+    import json
+
+    from devkit.sim import explore as script
+    monkeypatch.setattr(script.signal, "signal", lambda *a: None)   # main's SIGTERM handler stays out of pytest
+    n = iter(range(3))
+    monkeypatch.setattr(script, "run_one", lambda spec, digest=False, workers=None: {"run": next(n)})
+    monkeypatch.setattr(script, "census", lambda level, air, runs, rank=False: {"census": next(n)})
+    out = tmp_path / "out.json"
+    for _ in range(2):
+        script.main(["run", "s", "--level", "w1", "--out", str(out)])
+    folds = (tmp_path / "OUT.json").exists()         # one file on a case-insensitive disk (APFS's default)
+    script.main(["census", "w1", "--out", str(tmp_path / "OUT.json")])
+    third = "OUT.3.json" if folds else "OUT.json"
+    assert {p.name: json.loads(p.read_text(encoding="utf-8")) for p in tmp_path.iterdir()} == {
+        "out.json": [{"run": 0}], "out.2.json": [{"run": 1}], third: {"census": 2}}
+    assert {p.stat().st_mode & 0o777 for p in tmp_path.iterdir()} == {0o600}
+    assert f"{out} is there already: wrote {tmp_path / 'out.2.json'}" in capsys.readouterr().err
+
+
+def test_the_usa_image_passed_once_is_not_hashed_again_by_another_process_while_it_is_unchanged(
+        usa_iso, tmp_path, monkeypatch):
+    """Step 4.13d1: ``ports.vanilla_iso`` checks every file of the USA image once and keeps the image it passed in
+    the user cache (Modkit's ``vanilla-iso-stamps.json``), so a later process trusts it while its path, size and
+    times stand: an L3 pool's worker first asks for it inside a step (its disc's first read), where a whole check
+    ran past L3's watchdog and every worker's first job stopped for time.  The host's own store stays as it was."""
+    from devkit.sim import ports
+    monkeypatch.setattr("platformdirs.user_cache_path", lambda *a, **k: tmp_path)
+    ports.vanilla_iso.cache_clear()
+    try:
+        assert ports.vanilla_iso().samefile(usa_iso) and gate.STAMPS is None
+        assert (tmp_path / "devkit-iso-stamps.json").is_file()
+        ports.vanilla_iso.cache_clear()                       # another process: the stamp, no read of the image
+        monkeypatch.setattr(gate.iso, "Reader", lambda *a, **k: pytest.fail("the image was read again"))
+        assert ports.vanilla_iso().samefile(usa_iso)
+    finally:
+        ports.vanilla_iso.cache_clear()

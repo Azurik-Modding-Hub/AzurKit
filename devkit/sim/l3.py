@@ -178,7 +178,8 @@ SCENE_US, UPDATE_US, POLL_US = 10_000_000, 2_000_000, 2_000_000   # a scene tick
 # level's file and its authoring as it loads, so a model fix that keeps the zoning keeps the problem id; proofs.jsonl,
 # which no run reads, isn't hashed.  Step X.52 found 12 commits that moved TD.2's runs under the same problem ids; the
 # wall-time caps (engine()'s ``caps``) cut a run by the host's load.
-ENGINE_FILES = ("devkit/sim", "devkit/rando/draft", "devkit/rando/physics.py", "src/azurkit/tools/randomizer/draft",
+ENGINE_FILES = ("devkit/sim", "devkit/reach/l3_fast.py", "devkit/reach/l3_pool.py", "devkit/rando/draft",
+                "devkit/rando/physics.py", "src/azurkit/tools/randomizer/draft",
                 "src/azurkit/tools/randomizer/data", "src/azurkit/tools/randomizer/physics.py",
                 "src/azurkit/tools/randomizer/art/collision.py",
                 "src/azurkit/tools/randomizer/live/pages.py", "src/azurkit/tools/randomizer/live/recipes.py")

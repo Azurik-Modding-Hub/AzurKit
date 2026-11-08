@@ -13,7 +13,7 @@ verdict to re-run offline, :mod:`.overlay` lays a modded build over a vanilla sn
 the movement envelope's flights under L2 and :mod:`.inputs` is the pad's geometry. :mod:`.ports` points the
 imports Modkit's modules had at AzurKit's engine (Step 4.13a), and ``data/`` holds the blind spots L2 can't
 judge and the kernel's exports. The RAM recipes and the page walk are the randomizer's
-(:mod:`azurkit.tools.randomizer.live`); the many-at-once pool and FastL3 are the reach engine's. docs/SIMULATOR.md
+(:mod:`azurkit.tools.randomizer.live`); the many-at-once pool and FastL3 are the reach engine's (:mod:`devkit.reach`). docs/SIMULATOR.md
 has the API and the xemu validation. Its verbs: :data:`VERBS`.
 
 L1-L3 run the USA release's code only (D146): Europe's per-tick code is the same, but their VAs, stubs and blind
@@ -22,6 +22,8 @@ spots are USA's, so each refuses a Europe XBE by name (:func:`require_usa`).
 
 VERBS: dict[str, str] = {
     "l3-hold": "the L3 store's snapshots no cleanup deletes; --check PATH ... exits 1 naming each held one",
+    "explore": "run the trick explorer on L3 snapshots: one problem, a bench of them, or a level's site census",
+    "conformance": "re-run the L3 conformance corpus offline: exit 1 on a record that passed and now diverges",
 }
 
 

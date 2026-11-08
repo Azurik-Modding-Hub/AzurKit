@@ -7,13 +7,16 @@ Modkit's shared engine, on AzurKit's: a port points those imports here, so each 
 - the game's functions a shim may call, :func:`all_entries` (``patching.vanilla_symbols``: the USA facts');
 - the packs: :func:`get_pack`, :func:`ordered_packs`, :func:`build` and :func:`apply_pack` (``patching.registry``
   and ``.apply``, on :mod:`azurkit.tools.mods`);
-- the image: :data:`VANILLA_ISO_SHA256` and :func:`vanilla_iso` (``assets.vanilla``: :data:`azurkit.core.gate.USA`'s),
+- the image: :data:`VANILLA_ISO_SHA256`, :func:`resolve_vanilla_iso` and :func:`vanilla_iso` (``assets.vanilla``:
+  :data:`azurkit.core.gate.USA`'s),
   :class:`XisoReader` and :func:`read_file` (``iso.xiso``, on :class:`azurkit.core.iso.Reader`).
 """
 
 from __future__ import annotations
 
 import functools
+import json
+import os
 import struct
 import tomllib
 from collections.abc import Iterable, Mapping
@@ -139,13 +142,56 @@ class XisoReader(ports.XisoReader):
         return self._reader.range(entry, off, n) if n else b""
 
 
-@functools.cache
-def vanilla_iso() -> Path:
-    """The USA image, through the identity gate (every file of it, once a process): ``FileNotFoundError`` where
-    it looked, else :class:`azurkit.core.gate.NotVanillaError` (a ``ValueError``) naming what differs."""
+def resolve_vanilla_iso() -> Path:
+    """Where the USA image is (:func:`azurkit.core.gate.find`), unverified: ``FileNotFoundError`` where it looked."""
     if (path := gate.find(gate.USA)) is None:
         raise FileNotFoundError(gate.missing(gate.USA))
-    gate.verify(path, releases=(gate.USA,))
+    return path
+
+
+class _Stamps:
+    """:data:`azurkit.core.gate.STAMPS` for :func:`vanilla_iso`: the images it passed, ``{key: release}`` in the
+    user cache's ``AzurKit/devkit-iso-stamps.json`` (Modkit's ``vanilla-iso-stamps.json``), so a process hashes no
+    image as it was when another passed it (an L3 pool's worker reads the disc first inside a step: a whole check
+    there ran past L3's watchdog, Step 4.13d1)."""
+
+    def __init__(self, file: Path) -> None:
+        self.file = file
+
+    def _read(self) -> dict:
+        try:
+            kept = json.loads(self.file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return kept if isinstance(kept, dict) else {}
+
+    def get(self, key: str) -> str | None:
+        return self._read().get(key)
+
+    def put(self, key: str, name: str) -> None:
+        try:
+            self.file.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.file.with_name(f".{self.file.name}.{os.getpid()}.part")
+            tmp.write_text(json.dumps(self._read() | {key: name}), encoding="utf-8")
+            os.replace(tmp, self.file)
+        except OSError:
+            pass                                    # a stamp that can't be kept is only slower
+
+
+@functools.cache
+def vanilla_iso() -> Path:
+    """The USA image, through the identity gate (every file of it, once a process, and not again while the image
+    is as a process before found it: :class:`_Stamps`): ``FileNotFoundError`` where it looked, else
+    :class:`azurkit.core.gate.NotVanillaError` (a ``ValueError``) naming what differs."""
+    from platformdirs import user_cache_path
+    if (path := gate.find(gate.USA)) is None:
+        raise FileNotFoundError(gate.missing(gate.USA))
+    host, gate.STAMPS = gate.STAMPS, gate.STAMPS or _Stamps(user_cache_path("AzurKit", appauthor=False)
+                                                            / "devkit-iso-stamps.json")
+    try:
+        gate.verify(path, releases=(gate.USA,))
+    finally:
+        gate.STAMPS = host
     return path
 
 

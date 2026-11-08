@@ -254,9 +254,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   randomizer step.
   1. **The to-do:** Modkit's commits on the ported paths since the cut
      (`planner/dbcache.py` is AzurKit's own `tools/randomizer/dbcache.py`;
-     the reach engine's code, `reach_native/`, isn't ported: its results
-     arrive through `data/`; the derive and the authoring are devkit's, cut
-     at the freeze below):
+     the reach engine, the derive and the authoring are devkit's, cut at the
+     freeze below; the engine's results arrive through `data/`):
      ```bash
      git -C "$MODKIT" log --oneline 8bfef0ca6..origin/main -- azurik_mod/randomizer/{data,planner} \
        azurik_mod/randomizer/{writer,physics,movement,layer,tracker,live,live_link,levels}.py \
@@ -319,8 +318,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   pack and image calls on AzurKit's); the few rewrites (L0's XBR check, the
   overlay's and L2's packs, the kernel's exports in `devkit/sim/data`, L3's
   engine files, the hold's proofs path) are in its developer-log entry. The
-  pool and FastL3 come with the reach engine. Modkit is frozen: a later fix
-  is AzurKit's own, held to `tests/test_simulator.py` and `tests/test_roll.py`.
+  pool and FastL3 are the reach engine's (`devkit/reach`). Modkit is frozen:
+  a later fix is AzurKit's own, held to `tests/test_simulator.py` and
+  `tests/test_roll.py`.
 - **The database tools' cut (Step 4.13b):** `devkit/rando` is Modkit's
   `rando db-extract` (`levels.extract`, `write_generated`), `rando check`,
   `rando_bench.py`, `rando_impact.py` and `rando_soak.py` at `f482ea041`,
@@ -339,6 +339,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `DERIVE_VERSION`; `python -m devkit rando restack` re-derives, re-authors,
   checks and re-records the randomizer's goldens, and
   `tests/test_reach_model.py` and `tests/test_movement_envelope.py` hold it.
+- **The reach engine's cut (Step 4.13d1):** `devkit/reach` is Modkit's
+  `reach_engine`, `reach_native` (the kernel and its launch backend),
+  FastL3 with its C step and Unicorn patch, the L3 pool and the engine's
+  scripts as devkit verbs, at Modkit `f482ea041`, frozen (D1143). Its cache
+  and kernel keys hash the code at its devkit paths, so Modkit's records
+  aren't reused; the truth set is read from `reach-truth/` in the user data
+  folder and the reach models from the L3 store's `x7/reach/`, in place
+  (`devkit/reach/models.py`); `tests/test_reach_engine.py` holds it and
+  [`docs/REACH.md`](docs/REACH.md) describes it.
 - **Coverage:** Modkit's planner tests don't guard AzurKit's copy. A step
   that edits a module from the cut ports the Modkit tests that pin what it
   changes, or names the golden that pins it.

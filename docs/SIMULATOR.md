@@ -14,11 +14,14 @@ code with its imports pointed at AzurKit's (`devkit/sim/ports.py`).
 | L3 | `sim/l3.py` | the game's own player update or whole simulation step from a RAM snapshot of a running game | dev tools and sittings (Steps X.5-X.7, D168, D170) |
 
 L0-L2 are described in the `azurik-game-reference` skill (§ "The
-simulator levels"). The rest of this page is L3. The commands it names by
-Modkit's script names (`xemu_oracle.py`, `l3_explore.py`, `l3_certify.py`,
-`l3_conformance.py`, `xemu_chain.py`, `reach_engine.py` and their kind), the
-worker pool, FastL3 and the native kernel arrive in `devkit` with the xemu
-harness's and the reach engine's steps; until then those sections describe
+simulator levels"). The rest of this page is L3. The worker pool, FastL3,
+the native kernel and the reach engine are `devkit/reach` (Step 4.13d1,
+[`REACH.md`](REACH.md)), the trick explorer's and the conformance corpus's
+commands `python -m devkit sim explore` and `conformance`
+([`devkit/sim/README.md`](../devkit/sim/README.md)). The commands it names
+by Modkit's script names (`xemu_oracle.py`, `l3_certify.py`,
+`xemu_chain.py` and their kind) arrive in `devkit` with the xemu harness's
+and the certification's steps; until then those sections describe
 Modkit's.
 
 ## L3: the game's own step from a snapshot
@@ -760,12 +763,12 @@ the derive's `ATTACK_REACH` of 3.0 m (AZ-416).
 
 ### Logic pokes in whole steps (Step R2.19h2)
 
-Modkit's `reach_engine/triggers.py`'s `Runtime` finds a level's node graphs in an L3 sim (world +0xDC and
+`devkit/reach/engine/triggers.py`'s `Runtime` finds a level's node graphs in an L3 sim (world +0xDC and
 +0x108..+0x10C; a graph's nodes in record order: `docs/RE_XBE.md` § "Rig triggers") and `Runtime.hold(pokes)`
 writes each poke (a node attribute and its dirty bit, as a link does) at the entry of every pass over its graph
 (0x663B0, a code hook added from outside, so `CORE_FILES` and the reach engine's cache keys are unchanged) until
 `hold([])`: a pad's touch, which the collision object zeroes each frame, is seen by the pass. `Runtime.deck` reads a
-platform's collision object (node +0x20) and `Runtime.pose` its world matrix. `scripts/rig_triggers.py witness`
+platform's collision object (node +0x20) and `Runtime.pose` its world matrix. `devkit reach rig-triggers witness`
 runs on them.
 
 L3's step caps are wall-clock, so a slow step's fault depends on the machine's load and on the process's past. A
@@ -856,7 +859,7 @@ pages) and the same rows in 30 launches from ticks along them (R6, the
 settle, the kit, the camera turn and an R0 launch: 4,406 rows), at x2.40
 CPU over the 3,600 steps.
 
-The patched library: `scripts/build_unicorn.py` builds PyPI's unicorn
+The patched library: `python -m devkit reach build-unicorn` builds PyPI's unicorn
 2.1.4 sdist (uv.lock's, sha-checked), x86 only, with
 `scripts/unicorn_fastl3.patch` (GPL as Unicorn: never in the wheel) into
 the user cache dir's
@@ -888,9 +891,9 @@ runs the code, a lost find. The bench had neither: its only fault ends
 were 14 `fault:runaway`.
 
 The reach engine runs every pool on FastL3 by default
-(`scripts/reach_engine.py --l3 fast`; `--l3 base` is round 1's `L3` on the
+(`devkit reach reach-engine --l3 fast`; `--l3 base` is round 1's `L3` on the
 stock wheel), with the aimed jobs' lossless tick cuts
-(Modkit's `reach_engine/fast.py`: the second aim pass resumes each
+(`devkit/reach/engine/fast.py`: the second aim pass resumes each
 first-pass launch at its first touch-down, and a hit's hold runs its 60
 idle ticks from the launch's end, reporting the replay's tick count), and
 the patched library once it is built. Records are the gate, so neither
@@ -1010,7 +1013,7 @@ stage costs they put the bench near x1.05 (an estimate, under PLAN-v3's
 x1.07 bar). Recall: unchanged.
 
 Since Step R2.19b each pool worker the reach engine opens runs
-Modkit's `reach_engine/worker.py`'s `setup`: a step L3's watchdog stops
+`devkit/reach/engine/worker.py`'s `setup`: a step L3's watchdog stops
 for time (`runaway@`, `render timeout@`; a worker the host starves) raises
 `StepTimeout`, which no launch, start, kit or hold takes as the game's
 fault, so the job is an error and runs again next time (AZ-813); and each
@@ -1050,7 +1053,7 @@ downdrafts, currents: the 0.3^dt blend toward 0.1 x the stick term plus the push
 (state 6: the 10 m/s stroke and walkSpeed's vertical at 0.1^dt, a 1 m sphere, the surface's cap) and springboards
 (an autoSpring face's height as the jump's h).
 
-`scripts/reach_engine.py --backend kernel` (`reach_native.backend`) runs each job on a `KernelSim`, the kernel
+`devkit reach reach-engine --backend kernel` (`devkit/reach/native/backend.py`) runs each job on a `KernelSim`, the kernel
 under L3's interface: R6's placement (its tick moves nothing and keeps the snapshot's velocity, flap latch and
 camera, so a kernel start ends within 0.1 mm of L3's), the settle, the kit as state, the camera align and every
 launch run on the kernel under the engine's own controllers. FastL3 runs what the kernel flags (a start whole; a
@@ -1071,7 +1074,7 @@ each confirm the graph's hold reads, staying or not, also gives the touches, MAY
 run (with the backstop on the bench: 7 % more touches, 11 % more MAY candidates, 12 % more node edges, still 76 %,
 56 % and 82 % of round 1's: a kernel launch no hold confirms gives none).
 
-Step R2.19c2a (`scripts/reach_truth.py`) measured the route against FastL3 on the truth set's frozen pairs: R on the
+Step R2.19c2a (`devkit reach reach-truth`) measured the route against FastL3 on the truth set's frozen pairs: R on the
 kernel kept 95.9 % of FastL3-R's real pairs with a closed-loop FastL3 re-fly of each failed candidate, and most of the
 candidates FastL3 refused died there (260 of 309: the kernel models no damage, so a landing in a death volume is a
 kernel find). Its independent generator drives the kernel open-loop: `World.run`'s pad batch (`p_run`) flies each
@@ -1230,7 +1233,7 @@ cost to go and heading over the light trick graph below).
   exact f32 pair it read): `start_of` runs them after the settle and the
   kit, so the chained hop starts where the last find ended, and one xemu
   replay of the whole chain from the natural start proves every link.
-  `scripts/l3_explore.py` takes a spec's `prefix` files only when each is
+  `devkit sim explore` takes a spec's `prefix` files only when each is
   a find from the spec's own start, kit and mode after the files before
   it, and refuses any other by name.
   A problem runs in whole steps (`Segment.scene`) where a rig, a ride or
@@ -1474,7 +1477,7 @@ kit (3 per location the logic doesn't reach, 2 per exit with no logic
 way in, 1 if no logic edge enters it, 1 per gate it is on a side of) and
 a site by the zones whose floors lie within 6 m of its anchor points; it
 orders the queue and never filters it (past a cut: "not attempted",
-with the rank). `scripts/l3_explore.py census LEVEL` writes the census
+with the rank). `devkit sim explore census LEVEL` writes the census
 to `--out` from runs' private files; `--rank` writes the queue to the private store
 only (the blind protocol keeps the pilot's levels' ranks out of reports).
 
@@ -1500,7 +1503,7 @@ rest on the ground), else at 5,000 ticks marked unsettled (a join in
 motion, which counts only from the snapshot where the last piece's
 replay halted); `scripts/l3_gate.py split` applies it to a stored string.
 
-`scripts/l3_explore.py` runs problems (`docs/SCRIPTS.md`).
+`python -m devkit sim explore` runs problems ([`devkit/sim/README.md`](../devkit/sim/README.md)).
 
 ### The explorer's options and the trick detectors (Step TD.3, D253)
 
@@ -1964,7 +1967,7 @@ centre, state and HP and of the whole `Obs`. Its summary is
 coordinate-free: passed (every tick's body centre, state and HP equal,
 D170), the first diverging tick, the first tick any observed field
 differs. After a change to `l3.py`, Unicorn or macOS,
-`scripts/l3_conformance.py` runs every string in L3 again from its kept
+`python -m devkit sim conformance` runs every string in L3 again from its kept
 snapshot and compares with xemu: a record that passed and now diverges is
 a regression (exit 1), and a change in L3's own trace is named by its
 first tick. The corpus starts empty at X.10: it fills with the next

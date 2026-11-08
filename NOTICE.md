@@ -2106,3 +2106,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## Unicorn: FastL3's patch
+
+`devkit/reach/unicorn/unicorn_fastl3.patch` is a patch to
+[Unicorn](https://github.com/unicorn-engine/unicorn) 2.1.4's sources and
+keeps their licence, the GNU GPL v2 (`devkit/reach/unicorn/NOTICE.md`). It is
+developer-only: neither the patch nor the library built from it ships.

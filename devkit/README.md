@@ -13,15 +13,17 @@ uv run --locked python -m devkit AREA VERB [ARGS ...]   # run one
 ## The areas
 
 Each area is a subpackage, `devkit/<area>/`, with its verb reference in its
-own `README.md`. Its `__init__.py` imports only the standard library and
+own `README.md`. Its `__init__.py` imports only the standard library
+(`reach`'s also the randomizer's art, which its import order needs) and
 names its verbs in `VERBS` (`{verb: its line}`); the verb `v` is the module
 `devkit.<area>.v` (a hyphen in `v` is an underscore there), whose
 `main(argv) -> int` runs it. An unknown area or verb exits 2.
 
 Each arrives with its own step (`re`'s XBE verbs, data and shim authoring,
-`xemu`'s harness, sitting kit and demos, `sim`'s levels, `mcp` and
-`rando`'s database tools, derive and authoring are here; the rest come after
-the first release, 4.4); this is what each will hold:
+`xemu`'s harness, sitting kit and demos, `sim`'s levels, `mcp`,
+`rando`'s database tools, derive and authoring and `reach`'s engine are
+here; the rest come after the first release, 4.4); this is what each will
+hold:
 
 | Area | What it holds |
 |---|---|

@@ -851,8 +851,8 @@ def load_router(reach: str, prof: str = "logic"):
                 return pickle.load(f)
         except (OSError, EOFError, pickle.UnpicklingError, AttributeError, ImportError):
             pass                                           # a torn or unreadable file: build it again
-    with open(reach, "rb") as f:
-        router = rt.Router(pickle.load(f), prof)
+    from devkit.reach import models
+    router = rt.Router(models.read(reach), prof)
     router.__dict__.pop("_lists", None)
     if cached is not None:
         _keep_router(router, folder, stem, cached)
@@ -1359,8 +1359,8 @@ _SITES: dict[tuple, object] = {}
 
 def _reach_model(reach: str):
     if reach not in _REACH:
-        with open(reach, "rb") as f:
-            _REACH[reach] = pickle.load(f)
+        from devkit.reach import models
+        _REACH[reach] = models.read(reach)
     return _REACH[reach]
 
 

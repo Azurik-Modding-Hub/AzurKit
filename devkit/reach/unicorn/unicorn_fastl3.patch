@@ -1,0 +1,642 @@
+--- a/src/qemu/tcg/tcg-op.c
++++ b/src/qemu/tcg/tcg-op.c
+@@ -2872,6 +2872,21 @@
+     tcg_temp_free_ptr(tcg_ctx, puc);
+ }
+ 
++#include <stdlib.h>
++// R2.17 prototype: UC_SKIP_MEM_EXIT_CHECK=1 drops the exit-request check Unicorn emits after every guest load and
++// store (kept after code hooks: a hook that writes EIP or stops needs it).  Read once per process.
++static int uc_skip_mem_exit = -1;
++static inline void uc_mem_exit_check(TCGContext *tcg_ctx)
++{
++    if (uc_skip_mem_exit < 0) {
++        const char *s = getenv("UC_SKIP_MEM_EXIT_CHECK");
++        uc_skip_mem_exit = (s != NULL && s[0] == '1');
++    }
++    if (!uc_skip_mem_exit) {
++        check_exit_request(tcg_ctx);
++    }
++}
++
+ static void tcg_gen_req_mo(TCGContext *tcg_ctx, TCGBar type)
+ {
+ #ifdef TCG_GUEST_DEFAULT_MO
+@@ -2917,7 +2932,7 @@
+         }
+     }
+ 
+-    check_exit_request(tcg_ctx);
++    uc_mem_exit_check(tcg_ctx);
+ }
+ 
+ void tcg_gen_qemu_st_i32(TCGContext *tcg_ctx, TCGv_i32 val, TCGv addr, TCGArg idx, MemOp memop)
+@@ -2952,7 +2967,7 @@
+         tcg_temp_free_i32(tcg_ctx, swap);
+     }
+ 
+-    check_exit_request(tcg_ctx);
++    uc_mem_exit_check(tcg_ctx);
+ }
+ 
+ void tcg_gen_qemu_ld_i64(TCGContext *tcg_ctx, TCGv_i64 val, TCGv addr, TCGArg idx, MemOp memop)
+@@ -2967,7 +2982,7 @@
+         } else {
+             tcg_gen_movi_i32(tcg_ctx, TCGV_HIGH(tcg_ctx, val), 0);
+         }
+-        check_exit_request(tcg_ctx);
++        uc_mem_exit_check(tcg_ctx);
+         return;
+     }
+ #endif
+@@ -3009,7 +3024,7 @@
+             g_assert_not_reached();
+         }
+     }
+-    check_exit_request(tcg_ctx);
++    uc_mem_exit_check(tcg_ctx);
+ }
+ 
+ void tcg_gen_qemu_st_i64(TCGContext *tcg_ctx, TCGv_i64 val, TCGv addr, TCGArg idx, MemOp memop)
+@@ -3019,7 +3034,7 @@
+ #if TCG_TARGET_REG_BITS == 32
+     if ((memop & MO_SIZE) < MO_64) {
+         tcg_gen_qemu_st_i32(tcg_ctx, TCGV_LOW(tcg_ctx, val), addr, idx, memop);
+-        check_exit_request(tcg_ctx);
++        uc_mem_exit_check(tcg_ctx);
+         return;
+     }
+ #endif
+@@ -3055,7 +3070,7 @@
+     if (swap) {
+         tcg_temp_free_i64(tcg_ctx, swap);
+     }
+-    check_exit_request(tcg_ctx);
++    uc_mem_exit_check(tcg_ctx);
+ }
+ 
+ static void tcg_gen_ext_i32(TCGContext *tcg_ctx, TCGv_i32 ret, TCGv_i32 val, MemOp opc)
+--- a/src/qemu/accel/tcg/cputlb.c
++++ b/src/qemu/accel/tcg/cputlb.c
+@@ -127,6 +127,18 @@
+  * high), since otherwise we are likely to have a significant amount of
+  * conflict misses.
+  */
++/* R2.17 prototype: UC_TLB_BITS=n (6..16) starts each MMU index's TLB at 2^n entries and never shrinks it below. */
++static int uc_tlb_bits(void)
++{
++    static int bits = -1;
++    if (bits < 0) {
++        const char *s = getenv("UC_TLB_BITS");
++        int b = s ? atoi(s) : 0;
++        bits = (b >= CPU_TLB_DYN_MIN_BITS && b <= 16) ? b : 0;
++    }
++    return bits;
++}
++
+ static void tlb_mmu_resize_locked(struct uc_struct *uc, CPUTLBDesc *desc, CPUTLBDescFast *fast,
+                                   int64_t now)
+ {
+@@ -161,7 +173,7 @@
+         if (expected_rate > 70) {
+             ceil *= 2;
+         }
+-        new_size = MAX(ceil, 1 << CPU_TLB_DYN_MIN_BITS);
++        new_size = MAX(ceil, 1 << (uc_tlb_bits() ? uc_tlb_bits() : CPU_TLB_DYN_MIN_BITS));
+     }
+ 
+     if (new_size == old_size) {
+@@ -227,7 +239,7 @@
+ 
+ static void tlb_mmu_init(CPUTLBDesc *desc, CPUTLBDescFast *fast, int64_t now)
+ {
+-    size_t n_entries = 1 << CPU_TLB_DYN_DEFAULT_BITS;
++    size_t n_entries = 1 << (uc_tlb_bits() ? uc_tlb_bits() : CPU_TLB_DYN_DEFAULT_BITS);
+ 
+     tlb_window_reset(desc, now, 0);
+     desc->n_used_entries = 0;
+--- a/src/qemu/target/i386/fpu_helper.c
++++ b/src/qemu/target/i386/fpu_helper.c
+@@ -138,15 +138,254 @@
+     env->fpus |= mask;
+     if (env->fpus & (~env->fpuc & FPUC_EM)) {
+         env->fpus |= FPUS_SE | FPUS_B;
++    }
++}
++
++/* R2.17 prototype: an exact fast path for the x87 ops the game's player update runs most (UC_X87_FAST=1).  With
++ * the precision control at 53 bits and round-to-nearest (the game's control word), an operation on two values that
++ * are doubles exactly (53-bit significands, in double's normal range) rounds as IEEE double arithmetic does, so the
++ * host's double result, when it is normal and away from double's range edges, is softfloat's floatx80 result bit for
++ * bit; anything else (zeros, other precisions or modes, wider significands, edges) takes softfloat.  QEMU 5.0 merges
++ * no softfloat exception flag into the status word, so the value is all an op leaves.
++ * R2.19m (m1), the lean path: every helper of the path is inlined into its op's helper; the 53-bit round-to-nearest
++ * test is env->x87_rn53, set where the control word's precision and rounding are set (update_fp_status); and the
++ * library comes in two flavours from this one source.  The fast one (the default build) has no check or stats code.
++ * The check flavour (built with -DUC_X87_CHECK_BUILD, its own library) adds UC_X87_CHECK=1, which runs softfloat beside
++ * every fast result and counts any difference (a line on stderr at exit), and UC_X87_STATS=1. */
++#include <stdlib.h>
++#include <string.h>
++#define X87_INLINE static inline __attribute__((always_inline))
++static int x87_fast = -1;
++#ifdef UC_X87_CHECK_BUILD
++static int x87_check, x87_stats;
++static uint64_t x87_hits, x87_bad;
++static uint64_t x87_n[8];   /* UC_X87_STATS=1: binop fast, mode, a, b, result; flds fast, flds slow; cmp slow */
++
++static void x87_report(void)
++{
++    fprintf(stderr, "x87 fast path: %llu fast results, %llu differ from softfloat\n",
++            (unsigned long long)x87_hits, (unsigned long long)x87_bad);
++    if (x87_stats) {
++        fprintf(stderr, "x87 stats: binop fast %llu, slow: mode %llu, a %llu, b %llu, result %llu; flds fast %llu "
++                "slow %llu; cmp slow %llu\n", (unsigned long long)x87_n[0], (unsigned long long)x87_n[1],
++                (unsigned long long)x87_n[2], (unsigned long long)x87_n[3], (unsigned long long)x87_n[4],
++                (unsigned long long)x87_n[5], (unsigned long long)x87_n[6], (unsigned long long)x87_n[7]);
++    }
++}
++
++static void x87_init(void)
++{
++    const char *f = getenv("UC_X87_FAST"), *c = getenv("UC_X87_CHECK"), *t = getenv("UC_X87_STATS");
++    x87_fast = f != NULL && f[0] == '1';
++    x87_check = x87_fast && c != NULL && c[0] == '1';
++    x87_stats = x87_fast && t != NULL && t[0] == '1';
++    if (x87_check || x87_stats) {
++        atexit(x87_report);
++    }
++}
++#define X87_COUNT(i) (x87_n[i]++)
++#else
++#define x87_check 0
++#define x87_stats 0
++#define X87_COUNT(i) ((void)0)
++
++static void x87_init(void)
++{
++    const char *f = getenv("UC_X87_FAST");
++    x87_fast = f != NULL && f[0] == '1';
++}
++#endif
++
++X87_INLINE bool x87_on(void)
++{
++    if (unlikely(x87_fast < 0)) {
++        x87_init();
++    }
++    return x87_fast;
++}
++
++X87_INLINE bool fx_dbl(floatx80 a, double *out)
++{
++    uint64_t m = a.low, bits;
++    int32_t de = (int32_t)(a.high & 0x7fff) - 16383 + 1023;
++    if ((m & 0x7ff) || !(m >> 63) || de < 2 || de > 2045) {
++        return false;
++    }
++    bits = ((uint64_t)(a.high >> 15) << 63) | ((uint64_t)de << 52) | ((m >> 11) & 0xFFFFFFFFFFFFFULL);
++    memcpy(out, &bits, 8);
++    return true;
++}
++
++X87_INLINE bool dbl_fx(double d, floatx80 *out)
++{
++    uint64_t bits;
++    uint32_t de;
++    memcpy(&bits, &d, 8);
++    de = (bits >> 52) & 0x7ff;
++    if (de < 2 || de > 2045) {
++        return false;
++    }
++    out->high = (uint16_t)(((bits >> 63) << 15) | (de - 1023 + 16383));
++    out->low = (1ULL << 63) | ((bits & 0xFFFFFFFFFFFFFULL) << 11);
++    return true;
++}
++
++/* fx_dbl, and exact zeros too (*zero set) */
++X87_INLINE bool fx_dblz(floatx80 a, double *out, bool *zero)
++{
++    if ((a.high & 0x7fff) == 0 && a.low == 0) {
++        *out = (a.high >> 15) ? -0.0 : 0.0;
++        *zero = true;
++        return true;
++    }
++    *zero = false;
++    return fx_dbl(a, out);
++}
++
++X87_INLINE bool x87_rn53(CPUX86State *env)
++{
++    return env->x87_rn53;
++}
++
++#ifdef UC_X87_CHECK_BUILD
++static inline void x87_verify(floatx80 got, floatx80 want)
++{
++    x87_hits++;
++    if (got.low != want.low || got.high != want.high) {
++        x87_bad++;
++    }
++}
++#define X87_VERIFY(got, want) x87_verify((got), (want))
++#define X87_VERIFY_BITS(same) do { x87_hits++; x87_bad += !(same); } while (0)
++#else
++#define X87_VERIFY(got, want) ((void)0)
++#define X87_VERIFY_BITS(same) ((void)0)
++#endif
++
++/* op: 0 add, 1 sub, 2 mul, 3 div */
++X87_INLINE bool fx_binop(CPUX86State *env, floatx80 a, floatx80 b, int op, floatx80 *r)
++{
++    double x, y, z;
++    bool za, zb;
++    if (!x87_on()) {
++        return false;
++    }
++    if (!x87_rn53(env) || !fx_dblz(a, &x, &za) || !fx_dblz(b, &y, &zb) || (op == 3 && zb)) {
++        if (unlikely(x87_stats)) {
++            X87_COUNT(!x87_rn53(env) ? 1 : !fx_dblz(a, &x, &za) ? 2 : 3);
++        }
++        return false;
++    }
++    switch (op) {
++    case 0: z = x + y; break;
++    case 1: z = x - y; break;
++    case 2: z = x * y; break;
++    default: z = x / y; break;
++    }
++    if (z == 0.0 && (op <= 1 || za || zb)) {
++        /* an exact zero: a sum's cancellation or a zero operand (never an underflow) */
++        uint64_t bits;
++        memcpy(&bits, &z, 8);
++        r->high = (uint16_t)((bits >> 63) << 15);
++        r->low = 0;
++    } else if (!dbl_fx(z, r)) {
++        if (unlikely(x87_stats)) {
++            X87_COUNT(4);
++        }
++        return false;
++    }
++    if (unlikely(x87_stats)) {
++        X87_COUNT(0);
++    }
++    return true;
++}
++
++#define X87_BIN(dst, A, B, OP, SOFT) do {                                                  \
++        floatx80 a_ = (A), b_ = (B), r_;                                                   \
++        if (fx_binop(env, a_, b_, (OP), &r_)) {                                            \
++            if (x87_check) {                                                               \
++                X87_VERIFY(r_, SOFT(a_, b_, &env->fp_status));                             \
++            }                                                                              \
++            (dst) = r_;                                                                    \
++        } else {                                                                           \
++            (dst) = SOFT(a_, b_, &env->fp_status);                                         \
++        }                                                                                  \
++    } while (0)
++
++X87_INLINE bool f32_fx(uint32_t v, floatx80 *out)
++{
++    uint32_t e = (v >> 23) & 0xff;
++    if (!x87_on()) {
++        return false;
+     }
++    if (e == 0) {
++        if (v & 0x7fffff) {
++            return false;
++        }
++        out->high = (uint16_t)((v >> 31) << 15);
++        out->low = 0;
++        return true;
++    }
++    if (e == 0xff) {
++        return false;
++    }
++    out->high = (uint16_t)(((v >> 31) << 15) | (e - 127 + 16383));
++    out->low = (1ULL << 63) | ((uint64_t)(v & 0x7fffff) << 40);
++    return true;
+ }
+ 
++X87_INLINE floatx80 x87_flds(CPUX86State *env, uint32_t v)
++{
++    floatx80 r;
++    union {
++        float32 f;
++        uint32_t i;
++    } u;
++    u.i = v;
++    if (unlikely(x87_stats)) {
++        if (f32_fx(v, &r)) {
++            X87_COUNT(5);
++        } else {
++            X87_COUNT(6);
++        }
++    }
++    if (f32_fx(v, &r)) {
++        if (x87_check) {
++            X87_VERIFY(r, float32_to_floatx80(u.f, &env->fp_status));
++        }
++        return r;
++    }
++    return float32_to_floatx80(u.f, &env->fp_status);
++}
++
++X87_INLINE int x87_cmp(CPUX86State *env, floatx80 a, floatx80 b, bool quiet)
++{
++    double x, y;
++    bool za, zb;
++    if (x87_on() && fx_dblz(a, &x, &za) && fx_dblz(b, &y, &zb)) {
++        int r = x < y ? float_relation_less : x > y ? float_relation_greater : float_relation_equal;
++        if (x87_check) {
++            int w = quiet ? floatx80_compare_quiet(a, b, &env->fp_status) : floatx80_compare(a, b, &env->fp_status);
++            X87_VERIFY_BITS(r == w);
++            (void)w;
++        }
++        return r;
++    }
++    if (unlikely(x87_stats)) {
++        X87_COUNT(7);
++    }
++    return quiet ? floatx80_compare_quiet(a, b, &env->fp_status) : floatx80_compare(a, b, &env->fp_status);
++}
++
++
+ static inline floatx80 helper_fdiv(CPUX86State *env, floatx80 a, floatx80 b)
+ {
++    floatx80 r;
+     if (floatx80_is_zero(b)) {
+         fpu_set_exception(env, FPUS_ZE);
+     }
+-    return floatx80_div(a, b, &env->fp_status);
++    X87_BIN(r, a, b, 3, floatx80_div);
++    return r;
+ }
+ 
+ static void fpu_raise_exception(CPUX86State *env, uintptr_t retaddr)
+@@ -156,6 +395,7 @@
+     }
+ }
+ 
++
+ void helper_flds_FT0(CPUX86State *env, uint32_t val)
+ {
+     union {
+@@ -164,7 +404,8 @@
+     } u;
+ 
+     u.i = val;
+-    FT0 = float32_to_floatx80(u.f, &env->fp_status);
++    (void)u;
++    FT0 = x87_flds(env, val);
+ }
+ 
+ void helper_fldl_FT0(CPUX86State *env, uint64_t val)
+@@ -193,7 +434,8 @@
+ 
+     new_fpstt = (env->fpstt - 1) & 7;
+     u.i = val;
+-    env->fpregs[new_fpstt].d = float32_to_floatx80(u.f, &env->fp_status);
++    (void)u;
++    env->fpregs[new_fpstt].d = x87_flds(env, val);
+     env->fpstt = new_fpstt;
+     env->fptags[new_fpstt] = 0; /* validate stack entry */
+ }
+@@ -240,6 +482,25 @@
+         uint32_t i;
+     } u;
+ 
++    {
++        double d;
++        bool z;
++        if (x87_on() && env->fp_status.float_rounding_mode == float_round_nearest_even && fx_dblz(ST0, &d, &z)) {
++            float f = (float)d;
++            uint32_t b, e;
++            memcpy(&b, &f, 4);
++            e = (b >> 23) & 0xff;
++            if ((e >= 2 && e <= 253) || z) {
++                if (x87_check) {
++                    union { float32 f; uint32_t i; } w;
++                    w.f = floatx80_to_float32(ST0, &env->fp_status);
++                    X87_VERIFY_BITS(w.i == b);
++                    (void)w;
++                }
++                return b;
++            }
++        }
++    }
+     u.f = floatx80_to_float32(ST0, &env->fp_status);
+     return u.i;
+ }
+@@ -251,6 +512,21 @@
+         uint64_t i;
+     } u;
+ 
++    {
++        double d;
++        bool z;
++        if (x87_on() && fx_dblz(ST0, &d, &z)) {
++            uint64_t b;
++            memcpy(&b, &d, 8);
++            if (x87_check) {
++                union { float64 f; uint64_t i; } w;
++                w.f = floatx80_to_float64(ST0, &env->fp_status);
++                X87_VERIFY_BITS(w.i == b);
++                (void)w;
++            }
++            return b;
++        }
++    }
+     u.f = floatx80_to_float64(ST0, &env->fp_status);
+     return u.i;
+ }
+@@ -402,7 +678,7 @@
+ {
+     int ret;
+ 
+-    ret = floatx80_compare(ST0, FT0, &env->fp_status);
++    ret = x87_cmp(env, ST0, FT0, false);
+     env->fpus = (env->fpus & ~0x4500) | fcom_ccval[ret + 1];
+ }
+ 
+@@ -410,7 +686,7 @@
+ {
+     int ret;
+ 
+-    ret = floatx80_compare_quiet(ST0, FT0, &env->fp_status);
++    ret = x87_cmp(env, ST0, FT0, true);
+     env->fpus = (env->fpus & ~0x4500) | fcom_ccval[ret + 1];
+ }
+ 
+@@ -421,7 +697,7 @@
+     int eflags;
+     int ret;
+ 
+-    ret = floatx80_compare(ST0, FT0, &env->fp_status);
++    ret = x87_cmp(env, ST0, FT0, false);
+     eflags = cpu_cc_compute_all(env, CC_OP);
+     eflags = (eflags & ~(CC_Z | CC_P | CC_C)) | fcomi_ccval[ret + 1];
+     CC_SRC = eflags;
+@@ -432,7 +708,7 @@
+     int eflags;
+     int ret;
+ 
+-    ret = floatx80_compare_quiet(ST0, FT0, &env->fp_status);
++    ret = x87_cmp(env, ST0, FT0, true);
+     eflags = cpu_cc_compute_all(env, CC_OP);
+     eflags = (eflags & ~(CC_Z | CC_P | CC_C)) | fcomi_ccval[ret + 1];
+     CC_SRC = eflags;
+@@ -440,22 +716,22 @@
+ 
+ void helper_fadd_ST0_FT0(CPUX86State *env)
+ {
+-    ST0 = floatx80_add(ST0, FT0, &env->fp_status);
++    X87_BIN(ST0, ST0, FT0, 0, floatx80_add);
+ }
+ 
+ void helper_fmul_ST0_FT0(CPUX86State *env)
+ {
+-    ST0 = floatx80_mul(ST0, FT0, &env->fp_status);
++    X87_BIN(ST0, ST0, FT0, 2, floatx80_mul);
+ }
+ 
+ void helper_fsub_ST0_FT0(CPUX86State *env)
+ {
+-    ST0 = floatx80_sub(ST0, FT0, &env->fp_status);
++    X87_BIN(ST0, ST0, FT0, 1, floatx80_sub);
+ }
+ 
+ void helper_fsubr_ST0_FT0(CPUX86State *env)
+ {
+-    ST0 = floatx80_sub(FT0, ST0, &env->fp_status);
++    X87_BIN(ST0, FT0, ST0, 1, floatx80_sub);
+ }
+ 
+ void helper_fdiv_ST0_FT0(CPUX86State *env)
+@@ -472,22 +748,22 @@
+ 
+ void helper_fadd_STN_ST0(CPUX86State *env, int st_index)
+ {
+-    ST(st_index) = floatx80_add(ST(st_index), ST0, &env->fp_status);
++    X87_BIN(ST(st_index), ST(st_index), ST0, 0, floatx80_add);
+ }
+ 
+ void helper_fmul_STN_ST0(CPUX86State *env, int st_index)
+ {
+-    ST(st_index) = floatx80_mul(ST(st_index), ST0, &env->fp_status);
++    X87_BIN(ST(st_index), ST(st_index), ST0, 2, floatx80_mul);
+ }
+ 
+ void helper_fsub_STN_ST0(CPUX86State *env, int st_index)
+ {
+-    ST(st_index) = floatx80_sub(ST(st_index), ST0, &env->fp_status);
++    X87_BIN(ST(st_index), ST(st_index), ST0, 1, floatx80_sub);
+ }
+ 
+ void helper_fsubr_STN_ST0(CPUX86State *env, int st_index)
+ {
+-    ST(st_index) = floatx80_sub(ST0, ST(st_index), &env->fp_status);
++    X87_BIN(ST(st_index), ST0, ST(st_index), 1, floatx80_sub);
+ }
+ 
+ void helper_fdiv_STN_ST0(CPUX86State *env, int st_index)
+@@ -617,6 +893,7 @@
+         break;
+     }
+     set_floatx80_rounding_precision(rnd_type, &env->fp_status);
++    env->x87_rn53 = rnd_type == 64 && env->fp_status.float_rounding_mode == float_round_nearest_even;   /* R2.19m */
+ }
+ 
+ void helper_fldcw(CPUX86State *env, uint32_t val)
+@@ -929,6 +1206,17 @@
+     if (floatx80_is_neg(ST0)) {
+         env->fpus &= ~0x4700;  /* (C3,C2,C1,C0) <-- 0000 */
+         env->fpus |= 0x400;
++    }
++    {
++        double d;
++        floatx80 r;
++        if (x87_on() && x87_rn53(env) && !(ST0.high >> 15) && fx_dbl(ST0, &d) && dbl_fx(sqrt(d), &r)) {
++            if (x87_check) {
++                X87_VERIFY(r, floatx80_sqrt(ST0, &env->fp_status));
++            }
++            ST0 = r;
++            return;
++        }
+     }
+     ST0 = floatx80_sqrt(ST0, &env->fp_status);
+ }
+--- a/src/qemu/target/i386/cpu.h
++++ b/src/qemu/target/i386/cpu.h
+@@ -1423,6 +1423,7 @@
+ 
+     /* emulator internal variables */
+     float_status fp_status;
++    bool x87_rn53;   /* R2.19m: fp_status is 53-bit round-to-nearest (update_fp_status sets it) */
+     floatx80 ft0;
+ 
+     float_status mmx_status; /* for 3DNow! float ops */
+--- a/src/qemu/include/tcg/tcg.h
++++ b/src/qemu/include/tcg/tcg.h
+@@ -672,6 +672,7 @@
+ #endif
+ 
+     TCGv_i32 delay_slot_flag;
++    TCGLabel *uc_exitreq_label;   /* R2.19m: the inline TB-start exit test's label (gen_tb_start) */
+ 
+     TCGTempSet free_temps[TCG_TYPE_COUNT * 2];
+     TCGTemp temps[TCG_MAX_TEMPS]; /* globals first, temps after */
+--- a/src/qemu/include/exec/gen-icount.h
++++ b/src/qemu/include/exec/gen-icount.h
+@@ -30,8 +30,35 @@
+     tcg_temp_free_i32(tcg_ctx, tmp);
+ }
+ 
++#include <stdlib.h>
++/* R2.19m: UC_TB_EXIT_INLINE=1 tests the exit request at a block's start inline (QEMU's own load and branch) instead of
++ * calling helper_check_exit_request, whose call every block paid; a request seen there leaves through the block's
++ * TB_EXIT_REQUESTED exit with EIP set to the block's start (no instruction of it ran: what the helper's restore gives).
++ * The checks after code hooks stay the helper's.  Read once per process. */
++static inline int uc_tb_exit_inline(void)
++{
++    static int on = -1;
++    if (on < 0) {
++        const char *s = getenv("UC_TB_EXIT_INLINE");
++        on = s != NULL && s[0] == '1';
++    }
++    return on;
++}
++
+ static inline void gen_tb_start(TCGContext *tcg_ctx, TranslationBlock *tb)
+ {
++#ifdef TARGET_X86_64
++    tcg_ctx->uc_exitreq_label = NULL;
++    if (uc_tb_exit_inline() && tcg_ctx->delay_slot_flag == NULL) {
++        TCGv_i32 count = tcg_temp_new_i32(tcg_ctx);
++        tcg_ctx->uc_exitreq_label = gen_new_label(tcg_ctx);
++        tcg_gen_ld_i32(tcg_ctx, count, tcg_ctx->cpu_env,
++                       offsetof(ArchCPU, neg.icount_decr.u32) - offsetof(ArchCPU, env));
++        tcg_gen_brcondi_i32(tcg_ctx, TCG_COND_LT, count, 0, tcg_ctx->uc_exitreq_label);
++        tcg_temp_free_i32(tcg_ctx, count);
++        return;
++    }
++#endif
+     TCGv_ptr puc = tcg_const_ptr(tcg_ctx, tcg_ctx->uc);
+     TCGv_i32 tmp = tcg_const_i32(tcg_ctx, 0);
+     // Unicorn:
+@@ -57,6 +84,16 @@
+         tcg_set_insn_param(tcg_ctx->icount_start_insn, 1, num_insns);
+     }
+ 
++#ifdef TARGET_X86_64
++    if (tcg_ctx->uc_exitreq_label != NULL) {   /* R2.19m: the inline test's exit, EIP the block's start */
++        TCGv eip;
++        gen_set_label(tcg_ctx, tcg_ctx->uc_exitreq_label);
++        tcg_ctx->uc_exitreq_label = NULL;
++        eip = tcg_const_tl(tcg_ctx, tb->pc - tb->cs_base);   /* after the label: the branch's path sets it */
++        tcg_gen_st_tl(tcg_ctx, eip, tcg_ctx->cpu_env, offsetof(CPUArchState, eip));
++        tcg_temp_free(tcg_ctx, eip);
++    }
++#endif
+     tcg_gen_exit_tb(tcg_ctx, tb, TB_EXIT_REQUESTED);
+ }
+ 

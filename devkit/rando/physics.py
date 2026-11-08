@@ -7,7 +7,9 @@ slider re-check read. The derive's flights need three of those, restored here as
 - :meth:`Physics.walk_off_carry`, the carry off a ledge with no jump (the derive's walk-off table);
 - :class:`Certificate`, what a derived flight physically needs (each derived edge keeps its witness's);
 - :data:`ROOF_END` and :data:`WALKOFF_SLACK`, which the flights read, and :data:`PICK_STAND`, the gates' and the
-  authoring's standing touch.
+  authoring's standing touch;
+- :meth:`Envelope.schedule` and :func:`envelope`, the flap ticks of the envelope's flights, which the reach engine's
+  aims fly (Step 4.13d1).
 
 :class:`Envelope` is AzurKit's on :class:`Physics`. Every other name is AzurKit's own (this module's
 :func:`__getattr__` hands it over), so the derive's numbers are the shipped calculator's. :data:`SOURCE_SHA256` is
@@ -17,6 +19,7 @@ it (Modkit keyed it by its own physics.py's). Dev only, like all of devkit.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import math
 from collections.abc import Mapping
@@ -61,6 +64,17 @@ class Envelope(_physics.Envelope):
     def __init__(self, m: _physics.Movement = _physics.VANILLA, beam: int = 100):
         super().__init__(m, beam)
         self.p = Physics(m)
+
+    def schedule(self, rank: int, dh: float, ceiling: float | None = None, flaps: int | None = None) -> tuple[int, ...]:
+        """The flap ticks (after the jump tick) of :meth:`travel`'s flight."""
+        return self.airtime(rank, dh, ceiling, flaps)[1]
+
+
+@functools.lru_cache(maxsize=64)
+def envelope(m: _physics.Movement = _physics.VANILLA, beam: int = 100) -> Envelope:
+    """The (cached) :class:`Envelope` of ``m`` (Modkit's, but for its seeded and exact searches, which AzurKit
+    dropped and nothing here asks for): the reach engine's aims fly its :meth:`Envelope.schedule`."""
+    return Envelope(m, beam)
 
 
 @dataclass(frozen=True)
