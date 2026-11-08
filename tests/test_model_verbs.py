@@ -9,8 +9,10 @@ the image or from a built ``characters.xbr``. Each reads the USA image."""
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
+import os
 import struct
 from pathlib import Path
 
@@ -45,7 +47,8 @@ def test_model_dress_writes_a_variants_build_with_fields_laid_over_its_recipe(us
     vertices that differ from vanilla's); no spring row of hers, her base's
     hair's three (``chains.json``: a variant with no jiggle takes its
     body's); the laid-over recipe's sha. A field no recipe takes fails by
-    name and writes nothing (D35), and an ``--out`` inside the checkout is
+    name and writes nothing (D35), and an ``--out`` inside the checkout or
+    an image's folder, named in any letter case the disk takes for it, is
     refused (D36)."""
     cases = json.loads((ROOT / "tests" / "goldens" / "cases.json").read_text(encoding="utf-8"))["probes.json"]
     recipes = next(case["variants"] for case in cases.values() if "variants" in case)
@@ -74,6 +77,12 @@ def test_model_dress_writes_a_variants_build_with_fields_laid_over_its_recipe(us
     assert code == 1 and "nonsense" in err and not (tmp_path / "refused").exists()
     code, _, err = dress(image.CHECKOUT / "dressed", {})
     assert code == 1 and "inside the checkout" in err and not (image.CHECKOUT / "dressed").exists()
+    (folder := tmp_path / "Images").mkdir()
+    (held := folder / "usa.iso").touch()
+    other = tmp_path / "images"   # the same folder where the disk ignores letter case (macOS), another where not
+    same = other.exists() and os.path.samefile(other, folder)
+    with pytest.raises(ValueError, match="an image's folder") if same else contextlib.nullcontext():
+        image.output(other / "dressed", held)
 
 
 def _accessor(doc: dict, blob: bytes, i: int) -> list[tuple]:
