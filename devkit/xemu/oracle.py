@@ -88,12 +88,14 @@ def region_named(name: str) -> Region:
     raise ValueError(f"no release {name!r}: {', '.join(r.name for r in gate.RELEASES)}")
 
 
-def vanilla_iso() -> Path:
-    """The USA image the resolver finds (``AZURKIT_ISO``, else the user data folder's), through the identity gate:
-    ``FileNotFoundError`` says where it looked, ``gate.NotVanillaError`` the first file that differs."""
-    if (path := gate.find(gate.USA)) is None:
-        raise FileNotFoundError(f"no USA image: {gate.missing(gate.USA)}")
-    gate.verify(path, releases=(gate.USA,))
+def vanilla_iso(region: Region = USA) -> Path:
+    """``region``'s image the resolver finds (USA's: ``AZURKIT_ISO``, else the user data folder's), through the
+    identity gate: ``FileNotFoundError`` says where it looked, ``gate.NotVanillaError`` the first file that differs
+    (or another release)."""
+    release = region.release
+    if (path := gate.find(release)) is None:
+        raise FileNotFoundError(f"no {release.label} image: {gate.missing(release)}")
+    gate.verify(path, releases=(release,))
     return path
 
 
@@ -7212,6 +7214,557 @@ def selftest() -> int:
               and all(isinstance(_err(Sandbox, "h", **kw), SystemExit) for kw in (
                   {"owner_pad": 2}, {"owner_pad": 2, "headless": "1"}, {"owner_pad": 5, "headless": "0"}))
               and Sandbox("h", headless="0", owner_pad=2).owner_pad == 2, f"{binds}")
+        # AZ-397: the demo recorder (devkit/xemu/demo.py) writes a row per player tick, and after a load (the
+        # clock jumped back, the level's nodes re-allocated) reads its nodes where the load put them
+        from devkit.xemu import demo as xd
+        regions: dict[int, bytearray] = {}
+
+        def put(va: int, fmt: str, *vals) -> None:
+            base = next((b for b in regions if b <= va < b + 0x1000), va & ~0xFFF)
+            struct.pack_into(fmt, regions.setdefault(base, bytearray(0x1000)), va - base, *vals)
+
+        def ram(va: int, n: int) -> bytes:
+            base = va & ~0xFFF
+            return bytes(regions[base][va - base:va - base + n]) if base in regions else bytes(n)
+        put(SCENE_PTR, "<I", 0x700000)
+        put(0x700000 + xd.recipes.SCENE_PD, "<I", 0x710000)
+        put(0x710000, "12s", b"levels/life")
+        put(0x710000 + xd.recipes.PD_PLAYER, "<I", 0x720000)
+        put(0x720000 + 0x180, "<I", 0x730000)
+        put(0x730000 + 0x20, "<I", 0x720000)
+        put(0x710000 + xd.GRAPH, "<I", 0x740000)
+        put(l3.MAIN_RATE, "<d", 30.0)
+
+        def nodes_at(vec: int, node: int, value: float) -> None:   # the graph's 3 records, record 2 a switch
+            put(0x740000 + xd.VEC, "<II", vec, vec + 12)
+            put(vec + 8, "<I", node)
+            put(node + xd.ATTRS_AT, "<I", node + 0x100)
+            put(node + 0x100 + 4, "<f", value)
+        rec = xd.Recorder(ram, {"levels": {"levels/life": {"count": 3, "nodes": {"Switch#2": {"output": 1}}}},
+                                "tags": {"t1": {"clk": 5.0, "lvl": "levels/life"}}})
+        trace = []
+        for clk, at, value, load in ((10.0, 0x750000, 0.0, None), (10.0, 0x750000, 0.0, None),
+                                     (10.0 + 1 / 30, 0x750000, 1.0, None), (5.5, 0x780000, 0.25, 1),
+                                     (5.5 + 3 / 30, 0x780000, 0.25, None)):
+            put(0x730000 + 0x18, "<d", clk)
+            nodes_at(at, at + 0x1000, value)
+            row = rec.step(1.0, load)
+            trace.append(row and {k: row[k] for k in ("n", "lvl", "load", "sw_all", "sw", "gap_ticks") if k in row})
+        check("demo recorder (AZ-397): a row per player tick; after a load its nodes are read where the load put "
+              "them, the load named by the tag's clock; missed ticks counted",
+              trace == [{"n": 0, "lvl": "levels/life", "sw_all": {"Switch#2": {"output": 0.0}}}, None,
+                        {"n": 1, "sw": {"Switch#2": {"output": 1.0}}},
+                        {"n": 2, "load": {"clk_jump": True, "loads": 1, "tag": "t1", "since_save_s": 0.5},
+                         "sw_all": {"Switch#2": {"output": 0.25}}},
+                        {"n": 3, "gap_ticks": 2}], f"{trace}")
+        # AZ-612: two builds' tags at one clock and level (2.142's C0 and BL w1 tags, 0.0000 s apart): a load names the
+        # one saved with the tray's disc, also a disc read as a path (tray_disc with W spelled another way); with no
+        # disc to tell them by, none, both listed
+        twin_tags = {"tags": {"tA": {"clk": 7.0, "lvl": "levels/life", "disc": "b-aaaaaaaaaaaa.iso"},
+                        "tB": {"clk": 7.0, "lvl": "levels/life", "disc": "b-bbbbbbbbbbbb.iso"}}}
+        named, other_w = [], "/private/tmp/azx-st.w/b-bbbbbbbbbbbb.iso"
+        for d in ("b-bbbbbbbbbbbb.iso", other_w, None):
+            drec = xd.Recorder(ram, twin_tags, disc=lambda d=d: d)
+            put(0x730000 + 0x18, "<d", 12.0)
+            drec.step(1.0)
+            put(0x730000 + 0x18, "<d", 7.0 + 1 / 30)
+            named.append(drec.step(1.0)["load"])
+        check("demo recorder (AZ-612): of two tags at one clock and level, a load names the one saved with the tray's "
+              "disc, which its row says, by its name also when the tray's reads as a path in a W spelled another "
+              "way; with no disc to tell them by, none, both listed",
+              named == [{"clk_jump": True, "loads": None, "tag": "tB", "since_save_s": 0.033,
+                         "disc": "b-bbbbbbbbbbbb.iso"},
+                        {"clk_jump": True, "loads": None, "tag": "tB", "since_save_s": 0.033, "disc": other_w},
+                        {"clk_jump": True, "loads": None, "tag": None, "since_save_s": None, "disc": None,
+                         "tags": ["tA", "tB"]}], f"{named}")
+        # AZ-644: W's QMP turn: while the serve holds it (another descriptor's flock), a watcher's pass takes none and
+        # its QMP refuses without connecting; once let go, the pass takes it and connects; the serve's own turn nests
+        import threading   # (the selftest imports it below too: a local name)
+        tw = tmp / "azx-st.turn"
+        tw.mkdir()
+        conns, tstop = [], threading.Event()
+        tsrv = socket.socket(socket.AF_UNIX)
+        tsrv.bind(str(tw / "qmp.sock"))
+        tsrv.listen(4)
+        tsrv.settimeout(0.05)
+
+        def tserve() -> None:   # a QMP that counts its clients and answers every command
+            while not tstop.is_set():
+                try:
+                    c, _ = tsrv.accept()
+                except TimeoutError:
+                    continue
+                except OSError:
+                    return
+                conns.append(1)
+                with c:
+                    c.settimeout(2.0)
+                    with contextlib.suppress(OSError):
+                        c.sendall(b'{"QMP": {"version": {}, "capabilities": []}}\n')
+                        for _line in c.makefile("rb"):
+                            c.sendall(b'{"return": {}}\n')
+        threading.Thread(target=tserve, daemon=True).start()
+        watcher = xd.TurnQmp(tw)
+        serve_fd = os.open(tw / QMP_TURN, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(serve_fd, fcntl.LOCK_EX)   # the serve, mid-request
+            held_pass = (watcher.turn.take(), type(_err(watcher, "query-status")).__name__, len(conns))
+            with qmp_turn(tw, block=False) as other:
+                pass
+            os.close(serve_fd)
+            serve_fd = None
+            free_pass = (watcher.turn.take(), watcher("query-status"), len(conns))
+            with qmp_turn(tw, block=False) as while_watched:
+                pass
+            watcher.turn.drop()
+            with qmp_turn(tw) as outer:
+                with qmp_turn(tw) as inner:
+                    nested = (outer, inner, watcher.turn.take())
+            after = watcher.turn.take()
+        finally:
+            tstop.set()
+            tsrv.close()
+            watcher.turn.close()
+            if serve_fd is not None:
+                os.close(serve_fd)
+        check("QMP turn (AZ-644): while the serve holds W's turn a watcher's pass takes none and its QMP refuses "
+              "without connecting; let go, the pass takes it and connects; a serve's turn isn't had during a watcher's "
+              "pass and nests in its own process",
+              held_pass == (False, "OSError", 0) and other is False and free_pass == (True, {"return": {}}, 1)
+              and while_watched is False and nested == (True, True, False) and after is True,
+              f"{held_pass} {other} {free_pass} {while_watched} {nested} {after}")
+        # Step X.56 (AZ-645): add-body's request: a new body's quiet boot at its level's save, 60 ticks at rest, its
+        # tag and its load; a tag saved in another level than the booted one is tried once more from the warm boot
+        # state, then refused and dropped from the meta; a body already tagged with its disc is one load; a boot that
+        # fails loads the tag loaded before it again and the failure stands, the guest let run even when that load is
+        # refused (a SystemExit, as tag_disc's for an oracle tag in a demo)
+        calls, lvls, fail_boot, refuse = [], [], [], []
+
+        class BodyBox:
+            w, st = tmp / "azx-st.body", {"saved_tags": []}
+
+            def stage(self, iso):
+                calls.append("stage")
+                return "b-0123456789ab.iso", "0123456789ab"
+
+            def loadable(self, tag):
+                return tag in self.st["saved_tags"]
+
+            def release(self):
+                calls.append("release")
+
+        class BodySit:
+            name = "p999"
+
+            def boot(self, iso, tag, quiet=None, want=None):
+                calls.append(f"boot {tag} quiet {quiet} want {want}")
+                if fail_boot:
+                    raise SystemExit("boot failed")
+                return {"iso_sha12": "0123456789ab", "s": 30.0, "tries": 1, "warm": False, "incidents": []}
+
+            def level(self):
+                return "levels/water/w1"
+
+            def loadvm(self, tag, **_):
+                calls.append(f"loadvm {tag}")
+                if tag in refuse:
+                    raise SystemExit(f"refusing loadvm {tag!r}")
+                return {"loadvm": "ok"}
+
+            def tick(self, timeout=10.0):
+                calls.append("tick")
+                return 1
+
+            def result(self, row):
+                calls.append("result")
+
+        def fake_note_tag(sb_, tag, meta_p):   # the level the save happened in: the next of lvls
+            m = xd._meta(meta_p)
+            m["tags"][tag] = {"lvl": lvls.pop(0), "disc": "b-0123456789ab.iso"}
+            xd._save_meta(meta_p, m)
+            sb_.st["saved_tags"].append(tag)
+        BodyBox.w.mkdir()
+        bmeta = BodyBox.w / xd.DEMO_META
+        xd._save_meta(bmeta, {"levels": {"levels/water/w1": {}}, "tags": {}})   # its nodes noted already
+        real_body = xd.ground, xd.note_tag
+        xd.ground, xd.note_tag = (lambda _s: {"try": 1, "ticks": 60}), fake_note_tag
+        try:
+            bsb, bs = BodyBox(), BodySit()
+            lvls[:] = ["levels/earth/e6", "levels/water/w1"]
+            first = xd.add_body(bs, bsb, tmp / "b.iso", "w1", want="0123456789ab")
+            seq1, calls[:] = list(calls), []
+            again = xd.add_body(bs, bsb, tmp / "b.iso", "w1")
+            seq2, calls[:] = list(calls), []
+            lvls[:] = ["levels/earth/e6", "levels/earth/e6"]
+            bsb.st["saved_tags"].clear()
+            xd._save_meta(bmeta, {"levels": {"levels/water/w1": {}}, "tags": {}})
+            twice = _err(xd.add_body, bs, bsb, tmp / "b.iso", "w1", load=False)
+            seq3, kept = list(calls), xd._meta(bmeta)["tags"]
+            wrong = _err(xd.add_body, bs, bsb, tmp / "b.iso", "w1", want="ba9876543210")
+            calls[:], fail_boot[:] = [], [1]
+            bsb.st.update(last_tag="p999-fedcba987654-w1", saved_tags=["p999-fedcba987654-w1"])
+            failed = _err(xd.add_body, bs, bsb, tmp / "b.iso", "w1")
+            seq4, calls[:], refuse[:] = list(calls), [], ["vanilla-ig-w1"]
+            bsb.st.update(last_tag="vanilla-ig-w1", saved_tags=["vanilla-ig-w1"])
+            no_back = _err(xd.add_body, bs, bsb, tmp / "b.iso", "w1")
+            seq5 = list(calls)
+        finally:
+            xd.ground, xd.note_tag = real_body
+        boot_seq = ["stage", "boot vanilla-ig-w1 quiet True want levels/water/w1",
+                    "loadvm b-0123456789ab-vanilla-ig-w1"]
+        check("add-body (Step X.56, AZ-645): a body's quiet boot at its level's save, 60 ticks at rest, its tag "
+              "<serve>-<sha12>-<level>, a few ticks on (its load a clock jump) and its load, the guest let run; a "
+              "tag saved in another level than the booted "
+              "one is retried once from the warm boot state, then refused and dropped from the meta (the guest let "
+              "run, no tag before it); a tag held with "
+              "its disc is one load (a switch back); an ISO that isn't the build is refused; a failed boot loads the "
+              "body before it again, its failure standing, the guest let run when that load is refused too",
+              first["tag"] == "p999-0123456789ab-w1" and first["level_misses"] == ["levels/earth/e6"]
+              and seq1 == [*boot_seq, "result", *["tick"] * xd.LOAD_GAP_TICKS, "loadvm p999-0123456789ab-w1",
+                           "release"]
+              and again.get("reused") and seq2 == ["stage", "loadvm p999-0123456789ab-w1", "release"]
+              and isinstance(twice, SystemExit) and "AZ-645" in str(twice) and seq3 == [*boot_seq, "release"]
+              and kept == {}
+              and isinstance(wrong, SystemExit) and "not the build's" in str(wrong)
+              and isinstance(failed, SystemExit) and str(failed) == "boot failed"
+              and seq4 == [*boot_seq[:2], "loadvm p999-fedcba987654-w1", "release"]
+              and isinstance(no_back, SystemExit) and str(no_back) == "boot failed"
+              and seq5 == [*boot_seq[:2], "loadvm vanilla-ig-w1", "release"],
+              f"{seq1} {seq2} {seq3} {twice} {kept} {failed} {seq4} {no_back} {seq5}")
+        # AZ-522: a load the recorder sees first by its clock jump takes the run log's count on that row, so the flush
+        # (every FLUSH_S) marks no later row for it; an in-game reload (a jump, no new count) has no count; a load with
+        # no clock jump keeps the flush's mark
+        count = [0]
+        lrec, marks, flushes = xd.Recorder(ram, rec.meta, loads=lambda: count[0]), [], []
+        for clk, n_log, flush in ((20.0, 0, False), (5.5, 1, False), (5.5 + 1 / 30, 1, True), (30.0, 1, False),
+                                  (30.0 + 1 / 30, 2, True)):
+            put(0x730000 + 0x18, "<d", clk)
+            count[0] = n_log
+            pending = lrec.flushed(n_log) if flush else None
+            flushes += [pending] if flush else []
+            marks.append(lrec.step(1.0, pending).get("load"))
+        check("demo recorder (AZ-522): a load seen first by its clock jump is marked once, on that row, with the run "
+              "log's count read there, and the flush marks no later row for it; an in-game reload's jump has no "
+              "count; a load with no clock jump is the flush's",
+              marks == [None, {"clk_jump": True, "loads": 1, "tag": "t1", "since_save_s": 0.5}, None,
+                        {"clk_jump": True, "loads": None, "tag": None, "since_save_s": None},
+                        {"clk_jump": False, "loads": 2, "tag": None, "since_save_s": None}] and flushes == [None, 2],
+              f"{marks} {flushes}")
+        # AZ-479: the game's own respawn re-allocates the nodes with no load and no clock jump: the recorder sees a
+        # watched node move and reads them where they are now; every critterGenerator's numDead is read (record 1
+        # here: a boss's generator the meta doesn't name), all after a resolve, then on change
+        def gen_at(vec: int, node: int, dead: float) -> None:
+            put(vec + 4, "<I", node)
+            put(node, "<I", xd.GENERATOR_VT)
+            put(node + xd.ATTRS_AT, "<I", node + 0x100)
+            put(node + 0x100 + xd.NUM_DEAD, "<f", dead)
+        trace = []
+        for clk, at, value, dead in ((5.5 + 4 / 30, 0x7A0000, 0.5, 0.0), (5.5 + 5 / 30, 0x7A0000, 0.5, 1.0),
+                                     (5.5 + 6 / 30, 0x7A0000, 0.5, 1.0)):
+            put(0x730000 + 0x18, "<d", clk)
+            nodes_at(at, at + 0x1000, value)
+            gen_at(at, at + 0x2000, dead)
+            row = rec.step(1.0)
+            trace.append(row and {k: row[k] for k in ("n", "moved", "sw_all", "sw", "dead_all", "dead") if k in row})
+        check("demo recorder (AZ-479): after the game's own respawn (nodes moved, no load, no clock jump) it reads "
+              "them where they are, saying so; every critterGenerator's numDead is recorded, a boss's the meta "
+              "doesn't name too, all after a resolve, then on change",
+              trace == [{"n": 4, "moved": True, "sw_all": {"Switch#2": {"output": 0.5}}, "dead_all": {"#1": 0.0}},
+                        {"n": 5, "dead": {"#1": 1.0}}, {"n": 6}], f"{trace}")
+        # AZ-475: the pad the input builder read, per tick: read first at every poll, exact; where the read before
+        # the tick differs from the one after, both are kept (a poll fell between them), and tick_pads hands a
+        # per-tick replay each tick's float block, with the other where the recorder couldn't tell
+        rows = []
+        for clk, lx, a in ((5.5 + 6 / 30, 0.3, 0.0), (5.5 + 7 / 30, 0.7, 1.0), (5.5 + 8 / 30, 0.7, 1.0)):
+            put(0x730000 + 0x18, "<d", clk)
+            put(CONTROLLER_STATE, "<f", lx)
+            put(CONTROLLER_STATE + 0x18, "<f", a)
+            rows.append(rec.step(1.0 + len(rows) / 100))
+        tp = xd.tick_pads([r for r in rows if r])
+        tp60 = xd.tick_pads([{"n": 0, "clk": 2.0, "pidx": 0, "pad": {"lx": 0.25}},   # a 60 fps build, 2 ticks missed
+                             {"n": 1, "clk": 2.0 + 1 / 60, "pidx": 0, "pad": {"lx": 0.5}, "pad_ms": 30.0},
+                             {"n": 2, "clk": 2.0 + 4 / 60, "pidx": 0, "pad": {"lx": 0.75}, "pad_ms": 10.0,
+                              "gap_ticks": 2}])
+        f32 = lambda v: struct.pack("<f", v)   # noqa: E731
+        check("demo recorder (AZ-475): a tick's pad is read first and exact; when the read before the tick differs "
+              "from the one after, the row keeps both; tick_pads gives each tick's float block, and the other one "
+              "where the builder may have read it, unknown where the reads were 1.5 ticks apart at the build's "
+              "rate; missed ticks keep their places, holding the last pad read",
+              [t["n"] for t in tp60] == [0, 1, None, None, 2] and tp60[0].get("start") and "alt" not in tp60[0]
+              and "alt" in tp60[1] and tp60[1]["alt"] is None and tp60[4]["alt"] is None
+              and all(t["missed"] and t["block"] == tp60[1]["block"] and t["alt"] is None for t in tp60[2:4]) and
+              rows[0] is None and f32(rows[1]["pad"]["lx"]) == f32(0.7) and rows[1]["pad"]["a"] == 1.0
+              and f32(rows[1]["pad_alt"]["lx"]) == f32(0.3) and rows[1]["pad_ms"] == 10.0 and "pad_alt" not in rows[2]
+              and len(tp) == 2 and tp[0]["block"][:4] == f32(0.7) and tp[0]["alt"][:4] == f32(0.3)
+              and "alt" not in tp[1] and len(tp[1]["block"]) == 0x48
+              and xd.pad_block(xd.pad_dict(tp[0]["block"] + bytes(12))) == tp[0]["block"],
+              f"{[r and {k: r[k] for k in ('n', 'pad_ms') if k in r} for r in rows]} {[sorted(t) for t in tp]}")
+        # AZ-508: the camera the input builder read, per tick, from the fork's PC hook at 0x85276 ([esp+0x14] and the
+        # entity's clock through EBP), drained at each row: a row keeps the hit of the tick that moved the clock
+        # there (not an older attempt's), with the contact normal, fall reference and animation; tick_pads carries it
+        # and the per-tick replay writes it over [esp+0x14] at 0x85276 (a fitted one first), the pad block at the
+        # update entry, and ends after 3 ticks off
+        sent, hits, vm = [], [], {"status": "running", "hooks": {3: "another client's"}, "next": 7}
+
+        def fake_hooks(cmd: str, **args) -> dict:   # the fork's rules: a hook goes in only while the VM is stopped
+            sent.append((cmd, args))
+            if cmd == "query-commands":
+                return {"return": [{"name": "xemu-hooks-set"}, {"name": "xemu-hooks-drain"}]}
+            if cmd == "query-status":
+                return {"return": {"status": vm["status"]}}
+            if cmd in ("stop", "cont"):
+                vm["status"] = "paused" if cmd == "stop" else "running"
+            if cmd == "xemu-hooks-set":
+                if vm["status"] == "running":
+                    return {"error": {"class": "GenericError", "desc": "pause the VM first"}}
+                vm["hooks"][vm["next"]], vm["next"] = args["hooks"][0], vm["next"] + 1
+                return {"return": [{"id": vm["next"] - 1, "pcs": args["hooks"][0]["pcs"], "hits": 0}]}
+            if cmd == "xemu-hooks-clear":
+                for i in args.get("ids", list(vm["hooks"])):
+                    vm["hooks"].pop(i, None)
+            if cmd == "xemu-hooks-drain":
+                out, hits[:] = list(hits), []
+                return {"return": {"records": out, "dropped": 0}}
+            return {"return": {}}
+
+        def hit(clk: float, x: float, y: float, frame: int) -> None:
+            hits.append({"pc": l3.CAMERA_DIR, "frame": frame,
+                         "data": [struct.pack("<2f", x, y).hex(), struct.pack("<d", clk).hex()]})
+        ch = xd.CamHook(fake_hooks)
+        armed, rec.cam = ch.arm(), ch.take
+        rearmed = (ch.arm(), [c for c, _ in sent[5:]], sent[6][1], sorted(vm["hooks"]), vm["status"])
+        put(0x730000 + 0xB8, "<3f", 0.0, 0.6, 0.8)
+        put(0x730000 + 0x168, "<f", 2.5)
+        put(0x720000 + xd.CR_ANIM, "<i", 9)
+        c0, cam_rows = 5.5 + 8 / 30, []
+        for clk, hs in ((c0 + 1 / 30, [(c0 - 4.0, 1.0, 0.0, 90), (c0, 0.0, 1.0, 100)]),
+                        (c0 + 2 / 30, [(c0 + 1 / 30, -0.6, 0.8, 101)]), (c0 + 3 / 30, []),
+                        (c0 + 5 / 30, [(c0 + 3 / 30, 0.6, 0.8, 102), (c0 + 4 / 30, 0.8, 0.6, 102)])):   # a 2-tick frame
+            for h in hs:
+                hit(*h)
+            put(0x730000 + 0x18, "<d", clk)
+            cam_rows.append(rec.step(2.0 + len(cam_rows) / 30))
+        rec.cam = None
+        ch.disarm()
+        disarmed = (sorted(vm["hooks"]), sent[-2:])
+        tpc = xd.tick_pads(cam_rows)
+        tr_rows = [{"n": i, "clk": 10.0 + i / 30, "pidx": 0, "pad": {"lx": 0.25 * i}, "body": [float(i), 0.0, 0.0],
+                    "st": 0, "hp": [200, 200], "cam": [0.0, 1.0],
+                    **({"pad_ms": 33.0} if i else {"load": {"clk_jump": True}})} for i in range(6)]
+        tr = xd.TickReplay(tr_rows, 30.0, cams={301: l3.camera_dir(0.5)})
+        steps = []
+        for key, pos, st in ((300, (1.0, 0.0, 0.0), 0), (301, (2.0, 0.6, 0.0), 0), (302, (3.0, 0.0, 0.0), 2),
+                             (303, (4.0, 0.7, 0.0), 0)):
+            steps.append((tr.entry(key, 0), tr.camera(0x2000), tr.ret(obs.Obs(pos, (0.0,) * 3, st, 200, 200, 0))))
+        summ = tr.summary()
+        check("demo recorder (AZ-508): the camera the builder read at 0x85276 comes from the fork's PC hook, armed "
+              "with the running guest paused around the call (the fork refuses a running VM) and cleared by its own "
+              "id (another client's hook stays), drained per row: a row keeps its own tick's hit (the clock it "
+              "entered at), not an older attempt's, none when no hit came, and a missed tick's own hit; the rows "
+              "hold the contact normal, fall reference and animation; tick_pads carries the camera (a missed "
+              "tick's own); the per-tick replay writes the pad block at the update entry and the camera over "
+              "[esp+0x14] (a fitted one first), compares the body, state and HP, ends after 3 ticks off and "
+              "refuses rows that span a load",
+              armed is None and [c for c, _ in sent[:5]] == ["query-commands", "query-status", "stop",
+                                                             "xemu-hooks-set", "cont"]
+              and sent[3][1]["hooks"] == [{"pcs": [l3.CAMERA_DIR], "collect": [{"addr": "esp+0x14", "size": 8},
+                                                                               {"addr": "ebp+0x18", "size": 8}]}]
+              and rearmed == (None, ["query-commands", "xemu-hooks-clear", "xemu-hooks-drain", "query-status",
+                                     "stop", "xemu-hooks-set", "cont"], {"ids": [7]}, [3, 8], "running")
+              and disarmed == ([3], [("xemu-hooks-clear", {"ids": [8]}), ("xemu-hooks-drain", {})])
+              and [(r.get("cam"), r.get("cf")) for r in cam_rows] == [
+                  ([0.0, 1.0], 100), (list(struct.unpack("<2f", struct.pack("<2f", -0.6, 0.8))), 101), (None, None),
+                  (list(struct.unpack("<2f", struct.pack("<2f", 0.8, 0.6))), 102)]
+              and cam_rows[3]["gap_ticks"] == 1 and cam_rows[3]["cam_gap"] == [
+                  list(struct.unpack("<2f", struct.pack("<2f", 0.6, 0.8)))]
+              and all(r["nrm"] == [0.0, 0.6, 0.8] and r["fref"] == 2.5 and r["anim"] == 9 for r in cam_rows)
+              and [t["cam"] for t in tpc] == [struct.pack("<2f", 0.0, 1.0), struct.pack("<2f", -0.6, 0.8), None,
+                                              struct.pack("<2f", 0.6, 0.8), struct.pack("<2f", 0.8, 0.6)]
+              and steps[0][0] == [(CONTROLLER_STATE, xd.pad_block({"lx": 0.25}))]
+              and steps[0][1] == [(0x2014, struct.pack("<2f", 0.0, 1.0))] and steps[1][1] == [(0x2014,
+                                                                                               l3.camera_dir(0.5))]
+              and [x[2] for x in steps] == [False, False, False, True] and tr.done
+              and (summ["within_0.1m"], summ["state_differ"], summ["first_over_0.1m"], summ["cams_written"]) ==
+              (2, 1, 301, 4) and tr.entry(305, 0) is None and isinstance(_err(xd.TickReplay, [
+                  tr_rows[0], {**tr_rows[1], "load": {"clk_jump": True}}], 30.0), ValueError),
+              f"{[(r.get('cam'), r.get('cf')) for r in cam_rows]} {summ}")
+        # Step X.32b (AZ-518, AZ-479): on v0.15 the recorder's rows come from a PC hook at the player update's RET:
+        # its regions (address expressions, evaluated there) read back by row_reader give the poller's row of the same
+        # memory; the level's nodes and generators by expressions from their record indices follow a respawn that
+        # moved them; HookRows sets its hooks with the guest paused around the call, drains the row, node and camera
+        # records in one call and pairs each row with its tick's node values; tick_pads takes a RET row's pad as the
+        # builder's (no alt, no new run); the per-tick replay marks a poller's row that holds the tick before's
+        u32r = lambda va: struct.unpack("<I", ram(va, 4))[0]   # noqa: E731
+
+        def collect(cs: list[dict]) -> list[str]:   # one hook hit's regions over the fake RAM
+            return [ram(_hook_expr(c["addr"], {}, u32r), c["size"]).hex() for c in cs]
+        put(0x730000 + 0x18, "<d", 9.0)
+        polled = xd.Recorder(ram, rec.meta)
+        prow = polled.step(3.0)
+        hrec = xd.Recorder(xd.row_reader(collect(xd.ROW_HOOK["collect"])), rec.meta)
+        hrow = hrec.step(3.0, hooked=({}, {}))
+        nh, nregs = xd.node_hooks(rec.meta, "levels/life", 3, [1])
+        before = xd.node_values([{"data": collect(h["collect"])} for h in nh], nregs)
+        nodes_at(0x7E0000, 0x7E1000, 0.75)   # the game's own respawn: both re-allocated
+        gen_at(0x7E0000, 0x7E2000, 2.0)
+        after = xd.node_values([{"data": collect(h["collect"])} for h in nh], nregs)
+        hq, hsent, ids, hfail = [], [], iter(range(20, 99)), {"set": None}
+
+        def hook_qmp(cmd: str, **args) -> dict:
+            hsent.append(cmd)
+            if cmd == "query-commands":
+                return {"return": [{"name": "xemu-hooks-set"}, {"name": "xemu-hooks-drain"}]}
+            if cmd == "query-status":
+                return {"return": {"status": "running"}}
+            if cmd == "xemu-hooks-set" and hfail["set"] == "held":
+                raise TimeoutError("QMP held by another client")
+            if cmd == "xemu-hooks-set" and hfail["set"] == "refused":
+                return {"error": {"class": "GenericError", "desc": "too many hooks"}}
+            if cmd == "xemu-hooks-set":
+                return {"return": [{"id": next(ids)} for _ in args["hooks"]]}
+            if cmd == "xemu-hooks-drain":
+                out, hq[:] = list(hq), []
+                return {"return": {"records": out, "dropped": 0}}
+            return {"return": {}}
+        hcam = xd.CamHook(hook_qmp)
+        hr = xd.HookRows(hook_qmp, hcam, ram, rec.meta)
+        armed_rows, arm_seq, fed_armed = hr.arm(), list(hsent), hcam.fed
+        hsent.clear()
+        hr.nodes("levels/life", 0x710000)   # its generators found through the live reader
+        node_seq, row_data = list(hsent), collect(xd.ROW_HOOK["collect"])
+        hq += [{"hook": 21, "pc": l3.CAMERA_DIR, "data": [struct.pack("<2f", 0.0, 1.0).hex(),
+                                                          struct.pack("<d", 9.0 - 1 / 30).hex()], "frame": 6},
+               {"hook": hr.id, "pc": l3.UPDATE_RETS[0], "data": row_data, "frame": 7},
+               {"hook": hr.node_ids[0], "pc": l3.UPDATE_RETS[0], "data": collect(nh[0]["collect"]), "frame": 7}]
+        drained = hr.drain()
+        # Step X.32b's review: a level's node hooks QMP didn't take (held) leave its rows without nodes, never the
+        # last level's, and are tried again NODE_RETRY_S later; ones xemu refused aren't; a failed arm (a
+        # relaunch's) leaves the camera hook draining its own records, as the poller's rows take them
+        hfail["set"] = "held"
+        hr.nodes("levels/air", 0x710000)
+        held_try = (hr.level, hr.node_ids, hr.regions, hr.stale)
+        hfail["set"] = None
+        hr.nodes("levels/air", 0x710000)
+        too_soon = hr.node_ids
+        hr.retry_at = 0.0
+        hr.nodes("levels/air", 0x710000)
+        retried = (hr.level, len(hr.node_ids))
+        hfail["set"] = "refused"
+        hr.nodes("levels/fire", 0x710000)
+        refused_try = (hr.level, hr.node_ids)
+        hfail["set"] = "held"
+        rearm = (hr.arm(), hcam.fed)
+        hfail["set"] = None
+        node_notes = [n.split(", ")[0] for n in hr.notes]
+        ret_pads = xd.tick_pads([{"n": 0, "clk": 2.0, "pidx": 0, "pad": {"lx": 0.5}, "ret": 1},
+                                 {"n": 1, "clk": 2.0 + 2 / 30, "pidx": 0, "pad": {"lx": 0.25}, "ret": 1,
+                                  "gap_ticks": 1}])
+        lag_rows = [{"n": i, "clk": 20.0 + i / 30, "pidx": 0, "pad": {}, "body": [0.0] * 3, "st": 0,
+                     "stt": round((i if i != 3 else 2) / 30, 4), "hp": [200, 200],
+                     **({"pad_ms": 33.0} if i else {"load": {"clk_jump": True}})} for i in range(5)]
+        lag = xd.TickReplay(lag_rows, 30.0, patience=1)
+        for c in range(600, 604):
+            lag.entry(c, 0)
+            lag.ret(obs.Obs((0.0,) * 3, (0.0,) * 3, 0, 200, 200, 0, state_t=(c - 599) / 30))
+        check("demo recorder on v0.15 (Step X.32b, AZ-518, AZ-479): a row from the RET hook's regions is the poller's "
+              "row of the same memory; the nodes and generators by record-index expressions follow a respawn; the "
+              "hooks set with the guest paused around the call; one drain pairs a row with its tick's node values "
+              "and feeds the camera; a level's node hooks a held QMP didn't take are tried again later, its rows "
+              "reading no nodes meanwhile, and ones xemu refused aren't; a failed arm leaves the camera hook "
+              "draining itself; a RET row's pad is the builder's; a poller's row holding the tick before's is "
+              "marked torn and judges nothing",
+              {k: v for k, v in prow.items() if k not in ("sw_all", "dead_all")} == hrow
+              and before == polled._nodes() == ({"Switch#2": {"output": 0.5}}, {"#1": 1.0})
+              and after == ({"Switch#2": {"output": 0.75}}, {"#1": 2.0})
+              and armed_rows is None and arm_seq == ["query-commands", "query-status", "stop", "xemu-hooks-set", "cont"]
+              and node_seq == ["query-status", "stop", "xemu-hooks-set", "cont"]
+              and fed_armed and [(x["frame"], n) for x, n in drained] == [(7, after)] and len(hcam.recs) == 1
+              and held_try == ("levels/life", [], [], []) and too_soon == [] and retried == ("levels/air", 1)
+              and refused_try == ("levels/fire", []) and rearm[0].startswith("QMP: ") and rearm[1] is False
+              and node_notes == ["levels/air: its node hooks not set", "levels/fire: its node hooks refused"]
+              and [("start" in t, t.get("alt", "none"), t.get("missed", False)) for t in ret_pads] == [
+                  (True, "none", False), (False, None, True), (False, "none", False)]
+              and [x.get("torn", False) for x in lag.results] == [False, False, True, False] and not lag.done
+              and lag.summary()["torn"] == 1,
+              f"{[k for k in {**prow, **hrow} if prow.get(k) != hrow.get(k)]} {before} {after} {node_seq} {drained}")
+        # TD.0's sitting: fit_cams keeps the last camera on a tick the stick steers nothing (a roll), where every yaw
+        # gives the same tick; it drifted 11 degrees a tick there (M2's part B: 44 degrees off by the roll's end)
+        class FitSim:   # a body moving 0.1 m a tick along the camera's heading, but along +x on roll ticks 1 and 2
+            snap, entity = type("S", (), {"meta": {"clock": 10.0}})(), 0
+
+            def __init__(self):
+                self.p, self.i = (0.0, 0.0), 0
+
+            def pad_va(self):
+                return 0x1000
+
+            def save(self):
+                return self.p, self.i
+
+            def reset(self, s=None):
+                self.p, self.i = s or ((0.0, 0.0), 0)
+
+            def step(self, pad, writes=()):
+                d = (0.1, 0.0) if self.i in (1, 2) else (0.1 * pad.cam[0], 0.1 * pad.cam[1]) if pad.cam else (0.0, 0.0)
+                self.p, self.i = (self.p[0] + d[0], self.p[1] + d[1]), self.i + 1
+                return type("R", (), {"pos": (*self.p, 0.0), "obs": type("O", (), {"vel": (0.0,) * 3,
+                                                                              "state_t": self.i / 30})(),
+                                      "state": 0, "hp": 200})()
+
+            def u32(self, va):
+                return 0
+
+            def read(self, va, n):
+                return struct.pack("<4f", 0.0, 0.0, 0.0, 1.0)
+        fit_rows, p = [], (0.0, 0.0)
+        for i in range(5):
+            p = (p[0] + 0.1, p[1]) if i in (1, 2) else (p[0] - 0.1 * math.sin(0.3), p[1] + 0.1 * math.cos(0.3))
+            fit_rows.append({"n": i, "clk": (301 + i) / 30, "pidx": 0, "pad": {"ly": 1.0}, "body": [*p, 0.0],
+                             "vel": [0.0] * 3, "quat": [0.0, 0.0, 0.0, 1.0], "st": 0, "hp": [200, 200],
+                             **({"pad_ms": 33.0} if i else {})})
+        fcams, _, finfo = xd.fit_cams(FitSim(), xd.TickReplay(fit_rows, 30.0))
+        fyaw = {k: math.atan2(-c[0], c[1]) for k, c in ((k, struct.unpack("<2f", v)) for k, v in fcams.items())}
+        tcams, _, tinfo = xd.fit_cams(FitSim(), xd.TickReplay(   # Step X.32b, AZ-518: row 3 holds row 2's tick
+            [{**r, "stt": round((i + 1 if i != 3 else i) / 30, 4)} for i, r in enumerate(fit_rows)], 30.0))
+        check("fit_cams keeps the last camera on a tick the stick steers nothing (a roll) and fits the next steered "
+              "tick round it; a poller's row holding the tick before's isn't fitted (AZ-518)",
+              fyaw[301] == fyaw[302] == fyaw[300] and abs(fyaw[303] - 0.3) < 1e-4 and finfo["fitted"] == 3
+              and finfo["l3_max_err_m"] < 1e-4 and finfo["torn"] == 0
+              and (tinfo["torn"], tinfo["fitted"], tcams[303] == tcams[302]) == (1, 2, True),
+              f"{ {k: round(math.degrees(v), 3) for k, v in fyaw.items()} } {finfo} {tinfo}")
+        # AZ-438: the recorder checks its page directory every flush (it maps itself), and finds the one that does
+        # when it moved, instead of trusting the CR3 it started with
+        pdr = bytearray(0x30000)
+        struct.pack_into("<I", pdr, 0xF000 + 0xC00, 0xF003)
+        kept_pd = xd.page_directory(pdr, 0xF000)
+        struct.pack_into("<I", pdr, 0xF000 + 0xC00, 0)
+        struct.pack_into("<I", pdr, 0x20000 + 0xC00, 0x20003)
+        moved_pd = xd.page_directory(pdr, 0xF000)
+        struct.pack_into("<I", pdr, 0x20000 + 0xC00, 0)
+        check("demo recorder (AZ-438): its page directory is checked against the RAM (it maps itself), and one that "
+              "moved is found again; none, None",
+              (kept_pd, moved_pd, xd.page_directory(pdr, 0x20000)) == (0xF000, 0x20000, None),
+              f"{kept_pd} {moved_pd}")
+        qd = Path(tempfile.mkdtemp(prefix="azx-qw.", dir="/tmp"))
+        try:   # Step X.34: the replug watcher logs each change of W's QMP socket, timestamped by its caller
+            qw = xd.QmpWatch(qd, probe_s=0.0)
+            qlines = [qw.poll(0.0)]
+            srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            srv.bind(str(qd / "qmp.sock"))
+            srv.listen(4)
+            qlines += [qw.poll(1.0), qw.poll(2.0)]
+            srv.close()   # the file stays, nothing listens
+            qlines.append(qw.poll(3.0))
+            (qd / "qmp.sock").unlink()
+            qlines.append(qw.poll(4.0))
+        finally:
+            shutil.rmtree(qd, ignore_errors=True)   # its own mktemp folder (D147)
+        check("demo replug watcher (Step X.34): a line when W's QMP socket appears, stops accepting a connection "
+              "or disappears, none while it stays the same",
+              qlines[0] == "qmp.sock: missing" and qlines[1].startswith("qmp.sock: socket inode")
+              and qlines[1].endswith("accepts a connection (was: missing)") and qlines[2] is None
+              and "refuses a connection (ECONNREFUSED)" in qlines[3]
+              and qlines[4].startswith("qmp.sock: missing (was: socket inode"), f"{qlines}")
         good = (f"config path: {w}/xemu.toml\nbase path: {w}/xemu.app/Contents/Resources/\n"
                 f"Created QEMU launch: -bios {w}/flashrom.bin bootrom={w}/bootrom.bin "
                 f"smbus-storage,file={w}/eeprom.bin media=disk,file={w}/xbox_hdd.qcow2 "
@@ -8206,10 +8759,27 @@ def selftest() -> int:
         replayed = sbr.loadvm("x-A", paused=True)
         replug = [a for c, a in calls if c == "device_add"]
         other_port = str(_err(sbr.play_recording, [], port=2))
+        put(0x730000 + 0x18, "<d", 7.25)
+
+        def tag_ram(va: int, n: int) -> bytes:   # the demo recorder's fake guest RAM, above
+            base = va & ~0xFFF
+            return bytes(regions[base][va - base:va - base + n]) if base in regions else bytes(n)
+
+        class TagBox:   # note_tag's reads: halted at a player tick, its entity, the level; savevm as a sandbox's
+            st = {"tag_discs": {}, "tag_usb": {}, "record_port": 1}
+            g = type("G", (), {"regs": staticmethod(lambda: {"eip": PLAYER_TICK, "esp": 0x760000})})()
+            read, read_u32 = staticmethod(tag_ram), staticmethod(lambda va: struct.unpack("<I", tag_ram(va, 4))[0])
+
+            def savevm(self, tag):
+                self.st["tag_discs"][tag], self.st["tag_usb"][tag] = "b-abc.iso", {"1.3": "USB Hub"}
+        put(0x760004, "<I", 0x730000)
+        meta_p = tmp / "demo-meta.json"
+        xd.note_tag(TagBox(), "x-B", meta_p)
+        noted = json.loads(meta_p.read_text(encoding="utf-8"))["tags"]["x-B"]
         check("port-1 replay (AZ-439): the keyboard pad bound on port 1 and nothing on port 2 (an owner demo's pads "
               "beside it); a replay on the demo's drive adopts its tags and plugs the hubs the state holds that it "
               "lacks (port 2's neutral, the demo hub reading player 1) before the load, on the tag's own disc; a "
-              "recording of another port is refused",
+              "recording of another port is refused; note_tag keeps a tag's disc, pads and recorded port",
               {k: v for k, v in p1.items() if re.fullmatch(r"port\d", k)} == {"port1": "keyboard"}
               and p1_demo.get("port1") == "keyboard" and p1_demo.get("port3") == guid and "port2" not in p1_demo
               and isinstance(_err(Sandbox, "h", pad_port=5), SystemExit)
@@ -8219,7 +8789,9 @@ def selftest() -> int:
                              {"driver": "usb-xbox-gamepad", "index": 0, "port": "1.1.1", "id": "demopad"},
                              {"driver": "usb-hub", "port": "1.4", "ports": 3, "id": "plughub14"},
                              {"driver": "usb-xbox-gamepad", "index": 1, "port": "1.4.1", "id": "plugpad14"}]
-              and "AZ-439" in other_port, f"{p1} {p1_demo} {replug}")
+              and "AZ-439" in other_port
+              and noted == {"clk": 7.25, "lvl": "levels/life", "disc": "b-abc.iso", "usb": {"1.3": "USB Hub"},
+                            "record_port": 1}, f"{p1} {p1_demo} {replug} {noted}")
         # AZ-510: a section's +N lines go as @<base+N>, base the frame the paused load left (a +N counts from the
         # frame xemu reads it at), other lines as they are; the advance runs through the last line's frame
         piped, stepped_rec = [], []
@@ -10363,7 +10935,7 @@ def add_owner_pad_arg(p: argparse.ArgumentParser) -> None:
     p.add_argument("--owner-pad", type=int, choices=(1, 2, 3, 4), help="an owner demo (D205): the owner's pad (the "
                    "fixtures' GUIDs) bound on PORT, with --window only (real time), volume 0; port 2 replaces the "
                    "harness's keyboard pad for the sandbox's life, so the pipe drives nothing (no warp, cheat or "
-                   "boot-build: skill section 4.9); the demo recorder (Step 4.14a3) records and re-plugs it")
+                   "boot-build: skill section 4.9); devkit/xemu/demo.py records and re-plugs it")
     p.add_argument("--pad-port", type=int, choices=(1, 2, 3, 4), default=2, help="the keyboard pad, which the pipe "
                    "drives, on this port (default 2): 1 replays a demo recorded on the owner's port 1 as the owner's "
                    "pad (AZ-439; play_recording)")

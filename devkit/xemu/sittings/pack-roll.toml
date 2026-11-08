@@ -1,0 +1,27 @@
+# A pack sighting (after sitting p9, Step 2.39): roll_speed_scale 2 against the vanilla control, each booted at
+# vanilla-ig-w1's save, placed on vanilla-exit's spot (R6) and rolled from a run (real input).
+#   uv run --locked python -m devkit xemu sitting run devkit/xemu/sittings/pack-roll.toml [--dry-run]
+# p9 measured the roll 3.27 m -> 6.53 m in 21 ticks (x1.999).
+
+[sitting]
+name = "pack-roll"
+step = "X.9"
+wait = "4h"
+
+[build.roll2]                          # from the vanilla ISO into a scratch folder, before the slot (D27, D36)
+enable = ["player_physics"]
+params = { player_physics = { roll_speed_scale = 2.0 } }
+
+[[case]]
+id = "roll-vanilla"
+start = { boot = "vanilla", place = "vanilla-exit" }
+do = { capture = 60, schedule = { 2 = "down lstick_up", 20 = "down black", 22 = "up black", 50 = "up lstick_up" } }
+measure = ["roll", "states"]
+expect = { roll_ticks = 21, roll_m = [3.0, 3.6] }
+
+[[case]]
+id = "roll-x2"
+start = { boot = "roll2", place = "vanilla-exit" }
+do = { capture = 60, schedule = { 2 = "down lstick_up", 20 = "down black", 22 = "up black", 50 = "up lstick_up" } }
+measure = ["roll", "states"]
+expect = { roll_ticks = 21, roll_m = [6.0, 7.2] }

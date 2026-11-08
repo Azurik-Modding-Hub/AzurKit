@@ -11,6 +11,7 @@ memory read is synthetic, no game bytes."""
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import math
 import os
@@ -292,6 +293,23 @@ def test_the_harness_passes_its_offline_selftest_with_no_xemu_and_no_fixtures(ca
     from devkit.xemu import oracle   # macOS's own calls: imported here, so the file collects on every platform
 
     assert oracle.selftest() == 0, "\n".join(line for line in capsys.readouterr().out.splitlines()
+                                             if line.startswith("FAIL"))
+
+
+@pytest.mark.xemu
+@pytest.mark.parametrize("kit", ["sitting", "sittings.model_kit"])
+def test_the_sitting_kit_and_its_model_rows_pass_their_offline_selftests_with_no_xemu(kit, capsys):
+    """Step 4.14a3 (D11): the sitting kit on stand-in sandboxes, launching no xemu: a capture's public copy holds
+    positions only as deltas, REPORT.txt's generated part is rewritten around the agent's findings, the teardown runs
+    after an error or a signal, a sitting yields its slot to one that waits, two serves pull one queue file, an owner
+    demo never idles out, a held game is told by its census, the game's cheat codes and the debug menu's warp go in
+    by real input, and each example spec resolves while a bad one names every problem; and the model rows on a fake
+    row: its fresh process, boot and steps, a lost tick ending it, the zipline's and the camera's judges, and the
+    frame's cost warned past vanilla's heaviest frame, never refused (D603), a real-time drop drafting the fork's
+    request (D604)."""
+    module = importlib.import_module(f"devkit.xemu.{kit}")   # macOS's own calls: imported here, as the harness
+
+    assert module.selftest() == 0, "\n".join(line for line in capsys.readouterr().out.splitlines()
                                              if line.startswith("FAIL"))
 
 

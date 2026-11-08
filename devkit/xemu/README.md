@@ -6,6 +6,8 @@ owner demo's, at volume 0 (D108). Its verb:
 
 ```bash
 uv run --locked python -m devkit xemu oracle CMD [ARGS ...]   # the harness (below); also python -m devkit.xemu.oracle
+uv run --locked python -m devkit xemu sitting CMD [ARGS ...]  # the sitting kit: run a spec, serve, exec, queue
+uv run --locked python -m devkit xemu demo CMD [ARGS ...]     # the owner demos: record, replug, add-body, replay
 ```
 
 - `oracle.py`: the harness (Step 4.14a2, Modkit's `scripts/xemu_oracle.py`
@@ -17,12 +19,17 @@ uv run --locked python -m devkit xemu oracle CMD [ARGS ...]   # the harness (bel
 - `queue.py` and `warm.py` (Step 4.14a1): the sittings' first-come tickets
   and the batch token that gives way to them; a sitting's warm build
   states.
+- `sitting.py`, `sittings/` and `demo.py` (Step 4.14a3, Modkit's
+  `scripts/xemu_sitting.py`, `scripts/sittings/` and `scripts/xemu_demo.py`
+  ported): the sitting kit and its example specs, the model-swap rows
+  (`sittings/model_kit.py`, the frame's cost and rate: D603, D604) and
+  the owner demos' recorder; builds through AzurKit's own (`sdk.build`).
 
-The sitting kit, its model checks, the owner demos' recorder and the
-`azurik-xemu-oracle` skill come with Step 4.14a3; the chain, route and
-minigame sittings with the reach engine. Until then the sittings run
-Modkit's kit; both harnesses share the slots folder, the owner-demo lease
-and the private store, so they keep one D108 budget.
+How to sit is the `azurik-xemu-oracle` skill (`.claude/skills/`), which
+only a seat that sits loads. The chain, route and minigame sittings come
+with the reach engine (Step 4.13d2). Modkit's kit and this one share the
+slots folder, the owner-demo lease and the private store, so they keep
+one D108 budget while Modkit lives.
 
 ## The harness: `python -m devkit xemu oracle`
 Dev-only ground truth from the owner's macOS xemu fork (REORG_PLAN
@@ -543,7 +550,7 @@ vblanks, the same RAM. `frame_advance(n, trace=[{"address", "size",
 every Kth vblank (the last always), read before the guest sees it.
 **Input recording (v0.14-36):** `up --record PORT`,
 `Sandbox(record=PORT)` or the kit's `serve --record PORT` (an owner
-demo adds `--window --owner-pad PORT`, `xemu_demo.py`) set
+demo adds `--window --owner-pad PORT`, `demo.py`) set
 `XEMU_INPUT_RECORD`: every vblank, what that port's pad gave the guest,
 as pipe lines tagged `+N` from the last load into `W/input-record.txt`
 (a relaunch keeps the last as `input-record.<n>.txt`), a `# load` line
@@ -1095,3 +1102,611 @@ second `up` refused at loads of 25-42 while one ran). The first live sitting
 still owes one `jump` and s6's S1 jump on a clone (v0 4.849742 from
 `vanilla-beach-shield5`). pytest runs only `selftest`,
 its offline checks of its own logic (D11).
+
+## The sitting kit: `python -m devkit xemu sitting`
+The xemu oracle's sitting kit (Step X.9): what every sitting of
+2026-10-13 copied into its evidence folder (an exec server 14 times, the
+R2/R6/R7 RAM recipes 15 times, a queue script, a REPORT header by hand)
+and lost runs to bugs in the copies. Dev only like the harness (D11):
+pytest runs only its offline `selftest` (`tests/test_xemu_harness.py`,
+marked `xemu`). The RAM recipes themselves are
+`src/azurkit/tools/randomizer/live/recipes.py` (pure, shared with L3's
+`teleport`).
+
+```python
+from devkit.xemu import sitting as xs
+with xs.Sitting("roll", step="X.9") as s:      # queued for a slot; a private folder; teardown always runs
+    s.record_spot("vanilla-exit")              # a state's spot, kept in memory
+    s.boot(build)                              # Sandbox.boot_build: the build at vanilla-ig-w1's save
+    s.place(spot="vanilla-exit")               # R6, the game's own place request; s.place(feet, yaw_deg);
+                                               #   at rest (AZ-437: its velocity zeroed); settled: the body
+                                               #   ends within tol_m (1.5 m) of it (AZ-409)
+    s.kit(water=1); s.frags("fire", 3)         # R2: the exact kit (other elements 0), fragments 1..n
+    s.hop("levels/fire/f6", "bossPlatformShape1")   # R7, then steady ticks in the new level
+    cap = s.capture(60, {2: "down lstick_up"}, label="roll", hold_hp=400)
+    s.result({"case": "roll", "ticks": len(cap["rows"])})
+```
+
+`Sitting(name, step=, ev=, wait_s=, lease_s=, keep=)` takes a slot through the
+harness's queue (`Sandbox.up`, default wait 4 h), makes a private folder
+(`/tmp/<name>-sit.*`, mode 700) and uses the evidence folder `ev` (default
+`xemu-oracle-<date>-<name>/` in `$EV`: `results/runs.jsonl`, `captures/`,
+`logs/session.log`, `REPORT.txt`). Its teardown always runs, after an
+exception, SIGTERM or SIGHUP too: `down` (the baseline check), the
+L3 snapshots it took deleted, the generated part of `REPORT.txt`
+rewritten (the sandbox, xemu build with the path of the app it cloned
+and its binary's sha256[:12] (AZ-482), disc sha256[:12], slot wait,
+launches and relaunches, boots, the baseline check; since Step 2.173 a
+WARNINGS block of every results row's `warn` lines, D603's and D604's
+frame-cost and frame-rate warnings; the agent's findings below it are
+kept) and the private folder deleted. Only SIGKILL skips
+it (then the slot's lease frees the slot, never the xemu). A signal that
+lands inside a callback that swallows its `Teardown` (a unicorn hook in
+an L3 step) still ends the sitting: the error the step then fails with
+is the signal's, so the case runner raises `Teardown` in its place (and
+after a case that ran on past it: no row, no next case), the exec server says so and tears down, and the report reads "ended by
+signal" rather than an L3 failure (AZ-396).
+
+**Voluntary yield.** A long sitting gives its sandbox up to a waiting one:
+`maybe_yield()`, which `run` calls between case attempts and `serve`
+between requests, downs the sandbox once it has run `lease_s` (default
+45 minutes, P8's batches; `lease = "45m"` in a spec, `serve --lease S`)
+and a ticket waits in the harness's queue, then queues again at the back
+(a new ticket, D108's rule as for any sitting). With no one waiting it
+keeps its sandbox. Its warm build states go with its W; nothing is ever
+killed for load (D108).
+
+**Shared boots and a held sandbox (Step X.81d).** Every `Sitting` on one
+evidence folder shares its warm build states (`Sandbox(warm_sitting=)`,
+above under `boot-build`): each build and tag boots cold once a sitting
+in a null sandbox, and a later sandbox loads it in about 0.3 s (null;
+2.9-5.8 s offscreen against 11 s to minutes cold). A sitting's run that
+ends (no signal, no `keep`, no sitting waiting for a slot) holds its
+sandbox `xo.HOLD_S` (300 s: 90 % of a sitting's next sandboxes since
+10-22 asked within 289 s of its last teardown) instead of `down`
+(`Sandbox.hold_for_sitting`: its xemu quit, the run logs' findings and
+the sources' baseline checked as `down` does them, W and its slot kept,
+a record in `/tmp/azx-xemu-slots/held/` and a reaper, `oracle
+unhold`, that downs it unless claimed); the sitting's next run with the
+same sandbox arguments takes it while no sitting waits in the queue
+(`Sandbox.claim`: a fresh xemu process on the same W, its drive and
+staged discs, its slot kept: no queue, no admission test; the last run's
+logs, events and slot wait set aside), the report saying `held` and
+`admitted at once`. A waiting sitting goes first: a launch the admission
+rule refuses takes a held slot (`release_held`), so a hold never keeps
+another sitting out;
+`slots` lists the held ones. `fresh=True` (`serve --fresh`, a spec's
+`fresh = true`) opts out of both: a version-adoption sitting, which
+cold-boots on purpose; an owner demo never shares.
+
+Helpers: `tick()`, `chain()`, `level()`, `inventory()` (decoded by name),
+`boot()`, `loadvm()`, `kit()`, `frags()`, `set_hp()`, `hold_hp(hp)` (a
+capture `on_tick`), `record_spot()`, `place()`, `hop()`, `clear_dialog()`,
+`capture()` (the raw JSON in the private folder, a public copy in
+`captures/` with every position relative to its first row: `scrub`),
+`l3_replay(segments)`, `screenshot(name)` (QMP `screendump` into the
+evidence folder's `screens/`, offscreen or windowed) and `result(row)`
+(each row tagged with its sandbox, this sitting's name, and appended
+under the file's lock).
+
+**Held games and the guest's strings (Step X.45).** `boot()` and
+`loadvm()` are quiet by default (`quiet=False` not; an owner demo never):
+every first-pickup popup marked seen (inv+0x14, as
+`xemu_chain.boot_start` does), so no hint popup holds the player tick
+(AZ-484). A capture that stops for want of the tick takes a census of
+what holds the game (`census()`: the scene tick's exits and the
+first-pickup bits; `meta["held_by"]`'s class `popup`, `dialog`, `hold` or
+`tick`); an unlabelled capture writes no public copy. `with s.watch():`
+(the model kit's rows) turns a lost tick, in a capture or `tick()`, into
+`s.Hold` with that census and one `eip_sample()` (the EIP, the interrupt
+flag and the stack's .text and SHIMS words): the row ends there, the
+held capture's public copy written. A guest that bugchecked or halted
+dead since the watch began (Step X.96) is named by xemu's own report
+instead (`info["bugcheck"]`: the code, parameters, KeBugCheckEx's
+registers and the trap frame's EIP, Step X.94; class `bugcheck`), with
+no census, run or stack read.
+`hold_targets({critter: hp}, log)` is the checked target hold (a capture
+`on_tick`): each critter's HP held while its vtable and +0x178 are as
+when it was made, a freed and reused one skipped and logged (AZ-530).
+`guest_str(va)` reads a string as a known name or `sha12:<hash>`.
+
+**The game's own cheat codes and level warp (Step X.17).** `cheat(name)`
+enters one of the ten native codes (`CHEATS`: `menu`, `refill`,
+`no_damage`, `free_camera`, `gems`, `big_head`, `regen_fx`,
+`debug_lighting`, `save_anywhere`, `fast_clock`; what each does:
+`docs/RE_XBE.md` § "Native cheat UI") with real pad input through the
+pipe, frame by frame at the cheat handler 0x15DA0 (`cheat_tick()`), and
+stops at the code's action. `warp(level, spot=None)` opens the debug
+menu with the `menu` code, walks "Change level..." to the level's row
+(`levels/fire/f6`: every level but training_room and selector) and
+presses START: the game posts the request a levelSwitch posts, arriving
+at `startspot`; a `spot` other than that is written into the request as
+the row posts it (one RAM write: placed). Then `hop`'s steady ticks.
+Sitting x17 (2026-10-14): 7.5-15 s from a running game, the arrival,
+HP and inventory the same as an R7 `hop` to the same spot, the cheat
+state clear after. It needs a game in a level with no popup up, and
+plays the disc in the tray (hazard 8 of the skill holds).
+A sitting runs on the fork build null and deterministic by default
+(Step X.22: replays, verifications and snapshots); `headless="1"` (`serve
+--headless 1`, a spec's `headless = "1"`) offscreen for a sitting that
+needs pictures, which its report's header marks not deterministic unless
+it asked for `deterministic` too (`--deterministic`, `deterministic =
+true`: pictures that reproduce, Step X.26); `"0"`
+(`--window`) for a visible window, `app="kept"` for the build that made
+the D98 states.
+
+```bash
+uv run --locked python -m devkit xemu sitting serve <name> [--ev DIR] [--wait S] [--idle S] [--fresh]   # background
+uv run --locked python -m devkit xemu sitting exec <private>/exec.sock driver.py              # or - for stdin
+uv run --locked python -m devkit xemu sitting exec <private>/exec.sock --end                  # teardown
+uv run --locked python -m devkit xemu sitting queue <file> <name> [<name> ...] --ev DIR      # N serves at once
+uv run --locked python -m devkit xemu sitting queue <file> --add d1 d2 end                     # append, locked
+uv run --locked python -m devkit xemu sitting selftest                                         # offline checks
+```
+
+`serve` is the exec server: one process keeps the sandbox (and any
+reach models) across short driver calls, since an agent's shell keeps no
+state. It prints its socket (in the private folder, 0600); each `exec`
+runs a driver in one shared namespace (`s`, `sb`, `xo`, `xr`, `recipes`,
+`l3`, `result`) and prints its output or traceback, holding W's QMP turn
+(`W/qmp.turn`, a flock: `xo.qmp_turn`, AZ-644) for the whole request, so
+a demo's watchers (`demo record`, `replug`) never meet its QMP
+(W's QMP serves one client). `--end`, `--idle`
+seconds with no request (default 1800) or a signal ends it with the
+teardown above. An owner demo's `serve` (`--owner-pad`, `demo.py`)
+never idles out or yields, and keeps W and the private folder unless
+`--no-keep`. It writes its socket's path to `logs/sock-<name>.txt` in its
+evidence folder.
+
+**The queue (Step X.45).** `queue <file> <name>... --ev DIR` runs a queue
+file's drivers (a line each: a driver's path or a name in `DIR/drivers/`;
+`end` stops) on several serving sittings at once, the serves of one
+step's evidence folder (USA lane, USA main and Europe sandboxes side by
+side, D263's admission): a worker per serve takes the next line under the
+file's lock, runs it there and writes its output to
+`logs/<driver>.<name>.txt` and a line to `logs/queue.log`. Their rows go
+to the shared `results/runs.jsonl`, each tagged with its sandbox, and each
+sitting's teardown also keeps `results/generated-<name>.txt` (the shared
+REPORT.txt's generated part is the last teardown's). Add lines with
+`--add` (a take rewrites the file, so a `>>` append can be lost); an add
+drops an `end` already there, which would stop the lines added after it,
+so end the added lines with their own `end`. A serve
+that is gone puts its line back and stops its worker; `--until-empty`
+stops at an empty queue. It replaces the sittings' copied `qrun.sh`, whose
+head/tail/mv lost or doubled rows with two runners.
+
+**Declarative sittings.** Most sittings are one shape (start somewhere,
+set a kit, place, act, measure, record), so a short TOML spec states it
+and `run` runs it; Python stays the escape hatch (`do = { py = "d.py" }`,
+run in the exec namespace). Examples: `devkit/xemu/sittings/pack-roll.toml`
+(a pack sighting: `roll_speed_scale` 2 against the vanilla control, after
+p9), `proven-spot.toml` (D157: an exact kit, a hop, the route pilot to a
+location, the inventory before and after, after r111d) and
+`l3-replay.toml` (an L3 input string replayed in xemu, after X.6).
+
+```toml
+[sitting]
+name = "pack-roll"            # the sandbox group, the evidence folder's suffix; step, ev, wait ("4h"), lease, keep,
+                              # headless ("null" by default: deterministic; "1" offscreen for pictures, "0" a
+                              # window), deterministic (true with "1": pictures that reproduce), app ("kept" or a path),
+                              # fresh (true: no shared warm boots, no held sandbox: a version adoption's)
+[build.roll2]                 # from the vanilla ISO into a scratch folder before the slot: packs, or cli = [...]
+enable = ["player_physics"]
+params = { player_physics = { roll_speed_scale = 2.0 } }
+[[case]]
+id = "roll-x2"                # repeat = N, retries = 1 (an xemu that dies: relaunch, run the case again)
+start = { boot = "roll2", place = "vanilla-exit" }     # boot (+ tag), loadvm, kit, frags, hop, warp, place, hp
+do = { capture = 60, schedule = { 2 = "down lstick_up", 20 = "down black", 22 = "up black" } }
+measure = ["roll", "states"]  # jump, roll, hspeed, states, hp, inventory
+expect = { roll_ticks = 21, roll_m = [6.0, 7.2] }     # a value, or [lo, hi]
+```
+
+A case's `do` is one of `capture` (with `schedule`, `hold_hp`, `bps`),
+`walk_to` (the route pilot; `level`, `prof`, `tier`, `air`, `ticks`; its
+router is built before the slot), `l3_replay` (segments, inline or a JSON
+file beside the spec; `scene`) or `py`. `run --dry-run` checks the spec
+offline (unknown keys, builds' packs, tags the fixtures README lists,
+buttons, measures, files) and starts nothing. `run` then makes the builds
+(`results/builds.json` names their sha256[:12]; deleted after), records
+the spots cases place onto (in memory), and runs each case attempt into
+`results/cases.jsonl` with its labels (`booted`, `placed`, `real input`,
+`l3 replay`, `driver`), outcome (`done`, `pass`, `fail: ...`, `error:
+...`) and numbers; one case's error costs its row, not the sitting. It
+resumes: an attempt with a row (not an error) is skipped unless
+`--redo`. Exit 0 when every case passed or expected nothing, 1 otherwise,
+2 for a bad spec.
+
+## The model rows: `devkit/xemu/sittings/model_kit.py`
+The model-swap sitting's row families (Step X.45): what every model
+sitting from 2.75b to 2.105 copied out of the last one's evidence folder
+(2.105's drivers: 10,123 lines, 18 names defined twice, `capture`, `tick`
+and `clear_dialog` monkeypatched), once each, from Step 2.105's last
+working versions, on `sitting.Sitting`. Dev only (D11). A driver run
+in a serve:
+
+```python
+from devkit.xemu.sittings import model_kit as mk
+k = mk.kit(s)                                                    # one per sitting
+k.row_zip("C0-zip", "usa", "6989c84e96eb", pics=False, cast=True)   # or a build's ISO path and its sha12
+k.row_ladder("C0-brk", "usa", "6989c84e96eb", cast=True)
+k.row_combo("C0-chk-e7", "usa", "6989c84e96eb", runs_n=4)
+k.row_sentinel("C0-sent", "usa", "6989c84e96eb", drs=((3.6, 1),), press=False)
+fb = mk.frame_body(characters_xbr, "golem")                      # the build's body: its bones and pad
+k.row_frame("GO-frame", iso, sha12, frame=fb, s=2.111)           # f6, a1, f3, w1, each capture's frame scored
+k.row_swim("GO-swim", iso, sha12, frame=fb, s=2.111, sink_m=14.9)   # w1's ocean: rest, sink, rise, input, out
+C = k.row_cost("FC-ctl", "usa", "6989c84e96eb")                  # Step 2.173: a1, w1, e2 x 4 phases, per-flip counts
+B = k.row_cost("FC-b", iso, sha12, control=C)                     # the build's, warned against vanilla's (L1)
+rt = k.rate_pairs("FC-rt", iso, sha12, scene=B["frame_cost"]["heaviest"]["scene"])   # in a real-time sitting
+off = k.rate_pairs("FC-off", iso, sha12, scene=rt["scene"])       # in a deterministic offscreen one: host ms
+k.rate_verdict("FC-v", B, C, rt, recipe="build ...", iso=iso, offscreen=off)   # L3; a drop drafts the request
+```
+
+```bash
+uv run --locked python -m devkit.xemu.sittings.model_kit selftest   # offline: one fake row, the judges
+```
+
+A row records the D98 spots it places onto (`record_spot`, memory only;
+in the last row's process, or a fresh one where that xemu died), runs in
+the last row's xemu process unless a relaunch is due (Step X.96, `fresh`,
+`relaunch_due`, the row's `fresh`: its boot restores the warm state from
+the process's in-memory checkpoint or loads it; the process lost, a guest
+bugcheck or dead halt or a hung advance in it, a sandbox whose boots walk
+the wall clock (AZ-628), a build before v0.15's load fix, or a rate row
+(D604: it times a process of its own) relaunch on the same W first), boots its build (quiet; its ISO's
+sha12 checked: `iso_ok`) and runs its steps watched (`Sitting.watch`: a
+lost tick ends it with its census and one EIP sample, `hold`); an error
+costs its step, not the row; one `results/runs.jsonl` row with its
+pictures. The families: `row_zip` (f3: the teleport start, the walk-in
+ride and its let-go, the placed ride, the ride to the cable's end (on
+past its dismount's landing with `after`), the floor cast, the pictures,
+the let-go with a flap; Step 2.107's `zip_land`, a let-go over the end's
+floor that lands), `row_ladder` (a1: over the top, with pictures at
+chosen ticks by `ladder(pics=)`, jumped off, the floor cast), `row_combo`
+(e7: the keylord arena, each run's targets' HP held checked, AZ-530; each
+swing judged; booted loud, as `quiet=False`: Step 2.107's sitting saw a
+quiet boot move e7's arena at the first run, and a loud one give 2.105's
+row; each run carries the world on from the one before, unless
+`same_state=True`, Step 2.189a: each run then starts from the row's own
+state after the cheat, an in-memory checkpoint, its first press a tick
+later than the run before's; the no-damage code holds a WHITE press,
+which X36 takes as a set press, so `cheat_nodmg` presses WHITE until X36's
+state reads set 1 again, and `attack_set(k)` selects another, read back
+from the build's X36 state, `sets_at`, its result's `err` naming a set 8
+presses didn't reach, on which `combo` stops the row: sitting 2.175a's
+beam557 row and 2.189a's town_male_6 rows had played set 2) and
+`row_sentinel` (f6's lone blaze sentinel at a distance less radius, and a
+fresh press on the stunned one), and Step 2.107's `row_frame` (the
+frame at f6, a1, f3 and w1) and `row_swim` (w1's ocean at rest, sunk and
+risen, the top held 1 m under with the right stick's pitch and RT, out
+onto the beach, the jump out); with `frame_on(pad, s)` every capture
+through `cap_cam` also scores the frame per tick (`frame_score`: the
+posed bones' box, padded by `frame_body`'s bind mesh less bind bones,
+under the world, view and projection the player is drawn with, read at
+its draw 0x3F075 / 0x3E887; X8's point after X20; the eye over the
+surface; since Step 2.116 the drawn origin's step per tick from the
+world matrix's row 3, `d_origin_m`), one `results/frames.jsonl` row a
+capture of numbers only and its summary in the row's `frames`; the
+line-of-sight sweep's read at 0x80C3A (`rd_sight`, Step 2.116) keeps per
+tick, beside its AL, the game's hit fraction, the hit's distance from
+the point and the camera's blocked timer (`c3a_hit`); since Step 2.116b
+`xz` also reads the booted build's shim words per tick (`shim_words` at
+the boot, from the build's own hooks: X29's swap count `x29_swaps`, X8's
+swim side `x8_under`; since Step 2.116d B2's `b2_holds` in X19's
+regrow landing; since Step 2.116e R1's hold in X29's latch landing,
+`r1_base_p`/`r1_base_d` and `r1_last_p`/`r1_last_d` as float bits,
+`r1_camera`, `r1_held` (1 the pitch, 2 the distance), `r1_snap`, `r1_off`
+(the call held off: the rest place in the push's band), `r1_restores`,
+`r1_acts` (calls whose push changed a wanted value: the push's act read
+from the shim, where the kit's band test is filed a tick early),
+`r1_inband`, `r1_snaps` and `r1_easing`; each `WORDS` entry is (key,
+hook, symbol, offset); a tick's camera record, read as the update starts
+(0x81277), shows the update before it, so at a change it lags the tick's
+shim words by one: pair the words at k with the camera at k + 1, Step
+2.116e's skeptic; since Step 2.156 X41's `x41_steps`, `x41_resets` and
+`x41_build`, the anim it jiggled last, 0 on any build that wasn't the
+player's). Since Step 2.156 a build with X41 also gets `jiggle_at` at the
+boot (its shown words and row count) and `xz` reads `jg` per tick
+(`jiggle_now`: per spring row the offset in mm as drawn, side, forward
+and up, the roll and yaw, the raw radius over the travel, the clock it
+stepped at and the squash's three scales, D481); `jiggle_trace(label, rows)` writes them with the steps,
+resets, state and centre's speed (over that clock, so right at 30 and
+60 Hz) into the private folder (0600) and returns
+`jiggle_metric`'s numbers (per row the peaks, the largest move in a tick
+and the ticks over 10 mm: the AZ-648 metric, the extrema up and forward
+over 5 mm, the raw radius's largest); `jiggle_sheet(label, names, rows,
+beside=)` composes the sitting's pictures `names` in a row, a control's
+`beside` under them (MB under RT) and the offsets per tick plotted under
+both into `screens/sheet-<label>.png` (`contact_sheet`, with its own PNG
+reader and writer: pictures of the game, never committed). The f6, a1 and w1 families are
+2.104's and 2.105's: `ground_cam` (at rest, or a walk or run),
+`jump` (and a flap), `runoff` (with `watch`, each hit on the player:
+its tick, attacker and damage), `pit`, `wall_rest` (its distance's
+reversals counted with a 1 cm hysteresis, `reversals`, so the regrow's
+creep along a wall isn't one), `swim_rest`, `swim_sink`, `waterjump`.
+Since Step 2.123 a hit read at 0x4323C carries the target's hit timer
+`ht` (positive: the game drops the hit, so a swing's `blocked` hits
+deal nothing), each swing names the tick the staff clanked on a wall
+(`clank`, 0x8CC21: the move ends undamaging), and `swim_input` starts
+from its own capture's camera reading (the last capture's flipped its
+stick at × 0.5).
+`k.quiet` sets the boots' quiet (`Sitting.boot`'s; None its default). Their parts (`zip_teleport`,
+`placed`, `pic`, `cam_ticks`, `cam_judge`, `sweep_down`, ...) are for a
+step's own rows. `trace_cmp(lane, main)` compares two of the sitting's
+private per-tick traces (`<rid>-T`, `<rid>-E`: the centre and +0x168) by
+their differences only, so a lane row and its main row run on one serve.
+The bone, step and floor readers take the origin the model is drawn
+from (`od`; since Step 2.106 0x42070's blend of +0x1B0 to +0x1BC during
+a glide, `glide_t`, where they read the glide's start before), and the
+floor cast takes a length and gives the hit's normal z and flags.
+**The frame's cost (Step 2.173; the owner's D603, "measure and warn,
+never refuse", and D604):** `row_cost` boots at a1's save, warps to w1
+and e2, settles each (`settle`: 30 ticks, then until the stick is the
+player's, `free`: a1's save holds it about 500 ticks, its opening
+camera's flips about six times a played flip's triangles), then runs
+four phases of 300 vblanks each (`phase_lines`: idle; turn, the left stick swept -1..1; run_stop,
+forward 60 vblanks and let go 90, twice; attack, A every 12 vblanks)
+with per-flip counters and their times (`cost_phase`), every scene's
+`frame_cost` in the row's `frame_cost.scenes`. Run it on the vanilla
+disc as the control, then on the build with `control=` (a row or a list
+of boots) or a `ceiling=`: the build's row then carries
+`frame_warning`'s L1 lines in `warn` (the report's WARNINGS: a steady
+flip past vanilla's heaviest times `BOOT_NOISE`, 1.316, however many
+controls: sitting 2.173-fc's two cold vanilla boots were up to 1.13x
+apart, and the max of three cold boots doesn't bound a fourth), its notes,
+its `heaviest` scene and `realtime_due` (L1 fired, or `realtime=True`).
+Then, in a real-time offscreen sitting (`Sitting(headless="1",
+deterministic=False)`), `rate_pairs` runs `RT_PAIRS` alternated
+control-then-build `row_rate`s on that scene, each a fresh process
+with the NV2A counters off (`rate_phase`, Step X.68; the cost rows keep
+them), its flips counted without them, each boot's binary and load
+kept (`boot_load`, `run_how`) for the draft
+(their `per_vblank` the frame rate the owner sees; in a deterministic
+offscreen sitting their `wall_ms_vblank` is the render's host time,
+which `rate_verdict(offscreen=)` puts in the draft),
+and `rate_verdict` judges L3, writes its row with the frame-rate line
+and, where the rate fell, `frame_request`'s draft:
+`xemu-fork-requests-<date>/FRAME-<build sha12>-<level>-<phase>.txt` in `$EV`,
+for the owner to relay to the fork (D604; an L1 warning alone writes
+none). Deterministic counts are exact but hide the host's cost, so only
+the real-time pairs say the frame rate fell. A model or pack sitting
+whose build changes what is drawn runs `row_cost` by default. It leans
+on xemu (D601).
+Readers give offsets, distances, ticks and VAs; each VA
+goes through the sitting's region map, so a Europe row needs each VA it
+breaks on in the facts' Europe map (`src/azurkit/core/facts.europe.json`). A kit fix found in a sitting goes into
+this module in that step's record commit.
+
+
+## The owner demos: `python -m devkit xemu demo`
+
+The owner-demo kit (D205, D207; Steps X.27, X.28, X.31a, X.32b, AZ-397):
+two watchers beside an owner's demo sandbox that read its guest RAM
+through the fork's PC hooks over QMP (v0.15) and the sandbox's
+`XEMU_RAM_SHM` (no guest stop, no gdbstub: the page directory is the
+one the RAM holds, found as the live tracker finds it and checked every
+2 s, found again if it moved, AZ-438). The sandbox is
+`oracle up <group> --window --owner-pad PORT --record PORT` or
+the kit's `serve <name> --window --owner-pad PORT --record PORT`
+(`Sandbox(owner_pad=)`, `Sitting(owner_pad=)`): the owner's pad (the
+fixtures' GUIDs: the first on PORT, the other on port 3, auto-bind on)
+in the sandbox's own `xemu.toml`, volume 0, refused in any but a
+windowed real-time sandbox. The binding holds for the sandbox's life and
+the pipe drives only the keyboard pad: port 2 replaces it, so no warp,
+`cheat` or `boot_build` there (set up with `loadvm`, `hop`, the kit,
+`place` and `savevm`, or first in a `--keep` keyboard sandbox, tags
+`vanilla-rzp-*`, then start the demo on its drive with
+`AZURIK_XEMU_HDD`); port 1 keeps it on port 2, with `replug` after each
+load (a modded build's demo). A demo's `serve` never idles out or
+yields, and keeps W (`input-record.txt`, its states) unless `--no-keep`
+(skill §4.9). The kit handles the demo's hazards (AZ-466): `up` and
+`relaunch` refuse a launcher at a nice above 0 (zsh's `bg_nice`); a `loadvm` or `unpark`
+waits (15 min at most, saying so) until `info usb` lists the owner's
+pad's hub (`Port 1.3,` for port 1), which a state saved with the pad
+needs, and plugs the replug watcher's demo hub (1.1) when the state was
+saved here with it (`Sandbox.plug_pad`); `savevm` saves under a disc in
+W (the image its loads put back) and says so, and a load of a state
+saved elsewhere says when xemu's Snapshots menu asks (Load Anyway):
+it loads one without asking when the tray holds its image (a v0.15+
+save's fingerprint, or its saved image file) and refuses none (Step
+X.104). Start a
+demo at a level's arrival or a save platform: an R6 placement far from
+the loaded area shows no geometry (X.35).
+
+```bash
+uv run --locked python -m devkit xemu demo record <W> <trace.jsonl> [--meta META]        # META default W/demo-meta.json
+uv run --locked python -m devkit xemu demo replug <W> <log> [--once]
+uv run --locked python -m devkit xemu demo add-body <sock> <body> [--mode own|garret4] [--size own|garret4]
+        [--level w1|f6] [--no-load] [--meta META] [-- <more azurkit build args>]      # or: add-body <sock> --vanilla
+uv run --locked python -m devkit xemu demo replay <W> <trace.jsonl> --lines A:B --tag TAG --out RES [--demo-meta META]
+        [--like DEMO_TAG] [--owner-snapshot] [--cams CAMS] [--snapshot-as LABEL] [--check-snapshot LABEL] [--no-pin]
+        [--diverge 0.5]
+uv run --locked python -m devkit xemu demo fit-cams <trace.jsonl> --lines A:B --snapshot LABEL --out CAMS [--scan 12]
+```
+
+- `record`: one JSONL row per change of the player's event clock
+  (state, body, facing, velocity, flaps used, HP, armor, air gauge, the
+  active ControllerState, inventory changes, the meta's switch and timer
+  nodes on change, every critterGenerator's numDead (`dead_all` after a
+  resolve, `dead` on change: a boss's death too, AZ-479), missed ticks
+  at the game's own rate, each state load
+  (the run log's `xemu: state loaded`, the tag `note_tag` saved matched
+  by clock and level, never one saved with another disc than the tray's,
+  which the load's row names, `disc`; tags whose clocks the load can't
+  tell apart, as two builds' boot tags, name none and are listed,
+  `tags`: AZ-612). **On v0.15 (Step X.32b, AZ-518)** each row is
+  taken at the player update's RET by a PC hook (`HookRows`; the meta
+  line says `rows: ret`, a row `ret: 1` and `f` its frame): the hook,
+  keyed on the event clock, collects the row's regions by address
+  expressions from the scene pointer (`ROW_HOOK`), so every field is the
+  same tick's (the update moves the clock at 0xAB830, before its state
+  machine, so a poll could read a new clock with the tick before's state,
+  state time or body) and the pad is the one the input builder read (no
+  `pad_alt`). The level's watched nodes and its generators' numDead come
+  from collect hooks at the same RET whose regions are expressions from
+  their record indices (`node_hooks`, set when the level changes, the
+  generators found by vtable in the shared RAM), evaluated at every tick,
+  so a load, a reload or the game's own respawn is followed from the next
+  tick (AZ-479). One `xemu-hooks-drain` every 50 ms takes the rows', the
+  nodes' and the camera's records without pausing the guest; setting a
+  hook pauses it for a few ms, as the camera's does (xemu sets hooks
+  only on a stopped VM: at the start, and at a level change with nodes
+  to watch). Node hooks QMP didn't take (held by the harness's load)
+  are tried again 1 s later, the rows meanwhile without nodes; ones xemu
+  refused aren't; a `hooks` line says either, or a guest left paused by
+  a `cont` that failed. On an older build
+  the shared-RAM poller records instead (`rows: poll: <why>`): after
+  every load or clock jump it resolves the nodes again from their record
+  indices, so an in-game reload doesn't leave it reading stale
+  addresses, and after the game's own respawn, which moves them with
+  neither (a watched node's pointer changed: the row says `moved`,
+  AZ-479). After a relaunch it maps the new xemu's RAM and arms the
+  hooks again. The poller's pad (AZ-475): each poll reads it first, right after
+  the clock, exact (unrounded floats); a row's `pad` is the first read
+  after its tick, and where the last read before the tick differs that
+  one is `pad_alt` (a poll fell between them: the input builder read
+  one of the two; `pad_ms` apart). `demo.tick_pads(rows)` turns a
+  trace into per-tick float blocks (`pad_block`) with the alternative
+  where the recorder couldn't tell (one entry per tick: a gap's missed
+  ticks hold their places, the last pad read), for a replay driven tick by tick
+  (each block into ControllerState[pidx] at `INPUT_BUILD`, a capture's
+  `hooks`, the latches left to the game), which the fork's vblank-tagged
+  input record can't give once the session's ticks ran long. The camera
+  (AZ-508, Step TD.0): the builder reads it from a stack local at 0x85276,
+  so `record` arms the fork's PC hook there (`CamHook`: v0.15's
+  `xemu-hooks-set`, collecting [esp+0x14] and the entity's clock through
+  EBP; the fork installs a hook only on a stopped VM, so a running guest
+  is paused for the call, QMP `stop` and `cont`, a few ms; the meta line
+  says `cam_hook: armed` or why not, e.g. a build with no hooks; a re-arm
+  and the end clear only the recorder's own hook) and drains it over QMP
+  at each row (a connection per drain, 0.25 s at most): the row's `cam` is
+  what that tick's builder read, `cf` the hit's frame (so a trace shows
+  its ticks per frame), `cam_gap` the cameras of the ticks it missed
+  before it (a two-tick frame's first); the rows also
+  hold the contact normal +0xB8 (`nrm`), the fall reference +0x168
+  (`fref`) and the animation index (`anim`). `tick_pads` carries `cam`
+  (and a missed tick's own). A `STOP` file beside the trace (checked
+  every 2 s: delete it after the trace's `end` line), SIGTERM or SIGINT
+  ends it. Start it before the load a replay starts from: it marks only
+  the loads it sees. It talks QMP only in a pass that holds W's QMP turn
+  (AZ-644: the serve holds it for each request; a pass without it sends
+  nothing, `TurnQmp`), so it can run through a demo's whole setup: its
+  hooks are armed, and the meta line (a relaunch's `relaunched` line)
+  written, at the first pass with the turn; an arm whose QMP met another
+  client is tried again (only a build without hooks makes the poller);
+  drains wait in xemu meanwhile (an `idle` line says `serve_turn`), and
+  it re-reads the meta at each pass it changed by, so a tag saved and
+  loaded in one request is named when the request's rows drain.
+  The trace holds positions: keep it private.
+- `replay`: one run of a trace (its lines `A:B`, from the load row that
+  starts it; a later clock jump is refused) replayed tick by tick from
+  `TAG`: a paused load, then a run to the player's first update entry
+  with no tick lost (`start_at`); at each update entry the pad block of
+  the row the tick produces (the tick entering clock key c takes the row
+  with key c + 1) goes into ControllerState[active], at 0x85276 its
+  camera over [esp+0x14] (`--cams`' fitted one first, else the row's;
+  none: the game's own camera), and at the RET the body centre, state
+  and HP are compared with the row's (`TickReplay`); it ends at the
+  run's end, after 3 ticks in a row off (`--diverge` m, state or HP) or
+  on a stall. A poller's row that holds the replay's tick before's state
+  and state time where the replay moved on is marked `torn` and judges
+  nothing (AZ-518's marker, Step X.32b; the summary counts them); a RET
+  row never is. `--demo-meta` adopts the demo's tags first (a sandbox on a
+  clone of the demo's drive, `AZURIK_XEMU_HDD` at `up`), and `--like`
+  gives `TAG` a demo tag's disc and USB pads (an owner's Snapshots save
+  that `note_tag` didn't record); `--owner-snapshot` allows `TAG`, a `vm-*`
+  name, for this call (the owner's own Snapshots save on a private drive's
+  clone; never a July `vm-20260704*` state); a start whose clock isn't the
+  run's load row's is refused;
+  `--snapshot-as` takes the start's L3 snapshot first (for `fit-cams`),
+  `--check-snapshot` refuses a start that isn't that snapshot's; frames
+  are pinned (`pin_pace`) unless `--no-pin`. Prints the summary (ticks,
+  within 0.1 m, median and max error, the first tick over 0.1 m, state
+  and HP mismatches, cameras written); RES (mode 0600) holds the per-tick
+  results too: keep it private. RES, CAMS and `l3_gate`'s and
+  `l3_explore`'s outputs never replace a file (`l3.private_out`, Step
+  X.51): a name a file holds already, or one that differs from it only
+  by case (on this case-insensitive disk that is the same file: sitting
+  TD.0's `B-replay.json` replaced its `b-replay.json`), gets the first
+  free `.2`, `.3`, ... before its suffix (`b-replay.2.json`), said on
+  stderr; read the name it gives.
+- `fit-cams`: the camera per tick for a trace recorded without one
+  (X.36's M2), fitted in L3 from the run's start snapshot: on each tick
+  with the stick off rest, the yaw whose tick matches the row's body
+  centre, velocity (over 1 s) and facing (and, where the recorder kept
+  two pads, the nearer of the two), scanned round the last yaw and
+  refined; L3 goes on from the best. A tick where every yaw gives the
+  same tick (the stick steers nothing: a roll) keeps the last camera, as
+  one with the stick at rest does. CAMS (mode 0600) feeds `replay
+  --cams`. Prints the counts: fitted ticks and their error, and L3's
+  body against the trace's on every tick (`l3_off_from`: the first of 3
+  in a row over 0.1 m). The fit goes tick by tick; a poller's row that
+  holds L3's tick before's state and state time isn't fitted (`torn`,
+  counted: the last camera stays, the next whole row decides; Step
+  X.32b). Before that marker a row the recorder read mid-update (AZ-518)
+  misled it: on M2's part B the replay with
+  the fitted camera holds the trace within 0.0002 m on 315 of the 321
+  ticks up to the landing out of a roll (the other 6 single rows read
+  mid-update; with the game's own camera 295 drift past it from the
+  first stick input); there it takes the other pad at key 6566 from a
+  torn row and steps up into 0x100 at 6567 for every camera within 12
+  degrees, where the recorded pad doesn't; on part A it follows a torn
+  row at its first stick tick (sitting TD.0, 2026-10-18).
+- `replug`: the owner's pad bound on port 1 is gone for the game after a
+  load restores a USB state without it; 3 s after the game's pad handle
+  slot 2 empties, it re-plugs a hub at root port 1.1 and the pad at
+  1.1.1 over QMP (`--once`: now). On port 2 no re-plug is expected
+  [inferred, untried with the owner's pad]. It also logs, timestamped,
+  each change of `W/qmp.sock` (gone, replaced, or refusing a
+  connection; a connect probe every 10 s) with whether W's xemu is
+  alive: sitting x32 lost the socket with its xemu alive (cause open).
+  Its probes and re-plugs wait for W's QMP turn (AZ-644; a due re-plug
+  goes at the next 0.5 s poll that has it), and after a relaunch
+  (`sandbox.json`'s pid) it maps the new xemu's shared memory, so it can
+  run through the whole demo.
+- `add-body` (Step X.56): a body for the serving demo whose exec socket
+  is `<sock>` (`logs/sock-<name>.txt`), run from the demo's checkout; it
+  never launches anything. It builds in its own process, so the owner
+  plays on: `azurkit build --character '{"species": "<body>"}'`
+  (`--mode`, `--size`, and anything after `--`) from the vanilla ISO
+  into the serve's private `builds/` (`sitting.make_builds`; D27,
+  and a failed build stops before the serve is touched, D35), from the
+  checkout's tree as it is (it prints HEAD and says when HEAD isn't
+  origin/main or the tree has uncommitted changes; nothing is fetched
+  or moved); the same build of a clean tree is reused. Then one exec
+  request (`demo.add_body`, holding W's QMP turn, so the watchers
+  step aside and nobody stops them): the tag
+  `<serve>-<iso sha12>-<level>`; unless the meta holds it with its disc
+  already (a switch back: one load), the quiet boot at the level's save
+  (`vanilla-ig-w1` or `-f6`: SaveGame #1, `.text` and `SHIMS` checked,
+  a warm state, retries relaunching, a try that loads another level a
+  menu miss it retries), refused for another ISO or level; a boot or
+  tag that fails loads the tag loaded before it again (the body the
+  owner played; else the guest is let run) and the error stands;
+  the level's nodes noted once (`note_level`); 60 ticks in a row on the
+  ground at rest, a popup cleared by A (`ground`); `note_tag`; the level
+  the meta recorded for the tag checked against the booted one (AZ-645:
+  2.147's AE `-w1` tag was saved in e6), once more from the warm boot
+  state, then refused and dropped from the meta; one `runs.jsonl` row
+  (no positions); then, unless `--no-load`, 10 ticks run on (the load
+  of a tag just saved, the guest halted there, moves no clock, and the
+  recorder names a load by its clock jump) and the tag loaded (the
+  owner's pad waited for, as any demo load) and the guest let run (`replug`
+  re-plugs a port-1 pad 3 s later). `--vanilla` builds nothing and tags
+  the vanilla ISO (a setup's control, C0). It prints `TAG <tag>` and a
+  JSON line (`sha12`, `main`, `build_s`, `boot_s`, `ground`, `reused`,
+  `load_s`, `total_s`). Sitting X.56 (offscreen, both watchers
+  running) took 42.8-59.0 s from the command to the load by body
+  (balthazar up to 50.2 s, booblord at f6 59.0 s). The meta defaults to
+  `W/demo-meta.json`, `record`'s default too (`--meta` overrides either).
+- From a demo's setup driver (Python, the guest halted):
+  `demo.note_level(sb, iso, meta)` writes the loaded level's switch
+  and timer nodes (record and attribute indices) into the meta file;
+  `demo.note_tag(sb, tag, meta)` saves `tag` and records its clock
+  and level, and what a replay of it needs: its disc, the USB pads it
+  holds and the recorded port (AZ-439).
+
+USA VAs only. The harness's selftest checks the recorder on a fake
+(`python -m devkit xemu oracle selftest`). `note_level` reads the level
+through the minigames' reader and `fit-cams` runs L3: each comes with
+the reach engine's ports (`devkit.xemu.minigames`, Step 4.13d2;
+`devkit.sim.l3`, Step 4.13a).

@@ -21,8 +21,7 @@ line is plain and short, with no step, D or AZ ids, and true on `main`.
 | Home | Load it for |
 |---|---|
 | This file | the rules: setup and tests, game data, the goldens, porting from Modkit, packs, the randomizer, characters, the engine's contracts, the two hosts, commits and landing |
-| `azurik-game-reference` (`.claude/skills/`) | VAs, structs, ABIs, measured movement and armor numbers, patches whose bytes landed with no in-game effect |
-| `.claude/agents/` | the seats' roles (D951's `azurik-*` names): `azurik-builder` (Opus: build, fix, gate, sitting), `azurik-reader` (Opus, read-only: RE, reads, reviews, skeptics), `azurik-scout` (Sonnet, read-only: locate and cite), `azurik-mechanic` (Haiku: a command list handed over); `tests/test_agent_files.py` pins each one's model, effort and denied tools |
+| `azurik-game-reference` (`.claude/skills/`) | VAs, structs, ABIs, measured movement and armor numbers, patches whose bytes landed with no in-game effect || `.claude/agents/` | the seats' roles (D951's `azurik-*` names): `azurik-builder` (Opus: build, fix, gate, sitting), `azurik-reader` (Opus, read-only: RE, reads, reviews, skeptics), `azurik-scout` (Sonnet, read-only: locate and cite), `azurik-mechanic` (Haiku: a command list handed over); `tests/test_agent_files.py` pins each one's model, effort and denied tools |
 | `$EV`, the private evidence folder beside the main checkout | the brief (`$EV/tools/BRIEF.md`), the decisions, the ledger, plans, evidence and the tools the seats run (D951, D952); never copied into the repo |
 | Modkit (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout) | the reference: its skills and docs not ported yet |
 
@@ -1959,8 +1958,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   observation; the pad). It keeps Modkit's folders (`/tmp/azx-xemu-slots`,
   the owner-demo lease, the store) and its admission watches both repos'
   suite locks, so both harnesses share one D108 budget while Modkit lives.
+  A sitting runs on its kit (Step 4.14a3): `python -m devkit xemu sitting`
+  (a spec's cases, or a serve its drivers run in), the model-swap rows
+  (`devkit/xemu/sittings/model_kit.py`: the frame's cost warned, never
+  refused, D603, D604) and the owner demos (`python -m devkit xemu demo`);
+  its builds are AzurKit's (`sdk.build`), and how to sit is the
+  `azurik-xemu-oracle` skill, which only a seat that sits loads. Agent
+  save states never go on the oracle's drive (D102).
   No test launches xemu (D108): `tests/test_xemu_harness.py` reads
-  synthetic memory and runs the harness's offline `selftest` (marked
-  `xemu`, which CI's Linux and Windows legs deselect).
+  synthetic memory and runs the harness's and the kit's offline
+  selftests (marked `xemu`, which CI's Linux and Windows legs deselect).
 - **Ask nothing (D115):** where a decision is missing, take the recorded default
   or your recommendation, and say so in your report.

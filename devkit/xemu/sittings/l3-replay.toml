@@ -1,0 +1,19 @@
+# An L3 replay (after Step X.6's CLI string): an L3 snapshot at vanilla-beach-shield5's first player update, the
+# input string run in L3 from it, then replayed in xemu from the same start; X.6 saw every tick bit-identical.
+#   uv run --locked python -m devkit xemu sitting run devkit/xemu/sittings/l3-replay.toml [--dry-run]
+
+[sitting]
+name = "l3-replay"
+step = "X.9"
+wait = "4h"
+
+[[case]]
+id = "beach-run-jump-turn"
+start = { loadvm = "vanilla-beach-shield5" }
+do = { l3_replay = [
+    { n = 20, stick = [0, 1] },
+    { n = 6, stick = [0, 1], buttons = ["y"] },
+    { n = 40, stick = [0.5, 0.8] },
+    { n = 40, stick = [-1, 0], yaw = 1.0 },
+] }
+expect = { max_err_m = 0.0, states_differ = 0, hp_differ = 0 }

@@ -1,0 +1,17 @@
+# A proven-spot run (D157, after sitting r111d's PROVEN list): from a placed start with exactly the kit the spot's
+# logic encodes, the route pilot walks to the location by real input, and the inventory shows whether it was taken.
+#   uv run --locked python -m devkit xemu sitting run devkit/xemu/sittings/proven-spot.toml [--dry-run]
+# The d1 router (its reach model) is built before the slot: minutes.
+
+[sitting]
+name = "proven-d1"
+step = "X.9"
+wait = "4h"
+
+[[case]]
+id = "d1-r1104-all_fuel"
+repeat = 3
+start = { loadvm = "vanilla-beach-noshield", kit = {}, hop = { level = "levels/death/d1", spot = "startspotShape" } }
+do = { walk_to = "d1/g0/r1104", level = "d1", tier = "hard", air = 0, ticks = 1800 }
+measure = ["inventory"]
+expect = { reached = true }
