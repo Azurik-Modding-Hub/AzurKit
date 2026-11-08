@@ -3047,8 +3047,9 @@ def test_a_seeds_build_after_the_pick_reads_the_images_id_no_more(browser, site,
 
 STUB_ENGINES = """(() => {
     const { catalog, view, drawn, modes = {} } = %s, made = globalThis.made = [], sent = globalThis.sent = [],
-        later = [];
+        later = [], Real = Worker;
     globalThis.held = false;
+    const writes = () => /\\/outputs\\.mjs:/.test(new Error().stack.split("\\n").find((at) => /\\.mjs:\\d/.test(at)));
     const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, heap: 2 ** 28, reply: { ...view,
         chosen: { ...view.chosen, ...modes[m.given.character?.mode], weapon: m.given.character?.weapon ?? null },
         character: m.given.character } });
@@ -3057,7 +3058,8 @@ STUB_ENGINES = """(() => {
         for (const [worker, m] of later.splice(0)) pickers(worker, m);
     };
     globalThis.Worker = class {
-        constructor() {
+        constructor(...args) {
+            if (writes()) return new Real(...args);   // the Save's build file writer: no engine, a real one
             this.got = [];
             this.heard = [];
             this.stopped = false;
@@ -3085,7 +3087,9 @@ STUB_ENGINES = """(() => {
 """The site's engines as stubs that load at once and answer pickers (``view``, with the weapon asked and, asked at a
 mode ``modes`` names, that mode's chosen fields; held until ``release()``) and a body's own pictures (``drawn``):
 ``made`` holds each with what it ``got``, its ``stopped``, ``sent`` what the page posted to any of them, in order;
-the test answers each reshape's preview with ``say``.
+the test answers each reshape's preview with ``say``. The worker Firefox's build starts to write its Save's build file
+(``outputs.mjs``'s ``written``, the first page module on the stack at its ``new Worker``) is no engine: a real one, not
+in ``made`` (as a stub it was a third, its ``ready`` taken for a failed write, and stopped).
 Left unanswered, the page's preview of the chosen model (sent whenever its first draw comes before
 ``characters/index.json``) held F, so the pickers after it waited on B (none on a 3-core runner, run 41521288667)
 and a draw for its key while the index loaded left the model unshown."""
