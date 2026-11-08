@@ -487,6 +487,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     to them (`Hook`) and write a span its footprint declares with a size
     (`Place(size=)`), which the facts may cover only in part (the facts'
     sites are where Modkit's cases changed bytes).
+  - A new shim pack starts with `python -m devkit re new-shim NAME --hook
+    VA`, then `plan-trampoline`, `shim-inspect`, `test-for-va` and
+    `region-map` (`devkit/re/README.md`, Step 4.11e).
 - A slider at a site of the XBE has no vanilla value in the catalog (the
   wheel holds no game constant, Q174): `sdk.vanilla` reads it from the
   player's image, and the page shows it once the image is picked (D42).

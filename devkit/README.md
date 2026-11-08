@@ -18,9 +18,9 @@ names its verbs in `VERBS` (`{verb: its line}`); the verb `v` is the module
 `devkit.<area>.v` (a hyphen in `v` is an underscore there), whose
 `main(argv) -> int` runs it. An unknown area or verb exits 2.
 
-Each arrives with its own step (`re`'s XBE verbs and `xemu`'s and `sim`'s
-core are here; the rest come after the first release, 4.4); this is what each
-will hold:
+Each arrives with its own step (`re`'s XBE verbs, data and shim authoring
+and `xemu`'s and `sim`'s core are here; the rest come after the first
+release, 4.4); this is what each will hold:
 
 | Area | What it holds |
 |---|---|

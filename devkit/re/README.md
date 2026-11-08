@@ -1,8 +1,8 @@
 # devkit/re: the reverse-engineering tools (dev only)
 
-The `re` area holds the offline XBE reads and the RE data now; the Ghidra
-side (its client, serves, sync and snapshot verb) and shim authoring come with
-their own steps.
+The `re` area holds the offline XBE reads, the RE data and shim authoring;
+the Ghidra side (its client, serves, sync and snapshot verb) comes with its
+own step.
 
 ## `xbe`: offline reads of a `default.xbe`
 
@@ -65,6 +65,34 @@ uv run --locked python -m devkit re xbe --region europe dis 0x41F67:1      # cal
 `tests/test_re_xbe.py` pins these. AZ-108's guard, that each facts
 function pops what its declared ABI makes its caller push, is
 `tests/test_shims.py`'s.
+
+## Shim authoring
+
+The verbs a new shim pack is written with (Modkit's, Step 4.11e). Addresses
+are USA's, the canonical ones, unless a verb reads another release's XBE.
+None prints the game's bytes but `plan-trampoline --bytes`, a human's.
+
+```bash
+uv run --locked python -m devkit re plan-trampoline VA [--budget 5] [--window 16] [--bytes] [--iso PATH | --xbe PATH] [--region R] [--json]
+uv run --locked python -m devkit re new-shim NAME [--hook VA] [--iso PATH | --xbe PATH] [--category C] [--ghidra] [--port N] [--dry-run]
+uv run --locked python -m devkit re shim-inspect TARGET [--region usa|europe] [--json]
+uv run --locked python -m devkit re test-for-va TARGET [--run] [--json] [--tests-dir DIR] [-- PYTEST_ARGS ...]
+uv run --locked python -m devkit re region-map check | find VA [N]
+```
+
+| Verb | What it does |
+|---|---|
+| `plan-trampoline` | decodes the instructions at a hook site with a small length decoder of its own (the ModR/M forms included), suggests the smallest length that fits the budget (5 for a `CALL rel32`) and ends on an instruction boundary (the pack's facts site's size), and names what the trampoline overwrites; an opcode it can't size (a prefix) or an overshoot is a warning. Exit 0 clean, 1 warnings, 2 a refusal |
+| `new-shim` | writes `src/azurkit/tools/mods/packs/<name>.py` (its `PACK`, one `TrampolinePatch` at the USA hook, USA only) and `shims/<name>.c` (the entry `c_<name>` with the ABI the hook needs: a live Ghidra's with `--ghidra`, else the facts' function a hooked `CALL` calls, with shimkit's C types, else a `stdcall void(void)` guess), then prints the hand edits left: the registry, the facts site (address and size; `scripts/gen_facts.py` fills in its sha256, so the pack names no bytes), `python -m shimkit`, the goldens' cases and Europe's address. It never overwrites; a taken name refuses |
+| `shim-inspect` | a shim object's (a `.o`, its `.c`, or a shim's name in `shimkit.FOLDERS`) sections, symbols and relocations, as `core/coff.py` reads them, with each game function it calls at the `--region` release's address, or none there |
+| `test-for-va` | the tests that pin a VA or a name: those whose source spells it (the VA at any width, the facts function at it, the name), as the pytest node holding each hit (its test, else its class, else its module); for a VA in a section the facts' test, in a facts site the sites test (each release's that has it) and the packs whose `sites.json` cases write it; for a pack its G1 cases, the sites test, its shim's G2 and the test files that import its module other than through the registry (`scripts/fullsuite.py`'s graph). `--run` runs pytest on them |
+| `region-map` | `check`: each entry of Europe's address map (`facts.europe.json`'s `addresses` and `absent`) holds on both vanilla images by its USA address's role: a facts site, its operands moved through the map, equals Europe's; code matches outside its address fields; data matches; else (BSS, rebuilt code, a table that differs) an instruction referencing it has one twin in Europe's image that references the Europe address. Exit 1 naming each entry that fails. `find VA [N]`: the Europe addresses whose N bytes (24) match the USA ones, code address fields as wildcards: a unique one is the entry to add by hand |
+
+`pin_va` isn't ported: the facts' sha256 of each site's vanilla bytes is
+its pin (`tests/test_packs.py`). `tests/test_re_shims.py` holds these verbs,
+and the packs to Europe's map: every address a Europe pack names or writes
+has an entry or a named absence, every address a code patch holds is one it
+declares (`abs32`, `rel32`), and its shims fix no address of the image.
 
 ## The data: `devkit/re/data/`
 

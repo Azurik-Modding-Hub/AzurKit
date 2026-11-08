@@ -7,6 +7,8 @@
 > The toolchain this guide describes (zig compiling at build time, `shim_builder`, `vanilla_symbols.py`, the
 > hand-written headers, `AZURIK_NO_SHIMS`) is Modkit's and isn't ported: AGENTS.md § Shims is AzurKit's rule
 > (11 C shims in `src/azurkit/tools/mods/shims/`, source and object both committed) and wins where the two differ.
+> AzurKit's `new-shim`, `plan-trampoline`, `shim-inspect`, `test-for-va` and `region_map.py` are
+> `python -m devkit re new-shim | plan-trampoline | shim-inspect | test-for-va | region-map` (`devkit/re/README.md`).
 
 How to write, build and pin a patch that runs code of its own inside
 Azurik's `default.xbe`: a C shim compiled by zig, or a shim
