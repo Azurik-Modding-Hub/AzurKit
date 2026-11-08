@@ -16,7 +16,11 @@ and both hosts' Load take one and the Data tab shows what it changes.
   ``filename``, ``section``, ``entity``, ``prop``, ``col``, ``offset``,
   ``value`` with ``value_kind`` ``hex`` for bytes, ``expected`` or Level
   Studio's ``original``, ``fill_empty``, ``label``): ``set_keyed_double``,
-  ``set_keyed_string`` and ``point_keyed_string`` are ``set``;
+  ``set_keyed_string`` and ``point_keyed_string`` are ``set`` (text another
+  cell of its table holds is pointed at, where Modkit's ``set_keyed_string``
+  rewrote the cell's own slot and refused a shared one: other bytes, every
+  cell reading the same; text no other cell holds is rewritten in place,
+  which Modkit's ``point_keyed_string`` refused);
   ``replace_bytes`` and ``replace_string_at`` (a NUL-ended ASCII string, NUL
   padded to its old length) are ``replace_bytes``. As in Modkit, each is
   checked against what the mod's earlier edits left (its original may be an
