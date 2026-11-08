@@ -2838,6 +2838,53 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
         served.close()
 
 
+def test_a_modkit_mod_file_loads_in_the_tools_tab_and_the_data_tabs_changes_list_what_it_changes(browser, site,
+                                                                                                  tmp_path):
+    """Step 4.6i (P19b, P23): the Tools tab's Load reads Modkit's mod file
+    as the engine reads it, its edits the page's xbr operations, the ticks
+    kept; one with a retired registry.json name is refused on the status
+    line by name, nothing loaded. The Data tab's Changes lists each cell the
+    edits change, its vanilla value beside it, and the byte edit, as
+    CPython's view has them, before an image. No CSP violation, no request
+    but GETs of the site's files."""
+    mod = {"name": "m", "sections": {"damage": {"enemies": {"catalisk": {"Damage": 20.0}}}},
+           "_keyed_patches": {"critters_damage": {"golem": {"hitPoints": 400}}},
+           "xbr_edits": [{"op": "replace_bytes", "xbr_file": "a1.xbr", "offset": 2048, "value": "aabb",
+                          "value_kind": "hex", "original": "0000"}]}
+    good, bad = tmp_path / "modkit.json", tmp_path / "retired.json"
+    good.write_text(json.dumps(mod), encoding="utf-8")
+    bad.write_text(json.dumps({"patches": [{"section": "damage", "entity": "octo", "property": "damage",
+                                            "value": 9.0}]}), encoding="utf-8")
+    ops = sdk.read_mods(good.read_text(encoding="utf-8"))["xbr"]
+    defaults = {p["name"]: {} for p in sdk.catalog()["packs"] if p["default_on"]}
+    want = sdk.data({"what": "view", "kind": "changes", "ops": ops, "packs": defaults})["sections"]
+    shown = [[s["title"], [[label, *(c.get("read") or f"● {c['text']}" + " ⚠" * bool(c.get("written")) for c in cells)]
+                           for label, cells in b["rows"]]] for s in want for b in s["blocks"]]
+    ticked = "() => [...document.querySelectorAll('input[data-pack]:checked')].map((b) => b.dataset.pack)"
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        before = page.evaluate(ticked)
+        _page.click(page, "tab-tools")
+        _page.pick(page, "#tools-mods-file", bad)
+        assert "retired.json: Modkit mod: patches[0] damage/octo/damage: a retired registry.json name" in _page.until(
+            page, "() => /Modkit mod/.test(document.getElementById('status').textContent) "
+                  "&& document.getElementById('status').textContent")
+        _page.pick(page, "#tools-mods-file", good)
+        _page.until(page, f"() => azurkit.xbr.length === {len(ops)}", 120)
+        assert page.evaluate("() => azurkit.xbr") == ops and page.evaluate(ticked) == before
+        _page.click(page, "tab-data")
+        _page.until(page, "() => azurkit.data.state.answer")
+        page.evaluate("""() => [...document.querySelectorAll('#data .views button')]
+            .find((b) => b.textContent === 'Changes').click()""")
+        _page.until(page, "() => azurkit.data.state.answer?.kind === 'changes'")
+        assert page.evaluate("""() => [...document.querySelectorAll('#data .data-view section')].map((s) => [
+            s.querySelector('h3').textContent, [...s.querySelectorAll('tr')].filter((r) => r.querySelector('td'))
+              .map((r) => [...r.children].map((c) => c.textContent))])""") == shown
+        assert page.evaluate("() => azurkit.violations") == [] and served.stray() == []
+    finally:
+        served.close()
+
 def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_builds_again_as_cpython(
         browser, site, usa_iso):
     """Step 4.3i: the site keeps its engine's worker after a build whose

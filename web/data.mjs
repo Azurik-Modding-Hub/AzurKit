@@ -1,9 +1,10 @@
 // The Data tab (Step 4.7a; Modkit's Game Data editor, D151, D262, D986): config.xbr's cells, edited before an image is
 // picked (the engine reads the vanilla config.xbr AzurKit ships). Six views, like the Randomizer tab's Settings ·
 // Tracker: Player; Critters, Items, Armor and Weapons, each a picker (web/picker.mjs, its search box by name) and the
-// chosen entity's cells of every table that holds it, as sections of mini-tables; and All tables, the 18 tables by
+// chosen entity's cells of every table that holds it, as sections of mini-tables; All tables, the 18 tables by
 // category (the list filtered by table name), a table as a grid with an entity a row and a property a column, sorted by
-// a column's header, Changed only. A cell edits on a click, Enter or F2: a number cell takes any number (never
+// a column's header, Changed only; and Changes, every cell the edits change (a loaded mods file's too) with its vanilla
+// value beside it, table by table, and the byte edits a mods file brought: what a build will change, before it. A cell edits on a click, Enter or F2: a number cell takes any number (never
 // clamped: its range is a hint), a value set is a dropdown or a checkbox, an empty cell with a known default shows it
 // greyed; the engine checks every edit (tools/data's check) and a refusal is one red line under the cell saying why.
 // A changed cell is marked ● with its vanilla value in its note, a cell a ticked pack's slider also writes ⚠ (the data
@@ -15,7 +16,8 @@
 import { picker } from "./picker.mjs";
 
 const VIEWS = [["player", "Player"], ["critter", "Critters"], ["item", "Items"], ["armor", "Armor"],
-               ["weapon", "Weapons"], ["tables", "All tables"]];
+               ["weapon", "Weapons"], ["tables", "All tables"], ["changes", "Changes"]];
+const UNCHANGED = "Nothing changed yet: edit a cell, or load a mods file in the Tools tab.";
 const WRITTEN = "A ticked pack's slider also writes this cell; your edit wins, and the build says so.";
 const BUILDS = "Your edits join each build, after the packs";
 const el = (tag, props = {}, ...children) => {
@@ -91,13 +93,13 @@ export function dataTab({ call, root, say, packs, changed, image }) {
   const choose = (view) => {
     d.view = view;
     for (const [id, b] of tabs) b.setAttribute("aria-selected", String(id === view));
-    pick.element.hidden = view === "player";
+    pick.element.hidden = view === "player" || view === "changes";
     onlyLabel.hidden = reset.hidden = view !== "tables";
     if (!d.index) return;
     const entries = view === "tables"
       ? d.index.tables.map((t) => ({ name: t.name, label: `${t.label} (${t.name})`, group: t.category,
                                      title: `${t.cols} entities, ${t.rows} properties` }))
-      : view === "player" ? [] : d.index.pickers[view].map((e) => ({
+      : view === "player" || view === "changes" ? [] : d.index.pickers[view].map((e) => ({
         name: e.name, label: e.label ?? e.name, group: e.group,
         title: e.info.map(([label, text]) => `${label}: ${text}`).join("\n") }));
     const first = view === "tables" ? d.table ?? entries[0]?.name : d.chosen[view] ?? entries[0]?.name;
@@ -114,9 +116,9 @@ export function dataTab({ call, root, say, packs, changed, image }) {
   const show = async (name = d.view === "tables" ? d.table : d.chosen[d.view]) => {
     const mine = ++d.ticket;
     if (d.view === "tables") d.table = name;
-    else if (d.view !== "player") d.chosen[d.view] = name;
+    else if (d.view !== "player" && d.view !== "changes") d.chosen[d.view] = name;
     const reply = d.view === "tables" ? await ask("table", { table: name })
-      : await ask("view", { kind: d.view, name: d.view === "player" ? null : name });
+      : await ask("view", { kind: d.view, name: d.view === "player" || d.view === "changes" ? null : name });
     if (mine !== d.ticket || refused(reply)) return;
     d.answer = reply;
     draw();
@@ -200,6 +202,7 @@ export function dataTab({ call, root, say, packs, changed, image }) {
     const a = d.answer;
     if (!a) return;
     body.replaceChildren(...d.view === "tables" ? [el("h3", { textContent: `${a.label} (${a.name})` }), grid(a)]
+      : a.kind === "changes" && !a.sections.length ? [el("p", { className: "note", textContent: UNCHANGED })]
       : a.sections.map((s) => el("section", {}, el("h3", { textContent: s.title }), ...s.blocks.map(block))));
     const sets = d.ops.filter((op) => op.op === "set").length, bytes = d.ops.length - sets;
     count.textContent = `${sets} edit${sets === 1 ? "" : "s"}`;

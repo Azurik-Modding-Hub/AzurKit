@@ -15,7 +15,8 @@ holds) and :func:`content_refusal`, the Data tab's :func:`data` and :func:`data_
 tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
-:func:`saves`. JSON in and
+:func:`saves`, and the command line's :func:`mods_diff` (what a mods file
+changes, before a build). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -120,7 +121,7 @@ from azurkit.tools.randomizer import layer as rando_layer
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_staged", "image_checks", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
-           "data", "data_edit", "image_info", "verify_all", "files", "extract", "mods_file", "community",
+           "data", "data_edit", "mods_diff", "image_info", "verify_all", "files", "extract", "mods_file", "community",
            "content_refusal", "file_entry", "saves"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
@@ -1143,6 +1144,27 @@ def mods_file(given: Mapping) -> dict:
     return {"text": json.dumps(preset.check(made), indent=1, sort_keys=True, allow_nan=False) + "\n"}
 
 
+def mods_diff(given: Mapping) -> dict:
+    """What a mods file changes, before a build (Modkit's ``diff``):
+    ``{"text"}``, a mods file's text (:func:`read_mods`' kinds), gives each
+    of its edits as a build makes it of the vanilla config.xbr
+    (``tools.data.preview``: a cell's table/entity/prop and its vanilla and
+    new values, a byte edit's span, one of another file left to the build,
+    or why a build refuses it), as ``{"edits"}``, with a Modkit mod's
+    ``name`` and ``description``. What refuses the whole file is refused
+    by name."""
+    if not (isinstance(given, Mapping) and set(given) == {"text"} and isinstance(given["text"], str)):
+        raise ValueError("mods_diff: {text}, a mods file's text")
+    found = preset.parse(given["text"])
+    if modkit.is_mod(found):
+        made = modkit.edits(found, datatool.vanilla())
+        about = {key: found[key] for key in ("name", "description") if isinstance(found.get(key), str)}
+    else:
+        made = [(f"xbr op {k}", op, None) for k, op in enumerate(read_mods(found).get("xbr", []), 1)]
+        about = {}
+    return about | {"edits": datatool.preview(made)}
+
+
 DATA = ("what", "ops", "packs", "kind", "name", "table")   # what a Data tab's ask holds (:func:`data`)
 
 
@@ -1151,7 +1173,9 @@ def data(given: Mapping) -> dict:
     vanilla file AzurKit ships, so before an image): ``{"what": "index"}``
     the tables by category and the pickers' lists, ``{"what": "view",
     "kind", "name"}`` one entity's cells (``kind`` player, critter, item,
-    armor or weapon; the player has no ``name``), ``{"what": "table",
+    armor or weapon; the player has no ``name``; ``changes``, with no
+    ``name``, every cell the operations change, by table, beside its
+    vanilla value, then their byte edits), ``{"what": "table",
     "table"}`` a table as a grid. Each shows the tables as the recipe's
     ``xbr`` operations ``ops`` make them, every changed cell with its
     vanilla value, and marks each cell a slider of ``packs`` (the recipe's

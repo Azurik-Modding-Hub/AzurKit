@@ -226,3 +226,53 @@ def test_a_cell_a_ticked_packs_slider_writes_is_marked_and_the_data_edit_wins(us
     assert capsys.readouterr().out.splitlines() == [
         f"{prop or '(no name)'}: {'(empty)' if grid['cells'][col][r] is None else json.dumps(grid['cells'][col][r])}"
         for r, prop in enumerate(grid["rows"][1:], 1)]
+
+
+def test_a_mods_files_edits_preview_against_vanilla_on_the_command_line_and_in_the_data_tabs_changes(tmp_path, capsys):
+    """Step 4.6i (P23, Modkit's ``diff``): before a build, ``sdk.mods_diff``
+    gives each edit of a mods file (Modkit's or AzurKit's) as a build makes
+    it of the vanilla config.xbr: a cell by the file's names with its
+    vanilla and new values, an edit that changes nothing, a byte edit of a
+    level left to the build, and one a build refuses, by name, beside the
+    rest. ``azurkit diff`` prints them numbered and exits 1 for a refused
+    one. The Data tab's Changes view lists each changed cell table by table,
+    its vanilla value beside it, then the byte edits; nothing without
+    edits."""
+    tables = Document(data.vanilla()).tables
+    damage, delay = (views.format_value(tables["damage"].find("catalisk", p).value) for p in ("Damage", "Delay"))
+    mod = {"name": "My Mod", "description": "what it does",
+           "patches": [{"section": "damage", "entity": "norm_1", "property": "Name", "value": 0.5}],
+           "sections": {"damage": {"enemies": {"catalisk": {"Damage": 20.0, "Delay": float(delay)}}}},
+           "xbr_edits": [{"op": "replace_bytes", "xbr_file": "a1.xbr", "offset": 2048, "value": "aabb",
+                          "value_kind": "hex", "original": "0000"}]}
+    found = sdk.mods_diff({"text": json.dumps(mod)})
+    assert found == {"name": "My Mod", "description": "what it does", "edits": [
+        {"edit": "patches[0] damage/norm_1/Name",
+         "refused": "config table damage norm_1/Name is a string cell, not a number"},
+        {"edit": "sections damage/catalisk/Damage", "what": "damage/catalisk/Damage", "vanilla": damage, "value": "20",
+         "changed": True},
+        {"edit": "sections damage/catalisk/Delay", "what": "damage/catalisk/Delay", "vanilla": delay, "value": delay,
+         "changed": False},
+        {"edit": "xbr_edits[0] (replace_bytes on a1.xbr)", "what": "replace_bytes gamedata/a1.xbr 0x800",
+         "checked": False, "changed": True}]}
+    path = tmp_path / "mod.json"
+    path.write_text(json.dumps(mod), encoding="utf-8")
+    assert cli.main(["diff", str(path)]) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        f"{path}: My Mod", "  what it does",
+        "  [1] ERROR patches[0] damage/norm_1/Name: config table damage norm_1/Name is a string cell, not a number",
+        f"  [2] ~ damage/catalisk/Damage: {damage} -> 20", f"  [3] = damage/catalisk/Delay: {delay} -> {delay}",
+        "  [4] ? replace_bytes gamedata/a1.xbr 0x800: a build checks it, on your image",
+        "2 changed, 1 errors, 1 unchanged"]
+    ops = sdk.read_mods(json.dumps({k: v for k, v in mod.items() if k != "patches"}))["xbr"]
+    assert [e["edit"] for e in sdk.mods_diff({"text": sdk.mods_file({"recipe": {"xbr": ops}})["text"]})["edits"]] == [
+        "xbr op 1", "xbr op 2", "xbr op 3"]
+    shown = sdk.data({"what": "view", "kind": "changes", "ops": ops})
+    assert shown["kind"] == "changes" and shown["name"] is None
+    cells, raw = shown["sections"]
+    assert cells["title"] == "Damage types (all sources) (damage)" and raw["title"].startswith("Byte edits from a mods file")
+    [(label, (vanilla, cell))] = cells["blocks"][0]["rows"]
+    assert (label, vanilla, cell["text"], cell["vanilla"], cell["ref"][0]) == (
+        "catalisk / Damage", {"read": damage}, "20", damage, "damage")
+    assert raw["blocks"][0]["rows"] == [["gamedata/a1.xbr 0x800", [{"read": "2 B"}]]]
+    assert sdk.data({"what": "view", "kind": "changes"})["sections"] == []

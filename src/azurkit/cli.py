@@ -10,6 +10,7 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit files IMAGE [--extract PATH --out FILE]
                                           an image's files (each size and path), or one of them written to FILE
     azurkit data [TABLE [ENTITY]]         config.xbr's tables, a table's entities, or an entity's cells
+    azurkit diff MODS [MODS ...]          each edit of mods files (Modkit's too), as a build makes it of config.xbr
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
@@ -46,6 +47,11 @@ and ``--extract`` writes one of them to ``--out`` (never over the image or a
 vanilla image, D36). ``data`` reads config.xbr as the Data tab does (the vanilla file AzurKit
 ships; no image): its tables by category, a table's entities, or each cell
 of an entity by its property's name (a repeated entity, each column).
+``diff`` previews mods files before a build (Modkit's ``diff``): each edit
+numbered, ``~`` a cell or bytes it changes (its vanilla value -> its new
+one), ``=`` one that changes nothing, ``?`` a byte edit of a file only a
+build reads, and ``ERROR`` one a build refuses, then the counts; exit 1
+when any edit would fail the build.
 ``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
 ``--source`` or ``$AZURKIT_CONTENT_SOURCE``, a URL or a folder) and what the
 content folder holds of each; ``install`` and ``update`` copy one in, every
@@ -242,6 +248,36 @@ def _data(args: argparse.Namespace) -> int:
     return 0
 
 
+def _diff(args: argparse.Namespace) -> int:
+    tally, n = {"changed": 0, "errors": 0, "unchanged": 0}, 0
+    for path in args.mods:
+        try:
+            found = sdk.mods_diff({"text": Path(path).read_text(encoding="utf-8")})
+        except (OSError, ValueError) as exc:     # json.JSONDecodeError is a ValueError
+            print(f"azurkit: {path}: {exc}", file=sys.stderr)
+            return 1
+        print(f"{path}" + (f": {found['name']}" if found.get("name") else ""))
+        if found.get("description"):
+            print(f"  {found['description']}")
+        for row in found["edits"]:
+            n += 1
+            if "refused" in row:
+                tally["errors"] += 1
+                print(f"  [{n}] ERROR {row['edit']}: {row['refused']}")
+                continue
+            tally["changed" if row["changed"] else "unchanged"] += 1
+            what = row.get("what", row["edit"])
+            if "vanilla" in row:
+                print(f"  [{n}] {'~' if row['changed'] else '='} {what}: {row['vanilla']} -> {row['value']}")
+            elif row.get("checked") is False:
+                print(f"  [{n}] ? {what}: a build checks it, on your image")
+            else:
+                print(f"  [{n}] {'~' if row['changed'] else '='} {what}"
+                      + (f" ({row['size']} B)" if "size" in row else ": nothing to do"))
+    print(f"{tally['changed']} changed, {tally['errors']} errors, {tally['unchanged']} unchanged")
+    return 1 if tally["errors"] else 0
+
+
 def _plan(args: argparse.Namespace) -> int:
     try:
         given = {"seed": args.seed}
@@ -408,6 +444,14 @@ def main(argv: list[str] | None = None) -> int:
     read.add_argument("table", nargs="?", metavar="TABLE", help="a table (azurkit data lists them)")
     read.add_argument("entity", nargs="?", metavar="ENTITY", help="an entity of TABLE (a column)")
     read.set_defaults(run=_data)
+    diffed = verbs.add_parser("diff", help="preview what mods files change, before a build",
+                              description="Read each mods file (a preset, a build's mods file, a share link or one "
+                                          "of Modkit's mod files) and print each of its edits as a build makes it of "
+                                          "the vanilla config.xbr: ~ changed (vanilla -> new), = unchanged, ? a byte "
+                                          "edit of a file only a build reads, ERROR one a build refuses; exit 1 "
+                                          "if any would fail the build.")
+    diffed.add_argument("mods", nargs="+", metavar="MODS", help="a mods file")
+    diffed.set_defaults(run=_diff)
     planned = verbs.add_parser("plan", help="fill the randomizer for a seed and print (or write) the plan file",
                                description="Fill the randomizer's authored levels for --seed under the default "
                                            "settings (D144), a settings file's or a share string's, and print the "

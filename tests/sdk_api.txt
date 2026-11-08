@@ -17,7 +17,8 @@ holds) and :func:`content_refusal`, the Data tab's :func:`data` and :func:`data_
 tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
-:func:`saves`. JSON in and
+:func:`saves`, and the command line's :func:`mods_diff` (what a mods file
+changes, before a build). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -523,7 +524,9 @@ The Data tab's config.xbr (Step 4.7a; ``tools.data``, from the
 vanilla file AzurKit ships, so before an image): ``{"what": "index"}``
 the tables by category and the pickers' lists, ``{"what": "view",
 "kind", "name"}`` one entity's cells (``kind`` player, critter, item,
-armor or weapon; the player has no ``name``), ``{"what": "table",
+armor or weapon; the player has no ``name``; ``changes``, with no
+``name``, every cell the operations change, by table, beside its
+vanilla value, then their byte edits), ``{"what": "table",
 "table"}`` a table as a grid. Each shows the tables as the recipe's
 ``xbr`` operations ``ops`` make them, every changed cell with its
 vanilla value, and marks each cell a slider of ``packs`` (the recipe's
@@ -543,6 +546,18 @@ cell's earlier operations dropped and it last (``tools.data.check``).
 A number cell takes any finite number (D23) but what int32 can't hold
 where the game reads one (D45); a refusal says why, with the cell's
 type and an example, never game bytes.
+
+
+def mods_diff(given: 'Mapping') -> 'dict':
+
+What a mods file changes, before a build (Modkit's ``diff``):
+``{"text"}``, a mods file's text (:func:`read_mods`' kinds), gives each
+of its edits as a build makes it of the vanilla config.xbr
+(``tools.data.preview``: a cell's table/entity/prop and its vanilla and
+new values, a byte edit's span, one of another file left to the build,
+or why a build refuses it), as ``{"edits"}``, with a Modkit mod's
+``name`` and ``description``. What refuses the whole file is refused
+by name.
 
 
 def image_info(path: 'str') -> 'dict':

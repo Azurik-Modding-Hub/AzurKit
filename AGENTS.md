@@ -1356,7 +1356,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - **The Data tab** (Step 4.7a, `web/data.mjs`; D986, Modkit's Game Data
     editor): config.xbr's cells before an image (`sdk.data`, from the
     vanilla file `tools/data` ships): the Player, Critter, Item, Armor and
-    Weapon views and All tables (a grid: sort, Changed only), its entities
+    Weapon views, All tables (a grid: sort, Changed only) and Changes
+    (Step 4.6i: each cell the edits change beside its vanilla value, then
+    a mods file's byte edits; `azurkit diff` and `sdk.mods_diff` give a
+    mods file's edits one by one, `tools/data`'s `preview`), its entities
     in the shared picker (`web/picker.mjs`, whose species list and rows
     the Characters tab uses too). A cell's edit is checked by the engine
     (`sdk.data_edit`: any finite number, D23; refused only where the
@@ -1369,7 +1372,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     marks none). The tab asks again each time it shows, so the marks
     follow the ticks; its line says the edits wait for the image to build
     (D979). `tests/test_data.py`, `test_site.py` and `test_hosts.py` hold
-    it; `tests/_perf.py`'s A39-A46 and S32-S39 time it.
+    it; `tests/_perf.py`'s A39-A46, A87, S32-S39 and S73 time it.
   - **The Tools tab** (Step 4.7c, `web/tools.mjs`; D919's list): **your
     image** (`sdk.image_info`: its release, size and kind, vanilla with how
     much of it the gate checked, an AzurKit build with its version and

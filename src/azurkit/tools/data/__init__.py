@@ -48,7 +48,7 @@ from azurkit.tools.data.views import CATEGORIES, Block, Noted, Section, Views, f
 FILE = "gamedata/config.xbr"
 HERE = Path(__file__).parent
 KIND = {EMPTY: "empty", NUMBER: "number", STRING: "text"}
-VIEWS = ("player", "critter", "item", "armor", "weapon")
+VIEWS = ("player", "critter", "item", "armor", "weapon", "changes")
 LABELS = {table: (category, label) for category, tables in CATEGORIES.items() for table, label in tables.items()}
 _RESETS = "empty resets it"
 
@@ -252,6 +252,8 @@ def view(kind: str, name: str | None = None, ops: object = (), written: Iterable
     v = state.views
     if kind == "player":
         sections = v.player_view()
+    elif kind == "changes":
+        sections = _changes(state, ops)
     elif kind in ("critter", "item", "armor", "weapon"):
         known = {"critter": v.critters, "item": lambda: list(v.items()), "armor": lambda: list(v.armor_families()),
                  "weapon": lambda: list(v.weapons())}[kind]()
@@ -261,8 +263,37 @@ def view(kind: str, name: str | None = None, ops: object = (), written: Iterable
                     "weapon": v.weapon_view}[kind](name)
     else:
         raise ValueError(f"the Data tab has no view {kind!r} (its views: {', '.join(VIEWS)})")
-    return {"kind": kind, "name": name if kind != "player" else None,
+    return {"kind": kind, "name": name if kind not in ("player", "changes") else None,
             "sections": _sections(sections, state, _spans(written))}
+
+
+def _changes(state: _State, ops: object) -> list[Section]:
+    """The changes view (Modkit's ``diff``, before a build): each table the
+    edits change, in the tabs' order, a row each cell whose value is no
+    longer vanilla's, its vanilla value and the cell; then the byte edits
+    a mods file brought (each its file, offset and size)."""
+    sections = []
+    for named in CATEGORIES.values():
+        for name, label in named.items():
+            now, was = state.now.get(name), state.was.get(name)
+            if now is None or not _differs(now, was, state.data):
+                continue
+            rows = []
+            for col, entity in enumerate(was.cols):
+                for row, prop in enumerate(was.rows):
+                    a, b = now.cell(col, row), was.cell(col, row)
+                    if (a.kind, a.value) != (b.kind, b.value):
+                        shown = f"{entity} (column {col})" if was.cols.count(entity) > 1 else entity
+                        rows.append((f"{shown} / {prop}", (format_value(b.value) or "(empty)", (name, col, row))))
+            sections.append(Section(f"{label} ({name})", (Block("", ("vanilla", "now"), tuple(rows)),)))
+    raw = [op for op in xbr.normalize(list(ops)) if op["op"] != "set" or op["file"] != FILE]
+    if raw:
+        rows = tuple((f"{op['file']} 0x{op['offset']:X}", (f"{len(op['value']) // 2} B",)) if op["op"] != "set"
+                     else (f"{op['file']} {op['table']}/{op['entity']}/{op['prop']}", (format_value(op["value"]),))
+                     for op in raw)
+        sections.append(Section("Byte edits from a mods file (read-only; a build checks them)",
+                                (Block("", ("",), rows),)))
+    return sections
 
 
 def table(name: str, ops: object = (), written: Iterable[Sequence[int]] = ()) -> dict:
