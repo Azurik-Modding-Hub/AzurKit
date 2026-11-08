@@ -364,7 +364,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     }
     ui.bodyNote.textContent = from ? `${from}'s body (read-only): New from this… makes one to edit.`
       : base === "garret4" ? "garret4's own body: his height is garret4's; its scale, arms and rotate are made on his own build."
-        : "Its size, and its title and notes in the Models view.";
+        : "Its size. Title and Notes are what the Models view shows for it.";
   };
   for (const input of ui.sizes) {
     input.addEventListener("change", () => {

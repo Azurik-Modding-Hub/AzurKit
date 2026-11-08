@@ -5933,6 +5933,8 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         _page.click(page, "var-save-as")
         shown = _variants_shown(page, status="· saved ·", name="mine")
         assert (shown["kind"], ["yours", "mine"] in shown["rows"]) == ("yours", True)
+        assert page.evaluate("() => document.getElementById('var-body-note').textContent") == (
+            "Its size. Title and Notes are what the Models view shows for it.")   # the Body tab's lead, plainly
         kept = "() => new TextDecoder().decode(azurkit.variants.state.folders.mine['recipe.json'])"
         before = page.evaluate(kept)
         page.evaluate(VARIANTS_TYPE, ["var-scale", "big"])
