@@ -54,7 +54,7 @@ import { dataTab } from "./data.mjs";
 import { hashedApart, WAITED } from "./hasher.mjs";
 import { replaceFiles } from "./replace.mjs";
 import { savesSection } from "./saves.mjs";
-import { hold, letGo, sweep } from "./outputs.mjs";
+import { hold, letGo, sweep, written } from "./outputs.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
 import { canon, workers } from "./workers.mjs";
@@ -897,7 +897,7 @@ function lines() {
 
 function forget() {
   if (state.url) URL.revokeObjectURL(state.url);
-  if (state.build?.out) letGo(state.build.out, state.build.saved);
+  for (const name of [state.build?.out, state.build?.between]) if (name) letGo(name, state.build.saved);
   state.build = state.url = null;
   $("save").disabled = true;
   lines();
@@ -1128,14 +1128,15 @@ function report(text, error = false) {
 // Firefox's blob: URL of a Blob of more than about 8 parts (or a part of 1 MiB in memory) makes its parent process copy the
 // whole Blob into memory at createObjectURL, and hold about 2 GiB more over a download; a Blob of few parts, each a slice
 // of a file, it reads by reference, its tree flat. So there the KEPT longest copies stay the
-// File's slices and all between them goes once into one Blob Firefox keeps in a temporary file (Response.blob()): at most
-// 2 x KEPT + 1 parts, the same bytes. It runs ahead of the Save, after the build's answer, Save greyed and its own bar
-// moving until it ends (about 1.1-2.3 s of disk on a seed's), so a click never waits for it (D979, D1053). A private
-// window keeps Response.blob() in memory, a part that brings the parent's copy back on top of the tab's (7.2 GiB against
-// the plain Blob's 4.8): it refuses the origin's private file system, so it keeps the plain Blob. The worker joined the
-// build's Blob (Step 4.3r4l); its pieces are its slices, each segment's, a copy's a slice of the File. The copy reads
-// its parts in runs of FLAT_RUN, heard(the share copied) after each, so its bar moves (D980: a keylord build's took
-// 0.56-1.18 s, R14's wait in Firefox; a TransformStream's count of each chunk took it to 1.84 s: Step 4.4m).
+// File's slices and all between them goes once into a build file of its own (outputs.mjs's written(): a worker's sync
+// writes, a run of FLAT_RUN at a time, heard(the share written) after each, so its bar moves, D980): at most
+// 2 x KEPT + 1 parts, the same bytes, {blob, name}. It runs ahead of the Save, after the build's answer, Save greyed and
+// its own bar moving until it ends, so a click never waits for it (D979, D1053). A Response's Blob of those bytes (the
+// temporary file Firefox keeps it in) took 3.7x the CPU: a seed's 835 MB 1.4 s and 4.1 CPU-s against 0.9 s and 1.1 on a
+// quiet box, and on a busy one R24 waited 4-7 s for it (Step 4.5q). A private window
+// refuses the origin's private file system (and keeps a Response's Blob in memory, a part that brings the parent's copy
+// back on top of the tab's: 7.2 GiB against the plain Blob's 4.8), so it keeps the plain Blob. The worker joined the
+// build's Blob (Step 4.3r4l); its pieces are its slices, each segment's, a copy's a slice of the File.
 const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3, FLAT_RUN = 16 << 20;
 async function byReference(segments, blob, heard = () => {}) {
   await navigator.storage.getDirectory();
@@ -1143,16 +1144,8 @@ async function byReference(segments, blob, heard = () => {}) {
   const parts = segments.map((s) => blob.slice(start, start += s.size));
   const kept = new Set(segments.map((s, i) => [s, i]).filter(([s]) => s.kind === "copy")
     .sort((a, b) => b[0].size - a[0].size).slice(0, KEPT).map(([, i]) => i));
-  const rest = new Blob(parts.filter((_, i) => !kept.has(i)));
-  let read = 0;
   heard(0);
-  const between = await new Response(new ReadableStream({
-    async pull(out) {
-      if (read >= rest.size) return out.close();
-      out.enqueue(new Uint8Array(await rest.slice(read, read += FLAT_RUN).arrayBuffer()));
-      heard(Math.min(read / rest.size, 1));
-    },
-  }, { highWaterMark: 0 })).blob();
+  const { file: between, name } = await written(new Blob(parts.filter((_, i) => !kept.has(i))), FLAT_RUN, heard);
   heard(1);
   const flat = [];
   let at = 0, run = 0;
@@ -1170,7 +1163,7 @@ async function byReference(segments, blob, heard = () => {}) {
     }
   }
   stretch();
-  return new Blob(flat, { type: "application/octet-stream" });
+  return { blob: new Blob(flat, { type: "application/octet-stream" }), name };
 }
 
 function built(reply) {
@@ -1193,10 +1186,11 @@ function built(reply) {
         ask.record = { stage: "write", label: READYING, done: percent, total: 100, percent };
         showing();
       };
-      build.flat = byReference(reply.segments, blob, heard).catch(() => blob).then((flat) => {   // none: still its bytes
-        answered(making);
+      build.flat = byReference(reply.segments, blob, heard).catch(() => ({ blob })).then(({ blob: flat, name }) => {
+        answered(making);   // none: still its bytes
         build.blob = flat;
-        if (state.build !== build) return;   // forgotten while it was made
+        build.between = name;
+        if (state.build !== build) return void (name && letGo(name));   // forgotten while it was made
         state.url = URL.createObjectURL(flat);
         busy(state.building);
       });

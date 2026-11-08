@@ -3353,14 +3353,17 @@ def test_a_build_and_its_save_stay_under_6_gib_of_firefoxs_processes(browser, si
 
 
 def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_never_waits_at_the_click(browser, site, usa_iso):
-    """D979, D980, D1053: Firefox's Blob is made after the build's answer (the Response held here), Save greyed and named
-    with a bar of its own, which a worker's record doesn't take over and which counts the copy's bytes to the end (a
-    keylord build's copy took 0.56-1.18 s, R14's wait: Step 4.4m). So in every browser a click's download and check
-    start in its tick."""
-    held = """() => { const real = Response.prototype.blob;
-        Response.prototype.blob = function () {
-            if (this.url) return real.call(this);   // a fetch's, not the page's own Blob's
-            return new Promise((go) => { globalThis.release = go; }).then(() => real.call(this));
+    """D979, D980, D1053: Firefox's Blob is made after the build's answer (its build file's hold held here), Save greyed
+    and named with a bar of its own, which a worker's record doesn't take over and which counts the copy's bytes to the
+    end (a keylord build's copy took 0.56-1.18 s, R14's wait: Step 4.4m). So in every browser a click's download and
+    check start in its tick. Firefox's Blob reads the bytes between its kept copies from a build file of their own
+    (Step 4.5q), kept while its build is and removed once a change forgets an unsaved one; no other browser makes one."""
+    held = """() => { const real = LockManager.prototype.request;
+        LockManager.prototype.request = function (name, ...rest) {
+            if (globalThis.release || !name.startsWith("azurkit-build-") || rest[0]?.mode !== "shared") {
+                return real.call(this, name, ...rest);
+            }
+            return new Promise((go) => { globalThis.release = go; }).then(() => real.call(this, name, ...rest));
         }; }"""
     workers = """{ const Real = Worker; globalThis.workers = [];
         globalThis.Worker = class extends Real { constructor(...on) { super(...on); workers.push(this); } }; }"""
@@ -3386,8 +3389,16 @@ def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_nev
             assert page.evaluate("() => document.getElementById('progress').getAttribute('value')") == "0"
             page.evaluate("() => globalThis.release()")
         _page.built(page)
+        between = page.evaluate("() => azurkit.build.between ?? null")
         if browser.browser_type.name == "firefox":
             assert "100" in page.evaluate("() => shown")   # its bytes counted to the end
+            assert between in page.evaluate(BUILD_FILES)
+            _page.tick(page, ["fps_unlock"])   # a change: the build is forgotten, its file with it
+            _page.until(page, f"async () => !(await ({BUILD_FILES})()).includes({json.dumps(between)})", 60)
+            _page.build(page, [])
+            _page.built(page)
+        else:
+            assert between is None
         with page.expect_download(timeout=600_000) as caught:
             assert page.evaluate("() => { document.querySelector('#save').click(); return azurkit.saveCheck; }") == "running"
         assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
@@ -3397,14 +3408,16 @@ def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_nev
 
 
 def test_a_private_window_keeps_the_plain_blob_its_save_reads(browser, site, usa_iso, tmp_path):
-    """D1057: in Firefox's private window ``Response.blob()`` stays in memory, so the Blob of few parts would hold more
-    than the plain one (7.2 GiB against 4.8): there the page makes none, and the Save holds."""
+    """D1057: Firefox's private window refuses the origin's private file system, and keeps ``Response.blob()`` in
+    memory, so a Blob of few parts would hold more than the plain one (7.2 GiB against 4.8): there the page makes none
+    (no build file for its bytes between the copies), and the Save holds."""
     prefs = {"firefox_user_prefs": {"browser.privatebrowsing.autostart": True}} if browser.browser_type.name == "firefox" else {}
     served = Site(browser, site, tmp_path / "profile", **prefs)
     try:
         page = served.open()
-        page.evaluate("""() => { const real = Response.prototype.blob; globalThis.made = 0;
-            Response.prototype.blob = function () { globalThis.made += !this.url; return real.call(this); }; }""")
+        page.evaluate("""() => { const real = LockManager.prototype.request; globalThis.made = 0;
+            LockManager.prototype.request = function (name, ...rest) {   // a build file's hold: none is made
+                globalThis.made += name.startsWith("azurkit-build-"); return real.call(this, name, ...rest); }; }""")
         _page.pick(page, "#iso", usa_iso)
         _page.build(page, [])
         _page.built(page)

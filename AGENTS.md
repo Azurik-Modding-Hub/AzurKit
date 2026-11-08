@@ -1499,15 +1499,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the whole image into memory at once and hold about 2 GiB more over its
     download; of few parts, each a file's slice, it reads by reference. So
     after a build the three longest copies stay the File's slices and all
-    between them goes into one Blob in Firefox's temporary file
-    (`Response.blob()`), the same bytes, ahead of the Save (app.mjs's
-    `byReference`). While it is made, about 1.1-2.3 s of disk on a seed's,
-    Save stays greyed with its own moving bar (R14 and R24 end when it opens),
-    so a click never waits for it and a Save's page part stays the click's
-    (D1053); the worker's records never land on the page's own waits. A
-    private window has no such file (`Response.blob()` stays in memory, its
-    tree higher than the plain Blob's), so one, told by the origin's private
-    file system refusing it, keeps the plain Blob and its parent's copy.
+    between them goes into a build file of its own, the same bytes, ahead of
+    the Save (app.mjs's `byReference`; `web/flat.mjs`, a worker writing it
+    through a sync access handle, 3.7x less CPU than a `Response.blob()` of
+    them, Step 4.5q), held and removed with its build as a character's is.
+    While it is made Save stays greyed with its own moving bar (R14 and R24
+    end when it opens), so a click never waits for it and a Save's page part
+    stays the click's (D1053); the worker's records never land on the page's
+    own waits. A private window has no private file system (and its
+    `Response.blob()` stays in memory, its tree higher than the plain
+    Blob's), so one, told by that file system refusing it, keeps the plain
+    Blob and its parent's copy.
   - **No stream through `sw.js`** (D1049, D1053; Step 4.3r4p's W-SAVE,
     keylord's and a seed's Save, three each, the Blob against the build's
     Blob streamed by `sw.js` to a hidden frame's download, its last bytes

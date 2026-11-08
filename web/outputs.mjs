@@ -1,5 +1,6 @@
 // The site's build files (P7, Step 4.3r4l; X10): a character's build writes its pieces into one OPFS file of its own, so the
-// image's Blob is slices of your image and of that file and no process holds the pieces in memory. The file a Save reads
+// image's Blob is slices of your image and of that file and no process holds the pieces in memory; in Firefox the bytes
+// between a build's three longest copies go into one too (written(), app.mjs's byReference). The file a Save reads
 // must outlive the job and can't be deleted under it (reading a gone File throws), and a crashed page's must not stay
 // forever, so each holder takes a Web Lock on the file's name, shared: the worker from before the file exists, the page
 // from the message that names it. A file is removed only while no one holds it (its exclusive lock granted at once): when
@@ -37,6 +38,39 @@ export function letGo(name, saved = false) {
   holds.delete(name);
   entry.release?.();
   entry.over.then(() => removed(name)).catch(() => null);
+}
+
+// blob's bytes as a build file of their own, held by this page (letGo() it with its build), and its File:
+// {file, name}. A worker writes it (flat.mjs), heard(share) after each run of up to run bytes; started from its own URL
+// on a page sw.js controls, else from a blob: URL so it keeps the page's CSP, and held here until it ends: Firefox
+// collects a Worker nothing holds (hasher.mjs). A failure lets go of the file and throws.
+const writers = new Set();
+export async function written(blob, run, heard = () => {}) {
+  const name = `${PREFIX}${crypto.randomUUID()}.bin`;
+  await hold(name);   // before the file exists: no sweep removes it under its writer
+  const entry = new URL("flat.mjs", import.meta.url).href;
+  const url = navigator.serviceWorker?.controller?.scriptURL === new URL("sw.js", import.meta.url).href ? entry
+    : URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
+  const worker = new Worker(url, { type: "module" });
+  writers.add(worker);
+  try {
+    return await new Promise((resolve, reject) => {
+      worker.onmessage = ({ data }) => "share" in data ? heard(data.share)
+        : data.file ? resolve({ file: data.file, name }) : reject(new Error(data.error));
+      worker.onerror = (e) => {
+        e.preventDefault();
+        reject(new Error(e.message || "the build file's worker stopped"));
+      };
+      worker.postMessage({ name, blob, run });
+    });
+  } catch (error) {
+    letGo(name);
+    throw error;
+  } finally {
+    writers.delete(worker);
+    worker.terminate();
+    if (url !== entry) URL.revokeObjectURL(url);
+  }
 }
 
 // [{name, size}] of the build files this origin keeps; none where OPFS refuses.
