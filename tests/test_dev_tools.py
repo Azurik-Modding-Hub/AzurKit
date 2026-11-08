@@ -239,15 +239,24 @@ def test_a_change_to_a_functions_decorators_or_defaults_is_its_modules_top_level
 
 def _users(*names: str) -> set[str]:
     """The test files whose import lines reach one of ``names`` (``tests._page``, ``scripts.perf``), directly or
-    through tests/ and scripts/ modules, or that run one by its file name beside them: read from the sources by
-    pattern, apart from fullsuite.graph()."""
+    through tests/, scripts/ and devkit/ modules (``devkit.re.test_for_va`` runs fullsuite), or that run one by its
+    file name beside them: read from the sources by pattern, apart from fullsuite.graph()."""
+    def names_in(s: str) -> list[str]:
+        return [n.split(" as ")[0].strip() for n in s.strip("()").split(",") if n.strip()]
+
     uses = {}
-    for p in [*(ROOT / "tests").glob("*.py"), *(ROOT / "scripts").glob("*.py")]:
-        text, pkg = p.read_text(encoding="utf-8"), p.parent.name
-        found = {f"{m[0]}.{n.split(' as ')[0].strip()}" for m in re.findall(
-            r"^\s*from (tests|scripts) import (\([^)]*\)|[^\n#]+)", text, re.M) for n in m[1].strip("()").split(",")}
-        found |= {f"{a}.{b}" for a, b in re.findall(r"^\s*(?:from|import) (tests|scripts)\.(\w+)", text, re.M)}
-        uses[f"{pkg}.{p.stem}"] = found | {f"{pkg}.{n}" for n in re.findall(r"with_name\(\"(\w+)\.py\"\)", text)}
+    for p in [*(ROOT / "tests").glob("*.py"), *(ROOT / "scripts").glob("*.py"), *(ROOT / "devkit").rglob("*.py")]:
+        text, parts = p.read_text(encoding="utf-8"), p.relative_to(ROOT).with_suffix("").parts
+        mod = ".".join(parts[:-1] if p.name == "__init__.py" else parts)
+        pkg = mod if p.name == "__init__.py" else mod.rpartition(".")[0]
+        found = {f"{m[0]}.{n}" for m in re.findall(r"^\s*from ((?:tests|scripts|devkit)(?:\.\w+)*) import "
+                                                   r"(\([^)]*\)|[^\n#]+)", text, re.M) for n in names_in(m[1])}
+        found |= set(re.findall(r"^\s*(?:from|import) ((?:tests|scripts|devkit)(?:\.\w+)+)", text, re.M))
+        found |= {f"{pkg}.{n}" for n in re.findall(r"^\s*import (\w+)", text, re.M)}   # a sibling on sys.path (perf)
+        for dots, sub, what in re.findall(r"^\s*from (\.+)([\w.]*) import (\([^)]*\)|[^\n#]+)", text, re.M):
+            base = ".".join([*pkg.split(".")[:len(pkg.split(".")) - len(dots) + 1], *filter(None, [sub])])
+            found |= {base, *(f"{base}.{n}" for n in names_in(what))}
+        uses[mod] = found | {f"{pkg}.{n}" for n in re.findall(r"with_name\(\"(\w+)\.py\"\)", text)}
     reached, more = set(names), set(names)
     while more := {m for m, found in uses.items() if m not in reached and found & more}:
         reached |= more
