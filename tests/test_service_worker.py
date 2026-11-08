@@ -263,6 +263,23 @@ def ready(page, timeout: float = 120) -> None:
         time.sleep(0.2)
 
 
+VISIT = _page.STALL
+"""s a load of the site's own page may take, as ``test_site.Site.open``'s load of it has (a page that starts its
+engine), not :data:`_page.ACT`'s 30 s: on GitHub's Windows runner Firefox held a first visit's load past them (run
+42494981621), the page's files answered and its engine started but its worker's first import, ``worker.mjs``, begun
+only as the failure was made (Playwright's Firefox says a request as Firefox is about to send it, before the host
+hears it: the host never had it), about 37 s after the page's process started, the failure's own reads of the page
+waiting with it; so did a test page's ``GET /`` there (run 42409729869). Why Firefox held them is not shown."""
+
+
+def visited(context, host: Host):
+    """A new page of the site's own, loaded in :data:`VISIT` s, once its engine is ready."""
+    page = context.new_page()
+    _page.load(page, host.url, seconds=VISIT)
+    ready(page)
+    return page
+
+
 KEPT_ROW = """() => [...document.querySelectorAll("#tools-storage td")].map((td) => td.textContent)
   .includes("AzurKit itself, kept for offline use")"""
 REGISTRATION = """async () => {
@@ -300,23 +317,17 @@ def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_r
     Storage counting the release; with the host down another starts its
     engine from the release alone."""
     with hosted(browser, site) as (host, context):
-        first = context.new_page()
-        _page.load(first, host.url)
-        ready(first)
+        first = visited(context, host)
         assert first.evaluate("() => [crossOriginIsolated, Boolean(navigator.serviceWorker.controller)]") == [False, False]
         kept(first, host, listed(site), 60)
-        page = context.new_page()
-        _page.load(page, host.url)
-        ready(page)
+        page = visited(context, host)
         assert page.evaluate("() => [crossOriginIsolated, navigator.serviceWorker.controller?.scriptURL, "
                              "azurkit.violations]") == [True, f"{host.url}sw.js", []]
         assert f"{host.url}worker.mjs" in [worker.url for worker in page.workers]
         page.evaluate("() => document.getElementById('tab-tools').click()")
         assert _page.until(page, KEPT_ROW, 60)
         host.down = True
-        other = context.new_page()
-        _page.load(other, host.url)
-        ready(other)
+        other = visited(context, host)
         assert other.evaluate("() => crossOriginIsolated")
 
 

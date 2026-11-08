@@ -104,6 +104,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Playwright keeps 127.0.0.1 in Firefox's proxy lookup, which on Windows
     asks WinINet before each request starts, and a page's first load there
     went unanswered past its 30 s with its request not yet sent.
+  - Playwright's Firefox says a request as Firefox is about to send it,
+    before the host hears it, so one a stall report hears late was late in
+    Firefox, never held by the test's host. A load of the site's page (it
+    starts its engine) has `_page.STALL` (`test_site.Site.open`,
+    `test_service_worker.VISIT`): Windows' Firefox held one past 30 s.
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
