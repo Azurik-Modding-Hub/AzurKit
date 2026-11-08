@@ -758,7 +758,7 @@ _XFORMS = 0x06000000    # where transform_world lays its transforms out, 0x400 B
 
 def transform_world(xbe: bytes, chain) -> tuple:
     """The world matrix the game's own code gives the last of ``chain``
-    (root first; each a :meth:`azurik_mod.xbr.nodes.Graph.xform_fields`
+    (root first; each a :meth:`azurkit.core.xbr.graph.Graph.xform_fields`
     dict), as a column-vector 4x4: each transform laid out as the loader
     0x67F80 fills it (attributes at +0x08, parent +0x18, -sp +0xB0,
     spt + sp - rp +0xBC, rp +0xC8, rpt + rp +0xD4, the inherit mode +0xF0

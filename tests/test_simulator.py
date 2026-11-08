@@ -1222,26 +1222,15 @@ def test_l3_search_keeps_to_a_flap_budget_and_a_kit_is_part_of_the_problem():
 
 
 def test_a_douse_casts_then_walks_through_attacking_until_the_to_node_and_a_leg_runs_on_from_its_pads(
-        tmp_path, monkeypatch):
+        tmp_path):
     """Step R1.29e: ``sim.douse`` is ``Chain.staff``'s recipe as a closed loop in L3: it turns to the barrier (12
     ticks at a 0.15 stick), casts the staff's elements (LT from tick 14, water's X at 16, LT up at 21), then walks
     toward the shape's mirror point holding A 4 ticks every 24 until the feet stand in the to-node for 8 ticks; a
     toy fire wall an attack within 2 m opens once water is cast lets it through, the same start gives the same pads,
     and with nothing cast it never opens.  A leg runs on from those pads: ``Segment.tail`` (``l3.pads`` segments)
-    runs after the prefix, the camera ends at its last yaw and it joins the problem's identity;
-    ``l3_certify.leg_pads`` runs a doused leg's parts in turn; ``l3_certify.crossing`` reads the barrier on
-    f1/g0/r1693's way there (f1.flameSpout15: its shape, water, water 1, the to-node's zone) and on the way back
-    ``plan`` sets up (its kit search and barrier crossings, AZ-517): none on f1/g0/r1693's, e2.FireWall_03 at water
-    1 on e2/g0/r4376's; ``crossings`` reads every barrier of a leg in turn (Step R1.29f: f1/g0/r1689's way back,
-    f1.flameSpout11 then f1.flameSpout13), and a leg doused twice keeps its five pieces in turn (to each barrier,
-    each douse's pads, on from the last) with their ticks and least robustness.
-    A wall is in the way when crossing to the body's mirror point through it brings the to-node nearer (else
-    nothing crosses it, as ``Chain.staff``); a leg's start is read from the snapshot (the leader's simulator ran
-    the last one's); and ``_verify`` meets a doused leg's goal at its last row and counts no goal row in a leg's
-    lead (an air kit's recast before a way back that starts in its goal)."""
-    import types
-    from pathlib import Path
-
+    runs after the prefix, the camera ends at its last yaw and it joins the problem's identity.  A wall is in the
+    way when crossing to the body's mirror point through it brings the to-node nearer (else nothing crosses it, as
+    ``Chain.staff``)."""
     from devkit.sim import douse as dz, l3
     from devkit.sim.l3 import Pad
     from devkit.sim.l3_search import Limits, Segment, problem_sha12, segments, start_of

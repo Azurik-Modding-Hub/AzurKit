@@ -28,7 +28,7 @@ Code and data are told apart by section name, never by section flags
 to them and data where it reads them.
 
 The API takes bytes, e.g. from the ISO reader
-(:func:`azurik_mod.iso.read_xbe`, which uses :mod:`devkit.sim.ports`).
+(:func:`devkit.sim.ports.read_file`).
 """
 
 from __future__ import annotations
