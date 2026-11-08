@@ -115,8 +115,8 @@ const refusal = (error) => {
 // The Variants view's (Step 4.6c): its library's calls, then Check with game data and Step 4.6b's calls on its dress
 // and on a base species; each reads the loader, so numpy loads first. The engine's VARIANTS (ENGINE) holds the same.
 const VARIANTS = ["variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
-                  "variant_export", "variant_check", "variant_colours", "variant_preview", "variant_rows", "export_pngs",
-                  "base_bones", "own_sounds", "kit_throw", "move_sources"];
+                  "variant_export", "variant_check", "variant_pictures", "variant_colours", "variant_preview",
+                  "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources"];
 
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
@@ -141,8 +141,8 @@ from azurkit.tools.characters import parts, pool
 
 PIECE = "/tmp/azurkit-piece"
 VARIANTS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
-            "variant_export", "variant_check", "variant_colours", "variant_preview", "variant_rows", "export_pngs",
-            "base_bones", "own_sounds", "kit_throw", "move_sources")   # the Variants view's calls: the page's VARIANTS
+            "variant_export", "variant_check", "variant_pictures", "variant_colours", "variant_preview",
+            "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources")   # page's VARIANTS
 BARRED = ("variant_check", "variant_rows", "export_pngs")   # their steps posted: the bar moves while the page waits
 
 

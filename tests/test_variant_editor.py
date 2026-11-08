@@ -166,17 +166,23 @@ def test_an_edit_the_loader_refuses_is_refused_by_name_and_writes_nothing(usa_is
     assert not folder.exists() and sorted(p.name for p in out.iterdir()) == ["mine_row1.png"]
 
 
-def test_a_check_dresses_a_built_in_and_one_it_cant_dress_still_lists_its_bases_bones(usa_iso, tmp_path):
+def test_a_check_dresses_a_built_in_answers_then_draws_it_and_one_it_cant_dress_lists_its_bases_bones(usa_iso,
+                                                                                                         tmp_path):
     """Check with game data (Modkit's ``check``) dresses beamlord as a build of him does: no refusal, its sha, the
-    dressed body and its bones, its own load runs under its build's lines, each effects row's bytes (he has none) and
-    his picture; a recipe whose glTF isn't in its folder can't dress, and says so by its file in that folder with its
+    dressed body and its bones, its own load runs under its build's lines and each effects row's bytes (he has none);
+    his picture comes after the answer (Step 4.6q), drawn from the dress the Check kept, and an edit no Check kept asks
+    for one; a recipe whose glTF isn't in its folder can't dress, and says so by its file in that folder with its
     base's own bones (where its springs rows go)."""
-    found = sdk.variant_check(_given(usa_iso, tmp_path, name="beamlord"))
+    given = _given(usa_iso, tmp_path, name="beamlord")
+    found = sdk.variant_check(given)
     assert (found["refusal"], found["sha"], found["body"], len(found["bones"])) == (None, "628f6d09ad7b",
                                                                                      "balthazar_airship", 135)
-    assert 0 < found["load"]["own"] < found["load"]["error"] and found["log"]
+    assert 0 < found["load"]["own"] < found["load"]["error"] and found["log"] and "front" not in found
     assert len(found["effects"]) == len(_player_variants.builtins()["beamlord"].effects)
-    assert art.unpng(found["front"]).shape == art.unpng(found["back"]).shape == (160, 160, 4)
+    drawn = sdk.variant_pictures(given)
+    assert art.unpng(drawn["front"]).shape == art.unpng(drawn["back"]).shape == (160, 160, 4)
+    with pytest.raises(ValueError, match="no Check of it is kept"):
+        sdk.variant_pictures(_given(usa_iso, tmp_path, name="booblord"))
     glb = {"base": "town_female_2", "mesh": {"gltf": {"file": "body.glb", "sha256": "0" * 64}}}
     cant = sdk.variant_check(_given(usa_iso, tmp_path, glb))
     assert str(tmp_path / "mine" / "body.glb") in cant["refusal"]
@@ -375,13 +381,14 @@ def test_the_quick_preview_puts_each_drawn_vertex_where_a_dress_at_those_values_
     with no dress: HIPS' pelvis at 1.5 drawn as a Check of it at 1.5 draws it (its scale op makes no new vertex, so
     every one is found), in a fraction of a second; one whose mesh changed beyond its shapes asks for the Check."""
     given = _given(usa_iso, tmp_path, HIPS)
-    first = sdk.variant_check(given)
+    sdk.variant_check(given)
+    first = sdk.variant_pictures(given)
     wider = json.loads(json.dumps(HIPS))
     wider["shapes"]["hips"]["value"] = 1.5
     quick = sdk.variant_preview(given | {"recipe": wider})
     assert quick["front"] != first["front"] and quick["seconds"] < 3
-    assert {k: quick[k] for k in ("front", "back")} == {k: sdk.variant_check(given | {"recipe": wider})[k]
-                                                        for k in ("front", "back")}
+    sdk.variant_check(given | {"recipe": wider})
+    assert {k: quick[k] for k in ("front", "back")} == sdk.variant_pictures(given | {"recipe": wider})
     other = json.loads(json.dumps(HIPS))
     other["mesh"]["ops"][0]["bone"] = "spine_1"
     with pytest.raises(ValueError, match="Check with game data dresses it"):

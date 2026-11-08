@@ -336,6 +336,7 @@ JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save), "
                              "plan_spoiler": _warmed(lambda plan, progress=None: sdk.spoiler(plan, progress=progress),
                                                      always=True),
                              "variant_check": _editor(sdk.variant_check, bar=True),
+                             "variant_pictures": _editor(sdk.variant_pictures),
                              "variant_colours": _editor(sdk.variant_colours),
                              "variant_preview": _editor(sdk.variant_preview),
                              "variant_rows": _editor(sdk.variant_rows, bar=True),

@@ -578,9 +578,9 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     say(`Saving ${reply.name}: your browser's download shows it${held(reply.unshareable)}`);
   });
 
-  // Check with game data (the engine's variant_check: dressed as a build dresses it, over the ticked packs): its
-  // pictures, its load against the build's lines, or the check's refusal. A Check of an older recipe is dropped once
-  // another opens.
+  // Check with game data (the engine's variant_check: dressed as a build dresses it, over the ticked packs): its load
+  // against the build's lines, or the check's refusal, then its pictures (variant_pictures, drawn from the dress the
+  // engine kept: the answer first). A Check of an older recipe is dropped once another opens.
   const paint = async (canvas, data) => {
     const g = canvas.getContext("2d");
     g.clearRect(0, 0, canvas.width, canvas.height);
@@ -615,9 +615,9 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     v.checking = ticket;
     shown(false);
     ui.checkNote.textContent = "";
-    const reply = await call("variant_check", { ...app ? {} : { file: image() },   // a dress: the site's heavy worker's
-                                                given: { ...given(), iso: app ? image() : null, packs: packs() } },
-                             { once: true });
+    const body = { ...app ? {} : { file: image() },   // a dress: the site's heavy worker's, which keeps it
+                   given: { ...given(), iso: app ? image() : null, packs: packs() } };
+    const reply = await call("variant_check", body, { once: true });
     if (v.checking === ticket) v.checking = null;
     if (mine !== v.ticket) return;
     if ("refused" in reply) {
@@ -625,15 +625,23 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     } else {
       v.checked = [asked, reply];
       if (!reply.refusal) {
-        await Promise.all([paint(ui.front, reply.front), paint(ui.back, reply.back)]);
-        v.pictured = "checked";
-        ui.pictureNote.textContent = "From the front and from behind, as it builds.";
         const load = reply.load;
         ui.checkNote.textContent = load ? `Its own load ${mib(load.own)} MiB (the build warns past `
           + `${mib(load.warning)} MiB and refuses past ${mib(load.error)} MiB).` : "";
       }
     }
     shown(false);
+    if ("refused" in reply || reply.refusal) return;
+    ui.pictureNote.textContent = "Drawing it as it builds…";
+    const views = await call("variant_pictures", body, { once: true });
+    if (mine !== v.ticket || v.checked?.[1] !== reply) return;
+    if ("refused" in views) {
+      ui.pictureNote.textContent = `Not drawn: ${views.refused}`;
+      return;
+    }
+    await Promise.all([paint(ui.front, views.front), paint(ui.back, views.back)]);
+    v.pictured = "checked";
+    ui.pictureNote.textContent = "From the front and from behind, as it builds.";
   });
 
   // Unsaved edits: asked about before the page closes (the site's, a browser's own question), a New one's too, as

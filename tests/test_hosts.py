@@ -1264,8 +1264,8 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
     data folder in Modkit's format, which the Models view's Yours group lists; Export writes ``mine.zip`` into the
     Downloads folder (never over one there); Delete (after a yes) and Import by path take it out and back, and a
     network share is refused before it is read. Check with game data waits for the image (D979); with one, it dresses
-    the variant in the engine and draws it, and opening another variant meanwhile drops the Check, that one shown as
-    it ships, unchecked. A Build of a variant with unsaved edits asks first, and a no starts nothing."""
+    the variant in the engine, answers, then draws it, and opening another variant meanwhile drops the Check, that
+    one shown as it ships, unchecked. A Build of a variant with unsaved edits asks first, and a no starts nothing."""
     from tests.test_site import VARIANTS_ASKED, VARIANTS_ROW, VARIANTS_TYPE, _variants_shown
 
     _home(monkeypatch, tmp_path / "home")
@@ -1325,7 +1325,7 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
         assert page.evaluate("() => document.getElementById('var-status').textContent").endswith("· not checked")
         _page.click(page, "var-check")
         assert _variants_shown(page, status="checked: it builds")["status"].startswith("recipe ")
-        assert "as it builds" in page.evaluate("() => document.getElementById('var-picture-note').textContent")
+        _page.until(page, "() => document.getElementById('var-picture-note').textContent.endsWith('as it builds.')", 60)
         assert page.evaluate("""() => { const g = document.getElementById('var-front').getContext('2d');
             return g.getImageData(0, 0, 160, 160).data.some((x, i) => i % 4 === 3 && x); }""")
         page.evaluate(VARIANTS_TYPE, ["var-scale", "1.5"])

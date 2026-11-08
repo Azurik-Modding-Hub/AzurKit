@@ -125,8 +125,9 @@ your variants in ``variants`` in the user data folder, where Modkit keeps
 them), ``api/variant_import`` ``{"path"}`` (an Export's zip or a
 recipe.json, read by path) and ``api/variant_export`` ``{"name", "out"}``
 (the zip written to ``out``, else the Downloads folder);
-``api/variant_check`` and Step 4.6b's calls on the dress it keeps run in
-the engine (:data:`EDITED`), its bar in ``api/progress``.
+``api/variant_check``, ``api/variant_pictures`` (its picture, after its
+answer) and Step 4.6b's calls on the dress it keeps run in the engine
+(:data:`EDITED`), its bar in ``api/progress``.
 The Tools tab's calls (Step 4.7c): ``POST api/info`` ``{"iso"}`` says what
 the image is (``sdk.image_info``), ``api/verify_all`` ``{"iso"}`` checks
 every file of it (``sdk.verify_all``: only what its kept check hasn't
@@ -1060,7 +1061,7 @@ class Server(http.server.ThreadingHTTPServer):
 
     def edited(self, job: str, body: dict) -> dict:
         """``api/variant_check`` and the Variants editor's calls that stand on
-        the dress it keeps (Step 4.6b's ``variant_colours``,
+        the dress it keeps (its picture, ``variant_pictures``; Step 4.6b's ``variant_colours``,
         ``variant_preview``, ``variant_rows``, ``export_pngs``): the engine's,
         followed by its line; a build ahead stops at its next record, as no
         dress runs beside it."""
@@ -1376,7 +1377,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 VARIANT_CALLS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "base_bones",
                  "own_sounds", "kit_throw", "move_sources")
 """The Variants view's calls the server answers itself (``api/<name>`` ``{"given"}``: ``sdk.<name>``)."""
-EDITED = ("variant_check", "variant_colours", "variant_preview", "variant_rows", "export_pngs")
+EDITED = ("variant_check", "variant_pictures", "variant_colours", "variant_preview", "variant_rows", "export_pngs")
 """Those the engine answers, the dress a Check keeps there serving the ones after it (:meth:`Server.edited`)."""
 
 

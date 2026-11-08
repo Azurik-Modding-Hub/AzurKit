@@ -139,8 +139,8 @@ __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_st
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
            "data", "data_edit", "mods_diff", "mod_template", "entity_diff", "image_info", "verify_all", "files", "extract", "mods_file", "community",
-           "content_refusal", "file_entry", "saves", "variant_check", "variant_colours", "variant_preview",
-           "variant_rows", "export_pngs", "add_png", "add_wav", "base_bones", "own_sounds", "kit_throw", "move_sources",
+           "content_refusal", "file_entry", "saves", "variant_check", "variant_pictures", "variant_colours",
+           "variant_preview", "variant_rows", "export_pngs", "add_png", "add_wav", "base_bones", "own_sounds", "kit_throw", "move_sources",
            "variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import", "variant_export"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
@@ -962,15 +962,16 @@ def variant_check(given: Mapping, *, progress: Callable[[dict], object] | None =
     (each ``[name, its parent's]``), its own load runs against the build's
     lines (``load``: ``own``, ``error`` and ``warning`` bytes, the lines of
     the machine its ``default.xbe`` is for, ``model_inspect.lines_ram``,
-    and ``words``), each ``effects`` row's
-    bytes, and its picture in its colours (``front``, ``back``: PNG bytes,
-    160 px). This process keeps the dress before its colours for
-    :func:`variant_colours`, :func:`variant_preview` and :func:`variant_rows`,
-    and its answer: a Check of what it checked last, unchanged
-    (:func:`_check_key`), answers at once (D1015), and a dress worked out
-    before is taken as kept (``characters.cache_key``, by content), so only
-    the first Check of new content dresses. A field or value the loader
-    refuses is a ``ValueError`` naming it."""
+    and ``words``) and each ``effects`` row's bytes; its picture comes after
+    the answer, from :func:`variant_pictures` (Step 4.6q: the answer
+    first). This process keeps the dress before its colours for
+    :func:`variant_pictures`, :func:`variant_colours`,
+    :func:`variant_preview` and :func:`variant_rows`, and its answer: a
+    Check of what it checked last, unchanged (:func:`_check_key`), answers
+    at once (D1015), and a dress worked out before is taken as kept
+    (``characters.cache_key``, by content), so only the first Check of new
+    content dresses. A field or value the loader refuses is a
+    ``ValueError`` naming it."""
     from azurkit.tools.characters import colour_preview, editor, picker, ports
     from azurkit.tools.characters import model_inspect as mi
 
@@ -999,16 +1000,45 @@ def variant_check(given: Mapping, *, progress: Callable[[dict], object] | None =
         with ports.building(ports.Build(ports.Vanilla(stamp.release, stamp.path, stamped=stamp),
                                         packs=characters.packs_view(stamp.release, mods.PACKS))):   # the packs' sites
             error, warning = mi.lines_for(mi.budget_of(xbe), mi.lines_ram(xbe, mi.DEFAULT_RAM))
-        base = colour_preview.base(plain["characters.xbr"], body, True) if dresses else _base_of(given, name, variant,
-                                                                                                    recipe)
         answer = {"refusal": None, "sha": variant.sha, "log": log, "body": body, "bones": editor.bones(worn, body),
                   "load": {"own": own["bytes"], "error": error, "warning": warning, "words": mi.own_words(own)},
-                  "effects": editor.effect_bytes(log, variant.effects),
-                  **colour_preview.pictures(colour_preview.recoloured(base, _colours_of(variant)))}
+                  "effects": editor.effect_bytes(log, variant.effects)}
+        characters_xbr = plain["characters.xbr"]
         _CHECKED["last"] = {"place": place, "uncoloured": _edit_key(given, recipe, ("colours",)),
-                            "variant": variant, "base": base, "characters": plain["characters.xbr"], "kept": None,
-                            "asked": asked, "answer": answer}
+                            "edit": _edit_key(given, recipe), "variant": variant, "body": body,
+                            "base": None, "pictures": None, "characters": characters_xbr, "kept": None,
+                            "drawn": (lambda: colour_preview.base(characters_xbr, body, True)) if dresses else
+                            (lambda: _base_of(given, name, variant, recipe)), "asked": asked, "answer": answer}
         return dict(answer)
+
+
+def _kept_base(kept: dict):
+    """The kept Check's body as the Colours views recolour it (a
+    ``colour_preview.Base``), drawn the first time it is asked (Step 4.6q:
+    after the Check's answer)."""
+    if kept["base"] is None:
+        kept["base"] = kept["drawn"]()
+    return kept["base"]
+
+
+def variant_pictures(given: Mapping) -> dict:
+    """Check with game data's picture, after its answer (Step 4.6q, the
+    Check design's L4: the answer first, then the picture): the variant
+    ``given`` holds (as :func:`variant_check` takes it), as its last Check
+    dressed it, drawn in its colours from the front and from behind
+    (``front``, ``back``: PNG bytes, 160 px), once a Check. A ``ValueError``
+    asks for the Check where none of this edit is kept (none yet, or it
+    changed since)."""
+    from azurkit.tools.characters import colour_preview
+
+    name, variant, recipe = _editing(given, "variant_pictures")
+    kept = _CHECKED.get("last")
+    if kept is None or kept["edit"] != _edit_key(given, recipe):
+        raise ValueError(f"variant {name!r}: no Check of it is kept (none yet, or it changed since): Check with game "
+                         "data dresses it")
+    if kept["pictures"] is None:
+        kept["pictures"] = colour_preview.pictures(colour_preview.recoloured(_kept_base(kept), _colours_of(variant)))
+    return dict(kept["pictures"])
 
 
 def _checked(given: Mapping, recipe: Mapping | None) -> dict | None:
@@ -1028,7 +1058,7 @@ def _base_of(given: Mapping, name: str, variant, recipe: Mapping | None):
         if (kept := _checked(given, recipe)) is None:
             raise ValueError(f"variant {name!r}: its build changes its body (a mesh, textures or texture_scale): "
                              "Check with game data dresses it first")
-        return kept["base"]
+        return _kept_base(kept)
     stamp, config, bodies = _game(given["iso"])
     body = colour_preview.body_of(config, bodies, variant.base)
     key = (str(stamp.path), stamp.release.name, body)
@@ -1084,11 +1114,12 @@ def variant_preview(given: Mapping) -> dict:
             or repr(plain) != repr(ref.plain or ref.mesh)):
         raise ValueError(f"variant {name!r}: no Check of its mesh is kept (none yet, another variant's, or its mesh "
                          "changed beyond its shapes since): Check with game data dresses it")
-    drawn = [(q.P, q.T) for q in kept["base"].parts]
+    base = _kept_base(kept)
+    drawn = [(q.P, q.T) for q in base.parts]
     if kept["kept"] is None:   # its mesh prepared on the base's own body once a Check
         _, config, bodies = _game(given["iso"])
         kept["kept"] = editor.prepared(bodies, colour_preview.body_of(config, bodies, variant.base), ref, drawn)
-    moved = kept["base"].moved(editor.moved(kept["kept"], variant, drawn))
+    moved = base.moved(editor.moved(kept["kept"], variant, drawn))
     return {**colour_preview.pictures(colour_preview.recoloured(moved, _colours_of(variant))),
             "seconds": time.perf_counter() - started}
 
@@ -1110,7 +1141,7 @@ def variant_rows(given: Mapping, *, progress: Callable[[dict], object] | None = 
         if not colour_preview.dresses(variant):
             body = colour_preview.body_of(config, worn, variant.base)
         elif (kept := _checked(given, recipe)) is not None:
-            worn, body = kept["characters"], kept["base"].body
+            worn, body = kept["characters"], kept["body"]
         else:
             steps("dress", f"Dressing {name}")
             files = _dressing(given, _uncoloured(variant, recipe), steps)[0]

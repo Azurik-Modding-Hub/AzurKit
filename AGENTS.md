@@ -945,12 +945,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     worker keeps a Check's under the Check's hint, a Build's under the
     build's) and keeps that dress
     before its colours for the process (one, as `_DRESSED`; the app's in
-    its engine, `engine.JOBS`) with its answer: a Check of what it
+    its engine, `engine.JOBS`) with its answer, which holds no picture:
+    `sdk.variant_pictures` draws it after (Step 4.6q, the answer first;
+    the page asks it as the answer lands, of the worker that keeps the
+    dress, and the base body it recolours is drawn then, once a Check).
+    A Check of what it
     checked last, unchanged (`sdk._check_key`, by content), answers at
     once, and a dress kept before (`characters.cache_key`; the site's
     worker keeps a Check's dress in IndexedDB as `build()` keeps a
     build's) is taken, so only new content dresses (D1015, D999). On it
-    stand `variant_colours` (the live recolour), `variant_preview` (the
+    stand `variant_pictures`, `variant_colours` (the live recolour),
+    `variant_preview` (the
     Shape tab's quick preview, no dress), `variant_rows` and
     `export_pngs`; `add_png`, `add_wav`,
     `base_bones`, `own_sounds`, `kit_throw` and `move_sources` need no
