@@ -17,11 +17,12 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 
 ``--changed`` runs only the test files that the worktree's changes against
 ``main`` (or ``--base``) pick (:func:`plan`), plus :data:`SMOKE`: the lint
-files, the gate's test, whose USA and Europe cases make every receipt
-show both tiers run (D26), and the scan of every tracked file for a home
-path (:data:`SCAN`). A change in a folder the tests read by path
+files (the agent files' among them, whose scan of every tracked file for a
+home path reads whatever a change touches) and the gate's test, whose USA
+and Europe cases make every receipt show both tiers run (D26). A change in a folder the tests read by path
 (:data:`DATA`: the goldens, the workflows, the kernels) picks its readers, and so does any other file that isn't
-Python: the test files reaching a module that names it (:func:`namers`). Only what every session runs
+Python: the test files reaching a module that names it (:func:`namers`), or, under ``devkit/<area>/``, reaching
+that package. Only what every session runs
 (:func:`graph_of`'s ``every_run``: conftest's and its plugins' top levels and hooks and all they reach) or a path no
 rule covers and no module names makes it the whole suite; what only a conftest fixture runs picks the tests that
 take it, and so does a change to such a module (conftest too) in functions only fixtures or tests call
@@ -81,10 +82,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import perf  # noqa: E402
 import web_tools  # noqa: E402
 
-LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
-#: It reads every tracked text file, whatever changed (a workflow, a kernel, a comment).
-SCAN = "tests/test_agent_files.py::test_no_tracked_text_holds_a_home_path_or_cites_the_private_evidence_folder"
-SMOKE = (*LINT, "tests/test_gate.py", SCAN)   # every changed-area run's; test_gate reads both images
+#: The agent files' test reads every tracked text file (a home path, an ``$EV`` cite), whatever changed (a doc, a
+#: workflow, a kernel, a comment), and the agent files themselves, which a docs-only change edits.
+LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py", "tests/test_agent_files.py")
+SMOKE = (*LINT, "tests/test_gate.py")   # every changed-area run's; test_gate reads both images
 CAP = 1800        # a run's cap on a host whose load is at most its CPU count (cap()): ~3x a whole run on 8 workers
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)
@@ -480,7 +481,9 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     a conftest fixture that runs it: :func:`graph_of`), each that reaches a
     module reading a changed :data:`DATA` folder (``deps``' folder entries) or
     naming a changed file that isn't Python (:func:`namers`; a deleted one's
-    users still name it), :data:`SRC_TESTS` for a change under src/, a path's
+    users still name it; one under ``devkit/<area>/`` is that package's, which
+    reads its data by ``__file__``: ``devkit/re/data/x.toml`` picks what
+    reaches ``devkit.re`` or a module in it), :data:`SRC_TESTS` for a change under src/, a path's
     :data:`RULES` tests, and :data:`SMOKE`; nothing more for other docs. A
     change to the suite's configuration, to what every session runs
     (``deps.every_run``, a file one of its modules names too; for a plain
@@ -517,6 +520,10 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
         if rel.endswith(DOCS) or rel in (".gitignore", perf.CEILINGS):   # the perf list: the perf stage reads it
             continue
         if (module := module_of(rel)) is None:
+            head = rel.split("/")
+            if head[0] == "devkit" and len(head) > 2 and (package := f"devkit.{head[1]}") in deps:   # its own data
+                touched |= {m for m in deps if m == package or m.startswith(f"{package}.")}
+                continue
             if not (named := namers(rel, deps)):
                 return None   # no module names it: who reads it isn't known
             touched |= named

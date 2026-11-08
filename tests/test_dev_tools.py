@@ -55,18 +55,33 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
     assert fullsuite.plan(["src/azurkit/sdk.py"], fullsuite.graph(ROOT)) is not None
 
 
-def test_every_changed_area_run_scans_every_tracked_file_for_a_home_path():
-    """Step 4.4dx3, review F1: the scan of every tracked text file for a home
-    path or an ``$EV`` cite reads whatever a change touches, so every
-    changed-area plan runs it: a workflow's, a kernel's, a doc's or a comment
-    edit's alone (:func:`fullsuite.parts` gives none), and the whole file
-    when that file is picked."""
-    path, _, name = fullsuite.SCAN.partition("::")
-    assert f"\ndef {name}():" in (ROOT / path).read_text(encoding="utf-8")
-    deps = {"tests.conftest": set(), "tests.test_agent_files": set(), "tests.test_reach": {"native/"}}
-    for changed in ([], [".github/workflows/tests.yml"], ["native/reach.c"], ["AGENTS.md"]):
-        assert fullsuite.SCAN in fullsuite.plan(changed, deps), changed
-    assert path in (picks := fullsuite.plan([path], deps)) and fullsuite.SCAN not in picks
+def test_a_dev_area_change_picks_its_importers_and_every_plan_lints_the_agent_files(tmp_path):
+    """Step 4.11b: graph() reads devkit/, shimkit/ and nativekit/ as it reads
+    src/, so a change to a dev module picks the test files reaching it through
+    other dev modules, and a file under devkit/<area>/ that isn't Python or a
+    doc is that package's (it reads its data by ``__file__``): it picks what
+    reaches the package, not the whole suite. Every plan holds the lint
+    files, the agent files' among them: their scan of every tracked text
+    file for a home path or an ``$EV`` cite reads whatever a change touches
+    (a doc's, a workflow's, a kernel's or a comment's edit alone; Step
+    4.4dx3's review F1), and a docs-only change edits the agent files. The
+    modules here are made up: a real one's path in this file would make
+    graph() read it as a program this file runs, and its changes pick this file."""
+    files = {"devkit/lab/snapshot.py": "", "devkit/rig/queue.py": "from devkit.lab import snapshot\n",
+             "devkit/area/__init__.py": "", "devkit/area/reader.py": "", "shimkit/probe.py": "",
+             "nativekit/probe.py": "", "tests/test_rig.py": "from devkit.rig import queue\n",
+             "tests/test_area.py": "from devkit.area import reader\n", "tests/test_other.py": "import json\n"}
+    for rel, text in files.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text, encoding="utf-8")
+    deps = fullsuite.graph(tmp_path)
+    assert {"shimkit.probe", "nativekit.probe", "devkit.rig.queue"} <= deps.keys()
+    assert "tests/test_agent_files.py" in fullsuite.LINT
+    for changed, picks in ((["devkit/lab/snapshot.py"], {"tests/test_rig.py"}),
+                           (["devkit/area/data/x.toml"], {"tests/test_area.py"}),
+                           (["AGENTS.md", "devkit/area/README.md"], set()),
+                           ([".github/workflows/tests.yml", "native/reach.c"], set()), ([], set())):
+        assert fullsuite.plan(changed, deps) == sorted({*SMOKE, *picks}), changed
 
 
 def test_a_change_in_the_goldens_picks_the_test_files_that_read_them():
