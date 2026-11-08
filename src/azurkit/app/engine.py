@@ -338,7 +338,7 @@ JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save), "
                              "variant_check": _editor(sdk.variant_check, bar=True),
                              "variant_pictures": _editor(sdk.variant_pictures),
                              "variant_colours": _editor(sdk.variant_colours),
-                             "variant_preview": _editor(sdk.variant_preview),
+                             "variant_preview": _editor(sdk.variant_preview, bar=True),
                              "variant_rows": _editor(sdk.variant_rows, bar=True),
                              "export_pngs": _editor(sdk.export_pngs, bar=True)}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,

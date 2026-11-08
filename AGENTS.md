@@ -97,7 +97,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - WebKit refuses each `<select>` a script makes (its own inline style,
     CSP's `style-src-attr`, raised from the script's file), so the page's
     selects are parsed from `index.html`, the Variants view's Gameplay box
-    too (Step 4.6c); their options may be made by script.
+    and its Jiggle tab's bone box too (Steps 4.6c, 4.6d); their options may
+    be made by script.
   - A page's files come from a server of a process of its own
     (`tests/_page.py`'s `Served`, `tests/_static.py`: `test_site.Site`, its
     bare page and `test_service_worker.Host`), never through the test's own
@@ -956,7 +957,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     build's) is taken, so only new content dresses (D1015, D999). On it
     stand `variant_pictures`, `variant_colours` (the live recolour),
     `variant_preview` (the
-    Shape tab's quick preview, no dress), `variant_rows` and
+    Shape tab's quick preview, no dress: a bar op, its steps told), `variant_rows` and
     `export_pngs`; `add_png`, `add_wav`,
     `base_bones`, `own_sounds`, `kit_throw` and `move_sources` need no
     dress. The library's calls stand on Step 4.6a's library (Step 4.6c):
@@ -1534,7 +1535,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     refused one marked), New (a species from `web/picker.mjs` in the
     page's own dialog), New from this, Save, Save as, Delete (after a
     yes), Import and Export (a zip; the site's download, the app's
-    Downloads folder or save dialog), Gameplay, the Body and JSON tabs,
+    Downloads folder or save dialog), Gameplay, the Body, Shape, Jiggle
+    and JSON tabs (each tab but Body's and JSON's a module of
+    `web/variants/`, Step 4.6d, handed the view's `ctx`: the recipe, its
+    read, an edit, the engine, the shared pictures; Shape's drag shows the
+    nearest shape held marked Preview, D1011, and its let-go the quick
+    preview or, unchecked, the Check; Jiggle's Add lists the last Check's
+    bones, else `base_bones`),
     Check with game data (greyed with D979's line until an image; its bar
     the bottom bar's) and the status line (sha12, grade, saved, checked);
     the engine decides every recipe (`sdk.variants`, `variant_open`,
@@ -1553,7 +1560,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     work ahead's key counts each handoff. The Models view lists yours as
     its Yours group (`#char-custom`) with Edit… on a chosen variant.
     `tests/test_variant_library.py`, `test_site.py` and `test_hosts.py`
-    hold it; `tests/_perf.py`'s A87-A93 and S73-S79 time it.
+    hold it; `tests/_perf.py`'s A87-A93, A95, A96, S73-S79, S81 and S82 time it.
   - **The Data tab** (Step 4.7a, `web/data.mjs`; D986, Modkit's Game Data
     editor): config.xbr's cells before an image (`sdk.data`, from the
     vanilla file `tools/data` ships): the Player, Critter, Item, Armor and

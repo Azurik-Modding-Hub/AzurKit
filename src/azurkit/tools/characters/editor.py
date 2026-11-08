@@ -17,7 +17,9 @@ says of a dress, and the Shape tab's quick preview. The sdk's
 - :func:`effect_bytes`: the bytes each ``effects`` row adds, as a build's
   log says;
 - :func:`moved`: the quick preview's vertices, a dress's moved to a
-  recipe's other shape values on its frozen topology.
+  recipe's other shape values on its frozen topology;
+- :func:`shape_rows` and :func:`jiggle_of`: the Shape tab's sliders and
+  mesh ops, and the Jiggle tab's springs, of a recipe as read.
 
 Its arguments are the archives' bytes and the paths a host names; it
 starts no thread or process and prints nothing (``tests/test_contracts.py``),
@@ -273,5 +275,66 @@ def moved(kept: tuple, variant, drawn: list) -> list[np.ndarray]:
     return out
 
 
-__all__ = ["FOLLOW_EDGES", "MoveSources", "add_png", "add_wav", "bones", "effect_bytes", "kit_throw", "move_sources",
-           "moved", "own_sounds", "prepared"]
+def _sizes(shape, mesh) -> str:
+    """What ``shape`` sizes, in words: each op it names (both sides of a
+    mirrored one; the layers it moves, skin or cloth), the ops it sizes
+    below 1 and the bones it turns out with it."""
+    ops = [op for op in (mesh.ops if mesh is not None else ()) if getattr(op, "name", "") in shape.ops]
+    parts = []
+    for name in shape.ops:
+        mine = [op for op in ops if op.name == name]
+        both = any(getattr(op, "mirror", False) for op in mine)
+        parts.append(name.removesuffix(" right").removesuffix(" left") + (" (both sides)" if both else "")
+                     + (f", {len(mine)} layers" if len(mine) > 1 else ""))
+    turns = [f"{bone.replace('_', ' ')} {abs(deg):g}° a unit over 1" for bone, _axis, deg in shape.turns]
+    below = f", and below 1 {'; '.join(shape.below)} too" if shape.below else ""
+    return (f"{shape.title} sizes {'; '.join(parts)}{below}" + (f", and turns out {'; '.join(turns)}" if turns else "")
+            + ".")
+
+
+def shape_rows(variant, recipe) -> dict:
+    """The Shape tab's rows (Modkit's ``ShapeTab.load``): ``shapes``, a
+    row per shape the loader reads (a recipe ``from`` another: that one's,
+    the values its own), each its ``name``, ``title``, ``value``, ``sizes``
+    (in words) and ``at``, the value its key is dropped at (a recipe from
+    another: that one's own value, so the recipe builds as that one does
+    there; else ``None``: its own shape's value is written); and ``ops``,
+    its mesh's ops before its shapes sized them, each ``[name, kind, the
+    shape that sizes it]``, the sized first."""
+    from azurkit.tools.characters import _player_variants as variants
+
+    parent = recipe.get("from")
+    parent = variants.builtins().get(parent) if isinstance(parent, str) else None
+    mesh = variant.plain or variant.mesh
+
+    def at(shape) -> float | None:
+        if "from" not in recipe:
+            return None
+        return next((s.value for s in (parent.shapes if parent is not None else ()) if s.name == shape.name), 1.0)
+
+    sized = ({op: s.title for s in variant.shapes for op in s.ops}
+             | {op: f"{s.title} < 1" for s in variant.shapes for op in s.below})
+    ops = [[getattr(op, "name", "") or "—", type(op).__name__.removesuffix("Op").lower(),
+            sized.get(getattr(op, "name", ""), "")] for op in (mesh.ops if mesh is not None else ())]
+    return {"shapes": [{"name": s.name, "title": s.title, "value": s.value, "at": at(s), "sizes": _sizes(s, mesh)}
+                       for s in variant.shapes],
+            "ops": sorted(ops, key=lambda row: not row[2])}
+
+
+def jiggle_of(variant, recipe, name: str) -> dict | None:
+    """The Jiggle tab's springs: the recipe's ``jiggle`` as it builds
+    (Modkit's ``JiggleTab._jiggle``), its own, or for a recipe ``from``
+    another with none of its own that one's (the tab copies it into the
+    recipe at its first edit); ``None`` for a variant with no jiggle."""
+    from azurkit.tools.characters import _player_variants as variants
+
+    if variant.jiggle is None:
+        return None
+    if "from" in recipe and not isinstance(recipe.get("jiggle"), dict):
+        laid = variants.recipe_of({name: dict(recipe)}, name, "editor")[0].get("jiggle")
+        return laid if isinstance(laid, dict) else None
+    return recipe["jiggle"] if isinstance(recipe.get("jiggle"), dict) else None
+
+
+__all__ = ["FOLLOW_EDGES", "MoveSources", "add_png", "add_wav", "bones", "effect_bytes", "jiggle_of", "kit_throw",
+           "move_sources", "moved", "own_sounds", "prepared", "shape_rows"]

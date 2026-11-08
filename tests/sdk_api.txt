@@ -755,17 +755,20 @@ views' portrait crop). A fraction of a second; a colour op the loader
 refuses is a ``ValueError`` naming it.
 
 
-def variant_preview(given: 'Mapping') -> 'dict':
+def variant_preview(given: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
 
-The Shape tab's quick preview (Modkit's ``variant_library.preview``):
+The Shape tab's quick preview (Modkit's ``variant_library.preview``;
+a bar op, D999's kind: a new shape's first picture):
 the last Check's dress of the variant ``given`` holds (as
 :func:`variant_check` takes it), each drawn vertex moved to where the
 build's position steps put it at the edit's shape values on the
 Check's topology (``editor.moved``; no dress, so approximate: the finer
 triangles a build makes at the new values aren't made), drawn in its
-colours: ``{"front", "back": PNG bytes, "seconds"}``. A ``ValueError``
-asks for the Check where none of this variant is kept or its mesh
-changed beyond its shapes since.
+colours: ``{"front", "back": PNG bytes, "seconds"}``, its ``progress``
+told each step (its mesh prepared, the first after a Check; moved;
+drawn). A ``ValueError`` asks for the Check where none of this variant
+is kept (whatever name or folder the edit has: a built-in checked by
+its name, then dragged) or its mesh changed beyond its shapes since.
 
 
 def variant_rows(given: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
@@ -874,8 +877,12 @@ working name, yours or :data:`UNSAVED`) as the library would hold it
 of its own; ``grade``: ``built_in``'s, the built-in it was opened from,
 while the recipe is that one's as opened, else unseen) and its body as
 it builds (``size``, ``scale``, ``arms``, ``rotate``, ``weapon``: a
-recipe ``from`` another's from that one), or ``{"refusal"}``, the
-loader's or the library's words.
+recipe ``from`` another's from that one), its Shape tab's ``shapes``
+and ``ops`` (``editor.shape_rows``) and the sliders' ``track`` (a
+display hint), its Jiggle tab's ``jiggle`` as it builds
+(``editor.jiggle_of``; ``None``: none) and ``rows_max``, the spring
+rows the game swings at most; or ``{"refusal"}``, the loader's or the
+library's words.
 
 
 def variant_save(given: 'Mapping') -> 'dict':

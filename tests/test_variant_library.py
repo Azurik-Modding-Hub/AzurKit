@@ -272,3 +272,37 @@ def test_the_variants_views_calls_open_read_save_import_and_export_whole_or_refu
             sdk.variant_import({"data": data})
     sdk.variant_delete({"name": "lady"})
     assert [e["name"] for e in sdk.variants()["yours"]] == ["beam", "broken", "solo"]
+
+
+def test_the_shape_and_jiggle_tabs_read_each_shape_its_mesh_ops_and_springs_as_the_recipe_builds(lib):
+    """The Variants view's Shape and Jiggle tabs (Step 4.6d; Modkit's
+    ``ShapeTab.load`` and ``JiggleTab._jiggle``), from ``variant_read``: a
+    recipe from booblord reads her shapes, each its value as built (its own
+    over hers), the value its key drops back at (hers) and what it sizes
+    in words, her mesh's ops with the sized first, and her springs as it
+    builds them until it has a jiggle of its own; one of its own reads its
+    shape's value with no value to drop at; a body with no mesh reads none
+    of either. Modkit's tabs read the same rows of these recipes."""
+    her = json.loads(variants.BUILTIN.read_text(encoding="utf-8"))["booblord"]
+    own = json.loads(json.dumps(her["jiggle"]))
+    own["bones"][0]["spring"]["damping"] = 0.3
+    hips = {"base": "town_female_2", "mesh": {"ops": [
+        {"op": "scale", "name": "pelvis", "profile": "smooth", "bone": "root_joint", "offset": [0.0, -0.033, -0.175],
+         "radius": [0.4, 0.16, 0.22], "factors": [1.4, 1.0, 1.0]}]},
+        "shapes": {"hips": {"title": "Hips", "ops": ["pelvis"], "value": 1.3}}}
+    read = {name: sdk.variant_read({"name": name, "recipe": recipe}) for name, recipe in (
+        ("hers", {"from": "booblord"}), ("mine", {"from": "booblord", "shapes": {"bust": {"value": 1.2}}, "jiggle": own}),
+        ("hips", hips), ("plain", {"base": "keylord", "mode": "own"}))}
+    got = {name: ([(s["name"], s["value"], s["at"]) for s in r["shapes"]], r["ops"][:1] + r["ops"][-1:],
+                  r["jiggle"] == her["jiggle"], r["jiggle"] == own) for name, r in read.items()}
+    ends = [["pelvis", "scale", "Hip width < 1"], ["strap's neck edge out", "push", ""]]   # sized first, then the rest
+    assert got == {"hers": ([("bust", 1.0, 1.0), ("hips", 1.0, 1.0), ("butt", 1.0, 1.0)], ends, True, False),
+                   "mine": ([("bust", 1.2, 1.0), ("hips", 1.0, 1.0), ("butt", 1.0, 1.0)], ends, False, True),
+                   "hips": ([("hips", 1.3, None)], [["pelvis", "scale", "Hips"]] * 2, False, False),
+                   "plain": ([], [], False, False)}
+    assert {(tuple(r["track"]), r["rows_max"]) for r in read.values()} == {((0.5, 1.4, 0.05), 32)}
+    assert [s["sizes"] for s in read["hers"]["shapes"]] == [
+        "Bust size sizes breast (both sides), 2 layers.",
+        "Hip width sizes hip (both sides); hip bone (both sides), and below 1 pelvis too.",
+        "Butt size sizes glute (both sides), and turns out loincloth back 1 70° a unit over 1."]
+    assert read["plain"]["jiggle"] is None and read["mine"]["sha"] != read["hers"]["sha"]

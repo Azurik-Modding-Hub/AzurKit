@@ -645,3 +645,18 @@ p.views { margin: 0; padding: 2px 10px; }
 #var-ask { position: fixed; top: 18%; left: 50%; width: 22rem; margin: 0; transform: translateX(-50%); }
 #var-ask .picker-list { max-height: 18rem; }
 #var-ask .note { margin: 6px; }
+/* Its Shape and Jiggle tabs (Step 4.6d): a slider a shape, its mesh's ops; a row a spring, each number a box. */
+#var-shape-note, #var-jiggle-note, #var-ops-title { margin: 4px 0; }
+#var-shapes .number { padding: 1px 0; }
+.var-ops, .var-springs { max-height: 12rem; overflow: auto; border: 1px solid var(--soft); width: max-content;
+  max-width: 100%; }
+.var-springs { max-height: 20rem; }
+#var-ops, #var-springs-table { border-collapse: collapse; font: 11px var(--mono); }
+#var-ops th, #var-springs-table th { position: sticky; top: 0; padding: 1px 8px 1px 4px; color: var(--muted);
+  background: var(--bar); font-weight: 600; text-align: left; }
+#var-ops td, #var-springs-table td { padding: 1px 8px 1px 4px; border-bottom: 1px solid var(--soft); white-space: nowrap; }
+#var-springs-table input { width: 4.5rem; text-align: right; }
+#var-springs-table button { height: 18px; padding: 0 5px; }
+#var-spring-line .field { display: inline-flex; align-items: center; gap: 4px; }
+#var-jiggle-entry { margin: 2px 0; color: var(--mark); }
+#var-jiggle-entry:empty { display: none; }

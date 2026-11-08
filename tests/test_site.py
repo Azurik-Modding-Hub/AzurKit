@@ -6127,3 +6127,94 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         assert [s for s in served.stray() if not s.startswith(f"GET {served.origin}/content-test/")] == []
     finally:
         served.close()
+
+
+VARIANTS_DRAG = """([name, values]) => { const box = document.getElementById(`var-shape-${name}`);
+    const track = box.previousElementSibling;
+    for (const x of values) { track.value = String(x); track.dispatchEvent(new Event("input", { bubbles: true })); }
+    track.dispatchEvent(new Event("change", { bubbles: true })); }"""
+VARIANTS_BOX = """([label, text]) => { const box = document.querySelector(`#var-springs input[aria-label="${label}"]`);
+    box.value = text; box.dispatchEvent(new Event("change", { bubbles: true })); return box.value; }"""
+
+
+def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_the_build_reads(browser, site):
+    """Step 4.6d on the site (Modkit's Shape and Jiggle tabs; D455, D445), no image picked: booblord opens as a
+    recipe from her, its Shape tab a slider a shape at her value, what each sizes in its title, and her mesh's ops,
+    the sized first. A drag of Bust size writes ``shapes.bust.value`` (its sha the engine's for that recipe) and back
+    at her value drops the key (her sha again); meanwhile the pictures she ships stay, marked Preview, saying the image
+    draws these values, and no Check or preview is asked (none mid-drag, Modkit's AZ-793; none with no image). Her
+    Jiggle tab lists her springs, hers until an edit copies them into the recipe's jiggle: a damping typed writes that
+    spring's, a stiffness that isn't a number is named and the old one kept, a springs row's x removes it, and Add
+    waits for the image to list the body's bones. keylord's new recipe reads no shape sliders and no jiggle, saying
+    why. No CSP violation."""
+    from azurkit.tools.characters import _player_variants, jiggle_rt
+
+    her = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["booblord"]
+    sha = {k: sdk.variant_read({"name": sdk.UNSAVED, "recipe": r})["sha"] for k, r in (
+        ("hers", {"from": "booblord"}), ("bust", {"from": "booblord", "shapes": {"bust": {"value": 1.2}}}))}
+    shown = """() => { const $ = (id) => document.getElementById(id), v = azurkit.variants.state;
+        return { recipe: v.recipe, checking: v.checking, checked: v.checked, status: $("var-status").textContent,
+                 note: $("var-picture-note").textContent, marked: $("var-front").parentElement.hasAttribute("data-preview"),
+                 shape: $("var-shape-note").textContent, jiggle: $("var-jiggle-note").textContent,
+                 rows: [...document.querySelectorAll("#var-shapes .number")].map((r) => [r.querySelector("label")
+                   .textContent, r.querySelector("label").title, r.querySelector("input[type=text]").value]),
+                 ops: [$("var-ops-title").textContent, [...document.querySelectorAll("#var-ops tbody tr")].length,
+                       [...document.querySelector("#var-ops tbody tr")?.cells ?? []].map((c) => c.textContent)],
+                 springs: document.querySelectorAll("#var-springs tr").length, entry: $("var-jiggle-entry").textContent,
+                 add: [$("var-bone").disabled, $("var-spring-note").textContent] }; }"""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        page.evaluate(VARIANTS_ROW, "booblord")
+        _variants_shown(page, status=sha["hers"])
+        _page.click(page, "var-tab-shape")
+        _page.until(page, "() => document.getElementById('var-picture-note').textContent.includes('as it ships')", 60)
+        got = page.evaluate(shown)
+        assert (got["shape"], got["rows"], got["ops"]) == ("booblord's shapes, the values yours.", [
+            ["Bust size", "Bust size sizes breast (both sides), 2 layers.", "1"],
+            ["Hip width", "Hip width sizes hip (both sides); hip bone (both sides), and below 1 pelvis too.", "1"],
+            ["Butt size", "Butt size sizes glute (both sides), and turns out loincloth back 1 70° a unit over 1.", "1"]],
+            ["Its mesh's ops (54):", 54, ["pelvis", "scale", "Hip width < 1"]])
+        page.evaluate(VARIANTS_DRAG, ["bust", [1.05, 1.1, 1.15, 1.2]])
+        got = page.evaluate(shown)
+        assert (got["recipe"], got["marked"], got["note"]) == (
+            {"from": "booblord", "title": her["title"], "notes": her["notes"], "shapes": {"bust": {"value": 1.2}}}, True,
+            "Preview: the nearest shape drawn. Choose your image first (1.) to draw these values.")
+        _variants_shown(page, status=sha["bust"])
+        page.evaluate(VARIANTS_DRAG, ["bust", [1.1, 1]])
+        assert "shapes" not in _variants_shown(page, status=sha["hers"]) and "shapes" not in page.evaluate(
+            "() => azurkit.variants.state.recipe")
+        _page.click(page, "var-tab-jiggle")
+        got = page.evaluate(shown)
+        assert (got["jiggle"], got["springs"], "jiggle" in got["recipe"], got["add"]) == (
+            "booblord's springs: an edit makes them yours.",
+            len(jiggle_rt.spring_bones(_player_variants.builtins()["booblord"].jiggle)), False,
+            [True, "Choose your image first (1.) to list its bones"])
+        assert page.evaluate(VARIANTS_BOX, ["breast_right Damping", "0.3"]) == "0.3"
+        assert page.evaluate(VARIANTS_BOX, ["breast_right Stiffness (Hz)", "fast"]) == "2.6"   # the old one kept
+        assert page.evaluate("() => document.getElementById('var-jiggle-entry').textContent") == (
+            "breast_right stiffness: 'fast' is not a number")
+        _page.click(page, "var-spring-drop-0")
+        mine = json.loads(json.dumps(her["jiggle"]))
+        mine["bones"][0]["spring"]["damping"] = 0.3
+        del mine["springs"][0]
+        _variants_shown(page, status="edits")
+        got = page.evaluate(shown)
+        assert (got["recipe"]["jiggle"], got["jiggle"], got["checking"], got["checked"]) == (
+            mine, "Its own springs, over booblord's body.", None, None)   # nothing asked of a dress
+        _page.click(page, "var-new")
+        keylord = "document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')"
+        _page.until(page, f"() => {keylord}", 60)
+        page.evaluate(f"() => {keylord}.click()")
+        assert _page.until(page, VARIANTS_ASKED) == "Leave booblord (edited) and lose its unsaved edits?"
+        _page.click(page, "var-ask-yes")
+        _variants_shown(page, name="(new, unsaved)")
+        got = page.evaluate(shown)
+        assert (got["shape"], got["rows"], got["ops"][0], got["jiggle"], got["springs"]) == (
+            "No shape sliders.", [], "Its mesh's ops: none", "No jiggle: it needs a recipe with a mesh of its own.", 0)
+        _page.check_csp(page)
+    finally:
+        served.close()

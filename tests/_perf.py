@@ -167,6 +167,10 @@ OPS = {op.id: op for op in (
     Op("A91", "Export a variant's zip (the Downloads folder)", "characters", first=False),
     Op("A92", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True),
     Op("A93", "Check it again, unchanged (its answer kept by content, D1015)", "characters", first=False, content=True),
+    Op("A96", "a Shape slider's drag (30 input events) on the checked copy -> the nearest shape, marked Preview",
+       "characters", first=False, content=True),   # Step 4.6d: the Shape tab (D1011's rough first)
+    Op("A95", "let go -> its quick preview (the Check's dress, its vertices moved)", "characters", first=False, bar=True,
+       content=True),   # D999's kind: a new shape's first picture
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -239,6 +243,10 @@ OPS = {op.id: op for op in (
     Op("S77", "Export a variant's zip (the browser's download)", "characters", first=False, browser_bar=DOWNLOAD_BAR),
     Op("S78", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True),
     Op("S79", "Check it again, unchanged (its answer kept by content, D1015)", "characters", first=False, content=True),
+    Op("S82", "a Shape slider's drag (30 input events) on the checked copy -> the nearest shape, marked Preview",
+       "characters", first=False, content=True),   # Step 4.6d: the Shape tab (D1011's rough first)
+    Op("S81", "let go -> its quick preview (the Check's dress, its vertices moved)", "characters", first=False, bar=True,
+       content=True),   # D999's kind: a new shape's first picture
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
@@ -2144,6 +2152,19 @@ VAR_CHECKED = (f"() => {VAR_READ} && /checked: it builds|the check refused it/.t
                "document.getElementById('var-status').textContent)")
 VAR_AGAIN = f"() => azurkit.variants.state.checked !== self.azurkitChecked && ({VAR_CHECKED})()"   # a new Check's
 VAR_ASKED = "() => document.getElementById('var-ask').open && document.getElementById('var-ask-name')"
+# The Shape tab (Step 4.6d): a drag of Bust size's track to ``end`` (30 input events), the nearest shape held shown
+# marked Preview with the recipe read again (SHAPE_NEAREST); let go, its quick preview (SHAPE_PREVIEWED)
+SHAPE_DRAG = """(end) => { const track = document.getElementById("var-shape-bust").previousElementSibling;
+  for (let i = 1; i <= 30; i++) { track.value = String(1 + (end - 1) * i / 30); track.dispatchEvent(new Event("input")); } }"""
+SHAPE_LET_GO = """() => document.getElementById("var-shape-bust").previousElementSibling.dispatchEvent(new Event("change"))"""
+SHAPE_NOTE = "document.getElementById('var-picture-note').textContent"
+SHAPE_NEAREST = (f"() => {VAR_READ} && azurkit.variants.state.readFor === JSON.stringify(azurkit.variants.state.recipe, "
+                 "(_, x) => x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort()"
+                 ".map((k) => [k, x[k]])) : x) && document.getElementById('var-front').parentElement.hasAttribute("
+                 f"'data-preview') && {SHAPE_NOTE}.startsWith('Preview: the nearest shape')")
+SHAPE_PREVIEWED = f"() => {SHAPE_NOTE}.startsWith('A quick preview') || {SHAPE_NOTE}.startsWith('The preview failed')"
+#: Each sample's drag ends at a value no sample held before (the track's 0.05 steps, its checked 1 left out).
+SHAPE_ENDS = (1.4, 0.6, 1.3, 0.7, 1.2, 0.8, 1.35, 0.65, 1.25, 0.75, 1.15, 0.85, 1.1, 0.9, 1.05, 0.95)
 YOURS = (("mine_a", "keylord"), ("mine_b", "golem"), ("mine_c", "town_female_2"))
 
 
@@ -2161,7 +2182,7 @@ def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], obje
     name's recipe.json each sample) and Export (``exported``, the op timed by it); New from this on booblord (her files
     copied, once ``booblord()`` installed her) and Check of each copy (the image picked), each a new copy, then the
     same copy checked again, unchanged."""
-    save, new_from, imported_op, exported_op, check, again = ops
+    save, new_from, imported_op, exported_op, check, again, drag, let_go = ops
     n = 0
     while d.need(save):
         n += 1
@@ -2173,23 +2194,31 @@ def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], obje
         d.act(p, imported_op, lambda: imported(file), VAR_SAVED + f" && azurkit.variants.state.name === 'imported_{n}'", 600)
     while d.need(exported_op):
         exported(exported_op)
-    if not d.needed((new_from, check, again)):
+    if not d.needed((new_from, check, again, drag, let_go)):
         return
     booblord()
     p.wait("() => document.querySelector('#var-items button[data-name=\"booblord\"]')", 600)
-    while d.needed((new_from, check, again)):
+    checked = False
+    while d.needed((new_from, check, again)) or not checked and d.needed((drag, let_go)):
         d.act(p, None, "() => document.querySelector('#var-items button[data-name=\"booblord\"]').click()",
               "() => azurkit.variants.state.name === 'booblord' && " + VAR_READ, 600)
         d.act(p, None, click("var-from"), VAR_ASKED, 60)
         d.act(p, new_from, click("var-ask-yes"), VAR_SAVED + " && azurkit.variants.state.name.startsWith('booblord_')",
               1800)
-        if d.needed((check, again)):
+        if d.needed((check, again, drag, let_go)):
             p.wait("() => !document.getElementById('var-check').disabled", 600)
             d.act(p, check, click("var-check"), VAR_CHECKED, 3600)
+            checked = True
         while d.need(again):
             p.wait("() => !document.getElementById('var-check').disabled", 600)
             p.js("() => { self.azurkitChecked = azurkit.variants.state.checked; }")
             d.act(p, again, click("var-check"), VAR_AGAIN, 600)
+    p.js(click("var-tab-shape"))
+    for end in SHAPE_ENDS:   # the copy checked last, at her values: each drag to a value not held yet
+        if not d.needed((drag, let_go)):
+            break
+        d.act(p, drag, SHAPE_DRAG, SHAPE_NEAREST, 600, arg=end, change=True)
+        d.act(p, let_go, SHAPE_LET_GO, SHAPE_PREVIEWED, 1800)
 
 
 def app_variants(d: Driver, app: App, ctx) -> None:
@@ -2222,7 +2251,7 @@ def app_variants(d: Driver, app: App, ctx) -> None:
               """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 1800)
         p.js(click("char-view-variants"))
 
-    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92", "A93"), imported, exported, booblord)
+    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95"), imported, exported, booblord)
     app.quit(p)
 
 
@@ -2267,7 +2296,7 @@ def site_variants(d: Driver, ctx, url: str) -> None:
                    && !azurkit.characters.state.installing""", 1800)
         p.js(click("char-view-variants"))
 
-    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79"),
+    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81"),
                  lambda file: p.page.set_input_files("#var-import", str(file)), exported, booblord)
     d.leave(p)
 
@@ -2291,7 +2320,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-plan": ("app", ("A97",), app_plan),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A120", "A121", "A94"), app_data),
-    "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93"), app_variants),
+    "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95"), app_variants),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17", "S64"),
                    site_start),
@@ -2312,7 +2341,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-plan": ("site", ("S83",), site_plan),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S120", "S121", "S80"), site_data),
-    "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79"), site_variants),
+    "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81"), site_variants),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)

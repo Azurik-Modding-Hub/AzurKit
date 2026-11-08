@@ -1067,7 +1067,8 @@ class Server(http.server.ThreadingHTTPServer):
         dress runs beside it."""
         given = body.get("given")
         name = given.get("name") if isinstance(given, dict) else None
-        first = record("dress", f"Checking {name} with game data" if isinstance(name, str) else None)
+        first = record("dress", "Previewing the shape" if job == "variant_preview"
+                       else f"Checking {name} with game data" if isinstance(name, str) else None)
         with self.follow(job, first) as report, self.slots.turn():
             self.slots.offer("build", self.slots.gen, None, None)
             return self.engine.call(job, given, progress=lambda step: report(step | {"label": first["label"]}))

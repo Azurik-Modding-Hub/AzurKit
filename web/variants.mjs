@@ -6,7 +6,8 @@
 // folder of the one open: a built-in's recipe laid whole with its files copied, so every field is its own), Save, Save
 // as (the name in its box) and Delete (after a yes); Import (an Export's zip, or a recipe.json alone) and Export (a
 // zip, naming the files in it that aren't yours to share). The Base, fixed once chosen; Gameplay, the recipe's mode.
-// Body: its size (its own or Garret's height), scale, arms out, rotate, title and notes; JSON: the whole recipe, whose
+// Body: its size (its own or Garret's height), scale, arms out, rotate, title and notes; Shape and Jiggle (each a
+// module of web/variants/, as each later tab is): its shape sliders and its springs; JSON: the whole recipe, whose
 // Apply checks it first and keeps the old one on a refusal. Check with game data dresses it on your image as a build
 // does (greyed until one is picked, D979), its bar the bottom bar's, and draws it. The status line: its recipe's
 // sha256[:12], its grade (unseen for an edit: no sitting graded it), saved or not, checked or not. Unsaved edits are
@@ -18,6 +19,8 @@
 // starts and after each change. Text reaches the page through textContent only.
 import { keeper } from "./content.mjs";
 import { picker } from "./picker.mjs";
+import { jiggleTab } from "./variants/jiggle.mjs";
+import { shapeTab } from "./variants/shape.mjs";
 
 const $ = (id) => document.getElementById(id);
 const CHOOSE = "Choose your image first (1.)";   // D979's line on what waits for an image
@@ -82,8 +85,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     // WebKit refuses a <select> made by script (its own inline style, CSP's style-src-attr): the page's own, parsed
     mode: root.querySelector("#var-mode"),
     reach: el("span", { id: "var-reach", className: "note" }),
-    tabBody: el("button", { id: "var-tab-body", type: "button", role: "tab", textContent: "Body" }),
-    tabJson: el("button", { id: "var-tab-json", type: "button", role: "tab", textContent: "JSON" }),
+    previews: null,   // the pictures' row, marked Preview while it shows the nearest shape held (D1011)
     bodyNote: el("p", { id: "var-body-note", className: "note" }),
     sizes: Object.keys(SIZES).map((value) => el("input", { type: "radio", name: "var-size", value })),
     scale: text("var-scale", { inputMode: "decimal", size: 6 }),
@@ -105,7 +107,6 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   ui.items.setAttribute("aria-label", "Variants");
   ui.front.setAttribute("aria-label", "The variant from the front");
   ui.back.setAttribute("aria-label", "The variant from behind");
-  for (const tab of [ui.tabBody, ui.tabJson]) tab.setAttribute("aria-selected", String(tab === ui.tabBody));
   const body = el("div", { id: "var-body" }, ui.bodyNote,
     el("p", { className: "rando-row" }, el("span", { className: "field", textContent: "Size" }),
        ...ui.sizes.map((input) => el("label", { className: "on" }, input, ` ${SIZES[input.value]}`)),
@@ -116,18 +117,54 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     el("p", { className: "rando-row var-notes" }, field("Notes", ui.notes)));
   const json = el("div", { id: "var-json", hidden: true },
     el("p", { className: "rando-row" }, ui.apply, ui.revert, ui.jsonNote), el("p", { className: "rando-row" }, ui.json));
+  // The tabs, in Modkit's order: each {name, title, element, load?(read), checked?(), show?()}, its button
+  // var-tab-<name>; a module's tab builds on what the view hands it (ctx: the recipe open, its read, an edit, the
+  // engine, the pictures).
+  const ctx = {
+    root, state: v, app, el, button, text, field, typed, reason, CHOOSE,
+    call, image,
+    read: () => v.readFor === now() ? v.read : null,   // the read of the recipe as it is (null: one is out)
+    edit: () => edit(),
+    asked: () => ({ ...app ? {} : { file: image() },
+                    given: { ...given(), iso: app ? image() : null, packs: packs() } }),
+    check: () => check(),
+    // The last Check asked again as it was (the site's worker the pool replaced: its kept dress, so at once), so the
+    // calls that stand on its dress find it in the engine; whether it dressed.
+    recheck: async () => {
+      if (!v.checkedBody) return false;
+      const reply = await call("variant_check", v.checkedBody, { once: true });
+      return !("refused" in reply) && !reply.refusal;
+    },
+    picture: (front, back, { note, preview = false }) => drawn(front, back, note, preview),
+    note: (said) => {
+      ui.pictureNote.textContent = said;
+      if (painting) painting.note = said;
+    },
+    mark: (preview) => {
+      ui.previews.toggleAttribute("data-preview", preview);
+      if (painting) painting.preview = preview;
+    },
+  };
+  const tabs = [{ name: "body", title: "Body", element: body }, shapeTab(ctx), jiggleTab(ctx),
+                { name: "json", title: "JSON", element: json, show: () => showJson() }];
+  const tabButtons = tabs.map((t) => el("button", { id: `var-tab-${t.name}`, type: "button", role: "tab",
+                                                    textContent: t.title }));
+  tabs.forEach((t, i) => {
+    t.element.hidden = i > 0;
+    tabButtons[i].setAttribute("aria-selected", String(i === 0));
+  });
+  ui.previews = el("p", { className: "previews" }, ui.front, ui.back);
   root.replaceChildren(el("div", { className: "chars-cols var-cols" },
     el("div", { className: "chars-list" }, el("p", { className: "rando-row" }, ui.filter), ui.legend, ui.items,
        el("p", { className: "rando-row" }, ...app ? [ui.path, ui.importIt, ...ui.choose ? [ui.choose] : []]
          : [el("label", { className: "file", id: "var-import-box", title: "An Export's zip, or a recipe.json alone" },
                "Import… ", ui.file)], ui.export)),
-    el("div", { className: "chars-info" }, el("p", { className: "previews" }, ui.front, ui.back), ui.pictureNote,
-       ui.name, ui.status, ui.checkNote),
+    el("div", { className: "chars-info" }, ui.previews, ui.pictureNote, ui.name, ui.status, ui.checkNote),
     el("div", { className: "chars-options" },
        el("p", { className: "rando-row" }, ui.new, ui.from, ui.as, ui.saveAs, ui.delete),
        el("p", { className: "rando-row" }, ui.base, field("Gameplay", ui.mode), ui.reach),
-       el("p", { className: "views", role: "tablist", ariaLabel: "The variant's fields" }, ui.tabBody, ui.tabJson),
-       body, json, el("p", { className: "rando-row" }, ui.save, ui.check))));
+       el("p", { className: "views", role: "tablist", ariaLabel: "The variant's fields" }, ...tabButtons),
+       ...tabs.map((t) => t.element), el("p", { className: "rando-row" }, ui.save, ui.check))));
   document.body.append(ui.asked);   // asked from any tab (a Build's question too), so never inside a hidden one
 
   // A question in the page's own dialog (no window of the browser's): a yes or a no, or with value a name (null: no).
@@ -251,7 +288,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     if (mine !== v.ticket) return;
     if ("refused" in reply) return say(reply.refused, true);
     Object.assign(v, { kind: reply.kind, name: reply.name, recipe: reply.recipe, saved: canon(reply.recipe),
-                       read: reply.read, readFor: canon(reply.recipe), checked: null, checking: null,
+                       read: reply.read, readFor: canon(reply.recipe), checked: null, checkedBody: null, checking: null,
                        folder: reply.folder });
     ui.as.value = "";
     shown(true);
@@ -261,7 +298,8 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     if (!await leave()) return;
     v.ticket++;
     Object.assign(v, { kind: "new", name: null, recipe: species === "garret4" ? { base: species }
-      : { base: species, mode: "own" }, saved: null, read: null, readFor: null, checked: null, checking: null });
+      : { base: species, mode: "own" }, saved: null, read: null, readFor: null, checked: null, checkedBody: null,
+                       checking: null });
     shown(true);
     reread();
     pictures();
@@ -317,6 +355,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     status(r);
     showJson();
     if (controls) fields(r);
+    for (const t of tabs) t.load?.(r);   // each module's tab: its rows from the read (none: as they are)
     draw();
   };
   const status = (r) => {
@@ -442,16 +481,14 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     shown(true);
   });
   ui.revert.addEventListener("click", () => showJson(true));
-  for (const [tab, name] of [[ui.tabBody, "body"], [ui.tabJson, "json"]]) {
-    tab.addEventListener("click", () => {
-      v.tab = name;
-      ui.tabBody.setAttribute("aria-selected", String(name === "body"));
-      ui.tabJson.setAttribute("aria-selected", String(name === "json"));
-      body.hidden = name !== "body";
-      json.hidden = name !== "json";
-      if (name === "json") showJson();
+  tabs.forEach((t, i) => tabButtons[i].addEventListener("click", () => {
+    v.tab = t.name;
+    tabs.forEach((other, k) => {
+      tabButtons[k].setAttribute("aria-selected", String(other === t));
+      other.element.hidden = other !== t;
     });
-  }
+    t.show?.();
+  }));
 
   // Save, Save as, New from this and Delete: the engine writes (whole or nothing, a refusal named); the site keeps the
   // folder's files it hands back.
@@ -591,7 +628,8 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const pictures = async () => {
     const mine = v.ticket, file = v.kind === "built-in" ? (await shipped())?.variants?.[v.name] : null;
     if (mine !== v.ticket) return;
-    v.pictured = null;
+    v.pictured = painting = null;   // a tab's picture still decoding never lands over these
+    ui.previews.removeAttribute("data-preview");
     if (!file) {
       await Promise.all([paint(ui.front, null), paint(ui.back, null)]);
       ui.pictureNote.textContent = image() ? "Check with game data draws it." : `${CHOOSE} to draw it.`;
@@ -608,22 +646,40 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     v.pictured = "shipped";
     ui.pictureNote.textContent = "From the front and from behind, as it ships.";
   };
+  // A tab's pictures (the Shape tab's preview, D1011's nearest shape) on the view's two, marked Preview when they are:
+  // decoded, then drawn only if no newer one was asked meanwhile (a drag asks one a move), its note and mark the newest
+  // the tab gave (ctx.note, ctx.mark) while it decoded.
+  let painting = null;
+  const drawn = async (front, back, note, preview) => {
+    const mine = painting = { note, preview };
+    const views = await Promise.all([front, back].map((data) => data
+      ? createImageBitmap(new Blob([bytesOf(data)], { type: "image/png" })) : null));
+    if (painting !== mine) return;
+    painting = null;
+    for (const [canvas, view] of [[ui.front, views[0]], [ui.back, views[1]]]) {
+      const g = canvas.getContext("2d");
+      g.clearRect(0, 0, canvas.width, canvas.height);
+      if (view) g.drawImage(view, 0, 0, canvas.width, canvas.height);
+    }
+    v.pictured = "tab";
+    ui.previews.toggleAttribute("data-preview", mine.preview);
+    ui.pictureNote.textContent = mine.note;
+  };
   const mib = (n) => (n / 2 ** 20).toFixed(2);
-  ui.check.addEventListener("click", async () => {
+  const check = async () => {
     if (!image() || v.checking) return;
-    const mine = v.ticket, asked = now(), ticket = {};
+    const mine = v.ticket, asked = now(), ticket = {}, body = ctx.asked();
     v.checking = ticket;
     shown(false);
     ui.checkNote.textContent = "";
-    const body = { ...app ? {} : { file: image() },   // a dress: the site's heavy worker's, which keeps it
-                   given: { ...given(), iso: app ? image() : null, packs: packs() } };
-    const reply = await call("variant_check", body, { once: true });
+    const reply = await call("variant_check", body, { once: true });   // a dress: the site's heavy worker's, which keeps it
     if (v.checking === ticket) v.checking = null;
     if (mine !== v.ticket) return;
     if ("refused" in reply) {
       v.checked = [asked, { refusal: reply.refused }];
     } else {
       v.checked = [asked, reply];
+      v.checkedBody = reply.refusal ? null : body;
       if (!reply.refusal) {
         const load = reply.load;
         ui.checkNote.textContent = load ? `Its own load ${mib(load.own)} MiB (the build warns past `
@@ -631,18 +687,24 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
       }
     }
     shown(false);
-    if ("refused" in reply || reply.refusal) return;
-    ui.pictureNote.textContent = "Drawing it as it builds…";
-    const views = await call("variant_pictures", body, { once: true });
-    if (mine !== v.ticket || v.checked?.[1] !== reply) return;
-    if ("refused" in views) {
-      ui.pictureNote.textContent = `Not drawn: ${views.refused}`;
-      return;
+    if (!("refused" in reply || reply.refusal)) {   // its pictures, drawn from the dress the engine kept (Step 4.6q)
+      ui.pictureNote.textContent = "Drawing it as it builds…";
+      const views = await call("variant_pictures", body, { once: true });
+      if (mine !== v.ticket || v.checked?.[1] !== reply) return;
+      if ("refused" in views) {
+        ui.pictureNote.textContent = `Not drawn: ${views.refused}`;
+      } else {
+        Object.assign(reply, { front: views.front, back: views.back });   // the Shape tab holds them (Step 4.6d)
+        painting = null;
+        await Promise.all([paint(ui.front, views.front), paint(ui.back, views.back)]);
+        v.pictured = "checked";
+        ui.previews.removeAttribute("data-preview");
+        ui.pictureNote.textContent = "From the front and from behind, as it builds.";
+      }
     }
-    await Promise.all([paint(ui.front, views.front), paint(ui.back, views.back)]);
-    v.pictured = "checked";
-    ui.pictureNote.textContent = "From the front and from behind, as it builds.";
-  });
+    for (const t of tabs) t.checked?.();
+  };
+  ui.check.addEventListener("click", check);
 
   // Unsaved edits: asked about before the page closes (the site's, a browser's own question), a New one's too, as
   // leaving it in the page is (Modkit's AZ-792).

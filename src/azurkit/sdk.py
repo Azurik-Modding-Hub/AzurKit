@@ -1100,36 +1100,43 @@ def variant_colours(given: Mapping) -> dict:
     return {**colour_preview.pictures(parts), "rows": rows, "across": colour_preview.across(parts)}
 
 
-def variant_preview(given: Mapping) -> dict:
-    """The Shape tab's quick preview (Modkit's ``variant_library.preview``):
+def variant_preview(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
+    """The Shape tab's quick preview (Modkit's ``variant_library.preview``;
+    a bar op, D999's kind: a new shape's first picture):
     the last Check's dress of the variant ``given`` holds (as
     :func:`variant_check` takes it), each drawn vertex moved to where the
     build's position steps put it at the edit's shape values on the
     Check's topology (``editor.moved``; no dress, so approximate: the finer
     triangles a build makes at the new values aren't made), drawn in its
-    colours: ``{"front", "back": PNG bytes, "seconds"}``. A ``ValueError``
-    asks for the Check where none of this variant is kept or its mesh
-    changed beyond its shapes since."""
+    colours: ``{"front", "back": PNG bytes, "seconds"}``, its ``progress``
+    told each step (its mesh prepared, the first after a Check; moved;
+    drawn). A ``ValueError`` asks for the Check where none of this variant
+    is kept (whatever name or folder the edit has: a built-in checked by
+    its name, then dragged) or its mesh changed beyond its shapes since."""
     import time
 
     from azurkit.tools.characters import colour_preview, editor
 
     started = time.perf_counter()
-    name, variant, recipe = _editing(given, "variant_preview")
-    kept = _CHECKED.get("last")
-    ref, plain = kept and kept["variant"], variant.plain or variant.mesh
-    if (kept is None or kept["place"] != _place(given) or plain is None or variant.base != ref.base
-            or repr(plain) != repr(ref.plain or ref.mesh)):
-        raise ValueError(f"variant {name!r}: no Check of its mesh is kept (none yet, another variant's, or its mesh "
-                         "changed beyond its shapes since): Check with game data dresses it")
-    base = _kept_base(kept)
-    drawn = [(q.P, q.T) for q in base.parts]
-    if kept["kept"] is None:   # its mesh prepared on the base's own body once a Check
-        _, config, bodies = _game(given["iso"])
-        kept["kept"] = editor.prepared(bodies, colour_preview.body_of(config, bodies, variant.base), ref, drawn)
-    moved = base.moved(editor.moved(kept["kept"], variant, drawn))
-    return {**colour_preview.pictures(colour_preview.recoloured(moved, _colours_of(variant))),
-            "seconds": time.perf_counter() - started}
+    with noting(Steps(progress)) as steps:
+        name, variant, recipe = _editing(given, "variant_preview")
+        kept = _CHECKED.get("last")
+        ref, plain = kept and kept["variant"], variant.plain or variant.mesh
+        if (kept is None or kept["place"] != _place(given) or plain is None or variant.base != ref.base
+                or repr(plain) != repr(ref.plain or ref.mesh)):
+            raise ValueError(f"variant {name!r}: no Check of its mesh is kept (none yet, another variant's, or its "
+                             "mesh changed beyond its shapes since): Check with game data dresses it")
+        base = _kept_base(kept)
+        drawn, total = [(q.P, q.T) for q in base.parts], 3 if kept["kept"] is None else 2
+        if kept["kept"] is None:   # its mesh prepared on the base's own body once a Check
+            steps("dress", "Preparing its mesh", 0, total)
+            _, config, bodies = _game(given["iso"])
+            kept["kept"] = editor.prepared(bodies, colour_preview.body_of(config, bodies, variant.base), ref, drawn)
+        steps("dress", "Moving its vertices", total - 2, total)
+        moved = base.moved(editor.moved(kept["kept"], variant, drawn))
+        steps("dress", "Drawing it", total - 1, total)
+        return {**colour_preview.pictures(colour_preview.recoloured(moved, _colours_of(variant))),
+                "seconds": time.perf_counter() - started}
 
 
 def variant_rows(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
@@ -1371,10 +1378,14 @@ def variant_read(given: Mapping) -> dict:
     of its own; ``grade``: ``built_in``'s, the built-in it was opened from,
     while the recipe is that one's as opened, else unseen) and its body as
     it builds (``size``, ``scale``, ``arms``, ``rotate``, ``weapon``: a
-    recipe ``from`` another's from that one), or ``{"refusal"}``, the
-    loader's or the library's words."""
+    recipe ``from`` another's from that one), its Shape tab's ``shapes``
+    and ``ops`` (``editor.shape_rows``) and the sliders' ``track`` (a
+    display hint), its Jiggle tab's ``jiggle`` as it builds
+    (``editor.jiggle_of``; ``None``: none) and ``rows_max``, the spring
+    rows the game swings at most; or ``{"refusal"}``, the loader's or the
+    library's words."""
     from azurkit.tools.characters import _player_variants as kinds
-    from azurkit.tools.characters import library
+    from azurkit.tools.characters import editor, jiggle_rt, library, picker
 
     name = _named(given, "variant_read")
     recipe = given.get("recipe")
@@ -1390,7 +1401,9 @@ def variant_read(given: Mapping) -> dict:
     grade = (_grade(kinds.builtins()[built]) if isinstance(built, str) and built in kinds.builtins()
              and dict(recipe) == library.opened(built) else "unseen")
     return {"refusal": None, "sha": v.sha, "base": v.base, "mode": v.mode, "mesh": v.mesh is not None, "grade": grade,
-            "size": v.size, "scale": v.scale, "arms": v.arms, "rotate": v.rotate, "weapon": v.weapon}
+            "size": v.size, "scale": v.scale, "arms": v.arms, "rotate": v.rotate, "weapon": v.weapon,
+            **editor.shape_rows(v, recipe), "track": picker.TRACKS["shape"],
+            "jiggle": editor.jiggle_of(v, recipe, name), "rows_max": jiggle_rt.MAX_ROWS}
 
 
 def _saved(name: str, given: Mapping) -> dict:

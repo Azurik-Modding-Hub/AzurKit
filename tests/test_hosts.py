@@ -1343,6 +1343,84 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
         server.close()
 
 
+def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds_a_spring_on_its_bases_bones(
+        browser, tmp_path, monkeypatch, usa_iso):
+    """Step 4.6d in the app's page, the image picked (Modkit's Shape and Jiggle tabs): a recipe on town_female_2
+    whose one shape sizes her pelvis (its JSON tab's Apply) is checked with game data when its slider is first let
+    go (no Check yet: the build's own dress); a drag after it shows that Check's pictures at once, marked Preview,
+    and once let go the engine's quick preview of the new value (the Check's dress, its vertices moved), still
+    marked; back at the checked value, the Check's pictures unmarked, nothing asked. A recipe from booblord, not
+    checked, lists town_female_2's own bones (read from the image) on its Jiggle tab's Add, which adds a spring on
+    one, its parent the body's and its spring her last row's, and its x removes it again."""
+    from azurkit.tools.characters import _player_variants
+    from tests.test_site import VARIANTS_DRAG, VARIANTS_ROW, _variants_shown
+
+    hips = {"base": "town_female_2", "mode": "own", "mesh": {"ops": [
+        {"op": "scale", "name": "pelvis", "profile": "smooth", "bone": "root_joint", "offset": [0.0, -0.033, -0.175],
+         "radius": [0.4, 0.16, 0.22], "factors": [1.4, 1.0, 1.0]}]},
+        "shapes": {"hips": {"title": "Hips", "ops": ["pelvis"], "value": 1.0}}}
+    her = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["booblord"]["jiggle"]
+    pictured = """() => [document.getElementById('var-picture-note').textContent,
+        document.getElementById('var-front').parentElement.hasAttribute('data-preview')]"""
+    _home(monkeypatch, tmp_path / "home")
+    monkeypatch.delenv("AZURKIT_ISO", raising=False)
+    monkeypatch.delenv("AZURKIT_ISO_EUROPE", raising=False)
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.fill(page, "iso-path", str(usa_iso))
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.click(page, "var-new")
+        _page.until(page, "() => document.querySelector('#var-ask .picker-entry[data-name=\"town_female_2\"]')")
+        page.evaluate("() => document.querySelector('#var-ask .picker-entry[data-name=\"town_female_2\"]').click()")
+        _variants_shown(page, name="(new, unsaved)")
+        _page.click(page, "var-tab-json")
+        page.evaluate("(text) => { document.getElementById('var-text').value = text; }", json.dumps(hips))
+        _page.click(page, "var-apply")
+        _page.click(page, "var-tab-shape")
+        _page.until(page, "() => document.getElementById('var-shape-hips') && !document.getElementById('var-check')"
+                          ".disabled", 120)
+        page.evaluate(VARIANTS_DRAG, ["hips", [1.1, 1.2]])   # no Check yet: let go, the Check
+        _variants_shown(page, status="checked: it builds")
+        _page.until(page, f"() => ({pictured})()[0] === 'From the front and from behind, as it builds.'", 60)
+        page.evaluate("""() => { const track = document.getElementById('var-shape-hips').previousElementSibling;
+            track.value = '1.4'; track.dispatchEvent(new Event('input', { bubbles: true })); }""")
+        assert _page.until(page, f"() => ({pictured})()[1] && ({pictured})()") == [
+            "Preview: the nearest shape drawn. Let go to preview these values.", True]
+        page.evaluate("""() => document.getElementById('var-shape-hips').previousElementSibling
+            .dispatchEvent(new Event('change', { bubbles: true }))""")
+        assert _page.until(page, f"() => ({pictured})()[0].startsWith('A quick preview') && ({pictured})()", 120)[1]
+        assert page.evaluate("() => azurkit.variants.state.recipe.shapes.hips.value") == 1.4
+        page.evaluate(VARIANTS_DRAG, ["hips", [1.3, 1.2]])
+        assert _page.until(page, f"() => !({pictured})()[1] && ({pictured})()") == [
+            "From the front and from behind, as it builds.", False]
+        page.evaluate(VARIANTS_ROW, "booblord")
+        _page.until(page, "() => document.getElementById('var-ask').open")
+        _page.click(page, "var-ask-yes")   # leave the new one's edits
+        _variants_shown(page, status="built in")
+        _page.click(page, "var-tab-jiggle")
+        assert _page.until(page, "() => !document.getElementById('var-bone').disabled && document.getElementById("
+                                 "'var-spring-note').textContent", 120) == (
+            "its base's bones: Check with game data lists its dressed body's")
+        bones = dict(sdk.base_bones({"iso": str(usa_iso), "species": "town_female_2"})["bones"])
+        bone = page.evaluate("() => document.getElementById('var-bone').value")
+        taken = {b["bone"] for kind in ("bones", "springs") for b in her.get(kind, [])}
+        assert bone in bones and bone not in taken and bones[bone]
+        _page.click(page, "var-spring-add")
+        added = page.evaluate("() => azurkit.variants.state.recipe.jiggle.springs.at(-1)")
+        assert added == {"role": re.sub(r"[^a-z0-9_]+", "_", bone.lower()).strip("_"), "bone": bone,
+                         "parent": bones[bone], "spring": her["springs"][-1]["spring"]}
+        _page.click(page, f"var-spring-drop-{len(her['springs'])}")
+        assert page.evaluate("() => azurkit.variants.state.recipe.jiggle") == her
+        _page.check_csp(page)
+    finally:
+        server.close()
+
+
 def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(browser, tmp_path, monkeypatch):
     """D980, past 1 s an op shows where it is: a launch whose server had run ``SLOW_LAUNCH`` by its ``host.json``
     answer (``age``; Step 4.4ci56: a launch on a busy computer passed 1 s with nothing shown) shows its stages on the

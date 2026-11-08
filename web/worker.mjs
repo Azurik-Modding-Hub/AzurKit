@@ -143,7 +143,7 @@ PIECE = "/tmp/azurkit-piece"
 VARIANTS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
             "variant_export", "variant_check", "variant_pictures", "variant_colours", "variant_preview",
             "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources")   # page's VARIANTS
-BARRED = ("variant_check", "variant_rows", "export_pngs")   # their steps posted: the bar moves while the page waits
+BARRED = ("variant_check", "variant_preview", "variant_rows", "export_pngs")   # their steps posted: the bar moves
 
 
 def handed(value):
