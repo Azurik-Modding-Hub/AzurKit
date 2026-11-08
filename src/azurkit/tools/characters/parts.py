@@ -137,45 +137,53 @@ def clear() -> None:
 
 def delta(ref: bytes, out: bytes) -> tuple:
     """``out`` as the :data:`PAGE`-sized pages where it differs from ``ref``
-    (past ``ref``'s end: all of it), ``(len(out), ((start, bytes), ...))``,
-    found 8 bytes at a time (numpy) with no copy of either file, or ``(None,
-    out)`` whole where they would hold most of it (:func:`undelta` gives
-    ``out`` back from ``ref``)."""
+    (past ``ref``'s end: all of it), found 8 bytes at a time (numpy) with no
+    copy of either file: ``(len(out), spans, pages)``, ``spans`` each run's
+    start and end (``array("q")``) and ``pages`` their bytes, one block each
+    (a dress's heap holds a part in two pieces, not one a run), or ``(None,
+    None, out)`` whole where they would hold most of it (:func:`undelta`
+    gives ``out`` back from ``ref``)."""
+    from array import array
+
     import numpy as np
 
     size, same = len(out), min(len(ref), len(out))
     full = same // PAGE * PAGE
-    pages = (np.frombuffer(ref, np.uint64, full // 8).reshape(-1, PAGE // 8)
-             != np.frombuffer(out, np.uint64, full // 8).reshape(-1, PAGE // 8)).any(axis=1)
-    at = np.flatnonzero(pages)
-    cuts = np.flatnonzero(np.diff(at) != 1) + 1   # consecutive pages are one run
-    runs = [(int(run[0]) * PAGE, (int(run[-1]) + 1) * PAGE) for run in np.split(at, cuts) if len(run)]
+    at = np.flatnonzero((np.frombuffer(ref, np.uint64, full // 8).reshape(-1, PAGE // 8)
+                         != np.frombuffer(out, np.uint64, full // 8).reshape(-1, PAGE // 8)).any(axis=1))
+    breaks = np.flatnonzero(np.diff(at) != 1)   # consecutive pages are one run
+    spans = array("q")
+    if len(at):
+        spans.extend(np.column_stack((at[np.r_[0, breaks + 1]] * PAGE,
+                                      (at[np.r_[breaks, len(at) - 1]] + 1) * PAGE)).ravel().tolist())
     if ref[full:same] != out[full:same]:
-        runs.append((full, same))
+        spans.extend((full, same))
     if size > same:
-        runs.append((same, size))
-    if sum(end - start for start, end in runs) * 2 > size:
-        return None, bytes(out)
-    return size, tuple((start, bytes(out[start:end])) for start, end in runs)
+        spans.extend((same, size))
+    if sum(spans[1::2]) - sum(spans[::2]) > size // 2:
+        return None, None, bytes(out)
+    view = memoryview(out)
+    return size, spans, b"".join(view[spans[k]:spans[k + 1]] for k in range(0, len(spans), 2))
 
 
 def undelta(ref: bytes, part: tuple) -> bytes:
     """The file :func:`delta` kept ``part`` of, over ``ref``: one copy, ``ref``'s pages between its runs."""
-    size, runs = part
+    size, spans, pages = part
     if size is None:
-        return runs
-    view, pieces, at = memoryview(ref), [], 0
-    for start, data in runs:
-        pieces += [view[at:start], data]
-        at = start + len(data)
+        return pages
+    view, held, pieces, at, used = memoryview(ref), memoryview(pages), [], 0, 0
+    for k in range(0, len(spans), 2):
+        start, end = spans[k], spans[k + 1]
+        pieces += [view[at:start], held[used:used + end - start]]
+        at, used = end, used + end - start
     pieces.append(view[at:size])
     return b"".join(pieces)
 
 
 def size_of(part: tuple) -> int:
     """The bytes :func:`delta`'s ``part`` holds."""
-    size, runs = part
-    return len(runs) if size is None else sum(len(data) for _, data in runs)
+    _, spans, pages = part
+    return len(pages) + (0 if spans is None else spans.itemsize * len(spans))
 
 
 __all__ = ["HEARD", "OFF", "PAGE", "ROOM", "clear", "delta", "digest", "get", "held", "key", "pickled", "put",

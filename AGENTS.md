@@ -1038,11 +1038,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     reach only its sounds and its log, and taken in place of the stage: a
     copy under any name (New from this) dresses only the glue between
     them, and booblord and her own copy share her body. A part's file is
-    kept as the runs where it differs from the stage's input, its objects
-    pickled; the parts held are bounded (`parts.ROOM`, the least recently
-    taken let go first); a stage that raises keeps nothing, so a refusal
-    is worked out again; `parts.OFF` dresses fresh, and
-    `test_variant_editor.py` holds a copy's Check to a fresh one.
+    kept as the 4 KiB pages where it differs from the stage's input, in
+    one block, its objects pickled; the parts held are bounded
+    (`parts.ROOM`, the least recently taken let go first); a stage that
+    raises keeps nothing, so a refusal is worked out again; `parts.OFF`
+    dresses fresh, and `test_variant_editor.py` holds a copy's Check to a
+    fresh one.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload
