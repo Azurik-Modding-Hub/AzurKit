@@ -42,6 +42,7 @@ import threading
 import time
 import types
 import urllib.parse
+import warnings
 from pathlib import Path
 
 import pytest
@@ -2111,6 +2112,40 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
                           f"under its driver: node {driver} (100 s), Playwright {ui} (90 s)"], lines
     start = time.mktime(time.strptime(asked[0], "%Y-%m-%d %H:%M:%S"))
     assert len(asked) == 1 and began - 2 < start < began - 0.9 and took < 10, (asked, began, took)
+    assert isinstance(ended.value, _page.Ended) and ended.value.lines == (lines[2].strip(),), ended.value.lines
+
+
+def test_a_test_whose_page_webkit_ended_at_its_network_process_request_runs_again_once_saying_so():
+    """Step 4.5s: ``_page.past_refusal`` runs a test's run again once, saying so in a warning, when its page's call
+    failed as WebKit ended the page's process at its network process's request (``_page.Ended`` naming
+    ``_page.REFUSED``: WebKit's own fault, run 42461371001); any other failure, a crash's end among them, fails as it
+    came, and so does a second such end."""
+    refused = _page.Ended("no answer in 18 s: tick", (
+        "08:48:07 Playwright: [pageProxyID=14, webPageID=15, PID=58731] WebPageProxy::processDidTerminate: (pid 58731), "
+        "reason=RequestedByNetworkProcess",))
+    crashed = _page.Ended("no answer in 18 s: tick", (
+        "08:48:07 Playwright: [pageProxyID=14, webPageID=15, PID=58731] WebPageProxy::processDidTerminate: (pid 58731), "
+        "reason=Crash",))
+
+    def runs(*failures):
+        visits = []
+
+        def run(visit):
+            visits.append(visit)
+            if visit < len(failures):
+                raise failures[visit]
+            return "passed"
+        return run, visits
+
+    run, visits = runs(refused)
+    with pytest.warns(UserWarning, match=r"network process's request, so the test ran again: .*58731"):
+        assert _page.past_refusal(run) == "passed"
+    assert visits == [0, 1]
+    for failures in ((crashed,), (AssertionError("a build's bytes differ"),), (refused, refused)):
+        run, visits = runs(*failures)
+        with warnings.catch_warnings(record=True), pytest.raises(type(failures[-1])) as failed:
+            _page.past_refusal(run)
+        assert (failed.value, visits) == (failures[-1], list(range(len(failures)))), visits
 
 
 def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_state(browser):
@@ -5372,11 +5407,19 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
     another tab's load leaves it while this tab holds it. A change forgets the build and removes it; a saved one stays
     past that (its download may still read it, and is whole), and the next load removes it once no page holds it, as
     it does a crashed page's. Where the browser gives no sync handle, only WebKit on Windows, the pieces are Blobs and
-    no file is left."""
+    no file is left. Each call to a page is bounded (``_page.answer``); a page whose process WebKit ended at its
+    network process's request, WebKit's own fault (``_page.past_refusal``; run 42461371001, at the change's tick), runs
+    the test again once in a browser of its own."""
     recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
               "character": {"species": "keylord"}}
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
-    served = Site(browser, site, tmp_path / "profile")
+    _page.past_refusal(lambda visit: _held_build_file(browser, site, usa_iso, tmp_path / f"profile-{visit}", recipe,
+                                                      made, report))
+
+
+def _held_build_file(browser, site, usa_iso, profile: Path, recipe: dict, made: iso.Image, report: dict) -> None:
+    """The last test's run, in a browser of its own (``profile``)."""
+    served = Site(browser, site, profile)
     try:
         served.context.add_init_script(HEARD)
         worker = (site / "worker.mjs").read_text(encoding="utf-8")
@@ -5386,33 +5429,33 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
         _page.load(page, f"{served.origin}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
         _page.pick(page, "#iso", usa_iso)
-        page.evaluate("() => document.querySelector('#build').click()")
+        _page.answer(page, "() => document.querySelector('#build').click()")
         built = _built(page)
         assert built == _as_cpython(built, report, made)
-        name = page.evaluate("() => azurkit.build.out")
+        name = _page.answer(page, "() => azurkit.build.out")
         if name is None:   # WebKit on Windows makes the file but gives no sync handle to it (run 41551497620): Blobs,
             # the file removed (WebKit's IPC::SharedFileHandle::create is std::nullopt without Unix sockets)
-            assert [sys.platform, browser.browser_type.name, page.evaluate(BUILD_FILES)] == ["win32", "webkit", []]
+            assert [sys.platform, browser.browser_type.name, _page.answer(page, BUILD_FILES)] == ["win32", "webkit", []]
             return
-        writes = page.evaluate("() => writes")
+        writes = _page.answer(page, "() => writes")
         assert writes and not [w for w in writes if w["copy"]]
-        assert name in page.evaluate(BUILD_FILES)
+        assert name in _page.answer(page, BUILD_FILES)
         _page.click(page, "tab-tools")
         _page.until(page, """() => [...document.querySelectorAll("#tools-storage td")]
                                  .some((td) => td.textContent.startsWith("Built images"))""", 60)
         other = served.open()   # its load's sweep
-        assert name in other.evaluate(BUILD_FILES)
+        assert name in _page.answer(other, BUILD_FILES)
         _page.tick(page, ["fps_unlock"])   # a change: the build is forgotten
         _page.until(page, f"async () => !(await ({BUILD_FILES})()).includes({json.dumps(name)})", 60)
-        page.evaluate("() => document.querySelector('#build').click()")
+        _page.answer(page, "() => document.querySelector('#build').click()")
         _page.built(page)
-        name = page.evaluate("() => azurkit.build.out")
-        with page.expect_download(timeout=600_000) as caught:
+        name = _page.answer(page, "() => azurkit.build.out")
+        with page.expect_download(timeout=600_000):
             _page.click(page, "save")
         _page.tick(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})   # forgotten, but saved
-        assert name in page.evaluate(BUILD_FILES)
+        assert name in _page.answer(page, BUILD_FILES)
         assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck", 600) == "held"
-        page.close()
+        _page.close(page)
         # no page holds it once its lock is gone, which a closed page's may not be yet as close() returns (Linux's
         # Chromium: the file outlived the reload's one sweep, run 41521288667)
         _page.until(other, f"async () => !(await navigator.locks.query()).held.some((l) => l.name === {json.dumps(name)})",
