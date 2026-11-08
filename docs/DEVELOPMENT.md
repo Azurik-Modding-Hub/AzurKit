@@ -25,7 +25,7 @@ uv run --locked azurkit verify [--iso PATH]              # is it vanilla USA or 
 uv run --locked azurkit packs                            # the packs, and which a build applies by default
 uv run --locked azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] \
     [--no-defaults] [--pack-param PACK.SLIDER=VALUE ...] \
-    [--seed SEED [--settings FILE | --share STRING] [--obsidian-cost N]] [--character JSON]
+    [--seed SEED [--settings FILE | --share STRING] | --plan FILE] [--obsidian-cost N] [--character JSON]
 uv run --locked azurkit open BUILD                       # a build's recipe, as a mods file for build --mods
 uv run --locked azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]   # a plan; needs no game
 uv run --locked azurkit spoiler PLAN                     # that plan's spoiler
