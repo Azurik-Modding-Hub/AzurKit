@@ -42,6 +42,7 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
 uv run --locked python -m shimkit [--check]           # the prebuilt shim objects, from their sources (zig, dev only)
 uv run --locked python -m nativekit [--check]         # the compiled kernels' libraries, from native/*.c, and web/md5.wasm (zig, dev only)
 uv run --locked python -m devkit [AREA [VERB ...]]    # the developer side (D950, dev only): devkit/README.md
+uv run --locked python -m devkit.mcp                  # the azurik MCP server over stdio (.mcp.json launches it): docs/MCP.md
 uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]   # tests/goldens/ from the player's images
 uv run --locked python scripts/record_shipped.py [--check] [--content CLONE]  # the swap's shipped answers (D995)
 uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images

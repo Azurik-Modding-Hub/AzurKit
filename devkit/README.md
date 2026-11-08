@@ -18,8 +18,8 @@ names its verbs in `VERBS` (`{verb: its line}`); the verb `v` is the module
 `devkit.<area>.v` (a hyphen in `v` is an underscore there), whose
 `main(argv) -> int` runs it. An unknown area or verb exits 2.
 
-Each arrives with its own step (`re`'s XBE verbs, data and shim authoring
-and `xemu`'s and `sim`'s core are here; the rest come after the first
+Each arrives with its own step (`re`'s XBE verbs, data and shim authoring,
+`xemu`'s and `sim`'s core and `mcp` are here; the rest come after the first
 release, 4.4); this is what each will hold:
 
 | Area | What it holds |
@@ -27,7 +27,7 @@ release, 4.4); this is what each will hold:
 | `xemu` | the in-game oracle: the harness, its slots and queue, the sittings and demos |
 | `sim` | the simulator: the snapshot, observations and inputs, its levels on Unicorn |
 | `re` | the XBE verbs, the Ghidra side and its data, shim authoring |
-| `mcp` | the `azurik` MCP server (`.mcp.json` launches it) |
+| `mcp` | the `azurik` MCP server (`.mcp.json` launches it; `docs/MCP.md`) |
 | `rando` | the randomizer database's tools and benches, and its authoring |
 | `reach` | the reach engine, its native kernel and the patched Unicorn |
 | `models` | the model and effect verbs ModelKit's adapter calls |
@@ -38,12 +38,12 @@ The `devkit` group in `pyproject.toml`, installed by default so that a broken
 install fails devkit's tests rather than skipping them:
 
 - capstone 5.0.9 (BSD): the disassembler;
-- Unicorn 2.1.4 (GPL-2): the simulator's CPU.
+- Unicorn 2.1.4 (GPL-2): the simulator's CPU;
+- mcp 2.3.0 (MIT): the MCP server. It brings cryptography, which pywebview
+  imports when it is installed, so `scripts/freeze.py` leaves cryptography
+  out of the app by name.
 
-zig, which builds the native code, is the `dev` group's. mcp 2 joins the group
-with the MCP server. It brings cryptography, which pywebview imports when it
-is installed, so `scripts/freeze.py` must leave cryptography out of the app
-first.
+zig, which builds the native code, is the `dev` group's.
 
 ## Why none of it ships
 
@@ -54,9 +54,9 @@ first.
 - **The site** runs that wheel.
 - **The app:** `scripts/freeze.py` gives PyInstaller `--paths src` and
   `src/azurkit/__main__.py`, so it collects only what `azurkit` imports, and it
-  leaves Unicorn, capstone and zig out by name.
+  leaves Unicorn, capstone, zig and cryptography out by name.
 - **The contract:** nothing under `src/azurkit` imports `devkit`, capstone,
-  Unicorn, zig or Tk (`tests/test_contracts.py`).
+  Unicorn, zig, mcp or Tk (`tests/test_contracts.py`).
 
 ## What stays out of the repository, and where it lives
 

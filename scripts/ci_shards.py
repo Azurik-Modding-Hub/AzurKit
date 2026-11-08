@@ -41,7 +41,7 @@ and those part 1 runs first (its pure tier's wall seconds times the tier's worke
 SPEC = re.compile(r"(?P<label>[\w.-]+):(?P<k>\d+)/(?P<n>\d+)\Z")
 JOB = re.compile(r"vanilla and europe \((?P<label>[\w.-]+)(?:, \d+ of \d+)?\)\Z")
 STAMP = re.compile(r"\d{4}-\d\d-\d\dT[\d:.]+Z ?")
-TIER = re.compile(r"tier -m vanilla .*?--numprocesses=(\d+)")   # the step's command, as GitHub prints it
+TIER = re.compile(r'tier -m "?vanilla\b.*?--numprocesses=(\d+)')   # the step's command, as GitHub prints it
 SLOWEST = re.compile(r"=+ slowest (?:\d+ )?durations =+\Z")
 PHASE = re.compile(r"(\d+(?:\.\d+)?)s +(?:setup|call|teardown) +(\S.*?)\s*\Z")
 RESULT = re.compile(r"=+ (?P<counts>\d+ \w+(?:, \d+ \w+)*) in (?P<secs>\d+(?:\.\d+)?)s(?: \([\d:]+\))? =+\Z")

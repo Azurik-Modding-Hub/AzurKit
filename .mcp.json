@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "azurik": {
+      "command": "uv",
+      "args": ["run", "--locked", "python", "-m", "devkit.mcp"]
+    }
+  }
+}

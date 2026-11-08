@@ -6,7 +6,7 @@ subprocesses, prints or exits (the web page's worker runs them as they are;
 the app-only ``tools/randomizer/live/`` is exempt), only ``tools/characters``
 and the randomizer's drawing (its maps and icons: ``tools/randomizer/art/`` and
 the reach model's first stage, ``tools/randomizer/draft/``) import numpy, and
-nothing imports capstone, unicorn, zig, Tk or ``devkit`` (none of them ships).
+nothing imports capstone, unicorn, zig, Tk, mcp or ``devkit`` (none of them ships).
 Beside them, the lint set's other rule: the developer log holds no bullet twice
 (``scripts/devlog.py``, Step 4.4dx1)."""
 
@@ -32,7 +32,7 @@ ENGINE_IMPORTS = {"threading", "_thread", "multiprocessing", "concurrent", "subp
 ENGINE_CALLS = {"print", "exit", "quit", "sys.exit", "os._exit", "os.system", "os.popen", "os.fork", "os.forkpty",
                 "os.kill"}
 ENGINE_CALL_PREFIXES = ("os.spawn", "os.exec", "os.posix_spawn")
-NEVER = {"capstone", "unicorn", "ziglang", "tkinter", "devkit"}
+NEVER = {"capstone", "unicorn", "ziglang", "tkinter", "mcp", "devkit"}
 NUMPY_HOME = ("tools/characters/", "tools/randomizer/art/", "tools/randomizer/draft/")
 # AZ-830: what reaches a swap's bytes rounds the same on every platform, its libm calls core/fdlibm.py's (the previews'
 # drawer, draw.py, writes no built byte)

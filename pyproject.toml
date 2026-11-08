@@ -53,12 +53,13 @@ icon = [
     "pillow==13.0.0",
 ]
 # The developer side (D950, D990): `devkit/`, dev only, never in the wheel or the app (devkit/README.md). capstone
-# disassembles (BSD), Unicorn runs the simulator's CPU (GPL-2: never shipped). One group, installed by default, so a
-# broken install fails devkit's tests rather than skipping them. mcp 2 joins it with the MCP server, and
-# scripts/freeze.py then leaves out its cryptography, which pywebview imports when it is installed.
+# disassembles (BSD), Unicorn runs the simulator's CPU (GPL-2: never shipped), mcp serves the azurik MCP server
+# (devkit/mcp; MIT). One group, installed by default, so a broken install fails devkit's tests rather than skipping
+# them. mcp brings cryptography, which pywebview imports when it is installed: scripts/freeze.py leaves it out.
 devkit = [
     "capstone==5.0.9",
     "unicorn==2.1.4",
+    "mcp==2.3.0",
 ]
 
 [tool.uv]
@@ -89,6 +90,8 @@ markers = [
     "pure: needs no game data; tests/conftest.py marks every test that isn't vanilla",
     "xdist_group(name): pytest-xdist's --dist loadgroup runs a group on one worker (tests/conftest.py: a module's frozen app)",
     "web: runs under Pyodide on Node (`uv run bootstrap.py` fetches Pyodide); a run that selects one fails without them, so deselect with -m \"not web\"",
+    "xemu: devkit's xemu harness, on macOS's own calls (APFS clones, mach): CI's Linux and Windows legs deselect it with -m \"not xemu\"",
+    "ghidra: needs Ghidra in .tools/, which devkit's Ghidra side installs; deselect with -m \"not ghidra\", as CI does",
 ]
 
 # The engine's contracts (tests/test_contracts.py runs them, with the AST rules import-linter can't express).

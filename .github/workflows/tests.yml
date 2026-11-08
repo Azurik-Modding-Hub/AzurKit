@@ -161,6 +161,8 @@ jobs:
           read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
           retry "the browsers' system libraries (playwright install-deps)" uv run --locked playwright install-deps "${engines[@]}"
       - name: The pure tier
+        # Every leg leaves out the ghidra marker's tests (Ghidra in .tools/, which no runner has), Linux's and Windows' the
+        # xemu marker's too (devkit's xemu harness: macOS's own calls), by -m, never a skip; the vanilla tier's the same.
         # On the matrix's workers, a group on one as the local gate has them (tests/conftest.py). --max-worker-restart=0:
         # under loadgroup, xdist 3.8 replacing a killed worker hangs the run to the job's cap, unnamed; this way it ends and
         # its FAILED line names the test. faulthandler: a test past 20 min prints each thread's stack, as a hang's job only
@@ -172,7 +174,7 @@ jobs:
           uv run --locked python -I scripts/ci_resources.py "$stop" "runner=$RUNNER_TEMP" &
           watcher=$!
           status=0
-          uv run --locked pytest -m "not vanilla" -o faulthandler_timeout=1200 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 || status=$?
+          uv run --locked pytest -m "not vanilla and not ghidra${{ runner.os != 'macOS' && ' and not xemu' || '' }}" -o faulthandler_timeout=1200 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 || status=$?
           touch "$stop"
           wait "$watcher" || true
           exit "$status"
@@ -285,7 +287,7 @@ jobs:
           uv run --locked python -I scripts/ci_resources.py "$stop" "runner=$RUNNER_TEMP" &
           watcher=$!
           status=0
-          uv run --locked pytest -m "not vanilla" -o faulthandler_timeout=1200 --numprocesses=${{ matrix.pure }} --dist=loadgroup --max-worker-restart=0 || status=$?
+          uv run --locked pytest -m "not vanilla and not ghidra${{ runner.os != 'macOS' && ' and not xemu' || '' }}" -o faulthandler_timeout=1200 --numprocesses=${{ matrix.pure }} --dist=loadgroup --max-worker-restart=0 || status=$?
           touch "$stop"
           wait "$watcher" || true
           exit "$status"
@@ -405,7 +407,7 @@ jobs:
           fi
           trap 'echo "--- a signal stopped the tier: the log'"'"'s tail"; tail -n 20 "$log" | cut -c 1-240; touch "$stop"; exit 143' TERM
           status=0
-          tier -m vanilla --shard=${{ matrix.label }}:${{ matrix.shard }}/${{ matrix.shards }} -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 --durations=60 --durations-min=60 > "$log" 2>&1 &
+          tier -m "vanilla and not ghidra${{ runner.os != 'macOS' && ' and not xemu' || '' }}" --shard=${{ matrix.label }}:${{ matrix.shard }}/${{ matrix.shards }} -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 --durations=60 --durations-min=60 > "$log" 2>&1 &
           pid=$!
           tier_id=$pid
           if [ "$RUNNER_OS" = Windows ]; then tier_id="$(cat "/proc/$pid/winpid" 2> /dev/null || true)"; fi

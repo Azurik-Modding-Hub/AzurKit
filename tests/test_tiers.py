@@ -11,6 +11,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+OPT_OUTS = " and not ghidra${{ runner.os != 'macOS' && ' and not xemu' || '' }}"
+"""What each CI tier leaves out by marker: Ghidra's tests on every leg, the xemu harness's on Linux and Windows."""
 
 
 def test_a_vanilla_test_without_its_image_stops_the_run_and_an_unlisted_skip_fails(pytester, monkeypatch, tmp_path):
@@ -157,7 +159,8 @@ def test_the_ci_vanilla_tiers_parts_are_disjoint_and_whole_cut_by_measured_secon
     name, = re.findall(r"name: (vanilla and europe \(.*\))\n", text)
     assert ci_shards.JOB.match(name.replace("${{ matrix.label }}", "macos-x86_64").replace(
         "${{ matrix.shard }}", "2").replace("${{ matrix.shards }}", "3"))
-    assert text.count("tier -m vanilla --shard=${{ matrix.label }}:${{ matrix.shard }}/${{ matrix.shards }} ") == 1
+    shard = "--shard=${{ matrix.label }}:${{ matrix.shard }}/${{ matrix.shards }} "
+    assert text.count(f"tier -m \"vanilla{OPT_OUTS}\" {shard}") == 1
 
     job1, job2 = "vanilla and europe (fake-os, 1 of 2)", "vanilla and europe (fake-os, 2 of 2)"
     at = "2026-11-05T22:32:42Z"
@@ -170,8 +173,9 @@ def test_the_ci_vanilla_tiers_parts_are_disjoint_and_whole_cut_by_measured_secon
              f"{at} tier -m vanilla --numprocesses=9", f"pure (fake-os)\tThe pure tier\t{at} = 9 passed in 9.00s =",
              f"{job1}\tThe pure tier\t{at} ===== 20 passed, 13 deselected in 30.00s (0:00:30) ====="]
     for job, (*timed, result, workers) in summary.items():
-        lines += [f"{job}\tThe vanilla and europe tiers\t{at} \x1b[36;1mtier -m vanilla --shard=fake-os:1/2 -o x "
-                  f"--numprocesses={workers} --dist=loadgroup\x1b[0m", f"{job}\tThe vanilla and europe tiers\t  more"]
+        lines += [f"{job}\tThe vanilla and europe tiers\t{at} \x1b[36;1mtier -m \"vanilla and not ghidra and not xemu\" "
+                  f"--shard=fake-os:1/2 -o x --numprocesses={workers} --dist=loadgroup\x1b[0m",
+                  f"{job}\tThe vanilla and europe tiers\t  more"]
         for _ in range(2):   # the step prints its summary twice: its log's tail, then the summary
             lines += [f"{job}\tThe vanilla and europe tiers\t{at} {line}" for line in [
                 "vanilla: 7 run", "===== slowest 60 durations =====", *timed, "", "(3 durations < 60s hidden.)",
@@ -362,7 +366,8 @@ def test_ci_runs_the_pure_tier_once_on_each_runner_and_a_push_asks_for_at_most_5
     steps = re.split(r"(?m)^      - ", jobs["vanilla"].split("    steps:\n", 1)[1])[1:]
     assert re.search(r"uses: step-security/harden-runner@\S+ +# \S+\n +with:\n +egress-policy: block\n", steps[0])
     folded, = [at for at, step in enumerate(steps) if "        if: matrix.pure\n" in step]
-    command = r"\n +(uv run --locked pytest -m \"not vanilla\" .*--numprocesses=\$\{\{ matrix\.\w+ \}\} .*)"
+    command = (r"\n +(uv run --locked pytest -m \"not vanilla" + re.escape(OPT_OUTS)
+               + r"\" .*--numprocesses=\$\{\{ matrix\.\w+ \}\} .*)")
     alone, = re.findall(command, jobs["pure"])
     assert re.findall(command, steps[folded]) == [alone.replace("matrix.workers", "matrix.pure")]
     at = {mark: next(i for i, step in enumerate(steps) if mark in step)
