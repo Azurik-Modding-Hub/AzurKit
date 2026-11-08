@@ -80,7 +80,7 @@ def test_movies_frames_reads_the_frame_table_at_each_layout_and_runs_ffmpeg_only
         code, _, err = run(capsys, frames, movie, *argv)
         assert code == 1 and err.startswith("movies frames: ") and why in err and not calls
     code, text, _ = run(capsys, frames, movie, "--out", out, "--dry-run")
-    assert code == 0 and f"command: /bin/ffmpeg -y -i {movie} -vf format=rgb24 {out}/frame_%04d.png" in text
+    assert code == 0 and f"command: /bin/ffmpeg -y -i {movie} -vf format=rgb24 {out / 'frame_%04d.png'}" in text
     assert not out.exists() and not calls
 
     def fail(*a, **k):
@@ -138,6 +138,7 @@ def test_audio_dump_classifies_each_wave_wraps_what_decodes_and_names_it(tmp_pat
                                  ("likely-animation", "", -1, -1, False, False),
                                  ("non-audio", "fx/sound/a/odd", -1, -1, False, True)]
     assert report["entries"][5]["first_bytes_sha256"] == hashlib.sha256(refused[:32]).hexdigest()[:12]
+    assert [report["entries"][k]["header"]["format_magic"] for k in (0, 1)] == ["0x01000401", "0x01010401"]
     assert "first_bytes_hex" not in out and json.loads((tmp_path / "out" / "manifest.json").read_text()) == report
     for k in (0, 1):
         wav = (tmp_path / "out" / f"waves/wave_000{k}.wav").read_bytes()
@@ -145,6 +146,8 @@ def test_audio_dump_classifies_each_wave_wraps_what_decodes_and_names_it(tmp_pat
         assert struct.unpack_from("<I", wav, wav.index(b"data") + 4)[0] == len(samples)
         assert struct.unpack_from("<HHIIHHHH", wav, 20) == (0x69, 1, 22050, 12403, 36, 4, 2, 64)
     assert (tmp_path / "out/waves/wave_0001.bin").read_bytes() == streamed[:16] + samples
+    stereo = dump.build_wav(dump.WaveHeader(22050, 128, 2, 4, 1, 0), b"")   # 64 samples a block per channel (L28)
+    assert struct.unpack_from("<HHIIHHHH", stereo, 20) == (0x69, 2, 22050, 24806, 72, 4, 2, 64)
     preview = (tmp_path / "out/waves/wave_0005.preview.wav").read_bytes()
     assert struct.unpack_from("<HHIIHH", preview, 20) == (1, 1, 22050, 44100, 2, 16) and preview.endswith(refused)
     code, out, _ = run(capsys, dump, fx, "-o", tmp_path / "only", "--only-audio", "--entropy-min", 0.9)
