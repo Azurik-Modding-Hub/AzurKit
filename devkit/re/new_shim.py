@@ -581,7 +581,8 @@ def _ghidra(port: int | None):
 
 def main(argv: list[str]) -> int:
     """Exit 0 when written (or planned, ``--dry-run``); 1 when refused (a
-    bad or taken name, an existing file); 2 on a bad ``--hook``."""
+    bad or taken name, an existing file); 2 on a bad ``--hook`` or an
+    ``--iso``/``--xbe`` that can't be read or isn't the USA release."""
     from devkit.re import xbe as xbe_verbs
 
     p = argparse.ArgumentParser(
@@ -610,11 +611,15 @@ def main(argv: list[str]) -> int:
             return 2
 
     xbe_bytes = None
-    if hook_va is not None:
+    path = args.iso or args.xbe
+    if path or hook_va is not None:
         try:
-            xbe_bytes, line = xbe_verbs.load(args.iso or args.xbe, "usa")
+            xbe_bytes, line = xbe_verbs.load(path, "usa")
             print(line, file=sys.stderr)
         except (OSError, ValueError) as exc:
+            if path:   # an image named that can't be read or isn't USA's refuses, as Modkit's
+                print(f"new-shim: {exc}", file=sys.stderr)
+                return 2
             print(f"new-shim: no XBE ({exc}); the site's size is a guess", file=sys.stderr)
 
     client = _ghidra(args.port) if args.ghidra or args.port is not None else None

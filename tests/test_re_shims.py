@@ -91,7 +91,8 @@ def test_new_shim_scaffolds_a_pack_whose_entry_compiles_to_the_symbol_its_trampo
     headers, and neither file holds the site's bytes (the facts' sha256
     stands for them). With no hook the entry is a ``stdcall`` ``void(void)``
     guess, ``_c_<name>@0``. A bad or taken name, an existing file and a
-    second write refuse; ``--dry-run`` writes nothing."""
+    second write refuse; ``--dry-run`` writes nothing; an ``--xbe`` that
+    can't be read or isn't USA's exits 2, one line, never a guessed site."""
     data, _ = xbe.load(str(usa_iso))
     plan = plan_trampoline.plan_trampoline(data, 0x5F6E5)
     assert (plan.suggested_length, plan.clean_boundary, plan.preserved_mnemonics) == (5, True, ["CALL rel32"])
@@ -115,6 +116,11 @@ def test_new_shim_scaffolds_a_pack_whose_entry_compiles_to_the_symbol_its_trampo
         new_shim.write_scaffold(hooked)
     assert new_shim.main(["my_dry_run", "--dry-run"]) == 0
     assert "files that WOULD be written" in capsys.readouterr().out
+    (other := tmp_path / "other.xbe").write_bytes(synthetic(text=bytes.fromhex("e800000000")))
+    for image in (tmp_path / "missing.xbe", other):
+        assert new_shim.main(["my_dry_run", "--hook", "0x5F6E5", "--xbe", str(image), "--dry-run"]) == 2
+        out, err = capsys.readouterr()
+        assert out == "" and err.startswith("new-shim: ") and err.count("\n") == 1, image.name
     assert not any((ROOT / folder / f"my_dry_run{ext}").exists()
                    for folder, ext in ((new_shim.PACKS, ".py"), (new_shim.SHIMS, ".c")))
 
