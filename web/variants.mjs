@@ -38,15 +38,17 @@ const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data),
 // A refusal's lead, the loader's "variant 'name' (its file): ", left to the line's title.
 const reason = (why) => why.replace(/^variant '[^']*'(?: \(.*?\))?: /, "");
 
-// variantsView({root, call, app, say, image, packs, dialog, share, changed}): root the view's element; call the engine's
-// ask; app whether the host is the app; say the page's status line; image() the picked image (the site's File, the
-// app's path); packs() the Patches tab's ticks (a Check dresses over them); dialog(kind) the app's file dialog (null
+// variantsView({root, call, app, say, image, packs, dialog, share, changed, shared}): root the view's element; call the
+// engine's ask; app whether the host is the app; say the page's status line; image() the picked image (the site's File,
+// the app's path); packs() the Patches tab's ticks (a Check dresses over them); dialog(kind) the app's file dialog (null
 // without one); share(folders) hands the site's engine what this browser keeps; changed() runs when the library
-// changes (the Models view lists it again).
-export function variantsView({ root, call, app, say, image, packs, dialog = null, share = () => {}, changed = () => {} }) {
+// changes (the Models view lists it again); shared the page's community content (web/content.mjs), whose manifest marks
+// the built-ins whose files are a community entry's, as the Models view marks them.
+export function variantsView({ root, call, app, say, image, packs, dialog = null, share = () => {}, changed = () => {},
+                               shared = null }) {
   const v = { list: null, kind: "new", name: null, recipe: {}, saved: null, read: null, readFor: null, reading: false,
               again: false, checked: null, checking: null, ticket: 0, tab: "body", shown: "", folder: "", opened: false,
-              ships: null, folders: null };
+              ships: null, folders: null, listed: 0, manifest: null };
   const kept = app ? null : keeper(globalThis.indexedDB, "azurkit-variants");
 
   // The view, built once: the list, the pictures with the status, and the editor.
@@ -169,14 +171,19 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     share(v.folders);
   });
 
-  // The list, the engine's: the built-ins (community ones marked), then yours (a refused one marked).
+  // The list, the engine's: the built-ins (community ones marked, by the community list the page last read), then yours
+  // (a refused one marked); the last one asked drawn. A new community list lists them again.
   const list = async () => {
     await ready;
-    const reply = await call("variants", { given: {} });
+    const mine = ++v.listed;
+    v.manifest = shared?.state.manifest ?? null;
+    const reply = await call("variants", { given: { content: { manifest: v.manifest } } });
+    if (mine !== v.listed) return;
     if ("refused" in reply) return say(reply.refused, true);
     v.list = reply;
     draw();
   };
+  shared?.on((state) => v.opened && state.manifest !== v.manifest && list());
   const entries = () => {
     if (!v.list) return [];
     const wanted = ui.filter.value.trim().toLowerCase();
@@ -189,13 +196,10 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
                                                         grade: e.refusal ? null : grade(e) }))];
   };
   const draw = () => {
-    const groups = new Map();
-    for (const e of entries()) {
-      if (!groups.has(e.group)) groups.set(e.group, []);
-      groups.get(e.group).push(e);
-    }
+    const groups = new Map(["Built-in", "Community", "Yours"].map((group) => [group, []]));
+    for (const e of entries()) groups.get(e.group).push(e);
     if (v.kind === "new") groups.set("Unsaved", [{ name: "", label: label(), kind: "new" }]);
-    ui.items.replaceChildren(...[...groups].flatMap(([group, rows]) => [
+    ui.items.replaceChildren(...[...groups].filter(([, rows]) => rows.length).flatMap(([group, rows]) => [
       el("h3", { className: "picker-group", textContent: group }),
       ...rows.map((e) => {
         const row = el("button", { type: "button", className: "picker-entry model", textContent: e.kind === v.kind

@@ -5872,17 +5872,42 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
     asked about (a no stays); New from this offers mine_2; Export downloads the engine's zip; Delete (after a yes)
     and Import take it out and back; a New's unsaved edits are asked about as the page closes (Modkit's AZ-792), a
     saved one's never; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which the Tools tab's
-    Storage names and Clear removes. No CSP violation, no request but GETs of the site's files."""
-    from azurkit.tools.characters import _player_variants, picker
+    Storage names and Clear removes. The built-ins a community list holds (booblord's, from a Content from of the
+    test's own) sit under Community, as the Models view lists them, the rest under Built-in. No CSP violation, no
+    request but GETs of the site's files and that source's."""
+    from azurkit.tools.characters import _player_variants, content, picker
 
     beam = _player_variants.builtins()["beamlord"]
     unseen, grade = "Not yet tested", picker.GRADE_WORDS[sdk._grade(beam)]
+    repo = tmp_path / "repo"
+    (repo / "variants/booblord").mkdir(parents=True)
+    (repo / "variants/booblord/variant.json").write_text(json.dumps({"booblord": json.loads(
+        _player_variants.BUILTIN.read_text(encoding="utf-8"))["booblord"]}), encoding="utf-8")
+    entry = {"author": "Azurik-Modding-Hub", "licence": "MIT", "version": 1, "requires": [], "id": "booblord",
+             "kind": "variant", "title": "Booblord", "files": [{"path": "variants/booblord/variant.json"}]}
+    (repo / "manifest.json").write_text(json.dumps(content.filled(
+        {"format": content.FORMAT, "schema_version": 1, "entries": [entry]}, lambda path: (repo / path).read_bytes())))
     served = Site(browser, site)
+
+    def source(route, request) -> None:
+        rel = repo / urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/")
+        route.fulfill(path=str(rel)) if rel.is_file() else route.fulfill(status=404, body="")
+    served.context.route(f"{served.origin}/content-test/**", source)
+    grouped = """() => { let group = null; const out = {};
+        for (const node of document.getElementById('var-items').children) {
+          if (node.tagName === 'H3') group = node.textContent; else out[node.dataset.name] = group;
+        }
+        return out; }"""
     try:
         page = served.open()
         _page.click(page, "tab-characters")
+        page.evaluate("(url) => { const box = document.getElementById('char-source'); box.value = url; "
+                      "box.dispatchEvent(new Event('change')); }", "./content-test/")
         _page.click(page, "char-view-variants")
         _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.until(page, f"() => ({grouped})().booblord === 'Community'", 120)
+        assert {n: g for n, g in page.evaluate(grouped).items() if n in _player_variants.builtins()} == {
+            n: "Community" if n.startswith("booblord") else "Built-in" for n in _player_variants.builtins()}
         page.evaluate(VARIANTS_ROW, "beamlord")
         shown = _variants_shown(page, status=beam.sha)
         assert (shown["status"], shown["check"]) == (
@@ -5978,6 +6003,6 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
                            "'Your saved variants (Export keeps a copy of one)')", 60)
         _page.click(again, "tools-clear")
         _page.until(again, "() => indexedDB.databases().then((dbs) => !dbs.some((db) => db.name === 'azurkit-variants'))", 60)
-        assert served.stray() == []
+        assert [s for s in served.stray() if not s.startswith(f"GET {served.origin}/content-test/")] == []
     finally:
         served.close()

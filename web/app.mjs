@@ -1161,7 +1161,7 @@ function ready(catalog, version, commit) {
     state.variants = variantsView({ root: $("variants"), call: state.engine.call, app: state.app, say,
                                     image: () => state.file, packs: chosen, share: state.engine.library,
                                     dialog: state.dialogs ? (kind, path) => state.engine.choose(kind, path) : null,
-                                    changed: () => state.characters.relist() });
+                                    changed: () => state.characters.relist(), shared });
     state.community = communityGroup({ root: $("packs"), call: state.engine.call, shared, say, catalog,
                                        settled: () => { tally(); lock(); } });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
