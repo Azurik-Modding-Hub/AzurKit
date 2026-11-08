@@ -140,9 +140,14 @@ uv run --locked python -m devkit re ghidra-backup list|restore NAME|prune [--pro
 | `ghidra-apply` | a plan (a JSON list of `rename`, `rename_label`, `comment`, `delete_equate`, `delete_category` and `create_function` lines, run by `ghidra_scripts/ApplyPlan.java`) dry-run on a copy, printing each line and the plan's sha256; with `--apply`, that sha256 and `--project`: refused while a Ghidra holds the project, backed up into `ghidra-backups/` beside its folder, written, verified on a copy, and put back byte-identical on any failure, timeout or Ctrl-C. Exit 0 applied, 1 failed (the project as before), 2 refused, 3 not put back |
 | `ghidra-backup` | `ghidra-apply`'s backups: `list`; `restore NAME` (the project as it is moves aside first); `prune` (the newest `--keep`, and the last verified apply's undo) |
 
-The pins are `tools.toml`'s (the bridge runs as `uv run --script`, in the
-environment its own header pins; ghidra-xbe, which has no licence, is only
-ever downloaded). `ghidra_scripts/` holds the four scripts the verbs and the
+The pins are `tools.toml`'s; ghidra-xbe, which has no licence, is only ever
+downloaded. The bridge (the `ghidra` MCP server) runs as `uv run --locked
+--script devkit/re/ghidra_bridge.py .tools/ghydra-bridge/bridge_mcp_hydra.py`,
+in the script environment `ghidra_bridge.py.lock` pins (mcp 1.30.0, as
+Modkit ran it): not the bridge's own header's mcp 1.6.0, which a current
+pydantic breaks, nor AzurKit's environment, whose mcp 2 dropped the
+`mcp.server.fastmcp` the bridge imports. `uv lock --script
+devkit/re/ghidra_bridge.py` re-pins it. `ghidra_scripts/` holds the four scripts the verbs and the
 bridge's `scripts_run` use: `AzurikServe`, `ApplyPlan`, `ImportHeader` and
 `CreateEquate`. `tests/test_ghidra.py` holds the side against
 `tests/mock_ghidra.py`, a fake `analyzeHeadless` and fake assets; its tests

@@ -64,10 +64,14 @@ from the checkout's root.
   project ships with the repo: a contributor creates one and imports
   `default.xbe` (the ghidra-xbe loader reads it).
 - **MCP:** bootstrap prints `claude mcp add --scope local ghidra -e
-  GHIDRA_HYDRA_HOST=127.0.0.1 -- uv run --script
+  GHIDRA_HYDRA_HOST=127.0.0.1 -- uv run --locked --script
+  <checkout>/devkit/re/ghidra_bridge.py
   <checkout>/.tools/ghydra-bridge/bridge_mcp_hydra.py` and never runs it.
-  The bridge runs in the environment its own script header pins (mcp 1,
-  requests), never AzurKit's (mcp 2 is devkit's). `GHIDRA_HYDRA_HOST`
+  The wrapper runs the bridge in its locked script environment (mcp 1.30.0
+  and all under it): never the bridge's own header (its mcp 1.6.0 breaks
+  on a current pydantic: "cannot import name 'eval_type_backport'") nor
+  AzurKit's environment (devkit's mcp 2 has no `mcp.server.fastmcp`).
+  It lists 68 tools with no Ghidra running. `GHIDRA_HYDRA_HOST`
   pins it to the IPv4 loopback (its default `localhost` tries `::1`
   first). It starts on 8192: call `instances_use(8193)` (the owner's
   CodeBrowser) or a serve's port once per session (§3).

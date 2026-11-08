@@ -51,9 +51,9 @@ version = "3.0.0-rc.1"
 kind = "ghidra-extension"
 assets.any = { url = "https://github.com/starsong-consulting/GhydraMCP/releases/download/v3.0.0-rc.1/Ghydra-v3.0.0-rc.1-20260618-063536-ghidra12.1.2.zip", sha256 = "02cb82209e20e2fa19528f15fface3ca9cf5663e1c6931f38cba595d4b081875" }
 
-[tools.ghydra-bridge]   # Apache-2.0. The `ghidra` MCP server: run as `uv run --script`, in the environment its own
-# inline header pins (mcp 1.6.0, requests 2.32.3), never AzurKit's: mcp 1 and 2 can't share one environment, and
-# requests in the project's would reach what the app freezes.
+[tools.ghydra-bridge]   # Apache-2.0. The `ghidra` MCP server: run by devkit/re/ghidra_bridge.py (`uv run --locked
+# --script`), whose lock pins mcp 1.30.0 and all under it; never its own header's mcp 1.6.0, which a current pydantic
+# breaks, nor AzurKit's environment, whose mcp 2 dropped the mcp.server.fastmcp it imports.
 version = "3.0.0-rc.1"
 kind = "file"
 assets.any = { url = "https://github.com/starsong-consulting/GhydraMCP/releases/download/v3.0.0-rc.1/bridge_mcp_hydra.py", sha256 = "c634976150ba6231075e2cc42ef715715ee47a43542384191e86316d21f8f876" }

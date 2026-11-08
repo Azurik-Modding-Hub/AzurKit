@@ -1134,8 +1134,8 @@ def test_bootstrap_with_re_installs_each_verified_tool_binds_ghidra_to_loopback_
     rewrites one managed block of launch.properties: the JDK, Ghidra's
     folders in ``.tools/ghidra-home``, the plugin bound to 127.0.0.1 (Q171,
     AZ-153), scripts only with ``--allow-scripts``. It prints the bridge's
-    ``claude mcp add`` line: the bridge in its own script environment, its
-    host the IPv4 loopback. The real pins are devkit/re/tools.toml's: Ghidra
+    ``claude mcp add`` line: the bridge in ``ghidra_bridge.py``'s locked
+    script environment, its host the IPv4 loopback. The real pins are devkit/re/tools.toml's: Ghidra
     12.1.2, Temurin 25, GhydraMCP 3.0.0-rc.1 and ghidra-xbe, download only."""
     import tomllib
     pins = tomllib.loads((ROOT / "devkit" / "re" / "tools.toml").read_text(encoding="utf-8"))["tools"]
@@ -1159,7 +1159,8 @@ def test_bootstrap_with_re_installs_each_verified_tool_binds_ghidra_to_loopback_
         f"VMARGS=-Dapplication.settingsdir={home}", f"VMARGS=-Dapplication.cachedir={home}/cache",
         f"VMARGS=-Dghidra.user.scripts.dir={home}",
         "VMARGS=-Dghidra.mcp.bind.host=127.0.0.1", "VMARGS=-Dghidra.mcp.cors.origin=http://127.0.0.1:1"]
-    assert line == ("claude mcp add --scope local ghidra -e GHIDRA_HYDRA_HOST=127.0.0.1 -- uv run --script "
+    assert line == ("claude mcp add --scope local ghidra -e GHIDRA_HYDRA_HOST=127.0.0.1 -- uv run --locked --script "
+                    f"{(root / 'devkit' / 're' / 'ghidra_bridge.py').as_posix()} "
                     f"{(tools / 'ghydra-bridge' / 'bridge_mcp_hydra.py').as_posix()}")
     shutil.rmtree(src)  # a re-run fetches nothing whose .ok stamp matches
     bootstrap.install_re(root, allow_scripts=True)

@@ -101,10 +101,10 @@ def install_re(root: Path, allow_scripts: bool) -> str:
     unpacked; ``.ok`` = ``"<version> <sha256>"``, so a re-run fetches only
     what changed), unzip the Ghidra extensions into the fresh Ghidra, and
     (re)write its ``launch.properties``. Return the ``claude mcp add`` line
-    for the bridge, which runs in the environment its own inline header pins
-    (``uv run --script``); it is printed, never run. Exit naming the tool
-    when an entry has no asset or hash for this host, or a download doesn't
-    match."""
+    for the bridge, which runs in ``devkit/re/ghidra_bridge.py``'s locked
+    script environment (``uv run --locked --script``); it is printed, never
+    run. Exit naming the tool when an entry has no asset or hash for this
+    host, or a download doesn't match."""
     tools = tomllib.loads((root / "devkit" / "re" / "tools.toml").read_text(encoding="utf-8"))["tools"]
     dot = root / ".tools"
     dot.mkdir(exist_ok=True)
@@ -138,8 +138,8 @@ def install_re(root: Path, allow_scripts: bool) -> str:
                                 "", *ours, ""]), encoding="utf-8")
     bridge = dot / "ghydra-bridge" / "bridge_mcp_hydra.py"
     # The bridge's own default host is `localhost`, which tries ::1 first (AZ-153's twin).
-    return (f"claude mcp add --scope local ghidra -e GHIDRA_HYDRA_HOST=127.0.0.1 -- "
-            f"uv run --script {bridge.as_posix()}")
+    return (f"claude mcp add --scope local ghidra -e GHIDRA_HYDRA_HOST=127.0.0.1 -- uv run --locked --script "
+            f"{(root / 'devkit' / 're' / 'ghidra_bridge.py').as_posix()} {bridge.as_posix()}")
 
 
 def host_platform() -> str:
