@@ -2,11 +2,12 @@
 
 The `models` area holds the character-body verbs ModelKit's adapter calls,
 Modkit's `azurik-mod model`, ported leaf by leaf: `dress`, `inspect`,
-`export`, `jiggle`, `pose` and `rest` now; the rest (`check`, `import`,
-`clips`, `chains`, `preview`, `edit` and the Blender batch) come with their
-own steps. Beside it, `fx` (Modkit's `azurik-mod fx`, whole) reads, plans
-and clones the fx graphs. What they call is the shipped engine's
-(`src/azurkit/tools/characters/`); none of it ships.
+`export`, `jiggle`, `pose`, `rest` and `preview` now, with the Blender batch
+and `blender-check` (Blender, below); the rest (`check`, `import`, `clips`,
+`chains` and `edit`) come with their own steps. Beside it, `fx` (Modkit's
+`azurik-mod fx`, whole) reads, plans and clones the fx graphs. What they
+call is the shipped engine's (`src/azurkit/tools/characters/`); none of it
+ships.
 
 ## `model`: a character body's leafs
 
@@ -33,6 +34,7 @@ error exits 2.
 | `jiggle VARIANT [--variant-file PATH] [--strength X] [--stiffness X] [--hz 30\|60] [--clip NAME\|all\|none] [--set ROLE.FIELD=VALUE ...] [--ram 64\|128\|256] [--json]` | dresses VARIANT as `dress` does (writing nothing) and drives the twin of X41's springs (`jiggle_rt`) with it: the physics scenarios (idle, the walk slot at three speeds, the run, a start, the stop, a jump, a drop, a spin, a knockback, a place, a swim stroke), then every slot's clip at the rate the game plays it (`--clip` one, or none), the climb loops in place and carried; per run and spring row the peak offset per axis (mm as drawn), its radius, the largest move in a tick and the ring's extrema, then each acceptance target pass or FAIL, the other `--hz` run for the rate target. `--set` tries a spring value without editing the recipe and prints the springs as recipe JSON to paste; the sliders take any finite number (D23). It can't run the engine's glides or aligned moves: xemu judges those. A variant with no spring row exits 1 |
 | `pose VARIANT --out FILE [--variant-file PATH] [--recipe FILE] [--clips A,B] [--hz 30\|60] [--strength X] [--stiffness X] [--ram 64\|128\|256]` | dresses VARIANT as `dress` does and plays each of `--clips` (default every slot's clip) as `jiggle` plays it, X41's springs over the engine's pose, and writes `--out`, a new `.npz` (written whole, D35): `bones`, `parents`, `inverse_binds`, `sprung`, `clips`, `rates`, `loops`, `carried` and per clip i `now<i>`, `time<i>` and `worlds<i>` ((ticks, bones, 4, 4): the model frame, z up, column vectors, so a vertex skins as the sum of weight x `worlds[bone] @ inverse_binds[bone]`), then `hz`, `strength`, `stiffness` and `drawn`. A variant with no spring row exits 1 and writes nothing |
 | `rest VARIANT --values FILE --out DIR [--variant-file PATH]` | prepares VARIANT's mesh once on its base's vanilla body (its subdivisions, hems, islands, tubes and cuts), then runs each `--values` item's `mesh` (a JSON list of objects with a `mesh`: a recipe's or a ModelKit round spec's) through the build's position steps on that frozen mesh, and writes `--out/<i>.npy`, float32 (vertices, 3) as the build writes them, for ModelKit's shape sliders; VARIANT's own values give its plan's positions exactly. An item whose ops aren't VARIANT's in order with the numbers the preparation laid is refused by name and nothing is written |
+| `preview BODY --out DIR [--views A,B] [--clip NAME [--time S]] [--size PX] [--engine workbench\|eevee] [--lod K] [--hide ROW,..] [--characters FILE] [--blender PATH]` | BODY exported (with `--clip`, posed at `--time` seconds; else its bind pose) and rendered by headless Blender: one orthographic PNG a view (`front`, `back`, `left` (her own left), `right`, the four diagonals, `top`, `below`; default `front,left,back,front_left`), framed on the posed mesh's drawn vertices, the body's own textures on it (`workbench`, the default: textured under studio light; `eevee`: its materials under a sun and a fill), `--size` pixels a side (768), as `<body>_<view>.png` with `<body>_views.json` (each view's file and the frame's size). `--hide` leaves out a material's faces (`row3`: the townswomen's vase). `--lod K` draws the body's LOD K (a vanilla one, or one a build wrote: the shadow LOD) framed on its LOD 0 posed and cut the same way, so each LOD has LOD 0's camera and light, as `<body>_lod<K>_<view>.png`; a LOD the body lacks exits 1 naming it. Female_2's four views take about 7 s |
 
 `dress` is the dress a build plans (`tools.characters.dressed`, the swap's
 own, which the plan calls and G3's goldens pin), over the default packs'
@@ -69,3 +71,74 @@ one `fx LEAF: ...` line on stderr and exit 1, a usage error exit 2.
 
 A graph under a new key plays only when something loads it: a variant's
 player clone (X40), or an `effect` record naming its key.
+## Blender
+
+Blender is a machine tool, never a dependency, and never ships: `preview`,
+the batch (`devkit/models/blender/batch.py`) and `blender-check` run it, and
+the scripts in `devkit/models/blender/` run inside it. Blender 5.2.2 is the
+one they were measured on. Each run is headless (`--background
+--factory-startup`: no window, the user's preferences untouched), and is
+found as `--blender` (`blender=`), else `$AZURIK_BLENDER`, else `blender` on
+`PATH`, else `/Applications/Blender.app`'s. No test runs a real Blender: the
+suite's stand-ins write what it would (`tests/test_blender.py`).
+
+**Many pictures from one Blender** (a clip's strip or MP4, a sculpt round's
+sheets) go through the batch:
+
+```python
+from devkit.models.blender import batch as bb
+body = bb.Body(points, uvs, triangles_by_material, textures)   # uvs v up: a game UV's 1 - v
+got = bb.render(body, positions, normals, views=[[bb.View(150.0, 1.7, (0.0, 0.0, 1.12))]],
+                keep=beats, mp4=out / "walk.mp4", fps=15, log=out / "render.jsonl")
+```
+
+One Blender a job: the body and its textures are built once, each frame's
+positions (and normals) are set in place, and the frames come back as one
+array (those `keep` names) and go straight into ffmpeg (`mp4`, which needs
+ffmpeg on `PATH` or `ffmpeg=`): no OBJ, PNG or launch a frame. `got.seconds`
+(and `log`) hold each stage's seconds. On vanilla female_2 a 61-frame MP4
+took 82-121 s through an OBJ and a level-9 PNG a frame and 2.3-3.0 s through
+the batch, with 99.8% of the pixels identical to Blender's OBJ import of the
+same mesh and the rest a few levels apart. Every refusal is a `ValueError`
+naming what failed (D35); a failed job writes no MP4, and an MP4 inside the
+checkout or an image's folder is refused (D36).
+
+- **Workbench for previews** (the default, the sculpt rounds' look). EEVEE
+  costs about 10 times a frame and Cycles on the GPU about 45; after a
+  Blender update, warm Cycles' kernels with one render before parallel jobs
+  use it (the first compile took 220 s).
+- **Render one loop** of a gait and let the player loop it (`ffmpeg
+  -stream_loop`), not three.
+- **Stop a superseded preview** before starting the next one.
+- **Cache what is built from content:** `bb.cached(kind, name, write)` keeps
+  a file (a dressed `characters.xbr`, a rig's glTF export) in the AzurKit
+  user cache under a name holding `bb.content_key(...)` of everything it
+  depends on, the code included, written by a rename so a parallel job never
+  reads half of it; a work folder's name is no key. A file no job used for
+  14 days goes at the next miss of its kind.
+- **Evidence pictures at PNG level 6:** `draw.png_rgba(img, level=6)`
+  (`azurkit.tools.characters.draw`) writes a 448 x 640 frame in about 0.06 s
+  against 1.2-1.4 s at 9, which only committed pictures need.
+- **At most 8 Blenders at once** on the machine: `render`, `preview` and
+  every other Blender job wait for one of `$AZURIK_BLENDER_SLOTS` (8) slots,
+  lock files in the AzurKit user cache's `blender-slots/`, the folder
+  ModelKit's jobs share, so both repositories' Blenders count against one
+  cap. Wrap any other Blender launch in `with bb.slot() as s:` and give it
+  `pass_fds=s.fds`, so the slot stays taken while that Blender runs, even if
+  its caller is killed. Windows has no `flock`, so no cap there.
+
+## `blender-check`: the batch on the real Blender
+
+```bash
+uv run --locked python -m devkit models blender-check [--vertices N] [--frames N] [--engine workbench|eevee] [--blender PATH] [--out DIR]
+```
+
+Runs the batch on the real Blender, which the suite only stands in for, on a
+made-up body (a textured ball, no game data): `--frames` poses (12; the last
+the first again) from two views. It checks that every frame comes back, each
+pose draws its own picture and the repeated one the same, the ball is drawn
+and textured, a second job finds the body in the cache and the MP4 is
+written (with ffmpeg), then prints each stage's seconds; `--out` keeps the
+frames' sheet (PNG) and the MP4. Exit 1 names a failed check. Run it after a
+Blender update or a change to `batch.py` or `batch_inside.py`;
+`--vertices 45000` times a v4-size body.

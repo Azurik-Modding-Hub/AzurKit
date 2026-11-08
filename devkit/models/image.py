@@ -69,13 +69,15 @@ def swap(built: bytes | None = None) -> Iterator[None]:
         yield
 
 
-def output(out: str | Path, *inputs: Path, folder: bool = True) -> Path:
+def output(out: str | Path, *inputs: Path, file: bool = False) -> Path:
     """``out`` as an absolute path, once it may be written (D36): a new or
-    empty folder (or, ``folder=False``, a file: ``fx texture --png``'s),
-    outside this checkout, none of ``inputs`` (the files a verb reads) and
-    inside none, and outside the folder of each image read or found, each
-    folder compared by file identity (Modkit's ``require_new_output``), so
-    another letter case can't slip through; ``ValueError`` names why not."""
+    empty folder (``file``: a file, which may replace one there, as
+    ``fx texture --png``'s and the Blender batch's MP4 do), outside this
+    checkout, none of ``inputs``
+    (the files a verb reads) and inside none, and outside the folder of each
+    image read or found, each folder compared by file identity (Modkit's
+    ``require_new_output``), so another letter case can't slip through;
+    ``ValueError`` names why not."""
     out = Path(out).absolute()
     real = out.resolve()
     above = [d for d in (real, *real.parents) if d.exists()]
@@ -92,6 +94,6 @@ def output(out: str | Path, *inputs: Path, folder: bool = True) -> Path:
     for p in inputs:
         if p.exists() and real.exists() and real.samefile(p):
             raise ValueError(f"--out {out} is the same file as {p}, which it reads")
-    if folder and out.exists() and (not out.is_dir() or any(out.iterdir())):
+    if not file and out.exists() and (not out.is_dir() or any(out.iterdir())):
         raise ValueError(f"--out {out} already holds something; give a new or empty folder")
     return out

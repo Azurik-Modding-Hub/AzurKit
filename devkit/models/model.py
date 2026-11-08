@@ -14,6 +14,7 @@ the ones ModelKit's adapter calls.
   springs, as an ``.npz``.
 - ``rest`` writes a variant's rest positions for other values of its mesh
   ops on its frozen mesh (a shape slider's ends).
+- ``preview`` renders a body's pictures with headless Blender.
 
 A leaf reads ``--iso``'s image, else the one AzurKit finds
 (``devkit.models.image``); ``inspect`` and ``export`` read any image, a
@@ -289,6 +290,33 @@ def _rest(args) -> int:
     return 0
 
 
+def _preview(args) -> int:
+    """``preview`` (Step 2.154): render the body (the image's characters.xbr
+    or ``--characters``), its LOD ``--lod`` in LOD 0's frame, with headless
+    Blender into ``--out`` (``devkit.models.preview``): print each view's
+    PNG."""
+    from azurkit.tools.characters import gltf
+    from devkit.models import preview
+
+    try:
+        characters, config, iso = _characters(args)
+        body, _ = gltf.resolve_body(characters, config, args.body)
+        views = [v.strip() for v in args.views.split(",") if v.strip()] if args.views else preview.DEFAULT_VIEWS
+        hide = [h.strip() for h in args.hide.split(",") if h.strip()] if args.hide else ()
+        report = preview.preview(characters, body, Path(args.out), views=views, size=args.size, engine=args.engine,
+                                 clip=args.clip, time=args.time, hide=hide, blender=args.blender,
+                                 protect=(iso, *([Path(args.characters)] if args.characters else [])),
+                                 vanilla=gltf.vanilla_characters(characters), lod=args.lod)
+    except (OSError, ValueError) as exc:
+        return _refused("preview", exc)
+    at = f" at {report['time']:g} s" if args.clip else ""
+    print(f"{body}{f' LOD {args.lod}' if args.lod else ''} ({report['pose']}{at}): "
+          f"{len(report['views'])} views, {args.size} px, a {report['frame_m']:.2f} m frame")
+    for view, path in report["views"].items():
+        print(f"  {view}: {path}")
+    return 0
+
+
 DRESS = """\
 Dresses VARIANT (a built-in, or one of --variant-file's) as a build wearing
 it does, in memory on the verified vanilla image (D27), on the packs on by
@@ -370,6 +398,20 @@ numbers the preparation laid (subdivide, hem, island, tube, a cut's but its
 press amounts); else it is refused by name and nothing is written."""
 
 
+PREVIEW = """\
+Exports BODY (with --clip, posed at --time; else its bind pose) and renders
+it with Blender in the background (no window, factory settings), one
+orthographic PNG a view framed on the posed mesh, the body's own textures on
+it, into --out (a new or empty folder outside the checkout and the images'
+folders): <body>_<view>.png and <body>_views.json. Blender is --blender,
+$AZURIK_BLENDER, `blender` on PATH or /Applications/Blender.app's, and waits
+for one of the machine's $AZURIK_BLENDER_SLOTS (8) Blender slots. --lod K
+draws the body's LOD K instead, framed on LOD 0 posed the same way: LOD 0's
+camera and light, <body>_lod<K>_<view>.png. Reads the image's characters.xbr
+(any image) or --characters. The pictures are of a game asset: keep them out
+of the repo."""
+
+
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m devkit models model", description=__doc__.split("\n\n")[0],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -446,6 +488,23 @@ def parser() -> argparse.ArgumentParser:
     v.add_argument("--values", required=True, metavar="FILE",
                    help='a JSON list of objects whose "mesh" holds the values to pose')
     v.add_argument("--out", required=True, metavar="DIR", help="a new or empty folder outside the checkout")
+    v = leaf("preview", _preview, "a body's pictures from headless Blender, its textures on", PREVIEW)
+    v.add_argument("body", help="a body (townspeople/female_2) or a species (town_female_2)")
+    v.add_argument("--out", required=True, metavar="DIR", help="a new or empty folder outside the checkout")
+    v.add_argument("--views", default=None, metavar="A,B",
+                   help="views: front, back, left, right, front_left, front_right, back_left, back_right, top, "
+                        "below (default front,left,back,front_left)")
+    v.add_argument("--clip", default=None, help="a clip to pose (default: the bind pose)")
+    v.add_argument("--time", type=float, default=0.0, help="seconds into --clip (default 0)")
+    v.add_argument("--size", type=int, default=768, help="pixels a side (default 768)")
+    v.add_argument("--engine", choices=("workbench", "eevee"), default="workbench",
+                   help="workbench (textured, studio light; the default) or eevee (its materials, a sun)")
+    v.add_argument("--lod", type=int, default=0, metavar="K",
+                   help="draw LOD K (default 0) in LOD 0's frame: a vanilla one, or one a build wrote (the shadow LOD)")
+    v.add_argument("--hide", default=None, metavar="ROW,..",
+                   help="leave out the faces of these materials (rowN or gshdG_rowN: female_2's vase is row3)")
+    characters(v)
+    v.add_argument("--blender", default=None, metavar="PATH", help="the Blender executable")
     return p
 
 

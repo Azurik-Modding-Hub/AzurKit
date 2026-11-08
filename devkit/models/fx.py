@@ -247,7 +247,7 @@ def cmd_fx_texture(args) -> int:
     from azurkit.tools.characters.draw import png_rgba
     try:
         iso = image.find(args.iso)
-        out = image.output(args.png, iso, folder=False)
+        out = image.output(args.png, iso, file=True)
         archive, data = _find(iso, args.key, args.archive)
         schema = _schema(iso)
         index, g = _graph(data, args.key, schema)
