@@ -79,9 +79,9 @@ first) or off. ``POST api/play`` ``{"iso", "xemu"}`` launches the player's xemu 
 ``iso`` in its tray and private endpoints Live reads (Modkit's Play, :mod:`.play`: ``xemu`` the one the
 player picked; the one it launched is remembered, the config's ``xemu``), or says what it needs first;
 ``api/attach`` ``{"pid"}`` reads a running xemu of the player's through the macOS admin attach (one
-password prompt, a read-only root helper, :mod:`.live_helper`); ``api/tray`` ``{}`` gives the disc in a
-running xemu's tray (``iso``) and, for an AzurKit build, its recipe (``preset``), whose seed the tracker
-then tracks (D261). Each Build writes a log in the log folder (:mod:`.logs`), and ``api/logs``
+password prompt, a read-only root helper, :mod:`.live_helper`); ``api/tray`` ``{}`` gives the randomized
+AzurKit build in a running xemu's tray (``iso``; another disc is passed over) and its recipe (``preset``),
+whose seed the tracker then tracks (D261). Each Build writes a log in the log folder (:mod:`.logs`), and ``api/logs``
 ``{"open"}`` names that folder and the last log, and opens either (``"folder"``, ``"last"``) in this
 computer's own viewer. ``POST api/plan`` ``{"recipe"}`` plans a seed to track
 (``sdk.plan``), and ``POST api/tracked`` ``{"tracker"}`` remembers the
@@ -957,16 +957,23 @@ class Server(http.server.ThreadingHTTPServer):
             return self.player.attach(pid)
 
     def tray(self, body: dict) -> dict:
-        """``api/tray``: the disc in a running xemu's tray (the player's own, D248), and, for an AzurKit build, its
-        recipe (``preset``: ``sdk.open_build`` of the files it changed), whose seed the tracker tracks (D261);
-        ``{}`` when no xemu holds one."""
-        with self.follow("tray"):
-            if (disc := xemu.tray_disc()) is None:
-                return {}
+        """``api/tray``: the randomized AzurKit build in a running xemu's tray (the player's own, D248) and its
+        recipe (``preset``: ``sdk.open_build`` of the files it changed), whose seed the tracker tracks (D261); a
+        disc that isn't one is passed over for the next running xemu's (Modkit's ``tray_seed``); ``{}`` when no
+        xemu holds one."""
+        presets: dict[Path, dict] = {}
+
+        def randomized(disc: Path) -> bool:
             try:
-                return {"iso": str(disc), "name": disc.name, "preset": sdk.open_build(str(disc), whole=False)}
-            except (OSError, ValueError) as exc:   # not an AzurKit build
-                return {"iso": str(disc), "name": disc.name, "not": str(exc)}
+                presets[disc] = sdk.open_build(str(disc), whole=False)
+            except (OSError, ValueError):   # not an AzurKit build
+                return False
+            return any(layer.get("tool") == "randomizer" for layer in presets[disc].get("layers", []))
+
+        with self.follow("tray"):
+            if (disc := xemu.tray_disc(accept=randomized)) is None:
+                return {}
+            return {"iso": str(disc), "name": disc.name, "preset": presets[disc]}
 
     def build_logs(self, body: dict) -> dict:
         """``api/logs``: the log folder and the last log; ``open`` ``"folder"`` or ``"last"`` opens it in this

@@ -323,14 +323,16 @@ def attachable(platform: str = sys.platform, probes: Probes | None = None) -> li
     return out
 
 
-def tray_disc(platform: str = sys.platform, running=running_xemus, tray=None) -> Path | None:
+def tray_disc(platform: str = sys.platform, running=running_xemus, tray=None,
+              accept: Callable[[Path], bool] = lambda _iso: True) -> Path | None:
     """The disc image in a running xemu's tray (the player's own xemu, D248;
-    :func:`disc_in_tray`): the build whose seed Live tracks (D261, Modkit's
-    ``tray_seed``, which read its placement file; an AzurKit build carries its
-    recipe). None when no running xemu holds one."""
+    :func:`disc_in_tray`) that ``accept`` takes: the build whose seed Live
+    tracks (D261, Modkit's ``tray_seed``, which passed over a disc with no
+    placement file for the next running xemu's; an AzurKit build carries its
+    recipe). None when no running xemu holds one it takes."""
     tray = tray or disc_in_tray
     for _exe, pid in running(platform):
-        if (iso := tray(pid, platform)) is not None:
+        if (iso := tray(pid, platform)) is not None and accept(iso):
             return iso
     return None
 

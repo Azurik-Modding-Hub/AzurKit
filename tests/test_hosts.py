@@ -3325,7 +3325,8 @@ def test_play_finds_xemu_tells_the_fork_from_upstream_and_launches_it_private_wi
     whose /tmp is its own) plus the fork's shared RAM under a private name,
     changing no xemu setting, and hands Live those explicit endpoints: shared
     RAM first (no pause) for the fork, QMP alone for upstream. Live tracks the
-    disc a running xemu holds open (D261), and a second Play knows its own
+    disc a running xemu holds open (D261), passing over one it can't track for
+    the next xemu's, and a second Play knows its own
     xemu still runs by its private QMP socket."""
     from azurkit.tools.randomizer.live.link import Endpoint
 
@@ -3378,6 +3379,8 @@ def test_play_finds_xemu_tells_the_fork_from_upstream_and_launches_it_private_wi
     assert xemu.disc_in_tray(77, "darwin", run=lambda *_a, **_k: lsof) == iso
     assert TRAY_DISC("darwin", running=probes.running, tray=lambda _pid, _p: None) is None
     assert TRAY_DISC("darwin", running=probes.running, tray=lambda _pid, _p: iso) == iso
+    two, discs = lambda _p: [("/A/xemu", 77), ("/B/xemu", 78)], {77: tmp_path / "other.iso", 78: iso}
+    assert TRAY_DISC("darwin", running=two, tray=lambda pid, _p: discs[pid], accept=lambda d: d == iso) == iso
     qmp = _listener()
     played = [Endpoint("shm", "azurik-play-aa", True), Endpoint("qmp", qmp.getsockname(), True)]
     assert xemu.answers(played) and not xemu.answers(None)    # Play's xemu runs
@@ -3707,8 +3710,9 @@ def test_play_on_the_apps_page_tracks_the_saved_builds_seed_with_live_on_and_liv
     seed on the Randomizer tab with Live on, Play's private endpoints tried
     first; with xemu already running it asks in a small dialog whether to
     attach, and Attach reads that xemu through the admin helper, Live on.
-    Live ticked by hand first tracks the seed of the AzurKit build in a
-    running xemu's tray when it isn't the one shown. The Tools tab names the
+    Live ticked by hand first tracks the seed of the randomized AzurKit build
+    in a running xemu's tray when it isn't the one shown (another xemu's
+    other disc passed over, Modkit's tray_seed). The Tools tab names the
     folder each build's log is kept in. The discovery, the launch, the
     helper, the tray and the game are faked: no xemu runs, nothing prompts."""
     from dataclasses import replace
@@ -3738,7 +3742,8 @@ def test_play_on_the_apps_page_tracks_the_saved_builds_seed_with_live_on_and_liv
     monkeypatch.setattr(app.xemu, "spawn", launched.append)
     monkeypatch.setattr(app.xemu, "can_attach", lambda: True)
     monkeypatch.setattr(app.xemu, "attachable", lambda: [x for x in found if x.running])
-    monkeypatch.setattr(app.xemu, "tray_disc", lambda: tray[0])
+    monkeypatch.setattr(app.xemu, "tray_disc", lambda accept: next(   # a first xemu's vanilla disc: passed over
+        (disc for disc in (vanilla, tray[0]) if disc is not None and accept(disc)), None))
 
     def helper(pid, run_dir):
         helpers.append(pid)

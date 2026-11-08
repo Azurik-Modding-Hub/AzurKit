@@ -1226,8 +1226,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (attach to the xemu running, which one, where); `api/attach` starts the
     macOS root helper (`azurkit.app.live_helper`, a file the app copies for
     root and never imports: stdlib only, Python 3.9) behind one admin
-    prompt; `api/tray` gives the AzurKit build in a running xemu's tray,
-    whose seed a Live tick tracks first. Tests fake the discovery, the
+    prompt; `api/tray` gives the randomized AzurKit build in a running
+    xemu's tray, whose seed a Live tick tracks first. Tests fake the discovery, the
     launch, the prompt and the tray (`tests/test_hosts.py`'s
     `_no_xemu_in_the_tray`): none reads this computer's xemus or prompts.
     Each Build writes a log (`azurkit.app.logs`, the user's log folder).

@@ -102,7 +102,7 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
   xemu already running it starts no second one and offers to attach.
 - **Attach…, on a Mac:** reads an xemu you started yourself after one password prompt, through a small read-only
   helper; an xemu signed with Apple's hardened runtime can't be read.
-- **Your game's seed:** turning Live on in the app first tracks the seed of the AzurKit build in xemu's tray.
+- **Your game's seed:** turning Live on in the app first tracks the seed of the randomized AzurKit build in xemu's tray.
 - **Live keeps up:** it finds an xemu started with QMP on port 4444, tells USA from Europe and follows deaths,
   reloads and save states.
 - **Live says what's off:** if xemu runs another seed or build, it counts the level's spots that differ and says
