@@ -50,7 +50,7 @@ screen.
      meta line comes at its first pass with the turn.
   3. `demo add-body <sock> --vanilla --no-load` (C0, the control),
      then `demo add-body <sock> <body> [--mode own|garret4]
-     [--size own|garret4] [--level w1|f6] [-- <more randomize-full
+     [--size own|garret4] [--level w1|f6] [-- <more azurkit build
      args>]` per body: built from the worktree's tree (it prints HEAD
      and says when it isn't origin/main) into the serve's private
      `builds/`, booted quiet at the level's save, 60 ticks at rest,
