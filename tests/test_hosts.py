@@ -1434,17 +1434,17 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
 
 def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_pngs_out_and_back(
         browser, tmp_path, monkeypatch, usa_iso):
-    """Step 4.6e in the app's page (Modkit's Colours tab, D772, D809 (a), Step 2.203, AZ-797): on town_female_3's
-    blue row (its wheel off from the switch till its answer, so nothing reads All rows' colours), a drag round the
-    wheel's rim writes the row's hsv op at each move (its main colour's hue turned there, its saturation to the
-    rim's), and a quick drag's views are drawn at its last value in two asks, not one a move; the hex box turns the
-    main colour to the colour typed, the hue and saturation boxes keep any number (D23: 500), and text that isn't one
-    is named, nothing written; a palette colour's swap takes its colour from the wheel picker. Export PNGs writes each row's texture into a folder of its own in Downloads. Import PNG asks for Save as
-    first, then a row; it asks before it replaces the row's edits (a no keeps them; a yes says Importing… at once, so
-    the last import's line never reads as this one's done); a PNG of another size is named, and one of the row's size
-    is copied into the variant's folder as the row's only op (its palette the PNG's red, a hue typed then turning it
-    green after it); Undo (its button, then the keys) takes the edits back, a quick run of them one step; Save keeps
-    the ops."""
+    """Step 4.6e in the app's page (Modkit's Colours tab, D772, D809 (a), Step 2.203, AZ-797): on town_female_3's blue
+    row (its wheel off from the switch till its answer, so nothing reads All rows' colours), a drag round the wheel's
+    rim writes the row's hsv op at each move (its main colour's hue turned there, its saturation to the rim's), and a
+    quick drag's views are drawn at its last value in two asks, not one a move; the hex box turns the main colour to the
+    colour typed, the hue and saturation boxes keep any number (D23: 500), and text that isn't one is named, nothing
+    written; a palette colour's swap takes its colour from the wheel picker. Export PNGs writes each row's texture into
+    a folder of its own in Downloads. Import PNG asks for Save as first, then a row; it asks before it replaces the
+    row's edits (a no keeps them and imports nothing; a yes says Importing… first, so the last import's line never reads
+    as this one's done); a PNG of another size is named, and one of the row's size is copied into the variant's folder
+    as the row's only op (its palette the PNG's red, a hue typed then turning it green after it); Undo (its button, then
+    the keys) takes the edits back, a quick run of them one step; Save keeps the ops."""
     import numpy as np
 
     from azurkit.tools.characters import colour_preview, draw, paint, textures
@@ -1537,14 +1537,19 @@ def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_png
         assert _colours_drawn(page, "s.png.startsWith('Not')")["png"].startswith(
             "Not imported: small.png is 8x8, the row's texture 128x128")
         page.evaluate(VARIANTS_TYPE, ["var-png-path", str(tmp_path / "edited.png")])
+        page.evaluate("""() => { const seen = globalThis.__noted = [];   // the import note's every line from here
+          new MutationObserver((records) => seen.push(...records.flatMap((r) => [...r.addedNodes].map((n) => n.data))))
+            .observe(document.getElementById("var-png-note"), { childList: true }); }""")
         for answer in ("no", "yes"):
             _page.click(page, "var-png-use")
             _page.until(page, VARIANTS_ASKED)
             _page.click(page, f"var-ask-{answer}")
-        assert page.evaluate("() => document.getElementById('var-png-note').textContent") == "Importing…"
+            if answer == "no":
+                assert page.evaluate(ops) == edits
         png = {"op": "png", "file": "edited.png",
                "sha256": hashlib.sha256((tmp_path / "edited.png").read_bytes()).hexdigest()}
         assert _colours_drawn(page, "s.png.startsWith('Row 1')")["shown"] == [[255, 0, 0]] * 6
+        assert page.evaluate("() => globalThis.__noted") == ["Importing…", "Row 1's texture is edited.png"]   # the yes's alone
         assert page.evaluate(ops) == [png] and (folder / "edited.png").read_bytes() == (tmp_path / "edited.png").read_bytes()
         time.sleep(1)
         for hue in ("30", "120"):   # a quick run of edits: one step
