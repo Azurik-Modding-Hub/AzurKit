@@ -9,8 +9,9 @@
 // Body: its size (its own or Garret's height), scale, arms out, rotate, title and notes; Shape and Jiggle (each a
 // module of web/variants/, as each later tab is): its shape sliders and its springs; Moves and Attacks (Step 4.6f,
 // variants/moves.mjs and variants/attacks.mjs): the clips its slots and attack columns play, its weapon and attack
-// numbers; JSON: the whole recipe, whose Apply checks it first and keeps the old one on a refusal. Check with game
-// data dresses it on your image as a build does (greyed until one is picked, D979), its bar the bottom bar's, and
+// numbers; Sounds and Effects (Step 4.6g, web/variants/sounds.mjs and effects.mjs: its sounds, voice and WAVs, and its
+// effects rows); JSON: the whole recipe, whose Apply checks it first and keeps the old one on a refusal. Check with
+// game data dresses it on your image as a build does (greyed until one is picked, D979), its bar the bottom bar's, and
 // draws it. The status line: its recipe's sha256[:12], its grade (unseen for an edit: no sitting graded it), saved or
 // not, checked or not. Unsaved edits are asked about before another opens, before a Build of that variant and before
 // the page closes. The engine decides every recipe (sdk.variants, variant_open, variant_read, variant_save,
@@ -23,9 +24,11 @@ import { keeper } from "./content.mjs";
 import { picker } from "./picker.mjs";
 import { attacksTab } from "./variants/attacks.mjs";
 import { coloursTab } from "./variants/colours.mjs";
+import { effectsTab } from "./variants/effects.mjs";
 import { jiggleTab } from "./variants/jiggle.mjs";
 import { bodyClips, menus, movesTab } from "./variants/moves.mjs";
 import { shapeTab } from "./variants/shape.mjs";
+import { soundsTab } from "./variants/sounds.mjs";
 
 const $ = (id) => document.getElementById(id);
 const CHOOSE = "Choose your image first (1.)";   // D979's line on what waits for an image
@@ -94,6 +97,8 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     mode: root.querySelector("#var-mode"),
     reach: el("span", { id: "var-reach", className: "note" }),
     previews: null,   // the pictures' row, marked Preview while it shows the nearest shape held (D1011)
+    sfxPick: root.querySelector("#var-sfx-pick"),   // the Sounds tab's Sound line's, parsed as the mode's
+    fxColour: root.querySelector("#var-fx-colour"),   // the Effects tab's swatches' picker
     bodyNote: el("p", { id: "var-body-note", className: "note" }),
     sizes: Object.keys(SIZES).map((value) => el("input", { type: "radio", name: "var-size", value })),
     scale: text("var-scale", { inputMode: "decimal", size: 6 }),
@@ -169,6 +174,41 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     attacks.show();
   });
   const moves = movesTab(movesCtx), attacks = attacksTab(movesCtx);
+  // The tabs' own (Step 4.6g): what each reads of the view and writes back. A base's reads (sdk.own_sounds, kit_throw,
+  // move_sources) are asked once an image and a base, the tabs drawn again as each answers.
+  const bases = new Map();
+  let basesOf = null;
+  const fxCtx = {
+    app, call, dialog, image, choose: CHOOSE,
+    ask: (...asked) => ask(...asked),   // the page's own question (made below)
+    recipe: () => v.recipe,
+    read: () => v.readFor === now() && v.read && !v.read.refusal ? v.read : null,
+    lists: () => v.list?.editor ?? null,
+    folder: () => v.kind === "yours" ? v.folder : null,
+    checked: () => v.checked?.[0] === now() ? v.checked[1] : null,
+    edited: () => edit(),
+    base: (kind, species) => {
+      if (basesOf !== image()) {
+        bases.clear();
+        basesOf = image();
+      }
+      const key = `${kind} ${species}`, file = image();
+      if (!bases.has(key)) {
+        bases.set(key, {});
+        call(kind, { ...app ? {} : { file }, given: { iso: app ? file : null, species } }).then((reply) => {
+          if (basesOf !== file) return;
+          bases.set(key, "refused" in reply ? { why: reply.refused } : { value: reply });
+          if (v.opened) shown(false);
+        });
+      }
+      return bases.get(key);
+    },
+    // A file added to the variant's folder (the site's: this browser keeps it beside its recipe), else why it didn't.
+    keepFile: async (path, data) => {
+      const lost = await keepFolder(v.name, { ...v.folders?.[v.name] ?? {}, [path]: data });
+      return lost ? `Added ${path}, but this browser didn't keep it (${lost}): Save, then Export it to keep a copy` : "";
+    },
+  };
   const tabs = [{ name: "body", title: "Body", element: body }, shapeTab(ctx), jiggleTab(ctx),
                 { name: "colours", title: "Colours", element: colours.pane, button: colours.tab, shown: colours.shown,
                   checked: () => colours.load() },   // Step 4.6e: a body its build changes recoloured on the Check's dress
@@ -176,6 +216,8 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
                   shown: () => moves.show() },   // Step 4.6f: both shown again at a read and at any tab's click
                 { name: "attacks", title: "Attacks", element: attacks.element, load: () => attacks.show(),
                   shown: () => attacks.show() },
+                { name: "sounds", title: "Sounds", ...soundsTab(fxCtx, ui.sfxPick) },   // Step 4.6g
+                { name: "effects", title: "Effects", ...effectsTab(fxCtx, ui.fxColour) },
                 { name: "json", title: "JSON", element: json, show: () => showJson() }];
   const tabButtons = tabs.map((t) => t.button ?? el("button", { id: `var-tab-${t.name}`, type: "button", role: "tab",
                                                                 textContent: t.title }));

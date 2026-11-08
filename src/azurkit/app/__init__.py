@@ -214,6 +214,7 @@ changes (``network.http.network-changed.timeout``), and a call that sent nothing
 a spoiler's of seconds, tens on a slow runner ("NetworkError"; a Mac's IPv6 changed every 1-8 min here, Step 4.4ci36)."""
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
 VARIANT_FILES = ("Variants (*.zip;*.json)",)   # the Variants view's Import (an Export's zip, or a recipe.json alone)
+WAVS = ("WAV sounds (*.wav)",)   # the Variants view's Sounds tab's Add WAV
 SAVES = ("out", "spoiler", "settings", "extract", "mods", "report", "saves", "variant")   # the kinds of save the save dialog chooses for
 UNFILTERED = ("replacement", "folder", "xemu")   # the open dialog's kinds that take any file (xemu: its .app or program)
 MODS = "AzurKit mods.json"   # the Tools tab's mods file, by default (web/tools.mjs's)
@@ -1237,7 +1238,7 @@ class Server(http.server.ThreadingHTTPServer):
             picked = self.window.create_file_dialog(
                 webview.FileDialog.FOLDER if body.get("kind") == "folder" else webview.FileDialog.OPEN, directory=folder,
                 **({} if body.get("kind") in UNFILTERED else
-                   {"file_types": VARIANT_FILES if body.get("kind") == "variant_file" else IMAGES}))
+                   {"file_types": {"variant_file": VARIANT_FILES, "wav": WAVS}.get(body.get("kind"), IMAGES)}))
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
         if picked and body.get("kind") in SAVES:
@@ -1404,7 +1405,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
 
 VARIANT_CALLS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "base_bones",
-                 "own_sounds", "kit_throw", "move_sources", "variant_weapons")
+                 "own_sounds", "kit_throw", "move_sources", "variant_weapons", "add_wav")
 """The Variants view's calls the server answers itself (``api/<name>`` ``{"given"}``: ``sdk.<name>``)."""
 EDITED = ("variant_check", "variant_pictures", "variant_colours", "variant_preview", "variant_rows", "export_pngs")
 """Those the engine answers, the dress a Check keeps there serving the ones after it (:meth:`Server.edited`)."""

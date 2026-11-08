@@ -1263,9 +1263,13 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
     """Step 4.6c in the app's page: New on keylord, then Save as, writes ``variants/mine/recipe.json`` in the user
     data folder in Modkit's format, which the Models view's Yours group lists; Export writes ``mine.zip`` into the
     Downloads folder (never over one there); Delete (after a yes) and Import by path take it out and back, and a
-    network share is refused before it is read. Check with game data waits for the image (D979); with one, it dresses
-    the variant in the engine, answers, then draws it, and opening another variant meanwhile drops the Check, that
-    one shown as it ships, unchecked. A Build of a variant with unsaved edits asks first, and a no starts nothing."""
+    network share is refused before it is read. The Sounds tab's Add WAV (Step 4.6g) asks for a WAV's path where the
+    app has no dialog and copies it into that folder as a take of its role. Check with game data waits for the image
+    (D979); with one, it dresses the variant in the engine, answers, then draws it, and opening another variant
+    meanwhile drops the Check, that one shown as it ships, unchecked; the Sounds tab then says keylord's own sounds
+    take no WAV. A Build of a variant with unsaved edits asks first, and a no starts nothing."""
+    import wave
+
     from tests.test_site import VARIANTS_ASKED, VARIANTS_ROW, VARIANTS_TYPE, _variants_shown
 
     _home(monkeypatch, tmp_path / "home")
@@ -1296,7 +1300,7 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
         _page.until(page, "() => document.querySelector('#char-custom button[data-model=\"mine\"]')", 120)
         _page.click(page, "char-view-variants")
         zipped = Path(platformdirs.user_downloads_dir()) / "mine.zip"
-        for said in ("Saved ", "exists: choose another name"):
+        for said in ("mine.zip", "exists: choose another name"):   # not Save as's "Saved mine"
             _page.click(page, "var-export")
             assert said in _page.until(page, f"() => document.getElementById('status').textContent.includes("
                                              f"{json.dumps(said)}) && document.getElementById('status').textContent", 60)
@@ -1312,6 +1316,20 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
             _page.click(page, "var-import-use")
             _page.until(page, f"() => document.getElementById('status').textContent.includes({json.dumps(said)})", 60)
         assert (folder / "recipe.json").is_file()
+        with wave.open(str(tmp_path / "ow.wav"), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(22050)
+            w.writeframes(b"\x01\x00" * 400)
+        _page.click(page, "var-tab-sounds")
+        _page.click(page, "var-wav-hurt-add")
+        assert _page.until(page, VARIANTS_ASKED) == "A WAV for Hurt: its full path"
+        page.evaluate("(path) => { document.getElementById('var-ask-name').value = path; }", str(tmp_path / "ow.wav"))
+        _page.click(page, "var-ask-yes")
+        _page.until(page, "() => azurkit.variants.state.recipe.wavs?.hurt?.[0] === 'ow.wav'", 60)
+        assert (folder / "ow.wav").read_bytes() == (tmp_path / "ow.wav").read_bytes()
+        _page.click(page, "var-wav-hurt-clear")   # keylord's own sounds take none (the image says so, below)
+        _variants_shown(page, status="· saved ·")
         _page.fill(page, "iso-path", str(usa_iso))
         _page.until(page, "() => !document.getElementById('var-check').disabled", 120)
         _page.click(page, "var-check")
@@ -1326,6 +1344,9 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
         _page.click(page, "var-check")
         assert _variants_shown(page, status="checked: it builds")["status"].startswith("recipe ")
         _page.until(page, "() => document.getElementById('var-picture-note').textContent.endsWith('as it builds.')", 60)
+        assert _page.until(page, "() => document.getElementById('var-sounds-note').textContent.includes('keylord') "
+                                 "&& document.getElementById('var-sounds-note').textContent", 60) == (
+            "keylord has sounds of its own: its voice and WAVs stay keylord's.")
         assert page.evaluate("""() => { const g = document.getElementById('var-front').getContext('2d');
             return g.getImageData(0, 0, 160, 160).data.some((x, i) => i % 4 === 3 && x); }""")
         page.evaluate(VARIANTS_TYPE, ["var-scale", "1.5"])

@@ -814,7 +814,9 @@ def add_wav(given: 'Mapping') -> 'dict':
 The Sounds tab's Add (Step 2.164b): ``file``, a WAV the build reads
 (uncompressed integer PCM, mono or stereo, any rate), copied whole into
 the variant's ``folder`` under a name a recipe's ``wavs`` take (as
-:func:`add_png` names it): ``{"name"}``. A refusal names the file.
+:func:`add_png` names it): ``{"name"}``. With ``data``, the WAV's bytes
+and ``file`` the name it was picked as (the site's pick, Step 4.6g). A
+refusal names the file.
 
 
 def base_bones(given: 'Mapping') -> 'dict':
@@ -878,7 +880,9 @@ alone: ``None``); ``yours``, each library folder's name with its title,
 base and grade, or its ``refusal``; ``species``, the species New may
 start on, none of which a variant of yours may be named as; ``unsaved``,
 the name a recipe not saved yet works under; ``grades``, each grade's
-words; and ``colours``, each grade's colour (the Models view's).
+words; ``colours``, each grade's colour (the Models view's); and
+``editor``, what the Sounds and Effects tabs offer (``editor.lists``:
+the WAV roles, the effects templates).
 
 
 def variant_open(given: 'Mapping') -> 'dict':
@@ -898,16 +902,19 @@ working name, yours or :data:`UNSAVED`) as the library would hold it
 (``library.checked``, a species' name refused too), never raised:
 ``{"sha", "base", "mode", "mesh", "grade"}`` (``mesh``: it brings a mesh
 of its own; ``grade``: ``built_in``'s, the built-in it was opened from,
-while the recipe is that one's as opened, else unseen) and its body as
+while the recipe is that one's as opened, else unseen), its body as
 it builds (``size``, ``scale``, ``arms``, ``rotate``, ``weapon``: a
 recipe ``from`` another's from that one), its Shape tab's ``shapes``
 and ``ops`` (``editor.shape_rows``) and the sliders' ``track`` (a
 display hint), its Jiggle tab's ``jiggle`` as it builds
 (``editor.jiggle_of``; ``None``: none) and ``rows_max``, the spring
 rows the game swings at most, its mode's attack balance and reach to
-the ground where it gives none (``attack_defaults``) and, for a recipe
-``from`` another, the moves and attacks that one lays (``laid``,
-``editor.laid``: the Moves and Attacks tabs show them); or
+the ground where it gives none (``attack_defaults``), for a recipe
+``from`` another the moves and attacks that one lays (``laid``,
+``editor.laid``: the Moves and Attacks tabs show them), and its sounds
+and effects as the loader lays them (``editor.heard``; a recipe
+``from`` another's ``from_effects`` too, the rows of the one it is
+from, which an Effects edit back at them leaves to it); or
 ``{"refusal"}``, the loader's or the library's words.
 
 

@@ -6166,7 +6166,226 @@ VARIANTS_TAB = """() => { const $ = (id) => document.getElementById(id), on = (i
         flags: ["carry", "held"].map((k) => [$(`var-${k}`).textContent, $(`var-${k}`).disabled]),
         seeks: [...document.querySelectorAll("#var-seeks input")].map((i) => [i.dataset.clip, i.checked, i.disabled]),
         entry: $("var-moves-entry").textContent, made: $("var-made-note").textContent }; }"""
-VARIANTS_RECIPE = "() => azurkit.variants.state.recipe"
+VARIANTS_RECIPE = "() => JSON.parse(JSON.stringify(azurkit.variants.state.recipe))"
+FX_ROW = "[...document.querySelectorAll('#var-fx-rows .var-fx-row')]"
+FX_PARAM = f"""([k, name, text]) => {{ const cell = [...{FX_ROW}[k].querySelectorAll('.var-fx-param')]
+    .find((c) => c.querySelector('.var-fx-label').textContent === name + ':');
+    const box = cell.querySelector('input[type="text"]'); box.value = text;
+    box.dispatchEvent(new Event('change', {{ bubbles: true }})); }}"""
+
+
+def _fx_menu(page, selector: str, first: list | None = None) -> list:
+    """The Effects tab's menu ``selector`` opened (filled as it opens, and again as a base's read answers), its
+    buttons' words and greying (once its first is ``first``)."""
+    page.evaluate(f"() => {{ const menu = document.querySelector({json.dumps(selector)}); menu.open = false; "
+                  "menu.open = true; }")
+    return _page.until(page, f"""() => {{ const items = [...document.querySelectorAll({json.dumps(selector + ' button')})]
+        .map((b) => [b.textContent, b.disabled]);
+        return items.length && ({json.dumps(first)} === null || JSON.stringify(items[0]) === {json.dumps(json.dumps(first, separators=(",", ":"), ensure_ascii=False))})
+          && items; }}""", 60)
+
+
+def test_the_variants_sounds_and_effects_tabs_write_the_rows_and_wavs_the_build_reads_and_grey_what_it_refuses(
+        browser, site, usa_iso, tmp_path):
+    """Step 4.6g on the site (Modkit's Sounds and Effects tabs, Step 2.164b; D480, D538's E4, D771), on the picked
+    image: town_female_2's bare-hands kit throws a vase on Right 1, so Balanced greys a projectile, saying why, and
+    Skin only takes one; Add an effect plays a template on the first attack column no row plays, greying a second
+    projectile and every shield or beam once fx_ring is false; a row's param box, track, colour, columns (another
+    row's greyed, a row keeping one), template and seek write the effects row the engine takes, a param back at its
+    default dropping its key; a Check's answer shows each row's bytes and the own load against the build's line, and
+    a Check refusing a row marks it; × removes one. The Sounds tab's Add WAV waits for Save as, copies a WAV the
+    build reads (one it can't refused, nothing kept) into the variant's folder, which this browser keeps, as a take
+    of its role; Voice writes voice and greys Garret's; × and its own clear them, and Garret's greys Add WAV; the
+    Sound line edits a whoosh's numbers (its takes back at 1 dropping the key; a box that isn't a number named and
+    the old number shown); booblord's sounds read read-only; a base with sounds of its own greys Voice and shows no
+    Add WAV; on garret4's own body only Garret's greys (his are his own). No CSP violation, no request but GETs of the
+    site's files."""
+    import wave
+
+    served = Site(browser, site)
+    for name, frames in (("Hit me.wav", b"\x01\x00" * 400), ("bad.wav", None)):
+        if frames is None:
+            (tmp_path / name).write_bytes(b"not a wave")
+            continue
+        with wave.open(str(tmp_path / name), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(22050)
+            w.writeframes(frames)
+
+    def new_on(page, species: str, leaving: bool = False) -> None:
+        _page.click(page, "var-new")
+        _page.until(page, f"() => document.querySelector('#var-ask .picker-entry[data-name=\"{species}\"]')", 60)
+        page.evaluate(f"() => document.querySelector('#var-ask .picker-entry[data-name=\"{species}\"]').click()")
+        if leaving:   # a New's recipe is an edit: leaving it is asked about
+            _page.until(page, VARIANTS_ASKED, 60)
+            _page.click(page, "var-ask-yes")
+        _page.until(page, f"() => azurkit.variants.state.recipe.base === {json.dumps(species)}", 60)
+        _variants_shown(page, name="(new, unsaved)")
+
+    def applied(page, recipe: dict) -> None:
+        _page.click(page, "var-tab-json")
+        page.evaluate("(text) => { document.getElementById('var-text').value = text; }", json.dumps(recipe))
+        _page.click(page, "var-apply")
+        _page.until(page, "() => document.getElementById('var-json-note').textContent === 'Every field, as the recipe "
+                          "file holds it.'", 60)
+
+    def fx_rows(page) -> list:
+        _variants_shown(page)
+        return page.evaluate(VARIANTS_RECIPE).get("effects")
+
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.pick(page, "#iso", usa_iso)
+        new_on(page, "town_female_2")
+        _page.click(page, "var-tab-effects")
+        _page.until(page, "() => document.getElementById('var-fx-note').textContent === 'No effects: Add an effect.'", 300)
+        kit = "its bare-hands kit throws a vase on Right 1: one kind a build (give that column a clip on the Attacks tab)"
+        assert _fx_menu(page, "#var-fx-add", [f"Projectile: Fireball ({kit})", True])[0] == [f"Projectile: Fireball ({kit})",
+                                                                                         True]
+        page.evaluate("() => { const mode = document.getElementById('var-mode'); mode.value = 'garret4'; "
+                      "mode.dispatchEvent(new Event('change')); }")   # Skin only swings no kit: the build takes one
+        _variants_shown(page)
+        assert _fx_menu(page, "#var-fx-add", ["Projectile: Fireball", False])[0] == ["Projectile: Fireball", False]
+        page.evaluate("() => document.querySelector('#var-fx-add button[data-template=\"fireball\"]').click()")
+        _page.until(page, f"() => {FX_ROW}.length === 1", 60)
+        offered = dict(_fx_menu(page, "#var-fx-add"))
+        assert offered["Projectile: Arrow (one projectile a build (the game throws one kind))"] is True
+        page.evaluate("() => document.querySelector('#var-fx-add button[data-template=\"bubble\"]').click()")
+        _page.until(page, f"() => {FX_ROW}.length === 2", 60)
+        assert fx_rows(page) == [{"template": "fireball", "columns": ["basic1"]}, {"template": "bubble", "columns": ["basic2"]}]
+        page.evaluate(FX_PARAM, [1, "Size", "1.5"])
+        assert fx_rows(page)[1]["size"] == 1.5
+        page.evaluate(FX_PARAM, [1, "Size", "1.1"])   # the template's default: the key dropped
+        page.evaluate(f"""() => {{ const track = {FX_ROW}[1].querySelector('input[type="range"]');
+            track.value = '0.5234'; track.dispatchEvent(new Event('input', {{ bubbles: true }})); }}""")
+        assert fx_rows(page)[1]["size"] == 0.52   # a drag's step, a power of ten about a fiftieth of its track
+        page.evaluate(FX_PARAM, [1, "Size", "big"])
+        assert page.evaluate("() => document.getElementById('var-fx-warn').textContent") == "Size: 'big' is not a number"
+        page.evaluate(FX_PARAM, [1, "Size", "1.1"])
+        page.evaluate(f"""() => {{ {FX_ROW}[1].querySelector('.swatch').click();
+            const picker = document.getElementById('var-fx-colour'); picker.value = '#ff0000';
+            picker.dispatchEvent(new Event('change', {{ bubbles: true }})); }}""")
+        assert fx_rows(page)[1] == {"template": "bubble", "columns": ["basic2"], "colour": [1, 0, 0]}
+        columns = f"""(k) => [...{FX_ROW}[k].querySelectorAll('.var-fx-columns input')].slice(0, 3)
+            .map((box) => [box.parentElement.textContent.trim(), box.checked, box.disabled])"""
+        assert page.evaluate(columns, 1) == [["Basic 1 (fireball's)", False, True], ["Basic 2", True, False],
+                                             ["Basic 3", False, False]]
+        page.evaluate(f"() => {FX_ROW}[1].querySelectorAll('.var-fx-columns input')[2].click()")
+        page.evaluate(f"() => {FX_ROW}[0].querySelectorAll('.var-fx-columns input')[0].click()")   # its one column
+        assert page.evaluate("() => document.getElementById('var-fx-warn').textContent") == (
+            "A row plays on one column at least: × removes it.")
+        assert "Dome" in dict(_fx_menu(page, f"#var-fx-rows .var-fx-row:nth-child(2) .var-fx-template"))
+        page.evaluate(f"() => {FX_ROW}[1].querySelector('.var-fx-template button[data-template=\"dome\"]').click()")
+        _page.until(page, f"() => {FX_ROW}[1].querySelector('.var-fx-template summary').textContent === 'Dome'", 60)
+        page.evaluate(f"() => {FX_ROW}[0].querySelector('.var-fx-seek').click()")
+        assert fx_rows(page) == [{"template": "fireball", "columns": ["basic1"], "seek": True},
+                                 {"template": "dome", "columns": ["basic2", "basic3"], "colour": [1, 0, 0]}]
+        recipe = page.evaluate(VARIANTS_RECIPE)
+        applied(page, {**recipe, "fx_ring": False})
+        _page.click(page, "var-tab-effects")
+        assert ["Beam: Laser (its fx_ring false turns the ring that plays them off (JSON))", True] in _fx_menu(
+            page, "#var-fx-add")
+        assert page.evaluate("() => [...document.querySelectorAll('#var-fx-edits td')].map((td) => td.textContent)") == [
+            "fx_ring", "off", ""]
+        applied(page, recipe)
+        _page.click(page, "var-tab-effects")
+        _variants_shown(page)
+        checked = """(answer) => { const v = azurkit.variants.state;
+            const canon = (x) => JSON.stringify(x, (_, y) => y && typeof y === "object" && !Array.isArray(y)
+              ? Object.fromEntries(Object.keys(y).sort().map((k) => [k, y[k]])) : y);
+            v.checked = [canon(v.recipe), answer]; azurkit.variants.imaged();
+            return [[...document.querySelectorAll('.var-fx-bytes')].map((b) => b.textContent),
+                    document.getElementById('var-fx-load').textContent]; }"""
+        assert page.evaluate(checked, {"refusal": None, "effects": [123904, 251096], "load": {
+            "own": 5 * 2 ** 20, "error": 14 * 2 ** 20, "warning": 12 * 2 ** 20}}) == [
+            ["121.0 KiB", "245.2 KiB"], "Its own load runs: 5.00 MiB (the build's line 14.00 MiB)"]
+        assert page.evaluate(checked, {"refusal": "--player-character 'unsaved' (a variant of town_female_2): its dome "
+                                                  "row plays on X38's ring, which its recipe's fx_ring false turns off"})[0] == [
+            "", "refused"]
+        page.evaluate(f"() => {FX_ROW}[0].querySelector('button.drop').click()")
+        _page.until(page, f"() => {FX_ROW}.length === 1", 60)
+        assert [r["template"] for r in fx_rows(page)] == ["dome"]
+
+        _page.click(page, "var-tab-sounds")
+        assert page.evaluate("() => [document.getElementById('var-wav-hurt-add').disabled, "
+                             "document.getElementById('var-sounds-note').textContent]") == [
+            True, "Save as first to add WAVs."]
+        page.evaluate(VARIANTS_TYPE, ["var-as", "my_lady"])
+        _page.click(page, "var-save-as")
+        _variants_shown(page, status="· saved ·", name="my_lady")
+        _page.until(page, "() => !document.getElementById('var-wav-hurt-add').disabled", 60)
+        _page.pick(page, "#var-wav-hurt-add", tmp_path / "bad.wav")
+        _page.until(page, "() => document.getElementById('var-sounds-warn').textContent.startsWith('Not added: ')", 60)
+        _page.pick(page, "#var-wav-hurt-add", tmp_path / "Hit me.wav")
+        _page.until(page, "() => azurkit.variants.state.recipe.wavs?.hurt", 60)
+        kept = "() => Object.keys(azurkit.variants.state.folders.my_lady).sort()"
+        assert (page.evaluate(VARIANTS_RECIPE)["wavs"], page.evaluate(kept)) == (
+            {"hurt": ["Hit_me.wav"]}, ["Hit_me.wav", "recipe.json"])
+        assert page.evaluate("() => document.getElementById('var-wav-hurt').textContent") == "Hit_me.wav"
+        _page.click(page, "var-voice-silent")
+        _variants_shown(page)
+        assert (page.evaluate(VARIANTS_RECIPE)["voice"], page.evaluate(
+            "() => document.getElementById('var-sounds-garret4').disabled")) == ("silent", True)
+        _page.click(page, "var-save")
+        _variants_shown(page, status="· saved ·")
+        saved = json.loads(page.evaluate(
+            "() => new TextDecoder().decode(azurkit.variants.state.folders.my_lady['recipe.json'])"))["my_lady"]
+        assert (saved["wavs"], saved["voice"], [r["template"] for r in saved["effects"]], page.evaluate(kept)) == (
+            {"hurt": ["Hit_me.wav"]}, "silent", ["dome"], ["Hit_me.wav", "recipe.json"])
+        _page.click(page, "var-wav-hurt-clear")
+        _page.click(page, "var-voice-own")
+        _variants_shown(page)
+        assert ("wavs" in page.evaluate(VARIANTS_RECIPE), "voice" in page.evaluate(VARIANTS_RECIPE), page.evaluate(
+            "() => document.getElementById('var-sounds-garret4').disabled")) == (False, False, False)
+        _page.click(page, "var-sounds-garret4")
+        _variants_shown(page)
+        assert (page.evaluate(VARIANTS_RECIPE)["sounds"], page.evaluate(
+            "() => document.getElementById('var-wav-hurt-add').disabled")) == ("garret4", True)
+        applied(page, {"base": "town_female_2", "mode": "own", "sfx": {"whip": {
+            "generator": "whoosh", "length": 0.8, "swells": 4, "seed": 5, "columns": ["basic1"]}}})
+        _page.click(page, "var-tab-sounds")
+        line = """() => [[...document.getElementById('var-sfx-pick').options].map((o) => o.value),
+            [...document.querySelectorAll('#var-sfx-line label.field')].filter((l) => !l.hidden)
+              .map((l) => [l.firstChild.textContent, l.querySelector('input').value, l.querySelector('input').readOnly])]"""
+        assert page.evaluate(line) == [["whip (whoosh)"], [["length", "0.8", False], ["swells", "4", False],
+                                                           ["seed", "5", False], ["takes", "1", False]]]
+        for box, text in (("var-sfx-1", "5"), ("var-sfx-3", "1"), ("var-sfx-0", "fast")):
+            page.evaluate("([id, text]) => { const box = document.getElementById(id); box.value = text; "
+                          "box.dispatchEvent(new Event('change', { bubbles: true })); }", [box, text])
+        _variants_shown(page)
+        assert (page.evaluate(VARIANTS_RECIPE)["sfx"]["whip"], page.evaluate(
+            "() => [document.getElementById('var-sfx-0').value, document.getElementById('var-sounds-warn').textContent]")
+                ) == ({"generator": "whoosh", "length": 0.8, "swells": 5, "seed": 5, "columns": ["basic1"]},
+                      ["0.8", "length: 'fast' is not a number"])
+        _page.click(page, "var-save")
+        _variants_shown(page, status="· saved ·")
+        page.evaluate(VARIANTS_ROW, "booblord")
+        _variants_shown(page, status="built in", name="booblord")
+        assert page.evaluate("""() => [document.getElementById('var-sounds-chosen').textContent,
+            document.getElementById('var-sounds-choices').hidden, document.getElementById('var-wav-hurt').textContent,
+            document.getElementById('var-wav-hurt-add').closest('label').hidden,
+            document.getElementById('var-sfx-0').readOnly]""") == [
+            "Sounds: its own · Voice: silent", True, "hit.wav, attack1.…", True, True]
+        new_on(page, "balthazar")
+        _page.until(page, "() => document.getElementById('var-sounds-note').textContent === 'balthazar has sounds of "
+                          "its own: its voice and WAVs stay balthazar\\'s.'", 300)
+        assert page.evaluate("""() => [[...document.querySelectorAll('input[name="var-voice"]')].map((b) => b.disabled),
+            document.getElementById('var-wav-hurt-add').closest('label').hidden,
+            document.getElementById('var-wavs-title').textContent]""") == [[True, True], True, "WAVs: none"]
+        new_on(page, "garret4", leaving=True)   # his own body: only Garret's sounds mean nothing (they are his)
+        assert page.evaluate("""() => ['var-sounds', 'var-voice'].map((name) => [...document.querySelectorAll(
+            `input[name="${name}"]`)].map((b) => b.disabled))""") == [[False, True], [False, False]]
+        _page.click(page, "var-voice-silent")
+        _variants_shown(page)
+        assert page.evaluate(VARIANTS_RECIPE) == {"base": "garret4", "voice": "silent"}
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
 
 
 def test_the_variants_moves_and_attacks_tabs_show_a_built_ins_moves_read_only_and_edit_your_copys(browser, site):

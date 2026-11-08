@@ -28,7 +28,7 @@
 //      "plan_spoiler", call, plan} (sdk.spoiler), and the Data tab's {type: "data" | "data_edit", call, given}
 //      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image), and the Variants view's
 //      {type: "variants" | "variant_open" | ... (VARIANTS), call, given, file?, data?} (sdk.variants ...: data an
-//      Import's bytes; file the image, for a Check and the calls on its dress) and {type: "library", folders} (what
+//      Import's or an Add WAV's bytes; file the image, for a Check, the calls on its dress and a base's reads) and {type: "library", folders} (what
 //      this browser keeps of your variants, written as the engine's library, ./variants, whole). A
 //      message with a File (file) has the image checked first, once a File (prime).
 // Out: {type: "native", kernel?, twin?} (the reach calls each path answered since the last, before the answer they
@@ -117,7 +117,7 @@ const refusal = (error) => {
 const VARIANTS = ["variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
                   "variant_export", "variant_check", "variant_pictures", "variant_colours", "variant_preview",
                   "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources", "add_png",
-                  "variant_weapons"];
+                  "variant_weapons", "add_wav"];
 
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
@@ -144,7 +144,7 @@ PIECE = "/tmp/azurkit-piece"
 VARIANTS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
             "variant_export", "variant_check", "variant_pictures", "variant_colours", "variant_preview",
             "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources", "add_png",
-            "variant_weapons")   # the page's VARIANTS
+            "variant_weapons", "add_wav")   # the page's VARIANTS
 PICKED = ("add_png",)   # a file the page read, copied into a variant's folder: its bytes in data, its name given's file
 BARRED = ("variant_check", "variant_preview", "variant_rows", "export_pngs")   # their steps posted: the bar moves
 

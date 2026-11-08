@@ -1236,11 +1236,23 @@ def add_wav(given: Mapping) -> dict:
     """The Sounds tab's Add (Step 2.164b): ``file``, a WAV the build reads
     (uncompressed integer PCM, mono or stereo, any rate), copied whole into
     the variant's ``folder`` under a name a recipe's ``wavs`` take (as
-    :func:`add_png` names it): ``{"name"}``. A refusal names the file."""
+    :func:`add_png` names it): ``{"name"}``. With ``data``, the WAV's bytes
+    and ``file`` the name it was picked as (the site's pick, Step 4.6g). A
+    refusal names the file."""
+    import tempfile
+
     from azurkit.tools.characters import editor
 
     folder, file = _folder_file(given, "add_wav")
-    return {"name": editor.add_wav(folder, file)}
+    data = given.get("data")
+    if data is None:
+        return {"name": editor.add_wav(folder, file)}
+    if not isinstance(data, (bytes, bytearray)):
+        raise ValueError(f"add_wav: {file.name}: data is not the WAV's bytes")
+    with tempfile.TemporaryDirectory() as scratch:
+        picked = Path(scratch) / (re.split(r"[\\/]", file.name)[-1] or "take.wav")
+        picked.write_bytes(data)
+        return {"name": editor.add_wav(folder, picked)}
 
 
 def _species(given: object, what: str) -> tuple[gate.Stamp, bytes, bytes, str, str]:
@@ -1373,10 +1385,12 @@ def variants(given: Mapping | None = None) -> dict:
     base and grade, or its ``refusal``; ``species``, the species New may
     start on, none of which a variant of yours may be named as; ``unsaved``,
     the name a recipe not saved yet works under; ``grades``, each grade's
-    words; and ``colours``, each grade's colour (the Models view's)."""
+    words; ``colours``, each grade's colour (the Models view's); and
+    ``editor``, what the Sounds and Effects tabs offer (``editor.lists``:
+    the WAV roles, the effects templates)."""
     from azurkit.tools.characters import _player_variants as kinds
     from azurkit.tools.characters import content as kit
-    from azurkit.tools.characters import library, picker
+    from azurkit.tools.characters import editor, library, picker
 
     manifest = ((given or {}).get("content") or {}).get("manifest") if isinstance(given, Mapping) else None
     record = kit.installed()
@@ -1386,7 +1400,7 @@ def variants(given: Mapping | None = None) -> dict:
         entry = picker._entry_of(name, entries, held)
         community[name] = entry["id"] if entry else None
     return {"root": str(library.root()), "unsaved": UNSAVED, "grades": picker.GRADE_WORDS,
-            "colours": picker.STATUS_COLOURS,
+            "colours": picker.STATUS_COLOURS, "editor": editor.lists(),
             "builtins": [{"name": name, "title": v.title, "base": v.base, "grade": _grade(v),
                           "community": community[name]} for name, v in kinds.builtins().items()],
             "yours": [{"name": e.name, "title": e.variant.title, "base": e.variant.base, "grade": _grade(e.variant)}
@@ -1435,16 +1449,19 @@ def variant_read(given: Mapping) -> dict:
     (``library.checked``, a species' name refused too), never raised:
     ``{"sha", "base", "mode", "mesh", "grade"}`` (``mesh``: it brings a mesh
     of its own; ``grade``: ``built_in``'s, the built-in it was opened from,
-    while the recipe is that one's as opened, else unseen) and its body as
+    while the recipe is that one's as opened, else unseen), its body as
     it builds (``size``, ``scale``, ``arms``, ``rotate``, ``weapon``: a
     recipe ``from`` another's from that one), its Shape tab's ``shapes``
     and ``ops`` (``editor.shape_rows``) and the sliders' ``track`` (a
     display hint), its Jiggle tab's ``jiggle`` as it builds
     (``editor.jiggle_of``; ``None``: none) and ``rows_max``, the spring
     rows the game swings at most, its mode's attack balance and reach to
-    the ground where it gives none (``attack_defaults``) and, for a recipe
-    ``from`` another, the moves and attacks that one lays (``laid``,
-    ``editor.laid``: the Moves and Attacks tabs show them); or
+    the ground where it gives none (``attack_defaults``), for a recipe
+    ``from`` another the moves and attacks that one lays (``laid``,
+    ``editor.laid``: the Moves and Attacks tabs show them), and its sounds
+    and effects as the loader lays them (``editor.heard``; a recipe
+    ``from`` another's ``from_effects`` too, the rows of the one it is
+    from, which an Effects edit back at them leaves to it); or
     ``{"refusal"}``, the loader's or the library's words."""
     from azurkit.tools.characters import _player_variants as kinds
     from azurkit.tools.characters import editor, jiggle_rt, library, picker
@@ -1463,11 +1480,22 @@ def variant_read(given: Mapping) -> dict:
     built = given.get("built_in")
     grade = (_grade(kinds.builtins()[built]) if isinstance(built, str) and built in kinds.builtins()
              and dict(recipe) == library.opened(built) else "unseen")
+    heard = editor.heard(v)
+    if "from" in recipe:
+        heard["from_effects"] = heard["effects"]
+        if "effects" in recipe:
+            mine = {k: x for k, x in recipe.items() if k != "effects"}
+            try:
+                heard["from_effects"] = editor.heard(library.checked(library.text_of(name, mine), name, library.root()
+                                                                      / name / library.RECIPE))["effects"]
+            except ValueError:
+                heard["from_effects"] = []
     return {"refusal": None, "sha": v.sha, "base": v.base, "mode": v.mode, "mesh": v.mesh is not None, "grade": grade,
             "size": v.size, "scale": v.scale, "arms": v.arms, "rotate": v.rotate, "weapon": v.weapon,
             **editor.shape_rows(v, recipe), "track": picker.TRACKS["shape"],
             "jiggle": editor.jiggle_of(v, recipe, name), "rows_max": jiggle_rt.MAX_ROWS,
-            "attack_defaults": list(ATTACK_DEFAULTS[v.mode])} | ({"laid": editor.laid(v)} if "from" in recipe else {})
+            "attack_defaults": list(ATTACK_DEFAULTS[v.mode]), **heard} | (
+                {"laid": editor.laid(v)} if "from" in recipe else {})
 
 
 def _saved(name: str, given: Mapping) -> dict:

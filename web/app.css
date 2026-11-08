@@ -664,6 +664,39 @@ p.views { margin: 0; padding: 2px 10px; }
 #var-menu summary { cursor: pointer; padding: 1px 0; }
 #var-menu hr { border: 0; border-top: 1px solid var(--soft); margin: 2px 0; }
 #var-menu .var-menu-check { display: block; padding: 1px 0; }
+/* Its Sounds and Effects tabs (Step 4.6g): the roles' rows two across where they fit, the effects rows with their
+   params, the menus (a summary that opens a list) and the swatches. */
+#var-sounds .note, #var-effects .note { margin: 3px 0; }
+#var-sounds .warn, #var-effects .warn { padding: 0; }
+.var-wavs { display: grid; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr)); gap: 1px 18px; }
+.var-wav { display: flex; align-items: center; gap: 6px; min-height: var(--row); }
+.var-wav-role { min-width: 5.5rem; }
+.var-wav-files { min-width: 9rem; }
+.var-wav-files.none { color: var(--muted); }
+.var-cols .drop { height: 18px; padding: 0 5px; }
+#var-sfx-line input[type="text"], .var-fx-param input[type="text"] { width: 3.5rem; text-align: right; }
+#var-sfx-line input:read-only { color: var(--muted); background: transparent; border-style: dashed; }
+.var-fx-row { padding: 4px 0 2px; border-top: 1px solid var(--line); }
+.var-fx-row .var-fx-bytes { margin: 0 0 0 auto; }
+.var-fx-params { display: flex; flex-wrap: wrap; gap: 1px 18px; padding: 0 0 0 12px; }
+.var-fx-param { display: inline-flex; align-items: center; gap: 4px; }
+.var-fx-label { min-width: 5.5rem; }
+.var-fx-param input[type="range"] { width: 70px; accent-color: var(--accent); }
+.var-menu { position: relative; display: inline-block; }
+.var-menu > summary { padding: 0 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--pane);
+  cursor: default; list-style: none; white-space: nowrap; }
+.var-menu > summary::-webkit-details-marker { display: none; }
+.var-menu > summary::after { content: " \25BE"; }
+.var-menu-list { position: absolute; z-index: 5; display: flex; flex-direction: column; align-items: stretch;
+  min-width: 10rem; max-height: 18rem; overflow-y: auto; padding: 3px; background: var(--pane);
+  border: 1px solid var(--line); border-radius: 3px; }
+.var-menu-list button { text-align: left; white-space: nowrap; }
+.var-menu-list hr { width: 100%; margin: 2px 0; border: 0; border-top: 1px solid var(--line); }
+.var-cols .swatch { width: 22px; height: 16px; padding: 0; border: 1px solid var(--text); }
+.var-picker { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+.var-fx-edits { border-collapse: collapse; font-size: 11.5px; }
+.var-fx-edits th { padding: 1px 12px 1px 0; text-align: left; color: var(--muted); font-weight: 400; }
+.var-fx-edits td { padding: 1px 12px 1px 0; }
 #var-ask { position: fixed; top: 18%; left: 50%; width: 22rem; margin: 0; transform: translateX(-50%); }
 #var-ask .picker-list { max-height: 18rem; }
 #var-ask .note { margin: 6px; }

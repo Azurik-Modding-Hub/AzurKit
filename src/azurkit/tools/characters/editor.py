@@ -18,6 +18,9 @@ says of a dress, and the Shape tab's quick preview. The sdk's
   copied into a variant's folder whole, under a name a recipe takes;
 - :func:`effect_bytes`: the bytes each ``effects`` row adds, as a build's
   log says;
+- :func:`lists` and :func:`heard`: what the Sounds and Effects tabs offer
+  (the WAV roles, the effects templates) and what a recipe's sounds and
+  effects are as the loader lays them (a recipe from another's, that one's);
 - :func:`moved`: the quick preview's vertices, a dress's moved to a
   recipe's other shape values on its frozen topology;
 - :func:`shape_rows` and :func:`jiggle_of`: the Shape tab's sliders and
@@ -246,6 +249,55 @@ def effect_bytes(log, effects) -> list[int | None]:
         got = said.get(e.template.name, [])
         out.append(got[k] if k < len(got) else None)
     return out
+
+
+def lists() -> dict:
+    """What the Sounds and Effects tabs offer (Modkit's Sounds and Effects
+    tabs, Step 2.164b): ``roles``, the WAV roles a recipe's ``wavs`` take
+    (``DROP_ROLES``), each ``takes`` files at most; ``templates``, each
+    effects template's name, group, title, what it is, its engine, where it
+    plays (``anchor``), its colour's default (``None``: it takes none) and
+    each param's default and display range (a hint, D23) and what its
+    ``auto`` takes; and ``bound_rows``, the most shields and beams a build
+    plays."""
+    from azurkit.tools.characters import fx_templates
+    from azurkit.tools.characters._player_variants import DROP_ROLES, TAKES
+
+    return {"roles": list(DROP_ROLES), "takes": TAKES, "bound_rows": fx_templates.BOUND_ROWS,
+            "templates": [{"name": t.name, "group": t.group, "title": t.title, "what": t.what, "engine": t.engine,
+                           "anchor": t.anchor, "colour": list(t.colour["default"]) if t.colour is not None else None,
+                           "params": {p: {"default": spec["default"], "range": list(spec["range"]),
+                                          **({"auto": spec["auto"]} if "auto" in spec else {})}
+                                      for p, spec in t.params.items()}}
+                          for t in fx_templates.TEMPLATES.values()]}
+
+
+def effect_row(e) -> dict:
+    """An ``effects`` row (:class:`~azurkit.tools.characters.fx_templates.Effect`) as a recipe writes it, its
+    defaults left out."""
+    t = e.template
+    row: dict = {"template": t.name, "columns": list(e.columns)}
+    if e.colour is not None and (t.colour is None or list(e.colour) != [float(c) for c in t.colour["default"]]):
+        row["colour"] = list(e.colour)
+    row |= {p: v for p, v in e.values.items() if v != t.params[p]["default"]}
+    if e.seek:
+        row["seek"] = True
+    return row
+
+
+def heard(variant) -> dict:
+    """``variant``'s sounds and effects as the loader lays them (a recipe
+    from another: that one's, its own ``effects`` over them): ``sounds``,
+    ``voice``, ``wavs``, ``sfx``, ``shouts`` (its files), ``effects`` (each
+    row as :func:`effect_row` writes it), its ``fx`` edits, ``fx_grafts``
+    and ``fx_ring`` (``False``: off), and ``columns``, the attack columns
+    its own clips play."""
+    return {"sounds": variant.sounds, "voice": variant.voice, "wavs": {k: list(v) for k, v in variant.wavs.items()},
+            "sfx": json.loads(json.dumps(variant.sfx)), "shouts": list(variant.shouts),
+            "effects": [effect_row(e) for e in variant.effects], "fx": json.loads(json.dumps(variant.fx)),
+            "fx_grafts": json.loads(json.dumps(variant.fx_grafts)),
+            "fx_ring": False if variant.fx_ring is None else json.loads(json.dumps(variant.fx_ring)),
+            "columns": sorted(variant.columns)}
 
 
 FOLLOW_EDGES = 8

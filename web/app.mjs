@@ -250,7 +250,8 @@ const LABELS = { build: "Building", save: "Saving", save_check: "Saving", vanill
                  variant_check: "Checking with game data", variant_pictures: "Drawing the variant",
                  variant_preview: "Previewing the shape", variant_colours: "Recolouring the variant",
                  export_pngs: "Exporting its PNGs", add_png: "Importing the PNG", move_sources: "Reading the bodies' clips",
-                 variant_weapons: "Reading the weapons it takes", flat: READYING };
+                 variant_weapons: "Reading the weapons it takes", own_sounds: "Reading its base's sounds",
+                 kit_throw: "Reading its base's weapon", add_wav: "Adding the WAV", flat: READYING };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other from its
 // first record, else after 1 s. Shown from the click too: Track this seed's plan and a plan file's spoiler (the logic's
 // read), and the site's Save's check, which is over when it is: no later Build, Cancel, pick or engine's ready ends it
@@ -352,7 +353,7 @@ function unchecked() {
 // The key holds everything an answer reads: the recipe, the picked File (by identity: a new pick is a new key), what this
 // browser keeps installed and the engine's version.
 const SMALL = new Set(["pickers", "tracker", "data", "data_edit", "variants", "variant_open", "variant_read",
-                       "variant_save", "variant_delete", "variant_import", "variant_export"]);   // an ask B answers while F builds
+                       "variant_save", "variant_delete", "variant_import", "variant_export", "add_wav"]);   // an ask B answers while F builds
 const ASIDE = new Set(["content", "pickers", "content_check"]);   // sent no image, B answers while F runs anything: an
                                                                   // Install's list never waits for a check (Step 4.3r4m)
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {

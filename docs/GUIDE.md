@@ -155,14 +155,16 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   nearest shape at once, marked Preview; let go, a quick preview of it once checked, else the Check) with its mesh's
   ops, Jiggle each spring's stiffness, damping and strength (add one on a free bone, or remove one), Moves and Attacks
   the clip each move and attack plays (its own, or once you pick your image another body's, Garret's too; Attacks also
-  sets its weapon and attack numbers and switches), and JSON shows the whole recipe (Apply checks it first and keeps
-  the old one if it's refused). The status line gives its recipe's checksum, its grade, and whether it's saved
-  and checked; Check with game data (once you pick your image) dresses it as a build would, answers, then draws it: a
-  first Check of new content takes a while, with a bar, a copy of a variant checked before (New from this, under any
-  name, on a later visit too) takes a few seconds, and checking it again unchanged answers at once. Unsaved edits
-  are asked about before you leave them or build that variant. The app keeps your variants where Modkit does; the
-  web page keeps them in your browser (Clear in the Tools tab removes them: Export one to keep a copy). Yours show
-  under the models too, as Yours, and Edit… opens a chosen variant here.
+  sets its weapon and attack numbers and switches), Sounds its own or Garret's sounds, a silent voice, a WAV per role
+  (Add WAV copies one into its folder) and a made sound's numbers, Effects its fireball, shield or beam rows on the
+  attack columns you tick (each row's template, colour and numbers; a Check shows the bytes each adds), and JSON shows
+  the whole recipe (Apply checks it first and keeps the old one if it's refused). The status line gives its recipe's
+  checksum, its grade, and whether it's saved and checked; Check with game data (once you pick your image) dresses it
+  as a build would, answers, then draws it: a first Check of new content takes a while, with a bar, a copy of a
+  variant checked before (New from this, under any name, on a later visit too) takes a few seconds, and checking it
+  again unchanged answers at once. Unsaved edits are asked about before you leave them or build that variant. The app
+  keeps your variants where Modkit does; the web page keeps them in your browser (Clear in the Tools tab removes them:
+  Export one to keep a copy). Yours show under the models too, as Yours, and Edit… opens a chosen variant here.
 - **Colours (the Variants view's Colours tab):** pick a row of the body's textures (or all), then drag on the colour
   wheel to move its main colour, with a bar for brightness and boxes for the hex colour, hue, saturation and value;
   limit it to a range of hues, or click a palette colour to swap it for one you pick on a wheel. The row tiles and the

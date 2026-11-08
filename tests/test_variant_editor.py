@@ -19,8 +19,8 @@ import json
 import math
 import pickle
 import re
-import subprocess
 import struct
+import subprocess
 import sys
 import time
 import wave
@@ -449,6 +449,46 @@ def test_a_rows_png_exports_and_an_edited_one_comes_back_as_the_rows_texture(usa
         w.writeframes(b"\x01\x00" * 2205)
     assert [sdk.add_wav({"folder": str(folder), "file": str(tmp_path / "my take.wav")})["name"] for _ in "ab"] == [
         "my_take.wav", "my_take.wav"]
+
+
+def test_the_sounds_and_effects_tabs_read_what_the_loader_lays_and_a_picked_wav_comes_in_by_its_bytes(
+        tmp_path, monkeypatch):
+    """What the Sounds and Effects tabs read with no image (Step 4.6g; Modkit's tabs, Step 2.164b): the list's
+    ``editor`` names the WAV roles (the loader's), each role's most takes and the effects templates with each param's
+    default and display range; a recipe from booblord reads her sounds as the loader lays them (her voice, WAVs,
+    sounds and shouts) and her rows as its ``from_effects``, and one with rows of its own reads them with their
+    defaults left out, beamlord's his fx edits and grafts; a WAV picked on the site comes in by its bytes under the
+    name a recipe's ``wavs`` take (the same bytes once, other bytes beside them), and bytes that are no WAV are
+    refused by the name it was picked as, nothing copied."""
+    monkeypatch.setattr(library, "ROOT", tmp_path / "library")
+    lists = sdk.variants()["editor"]
+    assert (lists["roles"], lists["takes"], lists["bound_rows"]) == (list(_player_variants.DROP_ROLES),
+                                                                     _player_variants.TAKES, 3)
+    fireball = next(t for t in lists["templates"] if t["name"] == "fireball")
+    assert ([t["name"] for t in lists["templates"]][:3], fireball["engine"], fireball["params"]["speed"]) == (
+        ["fireball", "ice_shard", "arrow"], "throw", {"default": 18, "range": [4, 40]})
+    hers = sdk.variant_open({"name": "booblord"})["read"]
+    boob = _player_variants.builtins()["booblord"]
+    assert (hers["voice"], hers["wavs"], list(hers["sfx"]), hers["shouts"], hers["effects"], hers["from_effects"]) == (
+        "silent", {k: list(v) for k, v in boob.wavs.items()}, list(boob.sfx), list(boob.shouts), [], [])
+    own = sdk.variant_read({"name": sdk.UNSAVED, "recipe": {"from": "booblord", "effects": [
+        {"template": "bubble", "columns": ["basic1"], "size": 1.1, "opacity": 0.5}]}})
+    assert (own["effects"], own["from_effects"]) == ([{"template": "bubble", "columns": ["basic1"], "opacity": 0.5}], [])
+    beam = sdk.variant_open({"name": "beamlord"})["read"]
+    assert (len(beam["fx"]), beam["fx_grafts"][0], beam["fx_ring"]) == (11, {"template": "electric_shield",
+                                                                             "parent": 32}, {})
+    folder, take = tmp_path / "library" / "mine", tmp_path / "take.wav"
+    with wave.open(str(take), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"\x01\x00" * 2205)
+    picked = [sdk.add_wav({"folder": str(folder), "file": "C:\\picked\\my take.wav", "data": data})["name"]
+              for data in (take.read_bytes(), take.read_bytes(), take.read_bytes()[:-2] + b"\x02\x00")]
+    assert picked == ["my_take.wav", "my_take.wav", "my_take_2.wav"]
+    with pytest.raises(ValueError, match="noise.wav"):
+        sdk.add_wav({"folder": str(folder), "file": "noise.wav", "data": b"not a wav"})
+    assert sorted(p.name for p in folder.iterdir()) == ["my_take.wav", "my_take_2.wav"]
 
 
 # The Moves and Attacks tabs' own logic (Step 4.6f, web/variants/moves.mjs and attacks.mjs) under Node, as the page runs
