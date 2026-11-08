@@ -59,7 +59,7 @@ enum { W_NONE, W_NO_PROVEN, W_REPAIR_BUDGET, W_NO_SAFE_LEFT, W_VERIFY, W_VAULT_N
        W_NO_FILLER };
 /* The paths an attempt took (O_PATHS: the twin test's spread) */
 enum { P_OWN = 1, P_TRADE = 2, P_TRADE_FAIL = 4, P_LEAN = 8, P_LEAN_MISSED = 16, P_REPAIRED = 32, P_REPAIR_SWAP = 64,
-       P_REPAIR_IN = 128, P_REPAIR_AT = 256, P_VAULT = 512 };
+       P_REPAIR_IN = 128, P_REPAIR_AT = 256, P_VAULT = 512, P_REPAIR_PAST = 1024 };
 
 typedef struct {   /* a reach's answer kept: its locations, nodes, safe nodes, trick-free traps, those after completion */
     u64 *got, *nodes, *safe, *free, *after;
@@ -601,6 +601,20 @@ static i64 repairs(S *s, const i64 *prog, const R *r) {
             nins = kept;
         }
         s->paths |= P_REPAIR_IN;
+        if (!nouts && (s->call[A_LEAN] == M_LOW || s->call[A_LEAN] == M_LOW_WEIGHTED)) {
+            /* Easy's: the way out a kept item, a way-in item to a free spot from its sphere on */
+            copy_i(s->outs, s->ins, nins);
+            nouts = nins, nins = 0;
+            clear(s->coll, s->lw);   /* the locations of the spheres from u - 1 on (clears' reaches left their own log) */
+            for (i64 rr = s->sph[u - 1]; rr < rounds; rr++)
+                for (i64 j = 0; j < s->bcount[rr]; j++) put_bit(s->coll, s->border[s->bstart[rr] + j]);
+            for (i64 j = 1; j <= ng[0]; j++) {
+                i64 loc = ng[j], fl = loc_row(s, loc)[L_FLAGS];
+                if (has(s->coll, loc) && prog[loc] < 0 && (fl & LF_PROVEN) && !(fl & LF_EXCL) && !(fl & LF_VAULT))
+                    s->ins[nins++] = loc;
+            }
+            s->paths |= P_REPAIR_PAST;
+        }
     } else {           /* none: the spots at the traps, and first the ways out that free them there */
         i64 kept = 0;
         for (i64 j = 1; j <= ng[0]; j++) {

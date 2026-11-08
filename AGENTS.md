@@ -672,10 +672,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the highest w, w = 4 * missed + round + min(detour, 6); strict below
     `STRICT` (10), then weighted, and a level's 20 attempts past `LEANED`
     draw as today, as a strict lean repeats one placement the verify may
-    refuse every time. Known flaw: with the powers kept at settings that
-    allow a trick, every leaning attempt of Easy's fails the trap gate in
-    nearly every seed, so Easy there plans as today's draw, the lowest score
-    of 3, no easier than Normal); the obsidians by detour (D1038). Easy
+    refuse every time); the obsidians by detour (D1038). With the elemental
+    powers kept vanilla, Easy's early fragments open a realm before the kept
+    power that gets the player back out (new trick-free traps) and no key
+    item comes after them to swap, so in an Easy attempt the trap gate's
+    repair moves the realm's opener to a free spot from the kept power's
+    sphere on (`_Slots.repairs`' `past`, `fill.c`'s `P_REPAIR_PAST`). Easy
     keeps the lowest `Judge.score` (key-item steps + key items off the path
     + twice the step-ups at each rating to the top) of 3 passing attempts,
     Expert the highest of 6, the first on a tie; Hard and Normal their first.
@@ -1034,9 +1036,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   by the side module from the wheel, in the site's worker. The second is
   the fill's (`native/fill.c`, Step 4.4ci57, D1141): `fill._Kernel` packs
   a run's facts once (each id the reach tables'), and an attempt
-  (`_Slots.attempt`, its twin: the passes, the pin, the trap gate's
-  repairs and the verify, on CPython's MT19937 streams) and a shaped
-  candidate's need and play (`difficulty`'s, through `Shape.kernel`) each
+  (`_Slots.attempt`, its twin: the passes, the lean, the trap gate's
+  repairs and the verify, on CPython's MT19937 streams) and a seed
+  difficulty's candidate's need and play (`difficulty`'s, through
+  `Judge.kernel`) each
   run there whole, its reaches reach.c's, off the GIL, so the attempts
   beside each other run on their own cores; the notes the twin would tell
   are logged and told after the call in its order, so an attempt's cancel

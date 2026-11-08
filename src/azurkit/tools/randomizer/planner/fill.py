@@ -32,9 +32,11 @@ The passes, each drawing from its own named stream:
    sphere with new trick-free traps and the first one free of them again
    give a swap (:meth:`_Slots.repairs`: an item collected just before they
    free, the way out, for one collected last before they start, the way in,
-   or for a spot at a trap when they are there from the start), the
-   obsidians are placed again and it is checked again, up to
-   :data:`MAX_REPAIRS` swaps; a swap that breaks the placement goes back.
+   or for a spot at a trap when they are there from the start; in an Easy
+   attempt whose way out is a kept item, the way in to a free spot from
+   the way out's sphere on), the obsidians are placed again and it is
+   checked again, up to :data:`MAX_REPAIRS` swaps; a swap that breaks the
+   placement goes back.
 3. **Useful** (``useful``): the vaults first, the most restricted spots
    (Q290: a vault, a spot an obsidian lock's force field closes, holds
    only ``power_life``, ``power_staff*`` or ``power_ammo``), then the rest,
@@ -486,13 +488,17 @@ class _Slots:
         return budget.fits(loc, item)
 
     def repairs(self, settings: Settings, placement: Mapping[str, str], r: Reach, trace: Sequence,
-                prog: Mapping[str, str], known: frozenset[str], nongem: Sequence[str]) -> list[tuple[str, str]]:
+                prog: Mapping[str, str], known: frozenset[str], nongem: Sequence[str],
+                past: bool = False) -> list[tuple[str, str]]:
         """The trap gate's repair (Step R1.8m): the first sphere ``t`` whose state has new trick-free traps, and
         the first later sphere ``u`` at whose state none of those is one any more. A progression item collected
         in the sphere before ``u`` (the way out) swaps spots with one collected in the sphere before ``t`` (the
         way in), or, when the traps are there from the start, with whatever lies on a spot at a trap node (its
         escape picks the item up there, as vanilla's water in w2's hose pool): each pair (the way out's spot, the
-        other), sorted."""
+        other), sorted. ``past`` (an Easy attempt's, D1157): when the way out is no key item (an elemental power
+        ``exclude_categories`` keeps vanilla), a way-in item goes past it instead, to a free proven spot collected
+        from the way out's sphere on: Easy puts every key item early, so a realm's last fragment opens it long
+        before the kept power that gets the player back out."""
         new = [sp.free_traps - r.after_completion - known for sp in trace]
         t = next((i for i, n in enumerate(new) if n), None)
         u = None if t is None else next((i for i in range(t + 1, len(trace)) if not new[i] & new[t]), None)
@@ -506,6 +512,10 @@ class _Slots:
         if back is not None:        # the way in: the last items before t, those without which the traps aren't first
             ins = sorted(trace[back].locations & prog.keys())
             ins = [b for b in ins if clears(got - {b})] or ins
+            if past and not outs:   # the way out a kept item: a way-in item to a free spot from its sphere on
+                later = set().union(*(sp.locations for sp in trace[u - 1:]))
+                outs, ins = ins, [loc for loc in nongem if loc in later and loc not in prog and loc in self.proven
+                                  and loc not in self.excluded and loc not in self.vault]
         else:                       # none: the spots at the traps, and first the ways out that free them there
             node = self.logic.db.node_of
             ins = [loc for loc in nongem if node[loc] in new[t] and loc in self.proven and loc not in self.excluded
@@ -652,7 +662,8 @@ class _Slots:
                     break
                 if len(problems) > 1 or not new_traps(r, known):
                     raise _Stuck("the verify: " + "; ".join(problems))
-                good, pairs = prog, self.repairs(settings, placed, r, trace, prog, known, nongem)
+                good, pairs = prog, self.repairs(settings, placed, r, trace, prog, known, nongem,
+                                                 lean is not None and lean.mode in (LOW, LOW_WEIGHTED))
                 why = _Stuck("the verify: " + "; ".join(problems))
                 if pairs and repaired is not None:
                     repaired.append(str(why))

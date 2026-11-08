@@ -256,6 +256,22 @@ def test_seed_difficulty_levels_lean_chains_off_path_and_tricks_in_order(monkeyp
     assert [fill._fill(logic, seed, st).placement for st in shaped for seed in "01"] == one
 
 
+def test_easy_with_the_elemental_powers_kept_plans_from_its_lean_below_normals_score_with_no_trick():
+    """D1157 with the elemental powers kept vanilla at Hard movement and skips: Easy's lean put every key item early,
+    so a realm's last fragment opened it long before the kept power that gets the player back out (new trick-free
+    traps), and the trap gate's repair had no key item after them to swap. Easy's repair moves that fragment past the
+    kept power, so over seeds "0".."3" each Easy plan comes from a leaning attempt, passes the verify, needs no trick
+    and scores below Normal's."""
+    logic = kept_logic()
+    easy, normal = (Settings(3, "hard", {}, frozenset({"powers"}), seed_difficulty=level) for level in (1, 0))
+    judge = difficulty.Judge(logic, easy, fill.key_spots(logic, easy), difficulty.detours(logic, easy))
+    for seed in "0123":
+        made, today = fill._fill(logic, seed, easy), fill._fill(logic, seed, normal)
+        assert made.attempt < difficulty.LEANED and not fill.verify(logic, easy, made.placement), seed
+        assert not judge._need(made.placement, 2), seed
+        assert judge.score(made.placement) < judge.score(today.placement), seed
+
+
 def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reach_of_their_own(monkeypatch):
     """The app's job ahead of the spoiler's View: the View takes its answer, in one Logic's kept openers."""
     logic, settings = kept_logic(), Settings(3, "hard", {}, seed_difficulty=3)
