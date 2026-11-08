@@ -34,6 +34,7 @@ and certification and `models`' first model verbs are here; the rest come after 
 | `rando` | the randomizer database's tools and benches, the reach model's derive and the realm authoring |
 | `reach` | the reach engine, its native kernel and the patched Unicorn; the L3 certification of the randomizer's spots, edges, skips and contact flights |
 | `models` | the model and effect verbs ModelKit's adapter calls |
+| `xbr` | the XBR file tools: inspect, diff, edit, xref and verify (here) |
 
 ## Its dependencies
 
