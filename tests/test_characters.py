@@ -822,6 +822,31 @@ def test_a_turned_clips_grid_time_is_as_far_from_its_keys_as_the_nearest_of_ever
             assert rt._off_keys(t, known) == min(abs(t - u) for u in known)
 
 
+def test_a_bodys_helper_bones_are_the_parents_whose_scale_is_off_one_or_moves_in_a_clip():
+    """A glTF body's helper bones (``gltf._helpers``: a child hangs from it
+    and its rest scale isn't 1 or a clip's scale track moves it; Step 4.6c
+    reads each clip's tracks once, not once a bone) are those every bone's
+    own scan of every track names, over seeded rigs and clips."""
+    import random
+
+    from azurkit.tools.characters import gltf
+    from azurkit.tools.characters import retarget as rt
+
+    rng = random.Random(1409)
+    for _ in range(200):
+        n = rng.randint(1, 12)
+        bones = [SimpleNamespace(parent=rng.randrange(-1, k) if k else -1,
+                                 s=tuple(rng.choice((1.0, 1.0, 1.0, 0.5)) for _ in range(3))) for k in range(n)]
+        clips = [("c", rt.Clip(1.0, tuple(rt.Track(rng.randrange(n), rng.randrange(10), tuple(
+            (t / 4, rng.choice((1.0, 1.0, 1.2)), rng.choice((0.0, 0.0, 0.3, float("inf"))),
+             rng.choice((0.0, 0.0, -0.2, 3.5e38))) for t in range(rng.randint(1, 4)))) for _ in range(rng.randint(0, 6))), ()))
+                 for _ in range(rng.randint(0, 3))]
+        kids = {b.parent for b in bones if b.parent >= 0}
+        assert gltf._helpers(bones, clips) == tuple(k for k in range(n) if k in kids and (
+            any(c != 1.0 for c in bones[k].s) or any(tr.target == k and 7 <= tr.comp <= 9 and gltf._moving_scale(tr.keys)
+                                                      for _, c in clips for tr in c.bones)))
+
+
 def test_a_wavs_resampled_sound_is_the_windowed_sinc_worked_out_at_each_sample_bit_for_bit(tmp_path):
     """A WAV at another rate than the build's is resampled with a windowed
     sinc whose weights are worked out once a phase (Step 4.6c: booblord's

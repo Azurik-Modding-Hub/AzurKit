@@ -200,11 +200,15 @@ def _read(characters_xbr: bytes, body: str) -> _Body:
             clip = read_clip(characters_xbr, toc[i].file_offset)
             _check_clip(name, n[len(prefix):], clip, len(bones))
             clips.append((n[len(prefix):], clip))
+    return _Body(name, index, bones, inverse_binds(characters_xbr, name), tuple(clips), _helpers(bones, clips))
+
+
+def _helpers(bones, clips) -> tuple[int, ...]:
+    """The bones a child hangs from whose scale isn't 1 at rest or moves in
+    a clip (each clip's scale tracks read once, not once a bone)."""
     kids = {b.parent for b in bones if b.parent >= 0}
-    helpers = tuple(k for k in range(len(bones)) if k in kids and (
-        any(c != 1.0 for c in bones[k].s)
-        or any(tr.target == k and 7 <= tr.comp <= 9 and _moving_scale(tr.keys) for _, c in clips for tr in c.bones)))
-    return _Body(name, index, bones, inverse_binds(characters_xbr, name), tuple(clips), helpers)
+    scaled = {tr.target for _, c in clips for tr in c.bones if 7 <= tr.comp <= 9 and _moving_scale(tr.keys)}
+    return tuple(k for k in range(len(bones)) if k in kids and (any(c != 1.0 for c in bones[k].s) or k in scaled))
 
 
 def _rest_trs(body: _Body, k: int) -> tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...]]:
