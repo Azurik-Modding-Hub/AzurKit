@@ -288,7 +288,7 @@ def test_the_harness_passes_its_offline_selftest_with_no_xemu_and_no_fixtures(ca
     scratch config (volume 0, the keyboard pad on scancodes no key reaches), the sandbox proof, the slots and their
     admission (D108 as D174 and D263 amend it: a third sandbox waits while either suite's lock is held, Modkit's or
     AzurKit's), the queue and the owner demo's lease, QMP, the gdbstub and the pad, readiness, parks, relaunches and
-    the teardown, the code check and a Europe disc's addresses."""
+    the teardown, the code check, a Europe disc's addresses and a build of the other release refused by name."""
     from devkit.xemu import oracle   # macOS's own calls: imported here, so the file collects on every platform
 
     assert oracle.selftest() == 0, "\n".join(line for line in capsys.readouterr().out.splitlines()

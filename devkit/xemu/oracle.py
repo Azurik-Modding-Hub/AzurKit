@@ -5265,8 +5265,8 @@ class Sandbox:
         cpu0 = self._cpuid_mark()   # only this boot's strict-CPUID faults stop it
         host0 = self.host_profile()
         if (got := xbe_layout(self._xbe(name))) is not (disc := xbe_layout(self._xbe("dvd.iso"))):
-            raise SystemExit(f"{Path(build).name} is the {got.label} release; this sandbox's disc "
-                             f"and states are the {disc.label} one's")
+            raise SystemExit(f"{Path(build).name} is the {got.release.label} release; this sandbox's disc "
+                             f"and states are the {disc.release.label} one's")
         self.st["build"] = name
         save_route(save)   # a bad index fails before the boot
         res: dict = {"build": Path(build).name, "iso_sha12": sha12,
@@ -10303,6 +10303,21 @@ def selftest() -> int:
             use_release(USA)
         check("a Europe disc's harness VAs are its own (player tick, its return, the scene pointer)",
               got == ("europe", 0x8CC70, 0x8C332, 0x1C15DC) and PLAYER_TICK == 0x8CCC0, f"{got}")
+        # a build of the other release refuses by name before it boots
+        import types
+        us = bytearray(eu)
+        struct.pack_into("<I", us, 0x158, USA.thunks ^ 0x5B6D40B6)
+        other_sb = types.SimpleNamespace(st={}, stage=lambda b: ("b-0.iso", "0"), _cpuid_mark=lambda: 0,
+                                         host_profile=lambda: {},
+                                         _xbe=lambda n: bytes(us if n == "dvd.iso" else eu))
+        try:
+            Sandbox.boot_build(other_sb, Path("europe-build.iso"))
+            why = "it booted"
+        except (SystemExit, AttributeError) as e:
+            why = str(e)
+        check("boot-build: a Europe build in a USA sandbox refuses, naming both releases",
+              why == "europe-build.iso is the Europe release; this sandbox's disc and states are the USA one's",
+              why)
         # AZ-337: a capture row's non-finite bbox z is a string (fnum)
         def jump(mid_bz):
             ticks = [(0, 0.0, 1.0), (2, 4.5, mid_bz), (2, 4.25, 2.5), (0, 0.0, 1.0)]
