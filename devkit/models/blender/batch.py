@@ -65,7 +65,7 @@ except ImportError:         # Windows: no cap
     fcntl = None
 
 CACHE = Path(user_cache_dir("AzurKit"))
-"""The AzurKit user cache (``doctor --uninstall-hints`` lists it)."""
+"""The AzurKit user cache."""
 SLOTS = 8
 """Blenders at once on the machine by default (Step X.62's benchmark: 8
 at once ran 5.7 times one's jobs a minute, each 26% slower)."""

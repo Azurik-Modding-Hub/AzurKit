@@ -75,9 +75,10 @@ def output(out: str | Path, *inputs: Path, file: bool = False) -> Path:
     ``fx texture --png``'s and the Blender batch's MP4 do), outside this
     checkout, none of ``inputs``
     (the files a verb reads) and inside none, and outside the folder of each
-    image read or found, each folder compared by file identity (Modkit's
-    ``require_new_output``), so another letter case can't slip through;
-    ``ValueError`` names why not."""
+    image read (an input named ``*.iso``) or found (whatever its name, as
+    ``AZURKIT_ISO`` may name ``Azurik.xiso``), each folder compared by file
+    identity (Modkit's ``require_new_output``), so another letter case can't
+    slip through; ``ValueError`` names why not."""
     out = Path(out).absolute()
     real = out.resolve()
     above = [d for d in (real, *real.parents) if d.exists()]
@@ -87,7 +88,7 @@ def output(out: str | Path, *inputs: Path, file: bool = False) -> Path:
 
     if inside(CHECKOUT):
         raise ValueError(f"--out {out} is inside the checkout {CHECKOUT}: what it writes is a game asset")
-    images = [p for p in (*inputs, *filter(None, map(gate.find, gate.RELEASES))) if p.suffix.lower() == ".iso"]
+    images = [p for p in inputs if p.suffix.lower() == ".iso"] + [p for p in map(gate.find, gate.RELEASES) if p]
     for folder in {d for p in images for d in (p.absolute().parent, p.resolve().parent)}:
         if inside(folder):
             raise ValueError(f"--out {out} is inside {folder}, an image's folder")

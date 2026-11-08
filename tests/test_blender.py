@@ -175,13 +175,17 @@ def test_a_batch_renders_every_frame_of_a_body_from_one_headless_blender_and_wri
     copied = [bb.cached("blender-bodies", "copied.npz", lambda p: shutil.copy2(old, p)) for _ in range(2)]
     assert [(path.is_file(), hit) for path, hit in copied] == [(True, False), (True, True)]
     _no_blender(monkeypatch, tmp_path)
+    (found := tmp_path / "found" / "x.xiso").parent.mkdir()
+    found.write_bytes(b"image")
+    monkeypatch.setenv("AZURKIT_ISO", str(found))
     for positions, kwargs, refusal in (([pts[:3]], {}, r"frame 0's positions are \(3, 3\); the body has 4"),
                                        (frames, {"keep": [5]}, r"keep \[5\]: distinct frames of 0 to 4"),
                                        (frames, {"blender": tmp_path / "nowhere"}, "Blender isn't found"),
-                                       (frames, {"mp4": image.CHECKOUT / "a.mp4"}, "inside the checkout")):
+                                       (frames, {"mp4": image.CHECKOUT / "a.mp4"}, "inside the checkout"),
+                                       (frames, {"mp4": found}, "an image's folder")):
         with pytest.raises(ValueError, match=refusal):
             bb.render(body, positions, views=views, **{"blender": stub, **kwargs})
-    assert len(log.read_text(encoding="utf-8").splitlines()) == 2
+    assert len(log.read_text(encoding="utf-8").splitlines()) == 2 and found.read_bytes() == b"image"
     monkeypatch.setenv("AZURIK_BLENDER_SLOTS", "1")
     with bb.slot():
         if bb.fcntl is None:
