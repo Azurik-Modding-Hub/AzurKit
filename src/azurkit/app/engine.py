@@ -47,6 +47,7 @@ import pickle
 import queue
 import secrets
 import signal
+import sys
 import threading
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -341,6 +342,22 @@ class Here:
         pass
 
 
+def _ended(code: int | None) -> str:
+    """How an engine process ended, by its exit code (``Process.exitcode``;
+    ``None``: its pipe closed while it still ran). A SIGKILL is how an OS
+    ends a process it is out of memory for (macOS's jetsam, Linux's OOM
+    killer) and how another process kills one."""
+    if code is None:
+        return "stopped answering (its pipe closed)"
+    if code >= 0:
+        return f"exited with code {code}"
+    try:
+        name = signal.Signals(-code).name
+    except ValueError:
+        return f"stopped by signal {-code}"
+    return f"stopped by signal {-code} ({name}{': out of memory?' if name == 'SIGKILL' else ''})"
+
+
 class _Child:
     """One spawned engine process: its pipe and the calls waiting on it
     (:attr:`lock`: them, :attr:`dead` and the pipe's sends)."""
@@ -350,6 +367,7 @@ class _Child:
         self.calls: dict[int, tuple[str, queue.SimpleQueue]] = {}
         self.killed = False   # by a cancel: its calls of KILLS are cancelled, the others run again
         self.dead = False
+        self.how = ""   # once dead, how it ended (:func:`_ended`)
 
     def send(self, message: tuple) -> bool:
         """Send ``message`` (:attr:`lock` held); ``False`` once the process is gone."""
@@ -404,8 +422,10 @@ class Spawned:
                     waiting[1].put((kind, value))
         except (EOFError, OSError):
             pass
+        child.process.join(5)   # its exit status for its calls: an ended process has it at once
+        how = _ended(child.process.exitcode)
         with child.lock:
-            child.dead, waiting = True, list(child.calls.values())
+            child.dead, child.how, waiting = True, how, list(child.calls.values())
             child.calls.clear()
         for _, answers in waiting:
             answers.put(("gone", None))
@@ -450,7 +470,10 @@ class Spawned:
             if child.killed and (job in KILLS if fore is None else not fore.is_set()):
                 raise Cancelled
             if not child.killed:
-                raise Gone("AzurKit's engine stopped (out of memory?): try again")
+                with contextlib.suppress(OSError, ValueError):   # a stderr gone with its reader
+                    print(f"azurkit: {job}: the engine's process ({child.process.pid}) {child.how}", file=sys.stderr,
+                          flush=True)
+                raise Gone(f"AzurKit's engine {child.how}: try again")
             # cut short by a kill of another call: run again in the new process
 
     @staticmethod

@@ -25,6 +25,7 @@ import plistlib
 import socket
 import re
 import shlex
+import signal
 import struct
 import subprocess
 import sys
@@ -1988,6 +1989,30 @@ def test_a_kill_of_a_quiet_job_cancels_it_and_runs_the_call_the_player_waits_on_
         assert answers["click"] == sdk.plan(recipe)
     finally:
         spawned.close()
+
+
+def test_an_engine_that_ends_mid_call_says_how_it_ended(capfd):
+    """An engine process that ends mid-call, killed from outside (as an OS
+    out of memory or another process ends one), fails the call saying how:
+    the signal, else the exit code, and still "try again"; the server's
+    stderr names it with the call (the capped perf run's A31 said only
+    "stopped (out of memory?)", Step 4.5o)."""
+    spawned, killed = engine.Spawned(), []
+
+    def kill(step: dict) -> None:
+        if not killed:
+            killed.append(spawned.pid)
+            os.kill(spawned.pid, getattr(signal, "SIGKILL", signal.SIGTERM))   # Windows: TerminateProcess, code 15
+    try:
+        with pytest.raises(engine.Gone) as gone:
+            spawned.call("plan", {"seed": "azurkit", "share": "AZR-AAEA"}, progress=kill)
+    finally:
+        spawned.close()
+    how = "exited with code 15" if os.name == "nt" else "stopped by signal 9 (SIGKILL: out of memory?)"
+    assert str(gone.value) == f"AzurKit's engine {how}: try again"
+    assert f"azurkit: plan: the engine's process ({killed[0]}) {how}" in capfd.readouterr().err
+    assert [engine._ended(code) for code in (1, -11, None)] == [
+        "exited with code 1", "stopped by signal 11 (SIGSEGV)", "stopped answering (its pipe closed)"]
 
 
 def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_for_its_pictures(monkeypatch):
