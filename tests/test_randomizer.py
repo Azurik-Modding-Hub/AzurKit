@@ -641,6 +641,9 @@ def test_the_save_warp_counted_frees_the_traps_a_save_platform_leaves_and_rides_
     assert built.plan.settings.save_warp and built.plan.doc["sha256"] == doc["sha256"]
     with pytest.raises(ValueError, match="doesn't apply qol_save_warp"):
         generator.prepare({"seed": "2", "share": doc["share"]}, {})
+    with pytest.raises(ValueError, match="the plan's settings count the save-point warp"):
+        generator.prepare({"plan": doc}, {})
+    assert generator.prepare({"plan": doc}, {generator.WARP_PACK: {}}).recipe == {"plan": doc}
 
 
 def _share(sliders: dict) -> str:
