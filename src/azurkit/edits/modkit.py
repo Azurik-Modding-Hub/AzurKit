@@ -117,11 +117,16 @@ def _sections(node: Mapping, path: tuple = ()) -> list[tuple[str, str, str, obje
     return out
 
 
+@functools.cache
+def _paths() -> dict[str, str]:
+    return {path.casefold(): path for release in gate.RELEASES for path in release.files}
+
+
 def _file(name: object) -> str | None:
     """The image path a Modkit file name means: gamedata/NAME, gamedata/index/NAME, then NAME, case-blind."""
     if not isinstance(name, str) or not name:
         return None
-    known = {path.casefold(): path for release in gate.RELEASES for path in release.files}
+    known = _paths()
     return next((known[p.casefold()] for p in (f"gamedata/{name}", f"gamedata/index/{name}", name)
                  if p.casefold() in known), None)
 
@@ -171,6 +176,8 @@ def _entry(k: int, raw: object, config: bytes) -> Edit:
             if not (hexed and isinstance(value, str)):
                 return label, None, "replace_bytes needs bytes (hex, with value_kind hex)"
             after = bytes.fromhex(value)
+            if not after:
+                return label, None, "replace_bytes needs at least one byte"
             was = bytes.fromhex(expected) if hexed and isinstance(expected, str) else expected
             if was is not None and not (isinstance(was, bytes) and len(was) == len(after)):
                 return label, None, f"expected is not the {len(after)} B the value replaces (hex, with value_kind hex)"

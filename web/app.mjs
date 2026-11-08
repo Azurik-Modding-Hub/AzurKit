@@ -963,7 +963,8 @@ function load(preset, from) {
   const made = preset.azurkit ? ` (made with AzurKit ${preset.azurkit})` : "";
   const cells = state.xbr.length ? ` and ${state.xbr.length} config.xbr edit${state.xbr.length > 1 ? "s" : ""}` : "";
   const seed = (rando ? ` and the randomizer (seed ${rando.seed})` : "") + (character ? ` and ${character.species}` : "");
-  say(`Loaded ${from}'s recipe${made}: ${packs ? Object.keys(packs).length : 0} packs${cells}${seed}, marked ●. `
+  say(`Loaded ${from}'s recipe${made}: ${packs ? `${Object.keys(packs).length} packs` : "the packs as ticked"}${cells}`
+      + `${seed}, marked ●. `
       + `${(preset.settled ?? []).join(" ")}${preset.settled ? " " : ""}Pick your vanilla image, then Build.`);
 }
 

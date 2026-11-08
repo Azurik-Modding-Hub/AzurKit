@@ -603,6 +603,8 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
         json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"original": None}]}):
             "xbr_edits[0] (replace_bytes on a1.xbr): no expected or original",
         json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"orignal": "0000"}]}): "xbr_edits[0]: unknown key 'orignal'",
+        json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"value": ""}]}):
+            "xbr_edits[0] (replace_bytes on a1.xbr): replace_bytes needs at least one byte",
         json.dumps({"xbr_edits": [mod["xbr_edits"][2] | {"expected": "11" * 4}]}):
             "xbr_edits[0] (replace_bytes on config.xbr): at 0x",
         json.dumps({"source_hashes": {"a1.xbr": "0" * 64}, "xbr_edits": []}):

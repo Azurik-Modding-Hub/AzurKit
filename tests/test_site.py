@@ -2873,6 +2873,9 @@ def test_a_modkit_mod_file_loads_in_the_tools_tab_and_the_data_tabs_changes_list
         _page.pick(page, "#tools-mods-file", good)
         _page.until(page, f"() => azurkit.xbr.length === {len(ops)}", 120)
         assert page.evaluate("() => azurkit.xbr") == ops and page.evaluate(ticked) == before
+        assert page.evaluate("() => document.getElementById('status').textContent") == (
+            f"Loaded modkit.json's recipe: the packs as ticked and {len(ops)} config.xbr edits, marked ●. Pick your "
+            "vanilla image, then Build.")
         _page.click(page, "tab-data")
         _page.until(page, "() => azurkit.data.state.answer")
         page.evaluate("""() => [...document.querySelectorAll('#data .views button')]
