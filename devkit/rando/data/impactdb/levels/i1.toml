@@ -1,0 +1,140 @@
+# The impact toy database (tests/rando/impactdb; scripts/rando_impact.py, Step X.3). Pool locations (generated/i1.json,
+# by cell): Beach r1 power_water, Hill r2 power_air, Cave r3 power_fire (the three proven), Grotto r4 power_earth,
+# Ledge r5 and Tower r6 all_fuel, Town r7 a sapphire (a gem: no candidate).
+#   Spots: the grotto is open from the start, the ledge needs air and the tower all four powers, so proving r4 or r5
+#   lets every seed fill and proving r6 none. Assumed edges: town > cave carries the fire (vanilla can't win without
+#   it), town > ledge is the ledge's only way (it cuts r5), beach > hill opens the hill's proven spot early (without
+#   it the hill needs water), and the second beach > town backs up a data edge (no effect).
+format = "azurik-rando-level/1"
+level = "i1"
+status = "authored"
+route = ["i1/g0/r1", "i1/g0/r2", "i1/g0/r3", "i1/g0/r4"]
+
+[[node]]
+id = "i1_beach"
+start = true
+anchors = ["cell:Beach"]
+
+[[node]]
+id = "i1_town"
+hub = true
+anchors = ["cell:Town"]
+
+[[node]]
+id = "i1_hill"
+anchors = ["cell:Hill"]
+
+[[node]]
+id = "i1_cave"
+anchors = ["cell:Cave"]
+
+[[node]]
+id = "i1_grotto"
+anchors = ["cell:Grotto"]
+
+[[node]]
+id = "i1_ledge"
+anchors = ["cell:Ledge"]
+
+[[node]]
+id = "i1_tower"
+anchors = ["cell:Tower"]
+
+[[edge]]
+from = "i1_beach"
+to = "i1_town"
+kind = "walk"
+confidence = "data"
+
+[[edge]]
+from = "i1_beach"
+to = "i1_town"
+kind = "walk"
+confidence = "assumed"
+
+[[edge]]
+from = "i1_town"
+to = "i1_beach"
+kind = "walk"
+confidence = "data"
+
+[[edge]]
+from = "i1_beach"
+to = "i1_hill"
+kind = "walk"
+confidence = "assumed"
+
+[[edge]]
+from = "i1_town"
+to = "i1_hill"
+kind = "walk"
+requires = "water>=1"
+confidence = "data"
+
+[[edge]]
+from = "i1_hill"
+to = "i1_town"
+kind = "walk"
+confidence = "data"
+
+[[edge]]
+from = "i1_town"
+to = "i1_cave"
+kind = "walk"
+confidence = "assumed"
+
+[[edge]]
+from = "i1_cave"
+to = "i1_town"
+kind = "walk"
+confidence = "data"
+
+[[edge]]
+from = "i1_town"
+to = "i1_grotto"
+kind = "walk"
+confidence = "data"
+
+[[edge]]
+from = "i1_grotto"
+to = "i1_town"
+kind = "walk"
+confidence = "data"
+
+[[edge]]
+from = "i1_town"
+to = "i1_ledge"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "i1_ledge"
+to = "i1_town"
+kind = "walk"
+confidence = "data"
+
+[[edge]]
+from = "i1_town"
+to = "i1_tower"
+kind = "walk"
+requires = "water>=1 & air>=1 & fire>=1 & earth>=1"
+confidence = "data"
+
+[[edge]]
+from = "i1_tower"
+to = "i1_town"
+kind = "walk"
+confidence = "data"
+
+[[location]]
+id = "i1/g0/r1"
+proven = { by = "data", ref = "toy" }
+
+[[location]]
+id = "i1/g0/r2"
+proven = { by = "data", ref = "toy" }
+
+[[location]]
+id = "i1/g0/r3"
+proven = { by = "data", ref = "toy" }

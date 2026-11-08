@@ -1,0 +1,52 @@
+format = "azurik-rando-route/1"
+status = "authored"
+location_steps = 3
+action_steps = 1
+replay_problems = 0
+
+[[step]]
+step = 1
+leg = "t1"
+level = "t1"
+kind = "location"
+id = "t1/g0/r1"
+item = "power_water"
+class = "major"
+requires = "true"
+ok = true
+sources = ["toy"]
+
+[[step]]
+step = 2
+leg = "t1"
+level = "t1"
+kind = "action"
+action = "kill"
+sets = "event:t1.boss.killed"
+requires = "water>=1"
+ok = true
+sources = ["toy"]
+
+[[step]]
+step = 3
+leg = "t1"
+level = "t1"
+kind = "location"
+id = "t1/g0/r2"
+item = "key_red"
+class = "major"
+requires = "flag:t1.boss.killed"
+ok = true
+sources = ["toy"]
+
+[[step]]
+step = 4
+leg = "t2"
+level = "t2"
+kind = "location"
+id = "t2/g0/r1"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["toy"]

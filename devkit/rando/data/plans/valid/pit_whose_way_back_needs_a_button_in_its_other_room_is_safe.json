@@ -1,0 +1,8 @@
+{
+ "db": "escapedb",
+ "pins": "CE5: the escape is a closure: it walks from the cellar to the crawl, presses the winch there and walks back out",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r7": "power_life"
+ }
+}

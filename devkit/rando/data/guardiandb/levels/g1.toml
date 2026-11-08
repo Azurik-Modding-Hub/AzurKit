@@ -1,0 +1,115 @@
+# The no-return toy database (tests/rando/guardiandb; docs/RANDOMIZER_DB.md §15). g1 is authored: the start, the hub
+# and one guardian region (RANDOMIZER_PLAN §2.9). The pool locations (generated/g1.json, by cell): Beach r1
+# frag_air_1, r2 power_fire; Town r3 frag_air_2, r4 frag_air_3; Vault r5 power_water; Arena r6; Nook r7 (sapphires);
+# Altar r8 frag_air_4, the guardian slot, gated by the boss.
+#   The hall drops into the arena with 3 of the air disc; the boss there needs the fire, and opens the altar, whose
+#   slot fires the disc teleport to the town. The nook, a drop off the arena, needs the water to climb back, and the
+#   water is in the vault, which opens once the disc is whole: so the arena, the altar and the nook are the region,
+#   the arena's and the nook's spots are forfeitable, and the nook never gets back while the teleport is live.
+format = "azurik-rando-level/1"
+level = "g1"
+status = "authored"
+route = ["g1/g0/r1"]
+
+[[node]]
+id = "g1_beach"
+start = true
+anchors = ["cell:Beach"]
+
+[[node]]
+id = "g1_town"
+hub = true
+anchors = ["cell:Town"]
+
+[[node]]
+id = "g1_hall"
+anchors = ["cell:Hall"]
+
+[[node]]
+id = "g1_arena"
+anchors = ["cell:Arena"]
+
+[[node]]
+id = "g1_altar"
+anchors = ["cell:Altar"]
+
+[[node]]
+id = "g1_nook"
+anchors = ["cell:Nook"]
+
+[[node]]
+id = "g1_vault"
+anchors = ["cell:Vault"]
+
+[[edge]]
+from = "g1_beach"
+to = "g1_town"
+kind = "walk"
+
+[[edge]]
+from = "g1_town"
+to = "g1_beach"
+kind = "walk"
+
+[[edge]]
+from = "g1_town"
+to = "g1_hall"
+kind = "walk"
+
+[[edge]]
+from = "g1_hall"
+to = "g1_town"
+kind = "walk"
+
+[[edge]]
+from = "g1_hall"
+to = "g1_arena"
+kind = "drop"
+requires = "disca>=3"
+
+[[edge]]
+from = "g1_arena"
+to = "g1_altar"
+kind = "walk"
+requires = "flag:g1.guard.killed"
+
+[[edge]]
+from = "g1_altar"
+to = "g1_arena"
+kind = "walk"
+
+[[edge]]
+from = "g1_arena"
+to = "g1_nook"
+kind = "drop"
+
+[[edge]]
+from = "g1_nook"
+to = "g1_arena"
+kind = "walk"
+requires = "water>=1"
+
+[[edge]]
+from = "g1_altar"
+to = "g1_town"
+kind = "teleport"
+disc = "air"
+exit = "g1/g0/r200"
+requires = "disca>=4"
+
+[[edge]]
+from = "g1_town"
+to = "g1_vault"
+kind = "walk"
+requires = "disca>=4"
+
+[[edge]]
+from = "g1_vault"
+to = "g1_town"
+kind = "walk"
+
+[[event]]
+id = "g1.guard.killed"
+of = "g1/g0/r100"
+at = "g1_arena"
+requires = "fire>=1"

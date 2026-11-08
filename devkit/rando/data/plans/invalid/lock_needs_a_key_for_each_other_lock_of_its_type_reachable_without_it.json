@@ -1,0 +1,10 @@
+{
+ "db": "reachdb",
+ "pins": "two keys can't open r1.lock_b: it needs the worst-case count, 3, since r1.lock_a and r1.lock_c can be opened first (I-9)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r16": "sapphire",
+  "r1/g0/r17": "power_life",
+  "r1/g0/r18": "key_red"
+ }
+}

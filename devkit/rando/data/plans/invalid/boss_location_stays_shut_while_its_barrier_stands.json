@@ -1,0 +1,10 @@
+{
+ "db": "reachdb",
+ "pins": "an event needs the barriers it is required_for destroyed",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r15": "power_water",
+  "r1/g0/r19": "power_life",
+  "r1/g0/r2": "sapphire"
+ }
+}

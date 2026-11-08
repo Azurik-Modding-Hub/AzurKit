@@ -1,0 +1,12 @@
+{
+ "db": "reachdb",
+ "items": [
+  "power_air"
+ ],
+ "pins": "a barrier's hand requires is ANDed with its generated one or its override (r1.gate: water too)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r2": "sapphire",
+  "r1/g0/r47": "power_life"
+ }
+}

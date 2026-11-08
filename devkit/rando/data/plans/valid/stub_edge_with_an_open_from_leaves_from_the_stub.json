@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a stub's edge with from = \"\" leaves from the stub (r2's second exit, into r1_dock)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r52": "power_life"
+ }
+}

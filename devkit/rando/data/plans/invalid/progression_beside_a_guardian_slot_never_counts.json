@@ -1,0 +1,8 @@
+{
+ "db": "guardiandb",
+ "pins": "CE4: a no-return region's spots other than its slot are forfeitable (D81): the teleport fires once, so a player who takes the slot first never gets back to them, and the water put in the arena never counts",
+ "placement": {
+  "g1/g0/r5": "sapphire",
+  "g1/g0/r6": "power_water"
+ }
+}

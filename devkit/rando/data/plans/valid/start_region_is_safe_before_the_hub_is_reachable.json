@@ -1,0 +1,9 @@
+{
+ "db": "escapedb",
+ "pins": "CE1: the escape's anchor is the start, not the hub (plan §2.13 rule 1): with the water that opens the way to the hub not placed yet, as during a fill, the cove, off the start, is safe and gives its power_life",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r2": null,
+  "e1/g0/r3": "power_life"
+ }
+}

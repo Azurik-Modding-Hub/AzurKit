@@ -1,0 +1,15 @@
+{
+ "db": "escapedb",
+ "pins": "CE7: the sink is in logic once the water is held, and a trap before: a node of R_phys whose escape fails at some sphere (plan §2.13's trap gate); the pit, the sump and the throne are traps at every sphere, and the well is one until the lever is pulled, since a player can take its drop before (the drop only assumes the lever)",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r8": "power_life"
+ },
+ "traps": [
+  "e1_pit",
+  "e1_sink",
+  "e1_sump",
+  "e1_throne",
+  "e1_well"
+ ]
+}

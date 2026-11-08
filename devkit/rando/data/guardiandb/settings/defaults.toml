@@ -1,0 +1,6 @@
+format = "azurik-rando-settings/1"
+skip_ceiling = 0
+movement_tier = "standard"
+dark_fire = 1
+
+[skip_override]

@@ -1,0 +1,87 @@
+format = "azurik-rando-tricks/1"
+owner_refs = ["toy"]
+made = "2026-10-12 (the toy database)"
+
+[[trick]]
+name = "jumpy"
+description = "a toy technique family"
+mechanism = "toy"
+confidence = "toy"
+evidence = []
+
+[[trick]]
+name = "saveanywhere"
+description = "save anywhere"
+mechanism = "toy"
+confidence = "toy"
+evidence = []
+
+[[skip]]
+id = "t1.wall_skip"
+name = "Wall Skip"
+level = "t1"
+bypasses = "the wall"
+from = "t1_start"
+to = "t1_vault"
+gates = ["t1.wall"]
+tricks = ["jumpy"]
+requires = "true"
+difficulty = 2
+difficulty_reason = "toy"
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"
+
+[[skip]]
+id = "t1.held_skip"
+name = "Held Skip"
+level = "t1"
+bypasses = "nothing yet"
+tricks = ["jumpy"]
+requires = "true"
+difficulty = 3
+difficulty_reason = "toy"
+status = "held"
+held_reason = "unconfirmed (D114): toy"
+confirmed = "no"
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"
+
+[[skip]]
+id = "t1.manual_skip"
+name = "Manual Skip"
+level = "t1"
+bypasses = "anything"
+tricks = ["saveanywhere"]
+requires = "true"
+difficulty = 4
+difficulty_reason = "toy"
+status = "manual"
+confirmed = { by = "owner", ref = "toy" }
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"
+
+[[time_saver]]
+id = "t1.vault_drop"
+name = "Vault Drop"
+level = "t1"
+replaces = "the walk back from the vault"
+from = "t1_vault"
+to = "t1_start"
+tricks = ["jumpy"]
+kit = "true"
+video = ["abcdefghijk@01:02"]
+source = "toy"
+saves = "toy"
+plain = "the walk t1_vault -> t1_start"
+evidence = []
+d145_evidence = []
+was = "toy"
+d145 = "toy"

@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a gated_by atom whose gate no hand object binds is false (an incomplete keylord)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r56": "power_life"
+ }
+}

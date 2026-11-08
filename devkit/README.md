@@ -19,9 +19,9 @@ names its verbs in `VERBS` (`{verb: its line}`); the verb `v` is the module
 `main(argv) -> int` runs it. An unknown area or verb exits 2.
 
 Each arrives with its own step (`re`'s XBE verbs, data and shim authoring,
-`xemu`'s harness, sitting kit and demos, `sim`'s levels and `mcp` are
-here; the rest come after the first release, 4.4); this is what each will
-hold:
+`xemu`'s harness, sitting kit and demos, `sim`'s levels, `mcp` and
+`rando`'s database tools are here; the rest come after the first release,
+4.4); this is what each will hold:
 
 | Area | What it holds |
 |---|---|

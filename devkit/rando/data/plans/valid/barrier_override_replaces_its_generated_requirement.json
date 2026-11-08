@@ -1,0 +1,12 @@
+{
+ "db": "reachdb",
+ "items": [
+  "power_air"
+ ],
+ "pins": "a barrier's override_requires replaces its generated requirement (r1.gate: air, not fire)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r3": "sapphire",
+  "r1/g0/r47": "power_life"
+ }
+}

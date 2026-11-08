@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a location gated_by a boss needs the hand event bound to the boss (r1.boss.slain, whatever the generated event's name), which needs the barrier it is required for",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r19": "power_life"
+ }
+}

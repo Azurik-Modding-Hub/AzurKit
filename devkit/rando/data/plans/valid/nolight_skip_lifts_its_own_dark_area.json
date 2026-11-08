@@ -1,0 +1,12 @@
+{
+ "db": "reachdb",
+ "pins": "an enabled nolight skip lifts the light need of its own dark area (no fire held)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r22": "power_life",
+  "r1/g0/r3": "sapphire"
+ },
+ "settings": {
+  "skip_ceiling": 3
+ }
+}

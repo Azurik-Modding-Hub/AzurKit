@@ -1,0 +1,12 @@
+{
+ "db": "guardiandb",
+ "pins": "CE3: the arena, a one-way drop with 3 of the air disc, gets back only by the disc teleport, which the escape takes once the boss is down and the slot collected (RANDOMIZER_PLAN §2.9); the nook, whose way back needs the water the vault holds after the disc is whole, is a trap until then, and once the slot is collected the region's three nodes are the traps after completion",
+ "traps": [
+  "g1_nook"
+ ],
+ "after_completion": [
+  "g1_altar",
+  "g1_arena",
+  "g1_nook"
+ ]
+}

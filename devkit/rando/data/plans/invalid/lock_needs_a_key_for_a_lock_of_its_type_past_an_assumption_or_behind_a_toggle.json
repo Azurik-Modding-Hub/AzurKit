@@ -1,0 +1,9 @@
+{
+ "db": "reachdb",
+ "pins": "the worst-case key count reads R_phys: two keys can't open r1.lock_d, which needs 3, since r1.lock_e is past a drop that only assumes r1.lock_d is open and r1.lock_f behind an edge out of logic that the toggle r1.lever opens",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r60": "sapphire",
+  "r1/g0/r63": "power_life"
+ }
+}

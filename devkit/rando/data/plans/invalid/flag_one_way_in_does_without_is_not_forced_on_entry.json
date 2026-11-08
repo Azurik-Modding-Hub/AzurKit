@@ -1,0 +1,8 @@
+{
+ "db": "escapedb",
+ "pins": "a flag is forced on entry only when no way in does without it: the sump's second way in, from the town with air, needs no valve, even while the air is still out of reach",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r10": "power_life"
+ }
+}

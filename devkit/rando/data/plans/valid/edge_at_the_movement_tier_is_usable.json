@@ -1,0 +1,11 @@
+{
+ "db": "reachdb",
+ "pins": "an edge whose difficulty is at the movement tier is usable (hard, 3; the tier set here since D186 made standard the default)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r21": "power_life"
+ },
+ "settings": {
+  "movement_tier": "hard"
+ }
+}

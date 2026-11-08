@@ -1,0 +1,8 @@
+{
+ "db": "escapedb",
+ "pins": "CE6: only a safe node gives items: the throne, a one-way arena, never does (plan §2.13 rule 4)",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r5": "power_life"
+ }
+}

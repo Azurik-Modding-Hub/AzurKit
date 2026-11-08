@@ -1,0 +1,83 @@
+# A toy database for the planner's tests (tests/rando/toydb; docs/RANDOMIZER_DB.md). t1 is authored, t2 a stub.
+format = "azurik-rando-level/1"
+level = "t1"
+status = "authored"
+route = ["t1/g0/r1", "t1/g0/r2"]
+
+[[node]]
+id = "t1_start"
+start = true
+anchors = ["t1/g0/r20"]
+locations = ["t1/g0/r1", "t1/g0/r3"]
+
+[[node]]
+id = "t1_vault"
+anchors = ["cell:Vault"]
+
+[[edge]]
+from = "t1_start"
+to = "t2_hub"
+kind = "exit"
+exit = "t1/g0/r20"
+
+[[edge]]
+from = "t1_start"
+to = "t1_vault"
+kind = "walk"
+through = ["t1.wall"]
+requires = "button:t1.lock | skip:t1.wall_skip"
+confidence = "data"
+
+[[edge]]
+from = "t1_vault"
+to = "t1_start"
+kind = "walk"
+
+[[barrier]]
+id = "t1.wall"
+of = "t1/g0/r10"
+destroy_from = ["t1_start"]
+
+[[button]]
+id = "t1.lock"
+of = "t1/g0/r30"
+at = "t1_start"
+mode = "latch"
+
+[[event]]
+id = "t1.boss.killed"
+of = "t1/g0/r40"
+at = "t1_vault"
+requires = "water1"
+
+[[location]]
+id = "t1/g0/r2"
+proven = { by = "data", ref = "toy" }
+
+[[skip]]
+id = "t1.wall_skip"
+name = "Wall Skip"
+tricks = ["jumpy"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+from = "t1_start"
+to = "t1_vault"
+gates = ["t1.wall"]
+
+[[skip]]
+id = "t1.held_skip"
+name = "Held Skip"
+tricks = ["jumpy"]
+difficulty = 3
+status = "held"
+confirmed = "no"
+
+[[skip]]
+id = "t1.manual_skip"
+name = "Manual Skip"
+tricks = ["saveanywhere"]
+difficulty = 4
+status = "manual"
+confirmed = { by = "owner", ref = "toy" }

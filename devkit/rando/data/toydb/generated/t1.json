@@ -1,0 +1,116 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "hand-written toy database (tests/rando/toydb)",
+  "source": {
+   "file": "none",
+   "sha256_12": "000000000000",
+   "size": 0
+  }
+ },
+ "barriers": [
+  {
+   "id": "t1/g0/r10",
+   "kind": "firewall",
+   "persist": "permanent",
+   "requires": "water>=1"
+  }
+ ],
+ "bosses": [
+  {
+   "event": "t1.boss.killed",
+   "id": "t1/g0/r40"
+  }
+ ],
+ "cells": [
+  "Vault"
+ ],
+ "counts": {},
+ "exits": [
+  {
+   "dest_level": "t2",
+   "id": "t1/g0/r20",
+   "kind": "exit",
+   "live": true
+  }
+ ],
+ "game_states": [],
+ "geodes": [],
+ "graphs": [
+  {
+   "g": 0,
+   "links": 0,
+   "ndbg_toc_index": 1,
+   "padding_after": 0,
+   "records": 50,
+   "saved_nodes": 0,
+   "toc_index": 0
+  }
+ ],
+ "keylocks": [
+  {
+   "coded": true,
+   "id": "t1/g0/r30",
+   "requires": "key.red>=1"
+  }
+ ],
+ "keylords": [],
+ "kind": "realm",
+ "latches": [],
+ "level": "t1",
+ "locations": [
+  {
+   "class": "major",
+   "id": "t1/g0/r1",
+   "item": "power_water",
+   "pool": true
+  },
+  {
+   "cell": "Vault",
+   "class": "major",
+   "gated_by": [
+    "t1/g0/r40"
+   ],
+   "id": "t1/g0/r2",
+   "item": "key_red",
+   "pool": true
+  },
+  {
+   "class": "gem",
+   "id": "t1/g0/r3",
+   "item": "sapphire",
+   "pool": true
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [],
+ "seals": [],
+ "spots": [],
+ "teleporters": [
+  {
+   "id": "t1/g0/r50",
+   "locators": [
+    "t1/g0/r50",
+    "t1/g0/r51"
+   ],
+   "namespace": "Pad",
+   "routes": [
+    {
+     "needs": [
+      "t1/g0/r54"
+     ],
+     "to": "t1/g0/r50",
+     "touch": "t1/g0/r52"
+    },
+    {
+     "needs": [
+      "t1/g0/r54"
+     ],
+     "to": "t1/g0/r51",
+     "touch": "t1/g0/r53"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a stub's pool location gives its yield (r2's emerald cluster: 5, for emerald>=5)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r50": "power_life"
+ }
+}

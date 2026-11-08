@@ -1,0 +1,11 @@
+{
+ "db": "escapedb",
+ "pins": "a forced flag counts toward an escape only once credited: the loft skip gets in, but the hoist its other way in needs is never pressed, so the loft's way out stays shut",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r12": "power_life"
+ },
+ "settings": {
+  "skip_ceiling": 1
+ }
+}

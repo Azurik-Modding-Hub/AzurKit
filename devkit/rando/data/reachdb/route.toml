@@ -1,0 +1,6 @@
+format = "azurik-rando-route/1"
+status = "draft"
+location_steps = 0
+action_steps = 0
+replay_problems = 0
+step = []

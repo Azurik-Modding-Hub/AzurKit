@@ -1,0 +1,11 @@
+{
+ "db": "escapedb",
+ "flags": [
+  "e1.lever.open"
+ ],
+ "pins": "a flag credited from the start counts toward every escape: the pit's way back is open once the lever is set from the start",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r6": "power_life"
+ }
+}

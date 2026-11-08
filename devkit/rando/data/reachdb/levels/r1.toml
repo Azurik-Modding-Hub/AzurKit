@@ -1,0 +1,493 @@
+# The solver's toy database (tests/rando/reachdb; docs/RANDOMIZER_DB.md §15). r1 is authored: one room off the
+# start for each mechanism the reach models. The pool locations (generated/r1.json, by cell):
+#   Start r1-r7: power_life, power_water, power_fire, key_red, obsidian x2, frag_air_1;
+#   Start r8 (inside r1.wall), r9 (inside r1.ice), r10 (r1.olock's contents), r11 (a geode gem), r12 (needs the
+#   toggle r1.lever), r13 (needs flag:r1.ice.destroyed); Vault r14; Ice r15; Hall r16 (key_red); Inner r17, r18;
+#   Arena r19 (after the boss); Pit r20; Ledge r21; Cave r22; Crypt r23; Tower r24; Secret r25; Mine r26; Shaft r27;
+#   Nook r28 (behind r1.crack, which respawns and is destroyed from the nook only); Start r29 (inside r1.crack),
+#   r43 (key_red), r49 (needs r1.relay, a button bound to an uncoded keylock); Start r47 (inside r1.gate, whose
+#   override and hand requirements both count), r48 (needs r1.relay_driven, a relay with an override), r50 (needs the
+#   emerald cluster of the stub r2, yield 5), r51 (needs the flag of r2's respawning barrier, never set), r54 (inside
+#   r1.slab, destroyed from the dark crypt), r56 (gated by a keylord no event binds); Dock r52 (reached from r2 only).
+#   Start r60-r62 (key_blue), r63 (needs r1.lock_d, the blue lock on the start, whose key count reads R_phys: the blue
+#   locks r1.lock_e in the chute, a drop that assumes r1.lock_d is open, and r1.lock_f in the attic, behind an edge
+#   out of logic that the toggle r1.lever opens); Gap r64 (behind an edge of the phys tier, difficulty 0).
+# Every other one holds a sapphire.
+format = "azurik-rando-level/1"
+level = "r1"
+status = "authored"
+route = ["r1/g0/r1"]
+
+[[node]]
+id = "r1_start"
+start = true
+anchors = ["cell:Start"]
+
+[[node]]
+id = "r1_vault"
+anchors = ["cell:Vault"]
+
+[[node]]
+id = "r1_ice"
+anchors = ["cell:Ice"]
+
+[[node]]
+id = "r1_hall"
+anchors = ["cell:Hall"]
+
+[[node]]
+id = "r1_inner"
+anchors = ["cell:Inner"]
+
+[[node]]
+id = "r1_arena"
+anchors = ["cell:Arena"]
+
+[[node]]
+id = "r1_pit"
+anchors = ["cell:Pit"]
+
+[[node]]
+id = "r1_ledge"
+anchors = ["cell:Ledge"]
+
+[[node]]
+id = "r1_cave"
+anchors = ["cell:Cave"]
+
+[[node]]
+id = "r1_crypt"
+anchors = ["cell:Crypt"]
+dark = true
+
+[[node]]
+id = "r1_tower"
+anchors = ["cell:Tower"]
+
+[[node]]
+id = "r1_secret"
+anchors = ["cell:Secret"]
+
+[[node]]
+id = "r1_mine"
+anchors = ["cell:Mine"]
+
+[[node]]
+id = "r1_shaft"
+anchors = ["cell:Shaft"]
+
+[[node]]
+id = "r1_nook"
+anchors = ["cell:Nook"]
+
+[[node]]
+id = "r1_dock"
+anchors = ["cell:Dock"]
+
+[[node]]
+id = "r1_chute"
+anchors = ["cell:Chute"]
+
+[[node]]
+id = "r1_attic"
+anchors = ["cell:Attic"]
+
+[[node]]
+id = "r1_gap"
+anchors = ["cell:Gap"]
+
+[[edge]]
+from = "r1_start"
+to = "r2_yard"
+kind = "exit"
+exit = "r1/g0/r37"
+
+[[edge]]
+from = "r1_start"
+to = "r1_vault"
+kind = "walk"
+through = ["r1.wall"]
+
+[[edge]]
+from = "r1_vault"
+to = "r1_start"
+kind = "walk"
+through = ["r1.wall"]
+
+[[edge]]
+from = "r1_start"
+to = "r1_ice"
+kind = "walk"
+through = ["r1.ice"]
+
+[[edge]]
+from = "r1_ice"
+to = "r1_start"
+kind = "walk"
+through = ["r1.ice"]
+
+[[edge]]
+from = "r1_start"
+to = "r1_hall"
+kind = "walk"
+requires = "button:r1.lock_a"
+
+[[edge]]
+from = "r1_hall"
+to = "r1_start"
+kind = "walk"
+requires = "button:r1.lock_a"
+
+[[edge]]
+from = "r1_hall"
+to = "r1_inner"
+kind = "walk"
+requires = "button:r1.lock_b"
+
+[[edge]]
+from = "r1_inner"
+to = "r1_hall"
+kind = "walk"
+requires = "button:r1.lock_b"
+
+[[edge]]
+from = "r1_start"
+to = "r1_arena"
+kind = "walk"
+
+[[edge]]
+from = "r1_arena"
+to = "r1_start"
+kind = "walk"
+
+[[edge]]
+from = "r1_start"
+to = "r1_pit"
+kind = "drop"
+assumes = ["r1.olock.open"]
+
+[[edge]]
+from = "r1_pit"
+to = "r1_start"
+kind = "walk"
+requires = "button:r1.olock"
+
+[[edge]]
+from = "r1_start"
+to = "r1_ledge"
+kind = "walk"
+difficulty = 3
+
+[[edge]]
+from = "r1_ledge"
+to = "r1_start"
+kind = "drop"
+
+[[edge]]
+from = "r1_start"
+to = "r1_cave"
+kind = "walk"
+dark = "r1.cave_nolight"
+
+[[edge]]
+from = "r1_cave"
+to = "r1_start"
+kind = "walk"
+dark = "r1.cave_nolight"
+
+[[edge]]
+from = "r1_start"
+to = "r1_crypt"
+kind = "walk"
+
+[[edge]]
+from = "r1_crypt"
+to = "r1_start"
+kind = "walk"
+
+[[edge]]
+from = "r1_start"
+to = "r1_tower"
+kind = "walk"
+requires = "disca>=2"
+
+[[edge]]
+from = "r1_tower"
+to = "r1_start"
+kind = "drop"
+
+[[edge]]
+from = "r1_start"
+to = "r1_secret"
+kind = "walk"
+logic = false
+
+[[edge]]
+from = "r1_secret"
+to = "r1_start"
+kind = "walk"
+logic = false
+
+[[edge]]
+from = "r1_start"
+to = "r1_mine"
+kind = "cart"
+lock = "r1_cart_ok"
+exit = "r1/g0/r38"
+
+[[edge]]
+from = "r1_mine"
+to = "r1_start"
+kind = "walk"
+
+[[edge]]
+from = "r1_start"
+to = "r1_shaft"
+kind = "cart"
+lock = "r1_cart_off"
+exit = "r1/g0/r39"
+
+[[edge]]
+from = "r1_shaft"
+to = "r1_start"
+kind = "walk"
+
+[[edge]]
+from = "r1_start"
+to = "r1_nook"
+kind = "walk"
+through = ["r1.crack"]
+
+[[edge]]
+from = "r1_nook"
+to = "r1_start"
+kind = "walk"
+through = ["r1.crack"]
+
+[[edge]]
+from = "r1_dock"
+to = "r1_start"
+kind = "walk"
+
+[[edge]]
+from = "r1_start"
+to = "r1_chute"
+kind = "drop"
+assumes = ["r1.lock_d.open"]
+
+[[edge]]
+from = "r1_chute"
+to = "r1_start"
+kind = "walk"
+
+[[edge]]
+from = "r1_start"
+to = "r1_attic"
+kind = "walk"
+requires = "button:r1.lever"
+logic = false
+
+[[edge]]
+from = "r1_attic"
+to = "r1_start"
+kind = "walk"
+
+[[edge]]
+from = "r1_start"
+to = "r1_gap"
+kind = "walk"
+difficulty = 0
+
+[[edge]]
+from = "r1_gap"
+to = "r1_start"
+kind = "walk"
+
+[[barrier]]
+id = "r1.wall"
+of = "r1/g0/r30"
+destroy_from = ["r1_start"]
+bypass = { "r1_start->r1_vault" = "skip:r1.wall_skip", "r1_vault->r1_start" = "skip:r1.wall_back" }
+contains = ["r1/g0/r8"]
+required_for = ["r1.boss.slain"]
+
+[[barrier]]
+id = "r1.ice"
+of = "r1/g0/r31"
+destroy_from = ["r1_start", "r1_ice"]
+bypass = { "r1_start->r1_ice" = "skip:r1.ice_held | skip:r1.ice_manual" }
+contains = ["r1/g0/r9"]
+
+[[barrier]]
+id = "r1.crack"
+of = "r1/g0/r42"
+destroy_from = ["r1_nook"]
+contains = ["r1/g0/r29"]
+
+[[barrier]]
+id = "r1.gate"
+of = "r1/g0/r46"
+destroy_from = ["r1_start"]
+override_requires = "air>=1"
+override_reason = "toy: the override replaces the generated requirement"
+requires = "water>=1"
+contains = ["r1/g0/r47"]
+
+[[barrier]]
+id = "r1.slab"
+of = "r1/g0/r53"
+destroy_from = ["r1_crypt"]
+contains = ["r1/g0/r54"]
+
+[[button]]
+id = "r1.lock_a"
+of = "r1/g0/r32"
+at = "r1_start"
+mode = "latch"
+
+[[button]]
+id = "r1.lock_b"
+of = "r1/g0/r33"
+at = "r1_hall"
+mode = "latch"
+
+[[button]]
+id = "r1.olock"
+of = "r1/g0/r34"
+at = "r1_start"
+mode = "latch"
+
+[[button]]
+id = "r1.lever"
+at = "r1_start"
+mode = "toggle"
+
+[[button]]
+id = "r1.lock_c"
+of = "r1/g0/r40"
+at = "r1_secret"
+mode = "latch"
+
+[[button]]
+id = "r1.relay"
+of = "r1/g0/r45"
+at = "r1_start"
+mode = "latch"
+
+[[button]]
+id = "r1.relay_driven"
+of = "r1/g0/r44"
+at = "r1_start"
+mode = "latch"
+override_requires = "button:r1.lock_a"
+override_reason = "toy: a relay its coded lock drives"
+requires = "air>=1"
+
+[[button]]
+id = "r1.lock_d"
+of = "r1/g0/r57"
+at = "r1_start"
+mode = "latch"
+
+[[button]]
+id = "r1.lock_e"
+of = "r1/g0/r58"
+at = "r1_chute"
+mode = "latch"
+
+[[button]]
+id = "r1.lock_f"
+of = "r1/g0/r59"
+at = "r1_attic"
+mode = "latch"
+
+[[event]]
+id = "r1.boss.slain"
+of = "r1/g0/r36"
+at = "r1_arena"
+requires = "fire>=1"
+
+[[location]]
+id = "r1/g0/r12"
+requires = "button:r1.lever"
+
+[[location]]
+id = "r1/g0/r13"
+requires = "flag:r1.ice.destroyed"
+
+[[location]]
+id = "r1/g0/r49"
+requires = "button:r1.relay"
+
+[[location]]
+id = "r1/g0/r48"
+requires = "button:r1.relay_driven"
+
+[[location]]
+id = "r1/g0/r50"
+requires = "emerald>=5"
+
+[[location]]
+id = "r1/g0/r51"
+requires = "flag:r2.fire.destroyed"
+
+[[location]]
+id = "r1/g0/r63"
+requires = "button:r1.lock_d"
+
+[[skip]]
+id = "r1.wall_skip"
+name = "Wall Skip"
+tricks = ["bskip"]
+requires = "air>=1"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+from = "r1_start"
+to = "r1_vault"
+gates = ["r1.wall"]
+
+[[skip]]
+id = "r1.wall_back"
+name = "Wall Skip Back"
+tricks = ["bskip"]
+requires = "true"
+difficulty = 1
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+from = "r1_vault"
+to = "r1_start"
+gates = ["r1.wall"]
+
+[[skip]]
+id = "r1.ice_held"
+name = "Ice Skip"
+tricks = ["bskip"]
+requires = "true"
+difficulty = 1
+status = "held"
+confirmed = "no"
+from = "r1_start"
+to = "r1_ice"
+gates = ["r1.ice"]
+
+[[skip]]
+id = "r1.ice_manual"
+name = "Ice Save Skip"
+tricks = ["saveanywhere"]
+requires = "true"
+difficulty = 1
+status = "manual"
+confirmed = { by = "owner", ref = "toy" }
+from = "r1_start"
+to = "r1_ice"
+gates = ["r1.ice"]
+
+[[skip]]
+id = "r1.cave_nolight"
+name = "Cave Without Light"
+tricks = ["nolight"]
+requires = "true"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }

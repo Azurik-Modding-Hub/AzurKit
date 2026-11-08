@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "destroying a permanent barrier frees its contains locations",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r8": "power_life"
+ }
+}

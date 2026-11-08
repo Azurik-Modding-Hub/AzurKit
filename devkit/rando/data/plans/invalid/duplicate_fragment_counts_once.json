@@ -1,0 +1,9 @@
+{
+ "db": "reachdb",
+ "pins": "a disc counter counts distinct fragments: two frag_air_2 make disca 1",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r24": "power_life",
+  "r1/g0/r7": "frag_air_2"
+ }
+}

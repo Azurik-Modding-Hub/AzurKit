@@ -1,0 +1,10 @@
+{
+ "db": "escapedb",
+ "pins": "an item found inside a region counts toward its own escape (plan §2.13 rule 2): the sink holds the water its way out needs, and the water opens the way to the town",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r2": "sapphire",
+  "e1/g0/r4": "power_life",
+  "e1/g0/r8": "power_water"
+ }
+}

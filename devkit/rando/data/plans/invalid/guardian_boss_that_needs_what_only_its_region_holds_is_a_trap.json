@@ -1,0 +1,13 @@
+{
+ "db": "guardiandb",
+ "pins": "CE8: the region's gate is 3 of the disc and whatever its boss needs, not the disc alone (RANDOMIZER_PLAN §2.9): with the fire in the arena (forfeitable), a player who drops in with 3 fragments is stuck, so the arena and the nook are traps, and the disc is never whole, so none is a trap after completion",
+ "placement": {
+  "g1/g0/r2": "sapphire",
+  "g1/g0/r6": "power_fire"
+ },
+ "traps": [
+  "g1_arena",
+  "g1_nook"
+ ],
+ "after_completion": []
+}

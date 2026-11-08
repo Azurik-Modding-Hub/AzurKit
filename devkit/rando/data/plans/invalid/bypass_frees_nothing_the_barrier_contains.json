@@ -1,0 +1,16 @@
+{
+ "db": "reachdb",
+ "items": [
+  "power_air"
+ ],
+ "pins": "a bypass sets no flag and frees none of the barrier's contents",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r15": "power_water",
+  "r1/g0/r2": "sapphire",
+  "r1/g0/r8": "power_life"
+ },
+ "settings": {
+  "skip_ceiling": 2
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "db": "reachdb",
+ "pins": "an edge of difficulty 0, the envelope's phys tier, is in R_phys only, even at frame_perfect",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r64": "power_life"
+ },
+ "settings": {
+  "movement_tier": "frame_perfect"
+ }
+}

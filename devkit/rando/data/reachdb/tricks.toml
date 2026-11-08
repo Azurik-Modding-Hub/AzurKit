@@ -1,0 +1,118 @@
+format = "azurik-rando-tricks/1"
+owner_refs = ["toy"]
+made = "2026-10-12 (the solver's toy database)"
+
+[[trick]]
+name = "bskip"
+description = "barrier skips"
+mechanism = "toy"
+confidence = "toy"
+evidence = []
+
+[[trick]]
+name = "nolight"
+description = "a dark area without light"
+mechanism = "toy"
+confidence = "toy"
+evidence = []
+
+[[trick]]
+name = "saveanywhere"
+description = "save anywhere"
+mechanism = "toy"
+confidence = "toy"
+evidence = []
+
+[[skip]]
+id = "r1.wall_skip"
+name = "Wall Skip"
+level = "r1"
+bypasses = "toy"
+from = "r1_start"
+to = "r1_vault"
+gates = ["r1.wall"]
+tricks = ["bskip"]
+requires = "air>=1"
+difficulty = 2
+difficulty_reason = "toy"
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"
+
+[[skip]]
+id = "r1.wall_back"
+name = "Wall Skip Back"
+level = "r1"
+bypasses = "toy"
+from = "r1_vault"
+to = "r1_start"
+gates = ["r1.wall"]
+tricks = ["bskip"]
+requires = "true"
+difficulty = 1
+difficulty_reason = "toy"
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"
+
+[[skip]]
+id = "r1.ice_held"
+name = "Ice Skip"
+level = "r1"
+bypasses = "toy"
+from = "r1_start"
+to = "r1_ice"
+gates = ["r1.ice"]
+tricks = ["bskip"]
+requires = "true"
+difficulty = 1
+difficulty_reason = "toy"
+status = "held"
+held_reason = "unconfirmed (D114): toy"
+confirmed = "no"
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"
+
+[[skip]]
+id = "r1.ice_manual"
+name = "Ice Save Skip"
+level = "r1"
+bypasses = "toy"
+from = "r1_start"
+to = "r1_ice"
+gates = ["r1.ice"]
+tricks = ["saveanywhere"]
+requires = "true"
+difficulty = 1
+difficulty_reason = "toy"
+status = "manual"
+confirmed = { by = "owner", ref = "toy" }
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"
+
+[[skip]]
+id = "r1.cave_nolight"
+name = "Cave Without Light"
+level = "r1"
+bypasses = "toy"
+dark_node = "r1_cave"
+tricks = ["nolight"]
+requires = "true"
+difficulty = 3
+difficulty_reason = "toy"
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"

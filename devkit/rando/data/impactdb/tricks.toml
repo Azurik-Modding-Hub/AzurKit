@@ -1,0 +1,11 @@
+format = "azurik-rando-tricks/1"
+owner_refs = ["toy"]
+made = "2026-10-13 (the impact toy database)"
+skip = []
+
+[[trick]]
+name = "bskip"
+description = "barrier skips"
+mechanism = "toy"
+confidence = "toy"
+evidence = []

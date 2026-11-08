@@ -1,0 +1,16 @@
+{
+ "db": "reachdb",
+ "items": [
+  "power_air"
+ ],
+ "pins": "a skip rated above skip_ceiling is off",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r14": "power_life",
+  "r1/g0/r15": "power_water",
+  "r1/g0/r2": "sapphire"
+ },
+ "settings": {
+  "skip_ceiling": 1
+ }
+}

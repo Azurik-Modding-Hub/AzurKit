@@ -1,0 +1,8 @@
+{
+ "db": "escapedb",
+ "pins": "CE2: a flag credited elsewhere doesn't count toward an escape: the pit's way back needs the lever on the beach, which a player can drop in without pressing (plan §2.13 rule 3)",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r6": "power_life"
+ }
+}

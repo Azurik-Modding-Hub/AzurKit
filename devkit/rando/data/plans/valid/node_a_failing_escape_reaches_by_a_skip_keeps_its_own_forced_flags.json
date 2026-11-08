@@ -1,0 +1,12 @@
+{
+ "db": "escapedb",
+ "pins": "the escape cache (§15): a closure that fails fails the nodes it saw only where it held their starting flags; with no water the sink never gets back, and its closure, with the tank skip on, reaches the tank without the valve, which is forced on the tank's every skip-free way in and credited, so the tank's own escape still holds and its spot is collected",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r2": "sapphire",
+  "e1/g0/r14": "power_life"
+ },
+ "settings": {
+  "skip_ceiling": 1
+ }
+}

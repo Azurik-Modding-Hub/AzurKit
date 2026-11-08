@@ -1,0 +1,17 @@
+# The no-return toy database (tests/rando/guardiandb; docs/RANDOMIZER_DB.md §15): one guardian region, the shape of
+# RANDOMIZER_PLAN §2.9's (CE3, CE4, CE8). Victory is the whole air disc and the water, which waits in a vault that
+# opens once the disc is whole.
+format = "azurik-rando-world/1"
+start = "g1_beach"
+hub = "g1_town"
+victory = "disca>=4 & water>=1"
+starting_items = []
+
+[[trick]]
+name = "bskip"
+description = "barrier skips"
+
+[[mechanism]]
+id = "disc_teleport"
+kind = "one_shot_teleport"
+handling = "forfeitable"

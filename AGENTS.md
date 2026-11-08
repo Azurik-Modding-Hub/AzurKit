@@ -320,6 +320,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   engine files, the hold's proofs path) are in its developer-log entry. The
   pool and FastL3 come with the reach engine. Modkit is frozen: a later fix
   is AzurKit's own, held to `tests/test_simulator.py` and `tests/test_roll.py`.
+- **The database tools' cut (Step 4.13b):** `devkit/rando` is Modkit's
+  `rando db-extract` (`levels.extract`, `write_generated`), `rando check`,
+  `rando_bench.py`, `rando_impact.py` and `rando_soak.py` at `f482ea041`,
+  with `tests/rando`'s fixture databases in `devkit/rando/data`; the few
+  rewrites (the soak's profiles and builds, four dark-area plans at Fire 1)
+  are in its developer-log entry. A later fix is AzurKit's own, held to
+  `tests/test_rando_db.py`.
 - **Coverage:** Modkit's planner tests don't guard AzurKit's copy. A step
   that edits a module from the cut ports the Modkit tests that pin what it
   changes, or names the golden that pins it.

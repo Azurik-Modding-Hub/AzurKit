@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a toggle button is never pressed in logic while its mechanism's handling is out_of_logic",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r12": "power_life"
+ }
+}

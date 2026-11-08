@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a respawning barrier is crossed from a node in its destroy_from whenever its destroy requirement holds",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r15": "power_life"
+ }
+}

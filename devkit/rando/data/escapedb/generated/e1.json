@@ -1,0 +1,147 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "hand-written toy database (tests/rando/escapedb)",
+  "source": {
+   "file": "none",
+   "sha256_12": "000000000000",
+   "size": 0
+  }
+ },
+ "barriers": [],
+ "bosses": [],
+ "cells": [
+  "Bay",
+  "Beach",
+  "Cellar",
+  "Cove",
+  "Crawl",
+  "Ledge",
+  "Loft",
+  "Pit",
+  "Sink",
+  "Spire",
+  "Sump",
+  "Tank",
+  "Throne",
+  "Town",
+  "Vat",
+  "Well"
+ ],
+ "counts": {},
+ "exits": [],
+ "game_states": [],
+ "geodes": [],
+ "graphs": [],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "realm",
+ "latches": [],
+ "level": "e1",
+ "locations": [
+  {
+   "cell": "Beach",
+   "class": "major",
+   "id": "e1/g0/r1",
+   "item": "power_life",
+   "pool": true
+  },
+  {
+   "cell": "Cove",
+   "class": "major",
+   "id": "e1/g0/r2",
+   "item": "power_water",
+   "pool": true
+  },
+  {
+   "cell": "Cove",
+   "class": "gem",
+   "id": "e1/g0/r3",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Town",
+   "class": "major",
+   "id": "e1/g0/r4",
+   "item": "power_air",
+   "pool": true
+  },
+  {
+   "cell": "Throne",
+   "class": "gem",
+   "id": "e1/g0/r5",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Pit",
+   "class": "gem",
+   "id": "e1/g0/r6",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Cellar",
+   "class": "gem",
+   "id": "e1/g0/r7",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Sink",
+   "class": "gem",
+   "id": "e1/g0/r8",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Vat",
+   "class": "gem",
+   "id": "e1/g0/r9",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Sump",
+   "class": "gem",
+   "id": "e1/g0/r10",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Well",
+   "class": "gem",
+   "id": "e1/g0/r11",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Loft",
+   "class": "gem",
+   "id": "e1/g0/r12",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Bay",
+   "class": "gem",
+   "id": "e1/g0/r13",
+   "item": "sapphire",
+   "pool": true
+  },
+  {
+   "cell": "Tank",
+   "class": "gem",
+   "id": "e1/g0/r14",
+   "item": "sapphire",
+   "pool": true
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [],
+ "seals": [],
+ "spots": [],
+ "teleporters": []
+}

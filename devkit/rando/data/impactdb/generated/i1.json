@@ -1,0 +1,106 @@
+{
+ "_meta": {
+  "date": "2026-10-13",
+  "format": "azurik-rando-generated/1",
+  "generator": "hand-written toy database (tests/rando/impactdb)",
+  "source": {
+   "file": "none",
+   "sha256_12": "000000000000",
+   "size": 0
+  }
+ },
+ "barriers": [],
+ "bosses": [],
+ "cells": [
+  "Beach",
+  "Cave",
+  "Grotto",
+  "Hill",
+  "Ledge",
+  "Tower",
+  "Town"
+ ],
+ "counts": {},
+ "exits": [],
+ "game_states": [],
+ "geodes": [],
+ "graphs": [
+  {
+   "g": 0,
+   "links": 0,
+   "ndbg_toc_index": 0,
+   "padding_after": 4096,
+   "records": 0,
+   "saved_nodes": 0,
+   "toc_index": 0
+  }
+ ],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "realm",
+ "latches": [],
+ "level": "i1",
+ "locations": [
+  {
+   "cell": "Beach",
+   "class": "major",
+   "id": "i1/g0/r1",
+   "item": "power_water",
+   "pool": true,
+   "template": "power_water"
+  },
+  {
+   "cell": "Hill",
+   "class": "major",
+   "id": "i1/g0/r2",
+   "item": "power_air",
+   "pool": true,
+   "template": "power_air"
+  },
+  {
+   "cell": "Cave",
+   "class": "major",
+   "id": "i1/g0/r3",
+   "item": "power_fire",
+   "pool": true,
+   "template": "power_fire"
+  },
+  {
+   "cell": "Grotto",
+   "class": "major",
+   "id": "i1/g0/r4",
+   "item": "power_earth",
+   "pool": true,
+   "template": "power_earth"
+  },
+  {
+   "cell": "Ledge",
+   "class": "major",
+   "id": "i1/g0/r5",
+   "item": "all_fuel",
+   "pool": true,
+   "template": "all_fuel"
+  },
+  {
+   "cell": "Tower",
+   "class": "major",
+   "id": "i1/g0/r6",
+   "item": "all_fuel",
+   "pool": true,
+   "template": "all_fuel"
+  },
+  {
+   "cell": "Town",
+   "class": "gem",
+   "id": "i1/g0/r7",
+   "item": "sapphire",
+   "pool": true,
+   "template": "sapphire"
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [],
+ "seals": [],
+ "spots": [],
+ "teleporters": []
+}

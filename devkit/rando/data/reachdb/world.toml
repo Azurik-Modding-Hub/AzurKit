@@ -1,0 +1,39 @@
+# The solver's toy database (tests/rando/reachdb; docs/RANDOMIZER_DB.md §15). Victory is holding the one
+# power_life, so each plan in tests/rando/plans/ moves it onto the spot whose reach it tests.
+format = "azurik-rando-world/1"
+start = "r1_start"
+hub = "r2_yard"
+victory = "life>=1"
+starting_items = []
+
+[[trick]]
+name = "bskip"
+description = "barrier skips"
+
+[[trick]]
+name = "nolight"
+description = "a dark area without light"
+
+[[trick]]
+name = "saveanywhere"
+description = "save anywhere"
+
+[[mechanism]]
+id = "toggles"
+kind = "toggle"
+handling = "out_of_logic"
+
+[[mechanism]]
+id = "respawns"
+kind = "respawn"
+handling = "harmless"
+
+[[mechanism]]
+id = "r1_cart_ok"
+kind = "cart"
+handling = "harmless"
+
+[[mechanism]]
+id = "r1_cart_off"
+kind = "cart"
+handling = "out_of_logic"

@@ -1,0 +1,9 @@
+{
+ "db": "reachdb",
+ "pins": "the worst-case key count counts a lock of its type that a player reaches by a logic = false edge (r1.lock_c in the secret room): r1.lock_a needs 2 keys, and one is reachable",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r16": "power_life",
+  "r1/g0/r43": "sapphire"
+ }
+}

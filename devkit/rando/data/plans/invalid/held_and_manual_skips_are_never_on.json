@@ -1,0 +1,13 @@
+{
+ "db": "reachdb",
+ "pins": "a held or a manual skip is never on, even at ceiling 4 (D114, D144, Q294)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r15": "power_life",
+  "r1/g0/r3": "sapphire",
+  "r1/g0/r9": "power_fire"
+ },
+ "settings": {
+  "skip_ceiling": 4
+ }
+}

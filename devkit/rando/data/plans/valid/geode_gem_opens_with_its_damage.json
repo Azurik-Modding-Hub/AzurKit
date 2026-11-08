@@ -1,0 +1,11 @@
+{
+ "db": "reachdb",
+ "items": [
+  "power_air"
+ ],
+ "pins": "a geode gem (gated_by a geode) needs the geode's damage",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r11": "power_life"
+ }
+}

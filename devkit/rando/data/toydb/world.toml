@@ -1,0 +1,19 @@
+format = "azurik-rando-world/1"
+start = "t1_start"
+hub = "t2_hub"
+victory = "flag:t1.boss.killed"
+starting_items = []
+
+[[trick]]
+name = "jumpy"
+description = "a toy technique family"
+
+[[trick]]
+name = "saveanywhere"
+description = "save anywhere"
+
+[[time_saver]]
+id = "t1.vault_drop"
+name = "Vault Drop"
+level = "t1"
+tricks = ["jumpy"]

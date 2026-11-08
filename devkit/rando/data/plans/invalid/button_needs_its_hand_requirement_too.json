@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a button's hand requires is ANDed with its generated one or its override (r1.relay_driven: air too)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r48": "power_life"
+ }
+}

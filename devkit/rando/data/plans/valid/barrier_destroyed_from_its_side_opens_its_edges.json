@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a permanent barrier destroyed from a destroy_from node opens every edge through it",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r14": "power_life"
+ }
+}

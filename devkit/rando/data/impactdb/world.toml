@@ -1,0 +1,11 @@
+# The impact toy database (tests/rando/impactdb; scripts/rando_impact.py, Step X.3): four powers, three proven
+# spots, so no seed fills until a fourth spot is proven, and four assumed edges of graded weight (levels/i1.toml).
+format = "azurik-rando-world/1"
+start = "i1_beach"
+hub = "i1_town"
+victory = "water>=1 & air>=1 & fire>=1 & earth>=1"
+starting_items = []
+
+[[trick]]
+name = "bskip"
+description = "barrier skips"

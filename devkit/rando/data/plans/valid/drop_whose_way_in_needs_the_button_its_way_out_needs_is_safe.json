@@ -1,0 +1,8 @@
+{
+ "db": "escapedb",
+ "pins": "a flag every way into a node needs is forced on entry: the vat's escape starts with the valve its only way in needs (plan §2.13)",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r9": "power_life"
+ }
+}

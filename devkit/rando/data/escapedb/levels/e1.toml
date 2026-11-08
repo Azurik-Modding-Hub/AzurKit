@@ -1,0 +1,318 @@
+# The escape's toy database (tests/rando/escapedb; docs/RANDOMIZER_DB.md §15). e1 is authored: the start, the hub
+# and one room off the ledge for each counter-example of RANDOMIZER_PLAN §2.13. The pool locations (generated/e1.json,
+# by cell): Beach r1 power_life; Cove r2 power_water, r3; Town r4 power_air; Throne r5; Pit r6; Cellar r7; Sink r8;
+# Vat r9; Sump r10; Well r11; Loft r12; Bay r13; Tank r14. Every other one holds a sapphire.
+#   CE1: the start reaches the hub only with water, and the water is in the cove, off the start.
+#   CE2: the pit is a drop whose way back needs the lever, which is pressed on the beach, not in the pit.
+#   CE5: the cellar's way back needs the winch, which is in the crawl, the pit's other room.
+#   CE6: the throne is a one-way final arena: its event is terminal (victory needs reach only).
+#   CE7: the sink is a drop that needs water to leave, open before the water is found.
+#   The vat's only way in needs the valve its way out needs (forced on entry); the sump's needs it too, but a second
+#   way in, from the town with air, doesn't; the well's drop assumes the lever; the loft's needs the hoist, which
+#   nothing can press, or a skip; the bay's ways in and out need the crank, named second in an `|` whose first
+#   operand, the shut, never opens; the tank's skip-free way in, from the ledge, needs the valve its way out needs,
+#   and a skip drops into it from the sink, whose own escape then fails without the valve.
+format = "azurik-rando-level/1"
+level = "e1"
+status = "authored"
+route = ["e1/g0/r1"]
+
+[[node]]
+id = "e1_beach"
+start = true
+anchors = ["cell:Beach"]
+
+[[node]]
+id = "e1_town"
+hub = true
+anchors = ["cell:Town"]
+
+[[node]]
+id = "e1_cove"
+anchors = ["cell:Cove"]
+
+[[node]]
+id = "e1_spire"
+anchors = ["cell:Spire"]
+
+[[node]]
+id = "e1_throne"
+anchors = ["cell:Throne"]
+
+[[node]]
+id = "e1_ledge"
+anchors = ["cell:Ledge"]
+
+[[node]]
+id = "e1_pit"
+anchors = ["cell:Pit"]
+
+[[node]]
+id = "e1_cellar"
+anchors = ["cell:Cellar"]
+
+[[node]]
+id = "e1_crawl"
+anchors = ["cell:Crawl"]
+
+[[node]]
+id = "e1_sink"
+anchors = ["cell:Sink"]
+
+[[node]]
+id = "e1_vat"
+anchors = ["cell:Vat"]
+
+[[node]]
+id = "e1_sump"
+anchors = ["cell:Sump"]
+
+[[node]]
+id = "e1_well"
+anchors = ["cell:Well"]
+
+[[node]]
+id = "e1_loft"
+anchors = ["cell:Loft"]
+
+[[node]]
+id = "e1_bay"
+anchors = ["cell:Bay"]
+
+[[node]]
+id = "e1_tank"
+anchors = ["cell:Tank"]
+
+[[edge]]
+from = "e1_beach"
+to = "e1_town"
+kind = "walk"
+requires = "water>=1"
+
+[[edge]]
+from = "e1_town"
+to = "e1_beach"
+kind = "walk"
+
+[[edge]]
+from = "e1_beach"
+to = "e1_cove"
+kind = "walk"
+
+[[edge]]
+from = "e1_cove"
+to = "e1_beach"
+kind = "walk"
+
+[[edge]]
+from = "e1_beach"
+to = "e1_spire"
+kind = "walk"
+
+[[edge]]
+from = "e1_spire"
+to = "e1_beach"
+kind = "walk"
+
+[[edge]]
+from = "e1_spire"
+to = "e1_throne"
+kind = "drop"
+
+[[edge]]
+from = "e1_beach"
+to = "e1_ledge"
+kind = "walk"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_beach"
+kind = "walk"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_pit"
+kind = "drop"
+
+[[edge]]
+from = "e1_pit"
+to = "e1_beach"
+kind = "walk"
+requires = "button:e1.lever"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_cellar"
+kind = "drop"
+
+[[edge]]
+from = "e1_cellar"
+to = "e1_crawl"
+kind = "walk"
+
+[[edge]]
+from = "e1_crawl"
+to = "e1_cellar"
+kind = "walk"
+
+[[edge]]
+from = "e1_cellar"
+to = "e1_ledge"
+kind = "walk"
+requires = "button:e1.winch"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_sink"
+kind = "drop"
+
+[[edge]]
+from = "e1_sink"
+to = "e1_ledge"
+kind = "walk"
+requires = "water>=1"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_vat"
+kind = "drop"
+requires = "button:e1.valve"
+
+[[edge]]
+from = "e1_vat"
+to = "e1_beach"
+kind = "walk"
+requires = "button:e1.valve"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_sump"
+kind = "drop"
+requires = "button:e1.valve"
+
+[[edge]]
+from = "e1_town"
+to = "e1_sump"
+kind = "drop"
+requires = "air>=1"
+
+[[edge]]
+from = "e1_sump"
+to = "e1_beach"
+kind = "walk"
+requires = "button:e1.valve"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_well"
+kind = "drop"
+assumes = ["e1.lever.open"]
+
+[[edge]]
+from = "e1_well"
+to = "e1_beach"
+kind = "walk"
+requires = "button:e1.lever"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_loft"
+kind = "drop"
+requires = "button:e1.hoist | skip:e1.loft_skip"
+
+[[edge]]
+from = "e1_loft"
+to = "e1_beach"
+kind = "walk"
+requires = "button:e1.hoist"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_bay"
+kind = "drop"
+requires = "button:e1.shut | button:e1.crank"
+
+[[edge]]
+from = "e1_bay"
+to = "e1_beach"
+kind = "walk"
+requires = "button:e1.shut | button:e1.crank"
+
+[[edge]]
+from = "e1_ledge"
+to = "e1_tank"
+kind = "drop"
+requires = "button:e1.valve"
+
+[[edge]]
+from = "e1_tank"
+to = "e1_beach"
+kind = "walk"
+requires = "button:e1.valve"
+
+[[edge]]
+from = "e1_sink"
+to = "e1_tank"
+kind = "drop"
+requires = "skip:e1.tank_skip"
+
+[[button]]
+id = "e1.lever"
+at = "e1_beach"
+mode = "latch"
+
+[[button]]
+id = "e1.winch"
+at = "e1_crawl"
+mode = "latch"
+
+[[button]]
+id = "e1.valve"
+at = "e1_beach"
+mode = "latch"
+
+[[button]]
+id = "e1.hoist"
+at = "e1_beach"
+mode = "latch"
+requires = "fire>=1"
+
+[[button]]
+id = "e1.shut"
+at = "e1_beach"
+mode = "latch"
+requires = "false"
+
+[[button]]
+id = "e1.crank"
+at = "e1_beach"
+mode = "latch"
+
+[[event]]
+id = "e1.final.slain"
+at = "e1_throne"
+requires = "life>=1"
+terminal = true
+
+[[skip]]
+id = "e1.loft_skip"
+name = "Loft Skip"
+tricks = ["bskip"]
+requires = "true"
+difficulty = 1
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+from = "e1_ledge"
+to = "e1_loft"
+gates = ["e1.hoist"]
+
+[[skip]]
+id = "e1.tank_skip"
+name = "Tank Skip"
+tricks = ["bskip"]
+requires = "true"
+difficulty = 1
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+from = "e1_sink"
+to = "e1_tank"

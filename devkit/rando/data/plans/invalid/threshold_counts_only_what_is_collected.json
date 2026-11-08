@@ -1,0 +1,10 @@
+{
+ "db": "reachdb",
+ "pins": "an obsidian on a spot that can't be reached doesn't count toward obsidian>=2",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r10": "power_life",
+  "r1/g0/r11": "obsidian",
+  "r1/g0/r6": "sapphire"
+ }
+}

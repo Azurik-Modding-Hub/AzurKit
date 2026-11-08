@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a threshold counts the items collected: obsidian>=2 opens with both obsidians",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r10": "power_life"
+ }
+}

@@ -1,0 +1,12 @@
+# The escape's toy database (tests/rando/escapedb; docs/RANDOMIZER_DB.md §15): one room per counter-example of
+# RANDOMIZER_PLAN §2.13 (CE1, CE2, CE5-CE7). Victory is D76's shape: an event in a one-way final arena, terminal, that
+# needs the one power_life, so each plan in tests/rando/plans/ moves the power_life onto the spot whose escape it tests.
+format = "azurik-rando-world/1"
+start = "e1_beach"
+hub = "e1_town"
+victory = "flag:e1.final.slain"
+starting_items = []
+
+[[trick]]
+name = "bskip"
+description = "barrier skips"

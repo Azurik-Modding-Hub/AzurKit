@@ -1,0 +1,47 @@
+format = "azurik-rando-tricks/1"
+owner_refs = ["toy"]
+made = "2026-10-12 (the escape's toy database)"
+
+[[trick]]
+name = "bskip"
+description = "barrier skips"
+mechanism = "toy"
+confidence = "toy"
+evidence = []
+
+[[skip]]
+id = "e1.loft_skip"
+name = "Loft Skip"
+level = "e1"
+bypasses = "toy"
+from = "e1_ledge"
+to = "e1_loft"
+gates = ["e1.hoist"]
+tricks = ["bskip"]
+requires = "true"
+difficulty = 1
+difficulty_reason = "toy"
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"
+
+[[skip]]
+id = "e1.tank_skip"
+name = "Tank Skip"
+level = "e1"
+bypasses = "toy"
+from = "e1_sink"
+to = "e1_tank"
+tricks = ["bskip"]
+requires = "true"
+difficulty = 1
+difficulty_reason = "toy"
+status = "in_logic"
+confirmed = { by = "owner", ref = "toy" }
+confidence = "toy"
+evidence = []
+source = "toy"
+d145 = "toy"

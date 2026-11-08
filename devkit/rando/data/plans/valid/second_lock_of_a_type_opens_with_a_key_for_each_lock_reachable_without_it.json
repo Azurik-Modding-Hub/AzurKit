@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a lock that uses its key up needs one key more for each other lock of its type reachable without it",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r17": "power_life"
+ }
+}

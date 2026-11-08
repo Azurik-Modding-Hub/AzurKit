@@ -1,0 +1,32 @@
+# The solver's toy database: r2 is a stub, one free node holding its vanilla items (docs/RANDOMIZER_DB.md §4.1):
+# its frag_air_2 is behind its boss, whose event has no node yet, and still counts once r2 is reached, as does its
+# emerald cluster's yield (5); its fire wall respawns, so it sets no flag; its second exit leaves from no node yet.
+format = "azurik-rando-level/1"
+level = "r2"
+status = "draft"
+
+[[node]]
+id = "r2_yard"
+hub = true
+
+[[edge]]
+from = ""
+to = "r1_start"
+kind = "exit"
+exit = "r2/g0/r37"
+
+[[edge]]
+from = ""
+to = "r1_dock"
+kind = "exit"
+exit = "r2/g0/r38"
+
+[[barrier]]
+id = "r2.fire"
+of = "r2/g0/r6"
+
+[[event]]
+id = "r2.boss.killed"
+of = "r2/g0/r5"
+at = ""
+requires = "true"

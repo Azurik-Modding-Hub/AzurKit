@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a stub's objects give their flags with no requirement, but a respawning barrier has none to give",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r51": "power_life"
+ }
+}

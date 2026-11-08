@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a button bound to a generated gate whose requires is null (an uncoded keylock, a relay) is never pressed until its override_requires explains it",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r49": "power_life"
+ }
+}

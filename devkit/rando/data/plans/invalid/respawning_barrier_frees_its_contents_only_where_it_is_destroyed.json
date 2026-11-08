@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a respawning barrier's contents need it destroyed from their own node: r1/g0/r29 is at the start, which isn't in r1.crack's destroy_from",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r29": "power_life"
+ }
+}

@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a stub level gives its vanilla items once reached, gates and open fields aside (frag_air_2 for disca>=2)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r24": "power_life"
+ }
+}

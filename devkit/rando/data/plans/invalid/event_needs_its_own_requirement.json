@@ -1,0 +1,9 @@
+{
+ "db": "reachdb",
+ "pins": "an event needs its own requires (r1.boss.slain: fire>=1)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r19": "power_life",
+  "r1/g0/r3": "sapphire"
+ }
+}

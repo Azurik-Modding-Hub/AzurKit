@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a cart edge whose lock mechanism is out_of_logic is out of logic",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r27": "power_life"
+ }
+}

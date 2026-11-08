@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a geode gem needs the geode's damage (air>=1; no air here)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r11": "power_life"
+ }
+}

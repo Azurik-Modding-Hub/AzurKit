@@ -1,0 +1,73 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "hand-written toy database (tests/rando/reachdb)",
+  "source": {
+   "file": "none",
+   "sha256_12": "000000000000",
+   "size": 0
+  }
+ },
+ "barriers": [
+  {
+   "id": "r2/g0/r6",
+   "kind": "firewall",
+   "persist": "timed",
+   "requires": "water>=1"
+  }
+ ],
+ "bosses": [
+  {
+   "event": "r2.boss.killed",
+   "id": "r2/g0/r5"
+  }
+ ],
+ "cells": [],
+ "counts": {},
+ "exits": [
+  {
+   "dest_level": "r1",
+   "id": "r2/g0/r37",
+   "kind": "exit",
+   "live": true
+  },
+  {
+   "dest_level": "r1",
+   "id": "r2/g0/r38",
+   "kind": "exit",
+   "live": true
+  }
+ ],
+ "game_states": [],
+ "geodes": [],
+ "graphs": [],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "realm",
+ "latches": [],
+ "level": "r2",
+ "locations": [
+  {
+   "class": "major",
+   "gated_by": [
+    "r2/g0/r5"
+   ],
+   "id": "r2/g0/r1",
+   "item": "frag_air_2",
+   "pool": true
+  },
+  {
+   "class": "cluster",
+   "id": "r2/g0/r2",
+   "item": "emerald",
+   "pool": true,
+   "yield": 5
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [],
+ "seals": [],
+ "spots": [],
+ "teleporters": []
+}

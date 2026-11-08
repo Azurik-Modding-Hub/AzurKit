@@ -1,0 +1,8 @@
+{
+ "db": "escapedb",
+ "pins": "a flag is forced on entry wherever an `|` names it: the bay's ways in and out both need `button:e1.shut | button:e1.crank`, and the shut never opens, so no way in does without the crank and the bay's escape starts with it (the forced flags are found whatever the operands' order)",
+ "placement": {
+  "e1/g0/r1": "sapphire",
+  "e1/g0/r13": "power_life"
+ }
+}

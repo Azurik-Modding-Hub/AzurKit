@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "an edge with logic = false is out of logic",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r25": "power_life"
+ }
+}

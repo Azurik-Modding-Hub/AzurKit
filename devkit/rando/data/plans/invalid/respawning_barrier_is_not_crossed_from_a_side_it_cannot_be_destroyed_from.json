@@ -1,0 +1,8 @@
+{
+ "db": "reachdb",
+ "pins": "a respawning barrier is crossed only from a node in its destroy_from: r1.crack is destroyed from the nook, so the start can't cross into the nook",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r28": "power_life"
+ }
+}

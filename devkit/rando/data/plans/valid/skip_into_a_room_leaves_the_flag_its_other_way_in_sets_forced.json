@@ -1,0 +1,17 @@
+{
+ "db": "reachdb",
+ "items": [
+  "power_air"
+ ],
+ "pins": "a skip into a node isn't a way in that unforces a flag: the vault, got into by r1.wall_skip with r1.wall_back off, is safe once r1.wall is destroyed",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r14": "power_life"
+ },
+ "settings": {
+  "skip_ceiling": 2,
+  "skip_override": {
+   "r1.wall_back": false
+  }
+ }
+}

@@ -1,0 +1,55 @@
+format = "azurik-rando-items/1"
+
+[counters]
+air = "air power level"
+water = "water power level"
+fire = "fire power level"
+earth = "earth power level"
+disca = "air fragments held"
+discw = "water fragments held"
+discf = "fire fragments held"
+disce = "earth fragments held"
+discl = "life fragments held"
+obsidian = "obsidians"
+sapphire = "sapphires"
+emerald = "emeralds"
+ruby = "rubies"
+diamond = "diamonds"
+life = "power_life upgrades"
+staff = "staff upgrades"
+ammo = "power_ammo upgrades"
+
+[[item]]
+name = "frag_air_1"
+counters = { disca = 1 }
+class = "progression"
+
+[[item]]
+name = "frag_air_2"
+counters = { disca = 1 }
+class = "progression"
+
+[[item]]
+name = "frag_air_3"
+counters = { disca = 1 }
+class = "progression"
+
+[[item]]
+name = "frag_air_4"
+counters = { disca = 1 }
+class = "progression"
+
+[[item]]
+name = "power_fire"
+counters = { fire = 1 }
+class = "progression"
+
+[[item]]
+name = "power_water"
+counters = { water = 1 }
+class = "progression"
+
+[[item]]
+name = "sapphire"
+counters = { sapphire = 1 }
+class = "filler"

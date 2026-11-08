@@ -1,0 +1,9 @@
+{
+ "db": "reachdb",
+ "pins": "a dark edge needs Fire 1 (no fire held, r1/g0/r3's taken)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r22": "power_life",
+  "r1/g0/r3": "sapphire"
+ }
+}

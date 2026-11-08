@@ -1,0 +1,9 @@
+{
+ "db": "reachdb",
+ "pins": "destroying a barrier at a dark node needs the light (r1.slab from the crypt: no fire held, r1/g0/r3's taken; a dark area needs Fire 1)",
+ "placement": {
+  "r1/g0/r1": "sapphire",
+  "r1/g0/r3": "sapphire",
+  "r1/g0/r54": "power_life"
+ }
+}

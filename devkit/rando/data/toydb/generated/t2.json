@@ -1,0 +1,51 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "hand-written toy database (tests/rando/toydb)",
+  "source": {
+   "file": "none",
+   "sha256_12": "000000000000",
+   "size": 0
+  }
+ },
+ "barriers": [],
+ "bosses": [],
+ "cells": [],
+ "counts": {},
+ "exits": [
+  {
+   "dest_level": "t1",
+   "id": "t2/g0/r20",
+   "kind": "exit",
+   "live": true
+  }
+ ],
+ "game_states": [],
+ "geodes": [],
+ "graphs": [],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "hub",
+ "latches": [],
+ "level": "t2",
+ "locations": [
+  {
+   "class": "consumable",
+   "id": "t2/g0/r1",
+   "item": "all_fuel",
+   "pool": true
+  },
+  {
+   "class": "gem",
+   "id": "t2/g0/r2",
+   "item": "sapphire",
+   "pool": true
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [],
+ "seals": [],
+ "spots": [],
+ "teleporters": []
+}

@@ -1,0 +1,14 @@
+# The toy database's stub level: its open fields are counted, not refused.
+format = "azurik-rando-level/1"
+level = "t2"
+status = "draft"
+
+[[node]]
+id = "t2_hub"
+hub = true
+
+[[edge]]
+from = ""
+to = "t1_start"
+kind = "exit"
+exit = "t2/g0/r20"
