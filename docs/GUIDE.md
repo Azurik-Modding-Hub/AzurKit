@@ -156,7 +156,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   and checked; Check with game data (once you pick your image) dresses it as a build would and draws it. Unsaved edits
   are asked about before you leave them or build that variant. The app keeps your variants where Modkit does; the
   web page keeps them in your browser (Clear in the Tools tab removes them: Export one to keep a copy). Yours show
-  as the Custom group under the models, and Edit… opens a chosen variant here.
+  under the models too, as Yours, and Edit… opens a chosen variant here.
 - **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install
   and Update (or `azurkit content install booblord`); every file's size and checksum is checked first, so a bad
   download keeps nothing, and an installed one stays at its version until you update it. An update only goes up, from

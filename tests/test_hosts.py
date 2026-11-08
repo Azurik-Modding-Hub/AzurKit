@@ -1261,7 +1261,7 @@ def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browse
 def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks_one_on_your_image(
         browser, tmp_path, monkeypatch, usa_iso):
     """Step 4.6c in the app's page: New on keylord, then Save as, writes ``variants/mine/recipe.json`` in the user
-    data folder in Modkit's format, which the Models view's Custom group lists; Export writes ``mine.zip`` into the
+    data folder in Modkit's format, which the Models view's Yours group lists; Export writes ``mine.zip`` into the
     Downloads folder (never over one there); Delete (after a yes) and Import by path take it out and back, and a
     network share is refused before it is read. Check with game data waits for the image (D979); with one, it dresses
     the variant in the engine and draws it, and opening another variant meanwhile drops the Check, that one shown as

@@ -9,7 +9,7 @@ nothing of its own.
   lists the objects only with Show objects),
   Azurik-Custom-Content's entries as the community group (D913: each
   marked community, its state Install, installed or Update, its variants
-  once installed), your own variants as the Custom group (``library``:
+  once installed), your own variants as the Yours group (``library``:
   each its title, base and grade, a folder that isn't one named with its
   refusal), and the chosen model's info panel (with the image read,
   an "In game" line saying LB switches between its attack sets, where it
@@ -56,8 +56,8 @@ UNTESTED_PICK = {"green": "Should play, not tested", "yellow": "Rough edges, not
                  "red": "Not playable, not tested", "unseen": "Not tested"}
 """A pick no sitting saw, by the colour its fit gives it (D810), said plainly (the owner's review, D1061)."""
 COMMUNITY = "Community"
-CUSTOM = "Custom"
-"""The group your own variants are listed under (``library``)."""
+CUSTOM = "Yours"
+"""The group your own variants are listed under (``library``), the Variants view's name for them too."""
 PREVIEW = 160
 SPECIES = Path(__file__).with_name("species.json")   # [species, body, object] of each the player can wear (above)
 """A preview's side, px (Modkit's gallery picker's)."""

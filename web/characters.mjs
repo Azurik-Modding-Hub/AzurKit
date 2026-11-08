@@ -19,7 +19,7 @@
 // the page holds (what ships, or one it has drawn) shows at once marked Preview, and the exact one, drawn from the dress
 // a build of it makes, replaces it; a build never reads a picture. The engine keeps the last reshape's dress, so its
 // pictures and its build make one dress between them, whichever comes first (sdk._reshape_kept). Your own variants
-// (sdk.pickers' custom: the library's folders) follow as the Custom group, a refused one marked with its refusal; Edit…
+// (sdk.pickers' custom: the library's folders) follow as the Yours group, a refused one marked with its refusal; Edit…
 // on a chosen variant opens it in the Variants view (web/variants.mjs, Step 4.6c).
 import { option as pickerOption, picker } from "./picker.mjs";
 
@@ -665,7 +665,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     setup: character,
     refused: () => c.view?.asked === JSON.stringify(c.character) ? c.view.chosen.refused : null,
     waiting: () => c.opened && c.view?.asked !== JSON.stringify(c.character),   // Build's recipe is its answer's
-    relist: () => c.opened && ask(),   // your variants changed: the Custom group (and the model worn) asked again
+    relist: () => c.opened && ask(),   // your variants changed: the Yours group (and the model worn) asked again
     state: c,
   };
 }

@@ -2,7 +2,7 @@
 ``tools.characters.library``): a folder each in ``AZURKIT_VARIANTS``, its
 ``recipe.json`` Modkit's format, listed as its recipe or its refusal,
 written whole or not at all, worn by name as a built-in is (the share link,
-the kept answers and the Characters tab's Custom group with it), and built
+the kept answers and the Characters tab's Yours group with it), and built
 as Modkit built it (the probe golden, by sha256)."""
 
 from __future__ import annotations
@@ -168,9 +168,9 @@ def test_a_saved_variant_builds_as_modkit_built_it(usa_iso, lib, no_content, tmp
     assert str(lib) not in json.dumps([layer.recipe, layer.notes])
 
 
-def test_the_characters_tab_lists_your_variants_in_the_custom_group(lib):
+def test_the_characters_tab_lists_your_variants_in_the_yours_group(lib):
     """The Characters tab's view lists your variants after the community
-    group, under Custom: each its title, base and grade colour (unseen: no
+    group, under Yours (the Variants view's name): each its title, base and grade colour (unseen: no
     sitting graded it), a folder that isn't one with its refusal. One
     picked shows its recipe as yours, never a community entry's (its name
     begins booblord's); a refused one picked says why."""
@@ -178,7 +178,7 @@ def test_the_characters_tab_lists_your_variants_in_the_custom_group(lib):
     _write(lib, "broken", "{}")
     view = sdk.pickers({"iso": None, "character": {"species": "booblord_mine"}})
     unseen = view["colours"]["unseen"]
-    assert view["custom"] == {"title": "Custom", "variants": [
+    assert view["custom"] == {"title": "Yours", "variants": [
         {"name": "booblord_mine", "title": "Mine", "base": "keylord", "colour": unseen},
         {"name": "broken", "refusal": view["custom"]["variants"][1]["refusal"]}]}
     assert "it holds no recipe" in view["custom"]["variants"][1]["refusal"]

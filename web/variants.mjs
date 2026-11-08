@@ -1,6 +1,6 @@
 // The Characters tab's Variants view (Step 4.6c; Modkit's Variants page, D372, D480, D1087): your own player models,
 // each a recipe over a base body (the engine's tools/characters/_player_variants.py), made and kept here in your
-// library, a folder each in Modkit's format, which the Models view's Custom group lists and a build wears by name.
+// library, a folder each in Modkit's format, which the Models view's Yours group lists and a build wears by name.
 // The list: the built-ins (those whose files come from Azurik-Custom-Content marked community), then yours, a refused
 // one marked, its refusal in the status line. New (a base species from the shared picker), New from this (a new
 // folder of the one open: a built-in's recipe laid whole with its files copied, so every field is its own), Save, Save

@@ -894,7 +894,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     key an answer for a character is kept under (`characters.cache_key`,
     `app.ahead.key`, the sdk's dresses) stands on what a build of yours
     reads (`library.stamp`: its folder's recipe and files by sha256). The
-    Characters view lists them as its Custom group (`custom`). Its checks
+    Characters view lists them as its Yours group (`custom`). Its checks
     are `tests/test_variant_library.py`'s, one a build of the probe variant
     saved as yours, its golden's file for file.
   - **A seed with a character** (Step 4.3c2, Modkit's `randomize-full
@@ -1467,7 +1467,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `library()` writes `./variants` whole, numpy unloaded: once a worker
     and after each change; the view's calls load numpy first), and the
     work ahead's key counts each handoff. The Models view lists yours as
-    its Custom group (`#char-custom`) with Edit… on a chosen variant.
+    its Yours group (`#char-custom`) with Edit… on a chosen variant.
     `tests/test_variant_library.py`, `test_site.py` and `test_hosts.py`
     hold it; `tests/_perf.py`'s A87-A92 and S73-S78 time it.
   - **The Data tab** (Step 4.7a, `web/data.mjs`; D986, Modkit's Game Data

@@ -5867,7 +5867,7 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
     the built-ins and opens beamlord as a recipe from it, its sha, grade and "built in" in the status line, Check
     with game data greyed with D979's line; an edit reads "built in: Save as keeps your edits"; Save as a species', a
     built-in's or a malformed name is refused by name, nothing kept; Save as "mine" keeps its own copy (listed under
-    Yours, and in the Models view's Custom group); a refused value is named and Save writes nothing; the JSON tab's
+    Yours, and in the Models view's group of that name); a refused value is named and Save writes nothing; the JSON tab's
     Apply keeps the old recipe on a refusal or a new base, saying why, and takes a good one; leaving unsaved edits is
     asked about (a no stays); New from this offers mine_2; Export downloads the engine's zip; Delete (after a yes)
     and Import take it out and back; a New's unsaved edits are asked about as the page closes (Modkit's AZ-792), a
@@ -5933,8 +5933,12 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         _page.click(page, "var-ask-no")
         _page.click(page, "var-save")
         _variants_shown(page, status="· saved ·", name="mine")
+        groups = "() => [...document.querySelectorAll('#var-items h3')].map((h) => h.textContent)"
+        assert "Yours" in page.evaluate(groups)
         _page.click(page, "char-view-model")
         _page.until(page, "() => document.querySelector('#char-custom button[data-model=\"mine\"]')", 120)
+        assert page.evaluate("() => document.getElementById('char-custom').previousElementSibling.firstChild"
+                             ".textContent.trim()") == "Yours"   # one name for them in both views
         _page.click(page, "char-view-variants")
         _page.click(page, "var-from")
         _page.until(page, VARIANTS_ASKED)
