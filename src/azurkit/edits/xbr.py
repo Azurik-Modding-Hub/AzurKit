@@ -173,6 +173,34 @@ def _set(table: Table, data: bytes, op: Mapping) -> tuple[str, list[tuple[int, b
     return f"set {table.name}/{entity}/{prop}{column}", writes
 
 
+def writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents: dict | None = None
+           ) -> tuple[str, list[tuple[int, bytes]]]:
+    """What the operation ``op`` (:func:`normalize` d) does to ``release``'s
+    vanilla file (``base``): its description and its writes ``[(offset,
+    bytes)]``; ``LookupError`` or ``ValueError`` says why it can't apply.
+    ``documents`` keeps each file's parse across calls."""
+    file = op["file"]
+    if file not in release.files:
+        raise LookupError(f"the {release.label} image has no {file}")
+    data = base[file]
+    if op["op"] == "set":
+        documents = {} if documents is None else documents
+        if file not in documents:
+            documents[file] = Document(data)
+        tables = documents[file].tables
+        if op["table"] not in tables:
+            raise LookupError(f"{file} has no keyed table {op['table']!r}")
+        return _set(tables[op["table"]], data, op)
+    at, after = op["offset"], bytes.fromhex(op["value"])
+    if at + len(after) > len(data):
+        raise ValueError(f"0x{at:X}+{len(after)} is past {file}'s {len(data):,} B")
+    held, expected = data[at:at + len(after)], op["expected"]
+    if (held.hex() != expected.lower() if isinstance(expected, str)
+            else hashlib.sha256(held).hexdigest() != expected["sha256"]):
+        raise ValueError(f"{file} holds {_digest(held)} at 0x{at:X}, not the bytes it expects")
+    return f"replace_bytes {file} 0x{at:X}", [(at, after)]
+
+
 def plan(ops: Sequence[Mapping], release: Release, base: Mapping[str, bytes]) -> Layer:
     """The layer ``ops`` (:func:`normalize` d) make of ``release``'s vanilla
     files (``base``: each of :func:`files`); ``ValueError`` names every
@@ -180,32 +208,14 @@ def plan(ops: Sequence[Mapping], release: Release, base: Mapping[str, bytes]) ->
     changes, failed, documents = [], [], {}
     for k, op in enumerate(ops, 1):
         where, file = f"xbr op {k} ({op['op']})", op["file"]
-        if file not in release.files:
-            failed.append(f"{where}: the {release.label} image has no {file}")
-            continue
-        data = base[file]
         try:
-            if op["op"] == "set":
-                if file not in documents:
-                    documents[file] = Document(data)
-                tables = documents[file].tables
-                if op["table"] not in tables:
-                    raise LookupError(f"{file} has no keyed table {op['table']!r}")
-                what, writes = _set(tables[op["table"]], data, op)
-            else:
-                at, after = op["offset"], bytes.fromhex(op["value"])
-                if at + len(after) > len(data):
-                    raise ValueError(f"0x{at:X}+{len(after)} is past {file}'s {len(data):,} B")
-                held, expected = data[at:at + len(after)], op["expected"]
-                if (held.hex() != expected.lower() if isinstance(expected, str)
-                        else hashlib.sha256(held).hexdigest() != expected["sha256"]):
-                    raise ValueError(f"{file} holds {_digest(held)} at 0x{at:X}, not the bytes it expects")
-                what, writes = f"replace_bytes {file} 0x{at:X}", [(at, after)]
+            what, made = writes(op, release, base, documents)
         except (LookupError, ValueError) as exc:
             failed.append(f"{where}: {str(exc).removeprefix(f'{where}: ')}")
             continue
+        data = base[file]
         changes += [Change(file, at, hashlib.sha256(data[at:at + len(after)]).hexdigest(), after, f"#{k} {what}")
-                    for at, after in writes]
+                    for at, after in made]
     if failed:
         raise ValueError("; ".join(failed))
     return Layer(LAYER, TOOL, KIND, {"ops": [dict(op) for op in ops]}, tuple(changes))

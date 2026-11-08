@@ -169,16 +169,23 @@ def from_manifest(record: Mapping) -> dict:
     return check(made)
 
 
+def parse(given: str | bytes | Mapping) -> object:
+    """A mods file's object: its JSON text parsed within the caps, a link's
+    preset (:func:`decode`), or the object given."""
+    if not isinstance(given, (str, bytes)):
+        return given
+    raw = given.encode() if isinstance(given, str) else given
+    if len(raw) > MAX_FILE:
+        raise ValueError(f"preset: a mods file of {len(raw):,} B, past its {MAX_FILE:,} B")
+    if raw.lstrip()[:1] != b"{":
+        return decode(raw.decode("utf-8", "replace"))
+    return _json(raw)
+
+
 def read(given: str | bytes | Mapping) -> dict:
     """A mods file (:func:`check` ed): a preset or a manifest (as JSON text
     or the object; :func:`from_manifest`), or a link (:func:`decode`)."""
-    if isinstance(given, (str, bytes)):
-        raw = given.encode() if isinstance(given, str) else given
-        if len(raw) > MAX_FILE:
-            raise ValueError(f"preset: a mods file of {len(raw):,} B, past its {MAX_FILE:,} B")
-        if raw.lstrip()[:1] != b"{":
-            return decode(raw.decode("utf-8", "replace"))
-        given = _json(raw)
+    given = parse(given)
     if isinstance(given, Mapping) and given.get("format") == MANIFEST:
         return from_manifest(given)
     return check(given)

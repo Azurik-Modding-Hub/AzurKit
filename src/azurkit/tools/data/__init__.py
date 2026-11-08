@@ -295,6 +295,41 @@ def table(name: str, ops: object = (), written: Iterable[Sequence[int]] = ()) ->
             "cells": cells, "changed": changed, "written": touched, "rows_meta": rows_meta, "cols_meta": cols_meta}
 
 
+def preview(made: Sequence[tuple[str, Mapping | None, str | None]]) -> list[dict]:
+    """Each edit of a mods file (its label, its ``xbr`` operation, ``None``
+    when it has nothing to do, and why it is refused: ``edits.modkit.edits``,
+    or a preset's operations), as a build makes it of the vanilla
+    config.xbr: ``{edit, what, vanilla, value, changed}`` for a cell
+    (``what`` its table/entity/prop by the file's names), ``{edit, what,
+    size, changed}`` for a byte edit, ``checked`` false for one of another
+    file (only a build reads it), ``{edit, refused}`` for one a build
+    refuses, and ``{edit, changed: false}`` for one with nothing to do."""
+    base, documents, tables, rows = {FILE: vanilla()}, {}, _vanilla_tables(), []
+    for label, op, why in made:
+        row: dict = {"edit": label}
+        if why or op is None:
+            rows.append(row | ({"refused": why} if why else {"changed": False}))
+            continue
+        if op["file"] != FILE:
+            at = f" 0x{op['offset']:X}" if "offset" in op else f" {op['table']}/{op['entity']}/{op['prop']}"
+            rows.append(row | {"what": f"{op['op']} {op['file']}{at}", "checked": False, "changed": True})
+            continue
+        try:
+            what, writes = xbr.writes(op, gate.USA, base, documents)
+        except (LookupError, ValueError) as exc:
+            rows.append(row | {"refused": str(exc)})
+            continue
+        changed = any(base[FILE][at:at + len(after)] != after for at, after in writes)
+        if op["op"] != "set":
+            rows.append(row | {"what": what, "size": sum(len(after) for _, after in writes), "changed": changed})
+            continue
+        table, col, r = _ref(op, tables)
+        value = op["value"] if isinstance(op["value"], str) else float(op["value"])
+        rows.append(row | {"what": what.removeprefix("set "), "vanilla": format_value(tables[table].cell(col, r).value),
+                           "value": format_value(value), "changed": changed})
+    return rows
+
+
 def _ref(op: Mapping, tables: Mapping[str, Table]) -> tuple[str, int, int] | None:
     """The cell a ``set`` operation writes, by position, else ``None``."""
     if op["op"] != "set" or op["file"] != FILE or op["table"] not in tables:

@@ -197,6 +197,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
   a path.
 - **Remembers your setup** between visits, never your image, until you Reset to defaults.
 - **Game data edits:** a mods file can set any value in `config.xbr` by name, or replace bytes in an XBR file.
+- **Modkit's mod files:** a mod file from Azurik_Modkit loads and builds too (its patches, sections,
+  `_keyed_patches` and `xbr_edits`); what AzurKit can't apply as written is refused by name.
 - **Same bytes everywhere:** the page, the app and the command line make the identical image; only a character
   swap's float maths may round its last digits otherwise in the browser or on another computer.
 - **Proven exact:** packs, randomized seeds and character swaps are checked byte for byte against AzurKit's own

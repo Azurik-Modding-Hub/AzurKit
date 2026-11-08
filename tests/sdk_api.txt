@@ -245,7 +245,9 @@ vanilla image). Its recipe rebuilds the build from the vanilla image
 def read_mods(given: 'str | bytes | Mapping') -> 'dict':
 
 A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
-text or the object, or a share link) as a recipe's ``{"packs", "xbr"}``,
+text or the object, a share link, or one of Modkit's mod files: its
+``patches``, ``sections``, ``_keyed_patches`` and ``xbr_edits`` as
+``xbr`` operations) as a recipe's ``{"packs", "xbr"}``,
 normalized, and ``randomizer`` (the seed and share string a randomized
 build's plan replays from); ``packs`` only when it has a packs layer (a
 build's packs are then its packs, with those they require, and no
@@ -590,7 +592,8 @@ refused by name, as is a folder or a name the image hasn't.
 def mods_file(given: 'Mapping') -> 'dict':
 
 The Tools tab's mods files (Q268): ``{"text"}``, a mods file's JSON
-text (a preset or an AzurKit build's manifest) or a share link, read as
+text (a preset, an AzurKit build's manifest or one of Modkit's mod
+files, :func:`read_mods`) or a share link, read as
 a preset and checked as :func:`preset_decode` checks a link's (a
 ``replace_bytes`` kept: a file may carry bytes), for a UI to load:
 ``{"preset"}``; ``{"recipe"}`` (a UI's ``packs``, ``xbr``,

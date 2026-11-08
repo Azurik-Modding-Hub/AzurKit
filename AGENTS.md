@@ -422,8 +422,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`edits.py`) is the writes `[(offset, bytes)]` that make it, planned
   against the file as parsed; every cell is 16 bytes, so nothing grows.
 - **The mods file** (Q268; `edits/preset.py`'s `read`, `sdk.read_mods`,
-  `azurkit build --mods`) is a preset, an AzurKit build's manifest or a
-  share link. Its `mods` layer is the build's packs (in place of those on by
+  `azurkit build --mods`) is a preset, an AzurKit build's manifest, a
+  share link or one of Modkit's mod files (`edits/modkit.py`: its config
+  cells and `xbr_edits` as `xbr` operations, each checked against the
+  vanilla config.xbr as it is read, `tools/data`'s `preview`; its retired
+  registry.json names refused by `edits/modkit_retired.json`). Its `mods` layer is the build's packs (in place of those on by
   default), and its `data` layer's `xbr` operations (`edits/xbr.py`) apply
   in order after the packs: `set` a config.xbr cell by the file's names
   (D51's spellings), type-checked; `replace_bytes` in an XBR file, where

@@ -109,7 +109,7 @@ from azurkit.core.progress import Steps, noting
 from azurkit.core.xbr import Document
 from azurkit.edits import manifest as edits
 from azurkit.edits import files as replaced
-from azurkit.edits import preset, xbr
+from azurkit.edits import modkit, preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import characters, mods, randomizer
 from azurkit.tools import data as datatool
@@ -958,16 +958,31 @@ def _completed(packs: object) -> tuple[dict, list[str]]:
     return {name: given.get(name, {}) for name in names}, lines
 
 
+def _read(given: str | bytes | Mapping) -> dict:
+    """A mods file read as a preset (``preset.read``), or one of Modkit's
+    (``edits.modkit``: its edits as ``xbr`` operations, each checked as a
+    build makes it of the vanilla config.xbr, ``tools.data.preview``); every
+    refusal named."""
+    found = preset.parse(given)
+    if not modkit.is_mod(found):
+        return preset.read(found)
+    made = modkit.edits(found, datatool.vanilla())
+    rows = datatool.preview(made)
+    return modkit.preset([(label, op, row.get("refused")) for (label, op, _), row in zip(made, rows)])
+
+
 def read_mods(given: str | bytes | Mapping) -> dict:
     """A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
-    text or the object, or a share link) as a recipe's ``{"packs", "xbr"}``,
+    text or the object, a share link, or one of Modkit's mod files: its
+    ``patches``, ``sections``, ``_keyed_patches`` and ``xbr_edits`` as
+    ``xbr`` operations) as a recipe's ``{"packs", "xbr"}``,
     normalized, and ``randomizer`` (the seed and share string a randomized
     build's plan replays from); ``packs`` only when it has a packs layer (a
     build's packs are then its packs, with those they require, and no
     others), ``settled`` only when that added one (its lines, for a host to
     say), ``community`` its community packs' pins (a build resolves them).
     Every refusal named."""
-    found = preset.read(given)
+    found = _read(given)
     out: dict = {}
     for layer in found["layers"]:
         if (layer["tool"], layer["kind"]) == ("mods", "packs"):
@@ -1109,7 +1124,8 @@ def _loaded(found: dict, *, link: bool = True) -> dict:
 
 def mods_file(given: Mapping) -> dict:
     """The Tools tab's mods files (Q268): ``{"text"}``, a mods file's JSON
-    text (a preset or an AzurKit build's manifest) or a share link, read as
+    text (a preset, an AzurKit build's manifest or one of Modkit's mod
+    files, :func:`read_mods`) or a share link, read as
     a preset and checked as :func:`preset_decode` checks a link's (a
     ``replace_bytes`` kept: a file may carry bytes), for a UI to load:
     ``{"preset"}``; ``{"recipe"}`` (a UI's ``packs``, ``xbr``,
@@ -1122,7 +1138,7 @@ def mods_file(given: Mapping) -> dict:
     if "text" in given:
         if not isinstance(given["text"], str):
             raise ValueError("mods_file: text is a mods file's text")
-        return {"preset": _loaded(preset.read(given["text"]), link=False)}
+        return {"preset": _loaded(_read(given["text"]), link=False)}
     made = _preset(given["recipe"], link=False) if "recipe" in given else given["preset"]
     return {"text": json.dumps(preset.check(made), indent=1, sort_keys=True, allow_nan=False) + "\n"}
 

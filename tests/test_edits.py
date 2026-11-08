@@ -539,6 +539,84 @@ def _link(value: object, raw: bytes | None = None) -> str:
     return "#p=" + base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
+def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each_refusal_names_its_edit(tmp_path,
+                                                                                                         capsys):
+    """Step 4.6i (P19b): Modkit's mod file (its ``patches``, grouped
+    ``sections``, ``_keyed_patches`` and ``xbr_edits``, metadata and Level
+    Studio's ``source_hashes``) reads as a mods file, in Modkit's order, into
+    the recipe's ``xbr`` operations, with no packs layer (the packs on by
+    default apply, as Modkit's ``patch`` did): ``azurkit build --mods`` and
+    both hosts' Load (``sdk.mods_file``) take it. A config.xbr byte edit
+    with no original gets the vanilla file's; one already holding its value
+    has nothing to do. Every refusal names its edit and why, the whole mod's
+    in one message (D35): a retired registry.json name (AZ-123's and
+    AZ-167's, naming the cell it wrote), a typo'd shape (AZ-215), a value or
+    cell a build refuses, ``level_patches``, a level byte edit with no
+    original, a stale original or source hash (AZ-214), an unknown key."""
+    from azurkit.tools import data
+
+    config = data.vanilla()
+    golem = {"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
+             "prop": "hitPoints", "value": 321}
+    at = config.index(b"xobx")   # a config.xbr span a byte edit names, read from the file in the test
+    mod = {"name": "My Mod", "author": "me", "description": "d", "source_dump": "USA dump",
+           "source_hashes": {"a1.xbr": gate.USA.files["gamedata/a1.xbr"][1]},
+           "sections": {"_note": "skipped", "settings_foo": {"initial_fuel": {"Value": 9999.0}}},
+           "patches": [{"section": "critters_damage", "entity": "golem", "property": "hitPoints", "value": 321}],
+           "_keyed_patches": {"damage": {"octo": {"Damage": 9}}},
+           "xbr_edits": [{"op": "set_keyed_double", "xbr_file": "config.xbr", "section": "settings_foo",
+                          "entity": "initial hp", "prop": "Value", "value": 250, "label": "hp"},
+                         {"op": "replace_bytes", "file": "a1.xbr", "offset": 0x800, "value": "aabb",
+                          "value_kind": "hex", "original": "0000"},
+                         {"op": "replace_bytes", "xbr_file": "config.xbr", "offset": at, "value": "00" * 4,
+                          "value_kind": "hex"},
+                         {"op": "replace_bytes", "xbr_file": "config.xbr", "offset": at,
+                          "value": config[at:at + 4].hex(), "value_kind": "hex", "expected": "11" * 4}]}
+    ops = [golem, {"op": "set", "file": "gamedata/config.xbr", "table": "settings_foo", "entity": "initial_fuel",
+                   "prop": "Value", "value": 9999.0},
+           {"op": "set", "file": "gamedata/config.xbr", "table": "damage", "entity": "octo", "prop": "Damage",
+            "value": 9},
+           {"op": "set", "file": "gamedata/config.xbr", "table": "settings_foo", "entity": "initial hp",
+            "prop": "Value", "value": 250},
+           {"op": "replace_bytes", "file": "gamedata/a1.xbr", "offset": 0x800, "expected": "0000", "value": "aabb"},
+           {"op": "replace_bytes", "file": "gamedata/config.xbr", "offset": at, "expected": config[at:at + 4].hex(),
+            "value": "00" * 4}]
+    text = json.dumps(mod)
+    assert sdk.read_mods(text) == {"xbr": ops}
+    assert sdk.mods_file({"text": text})["preset"]["layers"] == [{"tool": "data", "kind": "xbr",
+                                                                   "recipe": {"ops": ops}}]
+    retired = "a retired registry.json name (AZ-123, AZ-167): it wrote "
+    refused = {
+        json.dumps({"patches": [{"section": "damage", "entity": "octo", "property": "damage", "value": 9.0}]}):
+            f"patches[0] damage/octo/damage: {retired}damage column 47 'lord', row 'Damage' (cell 0x0860EC)",
+        json.dumps({"sections": {"critters_walking": {"air_elemental": {"stalk_time_min": 1.5}}}}):
+            f"sections critters_walking/air_elemental/stalk_time_min: {retired}damage column 0 'norm_1', row 'Level'",
+        json.dumps({"name": "typo", "xbr_edit": []}): "no key 'xbr_edit' (Modkit's: patches, sections, "
+            "_keyed_patches, xbr_edits, name, author, description, source_dump, source_hashes, level, level_patches); "
+            "no edit shape (patches, sections, _keyed_patches, xbr_edits); its keys: name, xbr_edit",
+        json.dumps({"_keyed_patches": {"critters_critter_data": {"garret4": {"name": 5.0}}}}):
+            "_keyed_patches critters_critter_data/garret4/name: config table critters_critter_data garret4/name is "
+            "a string cell, not a number",
+        '{"_keyed_patches": {"settings_foo": {"initial hp": {"Value": 1' + "0" * 400 + '}}}}':
+            "_keyed_patches settings_foo/initial hp/Value: value: 1000",
+        json.dumps({"level": "a3", "level_patches": []}): "level_patches: AzurKit doesn't move or rename",
+        json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"original": None}]}):
+            "xbr_edits[0] (replace_bytes on a1.xbr): no expected or original",
+        json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"orignal": "0000"}]}): "xbr_edits[0]: unknown key 'orignal'",
+        json.dumps({"xbr_edits": [mod["xbr_edits"][2] | {"expected": "11" * 4}]}):
+            "xbr_edits[0] (replace_bytes on config.xbr): at 0x",
+        json.dumps({"source_hashes": {"a1.xbr": "0" * 64}, "xbr_edits": []}):
+            "source_hashes: a1.xbr is not the file the mod was made from",
+    }
+    for given, why in refused.items():
+        with pytest.raises(ValueError, match="^" + re.escape(f"Modkit mod: {why}")):
+            sdk.read_mods(given)
+    bad = tmp_path / "mod.json"
+    bad.write_text(next(iter(refused)), encoding="utf-8")
+    assert cli.main(["build", "--iso", str(tmp_path / "none.iso"), "--out", str(tmp_path / "out.iso"),
+                     "--mods", str(bad)]) == 1
+    assert "azurkit: Modkit mod: patches[0] damage/octo/damage: a retired" in capsys.readouterr().err
+
 def test_a_preset_round_trips_and_refuses_what_isnt_one_by_name():
     """``sdk.preset_encode`` makes a link's fragment of a recipe's packs,
     normalized, and (given its build's report) the release and the result;
