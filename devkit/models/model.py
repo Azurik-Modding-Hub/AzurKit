@@ -8,14 +8,21 @@ the ones ModelKit's adapter calls.
   ``index.xbr`` once the dress passed (D35).
 - ``inspect`` reports a body's counts, budgets and problems.
 - ``export`` writes a body as glTF 2.0 for Blender.
+- ``jiggle`` previews a dressed variant's real-time springs (X41's twin,
+  ``jiggle_rt``) over the physics scenarios and its clips (Step 4.15a3).
+- ``pose`` writes every bone's world each tick of its clips with those
+  springs, as an ``.npz``.
+- ``rest`` writes a variant's rest positions for other values of its mesh
+  ops on its frozen mesh (a shape slider's ends).
 
 A leaf reads ``--iso``'s image, else the one AzurKit finds
 (``devkit.models.image``); ``inspect`` and ``export`` read any image, a
 build's too, or ``--characters`` (a built ``characters.xbr``: ``dress
 --out``'s). What a leaf writes (``--out``) is a game asset: a new or empty
-folder outside this checkout and the images' folders (D36). It prints
-counts, sizes and ``sha256``, never a byte. A refusal is one ``model LEAF:
-...`` line on stderr and exit 1, as Modkit's; a usage error exits 2."""
+folder (``pose``: a new file) outside this checkout and the images' folders
+(D36). It prints counts, sizes and ``sha256``, never a byte or a
+coordinate. A refusal is one ``model LEAF: ...`` line on stderr and exit
+1, as Modkit's; a usage error exits 2."""
 
 from __future__ import annotations
 
@@ -38,14 +45,15 @@ def _refused(leaf: str, exc: Exception) -> int:
 
 def _variant(args):
     """``args.variant`` (a built-in, or one of ``--variant-file``'s), with
-    ``--recipe``'s fields laid over its recipe (``_player_variants.laid_over``);
-    ``ValueError`` names a name that is no variant."""
+    ``--recipe``'s fields laid over its recipe where the leaf takes one
+    (``_player_variants.laid_over``); ``ValueError`` names a name that is no
+    variant."""
     from azurkit.tools.characters._player_variants import laid_over, resolve
 
     variant = resolve(args.variant, args.variant_file)
     if variant is None:
         raise ValueError(f"{args.variant!r} is no variant")
-    if args.recipe:
+    if getattr(args, "recipe", None):
         variant = laid_over(variant, json.loads(Path(args.recipe).read_text(encoding="utf-8")))
     return variant
 
@@ -153,6 +161,134 @@ def _export(args) -> int:
     return 0
 
 
+NO_SPRING = "has no jiggle bone with a real-time spring"
+
+
+def _jiggle(args) -> int:
+    """``jiggle`` (Step 2.156, D443): the variant dressed as ``dress``
+    dresses it, its spring rows (``--set`` laid over them, no second dress)
+    driven by X41's twin over the physics scenarios and its slot clips at the
+    game's rates (``jiggle_rt.simulate``), at ``--hz`` and the other rate for
+    the rate target; each run's numbers and the targets printed (``--json``:
+    one object)."""
+    import dataclasses
+
+    from azurkit.tools.characters import jiggle_rt
+    from azurkit.tools.characters.ports import finite_slider_value
+
+    try:
+        strength = finite_slider_value("--strength", args.strength)
+        stiffness = finite_slider_value("--stiffness", args.stiffness)
+        variant = _variant(args)
+        tried, docs = jiggle_rt.with_sets(variant, args.set)
+        springs = dressing.dress(variant, image.find(args.iso), ram=args.ram, strength=strength,
+                                 stiffness=stiffness).springs
+        if not springs:
+            raise ValueError(f"the variant {variant.name!r} {NO_SPRING}")
+        if tried.jiggle is not None:   # a body's chains.json hair keeps the dress's rows
+            springs["rows"] = jiggle_rt.rows(springs["placed"], jiggle_rt.spring_bones(tried.jiggle),
+                                             springs["binds"], stiffness, springs["parents"])
+        clips = None if args.clip == "none" else args.clip
+        runs = jiggle_rt.simulate(springs, strength=strength, hz=args.hz, clips=clips)
+        other = jiggle_rt.simulate(springs, strength=strength, hz=90 - args.hz, clips=None)
+        judged = jiggle_rt.targets(*((runs, other) if args.hz == 30 else (other, runs)),
+                                   kinds_=jiggle_rt.kinds(springs))
+    except (OSError, ValueError) as exc:
+        return _refused("jiggle", exc)
+    if args.json:
+        print(json.dumps({"variant": variant.name, "strength": strength, "stiffness": stiffness, "hz": args.hz,
+                          "runs": [dataclasses.asdict(r) for r in runs], "targets": judged,
+                          "springs": docs}, indent=1))
+        return 0
+    print(f"{variant.name}: {len(springs['rows'])} spring rows on {springs['body']} drawn x{springs['drawn']:.4g}, "
+          f"strength {strength:g}, stiffness {stiffness:g}, {args.hz} Hz (Step 2.156's twin of X41)")
+    for line in jiggle_rt.report(runs, judged):
+        print(line)
+    if args.set:
+        print("springs (recipe JSON): " + json.dumps(docs))
+    return 0
+
+
+def _pose(args) -> int:
+    """``pose`` (Step X.65f): the variant dressed as ``dress`` dresses it,
+    each of ``--clips`` (else every slot's) played as ``jiggle`` plays it,
+    X41's twin over the engine's pose (``jiggle_rt.pose``), every bone's
+    world each tick written to ``--out`` (a new ``.npz``, written whole once
+    every clip is posed, D35); a line a clip."""
+    from azurkit.tools.characters import jiggle_rt
+    from azurkit.tools.characters.ports import finite_slider_value
+
+    try:
+        strength = finite_slider_value("--strength", args.strength)
+        stiffness = finite_slider_value("--stiffness", args.stiffness)
+        variant = _variant(args)
+        iso = image.find(args.iso)
+        if (out := Path(args.out).absolute()).exists():
+            raise ValueError(f"--out {out} exists already; give a new file")
+        image.output(out, iso)
+        clips = [c.strip() for c in args.clips.split(",") if c.strip()] if args.clips else None
+        d = dressing.dress(variant, iso, ram=args.ram, strength=strength, stiffness=stiffness)
+        if not d.springs:
+            raise ValueError(f"the variant {variant.name!r} {NO_SPRING} (its poses are its export's: "
+                             "model export --characters)")
+        posed = jiggle_rt.pose(d.springs, clips, hz=args.hz, strength=strength)
+        posed.save(out, hz=args.hz, strength=strength, stiffness=stiffness, drawn=d.springs["drawn"])
+    except (OSError, ValueError) as exc:
+        return _refused("pose", exc)
+    print(f"{variant.name} ({d.body}): {len(d.springs['rows'])} spring rows moving {sum(posed.sprung)} of "
+          f"{len(posed.bones)} bones, strength {strength:g}, stiffness {stiffness:g}, {args.hz} Hz -> {out}")
+    for p in posed.clips:
+        print(f"  {p.clip} x{p.rate:.3g}{' (loop)' if p.loop else ''}: {len(p.now)} ticks")
+    return 0
+
+
+def _rest(args) -> int:
+    """``rest`` (Step MK.3a, D598: a shape slider's ends for ModelKit): the
+    variant's ``mesh`` prepared once on its base's vanilla body
+    (``mesh_edit.prepare``), then each ``--values`` item's ``mesh`` (a
+    recipe's or a round spec's; nothing else of it is read) through the
+    position steps (``mesh_edit.positions``) into ``--out``/<i>.npy, float32
+    (vertices, 3) as a build writes them, written whole once every item is
+    posed (D35); counts and seconds printed, never a coordinate."""
+    import io
+    import time
+
+    import numpy as np
+
+    from azurkit.tools.characters import gltf, mesh_edit
+    from azurkit.tools.characters._player_variants import _mesh, resolve
+
+    try:
+        variant = resolve(args.variant, args.variant_file)
+        if variant is None or variant.mesh is None:
+            raise ValueError(f"{args.variant!r} is no variant with a mesh")
+        iso = image.find(args.iso)
+        characters, config = image.read(iso, "gamedata/characters.xbr", "gamedata/config.xbr")
+        if not gltf.vanilla_characters(characters):
+            raise ValueError(f"{iso}'s characters.xbr isn't vanilla: a rest pose is planned on vanilla (D27)")
+        out = image.output(args.out, iso)
+        items = json.loads(Path(args.values).read_text(encoding="utf-8"))
+        if not isinstance(items, list) or not all(isinstance(x, dict) and "mesh" in x for x in items):
+            raise ValueError(f"--values {args.values}: not a list of objects with a mesh")
+        builtin = variant.source == "built-in"
+        specs = [_mesh(f"--values[{i}]", x["mesh"], builtin) for i, x in enumerate(items)]
+        body, _ = gltf.resolve_body(characters, config, variant.base)
+        t0 = time.perf_counter()
+        prepared = mesh_edit.prepare(characters, body, variant.mesh, None if builtin else Path(variant.source).parent)
+        print(f"{variant.name}: {body} prepared in {time.perf_counter() - t0:.1f} s, {len(prepared.base)} vertices")
+        got = {}
+        for i, spec in enumerate(specs):
+            t0 = time.perf_counter()
+            np.save(buf := io.BytesIO(), np.asarray(mesh_edit.positions(prepared, spec), dtype=np.float32))
+            got[f"{i}.npy"] = buf.getvalue()
+            print(f"values[{i}]: its rest pose in {time.perf_counter() - t0:.1f} s")
+        dressing.write(out, got, tuple(got))
+    except (OSError, ValueError) as exc:
+        return _refused("rest", exc)
+    print(f"wrote {len(got)} rest poses into {out} (<i>.npy, float32)")
+    return 0
+
+
 DRESS = """\
 Dresses VARIANT (a built-in, or one of --variant-file's) as a build wearing
 it does, in memory on the verified vanilla image (D27), on the packs on by
@@ -189,6 +325,49 @@ image's characters.xbr (any image) or --characters (a built one: dress
 --out's). The files are read back and checked against the game's model
 before they are kept; a failed check writes nothing. The files are game
 assets: never commit or share them."""
+
+JIGGLE = """\
+Dresses VARIANT as dress does (writing nothing) and drives the twin of X41's
+springs with it: physics scenarios (idle; the walk slot at 3.5, 4.0 and 4.9
+m/s; the run; a start; the 3-tick stop; a jump at vanilla's speed; a 3.5 m
+drop; a 31 rad/s spin; a knockback; a 6.8 m place; a swim stroke) on the
+body's own slot clips, then every slot's clip at the rate the game plays it,
+standing (the ladder's climb loops in place and with their root's travel
+carried). Per run and spring row it prints the peak offset per axis (side,
+forward, up; mm as drawn), its radius, the largest move in a tick, the ticks
+over 10 mm, the raw radius over the travel and the ring's extrema, then each
+acceptance target pass or FAIL. --set ROLE.FIELD=VALUE tries a spring value
+without editing the recipe and prints the springs as recipe JSON to paste.
+It can't run the engine's glides or aligned moves: xemu judges those. A
+variant with no spring row exits 1."""
+
+POSE = """\
+Dresses VARIANT as dress does (writing none of its files) and plays each of
+--clips (names under its body; default every slot's clip) as jiggle plays
+them, standing at the rate the game plays them (a loop for 3 s, a one-shot
+once from rest and held 1 s; a climb loop with its root's travel taken off,
+as the game draws it) at --hz, X41's springs over the engine's pose: a spring
+row's bone as the shim writes it and every bone under it carried with it.
+Writes --out (a new .npz outside the checkout and the images' folders):
+bones, parents, inverse_binds, sprung (the bones the springs move), clips,
+rates, loops, carried (the climb loops) and, per clip i, now<i>, time<i> and
+worlds<i> ((ticks, bones, 4, 4): the model frame, z up, column vectors, each
+bone's scale in, so a vertex skins as sum of weight x worlds[bone] @
+inverse_binds[bone]; a glTF joint <bone> or <bone>__scale of export's takes
+its bone's), then hz, strength, stiffness and drawn. A variant with no spring
+row exits 1 and writes nothing."""
+
+REST = """\
+Prepares VARIANT's mesh once on its base's vanilla body (the subdivision,
+hems, islands, tubes and cuts its build makes), then runs each --values
+item's mesh (a JSON list of objects with a "mesh": a recipe's or a ModelKit
+round spec's) through the build's position steps on that mesh: its fields,
+rounds, relax, insets, beneath, press, snap, ride and tucks. Writes
+--out/<i>.npy, float32 (vertices, 3) in model units as the build writes them
+(VARIANT's own values give its plan's positions exactly), for ModelKit's
+shape sliders. An item's ops must be VARIANT's in their order with the
+numbers the preparation laid (subdivide, hem, island, tube, a cut's but its
+press amounts); else it is refused by name and nothing is written."""
 
 
 def parser() -> argparse.ArgumentParser:
@@ -232,6 +411,41 @@ def parser() -> argparse.ArgumentParser:
     v.add_argument("--out", required=True, metavar="DIR", help="a new or empty folder outside the checkout")
     v.add_argument("--clips", default=None, metavar="A,B", help="only these clips, by name (default: every clip)")
     characters(v)
+
+    def springy(v: argparse.ArgumentParser, recipe: bool = True) -> None:
+        v.add_argument("variant", help="a variant: a built-in (booblord) or one of --variant-file's")
+        v.add_argument("--variant-file", default=None, metavar="PATH", help="a JSON file of variant recipes")
+        if recipe:
+            v.add_argument("--recipe", default=None, metavar="FILE",
+                           help="a JSON object of recipe fields laid over the variant's (null drops one)")
+        v.add_argument("--strength", type=float, default=1.0, metavar="X",
+                       help="the jiggle strength slider (default 1.0; any finite number)")
+        v.add_argument("--stiffness", type=float, default=1.0, metavar="X",
+                       help="the jiggle stiffness slider (default 1.0; any finite number)")
+        v.add_argument("--hz", type=int, choices=(30, 60), default=30,
+                       help="the pose rate: 30 (vanilla) or 60 (fps_unlock)")
+        v.add_argument("--ram", type=int, choices=RAMS, default=128, metavar="MIB",
+                       help="the machine the body is built for: 128 (default, D588), 64 or 256, as dress's")
+
+    v = leaf("jiggle", _jiggle, "a variant's real-time jiggle (X41's springs) over its body's clips", JIGGLE)
+    springy(v, recipe=False)
+    v.add_argument("--clip", default="all", metavar="NAME|all|none",
+                   help="the slot clips to play: all (default), one clip's name under the body, or none")
+    v.add_argument("--set", action="append", default=[], metavar="ROLE.FIELD=VALUE",
+                   help="a spring value to try (JSON or a word), e.g. bust.gain=2.5; repeatable")
+    v.add_argument("--json", action="store_true", help="the runs and targets as JSON")
+    v = leaf("pose", _pose, "every bone's world each tick of a variant's clips with X41's springs, as an .npz", POSE)
+    springy(v)
+    v.add_argument("--out", required=True, metavar="FILE",
+                   help="the .npz to write (new, outside the checkout and the images' folders)")
+    v.add_argument("--clips", default=None, metavar="A,B",
+                   help="the clips to play, by name under the body (default: every slot's clip)")
+    v = leaf("rest", _rest, "a variant's rest pose for other values of its mesh ops, on its frozen mesh", REST)
+    v.add_argument("variant", help="a variant with a mesh: a built-in (booblord) or one of --variant-file's")
+    v.add_argument("--variant-file", default=None, metavar="PATH", help="a JSON file of variant recipes")
+    v.add_argument("--values", required=True, metavar="FILE",
+                   help='a JSON list of objects whose "mesh" holds the values to pose')
+    v.add_argument("--out", required=True, metavar="DIR", help="a new or empty folder outside the checkout")
     return p
 
 

@@ -93,16 +93,17 @@ def numbers(plan) -> dict | None:
     return out
 
 
-def write(out: Path, game) -> dict[str, tuple[int, str]]:
-    """The dressed :data:`FILES` written into ``out`` (a new or empty folder
-    the caller checked, D36) whole: into a scratch folder beside it, then
-    renamed, so a failure writes nothing (D35); each one's size and sha256."""
+def write(out: Path, game, names: tuple[str, ...] = FILES) -> dict[str, tuple[int, str]]:
+    """The dressed :data:`FILES` (or ``names``, each one of ``game``'s)
+    written into ``out`` (a new or empty folder the caller checked, D36)
+    whole: into a scratch folder beside it, then renamed, so a failure writes
+    nothing (D35); each one's size and sha256."""
     out = Path(out).absolute()
     out.parent.mkdir(parents=True, exist_ok=True)
     part = Path(tempfile.mkdtemp(prefix=f".{out.name}.part-", dir=out.parent))
     try:
         got = {}
-        for name in FILES:
+        for name in names:
             data = bytes(game[name])
             (part / name).write_bytes(data)
             got[name] = (len(data), hashlib.sha256(data).hexdigest())
