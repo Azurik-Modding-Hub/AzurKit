@@ -24,6 +24,7 @@ import os
 import plistlib
 import socket
 import re
+import shlex
 import struct
 import subprocess
 import sys
@@ -3500,7 +3501,7 @@ def test_the_mac_helper_runs_a_root_owned_copy_on_macos_own_root_owned_python_ne
     py = "/Library/Developer/CommandLineTools/usr/bin/python3"
     cmd = xemu.mac_helper_command(4321, tmp_path / "s.sock", 501, 999, py, src=src)
     assert "mktemp -d" in cmd and 'chmod 700 "$d"' in cmd and 'chmod 500 "$d/helper.py"' in cmd
-    assert f"/bin/cp {src} " in cmd and f'/usr/bin/env -i {py} -I -S "$d/helper.py"' in cmd   # the copy is run
+    assert f"/bin/cp {shlex.quote(str(src))} " in cmd and f'/usr/bin/env -i {py} -I -S "$d/helper.py"' in cmd   # the copy is run
     assert "--pid 4321" in cmd and "--uid 501" in cmd and "--peer 999" in cmd
     assert "nohup" in cmd and cmd.rstrip().endswith("& echo $!")
 

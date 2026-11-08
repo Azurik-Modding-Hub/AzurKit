@@ -44,7 +44,7 @@ import sys
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from azurkit.tools.randomizer.live.link import AUTOMATED, Endpoint, LiveError, _connect, _Probe
 
@@ -457,8 +457,9 @@ _PY_PROBE = ("import __future__, argparse, ctypes, json, os, shutil, socket, str
 def _roots_alone(path: str, stat) -> bool:
     """Whether ``path`` and every folder above it are root's and writable by no
     one else (no group or other write bit; :data:`ADMIN_FOLDER` the admin
-    group's too)."""
-    p = Path(path)
+    group's too). The path is macOS's own, so it is walked as a POSIX path on
+    any host."""
+    p = PurePosixPath(path)
     for part in (p, *p.parents):
         try:
             st = stat(str(part))
