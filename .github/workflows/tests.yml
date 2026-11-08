@@ -126,6 +126,7 @@ jobs:
       # What web_tools.py fetches comes from Actions' cache when a run on this OS kept these versions (Step 4.5t): the
       # key and the two folders (Pyodide's, Playwright's browsers') are web_tools.cache()'s, restored before the fetch
       # and saved after it on a miss, before any key or image is on the runner (setup-uv's cache saves at the job's end).
+      # On a miss the folders go first, so a restore cut short in its extraction leaves no part file to keep or save.
       - name: The web tools' cache key and folders (scripts/web_tools.py --cache)
         id: web-tools
         run: uv run --locked python scripts/web_tools.py --cache >> "$GITHUB_OUTPUT"
@@ -137,6 +138,12 @@ jobs:
           path: |
             ${{ steps.web-tools.outputs.pyodide }}
             ${{ steps.web-tools.outputs.browsers }}
+      - name: No part of a restore that missed (a cut-short extraction's files)
+        if: steps.web-cache.outputs.cache-hit != 'true'
+        env:
+          PYODIDE: ${{ steps.web-tools.outputs.pyodide }}
+          BROWSERS: ${{ steps.web-tools.outputs.browsers }}
+        run: rm -rf "$PYODIDE" "$BROWSERS"
       - name: Pyodide and the browsers (scripts/web_tools.py)
         run: uv run --locked python scripts/web_tools.py
       - name: Pyodide and the browsers into the cache, for the next run on this OS
@@ -234,6 +241,7 @@ jobs:
       # What web_tools.py fetches comes from Actions' cache when a run on this OS kept these versions (Step 4.5t): the
       # key and the two folders (Pyodide's, Playwright's browsers') are web_tools.cache()'s, restored before the fetch
       # and saved after it on a miss, before any key or image is on the runner (setup-uv's cache saves at the job's end).
+      # On a miss the folders go first, so a restore cut short in its extraction leaves no part file to keep or save.
       - name: The web tools' cache key and folders (scripts/web_tools.py --cache)
         id: web-tools
         run: uv run --locked python scripts/web_tools.py --cache >> "$GITHUB_OUTPUT"
@@ -245,6 +253,12 @@ jobs:
           path: |
             ${{ steps.web-tools.outputs.pyodide }}
             ${{ steps.web-tools.outputs.browsers }}
+      - name: No part of a restore that missed (a cut-short extraction's files)
+        if: steps.web-cache.outputs.cache-hit != 'true'
+        env:
+          PYODIDE: ${{ steps.web-tools.outputs.pyodide }}
+          BROWSERS: ${{ steps.web-tools.outputs.browsers }}
+        run: rm -rf "$PYODIDE" "$BROWSERS"
       - name: Pyodide and the browsers (scripts/web_tools.py)
         run: uv run --locked python scripts/web_tools.py
       - name: Pyodide and the browsers into the cache, for the next run on this OS

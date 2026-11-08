@@ -310,12 +310,14 @@ WEB_CACHE = """          key: ${{ steps.web-tools.outputs.key }}
 """The web tools' cache's key and folders, alike in its restore and its save (``web_tools.cache``)."""
 
 
-def test_ci_keeps_what_web_tools_fetches_in_a_cache_keyed_by_its_versions_os_and_kept_files_restored_before_it_saved_after(
+def test_ci_keeps_what_web_tools_fetches_in_a_cache_keyed_by_its_versions_os_and_kept_files_a_missed_restore_emptied(
         monkeypatch):
     """Step 4.5t: run 42467070736's jobs (911040d) failed as GitHub's release
     downloads answered Pyodide's core 504 for minutes. In each ``tests.yml``
-    job that runs ``scripts/web_tools.py``, the step before its fetch
-    restores :data:`WEB_CACHE` (``actions/cache/restore``) and the step after
+    job that runs ``scripts/web_tools.py``, a step before its fetch
+    restores :data:`WEB_CACHE` (``actions/cache/restore``), the next removes
+    its two folders on a miss alone (a restore cut short in its extraction
+    leaves part files, never kept or saved), and the step after the fetch
     saves it on a miss alone, its key and two folders printed into the job's
     outputs by ``web_tools.py --cache`` the step before: Pyodide's folder and
     Playwright's browsers', nothing else, both saved before any step reads a
@@ -338,11 +340,15 @@ def test_ci_keeps_what_web_tools_fetches_in_a_cache_keyed_by_its_versions_os_and
         if not fetches:
             continue
         [at] = fetches
-        key, restore, save = steps[at - 2], steps[at - 1], steps[at + 1]
+        key, restore, empty, save = steps[at - 3], steps[at - 2], steps[at - 1], steps[at + 1]
         assert "id: web-tools\n" in key and \
             'run: uv run --locked python scripts/web_tools.py --cache >> "$GITHUB_OUTPUT"\n' in key, name
         assert "id: web-cache\n" in restore and "uses: actions/cache/restore@" in restore, name
         assert "if: steps.web-cache.outputs.cache-hit != 'true'\n" in save and "uses: actions/cache/save@" in save, name
+        assert empty.endswith("        if: steps.web-cache.outputs.cache-hit != 'true'\n        env:\n"
+                              "          PYODIDE: ${{ steps.web-tools.outputs.pyodide }}\n"
+                              "          BROWSERS: ${{ steps.web-tools.outputs.browsers }}\n"
+                              '        run: rm -rf "$PYODIDE" "$BROWSERS"\n'), name
         assert restore.endswith(f"with:\n{WEB_CACHE}") and re.sub(r"(?m)^ *#.*\n", "", save).endswith(
             f"with:\n{WEB_CACHE}"), name
         assert not [s for s in steps[:at + 2] if re.search(r"secrets\.|TIER_ROOM|\.iso\b", s)], name
