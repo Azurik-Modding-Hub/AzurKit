@@ -5870,8 +5870,9 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
     Yours, and in the Models view's Custom group); a refused value is named and Save writes nothing; the JSON tab's
     Apply keeps the old recipe on a refusal or a new base, saying why, and takes a good one; leaving unsaved edits is
     asked about (a no stays); New from this offers mine_2; Export downloads the engine's zip; Delete (after a yes)
-    and Import take it out and back; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which
-    the Tools tab's Storage names and Clear removes. No CSP violation, no request but GETs of the site's files."""
+    and Import take it out and back; a New's unsaved edits are asked about as the page closes (Modkit's AZ-792), a
+    saved one's never; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which the Tools tab's
+    Storage names and Clear removes. No CSP violation, no request but GETs of the site's files."""
     from azurkit.tools.characters import _player_variants, picker
 
     beam = _player_variants.builtins()["beamlord"]
@@ -5954,6 +5955,15 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
                           "&& !('mine_2' in azurkit.variants.state.folders)", 60)
         _page.pick(page, "#var-import", zipped)
         _variants_shown(page, status="· saved ·", name="mine_2")
+        closing = ("() => { const event = new Event('beforeunload', { cancelable: true }); dispatchEvent(event); "
+                   "return event.defaultPrevented; }")
+        assert page.evaluate(closing) is False   # saved: the page closes with no question
+        _page.click(page, "var-new")
+        keylord = "document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')"
+        _page.until(page, f"() => {keylord}", 60)
+        page.evaluate(f"() => {keylord}.click()")
+        _variants_shown(page, name="(new, unsaved)")
+        assert page.evaluate(closing) is True   # a New's unsaved edits: asked about as the page closes
         _page.check_csp(page)
         again = served.open()
         _page.click(again, "tab-characters")

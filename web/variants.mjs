@@ -602,10 +602,11 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     shown(false);
   });
 
-  // Unsaved edits: asked about before the page closes (the site's, a browser's own question).
+  // Unsaved edits: asked about before the page closes (the site's, a browser's own question), a New one's too, as
+  // leaving it in the page is (Modkit's AZ-792).
   if (!app) {
     addEventListener("beforeunload", (event) => {
-      if (v.kind !== "new" && edited()) event.preventDefault();
+      if (edited()) event.preventDefault();
     });
   }
 
