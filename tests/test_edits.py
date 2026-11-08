@@ -600,6 +600,9 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
         '{"_keyed_patches": {"settings_foo": {"initial hp": {"Value": 1' + "0" * 400 + '}}}}':
             "_keyed_patches settings_foo/initial hp/Value: value: 1000",
         json.dumps({"level": "a3", "level_patches": []}): "level_patches: AzurKit doesn't move or rename",
+        json.dumps({"patches": {"section": "damage"}, "_keyed_patches": {"damage": ["catalisk"]}}):
+            "patches must be a list of {section, entity, property, value} objects; _keyed_patches must be {table: "
+            "{entity: {property: value}}}",
         json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"original": None}]}):
             "xbr_edits[0] (replace_bytes on a1.xbr): no expected or original",
         json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"orignal": "0000"}]}): "xbr_edits[0]: unknown key 'orignal'",

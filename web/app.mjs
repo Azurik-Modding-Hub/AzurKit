@@ -944,12 +944,16 @@ function noteXbr() {
 }
 
 // Load a recipe (a share link's, or an AzurKit build's: a preset, already checked by the engine) into the page, marked,
-// in place of the remembered setup, which it becomes (D915). Without a packs layer, the ticks stay as they are.
+// in place of the remembered setup, which it becomes (D915). Without a packs layer (Modkit's mod file), the ticks and
+// every setting stay as they are.
 function load(preset, from) {
   const packs = preset.layers.find((layer) => layer.tool === "mods")?.recipe;
   state.community.clear();
   const ticked = [...$("packs").querySelectorAll("input[data-pack]:checked")].map((box) => box.dataset.pack);
-  setTo(new Set(packs ? Object.keys(packs) : ticked), packs ?? {},
+  const values = () => Object.fromEntries([...$("packs").querySelectorAll(".pack")].map((item) => [item.dataset.pack,
+    Object.fromEntries([...item.querySelectorAll("input[data-slider]")].map((field) => [field.dataset.slider,
+                                                                                        shown(field)]))]));
+  setTo(new Set(packs ? Object.keys(packs) : ticked), packs ?? values(),
         preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [], from);
   const rando = preset.layers.find((layer) => layer.tool === "randomizer")?.recipe;
   loadRando(rando, from);

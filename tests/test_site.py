@@ -2842,7 +2842,7 @@ def test_a_modkit_mod_file_loads_in_the_tools_tab_and_the_data_tabs_changes_list
                                                                                                   tmp_path):
     """Step 4.6i (P19b, P23): the Tools tab's Load reads Modkit's mod file
     as the engine reads it, its edits the page's xbr operations, the ticks
-    kept; one with a retired registry.json name is refused on the status
+    and settings kept; one with a retired registry.json name is refused on the status
     line by name, nothing loaded. The Data tab's Changes lists each cell the
     edits change, its vanilla value beside it, and the byte edit, as
     CPython's view has them, before an image. No CSP violation, no request
@@ -2860,11 +2860,14 @@ def test_a_modkit_mod_file_loads_in_the_tools_tab_and_the_data_tabs_changes_list
     want = sdk.data({"what": "view", "kind": "changes", "ops": ops, "packs": defaults})["sections"]
     shown = [[s["title"], [[label, *(c.get("read") or f"● {c['text']}" + " ⚠" * bool(c.get("written")) for c in cells)]
                            for label, cells in b["rows"]]] for s in want for b in s["blocks"]]
-    ticked = "() => [...document.querySelectorAll('input[data-pack]:checked')].map((b) => b.dataset.pack)"
+    ticked = """() => [[...document.querySelectorAll('input[data-pack]:checked')].map((b) => b.dataset.pack),
+        [...document.querySelectorAll('.pack[data-pack="player_max_hp"] input[data-slider]')].map((f) => f.value)]"""
     served = Site(browser, site)
     try:
         page = served.open()
+        _page.tick(page, [*defaults, "player_max_hp"], {"player_max_hp": {"starting_hp": "300"}})
         before = page.evaluate(ticked)
+        assert "300" in before[1]
         _page.click(page, "tab-tools")
         _page.pick(page, "#tools-mods-file", bad)
         assert "retired.json: Modkit mod: patches[0] damage/octo/damage: a retired registry.json name" in _page.until(
