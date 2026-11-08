@@ -32,11 +32,11 @@ The passes, each drawing from its own named stream:
    sphere with new trick-free traps and the first one free of them again
    give a swap (:meth:`_Slots.repairs`: an item collected just before they
    free, the way out, for one collected last before they start, the way in,
-   or for a spot at a trap when they are there from the start; in an Easy
-   attempt whose way out is a kept item, the way in to a free spot from
-   the way out's sphere on), the obsidians are placed again and it is
-   checked again, up to :data:`MAX_REPAIRS` swaps; a swap that breaks the
-   placement goes back.
+   or for a spot at a trap when they are there from the start; in an
+   attempt that may (:meth:`_Run.past_at`) whose way out is a kept item,
+   the way in to a free spot from the way out's sphere on), the obsidians
+   are placed again and it is checked again, up to :data:`MAX_REPAIRS`
+   swaps; a swap that breaks the placement goes back.
 3. **Useful** (``useful``): the vaults first, the most restricted spots
    (Q290: a vault, a spot an obsidian lock's force field closes, holds
    only ``power_life``, ``power_staff*`` or ``power_ammo``), then the rest,
@@ -55,7 +55,8 @@ writer's own numbers (:class:`~azurkit.tools.randomizer.writer.Names`,
 :func:`~azurkit.tools.randomizer.writer.string_cost`), and the result passes
 the writer's :func:`~azurkit.tools.randomizer.writer.layout`. An attempt that
 gets stuck or fails the verify (its repairs too) is retried with the next
-attempt's streams, up to 20 attempts; then :class:`FillError` names the progression items
+attempt's streams, up to 20 attempts, then 20 more whose repair may go past a
+kept way out (:meth:`_Run.past_at`); then :class:`FillError` names the progression items
 that found no safe proven spot and the proven spots (D35), and nothing is
 filled arbitrarily (AZ-161).
 
@@ -495,10 +496,10 @@ class _Slots:
         in the sphere before ``u`` (the way out) swaps spots with one collected in the sphere before ``t`` (the
         way in), or, when the traps are there from the start, with whatever lies on a spot at a trap node (its
         escape picks the item up there, as vanilla's water in w2's hose pool): each pair (the way out's spot, the
-        other), sorted. ``past`` (an Easy attempt's, D1157): when the way out is no key item (an elemental power
+        other), sorted. ``past`` (:meth:`_Run.past_at`): when the way out is no key item (an elemental power
         ``exclude_categories`` keeps vanilla), a way-in item goes past it instead, to a free proven spot collected
-        from the way out's sphere on: Easy puts every key item early, so a realm's last fragment opens it long
-        before the kept power that gets the player back out."""
+        from the way out's sphere on (a realm's last fragment opened it long before the kept power that gets the
+        player back out)."""
         new = [sp.free_traps - r.after_completion - known for sp in trace]
         t = next((i for i, n in enumerate(new) if n), None)
         u = None if t is None else next((i for i in range(t + 1, len(trace)) if not new[i] & new[t]), None)
@@ -537,12 +538,13 @@ class _Slots:
     def attempt(self, settings: Settings, reads: Mapping[str, frozenset[int]], streams: Callable[[str], Rng],
                 known: frozenset[str], repaired: list[str] | None = None,
                 reaches: _Reaches | None = None, told: _Count | None = None,
-                lean: _Lean | None = None) -> dict[str, str]:
+                lean: _Lean | None = None, past: bool = False) -> dict[str, str]:
         """One attempt's placement, or :class:`_Stuck`; ``repaired`` gets
         each trap-gate refusal it went on to repair. ``reaches``: the
         fill's kept reaches under ``settings`` (one of its own when None);
         ``told`` hears the items it places and each reach (:class:`_Count`);
-        ``lean``: a seed difficulty's (:class:`_Lean`)."""
+        ``lean``: a seed difficulty's (:class:`_Lean`); ``past``: the trap
+        gate's repair may go past a kept way out (:meth:`repairs`)."""
         lg = self.logic
         reaches = reaches if reaches is not None else _Reaches(lg, settings)
         placed, budget = dict(self.prefilled), _Budget(self.names)
@@ -662,8 +664,7 @@ class _Slots:
                     break
                 if len(problems) > 1 or not new_traps(r, known):
                     raise _Stuck("the verify: " + "; ".join(problems))
-                good, pairs = prog, self.repairs(settings, placed, r, trace, prog, known, nongem,
-                                                 lean is not None and lean.mode in (LOW, LOW_WEIGHTED))
+                good, pairs = prog, self.repairs(settings, placed, r, trace, prog, known, nongem, past)
                 why = _Stuck("the verify: " + "; ".join(problems))
                 if pairs and repaired is not None:
                     repaired.append(str(why))
@@ -963,8 +964,8 @@ def _streams(seed: str, k: int, digest: str) -> Callable[[str], Rng]:
 
 def fill(logic: Logic, seed: str, settings: Settings | None = None) -> Fill:
     """A verified placement for ``seed`` under ``settings`` (the database's
-    defaults when None), from the first of :data:`MAX_ATTEMPTS` attempts
-    that passes; :class:`FillError` otherwise, before any attempt when the
+    defaults when None), from the first of its attempts (:class:`_Run`'s
+    ``attempts``) that passes; :class:`FillError` otherwise, before any attempt when the
     settings starve it (:meth:`_Slots.starved`). The same inputs give the
     same placement in any process. The process's last fill is kept by its
     Logic and the database it holds (the same objects), seed and
@@ -1060,7 +1061,7 @@ class _Kernel:
     reach's twin reads, numbers past the kernel's, or a stub level named as a node, where the kernel's ids can't tell
     apart the names the twin's sets hold."""
 
-    MAGIC, VERSION, HEAD, OUT, CAP = 0x314C4C49464B, 2, 25, 8, 1 << 14    # fill.c's FILL_*, F_HEAD and O_HEAD; a first told log
+    MAGIC, VERSION, HEAD, OUT, CAP = 0x314C4C49464B, 3, 25, 8, 1 << 14    # fill.c's FILL_*, F_HEAD and O_HEAD; a first told log
     CLASSES = {"progression": 0, "progression_counted": 1, "useful": 2, "filler": 3}
     STREAMS = ("progression", "useful", "filler")
 
@@ -1191,7 +1192,7 @@ class _Kernel:
         vw, nl = 1 + self.lw + 2 * self.nw, len(nt.locs)
         graphs = [g for t in self.tabs for g in t.graphs] + [0] * 3 * (4 - len(self.tabs))
         while True:
-            call = array("q", [self.cap, len(self.tabs), lean_mode(run.level, k), *graphs, *keys])
+            call = array("q", [self.cap, len(self.tabs), lean_mode(run.level, k), run.past_at(k), *graphs, *keys])
             at_log = self.OUT + nl + vw * (MAX_REPAIRS + 2)
             out = native.attempt(self.blob, [t.tables for t in self.tabs], call, at_log + self.cap)
             if out != -3:
@@ -1226,7 +1227,8 @@ class _Kernel:
         if self.blob is None or not 2 <= rating <= top:
             return None
         graphs = [g for t in self.tabs for g in t.graphs] + [0] * 3 * (4 - len(self.tabs))
-        call = array("q", [0, len(self.tabs), 0, *graphs, *[0] * 9, mode, 1 + top - rating, -1 if stop is None else stop])
+        call = array("q", [0, len(self.tabs), 0, 0, *graphs, *[0] * 9, mode, 1 + top - rating,
+                           -1 if stop is None else stop])
         out = native.accept(self.blob, [t.tables for t in self.tabs], call, self._placement(placement),
                             4 + len(self.tabs[0].locs) + 2)
         return None if out is None or isinstance(out, int) else out
@@ -1307,7 +1309,8 @@ class _Run:
         self.judge = None if BOUNDS[self.level] == 1 else Judge(
             logic, st, frozenset(self.slots._open(st.exclude_categories)[0]), self.detour)
         self.count = _Count(making, BOUNDS[self.level])
-        self.attempts = MAX_ATTEMPTS + (LEANED if self.level else 0)   # a level's leaning ones, then today's
+        # a level's leaning attempts, then today's draw; Normal's of today, then as many going past a kept way out
+        self.attempts = MAX_ATTEMPTS + (LEANED if self.level else MAX_ATTEMPTS)
         self.kernel = _Kernel(self)
         if self.judge is not None and self.kernel.blob is not None:
             self.judge.kernel = self.kernel
@@ -1316,12 +1319,20 @@ class _Run:
         """Attempt ``k``'s lean (:func:`~.difficulty.lean_mode`), or none."""
         return self.lean.at(lean_mode(self.level, k)) if self.lean is not None else None
 
+    def past_at(self, k: int) -> bool:
+        """Whether attempt ``k``'s trap gate repair may move a way-in item past a kept way out
+        (:meth:`_Slots.repairs`): a level's every attempt, Normal's past its first :data:`MAX_ATTEMPTS` (today's
+        plans, which they keep byte for byte; with the elemental powers kept, a seed whose every one of those met
+        the gate with no key item for a way out found no plan)."""
+        return bool(self.level) or k >= MAX_ATTEMPTS
+
     def attempt(self, seed: str, k: int, count: _Count | None = None) -> Outcome:
         repaired: list[str] = []
         try:
             if (placement := self.kernel.attempt(seed, k, count or self.count, repaired)) is None:
                 placement = self.slots.attempt(self.st, self.reads, _streams(seed, k, self.digest), self.known,
-                                               repaired, self.reaches, count or self.count, self.lean_at(k))
+                                               repaired, self.reaches, count or self.count, self.lean_at(k),
+                                               self.past_at(k))
         except _Stuck as exc:
             return Outcome(k, None, str(exc), exc.item)
         layout(placement, self.logic.db)     # the writer's own check (never over a budget): a WriteError is a bug

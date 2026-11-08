@@ -25,7 +25,7 @@ i64 az_reach(const i64 *t, const i64 *call, i64 *counters, i64 *held, u64 *flags
 i64 az_reach_need(const i64 *t, i64 *ints);
 
 #define FILL_MAGIC 0x314c4c49464bLL   /* "KFILL1" */
-#define FILL_VERSION 2
+#define FILL_VERSION 3
 #define MAX_REPAIRS 8                 /* fill.MAX_REPAIRS */
 #define WEIGHT 3                      /* fill.USEFUL_MAJOR_WEIGHT */
 #define DETOUR_CAP 6                  /* difficulty.DETOUR_CAP */
@@ -45,9 +45,10 @@ enum { I_CLASS, I_BASE, I_FLAGS, I_START, I_COST, I_W };
 enum { CL_PROG, CL_COUNTED, CL_USEFUL, CL_FILLER, CL_OTHER };
 enum { IF_READ = 1, IF_VAULT = 2 };
 /* A call's words: the told log's capacity, the tables (the plan's, then the rungs E_top .. E_2), the attempt's lean
- * (difficulty.lean_mode: 0 none), each table's three graph ids, and the three streams' seeds (progression, useful,
- * filler: a key's word count and its two 32-bit words). */
-enum { A_CAP, A_TABS, A_LEAN, A_GRAPHS, A_STREAMS = A_GRAPHS + 12, A_W = A_STREAMS + 9 };
+ * (difficulty.lean_mode: 0 none), whether its trap gate's repair may go past a kept way out (fill._Run.past_at), each
+ * table's three graph ids, and the three streams' seeds (progression, useful, filler: a key's word count and its two
+ * 32-bit words). */
+enum { A_CAP, A_TABS, A_LEAN, A_PAST, A_GRAPHS, A_STREAMS = A_GRAPHS + 12, A_W = A_STREAMS + 9 };
 enum { M_NONE, M_LOW, M_WEIGHTED, M_HIGH, M_LOW_WEIGHTED };   /* the leans: difficulty.LOW .. LOW_WEIGHTED */
 /* The answer's words, then the placement (L), a verify's reach for the reason and one for each repaired refusal
  * (MAX_REPAIRS + 1 of them: its victory, locations, trick-free traps and those after completion: VW words), and the
@@ -601,8 +602,7 @@ static i64 repairs(S *s, const i64 *prog, const R *r) {
             nins = kept;
         }
         s->paths |= P_REPAIR_IN;
-        if (!nouts && (s->call[A_LEAN] == M_LOW || s->call[A_LEAN] == M_LOW_WEIGHTED)) {
-            /* Easy's: the way out a kept item, a way-in item to a free spot from its sphere on */
+        if (!nouts && s->call[A_PAST]) {   /* the way out a kept item: a way-in item to a free spot from its sphere on */
             copy_i(s->outs, s->ins, nins);
             nouts = nins, nins = 0;
             clear(s->coll, s->lw);   /* the locations of the spheres from u - 1 on (clears' reaches left their own log) */

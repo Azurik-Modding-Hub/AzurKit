@@ -205,7 +205,8 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
     ``_Count`` hears, in order, over a spread of settings, seed difficulties, seeds and attempts (each lean of
     ``difficulty.lean_mode`` among them) that reaches each of the kernel's paths (an own spot, a trade and one that
     fails, the lean and a lean where a rung misses a spot, a repair, its swap, its way in and its spots at the traps,
-    Easy's way in past a kept way out, a vault) and placed and stuck outcomes; and a candidate's
+    its way in past a kept way out, a vault) and placed and stuck outcomes, Normal's attempts past today's among
+    them; and a candidate's
     need and play at each rung, stopped or not (with play's notes), and its ``Judge.score``, are ``difficulty``'s."""
     from azurkit.core import progress
     from azurkit.tools.randomizer.planner import difficulty, fill
@@ -239,6 +240,7 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
              (Settings(2, "standard", {}, seed_difficulty=2), [("4", 0), ("5", 2)]),
              (Settings(3, "hard", {}, frozenset({"fragments"}), seed_difficulty=3), [("31", 12), ("31", 4)]),
              (Settings(3, "hard", {}, frozenset({"powers"}), seed_difficulty=1), [("30", 0)]),
+             (Settings(3, "hard", {}, frozenset({"powers"})), [("52", 20)]),
              (Settings(4, "frame_perfect", {}, seed_difficulty=2), [("15", 3), ("15", 0)])]
     for st, seeds in cases:
         run = fill._Run(logic, st)
@@ -250,7 +252,7 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
                 try:
                     got = (run.kernel.attempt(seed, k, heard, repaired) if kernel else run.slots.attempt(
                         st, run.reads, fill._streams(seed, k, run.digest), run.known, repaired, run.reaches, heard,
-                        run.lean_at(k)), None, None)
+                        run.lean_at(k), run.past_at(k)), None, None)
                 except fill._Stuck as exc:
                     got = (None, str(exc), exc.item)
                 answers.append((got, repaired, heard.calls))

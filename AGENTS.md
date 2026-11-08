@@ -673,17 +673,20 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `STRICT` (10), then weighted, and a level's 20 attempts past `LEANED`
     draw as today, as a strict lean repeats one placement the verify may
     refuse every time); the obsidians by detour (D1038). With the elemental
-    powers kept vanilla, Easy's early fragments open a realm before the kept
-    power that gets the player back out (new trick-free traps) and no key
-    item comes after them to swap, so in an Easy attempt the trap gate's
-    repair moves the realm's opener to a free spot from the kept power's
-    sphere on (`_Slots.repairs`' `past`, `fill.c`'s `P_REPAIR_PAST`). Easy
-    keeps the lowest `Judge.score` (key-item steps + key items off the path
-    + twice the step-ups at each rating to the top) of 3 passing attempts,
-    Expert the highest of 6, the first on a tie; Hard and Normal their first.
-    The kernel (`fill.c`'s `lean`, the call's `A_LEAN`, each location's
-    `L_DETOUR`) and its twin (`fill._Lean` in `_Slots.attempt`) agree bit for
-    bit (`tests/test_native.py`'s spread). Attempt k is pure, so a host may
+    powers kept vanilla, a realm's last fragment can open it before the kept
+    power that gets the player back out (new trick-free traps), with no key
+    item after them to swap. In every attempt of a level, and in Normal's
+    past its first 20 (`fill._Run.past_at`: Normal has 20 more, so its plans
+    stay today's and a seed whose 20 all met that gate plans too), the trap
+    gate's repair then moves the realm's opener to a free spot from the kept
+    power's sphere on (`_Slots.repairs`' `past`, `fill.c`'s `A_PAST` and
+    `P_REPAIR_PAST`). Easy keeps the lowest `Judge.score` (key-item
+    steps + key items off the path + twice the step-ups at each rating to
+    the top) of 3 passing attempts, Expert the highest of 6, the first on a
+    tie; Hard and Normal their first. The kernel (`fill.c`'s `lean`, the
+    call's `A_LEAN` and `A_PAST`, each location's `L_DETOUR`) and its twin
+    (`fill._Lean` in `_Slots.attempt`) agree bit for bit
+    (`tests/test_native.py`'s spread). Attempt k is pure, so a host may
     run those past the first at once (`fill.WIDTH` on its `fill.BESIDE`):
     the app's engine on its threads (`procpool.Beside`), the site's worker
     one at a time: the same plan at any width. Every plan's spoiler and

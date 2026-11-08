@@ -272,6 +272,21 @@ def test_easy_with_the_elemental_powers_kept_plans_from_its_lean_below_normals_s
         assert judge.score(made.placement) < judge.score(today.placement), seed
 
 
+def test_with_the_elemental_powers_kept_each_level_plans_a_seed_whose_attempts_of_today_all_meet_the_trap_gate():
+    """D1160: with the elemental powers kept at Hard movement and skips, each of seed "52"'s 20 attempts of today (and
+    seed "2"'s with the upgrades kept too) opens a realm before the kept power that gets the player back out, with no
+    key item after the new trick-free traps to swap, so Normal found no plan (D35). Its 20 more attempts let the trap
+    gate's repair move the realm's opener past the kept power, as each level's attempts do, so each level plans both
+    seeds, Normal from an attempt past today's, and every plan passes the verify."""
+    logic = kept_logic()
+    for kept, seed in ((frozenset({"powers"}), "52"), (frozenset({"powers", "upgrades"}), "2")):
+        for level in range(4):
+            st = Settings(3, "hard", {}, kept, seed_difficulty=level)
+            made = fill._fill(logic, seed, st)
+            assert not fill.verify(logic, st, made.placement), (seed, level)
+            assert level or made.attempt >= fill.MAX_ATTEMPTS, seed
+
+
 def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reach_of_their_own(monkeypatch):
     """The app's job ahead of the spoiler's View: the View takes its answer, in one Logic's kept openers."""
     logic, settings = kept_logic(), Settings(3, "hard", {}, seed_difficulty=3)
