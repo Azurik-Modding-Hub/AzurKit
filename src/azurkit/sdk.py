@@ -1252,7 +1252,10 @@ def add_wav(given: Mapping) -> dict:
     with tempfile.TemporaryDirectory() as scratch:
         picked = Path(scratch) / (re.split(r"[\\/]", file.name)[-1] or "take.wav")
         picked.write_bytes(data)
-        return {"name": editor.add_wav(folder, picked)}
+        try:
+            return {"name": editor.add_wav(folder, picked)}
+        except ValueError as exc:
+            raise ValueError(str(exc).replace(str(picked), picked.name)) from None
 
 
 def _species(given: object, what: str) -> tuple[gate.Stamp, bytes, bytes, str, str]:

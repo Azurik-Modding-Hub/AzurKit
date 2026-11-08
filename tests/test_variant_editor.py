@@ -486,7 +486,7 @@ def test_the_sounds_and_effects_tabs_read_what_the_loader_lays_and_a_picked_wav_
     picked = [sdk.add_wav({"folder": str(folder), "file": "C:\\picked\\my take.wav", "data": data})["name"]
               for data in (take.read_bytes(), take.read_bytes(), take.read_bytes()[:-2] + b"\x02\x00")]
     assert picked == ["my_take.wav", "my_take.wav", "my_take_2.wav"]
-    with pytest.raises(ValueError, match="noise.wav"):
+    with pytest.raises(ValueError, match=r"^noise\.wav: "):
         sdk.add_wav({"folder": str(folder), "file": "noise.wav", "data": b"not a wav"})
     assert sorted(p.name for p in folder.iterdir()) == ["my_take.wav", "my_take_2.wav"]
 
