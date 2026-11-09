@@ -553,6 +553,64 @@ def test_the_speed_toggle_flips_a_worn_bodys_walk_and_roll_to_the_bodys_own(usa_
     assert abs(r * r - 1.0988) < 1e-4 and struct.pack("<I2f", 1, 14 * r, 7 * r) in xbe
 
 
+def test_the_shim_data_a_build_declares_is_the_marker_x3_writes_each_tick(usa_iso):
+    """AZ-300 (Modkit's): ``shim_data`` is what the player-model shims write while the game runs (the xemu harness's
+    boot-build leaves it out of its SHIMS compare), found from the build (each hook's CALL and its shim's
+    relocations, never a fixed VA). For flicken it is the 0x34-byte marker X3 points critter+0x218 at, holding every
+    SHIMS byte a tick of X3 (devkit's L2 simulator) writes in or out of the attack window, and each other shim's
+    landed .data and .bss (X18's 8 bytes since Step 4.3 among them); evil_noreht's likewise, the vanilla XBE's none.
+    X12's attack hook and X44 share 0x7E3F0: a farmer's default build (X12) and keylord's with the Axion staff (X44)
+    each declare the 0x40-byte key buffer of the one it landed there (AZ-688)."""
+    from unicorn import UC_HOOK_MEM_WRITE
+
+    from azurkit.core import xbe as xbe_
+    from azurkit.tools.characters import _player_borrow as borrow
+    from azurkit.tools.characters._player_character import CHECKOUT, shim_data
+    from azurkit.tools.characters._player_damage_marker import DAMAGE_MARKER
+    from devkit.sim.l2 import Sim
+
+    def built(character: dict) -> bytes:
+        _, base, layers, _, _ = sdk._plan({"iso": str(usa_iso), "packs": {}, "character": character})
+        return bytes(compose(base, layers)[0][characters.XBE])
+
+    def x3_tick(xbe: bytes, done: float) -> tuple[int, set[int]]:   # column 0, ``done`` of the way through its move
+        pc, critter, sim, written = 0x20000000, 0x20001000, Sim(xbe), set()
+        sim.uc.mem_map(pc, 0x10000)
+        for at, fmt, value in ((pc + 0x20, "<I", critter), (pc + 0x94, "<I", 0x100), (pc + 0xF8, "<f", 0.1),
+                               (pc + 0x100, "<f", 0.9), (pc + 0x178, "<f", 0.1 + 0.8 * done),
+                               (critter + 0x188, "<f", 1.0), (critter + 0x200, "<i", 0x52)):
+            sim.uc.mem_write(at, struct.pack(fmt, value))
+        sim.uc.hook_add(UC_HOOK_MEM_WRITE, lambda uc, access, va, size, value, _: written.update(range(va, va + size)))
+        sim.call(DAMAGE_MARKER.va + 5 + struct.unpack("<i", sim.uc.mem_read(DAMAGE_MARKER.va + 1, 4))[0], args=(pc,),
+                 until=0x8C8A0)
+        assert sim.u32(sim.reg("esp") + 4) == pc   # it ends calling the staff-wall check with the PlayerControl
+        return sim.u32(critter + 0x218), written
+
+    flicken, noreht = built({"species": "flicken"}), built({"species": "evil_noreht"})
+    farmer, axion = built({"species": "town_male_farmer_1"}), built(
+        {"species": "keylord", "sounds": "garret4", "weapon": "axion_staff"})
+    shims = next(s for s in xbe_.sections(flicken) if s.name == "SHIMS")
+    stamp = gate.verify(str(usa_iso), whole=False)
+    with ports.building(ports.Build(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), taken=[],
+                                    packs=characters.packs_view(stamp.release, mods.PACKS))):
+        data = shim_data(flicken)
+        for done in (0.35, 0.6):
+            marker, written = x3_tick(flicken, done)
+            assert (marker, marker + 0x34) in data
+            assert sorted(b - a for a, b in data if a != marker) == [4, 4, 8, 0x10, 0x18, 0x18, 0x18, *[0x30] * 4, 0x38,
+                                                                      0x3C, 0x3C, 0x3C, 0x40, 0x40, 0x304]
+            assert {va for va in written if shims.va <= va < shims.va + shims.vsize} <= {
+                va for start, end in data for va in range(start, end)}
+            assert set(range(marker + 4, marker + 0x10)) | set(range(marker + 0x2C, marker + 0x34)) <= written
+        assert sorted(b - a for a, b in shim_data(noreht)) == [4, 4, 4, 8, 0x10, 0x18, 0x18, 0x18, *[0x30] * 7, 0x34,
+                                                               0x38, 0x38, 0x38, 0x40, 0x40]
+        with iso.Reader(usa_iso) as r:
+            assert shim_data(r.read(characters.XBE)) == []
+        for xbe, hook, shim in ((farmer, borrow.ATTACK, borrow.SHIM), (axion, borrow.FIRST, borrow.FIRST_SHIM)):
+            (lo, hi), = ports.trampoline_shim_data(xbe, hook, CHECKOUT, shim_source=shim.source_path())
+            assert hi - lo == 0x40 and (lo, hi) in shim_data(xbe), hook.name
+
+
 @pytest.mark.parametrize("release", RELEASES)
 def test_a_character_builds_recipe_rebuilds_its_image(release, request):
     """keylord over the packs on by default: the build's recipe (``sdk.open_build``, then ``sdk.read_mods``: Load
