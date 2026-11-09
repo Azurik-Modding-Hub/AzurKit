@@ -21,6 +21,11 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
+    azurkit save inspect FOLDER|HDD [--json]
+                                          a save slot's files, or an xemu HDD image's slots, decoded
+    azurkit save edit FOLDER|HDD --out DIR --flash PATH --iso PATH [--mcpx PATH] [--slot ID]
+                      [--plan FILE] [--set FILE:LINE=VALUE ...] [--json]
+                                          a slot's text saves edited, signed again for your console, saved new
     azurkit content [list | install ID | update ID] [--source URL|DIR]
                                           Azurik-Custom-Content's entries, and Install or Update one
     azurkit content check DIR [--write]   a content repository's manifest and files (--write fills in their sha256)
@@ -85,6 +90,10 @@ with a line saying so. ``entity diff`` sets two entities' cells side by
 side in each table that holds either: ``~`` a property they hold
 differently, ``-`` one only A holds, ``+`` one only B holds (``=`` alike,
 with ``--all``), or the rows as JSON.
+``save edit`` makes a ``--plan`` file's edits (Modkit's ``{"edits": [{"file",
+"line_index", "new_value"}, ...]}``), then each ``--set``, all or none, and
+``--json`` prints the slots (``inspect``) or the new folder, each change and
+whether the slot was signed for that console before (``edit``).
 ``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
 ``--source`` or ``$AZURKIT_CONTENT_SOURCE``, a URL or a folder) and what the
 content folder holds of each; ``install`` and ``update`` copy one in, every
@@ -581,39 +590,69 @@ def _spoiler(args: argparse.Namespace) -> int:
     return 0
 
 
-def _save(args: argparse.Namespace) -> int:
-    from azurkit.tools import saves
-
+def _plan_edits(path: str) -> list[dict]:
+    """``save edit --plan``'s file as the sdk's edits: Modkit's ``{"edits":
+    [{"file", "line_index", "new_value"}, ...]}`` (a line index as a number or
+    its digits, a value as text or a number, as Modkit read them), or the
+    sdk's ``{"file", "line", "value"}``; ``ValueError`` names the first edit
+    that isn't one."""
     try:
-        target = Path(replaced.source(args.target))
-        slots = [saves.Slot.read(target)] if target.is_dir() else saves.slots(target)
+        doc = json.loads(Path(replaced.source(path)).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"--plan {path}: not JSON ({exc})") from None
+    if not (isinstance(doc, dict) and isinstance(doc.get("edits"), list)):
+        raise ValueError(f'--plan {path}: not an edit plan, {{"edits": [{{"file", "line_index", "new_value"}}, ...]}}')
+    out = []
+    for k, item in enumerate(doc["edits"], 1):
+        line = item.get("line_index", item.get("line")) if isinstance(item, dict) else None
+        value = item.get("new_value", item.get("value")) if isinstance(item, dict) else None
+        if isinstance(line, str) and line.isdecimal():
+            line = int(line)
+        if not (isinstance(item.get("file") if isinstance(item, dict) else None, str) and type(line) is int
+                and (isinstance(value, str) or type(value) in (int, float))):
+            raise ValueError(f"--plan {path}: edit {k} needs file, line_index (a whole number) and new_value")
+        out.append({"file": item["file"], "line": line, "value": value if isinstance(value, str) else str(value)})
+    return out
+
+
+def _save(args: argparse.Namespace) -> int:
+    try:
+        target = replaced.source(args.target)
+        slots = sdk.saves({"do": "open", "folder" if Path(target).is_dir() else "image": target})["slots"]
         if args.action == "inspect":
+            if args.json:
+                print(json.dumps({"slots": slots}, indent=1))
+                return 0
             if not slots:
                 print(f"{target}: no Azurik save")
             for slot in slots:
-                print(f"{slot.id}: {len(slot.files)} files, {len(slot.folders)} folders")
-                for file in saves.decode(slot):
+                print(f"{slot['id']}: {len(slot['files'])} files, {slot['folders']} folders")
+                for file in slot["files"]:
                     print(f"  {file['path']}: {file['kind']}, {file['size']:,} B"
                           + "".join(f"\n    {n} {line}" for n, line in enumerate(file.get("lines", []))))
             return 0
         if not args.out or not args.flash or not args.iso:
             raise ValueError("save edit: give --out, --flash and --iso: an edited save is signed again for your console")
-        slot = next((s for s in slots if s.id == args.slot), None) if args.slot else slots[0] if len(slots) == 1 else None
+        ids = [slot["id"] for slot in slots]
+        slot = (args.slot if args.slot in ids else None) if args.slot else ids[0] if len(ids) == 1 else None
         if slot is None:
-            raise ValueError(f"save edit: name a slot with --slot (there: {', '.join(s.id for s in slots)})")
-        sdk.saves({"do": "open", "id": slot.id, "files": slot.files, "folders": list(slot.folders)})
+            raise ValueError(f"save edit: name a slot with --slot (there: {', '.join(ids)})")
+        edits = _plan_edits(args.plan) if args.plan else []
         for given in args.set:
             file, _, rest = given.partition(":")
             line, sep, value = rest.partition("=")
             if not sep or not line.isdecimal():
                 raise ValueError(f"--set {given}: not FILE:LINE=VALUE")
-            sdk.saves({"do": "edit", "id": slot.id, "edits": [{"file": file, "line": int(line), "value": value}]})
-        sdk.saves({"do": "sign", "id": slot.id, "iso": args.iso, "flash": Path(replaced.source(args.flash)).read_bytes(),
-                   "mcpx": Path(replaced.source(args.mcpx)).read_bytes() if args.mcpx else None})
-        print(sdk.saves({"do": "save", "id": slot.id, "out": args.out})["out"])
+            edits.append({"file": file, "line": int(line), "value": value})
+        changes = sdk.saves({"do": "edit", "id": slot, "edits": edits})["changes"] if edits else []
+        signed = sdk.saves({"do": "sign", "id": slot, "iso": args.iso,
+                            "flash": Path(replaced.source(args.flash)).read_bytes(),
+                            "mcpx": Path(replaced.source(args.mcpx)).read_bytes() if args.mcpx else None})
+        out = sdk.saves({"do": "save", "id": slot, "out": args.out})["out"]
     except (OSError, ValueError) as exc:
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
+    print(json.dumps({"out": out, "changes": changes, "signed_before": signed["was"]}, indent=1) if args.json else out)
     return 0
 
 
@@ -791,12 +830,16 @@ def main(argv: list[str] | None = None) -> int:
     spoiled.set_defaults(run=_spoiler)
     saved = verbs.add_parser("save", help="read an Azurik save slot, or edit one and sign it again",
                              description="inspect: what a slot's folder or an xemu HDD image's slots hold (read-only). "
-                                         "edit: change a text save's lines (--set), sign the slot again with your own "
-                                         "BIOS files (read in memory, never kept) and write it to --out, a new folder.")
+                                         "edit: change a text save's lines (--plan's, then --set's, all or none), sign "
+                                         "the slot again with your own BIOS files (read in memory, never kept) and write "
+                                         "it to --out, a new folder. --json prints either's result as JSON.")
     saved.add_argument("action", choices=("inspect", "edit"))
     saved.add_argument("target", metavar="FOLDER|HDD", help="a slot's folder, or an xemu HDD image")
     saved.add_argument("--slot", metavar="ID", help="edit: which slot of an HDD image")
     saved.add_argument("--set", action="append", default=[], metavar="FILE:LINE=VALUE", help="edit: a line (repeatable)")
+    saved.add_argument("--plan", metavar="FILE", help='edit: a JSON file of edits, {"edits": [{"file", "line_index", '
+                       '"new_value"}, ...]} (Modkit\'s), made before each --set')
+    saved.add_argument("--json", action="store_true", help="the slots (inspect), or what edit did, as JSON")
     saved.add_argument("--flash", metavar="PATH", help="edit: your flash image")
     saved.add_argument("--mcpx", metavar="PATH", help="edit: your MCPX boot ROM")
     saved.add_argument("--iso", metavar="PATH", help="edit: your game image (the game's key is in its XBE)")

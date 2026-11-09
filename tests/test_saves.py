@@ -356,6 +356,49 @@ def test_the_sdks_saves_open_edit_sign_and_save_a_slot_and_the_cli_does_too(tmp_
     assert cli.main(["save", "edit", str(out)]) == 1
 
 
+def test_save_speaks_json_and_edits_a_modkit_plan_files_lines_then_each_set_all_or_none(tmp_path, monkeypatch,
+                                                                                         capsys):
+    """Step 4.24a (Modkit's ``save inspect --json``, ``save edit --plan`` and ``--json``): ``inspect --json`` gives
+    the slots as the Tools tab shows them; ``edit`` makes a plan file's edits (Modkit's ``{"edits": [{"file",
+    "line_index", "new_value"}]}``, a number or its digits read as Modkit read them), then each ``--set``, signs
+    and saves the slot, and ``--json`` gives the folder, each change and whether it was signed before. A plan
+    that isn't one, or an edit the slot can't take, is refused by name and nothing is written."""
+    _, fp, flash, mcpx, _, xbe = _console(6)
+    monkeypatch.setattr(saves, "key", lambda f, m, x: saves.signature_key(saves.cert_key(f, m, fingerprint=fp),
+                                                                         saves.title_key(x)))
+    reader = type("R", (), {"__init__": lambda s, path: None, "__enter__": lambda s: s, "__exit__": lambda s, *a: None,
+                            "read": lambda s, name: xbe})
+    monkeypatch.setattr(sdk.iso, "Reader", reader)
+    folder, out, plan = tmp_path / ID, tmp_path / "out", tmp_path / "plan.json"
+    for path, data in _files().items():
+        (folder / path).parent.mkdir(parents=True, exist_ok=True)
+        (folder / path).write_bytes(data)
+    (tmp_path / "flash.bin").write_bytes(flash)
+    (tmp_path / "mcpx.bin").write_bytes(mcpx)
+    keys = ["--flash", str(tmp_path / "flash.bin"), "--mcpx", str(tmp_path / "mcpx.bin"), "--iso", str(tmp_path / "x")]
+    assert cli.main(["save", "inspect", str(folder), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == sdk.saves({"do": "open", "folder": str(folder)})
+    edits = [{"file": "magic.sav", "line_index": 2, "new_value": 7}, {"file": "magic.sav", "line_index": "3",
+                                                                      "new_value": "8"}]
+    for doc, why in (([], 'not an edit plan, {"edits": [{"file", "line_index", "new_value"}, ...]}'),
+                     ({"edits": [edits[0] | {"line_index": 1.5}]},
+                      "edit 1 needs file, line_index (a whole number) and new_value"),
+                     ({"edits": [edits[0] | {"line_index": 99}]}, None)):
+        plan.write_text(json.dumps(doc), encoding="utf-8")
+        assert cli.main(["save", "edit", str(folder), "--plan", str(plan), *keys, "--out", str(out)]) == 1
+        assert capsys.readouterr().err.startswith(f"azurkit: --plan {plan}: {why}" if why else
+                                                  "azurkit: can't make the edits: magic.sav[99]: no such line")
+        assert not out.exists()
+    plan.write_text(json.dumps({"edits": edits}), encoding="utf-8")
+    assert cli.main(["save", "edit", str(folder), "--plan", str(plan), "--set", "magic.sav:3=9", *keys, "--out",
+                     str(out), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"out": str(out), "signed_before": False, "changes": [
+        {"file": "magic.sav", "line": 2, "old": "3", "new": "7"}, {"file": "magic.sav", "line": 3, "old": "5", "new": "8"},
+        {"file": "magic.sav", "line": 3, "old": "8", "new": "9"}]}
+    again = saves.Slot.read(out, ID)
+    assert saves.signed(again, saves.key(flash, mcpx, xbe)) and b"\n7\n9\n" in again.files["magic.sav"]
+
+
 def test_slots_are_read_from_an_xemu_hdd_image(tmp_path):
     """Step 4.7e: Azurik's slots on an xemu HDD (a qcow2, version 3 or 2, and
     a raw disk: the same slots) are the folders under UDATA/4d530007 on its

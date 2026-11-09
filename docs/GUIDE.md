@@ -243,7 +243,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Your original stays safe:** a build never writes over the image it reads.
 - **All or nothing:** if anything fails, nothing is written, and the error says what and why.
 - **Save editor:** in the Tools tab or with `azurkit save`, read a save slot's folder or the slots on an xemu hard disk,
-  change a text save's line, sign it again with your own BIOS files (read in memory, never kept) and save it new.
+  change a text save's line, sign it again with your own BIOS files (read in memory, never kept) and save it new;
+  `azurkit save` also takes a file of edits (`--plan`, Modkit's too) and prints JSON (`--json`).
 - **Replace files:** pick a file from your computer to stand in for one of the image's, at any size, in the Tools tab
   or with `azurkit build --file`; the recipe names it, never holds it, and a share link refuses it.
 - **Clashes named:** when two changes touch the same spot, the later one wins and the build says so.
