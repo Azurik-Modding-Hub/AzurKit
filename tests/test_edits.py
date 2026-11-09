@@ -865,3 +865,20 @@ def test_a_build_never_writes_beside_a_vanilla_image_nor_inside_an_iso_folder_ho
     assert cli.main(["build", "--iso", str(main_iso / "usa.iso"), "--out", str(main_iso / "x.iso")]) == 1
     assert capsys.readouterr().err == f"azurkit: output {main_iso / 'x.iso'} is inside {main_iso}, which holds only the vanilla image\n"
     assert sorted(p.name for p in main_iso.iterdir()) == ["away.iso", "usa.iso"]
+
+
+def test_a_modkit_mods_byte_edits_naming_one_level_two_ways_all_land_in_that_file():
+    """Modkit's D35 (test_edit_layers): its mod stage kept one buffer per
+    spelling of a file's name, so an edit naming ``gamedata/a3.xbr`` edited a
+    second copy of the level and the copy written last dropped the other's
+    bytes. Every name of one file is that file: all three bytes land in it."""
+    from azurkit.edits import xbr
+
+    edits = [{"op": "replace_bytes", "xbr_file": name, "offset": at, "value": value, "value_kind": "hex",
+              "original": "00"}
+             for name, at, value in (("a3.xbr", 0x800, "11"), ("gamedata/a3.xbr", 0x801, "22"), ("a3.xbr", 0x802, "33"))]
+    ops = sdk.read_mods(json.dumps({"xbr_edits": edits}))["xbr"]
+    assert {op["file"] for op in ops} == {"gamedata/a3.xbr"}
+    base = {"gamedata/a3.xbr": bytes(0x1000)}
+    made, _ = compose(base, [xbr.plan(ops, gate.USA, base)])
+    assert bytes(made["gamedata/a3.xbr"][0x800:0x803]) == b"\x11\x22\x33"

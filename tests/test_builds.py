@@ -221,3 +221,34 @@ def test_a_builds_in_game_line_names_only_the_controls_it_adds_in_the_modern_pad
     for packs, want in (({"player_physics": {"toggle_gravity": 1}}, []), ({}, []),
                         ({"player_physics": {"roll_time_scale": 0.5}}, ["RB: roll (speed x0.5)"])):
         assert sdk._ingame(sdk._plan({"iso": str(usa_iso), "packs": packs})[2]) == want, packs
+
+
+# --- Step 4.28a: Modkit's build test no test above pinned (test_build_validity's recipe-to-image half), ported.
+
+
+def test_changing_any_one_field_of_a_recipe_changes_the_image_it_builds(usa_iso):
+    """Modkit's BuildValidity (test_build_validity): a recipe with a seed,
+    its skip ceiling and obsidian cost, a worn body (flicken), two packs
+    ticked over those on by default, a slider and a config.xbr cell builds
+    another image (its files' sha256, the build's own record aside) when
+    any one of them changes; the other half, one recipe always building the
+    same image, is the goldens'."""
+    from azurkit.tools.randomizer import layer
+    from azurkit.tools.randomizer.planner.loader import kept_logic
+
+    settings = layer.settings_doc(kept_logic().db.defaults)
+    on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+    hp = {"op": "set", "file": CONFIG, "table": "critters_damage", "entity": "golem", "prop": "hitPoints"}
+
+    def recipe(seed="44", ceiling=3, cost=5, species="flicken", ticked=("qol_gem_popups", "qol_pickup_anims"),
+               gravity=4.9, value=321) -> dict:
+        return {"iso": str(usa_iso), "character": {"species": species}, "xbr": [hp | {"value": value}],
+                "packs": on | dict.fromkeys(ticked, {}) | {"player_physics": {"gravity": gravity}},
+                "randomizer": {"seed": seed, "settings": settings | {"skip_ceiling": ceiling}, "obsidian_cost": cost}}
+    changed = {"seed": {"seed": "45"}, "skip ceiling": {"ceiling": 4}, "obsidian cost": {"cost": 6},
+               "character": {"species": "golem"}, "packs": {"ticked": ("qol_gem_popups",)},
+               "slider": {"gravity": 4.8}, "cell": {"value": 322}}
+    built = {field: sdk.image(recipe(**given), spoiler=False)[1]["result"] for field, given in
+             {"recipe": {}, **changed}.items()}
+    first = built.pop("recipe")
+    assert len(first) > 3 and [field for field, result in built.items() if result == first] == []

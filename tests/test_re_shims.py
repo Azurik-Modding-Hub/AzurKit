@@ -417,3 +417,20 @@ def test_new_shim_lists_its_flags_and_refuses_a_bad_name_or_category_by_name_exi
         out, err = capsys.readouterr()
         assert (out, err.startswith(f"new-shim: {why}"), err.count("\n")) == ("", True, 1), argv
     assert not (ROOT / new_shim.PACKS / "my_x.py").exists()
+
+
+# --- Step 4.28a: Modkit's test_test_for_va CLI tests, ported leanly.
+
+
+def test_test_for_va_prints_the_nodes_that_pin_a_va_and_the_same_as_json(capsys):
+    """Modkit's TestForVaCli: ``python -m devkit re test-for-va 0x85700``
+    exits 0 printing how many pytest nodes pin the VA and each one's
+    selector, and with ``--json`` the same nodes as a list."""
+    from devkit import __main__ as dispatch
+
+    assert dispatch.main(["re", "test-for-va", "0x85700"]) == 0
+    head, *lines = capsys.readouterr().out.splitlines()
+    assert dispatch.main(["re", "test-for-va", "0x85700", "--json"]) == 0
+    listed = json.loads(capsys.readouterr().out)
+    assert listed and head == f"{len(listed)} pytest node(s) pin VA 0x85700:"
+    assert [line.strip().partition("  (")[0] for line in lines] == [m["selector"] for m in listed]

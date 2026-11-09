@@ -148,3 +148,21 @@ def test_inspect_physics_shows_the_value_each_slider_site_of_a_build_holds(relea
     assert report["sliders"]["walk"]["state"] == "NOT READ"
     swim = report["sliders"]["swim"]
     assert swim["state"] == "DRIFTED" and swim["got"].startswith("<6 B, sha256")
+
+
+# --- Step 4.28a: Modkit's test_verify_patches_strict AZ-173 test, ported.
+
+
+def test_strict_verify_fails_a_stray_byte_in_the_vanilla_callee_of_an_unapplied_trampoline_site(usa_iso, tmp_path,
+                                                                                                 capsys):
+    """Modkit's AZ-173: its verify-patches followed any CALL at a trampoline
+    site, and qol_skip_logo's site is vanilla's own CALL to play_movie_fn, so
+    on a build without that pack the first 64 bytes of play_movie_fn (VA
+    0x18980) passed --strict. Only the sites, footprints, the swap's sites
+    and the shim room are allowed: a stray byte there fails it, named."""
+    with iso.Reader(usa_iso) as r:
+        stray = bytearray(r.read(engine.XBE))
+    stray[facts.of(gate.USA).offset(0x18990, 1)] ^= 0xFF
+    (tmp_path / "s.xbe").write_bytes(stray)
+    code, out, _ = run(capsys, verify_patches, "--xbe", tmp_path / "s.xbe", "--original", usa_iso, "--strict")
+    assert code == 1 and "VA 0x00018990  .text: 1 B" in out and "1 run(s), 1 B: a failure (--strict)" in out

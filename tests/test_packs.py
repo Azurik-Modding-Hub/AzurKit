@@ -525,3 +525,22 @@ def test_a_golden_whose_re_record_stops_midway_is_still_the_old_one(tmp_path, mo
     monkeypatch.undo()
     assert json.loads(golden.read_text(encoding="utf-8")) == {"a": {"default.xbe": "1" * 64}}
     assert [p.name for p in tmp_path.iterdir()] == ["packs.json"]
+
+
+def test_every_text_the_patches_tab_shows_is_one_short_line_with_no_tag_range_or_note():
+    """Modkit's Step 2.28, the owner's standing rule (test_categories, and
+    test_gui_pages' Patches page): every text the page shows from the
+    catalog (a tab's title, a category's title and line, a pack's
+    description, a slider's label and description) is one line of at most
+    80 characters, with no tag ("[fps]"), range ("any", "from 1"),
+    "experimental" label or note. Modkit's logic-safe hint beside a slider
+    is AzurKit's Randomizer tab's ⚠ line: movement's slider ranges weren't
+    ported (AGENTS.md's Porting from Modkit)."""
+    catalog = sdk.catalog()
+    texts = [tab["title"] for tab in catalog["tabs"]] + [t for c in catalog["categories"]
+                                                         for t in (c["title"], c["description"])]
+    texts += [t for p in catalog["packs"]
+              for t in (p["description"], *(t for s in p["sliders"] for t in (s["label"], s["description"])))]
+    assert len(texts) > 100 and [t for t in texts if len(t) > 80 or "\n" in t] == []
+    assert [t for t in texts if re.search(r"\bany\b|from \d", t) or any(
+        word in t for word in ("[", "range", "unrestricted", "xperimental", "commonly", "logic-safe"))] == []
