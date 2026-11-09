@@ -119,7 +119,7 @@ def _json(data: bytes, depth: int = MAX_DEPTH, pairs: Callable[[list], dict] = _
     try:
         return json.loads(text, object_pairs_hook=pairs, parse_constant=_constant)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"preset: not JSON ({exc.msg} at {exc.pos})") from None
+        raise ValueError(f"preset: not JSON ({exc.msg}: line {exc.lineno}, column {exc.colno})") from None
 
 
 def from_manifest(record: Mapping) -> dict:

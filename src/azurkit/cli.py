@@ -100,9 +100,9 @@ content folder holds of each; ``install`` and ``update`` copy one in, every
 file's sha256 checked first (a build reads a variant's files from there);
 ``check`` checks a clone's ``manifest.json`` and every file it lists, and
 ``--write`` first fills in each listed file's sha256 and size.
-A refusal or failure is one ``azurkit: ...`` line on stderr and exit 1. A flag
-is taken only as spelled: one typed short (``--no-def``) is refused, exit 2,
-never read as the flag it starts (Q100).
+A refusal or failure is one ``azurkit: ...`` line on stderr and exit 1 (a mods
+file's names the file). A flag is taken only as spelled: one typed short
+(``--no-def``) is refused, exit 2, never read as the flag it starts (Q100).
 """
 
 from __future__ import annotations
@@ -326,14 +326,17 @@ def _write_outputs(outputs: dict[str, Path], built: dict) -> None:
             part.unlink(missing_ok=True)
 
 
+def _mods(path: str) -> dict:
+    """The mods file at ``path`` (``sdk.read_mods``); each refusal names the file (AZ-030)."""
+    try:
+        return sdk.read_mods(Path(path).read_bytes())
+    except ValueError as exc:
+        raise ValueError(f"{exc} (in {path})") from None
+
+
 def _build(args: argparse.Namespace) -> int:
     try:
-        files = []
-        for path in args.mods:
-            try:
-                files.append((path, sdk.read_mods(Path(path).read_bytes())))
-            except ValueError as exc:
-                raise ValueError(f"{path}: {exc}" if len(args.mods) > 1 else str(exc)) from None
+        files = [(path, _mods(path)) for path in args.mods]
         given, replaced_by = merged(files) if files else (None, [])
         if len(files) > 1:   # the data edits' numbers each file's are, as a conflict names them
             n = 0

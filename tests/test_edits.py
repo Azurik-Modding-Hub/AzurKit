@@ -794,3 +794,21 @@ def test_a_mods_file_saved_from_the_setup_loads_back_the_same_recipe():
         sdk.preset_encode(recipe)
     with pytest.raises(ValueError, match=re.escape("recipe: no pack 'nope'")):
         sdk.mods_file({"text": text.replace('"fps_unlock"', '"nope"')})
+
+
+# --- Step 4.28a: Modkit's mods-file and build-output tests no test above pinned (test_edit_layers' one file
+# named two ways and its mod file that isn't JSON, test_iso_identity's D36 folder rules), ported leanly.
+
+
+def test_a_mods_file_that_isnt_json_is_refused_naming_the_file_and_its_line_and_nothing_is_written(tmp_path, capsys):
+    """Modkit's AZ-030 (test_edit_layers): a mods file that isn't JSON is a
+    ``ValueError`` naming its line and column (``sdk.read_mods``, every
+    host's), and ``azurkit build --mods`` exits 1 with that one line naming
+    the file too, before it reads the image, and writes nothing."""
+    bad, out = tmp_path / "mod.json", tmp_path / "out.iso"
+    bad.write_text('{"name": "x",\n "y": 1,}', encoding="utf-8")
+    why = "preset: not JSON (Illegal trailing comma before end of object: line 2, column 8)"
+    with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+        sdk.read_mods(bad.read_bytes())
+    assert cli.main(["build", "--iso", str(tmp_path / "none.iso"), "--out", str(out), "--mods", str(bad)]) == 1
+    assert capsys.readouterr().err == f"azurkit: {why} (in {bad})\n" and not out.exists()
