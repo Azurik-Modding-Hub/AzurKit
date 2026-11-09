@@ -97,11 +97,12 @@ def uninstall_hints() -> list[str]:
         "tracker marks",
         f"{user_log_dir('AzurKit', appauthor=False)}  the app's build logs",
         f"{Path(tempfile.gettempdir()) / f'{getpass.getuser()}-ghidra'}  Ghidra's temp folder, if you run Ghidra",
-        "~/.claude.json  the local-scope `ghidra` MCP entry, if you added it: `claude mcp remove --scope local ghidra`",
+        f"{Path.home() / '.claude.json'}  the local-scope `ghidra` MCP entry, if you added it: "
+        "`claude mcp remove --scope local ghidra`",
     ]
     if sys.platform == "darwin":
-        hints.append("~/Library/WebKit/org.webkit.Playwright  the site's build files Playwright's WebKit keeps for "
-                     "the web tests: delete the folder")
+        hints.append(f"{Path.home() / 'Library' / 'WebKit' / 'org.webkit.Playwright'}  the site's build files "
+                     "Playwright's WebKit keeps for the web tests: delete the folder")
     by_folder: dict[str, list[str]] = {}
     for hint in hints:
         folder, what = hint.split("  ", 1)
