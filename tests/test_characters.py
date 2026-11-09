@@ -1249,6 +1249,76 @@ def test_every_fx_platform_mesh_decodes_and_re_encodes_byte_for_byte(usa_iso):
     assert len(seen) == 1155
 
 
+def _glb(path: Path, positions, triangles) -> dict:
+    """A static .glb of y-up ``positions`` and ``triangles`` (normals +y, UV the position's x, z), as a recipe's
+    ``mesh`` takes it."""
+    p = np.asarray(positions, np.float32)
+    parts_ = [p.tobytes(), np.tile(np.float32([0, 1, 0]), (len(p), 1)).tobytes(), p[:, [0, 2]].tobytes(),
+              np.asarray(triangles, np.uint32).ravel().tobytes()]
+    views, at = [], 0
+    for blob in parts_:
+        views.append({"buffer": 0, "byteOffset": at, "byteLength": len(blob)})
+        at += len(blob)
+    accessors = [{"bufferView": k, "componentType": c, "count": n, "type": t} for k, (c, n, t) in enumerate((
+        (5126, len(p), "VEC3"), (5126, len(p), "VEC3"), (5126, len(p), "VEC2"), (5125, 3 * len(triangles), "SCALAR")))]
+    doc = {"asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": [0]}], "nodes": [{"mesh": 0}],
+           "meshes": [{"primitives": [{"attributes": {"POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2}, "indices": 3}]}],
+           "accessors": accessors, "bufferViews": views, "buffers": [{"byteLength": at}]}
+    text = json.dumps(doc).encode()
+    text += b" " * (-len(text) % 4)
+    path.write_bytes(struct.pack("<4sII", b"glTF", 2, 28 + len(text) + at) + struct.pack("<II", len(text), 0x4E4F534A)
+                     + text + struct.pack("<II", at, 0x004E4942) + b"".join(parts_))
+    return {"gltf": {"file": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}}
+
+
+def test_a_mesh_edit_draws_a_gltf_in_a_platforms_copies_and_refuses_what_it_cant_hold(usa_iso, tmp_path):
+    """A ``mesh`` edit on spideyzar's [84] writes the glTF's mesh (y up turned to z up, within 1/256 m) into its
+    rdms copy on the copy's material row, its push buffer retagged by size with the LOD pair's fourcc, the
+    descriptor's bounds and sub-bounds the mesh's; a record that isn't a platform, a file whose sha256 isn't the
+    recipe's, a vertex past the i16 range, more than 65,535 vertices and a push buffer past the largest vanilla
+    one's are refused by name."""
+    from azurkit.core.xbr.graph import Graph, Schema, list_at
+    from azurkit.tools.characters import fx_edit, render
+
+    with iso.Reader(usa_iso) as r:
+        data, xbe = r.read(CHARACTERS), r.read(characters.XBE)
+    ring = [(np.cos(a) * r, h, -np.sin(a) * r) for h, r in ((0.0, 0.5), (8.5, 3.0)) for a in np.arange(12) * np.pi / 6]
+    tris = [t for j in range(12) for t in ((j, (j + 1) % 12, 12 + (j + 1) % 12), (j, 12 + (j + 1) % 12, 12 + j))]
+    funnel = _glb(tmp_path / "funnel.glb", ring, tris)
+    clone = fx_edit.Clone(data, SPIDER, xbe, folder=tmp_path)
+    clone.apply([{"record": 84, "name": "blastdomeShape", "type": "platform", "mesh": funnel}])
+    out = append_resources(data, clone.build("characters/debug/fx/fx_funnel"))
+    toc = parse_toc(out)
+    g = Graph(out, toc, toc[next(i for i, n in named_resources(out).items() if n == "characters/debug/fx/fx_funnel")],
+              Schema(xbe))
+    (rdms, pb), = render.platform_bindings(g, 84, every=True)
+    mesh = render.mesh(out, toc, rdms)
+    want = np.array([(x, -z, y) for x, y, z in ring])
+    assert np.abs(mesh.positions - want).max() <= 1 / 256 and len(mesh.triangles) == 24
+    assert (toc[mesh.gshd].tag, mesh.row, mesh.gshd >= len(parse_toc(data))) == ("gshd", 2, True)   # its copy's
+    d = list_at(g.s, g.recs[84] + 0x1C)[0]
+    pairs = list_at(g.s, d + 64)[0]
+    assert (toc[pb].tag, g.s[pairs + 8:pairs + 12].decode()) == ("pbrc", "pbrc")
+    box = struct.unpack_from("<6f", g.s, d + 4)
+    assert np.allclose(box, (*want.min(0), *want.max(0)), atol=1 / 256)
+    assert struct.unpack_from("<6f", g.s, list_at(g.s, d + 48)[0]) == box
+    far = _glb(tmp_path / "far.glb", [(0, 0, 0), (300, 0, 0), (0, 1, 0)], [(0, 1, 2)])
+    many = _glb(tmp_path / "many.glb", np.random.default_rng(1).random((65536, 3)), [(0, 1, 2)])
+    loose = np.random.default_rng(2).random((27000, 3))
+    big = _glb(tmp_path / "big.glb", loose, [(3 * k, 3 * k + 1, 3 * k + 2) for k in range(9000)])
+    for record, spec, why in (
+            ((83, "blastdome", "transform"), funnel, r"fx\[0\]\.mesh: a transform isn't a platform"),
+            ((84, "blastdomeShape", "platform"), {"gltf": {**funnel["gltf"], "sha256": "0" * 64}},
+             r"fx\[0\]\.mesh\.gltf: funnel\.glb's sha256 isn't the recipe's"),
+            ((84, "blastdomeShape", "platform"), far, r"far\.glb: a vertex lies 150\.0 m from the mesh's centre"),
+            ((84, "blastdomeShape", "platform"), many, r"many\.glb: 65536 vertices: a mesh holds 1 to 65535"),
+            ((84, "blastdomeShape", "platform"), big,
+             r"big\.glb: its push buffer is \d+ B, past the 61748 B of the largest vanilla fx one")):
+        with pytest.raises(ValueError, match=why):
+            fx_edit.Clone(data, SPIDER, xbe, folder=tmp_path).apply([dict(zip(("record", "name", "type"), record),
+                                                                         mesh=spec)])
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
