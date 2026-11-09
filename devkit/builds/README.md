@@ -33,3 +33,24 @@ hook only where it calls into the room; the vanilla XBE is always the
 comparison (Modkit's whitelist ran only with `--original`); and
 `inspect-physics` also reads roll speed, climb and the speed toggle.
 `tests/test_devkit_builds.py` pins them.
+
+## write-manifest
+
+Modkit's `azurik-mod iso-verify --write-manifest`: a release's manifest,
+`src/azurkit/core/manifests/<release>.json` (each folder of its image and
+each file's size and sha256, by path: what `azurkit verify` and every build
+check an image against), written from that release's exact vanilla image,
+which the gate's releases name by the whole image's size and sha256
+(`gate.Release.iso_size`, `iso_sha256`); any other image is refused by name
+and nothing is written. The layout is Modkit's byte for byte; the file is
+written whole (a part file renamed into place), and only counts and paths
+are printed. A changed manifest is a protected path: its commit names it.
+
+```bash
+uv run --locked python -m devkit builds write-manifest                 # each release's image the resolver finds
+uv run --locked python -m devkit builds write-manifest --iso usa.iso --out /tmp/x/usa.json   # elsewhere
+```
+
+A refusal is one `write-manifest:` line on stderr and exit 1. The two images
+never change (D146), so a rewrite gives the files AzurKit ships;
+`tests/test_gate.py` pins the writer on a synthetic image.

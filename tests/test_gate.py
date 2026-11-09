@@ -182,6 +182,35 @@ def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path
     assert capsys.readouterr().err == f"azurkit: no Europe image: AZURKIT_ISO_EUROPE names no file ({out})\n"
 
 
+def test_a_manifest_is_written_from_the_exact_vanilla_image_alone_and_the_gate_reads_it_back(tmp_path, monkeypatch,
+                                                                                               capsys):
+    """Step 4.24a (Modkit's ``iso-verify --write-manifest``): ``python -m devkit builds write-manifest`` writes a
+    release's manifest from the image whose whole size and sha256 are that release's, in Modkit's layout (each
+    folder, sorted, then each file's size and sha256 by path), and the gate passes the image against it; an image
+    of another sha256 or size is refused by name, and nothing is written."""
+    from devkit.builds import write_manifest
+
+    data = image(VANILLA)
+    src, other, out = tmp_path / "in.iso", tmp_path / "other.iso", tmp_path / "elsewhere.json"
+    src.write_bytes(data)
+    other.write_bytes(image(VANILLA | {"movies/m.bik": fill("M", 70)}))
+    test = dataclasses.replace(_release(tmp_path, "test", {}), iso_sha256=hashlib.sha256(data).hexdigest(),
+                               iso_size=len(data))
+    monkeypatch.setattr(gate, "RELEASES", (test,))
+    assert write_manifest.main(["--iso", str(src)]) == 0
+    assert capsys.readouterr().out == f"{src}: the vanilla Test image; wrote its 7 entries to {test.manifest}\n"
+    rows = ",\n".join(f'  "{p}": [{len(d)}, "{hashlib.sha256(d).hexdigest()}"]' for p, d in sorted(VANILLA.items()))
+    assert test.manifest.read_text(encoding="utf-8") == (
+        f'{{\n "dirs": ["gamedata", "movies"],\n "files": {{\n{rows}\n }}\n}}\n')
+    gate._manifest.cache_clear()
+    assert gate.verify(src, releases=(test,)).release == test
+    for given, why in ((other, f"{len(data):,} B, Test's size, but its sha256 is "),
+                       (tmp_path / "test.json", f"{test.manifest.stat().st_size:,} B, where Test's is {len(data):,} B")):
+        assert write_manifest.main(["--iso", str(given), "--out", str(out)]) == 1
+        assert capsys.readouterr().err.startswith(f"write-manifest: {given} is no release's vanilla image: {why}")
+        assert not out.exists()
+
+
 @pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
                                      pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
                                                   id="europe")])
