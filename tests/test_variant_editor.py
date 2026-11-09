@@ -260,8 +260,8 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
     sounds' encodings, each later file named from the one before it), and a copy with its spring edited keeps the mesh
     and works out the rest, each answering and dressing as a fresh Check of it (no part kept or taken) does, byte for
     byte; at a later visit (Step 4.6o: this process's parts gone, its host's store holding what the first Check's
-    parts were handed it as, ``part_codec``'s bytes) the copy takes each of them from the store, answering the same;
-    and booblord and her own copy (New from this) read one body, so they share its parts."""
+    parts were handed it as, ``part_codec``'s bytes) the copy takes each of them from the store, answering the same
+    (a built-in's own copy shares its body's parts: ``test_variant_library``'s New from this test)."""
     stored = {}
     store = type("Store", (), {"get": lambda _, key: stored.get(key),
                                "put": lambda _, key, made: stored.__setitem__(key, made()),
@@ -294,14 +294,6 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
         sdk._CHECKED.clear()
         assert (sdk.variant_check(_given(usa_iso, tmp_path, recipe, name=name)),
                 _sha12(sdk._CHECKED["last"]["characters"])) == answers[name]
-    builtin = _player_variants.builtins()["booblord"]
-    own = _player_variants.own_recipe(_player_variants.recipe_of(
-        json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8")), "booblord", "built-in")[0])
-    copy = _player_variants.load_variants(json.dumps({"mine": own}), str(tmp_path / "mine" / "recipe.json"),
-                                          tuple(_player_variants.builtins()))["mine"]
-    swap, stored = characters._swap(), b"the image's characters.xbr"
-    assert swap._body_keys(stored, stored, "town_female_2", builtin, None) == swap._body_keys(
-        stored, stored, "town_female_2", copy, tmp_path / "mine")
 
 
 def _exact(a, b) -> bool:

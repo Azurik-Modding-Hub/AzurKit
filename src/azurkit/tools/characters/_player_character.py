@@ -8966,7 +8966,9 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     ``from`` another whose mesh differs places its jiggle bones where that
     one's build does (:func:`_parent_places`, Step 2.177b), and so does one
     whose shapes sized its mesh, where its build at its shapes' 1.0 does
-    (Step 2.164b: her clips' rests hold); where a shipped row stands for
+    (Step 2.164b: her clips' rests hold), and an own copy of one from
+    another, where its ``places`` say (Step 4.6r;
+    :func:`~azurkit.tools.characters._player_variants.placing`); where a shipped row stands for
     those places (:func:`~azurkit.tools.characters.shipped.places`) none is worked out.
     :class:`ValueError` names the step that fails (that step keeps nothing)."""
     import pickle
@@ -8975,11 +8977,7 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     from azurkit.tools.characters import paint, parts, pool, shipped
 
     folder = Path(variant.source).parent if variant.source != "built-in" else None
-    parent = variants.parent_of(variant)
-    if parent is None and variant.plain is not None:   # Step 2.164b: a sized shape moves no jiggle bone
-        parent = replace(variant, mesh=variant.plain, plain=None)
-    if parent is None or parent.jiggle is None or variant.jiggle is None or repr(parent.mesh) == repr(variant.mesh):
-        parent = None
+    parent = variants.placing(variant)
     at = shipped.places(current, stored, body, parent) if parent is not None else None   # her defaults' (R3-CP1)
     keys = _body_keys(current, stored, body, variant, folder, parent, at)
     mesh, rig, paint_ = (parts.get(k, stage) for k, stage in zip(keys, ("W24", "W29", "W30")))

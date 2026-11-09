@@ -192,7 +192,7 @@ log names their own (:func:`sounds_sha`)."""
 FIELDS = (*LABELS, "base", "mode", "size", "scale", "sounds", "attacks", "markers", "marker_source", "clips",
           "columns", "carry", "held", "rotate", "fx", "fx_ring", "fx_grafts", "mesh", "arms", "poses", "jiggle",
           "weapon", "effects", "textures", "texture_scale", "colours", "lods", "idles", "slots", "victory_cancel",
-          "drain", "shapes", *UNGRADED)
+          "drain", "shapes", "places", *UNGRADED)
 """A recipe's fields; any other key fails by name.  ``weapon`` (Step
 2.161b; D492-D495): the weapon it wears (``_player_weapons``: a name,
 ``own`` or ``default``), its syntax checked here and its name by the
@@ -243,7 +243,13 @@ its ``below`` ones at a value under 1, Step 2.164d) by
 ``value`` (1 by default; :func:`~azurik_mod.assets.mesh_edit.sized`) and
 times ``--player-shape NAME=X`` (:func:`reshaped`); a shape at 1.0 is
 left out of the sha, so a recipe declaring its shapes keeps its grade
-(:func:`_shapes`)."""
+(:func:`_shapes`).  ``places`` (Step 4.6r): ``{"of": NAME, "mesh": M,
+"jiggle": J}``, the mesh and jiggle whose build places its jiggle bones
+(:func:`placing`): an own copy of a recipe ``from`` a built-in whose mesh
+differs (New from this on booblord_high, ``library.own_copy``) keeps that
+one's here, so its springs sit where the built-in's build puts them and
+its clips' rests hold; ``of`` names that one (a shipped places row is
+of it)."""
 FROM_FIELDS = (*LABELS, "texture_scale", "effects", "mesh_ops", "texture_ops", "colours", "shapes", "jiggle")
 """What a recipe ``from`` another lays over that one's fields (the module
 docstring): its look's resolution, its effects rows (Step X.73: they name
@@ -1756,6 +1762,9 @@ class Variant:
     """The recipe it is ``from`` (Step 2.177; empty: none), whose files it
     reads (:func:`sound_folder`, :func:`clip_folder`, :func:`fx_folder`; a
     user's recipe from a built-in, that built-in's folders, Step X.73)."""
+    places: tuple | None = None
+    """``places`` (:data:`FIELDS`, Step 4.6r): ``(of, mesh, jiggle)``, the
+    specs whose build places its jiggle bones (:func:`placing`); ``None``: none."""
 
     @property
     def fx_edits(self) -> bool:
@@ -3029,6 +3038,8 @@ def _variant(name: str, recipe, source: str, files: str = "") -> Variant:
     jiggle = _jiggle(f"{where}: jiggle", recipe["jiggle"]) if "jiggle" in recipe else None
     if jiggle is not None and mesh is None:
         raise ValueError(f"{where}: jiggle: its shapes are mesh ops by name, and the recipe has no mesh")
+    places = _places(f"{where}: places", recipe["places"], jiggle, source == "built-in") \
+        if "places" in recipe else None
     ring = check_fx_ring(f"{where}: fx_ring", recipe.get("fx_ring", {}))
     weapon = recipe.get("weapon")
     if weapon is not None and not (isinstance(weapon, str) and _NAME.match(weapon)):
@@ -3076,7 +3087,19 @@ def _variant(name: str, recipe, source: str, files: str = "") -> Variant:
                    shadow=shadow, lods=screen, idles=idles, idle_wait=idle_wait, slots=slots, texture_scale=scale,
                    victory_cancel=cancel, colours=colours, drain=drain, shapes=shapes,
                    unshaped=recipe_sha({k: v for k, v in recipe.items() if k != "shapes"}) if plain else "",
-                   plain=plain, files=files)
+                   plain=plain, files=files, places=places)
+
+
+def _places(where: str, doc, jiggle: jiggles.Spec | None, builtin: bool) -> tuple:
+    """A recipe's ``places`` (:data:`FIELDS`, Step 4.6r): ``(of, mesh,
+    jiggle)``, its mesh and jiggle checked as a recipe's are; they place the
+    recipe's own jiggle bones, so it needs a jiggle."""
+    _keys(where, doc, ("of", "mesh", "jiggle"))
+    if not isinstance(doc["of"], str) or not _NAME.match(doc["of"]):
+        raise ValueError(f"{where}.of {doc['of']!r} is not a recipe's name (lower-case letters, digits and _)")
+    if jiggle is None:
+        raise ValueError(f"{where}: they place the recipe's jiggle bones, and it has no jiggle")
+    return doc["of"], _mesh(where, doc["mesh"], builtin), _jiggle(f"{where}.jiggle", doc["jiggle"])
 
 
 def _shapes(where: str, doc, mesh: MeshSpec | None) -> tuple[Shape, ...]:
@@ -3732,6 +3755,26 @@ def parent_of(variant: Variant) -> Variant | None:
         return builtins()[variant.files]
     return load_variants(Path(variant.source).read_text(encoding="utf-8"), variant.source,
                          tuple(builtins()))[variant.files]
+
+
+def placing(variant: Variant) -> Variant | None:
+    """The recipe whose build places ``variant``'s jiggle bones
+    (``_player_character._variant_body``): its ``places`` (Step 4.6r: an own
+    copy's, and so of a recipe from one, as ``of``), else the one it is
+    ``from`` (:func:`parent_of`, Step 2.177b), else itself at its shapes'
+    1.0 (:attr:`Variant.plain`, Step 2.164b), so its clips' rests hold;
+    ``None`` where its own mesh places them (no jiggle, or that one's mesh
+    its own)."""
+    if variant.places is not None:
+        of, mesh, jiggle = variant.places
+        parent = replace(variant, name=of, files="", mesh=mesh, jiggle=jiggle, plain=None, places=None)
+    else:
+        parent = parent_of(variant)
+    if parent is None and variant.plain is not None:
+        parent = replace(variant, mesh=variant.plain, plain=None)
+    if parent is None or parent.jiggle is None or variant.jiggle is None or repr(parent.mesh) == repr(variant.mesh):
+        return None
+    return parent
 
 
 @functools.cache

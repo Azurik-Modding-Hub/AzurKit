@@ -139,6 +139,39 @@ def test_new_new_from_this_save_save_as_and_delete_write_whole_or_nothing(lib):
     assert [e.name for e in library.listing()] == ["beam"] and variants.resolve("mine") is None
 
 
+def test_new_from_this_on_each_built_in_dresses_the_built_ins_body_its_springs_where_its_build_places_them(lib):
+    """Step 4.6r: New from this on booblord_high (from booblord, her mesh
+    finer) keeps booblord's mesh and jiggle as its ``places``, so its
+    springs sit where the built-in's build puts them (it refused, her idles'
+    bust_bounce 4.2e-03 off the file's pose) and its dress takes the
+    built-in's three body parts and shipped places under one key; every
+    other built-in's copy holds none (its own mesh places them, or it is
+    a copy ``from`` them). A ``places`` with no jiggle is refused by name."""
+    from azurkit.tools.characters import shipped
+    from azurkit.tools.characters._player_character import _body_keys
+
+    for name, built in variants.builtins().items():
+        opened = library.opened(name)
+        for f in library.named_files(variants.recipe_of({"probe": opened}, "probe", "probe")[0]):
+            (variants.sound_folder(built) / f).parent.mkdir(parents=True, exist_ok=True)
+            (variants.sound_folder(built) / f).touch()   # her files as installed (only their names are read)
+        recipe = json.loads(library.copy_as(f"{name}_own", opened).read_text(encoding="utf-8"))[f"{name}_own"]
+        copy, home = variants.resolve(f"{name}_own"), json.loads(variants.BUILTIN.read_text(encoding="utf-8"))
+        assert recipe.get("places") == ({"of": "booblord", "mesh": home["booblord"]["mesh"],
+                                          "jiggle": home["booblord"]["jiggle"]} if name == "booblord_high" else None)
+        mine, its = variants.placing(copy), variants.placing(built)
+        assert (mine is None) == (its is None) == (name not in ("booblord_high", "booblord_high_human")), name
+        if built.mesh is not None:
+            assert _body_keys(b"", b"", built.base, copy, lib / f"{name}_own", mine) == \
+                _body_keys(b"", b"", built.base, built, None, its), name
+        if mine is not None:
+            assert shipped._places_recipe(built.base, mine) == shipped._places_recipe(built.base, its), name
+    with pytest.raises(ValueError, match=r"variant 'bare' \(.*\): places: they place the recipe's jiggle bones, "
+                                         "and it has no jiggle"):
+        library.save_as("bare", library.new("golem") | {"places": {"of": "booblord", "mesh": home["booblord"]["mesh"],
+                                                                     "jiggle": home["booblord"]["jiggle"]}})
+
+
 def test_a_link_and_the_kept_answers_carry_your_variant_by_its_recipe(lib, monkeypatch):
     """A share link carries a variant of yours by name and its recipe's
     sha, as a built-in's (Q174), and reads back where it is; once it is

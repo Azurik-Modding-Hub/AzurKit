@@ -923,7 +923,10 @@ are the Characters section's.
     built-in's or species' name (`species.json`), at most 64 deep, the
     loader's checks); New (`new`), Save, Save as, New from this
     (`copy_as`: of a built-in an own copy, its recipe laid whole with its
-    files, `own_copy`) and Delete check first and write whole or not at all
+    files, `own_copy`; of one whose build places its springs by the one it
+    is `from`, booblord_high, that one's mesh and jiggle as its `places`,
+    Step 4.6r, so they sit where the built-in's do and its clips' rests
+    hold) and Delete check first and write whole or not at all
     (D35). `_player_variants.resolve` finds a built-in, else `variant_file`'s
     recipe, else with no file yours (`library.find`; a folder that isn't a
     variant refused by name), so a build, a link, a mods file and the

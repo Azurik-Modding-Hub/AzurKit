@@ -340,7 +340,10 @@ def own_copy(name: str, recipe: dict, files_from: Path | None = None, taken: Ite
     package's), so every field is its own to edit and the built-in's later
     changes no longer reach it; a weapon over its moves left out
     (``_player_variants.own_recipe``) and the built-in's notes with it,
-    notes of your own kept. :func:`save_as`'s checks and its whole-or-nothing
+    notes of your own kept; where the built-in's build places its jiggle
+    bones (one whose mesh differs: booblord_high), that one's mesh and
+    jiggle as its ``places`` (Step 4.6r), so its springs sit there too and
+    its clips' rests hold. :func:`save_as`'s checks and its whole-or-nothing
     write; a recipe from no built-in, or a file no folder holds, is refused
     by name (D35). Returns its ``recipe.json``."""
     parent = recipe.get("from") if isinstance(recipe, dict) else None
@@ -352,6 +355,9 @@ def own_copy(name: str, recipe: dict, files_from: Path | None = None, taken: Ite
     laid = variants.own_recipe(variants.recipe_of({name: recipe}, name, str(root() / name / RECIPE))[0])
     if recipe.get("notes") not in (None, variants.builtins()[parent].notes):   # your own notes stay
         laid = {**laid, "notes": recipe["notes"]}
+    if variants.placing(variant) is variants.builtins()[parent]:   # its springs where the built-in's build puts them
+        home = json.loads(variants.BUILTIN.read_text(encoding="utf-8"))[parent]
+        laid = {**laid, "places": {"of": parent, "mesh": home["mesh"], "jiggle": home["jiggle"]}}
     folders = [*([Path(files_from)] if files_from is not None else []), variants.sound_folder(variant),
                variants.clip_folder(variant), variants.fx_folder(variant)]
     root().mkdir(parents=True, exist_ok=True)
