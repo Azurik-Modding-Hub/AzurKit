@@ -9,7 +9,6 @@ state's checks run on ``devkit/sim``'s L2."""
 from __future__ import annotations
 
 import contextlib
-import dataclasses
 import functools
 import hashlib
 import json
@@ -1678,3 +1677,992 @@ def test_a_bodys_own_moves_are_a_weapon_any_body_can_pick(usa, booblord, model, 
     if model == "garret4":
         off, _, patch = ports.patch_spec_site(xbe, pc.STAFF_WALLS)
         assert (lo.cut, lo.walls_off, xbe[off:off + len(patch)] == patch) == (True, True, True)
+
+
+# --- the weaponless townsfolk's throw (Modkit's Step 2.159b; D473, D474): the second WHITE set, W30, X42 ----------
+MISS, MISS_Z = 9.0, -1.0
+"""The kit's miss point (``kit.json``): 9 m on along the facing, 1 m under the thrower's point (about the floor;
+D761: a throw dead ahead comes down through a critter's height)."""
+
+
+def _table(xbe: bytes) -> dict:
+    """X42's table as built; ``spawn``, ``release`` and ``mult`` the first throwing column's (the kit's one), each
+    column's in ``spawns``, ``releases`` and ``mults``."""
+    raw = _read(xbe, _symbol(xbe, pc.THROW_HOOK, "_player_model_throw_table"), throws.TABLE_SIZE)
+    v = struct.unpack("<ii3f10fiif16s", raw[:0x58])
+    keys = ("columns", "bone", "px", "py", "pz", "vh", "arc", "range", "miss", "cone", "tmin", "tmax", "pad", "life",
+            "pushout", "anim", "landing", "radius", "species")
+    out = dict(zip(keys, v))
+    n = throws.COLUMNS
+    per = struct.unpack(f"<{3 * n}f", raw[0x58:0x178])
+    out["low"], out["seek"], out["miss_z"] = struct.unpack("<fif", raw[0x178:])
+    out["spawns"], out["releases"], out["mults"] = per[:n], per[n:2 * n], per[2 * n:]
+    first = (out["columns"] & -out["columns"]).bit_length() - 1
+    out["spawn"], out["release"], out["mult"] = out["spawns"][first], out["releases"][first], out["mults"][first]
+    return out
+
+
+@pytest.mark.parametrize("species, kind, carrier", [
+    ("town_male_6", "rock", False), ("town_female_4", "vase", True), ("town_female_1", "vase", False)])
+def test_a_weaponless_townsperson_throws_in_its_second_white_set(usa, species, kind, carrier):
+    """D473 (the owner: "Vase + rock (Recommended)": a real travelling projectile that hits enemies, as a second
+    WHITE set): a weaponless townsperson's right1 plays the kit's t/throw, so WHITE cycles "Attack set 1/2 jab cross
+    upper shove" and "Attack set 2/2 throw" (right1 in all four slots, X36); right1 throws along the facing (Aim
+    angle 0), at Rate 1.0 over the whole clip, chaining at its tick 18 with garret4's damage multiplier 0.5, its X3
+    and X13 bits clear (D474: the logic's reach the kick's box, 1.31 m). X42's table: right1, the spawn at tick 3 of
+    20 (a carrier's at her take), the release at 11, the right hand, the townsman's rock (x0.25, 0.15 m, out 0.775 m
+    at 16 m/s, clip slot 9) or the townswoman's vase (x0.46, 12 m/s, no clip), 14 m and 45 degrees, no seek (D761),
+    0.25-1.2 s, a 0.15 m pad, 3 s, landing state 23, ``debug``; its radius X21's. town_female_4's vase rides her head
+    until the take, is hidden to tick 15, shows at her right hand x0.4 and is on her head again at the clip's end;
+    town_female_1 shows none (Modkit's Step 2.159b)."""
+    logic = pc.AttackLogic()
+    game = _swap(usa, species, sounds="garret4", logic=logic)
+    built = game[XBE]
+    anims = _doc(game[CONFIG]).keyed_section("attacks_anims")
+    columns, picks = _played(game[CONFIG])
+    right1 = columns.index("right1")
+    assert picks[right1] == "t/throw" and [c for c, p in zip(columns, picks) if p == "t/throw"] == ["right1"]
+    sets = pc.attack_sets(columns, picks)
+    assert (sets[1:], pc.set_lines(picks, sets)) == ([[right1] * 4], [
+        "Attack set 1/2\njab cross upper shove", "Attack set 2/2\nthrow"])
+
+    def cell(row: str) -> float:
+        return anims.find_cell("right1", row, right1).double_value
+    a0, a1 = cell("Anim start"), cell("Anim end")
+    assert (cell("Aim angle"), cell("Rate"), cell("Move start"), cell("Move end2"), cell("Damage multiplier")) == (
+        0.0, 1.0, a0, a1, 0.5)
+    assert cell("Move end1") == pytest.approx(a0 + 0.9 * (a1 - a0))
+    bit = 1 << right1
+    assert not round(_param(built, DAMAGE_MARKER, "_player_model_x3_columns")) & bit
+    assert not round(_param(built, pc.ATTACK_BOX_HOOK, "_player_attack_ground_mask")) & bit
+    assert logic.reach == pytest.approx(1.31, abs=0.01)
+    assert ports.verify_trampoline_patch(built, pc.THROW_HOOK) == "applied"
+    t = _table(built)
+    radius = struct.unpack("<I", _read(built, _symbol(built, pc.THROW_HOOK, "_player_model_throw_radius_at"), 4))[0]
+    assert radius == _symbol(built, pc.SEARCH_HOOK, pc.SEARCH_RADIUS_SYMBOL)
+    rig = Rig.read(game[CHARACTERS], f"townspeople/{species[5:]}")
+    names = [b.name for b in rig.bones]
+    clip = named_clip(game[CHARACTERS], f"townspeople/{species[5:]}", "t/throw")
+    take = round(t["spawn"] * 20 + 0.5)
+    fixed = {"columns": bit, "release": _f32(10.5 / 20), "bone": names.index("right_hand"), "px": 0.0, "py": 0.0,
+             "pz": 0.0, "range": 14.0, "miss": MISS, "miss_z": MISS_Z, "cone": _f32(math.cos(math.radians(45))),
+             "tmin": 0.25, "tmax": _f32(1.2), "pad": _f32(0.15), "life": 3.0, "landing": 23, "mult": 0.5, "arc": 1.0,
+             "low": throws.HAND_LOW, "seek": 0, "species": b"debug" + bytes(11)}
+    assert {k: t[k] for k in fixed} == fixed
+    if kind == "rock":
+        assert (t["spawn"], t["vh"], t["anim"]) == (_f32(2.5 / 20), 16.0, 9)
+        assert (t["radius"], t["pushout"]) == (pytest.approx(0.15, abs=1e-6), pytest.approx(0.775, abs=1e-6))
+        return
+    assert (t["vh"], t["anim"], t["radius"]) == (12.0, -1, pytest.approx(0.6 * 0.46, abs=1e-6))
+    assert t["pushout"] == pytest.approx(0.575 + 0.6 * 0.46 + 0.05, abs=1e-6)
+    vase, hand = names.index("vase_joint"), names.index("right_hand")
+    scale = {tr.comp: tr.keys for tr in clip.bones if tr.target == vase and tr.comp >= 7}
+    if not carrier:
+        assert t["spawn"] == _f32(2.5 / 20) and {k[1] for keys in scale.values() for k in keys} == {0.0}
+        return
+    assert 3 <= take <= 9 and t["spawn"] == _f32((take - 0.5) / 20)
+    head = names.index("head")
+    before, at = origins(rig, clip, (take - 1) / 30), origins(rig, clip, take / 30)
+    assert abs(math.dist(before[vase], before[head]) - 0.125) < 0.002
+    offset = [a - b for a, b in zip(before[vase], before[head])]
+    assert math.dist(at[hand], [h + o for h, o in zip(at[head], offset)]) < 0.15
+
+    def shown(time: float) -> float:
+        return [v for k, v, *_ in scale[7] if k <= time + 1e-6][-1]
+    assert [shown(x / 30) for x in (0, take - 1, take, 14, 15, 20)] == [
+        _f32(0.4), _f32(0.4), _f32(1e-12), _f32(1e-12), _f32(0.4), _f32(0.4)]
+    back = origins(rig, clip, 15 / 30)
+    assert math.dist(back[vase], back[hand]) < 1e-3
+    end = origins(rig, clip, clip.length)
+    assert abs(math.dist(end[vase], end[head]) - 0.125) < 0.002
+
+
+def test_a_held_a_throws_once_and_waits_for_a_release_and_a_new_press(usa):
+    """D566 (Modkit's Step 2.159d; the owner: "One throw per press (Recommended)"): presses are latched edges, so in
+    the throw set, as in the melee set, a held A is the one press that started the swing: X33's held stamp no longer
+    takes right1. L2 on town_male_6's build, the attack state's stamps (0x8D3D5-0x8D43C) in a right1 swing: A held,
+    latched by the press that started the swing, is not stamped, so the chain at Move end1 finds none and the swing
+    ends with its one throw; A released stamps nothing; a new press is stamped now and latched."""
+    game = _swap(usa, "town_male_6", sounds="garret4")
+    built = game[XBE]
+    right1 = _played(game[CONFIG])[0].index("right1")
+    now = 12.5
+    swing = replace(l2.STANDING, state=0x100, move_flags=8, attack=right1, attack_anim=0x52 + right1,
+                    anim_slot=0x52 + right1, clock=now)
+    for a, latch, stamp in ((1.0, 1, -1.0), (0.0, 0, -1.0), (1.0, 0, now)):   # held, released, pressed again
+        sim = l2.PlayerSim(built, replace(swing, attack_buttons=(a, 0.0), attack_latches=(latch, 0)))
+        sim.call(0x8D3D5, regs={"ebp": sim.at["entity"], "edi": sim.at["input"]}, until=0x8D43C)
+        assert (struct.unpack("<3d", sim.uc.mem_read(sim.at["entity"] + 0xA0, 24)),
+                sim.uc.mem_read(sim.at["controller"] + 0x48, 2)) == ((stamp, -1.0, -1.0), bytes((int(a > 0), 0))), (
+            a, latch)
+
+
+@pytest.mark.parametrize("species, kind", [("town_male_6", "rock"), ("town_female_4", "vase")])
+def test_the_throws_projectile_is_debug_wearing_a_harmless_clone_of_the_boulder_or_the_vase(usa, species, kind):
+    """W30 (Modkit's Step 2.159b; D473): the throw's projectile is the spare species ``debug`` (in no level): its rows
+    in critters_engine, critters_critter_data, critters_damage and critters_walking read as the earth guardian's
+    boulder's but its body, "debug", and its scale, the throw's (x0.25 a townsman's rock, x0.46 her vase); every
+    other species' rows are vanilla but the player's. characters/debug is a copy of bosses/boulder or her LOD0 vase
+    alone (one bone, vase_joint; one group of 202 vertices; the boulder's m_alpha), with the boulder's idle, run and
+    die byte for byte. Its fx_default's breakEffectShape loads characters/debug/fx/fx_break, whose damage field deals
+    0 by value and by timer1's link; the vase's seven shards are x0.54 and they and its dust draw new textures. The
+    boulder's body, clips and graphs are vanilla, index.xbr names the six new entries, and a file already holding
+    characters/debug is refused."""
+    game = _swap(usa, species, sounds="garret4")
+    vanilla = {name: _vanilla(usa, name) for name in (CHARACTERS, CONFIG, INDEX)}
+    grown, config = game[CHARACTERS], _doc(game[CONFIG])
+    old = _doc(vanilla[CONFIG])
+    scale = 0.25 if kind == "rock" else 0.4 * 1.15
+
+    def value(cell):
+        return None if cell is None else (cell.type_code, cell.double_value if cell.type_code == 1 else
+                                          cell.string_value if cell.type_code == 2 else None)
+    for section in throws.SECTIONS:
+        k, v = config.keyed_section(section), old.keyed_section(section)
+        for prop in k.row_names():
+            if prop in ("name", ""):
+                continue
+            want = ((2, "debug") if (section, prop) == ("critters_engine", "body") else
+                    (1, pytest.approx(scale)) if (section, prop) == ("critters_engine", "scale") else
+                    value(v.find_cell("boulder", prop)))
+            assert value(k.find_cell("debug", prop)) == want, (section, prop)
+        for c, col in enumerate(k.col_names()):
+            if col not in ("garret4", "debug"):
+                assert [value(k.read_cell(c, r)) for r in range(len(k.row_names()))] == [
+                    value(v.read_cell(c, r)) for r in range(len(v.row_names()))], (section, col)
+    toc, old_toc = parse_toc(grown), parse_toc(vanilla[CHARACTERS])
+    at = {n.casefold(): i for i, n in named_resources(grown).items()}
+    was = {n.casefold(): i for i, n in named_resources(vanilla[CHARACTERS]).items()}
+
+    def payload(data, t, i):
+        return bytes(data[t[i].file_offset:t[i].file_offset + t[i].size])
+    for key, i in was.items():
+        if key == "characters/bosses/boulder" or key.startswith("characters/bosses/boulder/"):
+            assert payload(grown, toc, at[key]) == payload(vanilla[CHARACTERS], old_toc, i), key
+    for clip in throws.CLIPS:
+        assert payload(grown, toc, at[f"characters/debug/{clip}"]) == payload(
+            vanilla[CHARACTERS], old_toc, was[f"characters/bosses/boulder/{clip}"]), clip
+    assert named_clip(grown, "debug", "die").markers
+    body = read_asset(grown, "debug")
+    if kind == "rock":
+        boulder = read_asset(vanilla[CHARACTERS], "bosses/boulder")
+        assert ([b.record[8:] for b in body.bones], [m.record[8:] for m in body.markers]) == (
+            [b.record[8:] for b in boulder.bones], [m.record[8:] for m in boulder.markers])
+        assert [[(g.palette, g.vertices, g.triangles) for g in lod.groups] for lod in body.lods] == [
+            [(g.palette, g.vertices, g.triangles) for g in lod.groups] for lod in boulder.lods]
+    else:
+        assert ([b.name for b in body.bones], [m.name for m in body.markers], len(body.lods)) == (
+            ["vase_joint"], ["m_alpha"], 1)
+        assert [(g.palette, len(g.vertices)) for g in body.lods[0].groups] == [([0], 202)]
+    schema = Schema(game[XBE])
+    default = Graph(grown, toc, toc[at[throws.FX_DEFAULT]], schema)
+    assert default.pstr(default.recs[3], 0x1C) == throws.FX_BREAK
+    brk = Graph(grown, toc, toc[at[throws.FX_BREAK]], schema)
+    src = Graph(vanilla[CHARACTERS], old_toc, old_toc[was["characters/bosses/boulder/fx/fx_boulder_break"]], schema)
+    damage = schema.types["platform"].attrs.index("damage")
+    assert brk.attrs(19)[damage] == 0.0 and src.attrs(19)[damage] == 1.0
+    assert [lk.factor for lk in brk.links(1) if lk.dst == 19 and lk.dst_plug == damage] == [0.0]
+    assert [brk.attr_named(r, "scaleX") for r in range(2, 16, 2)] == [_f32(0.54) if kind == "vase" else 1.0] * 7
+
+    def surfaces(data: bytes, t, i: int) -> list[int]:   # the textures a graph's copies draw, by size and tag
+        return sorted(t[j].size for j in closure(data, [i]) if t[j].tag == "surf")
+    drawn = surfaces(grown, toc, at[throws.FX_BREAK])
+    assert len(drawn) == len(surfaces(vanilla[CHARACTERS], old_toc, was["characters/bosses/boulder/fx/fx_boulder_break"]))
+    assert all(j < len(old_toc) for j in closure(grown, [at[throws.FX_BREAK]]) if toc[j].tag == "surf") == (
+        kind == "rock")
+    names = {r.key.casefold() for r in parse_index_xbr(game[INDEX]).records}
+    added = {throws.BODY, throws.FX_DEFAULT, throws.FX_BREAK, *(f"{throws.BODY}/{c}" for c in throws.CLIPS)}
+    assert {n for n in names if n.startswith(throws.BODY)} == added
+    assert not added & {r.key.casefold() for r in parse_index_xbr(vanilla[INDEX]).records}
+    data = vanilla[CHARACTERS]
+    throw = kit_style(data, read_body(data, "townspeople/male_6" if kind == "rock" else "townspeople/female_4")).throw
+    with pytest.raises(ValueError, match="already holds characters/debug"):
+        throws.write_projectile(grown, game[INDEX], game[XBE], throw)
+
+
+def _x42(built: bytes) -> SimpleNamespace:
+    """X42 under Unicorn on ``built`` (L2; the game's calls stubbed): the PlayerControl at ``pc``, the player at
+    ``player`` (his feet at ``feet``, drawn ``s``, the right hand at ``hand``: its palm ``palm``), nine critter pages,
+    each tick's game calls logged (``log``) and the stubs' answers in ``mode``; ``tick`` runs one PlayerControl tick
+    of a ``column`` swing at a clip fraction and a clock, ``slot`` reads a ring slot, ``owner`` calls the owner
+    interface, ``link``/``unlink`` make the engine's list moves."""
+    t = _table(built)
+    state = _symbol(built, pc.THROW_HOOK, pc.THROW_STATE)
+    radius = _symbol(built, pc.SEARCH_HOOK, pc.SEARCH_RADIUS_SYMBOL)
+    entry = pc.THROW_HOOK.va + 5 + struct.unpack_from("<i", built, ports.va_to_file(pc.THROW_HOOK.va) + 1)[0]
+    base = 0x20000000
+    ctl, clock, player, pvt, anim, bones, species, world, world2, cvt, frame, ours, stubs = (
+        base + 0x1000 * k for k in (0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15))
+    critters = [base + 0x20000 + 0x1000 * k for k in range(9)]
+    centre_stub, message_stub, notify_stub = stubs, stubs + 0x100, stubs + 0x200
+    sim = l2.Sim(built)
+    sim.uc.mem_map(base, 0x20000)
+    for c in critters:
+        sim.uc.mem_map(c, 0x1000)
+    feet, s = (10.0, 20.0, 0.0), 1.15
+    hand = (0.3, 0.2, 1.3)
+    palm = tuple(f + s * h for f, h in zip(feet, hand))
+    for at, data in ((ctl + 0xC, struct.pack("<I", clock)), (ctl + 0x20, struct.pack("<I", player)),
+                     (ctl + 0x138, struct.pack("<f", 0.25)), (player, struct.pack("<I", pvt)),
+                     (pvt + 0x80, struct.pack("<I", centre_stub)), (player + 0x154, struct.pack("<II", world, 0x77)),
+                     (player + 0x15C, struct.pack("<3f", 10.0, 20.0, 1.0)),
+                     (player + 0x178, struct.pack("<II", species, anim)),
+                     (player + 0x188, struct.pack("<f5f", s, 0.0, 0.0, 0.0, 1.0, 0.0)), (anim + 8, struct.pack("<I", bones)),
+                     (bones + 0xB0 * t["bone"] + 0xA0, struct.pack("<3f", *hand)), (player + 0x210, struct.pack("<i", 100)),
+                     (player + 0x220, struct.pack("<I", 0x1234)), (cvt + 0xB4, struct.pack("<I", message_stub))):
+        sim.uc.mem_write(at, data)
+    # apply_damage's notify as the game makes it (0x446E8): the owner's slot 1 with the critter's slot, RET 0xC
+    sim.uc.mem_write(notify_stub, bytes.fromhex("8b4c2404ffb1f40100008b89ec01000083e9048b11ff5204c20c00"))
+    log: dict[str, list] = {k: [] for k in ("tail", "spawn", "find", "send", "message", "damage")}
+    mode = {"spawn": "now", "next": 0, "count": 1, "offset": (0.0, 6.0, 0.2), "notify": False}
+
+    def ret(uc, eax: int, pop: int) -> None:
+        esp = sim.reg("esp")
+        uc.reg_write(UC_X86_REG_EAX, eax & 0xFFFFFFFF)
+        uc.reg_write(UC_X86_REG_EIP, sim.u32(esp))
+        uc.reg_write(UC_X86_REG_ESP, esp + 4 + pop)
+
+    def args(n: int) -> tuple:
+        return struct.unpack(f"<{n}I", sim.uc.mem_read(sim.reg("esp") + 4, 4 * n))
+
+    def link(c: int, owner: int, slot: int) -> None:
+        sim.uc.mem_write(c, struct.pack("<I", cvt))
+        sim.uc.mem_write(c + 0x168, struct.pack("<I", 0x4041))
+        sim.uc.mem_write(c + 0x1EC, struct.pack("<II", owner + 4, sim.u32(owner + 4)))
+        sim.uc.mem_write(c + 0x1F4, struct.pack("<i", slot))
+        sim.uc.mem_write(owner + 4, struct.pack("<I", c + 0x1EC))
+
+    def unlink(c: int) -> None:   # the engine's: the node out of its owner's list
+        node, at = c + 0x1EC, state + 4
+        while sim.u32(at):
+            if sim.u32(at) == node:
+                sim.uc.mem_write(at, struct.pack("<I", sim.u32(node + 4)))
+                return
+            at = sim.u32(at) + 4
+
+    def hook(va: int):
+        def wrap(fn):
+            sim.uc.hook_add(UC_HOOK_CODE, lambda uc, a, size, _: fn(uc), begin=va, end=va)
+            return fn
+        return wrap
+
+    @hook(0x8C450)
+    def _(uc):   # player_move_fx: EAX the PlayerControl, the frame, RET 4
+        log["tail"].append((sim.reg("eax"), args(1)[0]))
+        ret(uc, 0, 4)
+
+    @hook(0x42200)
+    def _(uc):   # critter_model_matrix: ESI the out, the critter, RET 4
+        uc.mem_write(sim.reg("esi"), struct.pack("<16f", 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, *feet, 1))
+        ret(uc, 0, 4)
+
+    @hook(0x45E30)
+    def _(uc):   # species_get_by_name: fastcall, plain RET
+        assert (sim.cstr(sim.reg("ecx")), sim.reg("edx")) == ("debug", 0)
+        ret(uc, ours, 0)
+
+    @hook(0x45C10)
+    def _(uc):   # critter_spawn(desc, world, flag): RET 0xC
+        desc, w, flag = args(3)
+        log["spawn"].append((struct.unpack("<4I3f4fI2i", uc.mem_read(desc, 0x38)), w))
+        uc.mem_write(flag, struct.pack("<i", 0 if mode["spawn"] == "fail" else 1))
+        if mode["spawn"] != "now":
+            ret(uc, 0, 12)
+            return
+        c = critters[mode["next"]]
+        mode["next"] += 1
+        link(c, sim.u32(desc), sim.u32(desc + 4))
+        ret(uc, c, 12)
+
+    @hook(0x7EBB0)
+    def _(uc):   # attack_target_find(critter, facing, out): RET 0xC
+        who, facing, out = args(3)
+        log["find"].append((who, round(struct.unpack("<f", struct.pack("<I", facing))[0], 6), sim.f32(radius)))
+        uc.mem_write(out, struct.pack("<i3f", mode["count"], *mode["offset"]))
+        ret(uc, 0, 12)
+
+    @hook(0x460B0)
+    def _(uc):   # hit_send(box, message): RET 8
+        box, msg = args(2)
+        m = struct.unpack("<40f", uc.mem_read(box, 160))
+        log["send"].append((m[12:15], m[35:38], struct.unpack("<IIIf", uc.mem_read(msg, 16)),
+                            uc.mem_read(species + 0x7C, 1)[0]))
+        ret(uc, 0, 8)
+
+    @hook(0x44640)
+    def _(uc):   # apply_damage(it, hp, flag): RET 0xC
+        log["damage"].append(args(3))
+        if not mode["notify"]:
+            ret(uc, 0, 12)
+            return
+        unlink(args(1)[0])
+        uc.reg_write(UC_X86_REG_EIP, notify_stub)
+
+    @hook(centre_stub)
+    def _(uc):   # the player's vtable +0x80: thiscall(out), RET 4
+        out = args(1)[0]
+        uc.mem_write(out, struct.pack("<3f", 10.0, 20.0, 1.0))
+        ret(uc, out, 4)
+
+    @hook(message_stub)
+    def _(uc):   # a critter's vtable +0xB4: thiscall(message), RET 4; a thrown AI's velocity := v (0x38AE4)
+        msg = args(1)[0]
+        log["message"].append((sim.reg("ecx"), struct.unpack("<II3fii", uc.mem_read(msg, 28)),
+                               struct.unpack("<3f", uc.mem_read(sim.reg("ecx") + 0x15C, 12))))
+        if ai := sim.u32(sim.reg("ecx") + 0x180):
+            uc.mem_write(ai + 0x24, bytes(uc.mem_read(msg + 8, 12)))
+        ret(uc, 0, 4)
+
+    def tick(frac: float, now: float, *, on: bool = True, column: int = 14) -> None:
+        sim.uc.mem_write(ctl + 0x94, struct.pack("<I", 0x100 if on else 0))
+        sim.uc.mem_write(ctl + 0x134, struct.pack("<i", column))
+        sim.uc.mem_write(ctl + 0x178, struct.pack("<f", frac))
+        sim.uc.mem_write(player + 0x200, struct.pack("<i", 0x52 + column))
+        sim.uc.mem_write(clock + 0x10, struct.pack("<d", now))
+        kept = {"ebx": 0x11, "esi": 0x22, "ebp": 0x44}
+        sim.call(entry, regs={**kept, "edi": ctl, "eax": ctl}, args=(frame,), until=l2._RETURN)
+        assert {r: sim.reg(r) for r in (*kept, "edi", "esp")} == {**kept, "edi": ctl, "esp": l2._STACK_TOP - 0x100}
+
+    def slot(k: int) -> tuple:
+        return struct.unpack("<Ii", sim.uc.mem_read(state + 0x78 + 0x40 * k, 8))
+
+    def owner(k: int, *a) -> int:   # call the owner's slot k: thiscall on X42's object, popping its arguments
+        eax = sim.call(sim.u32(state + 8 + 4 * k), regs={"ecx": state}, args=a, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100
+        return eax
+
+    def f3(va: int) -> tuple:
+        return struct.unpack("<3f", sim.uc.mem_read(va, 12))
+    return SimpleNamespace(**{k: v for k, v in locals().items() if k != "built"})
+
+
+def test_x42_throws_a_critter_from_the_hand_as_the_players_hit_and_forgets_cut_or_dead_throws(usa):
+    """X42 (Modkit's Step 2.159b; D473) at 0x8C3C3 under Unicorn on town_male_6's build (L2; its game calls
+    stubbed): each tick it makes the game's call first. A right1 swing reaching its spawn fraction spawns ``debug``
+    (its owner X42's object, slot 0, the player's cell, the palm, his quaternion, HP -1/-1) with its no-hit window
+    1e9 s and its target kinds cleared; the owner's slots answer held (the palm, his rotation), the clip 1, no
+    leash, home his point. At the release it leaves from the palm pushed out to 0.775 m from his axis straight along
+    the facing (D761: no target search), with v landing it at the miss point (message 10, clip 9, landing 23).
+    Flying, each tick one hit_send of the swept box padded by 0.15 + 0.15 m as the player's hit with his
+    hitsThroughWalls set for the call only; after its death notify one last send at its death point, then the slot
+    is free. A swing cut while held drops it and sends no hit; past 3 s of game time apply_damage(it, 0, 1) ends it.
+    A node gone from the list without a notify is forgotten unread; a queued spawn is adopted from the list; a fifth
+    swing ends the oldest flying one (once a swing, none while a life that ran out this tick has its slot ENDED) and
+    throws on the next tick, its slot freed by the notify (AZ-686); a new world empties the ring."""
+    built = _swap(usa, "town_male_6", sounds="garret4")[XBE]
+    assert l1.check(_vanilla(usa, XBE), built) == []
+    x = _x42(built)
+    (critters, f3, frame, link, log, mode, ours, owner, palm, ctl, player,
+     radius, sim, slot, species, state, t, tick, unlink, world, world2) = (
+        x.critters, x.f3, x.frame, x.link, x.log, x.mode, x.ours, x.owner,
+        x.palm, x.ctl, x.player, x.radius, x.sim, x.slot, x.species, x.state,
+        x.t, x.tick, x.unlink, x.world, x.world2)
+
+    # the game's call first, every tick; nothing spawns before the spawn fraction
+    tick(0.05, 1.0)
+    assert log["tail"] == [(ctl, frame)] and log["spawn"] == []
+    # the spawn: in the hand, never a target, immune
+    tick(t["spawn"] + 0.01, 1.03)
+    (desc, w), = log["spawn"]
+    c0 = critters[0]
+    assert (desc[:4], w, desc[11:]) == ((state, 0, ours, 0x77), world, (0, -1, -1))
+    assert desc[4:7] == pytest.approx(palm) and desc[7:11] == (0.0, 0.0, 0.0, 1.0)
+    assert (sim.f32(c0 + 0x1E0), sim.u32(c0 + 0x168), slot(0)) == (1e9, 0x0001, (c0, 1))
+    out = frame + 0x100
+    assert (owner(4, 0), owner(5, 0), owner(6)) == (1, 1, 0)
+    owner(2, 0, out, out + 0x10)
+    assert f3(out) == pytest.approx(palm) and struct.unpack("<16f", sim.uc.mem_read(out + 0x10, 64)) == (
+        1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+    assert owner(3, out, 0) == out and f3(out) == (0.0, 0.0, 0.0)
+    assert owner(0, out, 0) == out and f3(out) == (10.0, 20.0, 1.0)
+    # the release: pushed out, straight along the facing (+y), solved to land 9 m on, 1 m under his point
+    tick(t["release"] + 0.01, 1.4)
+    (who, msg, at), = log["message"]
+    p0 = (10.0 + 0.775 * 0.345 / math.hypot(0.345, 0.23), 20.0 + 0.775 * 0.23 / math.hypot(0.345, 0.23), palm[2])
+    assert (who, msg[:2], msg[5:], log["find"]) == (c0, (10, player), (9, 23), [])
+    assert at == pytest.approx(p0, abs=1e-5) and sim.f32(radius) == 3.0
+    target, v = (p0[0], p0[1] + MISS, 1.0 + MISS_Z), msg[2:5]
+    flight = max(0.25, min(1.2, MISS / 16.0))
+    assert [p0[i] + v[i] * flight - (4.9 * flight * flight if i == 2 else 0) for i in range(3)] == pytest.approx(
+        target, abs=1e-4)
+    # flying: one send a tick as the player's, his walls flag around it, the window re-armed
+    sim.uc.mem_write(c0 + 0x15C, struct.pack("<3f", 10.4, 21.0, 1.6))
+    sim.uc.mem_write(c0 + 0x1E0, struct.pack("<f", 0.0))
+    tick(0.6, 1.433)
+    (centre, half, message, walls), = log["send"]
+    assert (message, walls, sim.u32(species + 0x7C), sim.f32(c0 + 0x1E0)) == ((3, player, 0x1234, 0.5), 1, 0, 1e9)
+    assert centre == pytest.approx(tuple((a + b) / 2 for a, b in zip(p0, (10.4, 21.0, 1.6))), abs=1e-5)
+    assert half == pytest.approx(tuple(abs(a - b) + 0.3 for a, b in zip(p0, (10.4, 21.0, 1.6))), abs=1e-5)
+    # its death: one last send at the death point, then free
+    owner(1, 0)
+    unlink(c0)
+    tick(0.7, 1.466)
+    assert log["send"][-1][:2] == (pytest.approx((10.4, 21.0, 1.6)), pytest.approx((0.6, 0.6, 0.6)))
+    assert slot(0) == (0, 0)
+
+    # another throw, straight again; then cut while held: dropped
+    for frac, now in ((0.05, 2.0), (t["spawn"] + 0.01, 2.03), (t["release"] + 0.01, 2.06)):
+        tick(frac, now)
+    c1 = critters[1]
+    who, msg, at = log["message"][-1]
+    v, flight = msg[2:5], max(0.25, min(1.2, MISS / 16.0))
+    assert who == c1 and [at[i] + v[i] * flight - (4.9 * flight * flight if i == 2 else 0) for i in range(3)] == (
+        pytest.approx((at[0], at[1] + MISS, 1.0 + MISS_Z), abs=1e-4))
+    tick(0.05, 2.1)   # a new swing
+    tick(t["spawn"] + 0.01, 2.13)
+    c2, sends = critters[2], len(log["send"])
+    tick(0.0, 2.16, column=0)   # cut: the jab
+    who, msg, at = log["message"][-1]
+    assert (who, msg[:5], msg[5:]) == (c2, (10, player, 0.0, 0.0, 0.0), (9, 23)) and at == pytest.approx(p0, abs=1e-5)
+    sim.uc.mem_write(c2 + 0x15C, struct.pack("<3f", 10.6, 20.4, 0.6))
+    tick(0.1, 2.2, column=0)
+    flying = f3(c1 + 0x15C)   # c1 flying sends each tick; the dropped c2 none
+    assert [(m[0], m[2][1]) for m in log["send"][sends:]] == [(pytest.approx(flying), player)] * 2
+    # past 3 s of game time each ends; c1 gone with no notify and unreadable is forgotten
+    unlink(c1)
+    sim.uc.mem_unmap(c1, 0x1000)
+    tick(0.1, 5.3, column=0)
+    assert (log["damage"], slot(0), slot(1)) == ([(c2, 0, 1)], (0, 0), (c2, 4))
+    owner(1, 1)
+    unlink(c2)
+    tick(0.1, 5.33, column=0)
+    assert all(slot(k) == (0, 0) for k in range(4))
+
+    # a queued spawn is adopted from the list and thrown
+    mode["spawn"], mode["offset"] = "queue", (0.0, 6.0, 0.2)
+    tick(0.05, 6.0)
+    tick(t["spawn"] + 0.01, 6.03)
+    assert slot(0) == (0, 5)
+    link(critters[3], state, 0)   # the world builds it
+    mode["next"] = 4
+    tick(t["spawn"] + 0.05, 6.06)
+    assert (slot(0), sim.f32(critters[3] + 0x1E0), sim.u32(critters[3] + 0x168)) == ((critters[3], 1), 1e9, 1)
+    tick(t["release"] + 0.01, 6.1)
+    assert log["message"][-1][0] == critters[3] and slot(0) == (critters[3], 2)
+    # four flying: a fifth swing ends the oldest, once, and throws on the next tick (AZ-686)
+    mode["spawn"] = "now"
+    for k in range(3):
+        now = 6.2 + 0.2 * k
+        tick(0.05, now)
+        tick(t["spawn"] + 0.01, now + 0.03)
+        tick(t["release"] + 0.01, now + 0.06)
+    assert [slot(k)[1] for k in range(4)] == [2] * 4
+    tick(0.05, 7.0)
+    tick(t["spawn"] + 0.01, 7.03)
+    tick(t["spawn"] + 0.03, 7.06)   # its notify not yet in: nothing more ended, nothing thrown
+    assert (log["damage"][1:], mode["next"]) == ([(critters[3], 0, 1)], 7)
+    owner(1, 0)   # apply_damage's notify (0x446E8) and unlink
+    unlink(critters[3])
+    tick(t["spawn"] + 0.05, 7.09)
+    assert (len(log["damage"]), mode["next"], slot(0)) == (2, 8, (critters[7], 1))
+    # a life that runs out on a full ring's spawn tick (its notify at once) frees the slot: nothing more ended
+    tick(t["release"] + 0.01, 7.12)
+    mode["notify"] = True
+    tick(0.05, 9.2)
+    tick(t["spawn"] + 0.01, 9.27)   # critters[4], released at 6.26, ends past its 3 s
+    assert (log["damage"][2:], mode["next"], slot(1)) == ([(critters[4], 0, 1)], 8, (critters[4], 3))
+    tick(t["spawn"] + 0.03, 9.3)
+    assert (len(log["damage"]), mode["next"], slot(1)) == (3, 9, (critters[8], 1))
+    # a new world empties the ring and the list
+    sim.uc.mem_write(player + 0x154, struct.pack("<I", world2))
+    tick(0.05, 9.33, on=False)
+    assert all(slot(k) == (0, 0) for k in range(4)) and sim.u32(state + 4) == 0
+
+
+def test_x42_throws_straight_along_the_facing_unless_its_table_seeks(usa):
+    """AZ-757, D761 (Modkit's Step 2.194b; the owner: "for the current ranged attacks they should not seek towards
+    enemies"): with an enemy 27 degrees off the facing 6.7 m out, X42 (L2 on town_male_6's build) searches nothing
+    and throws along the facing, landing at the kit's miss point. Its table's ``seek`` (a projectile ``effects``
+    row's ``"seek": true``) aims as before: attack_target_find with X21's radius raised to 14 m (3 m after), v
+    landing it on his bounds centre plus the result's offset; an enemy 50 degrees off is outside the 45 degree
+    cone: the miss point."""
+    row, = fx_templates.effects("row", [{"template": "fireball", "columns": ["basic1"], "seek": True}])
+    plan = throws.Plan((throws.Shot(0, 20, 3, 11, 0.5),), 0.25, 0.15, 0.775, 0, 16.0, 1.0, 14.0, MISS, 45.0,
+                       (0.25, 1.2), 0.15, 3.0, 9, 23, seek=row.seek, miss_z=MISS_Z)
+    assert struct.unpack_from("<if", plan.table(), 0x17C) == (1, MISS_Z)
+    built = _swap(usa, "town_male_6", sounds="garret4")[XBE]
+    x = _x42(built)
+    t, log = x.t, x.log
+    p0 = (10.0 + 0.775 * 0.345 / math.hypot(0.345, 0.23), 20.0 + 0.775 * 0.23 / math.hypot(0.345, 0.23), x.palm[2])
+
+    def released(now: float) -> tuple:   # one swing's throw: its release velocity
+        for frac, dt in ((0.05, 0.0), (t["spawn"] + 0.01, 0.03), (t["release"] + 0.01, 0.06)):
+            x.tick(frac, now + dt)
+        _, msg, at = log["message"][-1]
+        assert at == pytest.approx(p0, abs=1e-5)
+        return msg[2:5]
+    miss = (p0[0], p0[1] + MISS, 1.0 + MISS_Z)
+
+    def landing(v: tuple, target: tuple) -> list:
+        flight = max(0.25, min(1.2, math.dist(target[:2], p0[:2]) / 16.0))
+        return [p0[i] + v[i] * flight - (4.9 * flight * flight if i == 2 else 0) for i in range(3)]
+    x.mode["offset"] = (3.0, 6.0, 0.2)
+    v = released(1.0)
+    assert (log["find"], v[0], landing(v, miss)) == ([], 0.0, pytest.approx(miss, abs=1e-4))
+    x.sim.uc.mem_write(_symbol(built, pc.THROW_HOOK, "_player_model_throw_table") + 0x17C, struct.pack("<i", 1))
+    v = released(1.5)
+    assert (log["find"], x.sim.f32(x.radius)) == ([(x.player, 0.25, 14.0)], 3.0)
+    assert landing(v, (13.0, 26.0, 1.2)) == pytest.approx((13.0, 26.0, 1.2), abs=1e-4)
+    x.mode["offset"] = (6.0, 5.0, 0.2)
+    v = released(2.0)
+    assert (len(log["find"]), v[0], landing(v, miss)) == (2, 0.0, pytest.approx(miss, abs=1e-4))
+
+
+# --- the effects templates' rows (Modkit's Steps 2.167b-2.167g; D538): projectiles W30 makes, shields and beams --
+EFFECTS = "tests/fixtures/effects.json"
+"""G3's firelord case's recipe file (its ``files``, ``tests/goldens/cases.json``): Modkit's fixture of the same name,
+a fireball (firelord), an ice shard (icelord), our own arrow (archer) and a bubble, a dome and a laser
+(shieldlord)."""
+
+
+@functools.cache
+def _effect_recipes() -> str:
+    cases = json.loads((Path(__file__).with_name("goldens") / "cases.json").read_text(encoding="utf-8"))
+    return json.dumps(next(case["files"][EFFECTS] for case in cases["pipelines.json"].values()
+                           if EFFECTS in case.get("files", {})))
+
+
+def _effect_variant(name: str, row: bool = True):
+    """:data:`EFFECTS`' recipe ``name`` (without its ``effects`` rows unless ``row``)."""
+    variant = load_variants(_effect_recipes(), "effects.json")[name]
+    return variant if row else replace(variant, effects=())
+
+
+@functools.lru_cache(maxsize=4)
+def _effects(image: str, name: str, row: bool = True) -> dict[str, bytes]:
+    """:data:`EFFECTS`' recipe ``name`` built from ``image`` (:func:`_swap`; without its rows unless ``row``)."""
+    return _swap(image, name, worn=_effect_variant(name, row))
+
+
+def _payloads(data: bytes) -> list[bytes]:
+    return [bytes(data[e.file_offset:e.file_offset + e.size]) for e in parse_toc(data)]
+
+
+@pytest.mark.parametrize("name, template", [("firelord", "fireball"), ("icelord", "ice_shard"), ("archer", "arrow")])
+def test_an_effects_row_throws_its_template_as_debugs_own_copies_and_edits_no_vanilla_graph(usa, name, template):
+    """D538's E2 (Modkit's Steps 2.167b, 2.180; the owner: "create new effects and duplicate effects ... without
+    replacing assets"): a recipe's projectile row makes W30's ``debug`` wear its body and graphs as copies, and the
+    clone invariant holds: against the recipe built without the row every characters.xbr entry is byte for byte,
+    fx.xbr is (but for X32's flash on a body X32 doesn't serve, D700), and the new names are ``characters/debug``
+    and under it alone (index.xbr's too, and the flash's). ``debug``'s body is a copy of the template's (the
+    boulder's for the fireball, its texture recoloured in a new surf; the ice shard's whole, m_alpha grown after its
+    three markers and keyed by its die) or our own arrow (one group of 36 triangles, ARROW_LENGTH along +y); its
+    default fx the boulder's clone with the template's sets grafted under effectOrigin, each emitter on at its show
+    rate, its break the template's impact copied whole (the arrow's none); its config scale draws the body ``size``
+    m across and its collisionRadius x the scale is the smaller of the radius and half the size; model inspect's
+    own runs count its runs."""
+    t = fx_templates.TEMPLATES[template]
+    game, bare = _effects(str(usa), name), _effects(str(usa), name, False)
+    variant = _effect_variant(name)
+    v = variant.effects[0].values
+    flash = [] if ports.verify_trampoline_patch(bare[XBE], pc.HIT_FX_HOOK) == "applied" or t.hit is None else (
+        pc.hit_flash(_vanilla(usa, FX), _vanilla(usa, XBE)))
+    assert game[FX] == append_resources(bare[FX], flash)
+    grown, before = game[CHARACTERS], bare[CHARACTERS]
+    kept = _payloads(before)
+    assert _payloads(grown)[:len(kept)] == kept
+    added = {n.casefold() for i, n in named_resources(grown).items() if i >= len(kept)}
+    assert added == {"characters/debug", *(f"characters/debug/{c}" for c in throws.CLIPS), throws.FX_DEFAULT} | (
+        {throws.FX_BREAK} if t.impact else set())
+    old_index = {r.key.casefold() for r in parse_index_xbr(bare[INDEX]).records}
+    assert {r.key.casefold() for r in parse_index_xbr(game[INDEX]).records} - old_index == added | (
+        {pc.HIT_FLASH} if flash else set())
+    vanilla = _vanilla(usa, CHARACTERS)
+    body = read_asset(grown, "debug")
+    source = throws.source_body(t)
+    if "authored" in t.body:
+        group, = body.lods[0].groups
+        lo, hi = (min(vx.position[1] for vx in group.vertices), max(vx.position[1] for vx in group.vertices))
+        assert (len(body.lods), len(group.triangles), group.palette, [b.name for b in body.bones]) == (
+            1, 36, [0], ["root"]) and hi - lo == pytest.approx(throws.ARROW_LENGTH, abs=1e-6)
+    else:
+        src = read_asset(vanilla, source)
+        assert [[(g.palette, len(g.vertices), len(g.triangles)) for g in lod.groups] for lod in body.lods] == [
+            [(g.palette, len(g.vertices), len(g.triangles)) for g in lod.groups] for lod in src.lods]
+        toc = parse_toc(grown)
+        gshd, row = body.lods[0].groups[0].material
+        stage = dict(refs_in(grown, toc, gshd))[fx_edit.material_row_at(_payloads(grown)[gshd], row) + 100]
+        assert (gshd >= len(kept), stage >= len(kept), toc[stage].tag) == (True, source == throws.BOULDER, "surf")
+    markers = [m.name for m in body.markers]
+    assert markers[-1] == "m_alpha" and len(markers) == (4 if source == "ice_shard" else 1)
+    assert [tr.target for tr in named_clip(grown, "debug", "die").markers] == [len(markers) - 1] * 2
+    schema, toc = Schema(game[XBE]), parse_toc(grown)
+    at = {n.casefold(): i for i, n in named_resources(grown).items()}
+    fx = Graph(grown, toc, toc[at[throws.FX_DEFAULT]], schema)
+    names = [rec[1] for g in t.sets for rec in fx_templates.GRAFTS[g].records]
+    assert fx.names[4:] == names and all(fx.parent(4 + k) in range(4, 4 + len(names)) or fx.parent(4 + k) == 0
+                                         for k in range(len(names)) if fx.is_dag(4 + k))
+    for s in t.show:
+        assert fx.attr_named(4 + names.index(s["record"]), s["attr"]) == s["value"]
+    if t.impact:
+        assert fx.pstr(fx.recs[3], 0x1C) == throws.FX_BREAK
+        src = vanilla if t.impact["archive"] == "characters" else _vanilla(usa, FX)
+        stoc = parse_toc(src)
+        donor = Graph(src, stoc, stoc[{n.casefold(): i for i, n in named_resources(src).items()}[t.impact["key"]]],
+                      schema)
+        copy = Graph(grown, toc, toc[at[throws.FX_BREAK]], schema)
+        assert (copy.names, copy.types, [copy.attrs(r) for r in range(len(copy.recs)) if copy.recs[r] is not None]) == (
+            donor.names, donor.types, [donor.attrs(r) for r in range(len(donor.recs)) if donor.recs[r] is not None])
+    else:
+        assert [lk.factor for lk in fx.links(2)] == [0.0]
+    engine = _doc(game[CONFIG]).keyed_section("critters_engine")
+    scale = engine.find_cell("debug", "scale").double_value
+    span = max(h - lo for lo, h in zip(*mesh_bounds(grown, "debug")))
+    assert scale * span == pytest.approx(v["size"]) and engine.find_cell(
+        "debug", "collisionRadius").double_value * scale == pytest.approx(min(v["radius"], v["size"] / 2))
+    worn = _body(vanilla, _vanilla(usa, CONFIG), variant.base)
+    with_row, without = (model_inspect.own_runs(g[CHARACTERS], worn) for g in (game, bare))
+    assert with_row["bytes"] > without["bytes"]
+
+
+def test_a_shield_or_beam_row_plays_its_template_as_the_players_own_graph_and_edits_no_vanilla_graph(usa):
+    """D538's E3 (Modkit's Step 2.167c): a recipe's shield and beam rows (shieldlord: keylord with a bubble on
+    basic1, a dome on the finish, a laser on basic2) each add a graph of their own,
+    ``characters/keylord/v/fx/fx_<template>_<k>``, and the clone invariant holds: against the recipe built without
+    them every characters.xbr entry is byte for byte, fx.xbr is, and the new names are those three graphs alone
+    (index.xbr's too). Each graph is the empty host's clone: its effectOrigin root, the holder under it, the
+    template's sets after them; the bubble's holder bound to m_root and renamed so, the dome's unbound at the feet
+    sized by keylord's height over garret4's, the laser's unbound at the action point scaled 1 / its drawn scale;
+    each show attribute 0 (X38 writes it), each param's write at the row's value (the laser's range ``auto`` its
+    basic2 box's reach ahead), every platform's gameSolid and damage 0; model inspect's own runs count them."""
+    game, bare = _effects(str(usa), "shieldlord"), _effects(str(usa), "shieldlord", False)
+    variant = _effect_variant("shieldlord")
+    assert game[FX] == bare[FX]
+    grown, before = game[CHARACTERS], bare[CHARACTERS]
+    kept = _payloads(before)
+    assert _payloads(grown)[:len(kept)] == kept
+    keys = [fx_ring.bound_key("keylord", e.template.name, k) for k, e in enumerate(variant.effects)]
+    added = {n.casefold() for i, n in named_resources(grown).items() if i >= len(kept)}
+    assert added == set(keys)
+    old_index = {r.key.casefold() for r in parse_index_xbr(bare[INDEX]).records}
+    assert {r.key.casefold() for r in parse_index_xbr(game[INDEX]).records} - old_index == added
+    schema, toc = Schema(game[XBE]), parse_toc(grown)
+    at = {n.casefold(): i for i, n in named_resources(grown).items()}
+    keylord, garret4 = (read_body(grown, b) for b in ("keylord", "garret4"))
+    holder = fx_templates.GRAFTS[fx_templates.HOLDER].records[0][1]
+    for e, key in zip(variant.effects, keys):
+        t, g = e.template, Graph(grown, toc, toc[at[key]], schema)
+        names = [rec[1] for name in t.sets for rec in fx_templates.GRAFTS[name].records]
+        assert (g.names[2:], g.parent(1)) == (names, 0) and all(
+            g.parent(2 + k) in range(1, len(names) + 2) for k in range(len(names)) if g.is_dag(2 + k))
+        bound = struct.unpack_from("<I", g.s, g.recs[1] + 0x1C)[0]
+        if t.anchor == "centre":
+            assert (bound, bind_name(g.s, g.recs[1]), g.names[1]) == (1, "m_root", "m_root")
+        else:
+            x = g.xform_fields(1)
+            assert (bound, g.names[1]) == (0, holder)
+            if t.anchor == "feet":
+                assert (x["t"], x["s"]) == ((0.0, 0.0, 0.0), (pytest.approx(keylord.top / garret4.top),) * 3)
+            else:   # the hand: ahead of the feet and up, its lengths in metres (keylord drawn x2)
+                assert x["t"][1] > 0 and x["t"][2] > 0 and x["s"] == (pytest.approx(0.5),) * 3
+        for sh in t.show:
+            assert g.attr_named(2 + names.index(sh["record"]), sh["attr"]) == 0.0
+        for r, kind in enumerate(g.types):
+            if kind == "platform":
+                assert (g.attr_named(r, "gameSolid"), g.attr_named(r, "damage")) == (0.0, 0.0)
+        if t.name == "bubble":
+            assert g.attr_named(2 + names.index("StaticFieldBase"), "scaleX") == pytest.approx(1.1)
+        if t.name == "laser":
+            reach = g.attr_named(2 + names.index("locator3"), "translateY")
+            assert 1.0 < reach < 3.0 and g.attr_named(2 + names.index("pBurstEmitterShape1"), "kinkCountMax") == 0
+    worn = _body(_vanilla(usa, CHARACTERS), _vanilla(usa, CONFIG), variant.base)
+    with_row, without = (model_inspect.own_runs(g[CHARACTERS], worn) for g in (game, bare))
+    assert with_row["bytes"] > without["bytes"]
+
+
+def test_a_shield_or_beam_rows_graph_hangs_under_an_effect_origin_so_the_game_draws_it_on_the_wearer(usa):
+    """AZ-709 (Modkit's Step 2.167d): a bound row's copy is drawn on its wearer only under the root the game binds to
+    the wearer's model matrix, the transform bound by the name the game's own shields root theirs by
+    (fx_shield_force1's [0]). On shieldlord's build each row's graph roots one such transform, bound by that name,
+    and every other DAG record hangs under it; a template's edit naming its holder (an inherit mode) writes the
+    holder, never the root that shares its donor's name."""
+    game = _effects(str(usa), "shieldlord")
+    schema, fx = Schema(game[XBE]), _vanilla(usa, FX)
+    shield = Graph(fx, parse_toc(fx), parse_toc(fx)[{n.casefold(): i for i, n in named_resources(fx).items()}[
+        "fx/magic/fx_shield_force1"]], schema)
+    assert (bind_name(shield.s, shield.recs[0]), shield.parent(0), shield.parent(1)) == (fx_ring.ORIGIN, None, 0)
+    grown = game[CHARACTERS]
+    toc, at = parse_toc(grown), {n.casefold(): i for i, n in named_resources(grown).items()}
+    variant = _effect_variant("shieldlord")
+    for k, e in enumerate(variant.effects):
+        g = Graph(grown, toc, toc[at[fx_ring.bound_key("keylord", e.template.name, k)]], schema)
+        assert (struct.unpack_from("<I", g.s, g.recs[0] + 0x1C)[0], bind_name(g.s, g.recs[0]), g.parent(0)) == (
+            1, fx_ring.ORIGIN, None), e.template.name
+
+        def top(r: int) -> int:
+            while g.parent(r) is not None:
+                r = g.parent(r)
+            return r
+        assert {top(r) for r in range(len(g.recs)) if g.is_dag(r)} == {0}, e.template.name
+    bubble = next(e for e in variant.effects if e.template.name == "bubble")
+    holder = fx_templates.GRAFTS[fx_templates.HOLDER].records[0][1]
+    named = replace(bubble, template=replace(bubble.template, edits=(
+        *bubble.template.edits, {"record": holder, "inherit": 2})))
+    chars, key = _vanilla(usa, CHARACTERS), "characters/keylord/v/fx/fx_nit_0"
+    made, _, _ = fx_ring.bound_graph(chars, game[XBE], fx, named, key, len(parse_toc(chars)), marker=fx_ring.CENTRE)
+    out = append_resources(chars, made)
+    g = Graph(out, parse_toc(out), parse_toc(out)[{n: i for i, n in named_resources(out).items()}[key]], schema)
+    assert [struct.unpack_from("<I", g.s, g.recs[r] + 0x28)[0] for r in (0, 1)] == [0, 2]
+
+
+def test_a_laser_rows_bolt_keeps_its_splits_so_its_copy_never_double_faults_the_game(usa):
+    """AZ-710 (Modkit's Step 2.167d): a burst emitter with a split count of 0 and no kinks or no branches
+    double-faults the game the tick after its copy loads, as the laser's did. On shieldlord's build the laser's
+    bolt is straight (no kinks, no branches) and keeps the airship's own split counts, as every vanilla burst
+    emitter's are at least 2."""
+    game = _effects(str(usa), "shieldlord")
+    schema, vanilla = Schema(game[XBE]), _vanilla(usa, CHARACTERS)
+    donor = Graph(vanilla, parse_toc(vanilla), parse_toc(vanilla)[{
+        n.casefold(): i for i, n in named_resources(vanilla).items()}["characters/balthazar_airship/fx/fx_default"]],
+        schema)
+    grown = game[CHARACTERS]
+    toc, at = parse_toc(grown), {n.casefold(): i for i, n in named_resources(grown).items()}
+    laser = Graph(grown, toc, toc[at[fx_ring.bound_key("keylord", "laser", 2)]], schema)
+    burst = laser.names.index("pBurstEmitterShape1")
+    splits = [laser.attr_named(burst, a) for a in ("splitCountMin", "splitCountMax")]
+    assert [laser.attr_named(burst, a) for a in ("kinkCountMin", "kinkCountMax", "branchLevelMin",
+                                                 "branchLevelMax")] == [0.0] * 4
+    assert splits == [donor.attr_named(donor.names.index("pBurstEmitterShape1"), a)
+                      for a in ("splitCountMin", "splitCountMax")] and min(splits) >= 1.0
+
+
+@functools.lru_cache(maxsize=2)
+def _bound_row(image: str, template: str, values: tuple = ()) -> tuple[Graph, bytes]:
+    """A lone ``template`` row's graph as X38's build makes it (``bound_graph`` on the vanilla archives: a ``centre``
+    or ``front`` holder bound to m_root, a placed one at the root's origin) in characters.xbr with it appended."""
+    xbe, chars, fx = (_vanilla(image, name) for name in (XBE, CHARACTERS, FX))
+    effect, = fx_templates.effects("effects", [{"template": template, "columns": ["basic1"], **dict(values)}])
+    key = f"characters/keylord/v/fx/fx_{template}_0"
+    made, _, _ = fx_ring.bound_graph(chars, xbe, fx, effect, key, len(parse_toc(chars)), marker=(
+        fx_ring.CENTRE if effect.template.anchor in ("centre", "front") else None))
+    out = append_resources(chars, made)
+    toc = parse_toc(out)
+    return Graph(out, toc, toc[{n: i for i, n in named_resources(out).items()}[key]], Schema(xbe)), out
+
+
+def _platform(g: Graph, out: bytes, platform: str) -> tuple[np.ndarray, bool]:
+    """``platform``'s mesh in its graph's root frame, as 0x68BE0 and 0x681E0 compose it (``Graph.world``), and
+    whether a node above it has an inherit mode that doesn't compose (3: the camera's axes)."""
+    r = g.names.index(platform)
+    m, approx = g.world(r)
+    rdms, _ = render.platform_bindings(g, r)[0]
+    return np.array([apply(m, tuple(v)) for v in render.mesh(out, parse_toc(out), rdms).positions]), approx
+
+
+def test_a_dome_rows_hemisphere_stands_on_the_feet_its_pole_up_and_its_open_side_on_the_floor(usa_iso):
+    """AZ-715 (Modkit's Step 2.167e): the electric shield's hemisphere has its pole on the mesh's -y, which a dome's
+    inherit 2 kept ahead (on its side, half under the floor). A dome row's hemisphere stands on the holder's floor
+    plane: its rim at the feet, its pole up a radius (1.15 x its size), centred on them."""
+    g, out = _bound_row(str(usa_iso), "dome")
+    p, approx = _platform(g, out, "StaticFieldBaseShape")
+    r = 1.15 * 1.6
+    assert not approx and p[:, 2].min() == pytest.approx(0.0, abs=0.01) and p[:, 2].max() == pytest.approx(r, rel=0.01)
+    assert [round(float(v), 2) for v in (*p[:, :2].min(0), *p[:, :2].max(0))] == pytest.approx([-r, -r, r, r], abs=0.02)
+
+
+def test_a_laser_or_bolts_rows_targets_lie_level_ahead_of_the_hand_so_its_line_does_not_slant(usa_iso):
+    """AZ-716, AZ-722 (Modkit's Steps 2.167e, 2.167f): the airship's targets sit at translateZ -0.5, so with its
+    emitter at the hand a laser's or the bolts' line fell 0.5 m over its range. At any range each of the row's three
+    targets lies level with its emitter, ahead of it: the laser's straight ahead at the range, the bolts' middle one
+    there and the other two at 0.4 of it, spread to either side."""
+    for template, reach in (("laser", 1.99581), ("laser", 15.0), ("bolts", 5.0), ("bolts", 15.0)):
+        g, _ = _bound_row(str(usa_iso), template, (("range", reach),))
+        hand = apply(g.world(g.names.index("pBurstEmitter1"))[0], (0.0, 0.0, 0.0))
+        d = [[q[i] - hand[i] for i in range(3)] for q in (
+            apply(g.world(g.names.index(loc))[0], (0.0, 0.0, 0.0)) for loc in ("locator1", "locator2", "locator3"))]
+        far = (1.0, 1.0, 1.0) if template == "laser" else (0.4, 0.4, 1.0)
+        assert [x for v in d for x in v[1:]] == pytest.approx([x for f in far for x in (f * reach, 0.0)], abs=1e-4), (
+            template, reach)
+        assert (template == "laser") == all(abs(v[0]) < 1e-4 for v in d), (template, reach)
+
+
+def test_a_stream_rows_flames_reach_its_range_inside_an_attacks_column_and_keep_their_colour_to_its_end(usa_iso):
+    """AZ-717, AZ-724 (Modkit's Steps 2.167e, 2.167g): a stream's reach is its flames' speed times their sink's life
+    (magmar's 5 s left them at 1 m/s, under 1 m in an attack's column). At any range a stream row's flames fly for
+    under half a second at the range over that flight, its sparks to 0.8 of it, and each renderer reaches its width
+    and fades out as its particles die; its flame keeps its colour over 0.7 of its range and its full alpha over
+    the first 0.2 (a pRendererB's colour and alpha linear in a particle's age between their two ages, 0x96260), and
+    reaches the smoke's colour and alpha 0 as it dies."""
+    def share(age, a1, a2):   # how far along its ramp a value is at ``age``
+        return 0.0 if age <= a1 else 1.0 if age >= a2 else (age - a1) / (a2 - a1)
+    for reach in (5.0, 25.0):
+        g, _ = _bound_row(str(usa_iso), "stream", (("range", reach),))
+        a = {n: g.attr_named(g.names.index(n), at) for n, at in (
+            ("mouth1_EmitterShape1", "velocityBaseX"), ("mouth1_SinkShape1", "maxAge"),
+            ("mouth1_EmitterShape2", "velocityBaseX"), ("mouth1_SinkShape2", "maxAge"))}
+        life, speed = a["mouth1_SinkShape1"], a["mouth1_EmitterShape1"]
+        assert 0.0 < life <= 0.5 and speed * life == pytest.approx(reach, rel=1e-5)
+        assert a["mouth1_EmitterShape2"] * a["mouth1_SinkShape2"] == pytest.approx(0.8 * reach, rel=1e-5)
+        for renderer, sink in (("pRendererB8", "mouth1_SinkShape1"), ("pRendererB7", "mouth1_SinkShape2")):
+            ages = [g.attr_named(g.names.index(renderer), x) for x in ("sizeAge2", "alphaAge2", "colorAge2", "sizeAge1")]
+            assert ages[:2] == pytest.approx([a[sink]] * 2) and 0.0 < ages[2] <= a[sink] and ages[3] <= ages[0], renderer
+        r = g.names.index("pRendererB8")
+        b8 = {k: g.attr_named(r, k) for k in ("colorAge1", "colorAge2", "alpha2", "alphaAge1", "alphaAge2")}
+        colour, alpha = (b8["colorAge1"], b8["colorAge2"]), (b8["alphaAge1"], b8["alphaAge2"])
+        assert share(0.7 * reach / speed, *colour) == 0.0 and share(life, *colour) == 1.0, b8
+        assert share(0.2 * reach / speed, *alpha) == 0.0 and share(life, *alpha) == 1.0 and b8["alpha2"] == 0.0, b8
+
+
+def test_a_barrier_rows_glow_is_a_panel_facing_ahead_not_a_disc_facing_the_camera(usa_iso):
+    """AZ-718 (Modkit's Step 2.167e): the force shield holds its glow in the camera's axes (inherit 3), a disc facing
+    the camera. A barrier row's glow composes with the body's axes: a 2.55 m square standing across the line ahead,
+    at the row's ``ahead`` (1 m), facing along it."""
+    g, out = _bound_row(str(usa_iso), "barrier")
+    p, approx = _platform(g, out, "ForceFieldGlowShape")
+    span = p.max(0) - p.min(0)
+    assert not approx and span[1] == pytest.approx(0.0, abs=1e-4) and p[:, 1].mean() == pytest.approx(1.0, abs=1e-4)
+    assert (span[0], span[2]) == (pytest.approx(2.55, rel=1e-3), pytest.approx(2.55, rel=1e-3))
+
+
+def test_a_bubble_or_dome_rows_opacity_is_its_shaders_alpha_0_7_by_default(usa_iso):
+    """AZ-719, AZ-721 (Modkit's Steps 2.167e, 2.167f): the electric shield draws at its shader's ShaderAlpha; its
+    material row's opacity changes nothing. Each row's opacity, 0.7 by default, is its shader's ShaderAlpha."""
+    for template, values, want in (("bubble", (), 0.7), ("bubble", (("opacity", 0.4),), 0.4), ("dome", (), 0.7)):
+        g, _ = _bound_row(str(usa_iso), template, values)
+        assert g.attr_named(g.names.index("StaticField_s"), "ShaderAlpha") == pytest.approx(want), (template, values)
+
+
+def test_a_shield_row_on_a_spring_recipe_builds_and_its_report_keeps_the_bodys_scale_and_x3(usa, booblord):
+    """Modkit's Step 2.167c's review: booblord (X41's springs; her v3) with a bubble on basic1 builds (the springs
+    once took the rows' holder list's name: a TypeError, not a refusal by name, D35), and its report states the
+    body's scale and X3 note as the build without the row does and names the row."""
+    bare = _booblord_v3()
+    row = replace(bare, effects=fx_templates.effects("effects", [{"template": "bubble", "columns": ["basic1"]}]))
+    lines = []
+    for v in (row, bare):
+        report = []
+        _swap(usa, "booblord", worn=v, lines=report)
+        lines.append(next(line for line in report if f"Player model: garret4 wears {v.base}'s body" in line))
+    got, want = ((re.findall(r", scale ([^;]+); ", line), line.count("(X3)")) for line in lines)
+    assert got == want and want[0] and "its bubble row" in lines[0] and "its bubble row" not in lines[1]
+
+
+def test_a_templates_projectile_is_held_and_thrown_no_lower_than_the_players_point(usa):
+    """AZ-705 (Modkit's Step 2.167c's sitting: the catalisk's paw held its arrow 0.17-0.45 m over the sand, and every
+    arrow ended on the sand or a sleeth in the line): X42's template rows (``low`` 0) hold their projectile and
+    throw it no lower than the player's point; the kit's (``low`` -1e9) where the hand is. Under Unicorn on
+    firelord's build (L2: his point 1 m up), a hand 0.23 m up holds and throws at 1 m; with the kit's low, at 0.23 m."""
+    built = _effects(str(usa), "firelord")[XBE]
+    t, x = _table(built), _x42(built)
+    assert t["low"] == throws.TEMPLATE_LOW == 0.0
+    col = (t["columns"] & -t["columns"]).bit_length() - 1
+    sim, log, tick = x.sim, x.log, x.tick
+    sim.uc.mem_write(x.bones + 0xB0 * t["bone"] + 0xA0, struct.pack("<3f", 0.3, 0.2, 0.2))
+    for k, (low, held) in enumerate(((throws.TEMPLATE_LOW, 1.0), (throws.HAND_LOW, 1.15 * 0.2))):
+        sim.uc.mem_write(_symbol(built, pc.THROW_HOOK, "_player_model_throw_table") + 0x178, struct.pack("<f", low))
+        now = 1.0 + k
+        tick(0.0, now, on=False, column=col)
+        tick(t["spawns"][col] + 1e-3, now + 0.03, column=col)
+        assert (len(log["spawn"]), x.f3(x.state + 0x48)[2]) == (k + 1, pytest.approx(held, abs=1e-5))
+        tick(t["releases"][col] + 1e-3, now + 0.06, column=col)
+        assert (len(log["message"]), log["message"][-1][2][2]) == (k + 1, pytest.approx(held, abs=1e-5))
+
+
+def test_an_ice_shard_row_flies_curled_in_a_ball_not_in_its_t_pose(usa):
+    """AZ-704 (Modkit's Step 2.167c's sitting: the ice shard's own ``ball`` keys none of its 22 bones, so it flew in
+    its bind's T-pose): the ice shard template's ``debug`` is its mesh skinned into the rock shard's ``ball`` (the
+    same bones) at t 0 as the game skins it and held there by still clips, so it is drawn as a ball ``size`` m
+    across (no span past twice another; the T-pose's are 4.8 x 0.9 x 3.6). A pose whose body's bones aren't the
+    body's is refused by name."""
+    t, vanilla = fx_templates.TEMPLATES["ice_shard"], _vanilla(usa, CHARACTERS)
+
+    def points(asset):   # every LOD's vertices, as an array (no game numbers in a failure's output)
+        return np.array([v.position for lod in asset.lods for g in lod.groups for v in g.vertices])
+    still = throws.posed(vanilla, replace(t, body={**t.body, "pose": "characters/ice_shard/ball"}))
+    assert float(np.abs(points(still) - points(read_asset(vanilla, "ice_shard"))).max()) < 1e-4
+    with pytest.raises(ValueError, match="bosses/boulder's bones aren't ice_shard's"):
+        throws.posed(vanilla, replace(t, body={**t.body, "pose": "characters/bosses/boulder/idle"}))
+    game = _effects(str(usa), "icelord")
+    grown = game[CHARACTERS]
+    span = [h - lo for lo, h in zip(*mesh_bounds(grown, "debug"))]
+    rest = [h - lo for lo, h in zip(*mesh_bounds(vanilla, "ice_shard"))]
+    assert max(span) < 2 * min(span) and max(rest) > 4 * min(rest)
+    assert not named_clip(grown, "debug", "idle").bones and not named_clip(grown, "debug", "run").bones
+    scale = _doc(game[CONFIG]).keyed_section("critters_engine").find_cell("debug", "scale").double_value
+    assert scale * max(span) == pytest.approx(t.params["size"]["default"])
+
+
+def test_x42_throws_a_templates_projectile_from_each_column_at_its_first_hit_falling_by_its_arc(usa):
+    """X42's template rows (Modkit's Step 2.167b, D538's E2) under Unicorn on firelord's build (keylord with a
+    fireball on basic3 and the finish; L2): its table throws ``debug`` from those two columns, each released half a
+    tick before its clip's first damage tick and spawned six ticks before, at its written multiplier, at the row's
+    18 m/s, arc 0.2, 2 s life and 0.4 m radius, clip slot 9, the kit's aim, no seek. A basic3 swing spawns at its
+    spawn fraction and releases at its own release fraction; v lands it at the miss point under 0.2 of gravity, and
+    X42 gives its AI's vertical velocity 0.8 x 9.8 x dt back on the release tick and each flying tick, its hits
+    basic3's multiplier; a finish swing waits for the finish's own fractions, and with the arc at 1.5 (any number,
+    D23) it is solved under 1.5 g and X42 takes 0.5 x 9.8 x dt off."""
+    game = _effects(str(usa), "firelord")
+    built = game[XBE]
+    t = _table(built)
+    anims = _doc(game[CONFIG]).keyed_section("attacks_anims")
+    columns = anims.col_names()
+    characters_xbr = game[CHARACTERS]
+    keylord = read_body(characters_xbr, "keylord", dirs=(pc.CENTRED_DIR,))
+    garret4 = read_body(characters_xbr, "garret4")
+    want = {}
+    for name in ("basic3", "finish"):
+        i = columns.index(name)
+        owner, clip = pc.source_clip(keylord, garret4, anims.find_cell(name, "Anim", i).string_value)
+        ticks = round(owner.length(clip) * 30)
+        first = round(min(w.on for w in damage_windows(characters_xbr, owner.name, clip)) * 30)
+        want[i] = (_f32((max(1, first - 6) - 0.5) / ticks), _f32((first - 0.5) / ticks),
+                   _f32(anims.find_cell(name, "Damage multiplier", i).double_value))
+    assert t["columns"] == sum(1 << i for i in want)
+    assert {i: (t["spawns"][i], t["releases"][i], t["mults"][i]) for i in range(throws.COLUMNS)
+            if t["spawns"][i] or t["releases"][i] or t["mults"][i]} == want
+    fixed = {"vh": 18.0, "arc": _f32(0.2), "life": 2.0, "tmin": _f32(1 / 30), "tmax": 2.0, "radius": _f32(0.4),
+             "anim": 9, "landing": 23, "range": 14.0, "miss": MISS, "miss_z": MISS_Z, "pad": _f32(0.15),
+             "species": b"debug" + bytes(11), "low": throws.TEMPLATE_LOW, "seek": 0}
+    assert {k: t[k] for k in fixed} == fixed
+    x = _x42(built)
+    sim, log, tick = x.sim, x.log, x.tick
+    ais = [0x20080000 + 0x1000 * k for k in range(len(x.critters))]
+    for c, ai in zip(x.critters, ais):
+        sim.uc.mem_map(ai, 0x1000)
+        sim.uc.mem_write(c + 0x180, struct.pack("<I", ai))
+    basic3, finish = sorted(want)
+    tick(0.0, 1.0, column=basic3)
+    tick(t["spawns"][basic3] + 1e-3, 1.03, column=basic3)
+    tick(t["releases"][basic3] - 1e-3, 1.06, column=basic3)
+    assert (len(log["spawn"]), log["message"]) == (1, [])
+    tick(t["releases"][basic3] + 1e-3, 1.1, column=basic3)
+    (who, msg, p0), = log["message"]
+    target, v = (p0[0], p0[1] + MISS, 1.0 + MISS_Z), msg[2:5]
+    flight = MISS / 18.0
+    assert (who, msg[5:]) == (x.critters[0], (9, 23))
+    assert [p0[i] + v[i] * flight - (0.2 * 4.9 * flight * flight if i == 2 else 0) for i in range(3)] == pytest.approx(
+        target, abs=1e-4)
+    vz = sim.f32(ais[0] + 0x2C)
+    assert vz == pytest.approx(v[2] + 0.8 * 9.8 * 0.04, abs=1e-5)
+    sim.uc.mem_write(x.critters[0] + 0x15C, struct.pack("<3f", 10.4, 21.0, 1.6))
+    tick(0.9, 1.133, column=basic3)
+    assert sim.f32(ais[0] + 0x2C) == pytest.approx(vz + 0.8 * 9.8 * 0.033, abs=1e-5)
+    assert log["send"][-1][2][3] == want[basic3][2]
+    tick(0.0, 1.2, column=finish)
+    tick(t["spawns"][finish] + 1e-3, 1.23, column=finish)
+    tick(t["releases"][finish] - 1e-3, 1.26, column=finish)
+    assert (len(log["spawn"]), len(log["message"])) == (2, 1)
+    sim.uc.mem_write(_symbol(built, pc.THROW_HOOK, "_player_model_throw_table") + 0x18, struct.pack("<f", 1.5))
+    tick(t["releases"][finish] + 1e-3, 1.3, column=finish)
+    who, msg, p0 = log["message"][-1]
+    target, v = (p0[0], p0[1] + MISS, 1.0 + MISS_Z), msg[2:5]
+    assert who == x.critters[1] and [p0[i] + v[i] * flight - (1.5 * 4.9 * flight * flight if i == 2 else 0)
+                                     for i in range(3)] == pytest.approx(target, abs=1e-4)
+    assert sim.f32(ais[1] + 0x2C) == pytest.approx(v[2] - 0.5 * 9.8 * 0.04, abs=1e-5)
+    sim.uc.mem_write(x.critters[1] + 0x15C, struct.pack("<3f", 10.4, 21.0, 1.6))
+    tick(0.95, 1.333, column=finish)
+    assert {m[2][3] for m in log["send"][-2:]} == {want[basic3][2], want[finish][2]}
+
+
+def test_x42_lands_on_europe_with_usas_table(usa, europe_iso):
+    """On Europe X42 lands at its own address with the same table as USA's, for the kit's throw (town_male_6) and a
+    template's (firelord) (Modkit's Steps 2.159b, 2.167b)."""
+    tables = []
+    for build in (lambda image: _swap(image, "town_male_6", sounds="garret4"),
+                  lambda image: _effects(str(image), "firelord")):
+        usa_table = _table(build(usa)[XBE])
+        with _building(europe_iso):
+            eu = build(europe_iso)[XBE]
+            assert ports.verify_trampoline_patch(eu, pc.THROW_HOOK) == "applied"
+            tables.append((_table(eu), usa_table))
+    assert all(eu == us for eu, us in tables)
