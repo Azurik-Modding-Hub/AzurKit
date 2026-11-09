@@ -614,12 +614,13 @@ def _called(node: ast.AST) -> str:
 
 def _source_text(node: ast.AST, names: set[str]) -> bool:
     """Whether ``node`` holds ``inspect.getsource``'s text (or a name in
-    ``names``, bound to it): its call, or a method of its text, not another
-    call's answer that only took the text as an argument."""
+    ``names``, bound to it): its call, a method of its text or a call taking
+    it positionally (``re.search``, ``all``, ``dedent``), not one that only
+    takes it by keyword (``run(python=...)`` ships it to run)."""
     if _called(node) == "getsource" or isinstance(node, ast.Name) and node.id in names:
         return True
     if isinstance(node, ast.Call):
-        return _source_text(node.func, names)
+        return _source_text(node.func, names) or any(_source_text(arg, names) for arg in node.args)
     return any(_source_text(child, names) for child in ast.iter_child_nodes(node))
 
 
@@ -727,13 +728,23 @@ def test_no_test_passes_whatever_the_code_it_checks_does():
              "    assert run(python=inspect.getsource(f)) == 0\n"
              "@pytest.mark.skipif(False, reason='never')\n"
              "def test_never_skipped():\n"
-             "    assert f()\n")
+             "    assert f()\n"
+             "def test_dedented():\n"
+             "    text = textwrap.dedent(inspect.getsource(f))\n"
+             "    assert 'x' in text\n"
+             "def test_searched():\n"
+             "    assert re.search('x', inspect.getsource(f))\n"
+             "def test_all_in():\n"
+             "    assert all(n in inspect.getsource(f) for n in names)\n")
     assert suite_lint({"test_probe.py": ast.parse(probe)}) == [
         "test_probe.py:21 skipif(False): a skip on a constant condition",
         "test_probe.py:10 test_skip_raise: asserts nothing",
         "test_probe.py:12 test_uncalled_stub: asserts nothing",
         "test_probe.py:14 test_only_if_ok: asserts only under an if",
-        "test_probe.py:16 test_source: asserts on inspect.getsource text"]
+        "test_probe.py:16 test_source: asserts on inspect.getsource text",
+        "test_probe.py:24 test_dedented: asserts on inspect.getsource text",
+        "test_probe.py:27 test_searched: asserts on inspect.getsource text",
+        "test_probe.py:29 test_all_in: asserts on inspect.getsource text"]
     trees = {p.name: ast.parse(p.read_text(encoding="utf-8"), str(p)) for p in sorted((ROOT / "tests").glob("*.py"))}
     assert suite_lint(trees) == []
 
