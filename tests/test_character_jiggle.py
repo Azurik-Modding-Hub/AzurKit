@@ -1107,6 +1107,8 @@ def _pitched(deg: float) -> Clip:
 
 BACK = [((x / 100, -0.1, z / 100), (0.0, -1.0, 0.0)) for x in range(-15, 16) for z in range(90, 140)]
 """A slab's back, 5 cm in front of the hanging tail."""
+TOP = [((x / 100, y / 100, 1.4), (0.0, 0.0, 1.0)) for x in range(-15, 16) for y in range(-10, 11)]
+"""The slab's top."""
 SLAB = {6: ((-0.15, -0.1, 0.9), (0.15, 0.1, 1.4))}
 CLEAR_DOC = {"frees": [], "bones": [{"role": "a", "bone": "a", "parent": "head", "shape": ["s"], "groups": [0],
                                      "takes": ["head"], "weight": 1.0, "freq": 1.0, "damping": 0.2, "travel": 0.02,
@@ -1129,7 +1131,7 @@ def test_a_cleared_chain_bends_out_of_each_skin_group_its_clear_or_clip_lists_wh
     that weigh no vertex, groups with no vertex of its bones and ``clips``
     that aren't a map of clip names to mesh groups are refused by name."""
     side = [((0.45, y / 100, z / 100), (1.0, 0.0, 0.0)) for y in range(-20, -9) for z in range(135, 146)]
-    rig, binds, groups, placed, clear, col, deepest = _tail([("slab", (0.0, 0.0, 0.0), BACK)])
+    rig, binds, groups, placed, clear, col, deepest = _tail([("slab", (0.0, 0.0, 0.0), BACK + TOP)])
     back_clip, away = _pitched(40.0), _pitched(-40.0)
     plain = jiggle.keyed(rig, back_clip, placed, 15.0, 1.0, 1.0, False)[0]
     kept = jiggle.keyed(rig, back_clip, placed, 15.0, 1.0, 1.0, False, col)[0]
@@ -1148,7 +1150,8 @@ def test_a_cleared_chain_bends_out_of_each_skin_group_its_clear_or_clip_lists_wh
             jiggle.collider(rig, binds, groups, placed, dataclasses.replace(clear, links=links))
     with pytest.raises(ValueError, match=r"jiggle.clear.links: they weigh no vertex half or more"):
         jiggle.collider(rig, binds, [(groups[0][0], []), groups[1]], placed, clear)
-    moved = [groups[0], ([], []), groups[1]]   # the slab's skin in group 2, group 1 empty
+    rig, binds, groups, placed, clear, _, deepest = _tail([("slab", (0.0, 0.0, 0.0), BACK)])
+    moved = [groups[0], ([], []), groups[1]]   # the slab's back in group 2, group 1 empty
     col2 = jiggle.collider(rig, binds, moved, placed, dataclasses.replace(clear, groups=(1, 2)))
     assert deepest(jiggle.keyed(rig, back_clip, placed, 15.0, 1.0, 1.0, False, col2)[0], SLAB) < 0.001
     with pytest.raises(ValueError, match=r"jiggle.clear: groups \[1\] have no vertex of its bones"):
