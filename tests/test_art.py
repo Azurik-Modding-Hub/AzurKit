@@ -281,3 +281,76 @@ def test_a_spot_shows_on_the_floor_of_the_room_it_stands_in():
     at = {i["id"]: i["at"] for i in town["items"] + town["spots"]}
     assert {town["floors"][at[f"town/g1/r{r}"][2]] for r in range(15, 241, 25)} == {"town-5"}
     assert sorted(json.loads((root / "floors.json").read_text())["levels"]) == sorted(levels)
+
+
+# --- Step 4.28c: Modkit's collision-mesh tests no AzurKit test pinned (the test census's lane C): the ``tern``
+# reader's layout faults, each mesh's one owner and a platform's placed faces, on synthetic files.
+
+def _tern(face=(0, 1, 2, 0), flags=0x8050, bmax=(1, 1, 0)) -> bytes:
+    """A synthetic one-chunk ``tern``: a triangle with vertices at (0, 0, 0), (1, 0, 0) and (0, 1, 0) m, its
+    chunk at 12, the u32 before the spatial structure at 56 and the structure at 60."""
+    chunk = struct.pack("<3hBB3h3hH", 0, 0, 0, 3, 1, *bmax, 0, 0, 0, flags)
+    chunk += struct.pack("<9h", 0, 0, 0, 256, 0, 0, 0, 256, 0) + bytes(face)
+    return struct.pack("<IiI", 1, 56, 12) + chunk + bytes(8)
+
+
+def _xbr(*entries) -> bytes:
+    """A synthetic XBR: a 0x3C-byte header, the TOC of ``entries`` ((fourcc, payload) each) and their payloads."""
+    toc, body = b"", b""
+    for tag, payload in entries:
+        toc += struct.pack("<II4sI", len(body), len(payload), tag.encode(), 0)
+        body += payload
+    head = b"xobx" + bytes(8) + struct.pack("<II", len(entries), 0x3C + 16 * len(entries))
+    return head + bytes(0x3C - len(head)) + toc + body
+
+
+def test_a_collision_mesh_that_breaks_the_layout_is_named_by_its_violation():
+    """The ``tern`` reader (``art.tern``, Modkit's Step R1.2 port of the R0 evidence's reader, whose census of
+    the disc found none) names each layout fault of a mesh: a face index past its chunk's vertices, a group byte
+    out of order, flags the game doesn't set, a box that isn't its vertices' floor and ceiling, a chunk or tree
+    past the payload and a payload too short for its header."""
+    from azurkit.tools.randomizer.art import tern
+
+    clean = tern.parse(_tern())
+    assert (clean.violations, clean.n_vertices, clean.n_triangles) == ([], 3, 1)
+    assert clean.chunks[0].verts == [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)]
+    for buf, want in ((_tern(face=(0, 1, 3, 0)), ["face_index_out_of_range"]),
+                      (_tern(face=(0, 1, 2, 1)), ["group_byte_order"]),
+                      (_tern(flags=0x1234), ["unknown_flags"]),
+                      (_tern(bmax=(2, 1, 0)), ["bbox_not_floor_ceil"]),
+                      (_tern()[:40], ["chunk_past_next", "tree_out_of_range"]),
+                      (_tern()[:8], ["short"])):
+        assert tern.parse(buf).violations == want
+
+
+def test_each_tern_has_one_owner_and_a_second_or_non_tern_reference_fails_the_load():
+    """The ``levl`` payload's +0x00 names the level's static collision (``art.collision.owners``, Modkit's
+    Q300); a reference to an entry that is not a ``tern``, or a second reference to one ``tern``, fails the load
+    by name (every ``tern`` on the disc has exactly one owner)."""
+    from types import SimpleNamespace
+
+    from azurkit.tools.randomizer.art import collision
+
+    schema = SimpleNamespace(types={"platform": SimpleNamespace(attrs=[])})
+    ref = struct.pack("<I", 1)
+    got = collision.owners(_xbr(("levl", ref), ("tern", _tern())), schema, graphs=[])
+    assert [(o.kind, o.tern, [w for w, *_ in o.triangles()]) for o in got] == [("levl", 1, [0x8050])]
+    for entries, why in (((("levl", struct.pack("<I", 0)), ("tern", _tern())), "TOC entry 0, which is not a tern"),
+                         ((("levl", ref), ("tern", _tern()), ("levl", ref)), "tern 1, which already has an owner")):
+        with pytest.raises(ValueError, match=why):
+            collision.owners(_xbr(*entries), schema, graphs=[])
+
+
+def test_a_platforms_collision_is_placed_by_its_world_matrix_with_the_word_its_attributes_give():
+    """A platform's faces move with its world matrix and carry the word the platform builder 0x6AD20 makes
+    (``art.collision.platform_word``): 0xC000, gameSolid 0x10 and 0x40 unless slippery and climbable are both
+    set, water 0x100, and 0x20 on a non-solid word with water, a push or damage."""
+    from azurkit.tools.randomizer.art import collision, nodes, tern
+
+    w = collision.platform_word
+    assert [w({}), w({"gameSolid": 1.0}), w({"gameSolid": 1.0, "slippery": 1.0, "climbable": 1.0}),
+            w({"water": 1.0}), w({"pushEnable": 1.0}), w({"damage": 25.0}), w({"gameSolid": 1.0, "damage": 25.0})] == \
+        [0xC000, 0xC050, 0xC013, 0xC120, 0xC028, 0xC020, 0xC050]
+    mesh = tern.parse(_tern(flags=tern.PLATFORM_CHUNK))
+    owner = collision.Owner("platform", 1, mesh, word=0xC050, world=nodes.translate(10.0, -2.0, 3.0))
+    assert list(owner.triangles()) == [(0xC050, (10.0, -2.0, 3.0), (11.0, -2.0, 3.0), (10.0, -1.0, 3.0))]

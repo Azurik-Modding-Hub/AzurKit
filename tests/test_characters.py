@@ -2569,3 +2569,29 @@ def test_each_grade_table_holds_one_grade_a_line_and_refuses_a_key_graded_twice(
         (twice := tmp_path / name).write_text("\n".join([head, *lines, lines[0], end]), encoding="utf-8")
         with pytest.raises(ValueError, match=rf"^{name}: \(.*\) is graded twice"):
             load_grades(twice, key)
+
+
+# --- Step 4.28c: Modkit's character test no AzurKit test, golden or facts entry pinned (the test census's lane C:
+# no G3 case wears a body over enemy_scaling).
+
+def test_a_worn_enemy_keeps_its_own_size_and_borrowed_timing_under_enemy_scaling(usa_iso):
+    """The player-model swap over enemy_scaling (Modkit's ``test_enemy_scaling.py``): sleeth worn with enemy and
+    boss size 2 and boss attack speed 2 gives the player (garret4's critters_engine row) the scale and bound it
+    gives with no pack (the sliders resize the creature, not its wearer), and anim_change's CALL of
+    anim_play_clip at 0x429DA stays vanilla beside X12's bind (0xCAF6B), whose timing reads that CALL's return."""
+    from azurkit.core.xbr import Document
+
+    def worn(**sliders: float) -> tuple[bytes, list]:
+        _, base, layers, _, _ = sdk._plan({"iso": str(usa_iso), "packs": {"enemy_scaling": sliders} if sliders else {},
+                                           "character": {"species": "sleeth"}})
+        files = compose(base, layers)[0]
+        engine = Document(bytes(files["gamedata/config.xbr"])).tables["critters_engine"]
+        return bytes(files[characters.XBE]), [engine.number("garret4", row) for row in ("scale", "boundRadius")]
+
+    plain, size = worn()
+    xbe, scaled = worn(enemy_size_scale=2.0, boss_size_scale=2.0, boss_attack_speed_scale=2.0)
+    assert scaled == size
+    offset = facts.of(gate.USA).offset
+    target = lambda image, va: va + 5 + struct.unpack_from("<i", image, offset(va) + 1)[0]   # noqa: E731
+    assert target(xbe, 0x429DA) == target(plain, 0x429DA) == 0xCAD40
+    assert 0xCB080 not in (target(xbe, 0xCAF6B), target(plain, 0xCAF6B))       # X12's bind landed

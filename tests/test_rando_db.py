@@ -192,3 +192,25 @@ def test_the_bench_and_the_soak_make_only_databases_and_settings_the_planner_acc
     assert {s.movement_tier for s in drawn} == {"safe", "standard", "hard", "frame_perfect"} \
         and any(s.skip_override for s in drawn) and any(s.exclude_categories for s in drawn)
     assert len({soak.share_encode(st, skips) for st in soak.PROFILES.values()}) == 3
+
+
+# --- Step 4.28c: Modkit's randomizer-data test no AzurKit test pinned (the test census's lane C).
+
+def test_every_prefetch_neighbour_without_a_stanza_is_a_level_cut_from_the_disc(usa_iso):
+    """AZ-290's prefetch side (Modkit's ``test_assets_manifest.py``): the game's ``prefetch-lists.txt`` still
+    names ``f7`` as f1's neighbour, a level cut from the game with no stanza of its own and no
+    ``gamedata/f7.xbr``, so the exit table leaves f1's ``levelSwitch3`` to it out (``levels.py``); every
+    neighbour with no stanza is such a level."""
+    from azurkit.core import iso
+
+    with iso.Reader(usa_iso) as r:
+        text = bytes(r.read("prefetch-lists.txt")).decode("utf-8")
+    stanzas: dict[str, list[str]] = {}
+    for line in text.splitlines():
+        key, _, value = line.strip().partition("=")
+        if key == "tag":
+            neighbours = stanzas.setdefault(value, [])
+        elif key == "neighbor":
+            neighbours.append(value)
+    dangling = {name for names in stanzas.values() for name in names if name not in stanzas}
+    assert dangling == {"f7"} and not {f"gamedata/{name}.xbr" for name in dangling} & set(gate.USA.files)
