@@ -267,8 +267,9 @@ def test_a_written_image_is_whole_on_the_disk_before_it_appears_under_its_name(t
     """Modkit's AZ-236: a part file renamed into place with no fsync could
     leave a short file under the final name after a power cut. Cloned or
     streamed, ``pack`` flushes and fsyncs its part at the image's whole
-    size before ``out`` exists; the image is smaller than a write chunk, so
-    a stream that forgot to flush Python's buffer first would sync less."""
+    size before ``out`` exists; each write (5000 B here) is smaller than
+    Python's buffer, so a stream that forgot to flush it first would sync
+    less."""
     src = tmp_path / "in.iso"
     src.write_bytes(image({"a.bin": fill("a", 90), "gamedata/big.xbr": fill("big", 3 * S)}))
     built = iso.read(src, {"gamedata/big.xbr": fill("B", 3 * S + 1)})
@@ -279,6 +280,7 @@ def test_a_written_image_is_whole_on_the_disk_before_it_appears_under_its_name(t
         fsync(fd)
 
     monkeypatch.setattr(os, "fsync", recording)
+    monkeypatch.setattr(iso, "CHUNK", 5000)   # a whole chunk past the buffer's 8 KiB is written through it
     clone = iso._clone
     for name, made in (("cloned", clone), ("streamed", lambda source, part: None)):
         monkeypatch.setattr(iso, "_clone", made)
