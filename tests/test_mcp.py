@@ -185,8 +185,11 @@ def test_xbr_edit_takes_the_mods_files_wire_format_and_an_unmet_expected_or_a_bo
     refused = [tools.xbr_edit(str(src), str(out), [op]) for op in (
         {"op": "replace_bytes", "offset": 0, "value": "00", "expected": "ff"},
         {"op": "set", "table": "armor_properties", "entity": "no_armor_1", "prop": "Level", "value": True})]
-    assert [(r["success"], r["error"].split(": ", 1)[0]) for r in refused] == [
-        (False, "xbr op 1 (replace_bytes)"), (False, "xbr op 1 (set)")]
+    assert not refused[0]["success"] and refused[0]["error"].startswith("xbr op 1 (replace_bytes): ")
+    assert refused[0]["error"].endswith(" at 0x0, not the bytes it expects")
+    # The whole reason: on this stand-in file a set fails whatever its value.
+    assert (refused[1]["success"], refused[1]["error"]) == (
+        False, "xbr op 1 (set): value: True is not a finite number")
     assert not out.exists() and src.read_bytes() == b"xobx" + bytes(60)
 
 
