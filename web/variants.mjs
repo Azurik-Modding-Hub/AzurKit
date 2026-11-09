@@ -216,13 +216,15 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   });
 
   // The list, the engine's: the built-ins (community ones marked, by the community list the page last read), then yours
-  // (a refused one marked); the last one asked drawn. A new community list lists them again.
-  const list = async () => {
+  // (a refused one marked); the last one asked drawn. A new community list lists them again, and a list a newer one
+  // overtook ends with that one, so the view's first open opens a variant whenever the community list comes in.
+  const list = () => (v.newest = listing());
+  const listing = async () => {
     await ready;
     const mine = ++v.listed;
     v.manifest = shared?.state.manifest ?? null;
     const reply = await call("variants", { given: { content: { manifest: v.manifest } } });
-    if (mine !== v.listed) return;
+    if (mine !== v.listed) return v.newest;
     if ("refused" in reply) return say(reply.refused, true);
     v.list = reply;
     draw();
