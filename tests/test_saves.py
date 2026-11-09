@@ -518,8 +518,8 @@ def test_the_commands_output_replaces_what_the_consoles_code_page_cant_encode(tm
 
 def test_save_reads_a_lone_save_file_signs_a_slot_with_no_edit_and_refuses_bad_input_in_one_line_writing_nothing(
         tmp_path, monkeypatch, capsys):
-    """Modkit's ``save`` edges: ``azurkit save inspect`` reads one .sav file as a slot's (a text save's lines, a
-    signature); ``save edit`` with the BIOS files and no ``--set`` signs the slot as it is (Step 2.84), a folder
+    """Modkit's ``save`` edges: ``azurkit save inspect`` reads one .sav file as a slot's (a text save's version and
+    lines, a signature's digest); ``save edit`` with the BIOS files and no ``--set`` signs the slot as it is (Step 2.84), a folder
     named like a save kept a folder (L25); and each bad input (AZ-141: the output a file or inside the slot it
     reads, the input a file or one save file, a malformed ``--set``, ``--mcpx`` without ``--flash``) is one
     ``azurkit:`` line, exit 1, nothing written."""
@@ -537,9 +537,9 @@ def test_save_reads_a_lone_save_file_signs_a_slot_with_no_edit_and_refuses_bad_i
                        ("sample.sav", b"fileversion=1\nhello\nworld\n"), ("signature.sav", bytes(range(20)))):
         (tmp_path / name).write_bytes(data)
     assert cli.main(["save", "inspect", str(tmp_path / "sample.sav")]) == 0
-    assert capsys.readouterr().out == "sample.sav: text, 26 B\n    0 hello\n    1 world\n"
+    assert capsys.readouterr().out == "sample.sav: text, 26 B, version 1\n    0 hello\n    1 world\n"
     assert cli.main(["save", "inspect", str(tmp_path / "signature.sav")]) == 0
-    assert capsys.readouterr().out == "signature.sav: signature, 20 B\n"
+    assert capsys.readouterr().out == f"signature.sav: signature, 20 B, digest {bytes(range(20)).hex()}\n"
 
     keys = ["--flash", str(tmp_path / "flash.bin"), "--mcpx", str(tmp_path / "mcpx.bin"), "--iso",
             str(tmp_path / "image.iso")]

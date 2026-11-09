@@ -627,6 +627,8 @@ def _save(args: argparse.Namespace) -> int:
 
     def shown(file: dict) -> str:
         return (f"{file['path']}: {file['kind']}, {file['size']:,} B"
+                + (f", version {file['version']}" if file.get("version") is not None else "")   # options.sav has none
+                + (f", digest {file['digest']}" if "digest" in file else "")
                 + "".join(f"\n    {n} {line}" for n, line in enumerate(file.get("lines", []))))
 
     try:
@@ -856,7 +858,8 @@ def main(argv: list[str] | None = None) -> int:
                                          "the slot again with your own BIOS files (read in memory, never kept) and write "
                                          "it to --out, a new folder. --json prints either's result as JSON.")
     saved.add_argument("action", choices=("inspect", "edit"))
-    saved.add_argument("target", metavar="FOLDER|HDD", help="a slot's folder, or an xemu HDD image")
+    saved.add_argument("target", metavar="FOLDER|FILE.sav|HDD",
+                       help="a slot's folder, one .sav file (inspect), or an xemu HDD image")
     saved.add_argument("--slot", metavar="ID", help="edit: which slot of an HDD image")
     saved.add_argument("--set", action="append", default=[], metavar="FILE:LINE=VALUE", help="edit: a line (repeatable)")
     saved.add_argument("--plan", metavar="FILE", help='edit: a JSON file of edits, {"edits": [{"file", "line_index", '
