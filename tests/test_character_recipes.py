@@ -592,6 +592,30 @@ def test_a_shape_at_one_keeps_a_recipes_mesh_and_sha_and_another_value_sizes_onl
         [], [], [("", "loincloth_back_1", (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))], pytest.approx(per * 0.3))
 
 
+def test_a_shapes_quick_preview_moves_each_drawn_vertex_where_the_builds_positions_put_it(monkeypatch):
+    """Modkit's Step 2.164d: the Shape tab's quick preview (``editor.moved``)
+    moves each drawn vertex found among the prepared mesh's to where
+    ``mesh_edit.positions`` puts it at the recipe's shape values, and one the
+    dress made beyond them (a finer triangle's, found nowhere) by its
+    neighbours' mean move. The preparation stood in for (no game data); a
+    found vertex drawn by a real dress, and the refusal of a mesh changed
+    beyond its shapes, are test_variant_editor's quick preview test's."""
+    import numpy as np
+
+    from azurkit.tools.characters import editor
+    from azurkit.tools.characters._player_variants import reshaped
+
+    at = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], np.float32)
+    moves = np.array([[0, 0, 0.1], [0, 0, 0.2], [0, 0, 0.3]], np.float32)
+    calls = []
+    monkeypatch.setattr(mesh_edit, "positions", lambda prepared, spec: calls.append(spec) or tuple(at + moves))
+    drawn = [(np.array([[0, 1, 0], [0.5, 0.5, 0], [0, 0, 0], [1, 0, 0]]), np.array([[2, 3, 1], [3, 0, 1]]))]
+    sized = reshaped(builtins()["booblord"], {"bust": 1.3})
+    got = editor.moved(("prepared", at, [np.array([2, -1, 0, 1])]), sized, drawn)
+    assert got[0] == pytest.approx(np.array([[0, 1, 0.3], [0.5, 0.5, 0.2], [0, 0, 0.1], [1, 0, 0.2]]))
+    assert calls == [reshaped(builtins()["booblord"], {"bust": 1.3}).mesh]
+
+
 def _vanilla_characters(usa_iso) -> bytes:
     with iso.Reader(usa_iso) as r:
         return r.read(CHARACTERS)
