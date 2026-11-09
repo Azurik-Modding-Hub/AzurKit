@@ -475,15 +475,22 @@ def test_save_with_no_verb_exits_2_naming_what_it_needs(capsys):
 def test_the_commands_output_replaces_what_the_consoles_code_page_cant_encode(tmp_path):
     """Modkit's AZ-190: on Windows a pipe or a file is written in the ANSI
     code page (cp1252), so a character it has no byte for (a save's text
-    line holding 0x81, read as Latin-1) failed the command with a codec
-    error and exit 1. ``azurkit`` replaces it with ``?`` and goes on."""
+    line holding 0x81, read as Latin-1; the audio dump's ``→``) failed the
+    command with a codec error and exit 1. ``azurkit`` and ``python -m
+    devkit`` replace it with ``?`` and go on."""
     import os
     import subprocess
     import sys
+    from pathlib import Path
+
+    from tests.test_devkit_media import xbr
 
     (slot := tmp_path / ID).mkdir()
     (slot / "loc.sav").write_bytes(b"fileversion=1\nlevels/water/w1\x81\n")
-    done = subprocess.run([sys.executable, "-m", "azurkit", "save", "inspect", str(slot)], capture_output=True,
-                          env={**os.environ, "PYTHONIOENCODING": "cp1252"}, timeout=120)
-    assert (done.returncode, done.stderr) == (0, b"")
-    assert b"levels/water/w1?" in done.stdout
+    (fx := tmp_path / "fx.xbr").write_bytes(xbr([(b"wave", bytes(range(256)) * 2)], {}))
+    for argv, shown in ((["azurkit", "save", "inspect", str(slot)], b"levels/water/w1?"),
+                        (["devkit", "audio", "dump", str(fx), "-o", str(tmp_path / "out")], b"  ? ")):
+        done = subprocess.run([sys.executable, "-m", *argv], capture_output=True, cwd=Path(__file__).parents[1],
+                              env={**os.environ, "PYTHONIOENCODING": "cp1252"}, timeout=120)
+        assert (done.returncode, done.stderr) == (0, b""), argv[0]
+        assert shown in done.stdout, argv[0]

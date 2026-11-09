@@ -37,6 +37,8 @@ def _first(doc: str | None) -> str:
 
 
 def main(argv: list[str]) -> int:
+    if hasattr(sys.stdout, "reconfigure"):   # a ? for what the console's code page (cp1252) has no byte for (AZ-190)
+        sys.stdout.reconfigure(errors="replace")
     names = areas()
     if not argv or argv[0] in HELP:
         rows = {name: _first(importlib.import_module(f"devkit.{name}").__doc__) for name in names}
