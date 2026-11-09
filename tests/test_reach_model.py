@@ -29,10 +29,22 @@ import pytest
 
 from azurkit.tools.randomizer.art import collision, tern
 from azurkit.tools.randomizer.draft import geometry
+from azurkit.tools.randomizer.planner.fill import fill
 from azurkit.tools.randomizer.planner.loader import kept_logic, load_database
+from azurkit.tools.randomizer.planner.plan import (
+    RIDE_FALL,
+    _Chain,
+    load_plan,
+    merge_walks,
+    plan_doc,
+    spheres,
+    tour_segments,
+)
+from azurkit.tools.randomizer.planner.solver import MAX_SETTINGS, Logic
 from devkit.rando import author as author_verb
 from devkit.rando import derive as derive_verb
 from devkit.rando.draft import export, flights, route
+from devkit.rando.draft.author import against_mover, read_spec
 from devkit.rando.draft.reach import Reach
 from devkit.rando.draft.route import Router
 
@@ -2930,3 +2942,130 @@ def test_a_robustness_trial_moves_a_press_by_the_same_game_time_at_the_builds_fr
     w = types.SimpleNamespace(sim=lambda *a, **k: None, goal=lambda spec: None)
     assert lc.grade(w, Segment("s"), {}, [list(s) for s in segs], 16, True, 120.0)["robustness"] == 0.5
     assert rates == [120.0]
+
+
+# Step 4.28e: Modkit's tour and authoring tests no AzurKit test pinned (the test census's lane L3, and its L2's
+# one-way rig rule): the planner's tours of whole spheres (planner.plan.tour_segments) and the authoring's rides.
+
+def test_a_tour_goes_item_to_item_in_sphere_order_playing_what_the_logic_only_credits_with_the_search_hints():
+    """Step X.19 (R1.16's input): the golden plan's tour of every sphere is one connected walk from the start back
+    to it, picking up every progression placement in sphere order; a barrier segment comes before each hop through
+    a barrier, a minigame before the pickup whose requirement names it (w2's hose: power_water's spot waits on
+    w2.hose.won; life's cores), and a hop's hints come from the data: w1's spout (a hand exit from the rock its
+    timed push volume is touched on) is a ride, whole steps, a long fall and a seed onto the volume's foot; a hop
+    from a node whose zones a teleporter joins is whole steps when one of them needs it (w1_cove > w1_beach from
+    W2_W1b's arrival). A way whose flags the round credits on the spot (a5's dome doors) is walked with the event's
+    own segment.
+
+    Step R1.16: every segment names its sphere; ``counted=False`` picks up the progression items alone; the final
+    sphere alone from the start ends at the victory flag's event; a minigame played at two stations starts at its
+    first (w2's hose: the console, then the joystick); ``merge_walks`` joins consecutive plain walks of a level and
+    sphere into one search, keeping every other segment and the way's hops."""
+    logic = kept_logic()
+    cls = {it["name"]: it["class"] for it in logic.db.items["item"]}
+    golden = Path(__file__).resolve().parent / "goldens" / "rando_plans.json"
+    plan = load_plan(json.loads(golden.read_text(encoding="utf-8"))["default"]["plan"], logic.db)
+    played = spheres(plan, logic)
+    tour = tour_segments(plan, logic, range(1, len(played) + 1), played=played)
+    assert tour[0]["from"] == tour[-1]["to"] == logic.start
+    hops = [x for x in tour if x["kind"] in ("walk", "exit", "cart", "teleport", "minigame", "ride")]
+    assert all(a["to"] == b["from"] for a, b in zip(hops, hops[1:]))
+    sphere_of = {loc: sp.number for sp in played for loc in sp.locations}
+    picked = [x["goal"] for x in tour if x["kind"] == "pickup"]
+    progression = sorted(loc for loc, item in plan.placement.items() if cls[item] == "progression")
+    assert sorted(loc for loc in picked if cls[plan.placement[loc]] == "progression") == progression
+    assert [sphere_of[loc] for loc in picked] == sorted(sphere_of[loc] for loc in picked)
+    assert [x["sphere"] for x in tour] == sorted(x["sphere"] for x in tour)
+    assert all(sphere_of[x["goal"]] == x["sphere"] for x in tour if x["kind"] == "pickup")
+    hose = next(x for x in tour if x["kind"] == "minigame" and x["flag"] == "w2.hose.won")
+    assert (hose["from"], hose["to"]) == tuple(logic.canon(logic.db.hand[f"w2.hose.{e}"][2]["at"]) for e in ("on", "won"))
+    lean = tour_segments(plan, logic, range(1, len(played) + 1), played=played, counted=False)
+    assert sorted(x["goal"] for x in lean if x["kind"] == "pickup") == progression
+    final = tour_segments(plan, logic, [len(played)], played=played, victory=True)
+    assert (final[-1]["kind"], final[-1]["how"], final[-1]["flag"]) == (
+        "event", "killed", logic.db.world["victory"].removeprefix("flag:"))
+    assert final[0]["from"] == logic.start and {x["sphere"] for x in final} == {len(played)}
+    merged = merge_walks(tour)
+    assert [x for x in merged if x["kind"] != "walk"] == [
+        {**x, "index": y["index"]} for x, y in zip([x for x in tour if x["kind"] != "walk"],
+                                                   [y for y in merged if y["kind"] != "walk"])]
+    assert [x["index"] for x in merged] == list(range(len(merged))) and len(merged) < len(tour)
+    for x in merged:
+        if x.get("parts"):
+            assert x["parts"][0][0] == x["from"] and x["parts"][-1][1] == x["to"] and len(x["parts"]) <= 4, x
+            # a run on one rig (d1's elevator between its floors) merges into one ride and keeps its whole steps
+            assert all(a[1] == b[0] for a, b in zip(x["parts"], x["parts"][1:])) and (not x["scene"] or x.get("rig")), x
+    assert [(h[0], h[1]) for x in merged if x["kind"] == "walk" for h in x.get("parts") or [(x["from"], x["to"])]] \
+        == [(x["from"], x["to"]) for x in tour if x["kind"] == "walk"]
+    ch = _Chain(plan, logic)
+    for k, x in enumerate(tour):
+        if x["kind"] == "barrier":
+            assert tour[k + 1]["kind"] in ("barrier", "walk", "exit", "cart", "pickup"), x
+        if x["kind"] == "pickup" and (f := ch.minigame(x["goal"])) is not None:
+            assert any(y["kind"] == "minigame" and y["flag"] == f for y in tour[:k]), x
+        if "ride" in x.get("mech", ()):
+            assert x["fall"] == RIDE_FALL and any("ride" in h for h in x["seeds"]), x
+        if {"rig", "teleport", "cart"} & set(x.get("mech", ())):
+            assert x["scene"], x
+    spout = next(e for e in logic.db.levels["w1"]["edge"] if e.get("exit") == "w1/g0/r3352")
+    seg, _ = ch.hop(spout["from"], spout["to"], {}, frozenset())
+    assert (seg["kind"], seg["scene"], seg["fall"]) == ("exit", True, RIDE_FALL)
+    assert {"hand", "ride"} <= set(seg["mech"]) and {"ride": "SpoutPush1Shape", "every": 8} in seg["seeds"]
+    cove, _ = ch.hop("w1_cove", "w1_beach", {"water": 1, "air": 1}, frozenset())
+    assert cove["scene"] and "teleport" in cove["mech"], cove
+    assert ch.minigame("w2/g0/r1346") == "w2.hose.won"
+
+
+def test_a_max_tour_never_strands_on_frag_fire_1s_ledge_and_climbs_by_the_logics_own_way_when_only_it_leads_down():
+    """AZ-789 (Step R1.35): seed 2's max plan's tour of every sphere starts and ends at the start, and the move after
+    each one up to w3's frag_fire_1 ledge (w3_z078) leaves it by an edge whose rule holds on what the tour has played
+    by then: since Step R1.44 (AZ-809) the frost walk back with the frost played or the walk-off into the lake, so
+    the tour may go up by the ice-climb skip before the frost and walk off. Where a skip and the logic's own way both
+    lead up to a ledge whose only way out needs what the own way plays, the tour goes up by the own way (R1.35's skip
+    last, R1.44b): on a copy of the database without the walk-off, w3_z012 > w3_z078 by the ice-climb skip or the
+    frost walk, down only by the frost walk, no climb onto the ledge is the skip's."""
+    logic = kept_logic()
+    plan = load_plan(plan_doc(fill(logic, "2", MAX_SETTINGS), logic.db), logic.db)
+    played = spheres(plan, logic)
+    tour = tour_segments(plan, logic, range(1, len(played) + 1), played=played)
+    assert tour[0]["from"] == tour[-1]["to"] == logic.start
+    ch = _Chain(plan, logic)
+    moves = [k for k, x in enumerate(tour) if x["kind"] in ("walk", "exit", "cart", "teleport", "ride")]
+    then = dict(zip(moves, moves[1:]))
+    out = [then.get(k) for k in moves if tour[k]["to"] == "w3_z078" != tour[k]["from"]]
+    assert out and all(j is not None and tour[j]["from"] == "w3_z078" and ch.holds(
+        tour[j]["requires"], tour[j]["kit"], frozenset(x["flag"] for x in tour[:j] if x.get("flag"))) for j in out)
+
+    w3 = logic.db.levels["w3"]
+    db = dataclasses.replace(logic.db, levels={**logic.db.levels, "w3": {**w3, "edge": [
+        e for e in w3["edge"] if (e["from"], e["to"]) != ("w3_z078", "w3_core")]}})
+    up = {"skip:" in e.get("requires", "true") for e in w3["edge"] if (e["from"], e["to"]) == ("w3_z012", "w3_z078")}
+    assert len(db.levels["w3"]["edge"]) == len(w3["edge"]) - 1 and up == {True, False}
+    copy_logic = Logic(db)
+    plan = load_plan(plan_doc(fill(copy_logic, "2", MAX_SETTINGS), db), db)
+    played = spheres(plan, copy_logic)
+    tour = tour_segments(plan, copy_logic, range(1, len(played) + 1), played=played)
+    climbs = [x["requires"] for x in tour if x["kind"] == "walk" and x["to"] == "w3_z078" != x["from"]]
+    assert tour[0]["from"] == tour[-1]["to"] == copy_logic.start and climbs and not any("skip:" in r for r in climbs)
+
+
+def test_a_guessed_ride_against_its_rigs_one_way_mover_stays_out_of_logic(tmp_path):
+    """AZ-589 (D719): a rig whose movers only rise or only sink (the authoring's ``[rig_one_way]``: f2's drill only
+    sinks, e6's TShape1, f3's archway door and w1's water-keylock stairs only rise) carries no one the other way, so
+    a ride on it (``kind = "rig"``: an admitted guess, ``probe = "rig"``, or a barrier bypass up it, ``probe =
+    "bskip"``) at least 1 m against it stays out of logic; one with it, a level guess, another rig's and an edge of
+    another kind stay. A ``way`` that is neither up nor down, or no reason, is refused."""
+    one_way = {"door": "up", "drill": "down"}
+
+    def edge(via, dh, probe="rig", kind="rig"):
+        return {"kind": kind, "probe": probe, "via": via, "dh": dh}
+    assert [against_mover(e, one_way) for e in (
+        edge("door", -29.8), edge("door", 6.0), edge("door", -0.5), edge("drill", 12.0), edge("drill", -12.0),
+        edge("drill", 15.7, probe="bskip"), edge("lift", -29.8), edge("door", -29.8, probe="lip", kind="jump"))] \
+        == [True, False, False, True, False, True, False, False]
+    (tmp_path / "t.toml").write_text('[rig_one_way]\ndoor = { way = "up", why = "a test" }\n', encoding="utf-8")
+    assert read_spec("t", tmp_path)["rig_one_way"] == {"door": {"way": "up", "why": "a test"}}
+    for bad in ('door = { way = "sideways", why = "x" }', 'door = { way = "up" }'):
+        (tmp_path / "t.toml").write_text(f"[rig_one_way]\n{bad}\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="rig_one_way 'door'"):
+            read_spec("t", tmp_path)
