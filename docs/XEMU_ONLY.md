@@ -23,7 +23,7 @@ choice as xemu-only, so the review checklist keeps it current.
 
 ### Stage 3: `qol_memory_upper256`, RAM to 256 MiB (D600, Step 2.162l)
 
-The opt-in pack [`qol_memory_upper256`](../src/azurkit/tools/mods/packs/qol_memory.py) maps physical 0x08000000-0x0FFFFFFF at VA 0x88000000 (PDE[0x220..0x23F]), the upper heap's T3, which the default packs' runs take once it is mapped, which `qol_memory_upper64_gpu`'s budget hook then counts as room, so a graphics run larger than T2's free span passes the load budget's compare there (the probe's hook 0xA48D7, Europe 0xA4A57; until Step 2.162m that hook let the run past the compare itself; [`PATCHES.md`](PATCHES.md) § `qol_memory_upper256`). Every row below leans on xemu, and no hardware runs it: the NV2A drives 128 MiB at most, so a hardware build leaves the pack off. `--ram 256` (X14) turns it on in every build that has `--ram`.
+The opt-in pack [`qol_memory_upper256`](../src/azurkit/tools/mods/packs/qol_memory.py) maps physical 0x08000000-0x0FFFFFFF at VA 0x88000000 (PDE[0x220..0x23F]), the upper heap's T3, which the default packs' runs take once it is mapped, which `qol_memory_upper64_gpu`'s budget hook then counts as room, so a graphics run larger than T2's free span passes the load budget's compare there (the probe's hook 0xA48D7, Europe 0xA4A57; until Step 2.162m that hook let the run past the compare itself; `qol_memory_upper256.c`). Every row below leans on xemu, and no hardware runs it: the NV2A drives 128 MiB at most, so a hardware build leaves the pack off. `--ram 256` (X14) turns it on in every build that has `--ram`.
 
 | | Choice | Where it is made | What xemu gives it | On hardware |
 |---|---|---|---|---|

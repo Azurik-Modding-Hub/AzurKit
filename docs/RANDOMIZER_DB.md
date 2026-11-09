@@ -924,7 +924,7 @@ Ids, names, counts, areas, relative heights and distances only, never a coordina
 
 ## 17. `movement/<level>.json` (Step R1.14b; D167, D168)
 
-`rando author` writes one beside each authored level's file (`draft/author.py`'s `movement_doc`; `tests/test_reach_model.py` checks each equals its authoring): what of the level's logic rests on a modelled flight, so a build re-checks it under its own movement sliders (`src/azurkit/tools/randomizer/movement.py`; [`RANDOMIZER.md`](RANDOMIZER.md#movement-sliders-and-the-logic)). One object, one certificate, row or node per line:
+`rando author` writes one beside each authored level's file (`draft/author.py`'s `movement_doc`; `tests/test_reach_model.py` checks each equals its authoring): what of the level's logic rests on a modelled flight, so a build re-checks it under its own movement sliders (`src/azurkit/tools/randomizer/movement.py`; [`GUIDE.md`](GUIDE.md#randomizer)'s "Works with movement mods"). One object, one certificate, row or node per line:
 
 - `certs`: the level's certificates (§16's `cert`, each once, sorted), which the rest index;
 - `edges`: each level edge row in logic (`from`, `to`, `difficulty`, `confidence`, `through`) with a term that needs a flight: per term of its `requires` (all of them, so a build can regroup them), the term's text and its **witness**: the certificates of the flights on the zone path, through zones that aren't kept, with the fewest certified hops, that gives the term at its tier (§4.10's contraction; a `probed` term's path may use its assumed or physics edges);

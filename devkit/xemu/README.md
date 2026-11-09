@@ -877,7 +877,7 @@ process whatever the load; the gdbstub client (a caller's `g` too) is
 attached again after it (`RSP.reconnect`).
 
 `snapshot` and `replay` are simulator Level 3's (Step X.6,
-[`SIMULATOR.md`](SIMULATOR.md)). `snapshot` runs to the player's next
+[`SIMULATOR.md`](../../docs/SIMULATOR.md)). `snapshot` runs to the player's next
 update entry 0x8C230 (`--scene`: the next scene tick entry 0x55AB0) and
 writes every present user page of guest RAM, the registers and metadata
 (level, entity, the start's event clock and hash, the loadvm tag, the

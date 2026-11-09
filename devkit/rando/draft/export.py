@@ -2,7 +2,7 @@
 
 Step R1.3c (reach v6's ``build_doc`` and ``export_check.py``, ported as a
 model): :func:`build_doc` turns a finished :class:`~.reach.Reach` into
-the document ``azurik-mod rando derive`` commits as
+the document ``python -m devkit rando derive`` commits as
 ``src/azurkit/tools/randomizer/data/derived/<level>.json.gz``
 (``docs/RANDOMIZER_DB.md`` §16, format ``azurik-rando-derived/1``):
 the zones (the proposed nodes), the zone edges with their §5.1

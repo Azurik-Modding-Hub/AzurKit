@@ -502,7 +502,7 @@ typedef struct Entity {
  *
  * **Header layout** (verified from ``FUN_000D1520`` / ``FUN_000D1420``
  * decomp — note the field names here follow the decompiler's
- * orientation; ``azurik_mod/config/keyed_tables.py`` uses the
+ * orientation; ``src/azurkit/core/xbr/keyed.py`` uses the
  * opposite row/col naming, kept for backward compat):
  */
 typedef struct ConfigTable {

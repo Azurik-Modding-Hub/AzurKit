@@ -81,7 +81,7 @@ def monitor_not_qmp(where: str) -> str:
 
 
 AUTOMATION = f'[automation]\nram_shm = "{SHM_NAME}"\nqmp = "tcp:127.0.0.1:{QMP_PORT},server=on,wait=off"'
-"""The fork v0.15's ``[automation]`` table, Live's own endpoints (docs/RANDOMIZER.md#live): set once in xemu's own
+"""The fork v0.15's ``[automation]`` table, Live's own endpoints (docs/GUIDE.md's Item tracker): set once in xemu's own
 ``xemu.toml`` with xemu closed, it opens shared RAM and QMP at every launch, so no launch line is needed."""
 
 
@@ -97,7 +97,7 @@ def automation_line(platform: str = sys.platform) -> str | None:
 
 def setup_lines(platform: str = sys.platform) -> list[tuple[str, str]]:
     """This OS's one step to a Live that never pauses the game, once per launch: (what to do, the line),
-    the first for any xemu (docs/RANDOMIZER.md#live)."""
+    the first for any xemu (docs/GUIDE.md's Item tracker)."""
     if platform == "darwin":
         return [("quit xemu, then paste this into Terminal", f"open -n -a xemu --args {QMP_ARG}"),
                 ("the fork: quit it, then", f'open -n -a "<the fork\'s xemu.app>" --env XEMU_RAM_SHM={SHM_NAME}')]

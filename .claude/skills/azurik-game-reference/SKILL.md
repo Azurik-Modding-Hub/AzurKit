@@ -25,14 +25,17 @@ Source tags: **[spike]** = the 2026-10-08 Unicorn/xemu spike; **[xemu sN]**
 private evidence folder; s6's REPORT section where named);
 **[inferred]** = reasoning only. Untagged facts are static reads (capstone
 over the vanilla XBE) or L2 runs. A call site is the CALL instruction
-(`azurik-mod xbe calls --to <VA>`); s6's captures name a breakpoint's caller
+(`python -m devkit re xbe calls --to <VA>`); s6's captures name a breakpoint's caller
 by its return address, the instruction after the CALL.
 
 **Paths.** This reference came from Modkit, the toolkit AzurKit was ported
-from (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout).
-The code, verbs, docs, tests and skills it names that AzurKit doesn't have
-yet (`azurik_mod/…`, the `azurik-mod` verbs, `shims/include/…`, `docs/…`,
-the simulator and its tests) are Modkit's until their ports land.
+from and replaced (its history is the private archived repository, AGENTS.md
+§ Porting from Modkit). A test, header or module it names that AzurKit lacks
+(`vanilla_symbols.py`, `shims/include/…`, a `tests/test_*.py` not in
+`tests/`) names Modkit's tree, where the finding was made: Modkit's
+`azurik.h` is `devkit/re/data/structs.h` and `anchors.toml`, its
+`azurik_vanilla.h` the one shimkit writes from the facts, and its verbs
+`python -m devkit AREA VERB` (`devkit/README.md`).
 AzurKit's homes today: the callable functions, their ABIs and every patch
 site are the facts (`src/azurkit/core/facts.<release>.json`, whose
 `functions` shimkit writes into `azurik_vanilla.h`); the packs are
@@ -50,9 +53,9 @@ may not, and game bytes are never printed in logs or chat.
 - Measuring in xemu (gdbstub, input pipe, snapshots): `azurik-xemu-oracle`.
 - Ghidra or the MCP server: `azurik-ghidra-mcp`. Setup and Python version: `azurik-dev-environment`.
 - The `.xbr` byte format or authoring an XBR pack: `docs/XBR_FORMAT.md` (its § "Packs and mods files that edit `.xbr` files").
-- Fixing a confirmed bug: `docs/ToDo/ISSUE_LEDGER.md`.
-- Test tiers, the simulator design or the edit contract: `docs/ToDo/REORG_PLAN.md` §12.2–§12.3.
-- Fps-unlock internals: `docs/RE_XBE.md` § "FPS unlock" and § "60 FPS patch re-audit (April 2026)", and `azurik_mod/patches/fps_unlock/__init__.py`.
+- Fixing a confirmed bug: the issue ledger (`$EV/tools/ledger`) and AGENTS.md § Commits and landing.
+- Test tiers, the simulator design or the edit contract: AGENTS.md (§ Setup and tests, § The engine's contracts) and `docs/SIMULATOR.md`.
+- Fps-unlock internals: `docs/RE_XBE.md` § "FPS unlock" and § "60 FPS patch re-audit (April 2026)", and `src/azurkit/tools/mods/packs/fps_unlock.py`.
 
 ## 1. Where the depth lives
 
@@ -60,10 +63,10 @@ may not, and game bytes are never printed in logs or chat.
 |---|---|
 | RE narrative per subsystem | `docs/RE_MOVEMENT.md` (movement, armor, fuel, HP, roll, tick rate, gravity, ControllerState), `docs/RE_DATA.md` (config.xbr, prefetch lists, `filelist.txt` and the HDD cache, level loading), `docs/RE_XBE.md` (boot, kernel imports, XBE and COFF layout, cvars, FPS unlock); superseded findings in `docs/Finished/LEARNINGS_HISTORY.md`. Anchors: `grep -n '^#' docs/RE_*.md`. |
 | Section map, main loop, fps constants | `docs/RE_XBE.md` § "Decompilation & Analysis" |
-| Field and VA `#define`s for shims | `shims/include/azurik.h`: the `AZURIK_ENT_*`, `AZURIK_ARMOR_*` and `AZURIK_LVL_*` macros, the ArmorMgr-chain comment and `ControllerState` |
-| Callable vanilla functions and their ABI notes | `azurik_mod/patching/vanilla_symbols.py` and `shims/include/azurik_vanilla.h`, under the same names (`player_jump_init`, `wing_flap`, `consume_fuel`, `player_walk_state`, `gravity_integrate_raw`, …) |
-| Function and label names (525 / 1,083; no ABIs or bounds), plus 10 structs with sizes and fields | `docs/ghidra_snapshot.json` |
-| Slider and pack catalogue | `docs/PATCHES.md`; code in `azurik_mod/patches/player_physics/__init__.py` |
+| Field and VA `#define`s for shims | `devkit/re/data/structs.h` (Modkit's `azurik.h`): the `AZURIK_ENT_*`, `AZURIK_ARMOR_*` and `AZURIK_LVL_*` macros, the ArmorMgr-chain comment and `ControllerState`; the VA anchors are `devkit/re/data/anchors.toml` |
+| Callable vanilla functions and their ABI notes | the facts' `functions` (`src/azurkit/core/facts.usa.json`; the `azurik_vanilla.h` shimkit writes from them) and their notes in `devkit/re/data/function_notes.toml`, under the same names (`player_jump_init`, `wing_flap`, `consume_fuel`, `player_walk_state`, `gravity_integrate_raw`, …) |
+| Function and label names (525 / 1,083; no ABIs or bounds), plus 10 structs with sizes and fields | `devkit/re/data/ghidra_snapshot.json` |
+| Slider and pack catalogue | `docs/GUIDE.md` § Patches and sliders; code in `src/azurkit/tools/mods/packs/` (`player_physics.py` for movement) |
 
 ## 2. Player-movement function map
 
@@ -326,12 +329,12 @@ armor_properties[level][0xE]").
 ## 5. config.xbr armor tables
 
 Section labels are config.xbr's own table names (`KEYED_SECTION_OFFSETS` in
-`azurik_mod/xbr/sections.py`; full list in `docs/XBR_FORMAT.md` § "Table
+`src/azurkit/core/xbr/keyed.py`; full list in `docs/XBR_FORMAT.md` § "Table
 names"; all 18 checked by `tests/test_xbr_sections.py`). Old labels (before
 AZ-113 every label was shifted one table) aren't aliased and have no
 migrator (D43). Every TOC reader uses the engine's layout (entry k at 0x3C +
 16k: offset from `header[0x10]`, size, fourcc, flags;
-`azurik_mod/xbr/toc_scan.py`), so `attacks_anims` is entry 2 and
+`src/azurkit/core/xbr/nodes.py`), so `attacks_anims` is entry 2 and
 `critters_critter_data` entry 4.
 
 | Section | TOC offset (payload) | Engine use |
@@ -344,9 +347,9 @@ migrator (D43). Every TOC reader uses the engine's layout (entry k at 0x3C +
 - **Vanilla air shields 1/2/3**: Level 1/2/3, Flaps 1/2/5. Shield 3 also has Cost 4.0, protections 0.25 and hp 40.
 - **Editing hazards:**
   - Duplicate column names: an edit without a column index (`col`) lands on the last match.
-  - Interned strings: the three earth armors share one `Type` string, so `set_keyed_string` refuses to edit it.
-  - config-mod refuses any cell but a type-1 (double). Every config-mod shape names cells by config.xbr's own table / column (row-0 name) / row names through `KeyedTable.find` (aliases: case, `_` = space, `color_r/g/b` = R/G/B); the old registry's names fail by name (`azurik_mod/config/retired_names.py`, D50, D72).
-- **API gotcha**: the XBR pipeline swaps a new bytearray into the `xbr_files` dict (`_load_doc_for_edit` in `azurik_mod/patching/xbr_spec.py`). Re-read the buffer from the dict, not from your old reference.
+  - Interned strings: the three earth armors share one `Type` string, so a text `set` refuses to rewrite it in place (it may point the cell at another string its table holds; `docs/XBR_FORMAT.md`).
+  - config-mod refuses any cell but a type-1 (double). Every config-mod shape names cells by config.xbr's own table / column (row-0 name) / row names through `Table.find` (`src/azurkit/core/xbr/keyed.py`; aliases: case, `_` = space, `color_r/g/b` = R/G/B); the old registry's names fail by name (`src/azurkit/edits/modkit_retired.json`, D50, D72).
+- **Edits are planned writes**: an `xbr` operation or a config.xbr slider is the writes `[(offset, bytes)]` that make it, planned against the vanilla file as parsed (`src/azurkit/core/xbr/edits.py`), and a layer applies them; nothing edits a file in place (Modkit's pipeline swapped a new bytearray into its `xbr_files` dict instead).
 - **Balthazar's adaptive armor is AI code, not an `armor_properties` row** (the Balthazar armor study of 2026-10-12: a static read and 13 xemu runs). His `critters_engine` row has `ai` = `balthazar`: vtable 0x1A0C3C (think 0x273B0, hit handler 0x279B0, state machine 0x27530); the AI object is `[critter+0x180]`, and its +0x20 points back at the critter.
   - **AI fields:** +0x164 the current armor and +0x168 the desired one (−1 none, 0 air, 1 water, 2 fire, 3 earth); +0x16C the switch timer in seconds (3.0 at first; the think subtracts 0x1989C8 each AI tick); +0x158 the armor fx handle.
   - **Armor groups** (mapper 0x272E0, on the fourcc of the staff power the player has *selected*, `armor_mgr`+0x18, polled every AI tick): `wind` and `litn` air; `watr` and `ice` water; `fire` and `stem` fire; `smsh` and `acid` earth; anything else (`norm`, `elem`, …) none.
@@ -398,7 +401,7 @@ For XBR-side results there is a second suspect: the game plays its HDD-cached co
 
 ## 8. Known hazards for behavior tests and simulator work
 
-- **The simulator levels.** L0: structure checks in `azurik_mod/sim/static.py` (section table, entry point, image size, kernel thunks, TLS; touched XBRs), behavior tests 1 (`tests/test_iso_roundtrip.py`: `default.xbe` md5 `ae67bd444260be00be48ee3567997baa`, `config.xbr` md5 `e64676d154cddb051e38b4d7503afe25`) and 3 (`tests/test_build_validity.py`). L1: static Capstone checks in `azurik_mod/sim/l1.py`, behavior test 4. L2: `azurik_mod/sim/l2.py` runs game code under Unicorn. `PlayerSim(xbe, player)` runs probes in order on one memory: `jump()` (0x89060), `flap()` (0x89300 with the real consume_fuel and airborne_reinit; 0x837A0 stubbed and reported), `fall()` (the next tick's 0x89480 up to 0x85700's move call 0x857FE), `walk()` (0x85F50 up to 0x860C8) and `roll()` (the entry 0x88990, then 0x8C7D0 each tick until the clip reaches Move end2; the root sampler 0xCACD0 reads a fake track, the move code 0x47380 records the desired velocity); `set(**fields)` moves or lands the player between them. `armor_slots(xbe, config_xbr)` runs the loader 0x3C700 on any `config.xbr` bytes. Tests: `tests/test_jump.py`, `tests/test_walk.py`, `tests/test_flaps.py`, `tests/test_roll.py`. The fake state `STANDING` in `l2.py` is an xemu dump at 0x89060 (level-1 start in a new game: Level 1, Flaps 0, an empty gauge; controller port 2; facing yaw 130°) plus the press each probe models, with s6's CritterData, body and animation-layer fields (CritterData +0x38 5.0 and +0x40 7.0; `STANDING` layer n 1, flags 0xB, an 8.0 s clip; the roll clip 1.1666666 s, flags 0xD, on n 1 or 2). `SHIELD_2` is the same player with air shield 2 and a full gauge. Any read of an entity/input/armor field, ControllerState or 0x1A7AE4 that `Player` doesn't name fails the probe. `boot_tick(xbe, state)` runs one tick of the boot state machine 0x5F620 (play_movie_fn 0x18980 and poll_movie 0x18D30 stubbed; state [0x1BF61C]: 1 starts AdreniumLogo.bik, 3 prophecy.bik): `tests/test_boot.py`. The code L2 can't judge is a committed fact, `tests/facts/sim_blind_spots.toml`: a probe may stub only a listed function, and `Sim` refuses a build that changes a listed range unless the test carries `@pytest.mark.xemu_signoff("<session>")` naming a session listed there whose `spots` hold that range; `tests/test_simulator.py` replays historical cases 1, 2, 4 and 10 (§6). Unicorn is in the default `dev` dependency group; capstone is a runtime dependency (AZ-810).
+- **The simulator levels.** L0: structure checks in `devkit/sim/static.py` (section table, entry point, image size, kernel thunks, TLS; touched XBRs), behavior tests 1 (`tests/test_iso_roundtrip.py`: `default.xbe` md5 `ae67bd444260be00be48ee3567997baa`, `config.xbr` md5 `e64676d154cddb051e38b4d7503afe25`) and 3 (`tests/test_build_validity.py`). L1: static Capstone checks in `devkit/sim/l1.py`, behavior test 4. L2: `devkit/sim/l2.py` runs game code under Unicorn. `PlayerSim(xbe, player)` runs probes in order on one memory: `jump()` (0x89060), `flap()` (0x89300 with the real consume_fuel and airborne_reinit; 0x837A0 stubbed and reported), `fall()` (the next tick's 0x89480 up to 0x85700's move call 0x857FE), `walk()` (0x85F50 up to 0x860C8) and `roll()` (the entry 0x88990, then 0x8C7D0 each tick until the clip reaches Move end2; the root sampler 0xCACD0 reads a fake track, the move code 0x47380 records the desired velocity); `set(**fields)` moves or lands the player between them. `armor_slots(xbe, config_xbr)` runs the loader 0x3C700 on any `config.xbr` bytes. Tests: `tests/test_jump.py`, `tests/test_walk.py`, `tests/test_flaps.py`, `tests/test_roll.py`. The fake state `STANDING` in `l2.py` is an xemu dump at 0x89060 (level-1 start in a new game: Level 1, Flaps 0, an empty gauge; controller port 2; facing yaw 130°) plus the press each probe models, with s6's CritterData, body and animation-layer fields (CritterData +0x38 5.0 and +0x40 7.0; `STANDING` layer n 1, flags 0xB, an 8.0 s clip; the roll clip 1.1666666 s, flags 0xD, on n 1 or 2). `SHIELD_2` is the same player with air shield 2 and a full gauge. Any read of an entity/input/armor field, ControllerState or 0x1A7AE4 that `Player` doesn't name fails the probe. `boot_tick(xbe, state)` runs one tick of the boot state machine 0x5F620 (play_movie_fn 0x18980 and poll_movie 0x18D30 stubbed; state [0x1BF61C]: 1 starts AdreniumLogo.bik, 3 prophecy.bik): `tests/test_boot.py`. The code L2 can't judge is a committed fact, `tests/facts/sim_blind_spots.toml`: a probe may stub only a listed function, and `Sim` refuses a build that changes a listed range unless the test carries `@pytest.mark.xemu_signoff("<session>")` naming a session listed there whose `spots` hold that range; `tests/test_simulator.py` replays historical cases 1, 2, 4 and 10 (§6). Unicorn is in the default `dev` dependency group; capstone is a runtime dependency (AZ-810).
 - **Pin the control word to 0x023F.** Unicorn starts at 0x0, and a single-precision CW (0x7F) differs from 0x27F by 1 ulp in about 10–14% of random h values. Use `rel=1e-6`.
 - **Hook 0xA9000 to fail fast** (L2 does). An unstubbed 0x42E40 on a zeroed fixture reaches the assert call at 0xC3C01 (return address 0xC3C06; Renderer.cpp line 2171, expression "start") and spins forever; under L2's read guard it fails earlier, on the unnamed read of body+0x158.
 - **Keep fixtures off comparator thresholds.** A 0.7071 normal is bit-identical to 0.70709997.
@@ -411,19 +414,19 @@ For XBR-side results there is a second suspect: the game plays its HDD-cached co
 
 ## 9. Read-only verification commands
 
-Modkit's verbs (Paths, above): run from Modkit's root after `uv sync --locked`; every verb reads the ISO
-in-process (no extracted tree).
+AzurKit's verbs, from the checkout's root; every one reads the image in
+place (no extracted tree), the USA one by default (`AZURKIT_ISO`, else the
+user data folder's).
 
 ```bash
-ISO=iso/usa.iso                              # or "$AZURKIT_ISO"
-uv run --locked python -I -c 'import sys,hashlib; from azurik_mod.iso.xiso import read_file; print(hashlib.md5(read_file(sys.argv[1], "default.xbe")).hexdigest())' "$ISO"   # expect ae67bd444260be00be48ee3567997baa
-uv run --locked azurik-mod inspect-physics --iso "$ISO"                   # slider sites VANILLA/PATCHED/DRIFTED
-uv run --locked azurik-mod xbe addr 0x1980A0 --iso "$ISO"                 # VA -> file offset + section (file 0x190D00, .rdata)
-uv run --locked azurik-mod xbe find-floats 9.7 9.9 --iso "$ISO"           # expect 3 hits: 0x1980A8, 0x198704, 0x198740
-uv run --locked azurik-mod dump --iso "$ISO" -s armor_properties -e air_shield_3   # Flaps = 5.0
-uv run --locked python -I -c "import json;d=json.load(open('docs/ghidra_snapshot.json'));print([f['name'] for f in d['functions'] if f['address']=='0x00089300'])"   # ['wing_flap']
+uv run --locked python -c 'import hashlib; from azurkit.core import gate, iso; r = iso.Reader(gate.find(gate.USA)); print(hashlib.md5(r.read("default.xbe")).hexdigest())'   # expect ae67bd444260be00be48ee3567997baa
+uv run --locked python -m devkit builds inspect-physics --iso BUILT.iso      # each slider site's value in a build
+uv run --locked python -m devkit re xbe addr 0x1980A0                       # VA -> file offset + section (file 0x190D00, .rdata)
+uv run --locked python -m devkit re xbe find-floats 9.7 9.9                 # expect 3 hits: 0x1980A8, 0x198704, 0x198740
+uv run --locked azurkit data armor_properties air_shield_3                  # Flaps = 5.0
+uv run --locked python -c "import json;d=json.load(open('devkit/re/data/ghidra_snapshot.json'));print([f['name'] for f in d['functions'] if f['address']=='0x00089300'])"   # ['wing_flap']
 ```
 
-- Callers and references: `azurik-mod xbe calls --to <VA>`, `xbe find-refs --va <VA>`, `xbe fn <VA>`, `xbe dis <VA>:<n>`.
+- Callers and references: `python -m devkit re xbe calls --to <VA>`, `xbe find-refs --va <VA>`, `xbe fn <VA>`, `xbe dis <VA>:<n>`.
 - For RET forms and operands, write a throwaway capstone script under a `mktemp -d`. Report conclusions in the repo; a short excerpt of the listing may back them (D87), never the whole dump.
-- Header lines: `grep -n 'AZURIK_ENT_INPUT_STATE_PTR\|AZURIK_LVL_\|frame_dt_fixed\|AZURIK_PATCH_FLAP_ENTRY' shims/include/azurik.h`.
+- Header lines: `grep -n 'AZURIK_ENT_INPUT_STATE_PTR\|AZURIK_LVL_\|frame_dt_fixed' devkit/re/data/structs.h` and `grep -n PATCH_FLAP_ENTRY devkit/re/data/anchors.toml`.

@@ -1,9 +1,13 @@
 # RE notes: game data files
 
-> Ported from Azurik_Modkit's `docs/` (Step 4.11g). A path under `azurik_mod/`, `scripts/`, `tests/` or
-> `shims/`, and a link to a doc this folder lacks, names Modkit's tree, where the finding was made.
-> So do its commands (`azurik-mod`, `bootstrap.py --with re`), its environment variables and its "this repo" and
-> "today" claims: AGENTS.md is AzurKit's rule and wins where the two differ.
+> Ported from Azurik_Modkit's `docs/` (Step 4.11g); its paths, verbs and links point at AzurKit's since Step
+> 4.24d. A `scripts/`, `tests/` or `shims/include/` path, a module or a doc that AzurKit lacks (often written
+> "Modkit's") names Modkit's tree, where the finding was made; its history is the private archived repository
+> (AGENTS.md § Porting from Modkit). Modkit's `azurik.h` is AzurKit's `devkit/re/data/structs.h` and `anchors.toml`,
+> its `azurik_vanilla.h` and kernel headers are the ones shimkit writes from the facts (`src/azurkit/core/facts.*.json`,
+> the functions' notes in `devkit/re/data/function_notes.toml`), and `python -m devkit AREA VERB` is the developer
+> side's (`devkit/README.md`). Its "this repo" and "today" claims are Modkit's at the time: AGENTS.md is AzurKit's
+> rule and wins where the two differ.
 
 What the engine reads from its data files: `config.xbr`'s keyed
 tables, `hourglass.xbr` and `fx.xbr` (with the wave codec),
@@ -16,7 +20,7 @@ in REORG_PLAN Step 3.3d (2026-10-10) without rewording, so "above" or
 "below" may mean a section that is
 now in [`RE_MOVEMENT.md`](RE_MOVEMENT.md) (player movement),
 [`RE_XBE.md`](RE_XBE.md) (the XBE itself) or
-[`Finished/LEARNINGS_HISTORY.md`](Finished/LEARNINGS_HISTORY.md)
+Modkit's `Finished/LEARNINGS_HISTORY.md`
 (superseded findings and retired attempts).
 
 ---
@@ -37,11 +41,11 @@ At runtime 0xD1420 (`config_name_lookup`) finds a row by name:
 (`RET 0x10`), the value returned in ST(0); it panics on a row or
 column out of range.  Both are registered vanilla symbols a shim can
 call (`azurik_config.h`, `azurik_vanilla.h`); offline,
-`azurik_mod/config/keyed_tables.py` reads the tables.
+`src/azurkit/core/xbr/keyed.py` reads the tables.
 
 ### Duplicate column names: which one the game reads (V20, Step 2.84)
 
-[verified 2026-10-15: a static read with capstone and `azurik-mod xbe
+[verified 2026-10-15: a static read with capstone and `python -m devkit re xbe
 calls|find-refs`, USA]: the engine's two by-name lookups take the
 **first** match.  0xD1420 (rows; `config_name_lookup`) and 0xD1490
 (columns, `__stdcall(grid, name)`, `RET 8`, 19 callers: each column's
@@ -71,7 +75,7 @@ in `critters_flocking` and `critters_maya_stuff`, and is live in
 ### `critters_engine`: `body` and `scale` (2026-10-11)
 
 The engine reads the column names at fixed sites [verified 2026-10-11:
-`azurik-mod xbe find-refs --va 0x19FD50 --iso iso/usa.iso` (the
+`python -m devkit re xbe find-refs --va 0x19FD50` (the
 string `body`), and `--va` 0x19F668 (`scale`), 0x19F708 (`sound dir`)
 and 0x1A07DC (`AICookie/`); capstone; HM-14]: `body` is pushed at
 0x496DA (and loaded at 0x420A9) and `sound dir` at 0x496F6, with 0x496E3 calling
@@ -96,10 +100,10 @@ explicit scales take 14 values from 0.5 to 5.0; 63 are empty.
 
 ### Character bodies, their clips and the damage marker (2026-10-12)
 
-What the player-model swap (`azurik_mod/patches/_player_character.py`,
+What the player-model swap (`src/azurkit/tools/characters/_player_character.py`,
 D112) relies on.  The static RE is the four angle reports (weapon,
 roll-anims, attacks, species-survey) [workflow]; the counts below were
-re-read with `azurik_mod.assets.characters` [verified 2026-10-12: its
+re-read with `azurkit.tools.characters.characters` [verified 2026-10-12: its
 `read_body` over all 158 bodies equals the attacks angle's damage clips
 and the survey's clip lists].
 
@@ -123,20 +127,20 @@ and the survey's clip lists].
   plays no clip on them: 3 have no clips at all (gargoylestone,
   tesla_tree, tesla_tree_x), and barnacle's body has only an `ouch`,
   which no anim index names [verified 2026-10-12: each clip's length,
-  `banm` +0x10, read with `azurik_mod.xbr.toc_scan`].  The player-model
+  `banm` +0x10, read with `azurkit.core.xbr.nodes`].  The player-model
   swap's X7 shim plays every reaction in garret4's 0.4 s (AZ-291,
-  `docs/PATCHES.md`).
+  Modkit's `PATCHES.md`).
 - **`body` layout.** +0 bone count and +4 a self-relative pointer to
   160-byte bone records, whose +0x60 is the bone's inverse bind matrix
   (16 f32 by rows, the translation in the last row; a bone's bind-pose
   position p solves p M = 0) [verified 2026-10-12: garret4's root joint's
   rest translation +0x30 (0, 0.05, 1.15) against its matrix's (0, −0.05,
   −1.15), and its highest bone 2.01 m against its `m_head` 1.993 m;
-  `azurik_mod.assets.characters.Body.top`]; +0x18 marker count and +0x1C a pointer to
+  `azurkit.tools.characters.characters.Body.top`]; +0x18 marker count and +0x1C a pointer to
   0x38-byte marker records: +0 name length, +4 name pointer, then 12
   f32 defaults (position, rotation, scale), of which +0x30 is the
   length and +0x34 the active value.  A bone record (Step 2.87;
-  `azurik_mod.assets.characters.BoneRecord`): +0 its name's length
+  `azurkit.tools.characters.characters.BoneRecord`): +0 its name's length
   [verified 2026-10-21, Step 2.143: every bone of female_2 and garret4;
   +0xA and +0xC are 0 and +0x58 holds one value in every record, the
   exporter's], +4 a self-relative pointer
@@ -149,7 +153,7 @@ and the survey's clip lists].
   scaled by S, the translation last, world = parent world × local
   [verified 2026-10-15: composing the rest values puts every bone of
   garret4 and balthazar_airship at the position its inverse bind gives,
-  to 1e-5 m (`azurik_mod.assets.retarget.Rig`); the 2.78 research
+  to 1e-5 m (`azurkit.tools.characters.retarget.Rig`); the 2.78 research
   composed the inverse binds themselves to 6e-7 on every garret4 and
   keylord bone and all but two balthazar_airship cheek bones, whose rest
   scale isn't 1].  A bone whose +0xB flag is set first has its matrix's
@@ -170,7 +174,7 @@ and the survey's clip lists].
   tick].
 - **Which bones a mesh group follows** (Step 2.106, AZ-491). Each
   `bmsh` group's +4 is a count and +8 an i32 self-relative pointer to
-  that many i32 bone indices (`azurik_mod.assets.characters.MeshGroup`);
+  that many i32 bone indices (`azurkit.tools.characters.characters.MeshGroup`);
   the body draw loads, for each entry, that bone's world matrix times its
   inverse bind (the loops at 0x3F2D2–0x3F34F and 0xCC8B7–0xCC92D, through
   0xE91BB and 0x9B320), and a vertex's four bone-slot bytes (+56) index
@@ -194,7 +198,7 @@ and the survey's clip lists].
   carries it on one of the farmers' twelve free end joints (`joint19`,
   `joint10`, the ten finger ends `joint74` … `joint109`: no vertex, no
   clip key, no role, the same on all six), re-parented to `right_hand`
-  and keyed along garret4's staff in every baked clip (`docs/PATCHES.md`
+  and keyed along garret4's staff in every baked clip (Modkit's `PATCHES.md`
   W26). The farmers' 87 bones garret4 also has sit where his do within
   0.0007 units (joint81 the most), their bind turns 3.16° off his on the
   arms, which the bake re-poses: his clips baked onto farmer_1 put its
@@ -216,7 +220,7 @@ and the survey's clip lists].
   LODs' `bmsh` payloads follow one layout (the header, bone records,
   marker records, LOD pairs, names, the LOD list, then per LOD its records
   and push buffers; a push buffer one strip ended by a zero dword its
-  Size counts), so `azurik_mod/assets/body_codec.py` decodes a body whole
+  Size counts), so `src/azurkit/tools/characters/body_codec.py` decodes a body whole
   and encodes it back byte for byte [verified 2026-10-22: all 158,
   `tests/test_model_write.py`], and writes one with new or removed
   vertices, triangles, groups and bones: a group past 31 palette bones,
@@ -227,9 +231,9 @@ and the survey's clip lists].
   a LOD as a new unnamed `bmsh`, named only by the body's relocated LOD
   list, writes one over a `bmsh` the body has, and drops LODs (the count
   falls, the old `bmsh` stays in the file unreferenced), and
-  `azurik_mod/assets/decimate.py` cuts a LOD from the one before it
+  `src/azurkit/tools/characters/decimate.py` cuts a LOD from the one before it
   [not yet seen in xemu].  A new bone
-  (`azurik_mod/assets/skeleton.py`) goes after the last, so no clip
+  (`src/azurkit/tools/characters/skeleton.py`) goes after the last, so no clip
   track, palette entry or pose slot moves (they index bones; markers are
   their own table) and the pose reaches its parent first; its record is
   its parent's with parent, no compensation, RA and q the identity, JO
@@ -241,7 +245,7 @@ and the survey's clip lists].
   no index; only lookups by name (an fx bind, the swap's hand binds, a
   recipe) see it.
 - **Which LOD a critter draws** (Step 2.166b, D537;
-  `azurik_mod/assets/lods.py`). `load_critters_config` reads a species'
+  `src/azurkit/tools/characters/lods.py`). `load_critters_config` reads a species'
   `critters_engine` `lodThreshold1`-`4` into its CritterData
   +0x110..+0x11C (0x49AD0-0x49B3E): a missing cell is FLT_MAX, the first
   at least 0, each later one at least the one before. The critter draw
@@ -297,7 +301,7 @@ and the survey's clip lists].
   then their keys in track order: size = 0x14 + 0x14 × tracks + 16 ×
   keys for all 710, every track has 2 or more keys and modes (0, 0), no
   relocation points into one, and each starts on a page (Step 2.87:
-  `azurik_mod.assets.retarget.read_clip` / `write_clip`) [verified
+  `azurkit.tools.characters.retarget.read_clip` / `write_clip`) [verified
   2026-10-15: every clip's bone indices fall inside its own body's
   bones; garret4's `idle` has 221 bone tracks on 83 of its 122 bones;
   the key counts, the modes and that no garret4 rotation key is a step
@@ -307,7 +311,7 @@ and the survey's clip lists].
   posed body's rest q, so a clip's values mean something only against
   its own body's rests and joint frames.
 - **garret4's clips baked onto another rig** (Steps 2.87-2.89; D226, D239).
-  `azurik_mod/assets/retarget.py` rewrites a garret4 clip for a body
+  `src/azurkit/tools/characters/retarget.py` rewrites a garret4 clip for a body
   `retarget.MAPS` lists, at build time: the role map takes garret4's
   bones by name family on garret4's side of the body's bind pose (x
   sign), the body's bind re-poses so each mapped segment points along
@@ -373,7 +377,7 @@ and the survey's clip lists].
   the bare-hands kit's, read from a `.glb` onto its family's rig
   (`townspeople/male_6`, `female_1`, `child_1`) and baked onto each body
   of that family the same way.  In
-  game: `docs/PATCHES.md` § "Player model swap", B.]
+  game: Modkit's `PATCHES.md` § "Player model swap", B.]
 - **A damage marker's box** (Step 2.61) [verified 2026-10-15 from the
   data with the rule below and the damage pass's code (`RE_XBE.md` §
   "How the player's hit deals damage"): garret4's `attack_1` evaluates
@@ -406,11 +410,11 @@ and the survey's clip lists].
   `0xCACD0`, the root-motion sample (RE_MOVEMENT § "Roll, not run"
   item 7), is that at t1 minus that at t0.  Components 0–2 of `m_feet`
   are root motion: a clip that moves them on 0 or 1 travels
-  (`azurik_mod.assets.characters.moves_root`).
+  (`azurkit.tools.characters.characters.moves_root`).
 - **How a clip binds to a body** (Step 2.60) [verified static
   2026-10-15: a `ghidra-serve` copy's decompiles of 0x4B8E0, 0x4B600,
   0xA5CA0, 0xCAD40, 0xCB080, 0xCB730, 0xCBC80 and 0xCAB80; the bodies
-  read with `azurik_mod.assets.characters`].  By index, never by name:
+  read with `azurkit.tools.characters.characters`].  By index, never by name:
   - A species slot (S+0x124 + 4 × index) holds an asset handle.  The
     base slots are resolved once when the species loads (0x4B8E0, its
     CALL of 0x4B600 at 0x4B948 with EAX the name and EDI the out),
@@ -446,7 +450,7 @@ and the survey's clip lists].
     `*_arm_1` by 166–180°, keylord's legs by 147–169°), and of them only
     garret4's has any climb, hang, hoist, swim, landing or victory clip.
   - Step 2.67 [verified 2026-10-15: capstone, L2 on a town_male_6 build,
-    and `characters.xbr` read with `azurik_mod.assets.characters`]:
+    and `characters.xbr` read with `azurkit.tools.characters.characters`]:
     0xCB080 (EAX = the anim, a plain RET) binds nothing when the active
     layer's flags (+8) are 0, sizes the tables through 0xCD4F0 (ECX the
     vector, EDX the count, the −1 fill pushed, RET 4); the tables are
@@ -458,9 +462,9 @@ and the survey's clip lists].
     bone-track count, marker-track count and length with another body's
     clip, so those tell a borrowed clip at run time. Of the garret4 clips
     a townsman borrows only `jump` moves `m_feet` (in z). The
-    player-model swap's X12 (`docs/PATCHES.md`) did the remap until Step
+    player-model swap's X12 (Modkit's `PATCHES.md`) did the remap until Step
     2.89 (D239), which bakes garret4's clips onto the townsmen's rig
-    instead (B, `azurik_mod/assets/retarget.py`; hip ratio 1.0, 68 of
+    instead (B, `src/azurkit/tools/characters/retarget.py`; hip ratio 1.0, 68 of
     their 89 bones mapped), and onto a body with no clips as timers (no
     bone track, his length and markers).
   - Step 2.67's fixes [verified 2026-10-15: capstone on 0xCAD40 and
@@ -495,7 +499,7 @@ and the survey's clip lists].
   extents, length, active (0xCA390); the pose update resets only the
   markers in the model's own array.  So a marker outside the model
   keeps what is written to it: the player-model swap's X3 shim (Step
-  2.21c, `docs/PATCHES.md`) gives a body whose clips switch no damage
+  2.21c, Modkit's `PATCHES.md`) gives a body whose clips switch no damage
   marker on such a marker of garret4's `attack_1` box (position (0.1625,
   1.2341, 0.564), extents (0.2412, 3.0497, 1.3889), length 0.5) [verified
   2026-10-12: Ghidra serve, capstone, and the shim run under Unicorn].
@@ -611,7 +615,7 @@ and the survey's clip lists].
   flicken, 0.68; on Balthazar, 2.11, the wings spread on his back]. The
   swap's W15 scales each such transform's translate and scale, and those
   mode-1 children's scale, by the body's height over garret4's
-  (`docs/PATCHES.md`) [not yet seen in
+  (Modkit's `PATCHES.md`) [not yet seen in
   xemu].
 
 ### Not every `.xbr` cell is referenced
@@ -696,7 +700,7 @@ and its verify pass, capstone on the USA
   24 between 0 and `Damage` (Balthazar's and spideyzar's staff,
   guard_air's and the air bosses' EAFW, the tentacles' ice) and 1,641
   empty; no cell equals its record's `Damage`. The `enemy_damage` pack
-  scales them (`docs/PATCHES.md`; seen in xemu by Step 2.184's
+  scales them (Modkit's `PATCHES.md`; seen in xemu by Step 2.184's
   sitting, there).
 - **A hit on the player** (0x83FE0) ignores the move's multiplier. Its base
   is garret4's `critters_damage` cell for the record (default: its
@@ -743,7 +747,7 @@ and its verify pass, capstone on the USA
 decompiles from a `ghidra-serve` copy (port 8207), USA; the cell counts
 from vanilla `config.xbr`;
 what the sitting saw in game is the last bullet.] The `enemy_scaling` pack's ten
-sliders (`docs/PATCHES.md`) write these cells and hook these reads;
+sliders (Modkit's `PATCHES.md`) write these cells and hook these reads;
 "enemies" are the `critters_engine` columns whose `ai` isn't `player`,
 `town` or `item`, less `debug` (unplaced; the throw kit's projectile,
 W30), and the bosses below take their own five (D817).
@@ -932,7 +936,7 @@ W30), and the bosses below take their own five (D817).
   distances (its states' own constants) [inferred].
 - **Seen in xemu** (Step 2.205's sitting and record, v0.16.4 offscreen
   deterministic, USA): each cell and hook does what the reads above say on f6's
-  blaze sentinel, e7's golem and w3's water guardian (`docs/PATCHES.md`
+  blaze sentinel, e7's golem and w3's water guardian (Modkit's `PATCHES.md`
   § `enemy_scaling`). Two things the reads didn't show: the tentacles'
   own AI sets their scale every tick (water_tentacle1 1.0 under boss
   size 0.5, 1 and 2, AZ-786: their think grows them to 1.0, and the fire
@@ -1029,7 +1033,7 @@ custom codec** to reverse — Xbox DirectSound decodes everything
 in hardware.
 
 **Static call chain** (walked over Ghidra's xref graph; the direct
-calls into each step reproduce offline with ``azurik-mod xbe calls
+calls into each step reproduce offline with ``python -m devkit re xbe calls
 --to <VA>``):
 
 ::
@@ -1079,7 +1083,7 @@ payload, a spare block past it on 5 of the 9 [verified 2026-10-21, Step
 2.141's read: all 660 inline mono entries and the 9 stereo].
 
 **Distribution** (vanilla ``fx.xbr``, TOC read as the engine reads it;
-``azurik-mod audio dump``, a streamed entry read from its ``sdsr``)
+``python -m devkit audio dump``, a streamed entry read from its ``sdsr``)
 [verified 2026-10-21, AZ-124, AZ-624]:
 
 | Classification      | Count | Notes                                  |
@@ -1103,7 +1107,7 @@ reader took the rows at 0x40 instead of the engine's 0x3C, pairing
 each entry's size with the next entry's offset, and used that offset
 without the data-area base (``header[0x10]``), so most ``wave``
 slices were the wrong bytes.  Read as the engine reads it
-(``azurik_mod/xbr/toc_scan.py``), 2,219 of the ISO's 2,266 ``wave``
+(``src/azurkit/core/xbr/nodes.py``), 2,219 of the ISO's 2,266 ``wave``
 entries carry a header the parser accepts.
 
 **Why the audio "decoder RE" problem evaporated**: Xbox
@@ -1143,7 +1147,7 @@ real payloads):
 
 ### How a critter's sounds are chosen (Step 2.62, 2026-10-15)
 
-[verified 2026-10-15: capstone (`azurik-mod xbe dis|calls|find-refs`)
+[verified 2026-10-15: capstone (`python -m devkit re xbe dis|calls|find-refs`)
 and a read-only `ghidra-serve` copy's decompiles on the vanilla USA
 XBE; names and counts from the archives' named-resource tables and
 `config.xbr`'s tables.]
@@ -1237,7 +1241,7 @@ Each caller skips the sound when 0xA5CA0 finds no wave of the name:
 `cmp eax, -1` after the CALL at 0x8ADCC (`ouch`) and 0x8B19F
 (`landing`), and 0x8D4E0's at 0x8D4EC for 0x8BF61 (`fallingdeath`) and
 0x8B0DB (`landing`) [verified 2026-10-21, Step 2.141's read:
-`azurik-mod xbe dis`]; a variant's silent voice points the first two at
+`python -m devkit re xbe dis`]; a variant's silent voice points the first two at
 names no wave has.
 No XBE string names `fx/sound/player/` `funk`, `gethit1`–`3`,
 `stepup`, `stepdown`, `vaultup` or `vaultdown`.  A level's
@@ -1249,7 +1253,7 @@ No XBE string names `fx/sound/player/` `funk`, `gethit1`–`3`,
 global [0x1BF598] (Europe [0x1C1538]) is set, looks a name that starts
 with `loc/english/` (0x19AE80) up first as `loc/<language>/<the rest>`
 (`loc/%s/%s`, 0x19AE74) and, when no resource has that name, as written
-[verified 2026-10-22, Step 2.159a: `azurik-mod xbe dis` 0xA5B57-0xA5BFE,
+[verified 2026-10-22, Step 2.159a: `python -m devkit re xbe dis` 0xA5B57-0xA5BFE,
 Europe 0xA5CD7-0xA5D6C]. Europe's `French.xbr` and `German.xbr` hold
 `loc/french/...` and `loc/german/...` (330 and 328 named resources,
 `english.xbr` 359), so a townsperson's speech (`loc/english/speech/<dir>`
@@ -1269,14 +1273,14 @@ also played Garret's `ouch_1` line (AZ-392).  Since Step 2.72
 own per role through X14, empties the shouts it replaces and gives
 garret4's `critters_sounds` the species' `ouch`, `ambient` and hit rows
 (W9-W11), and repoints the jump and step paths above where the species
-has those waves (X15); `docs/PATCHES.md` § "Player model swap".  Not yet
+has those waves (X15); Modkit's `PATCHES.md` § "Player model swap".  Not yet
 seen in game.  Since Step 2.141 (D328) a roll with no sound of its own
 takes its first attack column's, so its grunt (`attack_9`) gives way too.
 A variant (Step 2.141, D386) binds from its own dir, `fx/sound/v/<variant>`
 in `fx.xbr` (no vanilla key starts so), sounds the build makes and
 appends with their `index.xbr` records; booblord's voice is silent but
 for the owner's WAVs (her hurt, roll, jump, long fall, climb and
-finishers; Step 2.144) and her effects Garret's (`docs/PATCHES.md` §
+finishers; Step 2.144) and her effects Garret's (Modkit's `PATCHES.md` §
 "Variants").  Seen in xemu at volume 0 (sittings 2.141 and 2.144, from
 the game's sound calls): her bound slots, the fall's ouch and the jump
 play her dir's waves, a slot or path with no wave of hers plays
@@ -1374,8 +1378,7 @@ Four stanza shapes:
 
 ### The XBE's reader (2026-10-11)
 
-[verified 2026-10-11: `azurik-mod xbe find-refs --va 0x19A9D8 --iso
-iso/usa.iso`, the same for 0x19A984 and 0x19AA00, capstone; HM-30,
+[verified 2026-10-11: `python -m devkit re xbe find-refs --va 0x19A9D8`, the same for 0x19A984 and 0x19AA00, capstone; HM-30,
 which cited the message string as the file name]  The file
 name `prefetch-lists.txt` (0x19A9D8) is loaded by a `mov` at 0xB03A9,
 and the message "Strange entry in prefetch-lists.txt: %s" (0x19A984)
@@ -1390,7 +1393,7 @@ PAL: only `tag=`, `file=` and `neighbor=` lines, no comment lines,
 lines of at most 259 characters and tags of at most 63, `%LANGUAGE%`
 the only substitution, and a missing tag still loads [unverified on
 USA].  The tag limit has a USA site: `mov edi, 0x3f` at 0xAF661 heads a
-byte-copy loop [verified 2026-10-14: `azurik-mod xbe dis`; PAL 0xAF7E1
+byte-copy loop [verified 2026-10-14: `python -m devkit re xbe dis`; PAL 0xAF7E1
 at −0x180; HM-92], which fits a 63-byte tag [inferred from the loop].
 
 ### Key insight: the graph is DIRECTED, not symmetric
@@ -1442,15 +1445,15 @@ Sibling file at the ISO root.  DOS-ish format:
     \\index\\
     f <md5> <bytes> index.xbr
 
-``azurik_mod.assets.filelist`` parses it and exposes
-``rewrite_filelist`` for builds (below: the game's HDD cache keys on
+``azurkit.core.filelist`` parses it and exposes
+``rewrite`` for builds (below: the game's HDD cache keys on
 these lines).  A full MD5 scan of the vanilla 951 MB dump ran in ~1.5 s
 on an M1 SSD.
 
-Until Step 1.4a it was exposed as ``azurik-mod iso-verify
-<unpacked-iso-dir> [--no-md5] [--graph]``. That verb now checks the
-vanilla ISO itself: its whole-image sha256, or every file against
-``azurik_mod/assets/vanilla_manifest.json`` (``docs/TOOLS.md``).
+Until Step 1.4a Modkit exposed it as ``iso-verify
+<unpacked-iso-dir> [--no-md5] [--graph]``. AzurKit's ``azurkit verify``
+checks the vanilla image itself: every file against its release's
+manifest, ``src/azurkit/core/manifests/usa.json`` or ``europe.json``.
 
 ### Path-scoping gotcha
 
@@ -1466,13 +1469,13 @@ but the heuristic has zero false positives today.
 ### Extracted trees
 
 Builds extract nothing since Step 1.24b: they read the input ISO in
-place (``azurik_mod.patching.xbr_staging.IsoStaging``) and pack it with
-``azurik_mod.iso.xiso.pack``, so the size-only scan that used to follow
+place (Modkit's ``IsoStaging``; AzurKit's ``azurkit.core.iso.read``) and pack it with
+``azurkit.core.iso.pack``, so the size-only scan that used to follow
 every unpack is gone. Its last user, the MCP ``iso_verify`` check
 of an extracted tree, went in Step MCP-1 (it passed an empty folder and
 missed same-size edits), and ``FilelistManifest.verify`` with it.
 Whether a build's files are vanilla is ``iso-verify``'s identity gate
-(``azurik_mod.assets.vanilla``). Size-only scan cost was ~3 ms for 42
+(``azurkit.core.gate``). Size-only scan cost was ~3 ms for 42
 entries on an M1 SSD, vs ~1.5 s for the full MD5 pass.
 
 ### The game's HDD cache keys on it (xemu, 2026-10-09)
@@ -1526,8 +1529,8 @@ The cold cache, and added and missing files: below (Step X.77). Still
 open: proof that the game hashes the files (it reads each whole).
 
 So **every build rewrites the line of each listed file it changes**,
-with `azurik_mod.assets.filelist.rewrite_filelist` (same format; the
-size stays right-aligned in its column). `azurik_mod.iso.xiso.pack` does
+with `azurkit.core.filelist.rewrite` (same format; the
+size stays right-aligned in its column). `azurkit.core.iso.pack` does
 it for its overrides: `filelist.txt` becomes an implicit override, and
 an explicit `filelist.txt` override is the text that gets rewritten.
 Since Step 1.24b every build packs through it (`patch`, `randomize-full`
@@ -1561,7 +1564,7 @@ zeroed, so the kernel formats the title a fresh utility partition, as on
 a new drive.
 
 - **Root files nothing names are never opened.** `/azurkit.json` and
-  `/azurkit.bin` added at the root (`xiso.pack(..., add=)`, `docs/TOOLS.md`)
+  `/azurkit.bin` added at the root (`xiso.pack(..., add=)`, Modkit's `TOOLS.md`)
   boot first try and play at w1 and a1 (USA) and w1 (Europe), on
   vanilla's boot frames and file calls.
 - **Where it reads.** `default.xbe`, `filelist.txt`,
@@ -1665,7 +1668,7 @@ into ``0x001BCDD8`` would load the hub; the disassembly above says
 otherwise, and it was never tried.  The four April-2026 attempts to
 force the hub (JZ NOPs, a cvar thunk, the validator short-circuit, a
 ``FUN_00053750`` trampoline) all landed their bytes with no in-game
-effect ([`Finished/LEARNINGS_HISTORY.md`](Finished/LEARNINGS_HISTORY.md)
+effect (Modkit's `Finished/LEARNINGS_HISTORY.md`
 § "enable_dev_menu — retired as unshippable").
 
 ### Why it's a prefetch-manifest orphan
@@ -1699,9 +1702,9 @@ it resident throughout the game.
 
 ### Structure (AZ-218, 2026-10-11)
 
-[verified 2026-10-11: `azurik_mod.assets.index_xbr.load_index_xbr` and
+[verified 2026-10-11: `azurkit.tools.characters.index_xbr.load_index_xbr` and
 `tests/test_index_xbr.py` on the vanilla ISO; first found by the hub
-mining, `docs/ToDo/HUB_MINING_PLAN.md` HM-03.] One TOC entry, `indx`,
+mining, Modkit's `HUB_MINING_PLAN.md` HM-03.] One TOC entry, `indx`,
 its payload at file offset 0x1000 (0x2713F bytes):
 
 ```
@@ -1732,13 +1735,13 @@ index.xbr's own `index`.  No record holds a TOC index; the archive's
 table maps the name to its TOC entry.  So index.xbr says which archive
 holds a named asset, and the archive says where (below).  A mod that
 adds a named asset must add its record, in key order, as well as its
-archive's named row (`azurik_mod/xbr/append.py` and
+archive's named row (`src/azurkit/core/xbr/append.py` and
 `add_index_records`, [`XBR_FORMAT.md`](XBR_FORMAT.md) § "Appending
 resources"); in-place edits of existing assets need neither.
 
 ### How a name resolves (Step 2.86)
 
-[verified static 2026-10-15: capstone (`azurik-mod xbe fn|calls`) on
+[verified static 2026-10-15: capstone (`python -m devkit re xbe fn|calls`) on
 the vanilla USA XBE; first traced by the bake research.]
 
 1. **At boot, 0xA6A70** (one caller, 0xA6B89) reads the loaded `indx`
@@ -1832,7 +1835,7 @@ not records.
 Moved from the level loading-zone audit in Step 3.3d (2026-10-10),
 keeping its section numbers. The audit's per-level breakdown,
 side-file and implicit zones, Ghidra sync and method are archived in
-[`Finished/LOADING_ZONES_AUDIT.md`](Finished/LOADING_ZONES_AUDIT.md).
+Modkit's `Finished/LOADING_ZONES_AUDIT.md`.
 The catalogue module (`loading_zones.py`) and its tests went with the
 old randomizer at Step R1.10c; the randomizer's exit table is generated
 from the levels (Step R1.1).
@@ -1949,9 +1952,9 @@ VAs so future analysis can find the sites:
 find-refs --va` and `xbe calls --to`.]  Until AZ-260 the last row was
 "(any)" with the spot `return-to-shell`.  Their three functions are
 registered in
-[`vanilla_symbols.py`](../azurik_mod/patching/vanilla_symbols.py)
-and declared in
-[`shims/include/azurik_vanilla.h`](../shims/include/azurik_vanilla.h).
+the facts' `functions`
+([`facts.usa.json`](../src/azurkit/core/facts.usa.json)) and declared in
+the `azurik_vanilla.h` shimkit writes from them.
 They have been renamed in the live Ghidra project and carry plate
 comments pointing back to this audit; those comments predate AZ-250
 and AZ-260 and may still give the old account.
@@ -2025,7 +2028,7 @@ Not randomizable (destination is the shell, not a level).
 
 ### 8. d1's death seal and Spideyzar's floor (Step R2.12a, 2026-10-15)
 
-[verified data 2026-10-15: `azurik_mod.xbr.nodes` on the vanilla
+[verified data 2026-10-15: `azurkit.core.xbr.nodes` on the vanilla
 `d1.xbr` and `town.xbr`, and the R0 decode; in game where marked]
 
 - **Nothing before d1 asks for a disc.** Town's way down is its grate
@@ -2071,7 +2074,7 @@ Not randomizable (destination is the shell, not a level).
   always holds `inputs[0]`..`inputs[15]` and its record +0x18 is the
   count it reads, so giving one a third input is a fixed-width edit.
 - **The central elevator** (Step R1.16c's intake of X.34, read with
-  `azurik_mod.randomizer.levels` on the vanilla `d1.xbr`; [observed]
+  `azurkit.tools.randomizer.levels` on the vanilla `d1.xbr`; [observed]
   where marked: the owner's clean run 1). Its deck's three buttons (SwitchShape r644 red, r700 green,
   r731 blue) send it to the floor its colour holds (`timesCombiner_*` →
   `CallFloor_orCombiner` → `Elevator_damper`); the stored programs are
@@ -2121,7 +2124,7 @@ Not randomizable (destination is the shell, not a level).
 
 ## Live pickups: what guest RAM says of a seed being played (Step R1.26, 2026-10-16)
 
-What the tracker's Live (`azurik_mod/randomizer/live.py`, D249) reads, and
+What the tracker's Live (`src/azurkit/tools/randomizer/live/game.py`, D249) reads, and
 why each read means what it says. USA VAs; Europe's through
 `region_europe.json` (the scene global 0x1C15DC; the three vtables below
 by their constructors' witnesses). [static] is the USA `default.xbe`
@@ -2420,7 +2423,7 @@ offsets only, no positions.
   curve; [17]'s stored rate 0), [22] gameVisible and [24] the bolts'
   enable (weight 100, a 0 → 1 curve over 0..1: on from z 0.01)
   [data]. Beamlord's v3 keys the dome on the switch
-  (`docs/PATCHES.md` § beamlord): in sitting 2.145 its record read a
+  (Modkit's `PATCHES.md` § beamlord): in sitting 2.145 its record read a
   2.801 m radius and gameVisible 1.0 at z 1, yet no dome drew on the
   player, as the unkeyed one on main draws none (AZ-631).
 - **What the dome draws** (Step 2.146). Nothing in the engine draws an
@@ -2442,7 +2445,7 @@ offsets only, no positions.
   sub-object's (0xD7A80/0xD7C60) is unread; blend 5 is (SRCALPHA, ONE),
   an add (Step 2.155e, § "How an fx material blends" below).
   Beamlord's recipe sets the row's opacity to 1.0 in place (`material`,
-  `docs/PATCHES.md` § beamlord), and the dome draws: a flat radial
+  Modkit's `PATCHES.md` § beamlord), and the dome draws: a flat radial
   starburst of white streaks on the floor round his feet, about 2.8 m
   out, not a bowl round him (5.4-11.9 % of the frame against main's at
   clip 0.43-0.60 s, its box 619 → 738 px wide as the radius reads 2.28 →
@@ -2504,7 +2507,7 @@ offsets only, no positions.
 
 ## A critter's fx instances: spawn, bind, detach, end (Step 2.149, 2026-10-22)
 
-[verified static 2026-10-21/22: `azurik-mod xbe fn|dis|calls` on both
+[verified static 2026-10-21/22: `python -m devkit re xbe fn|dis|calls` on both
 vanilla images; the attribute indices from the XBE's node
 schema]
 
@@ -2559,8 +2562,7 @@ schema]
   0xC3681-0xC3698): the platform update 0x6ABB0 forwards both (dirty bits
   0x400 and 0x1) to each render sub-object (vtable 0x19C8D0), whose
   setters 0xC5DA0 and 0xC5DE0 keep them at +0x120 and +0x124 (1.0 from
-  0xC26D0). X38 (`azurik_mod/patches/player_model/README.md` §
-  `fx_ring.c`) plays each ranged attack's effects in its own bound
+  0xC26D0). X38 (`src/azurkit/tools/characters/player_model/fx_ring.c`) plays each ranged attack's effects in its own bound
   instance (flags 0) and detaches it at the next clip change.
 - **A detached copy's switch write fires its links** (Step 2.155, D434;
   [static,
@@ -2625,7 +2627,7 @@ schema]
   (round 3's candidate M). The dome's one LOD switches at FLT_MAX, so
   its lodVisibility stays 1 at the camera's farthest.
 - **A clone's entries load at their first draw, one a frame** (Step
-  2.155g, AZ-690; [static: `azurik-mod xbe fn 0x9E630`, `0x9D270`,
+  2.155g, AZ-690; [static: `python -m devkit re xbe fn 0x9E630`, `0x9D270`,
   `0xA6860`, `0xA59F0`; measured: xemu, PC hooks at 0x9E6AD and 0xA68CC
   and the run descriptors per tick]). Every entry an fx
   clone appends is a run of its own (page-aligned,
@@ -2667,7 +2669,7 @@ Step 2.157's read, design and critique).
   `gshd` or `sprv` is reached by two named graphs in either archive;
   only textures (`surf`) and fx.xbr's sounds are; every `sprv` has one
   `gshd` referrer [data: the critique's `referrers`]. So a clone
-  (`azurik_mod/assets/fx_edit.py`) shares the textures and copies the
+  (`src/azurkit/tools/characters/fx_edit.py`) shares the textures and copies the
   rest, and a shader edit never writes another graph's material.
 - **An effect record names its graph by key.** Type `effect` holds the
   graph it loads as a (length, self-relative) string at +0x1C (the
@@ -2700,7 +2702,7 @@ Step 2.157's read, design and critique).
   each self-relative (`docs/XBR_FORMAT.md` § "Level node graph"), so a
   graft appends the donor's whole node payload as one block and remaps
   only record indices and rows (`fx_edit.Clone.graft`; the named grafts
-  are `azurik_mod/assets/fx_templates.json`'s since Step 2.167a;
+  are `src/azurkit/tools/characters/fx_templates.json`'s since Step 2.167a;
   `force_globe` stays for beamlord's dome).
 - **Inherit mode 3** (0x6880A) is decoded: the anchor where the parent
   puts it, the axes the top camera's (`docs/XBR_FORMAT.md`); the game's

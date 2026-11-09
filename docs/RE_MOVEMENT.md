@@ -1,9 +1,13 @@
 # RE notes: player movement
 
-> Ported from Azurik_Modkit's `docs/` (Step 4.11g). A path under `azurik_mod/`, `scripts/`, `tests/` or
-> `shims/`, and a link to a doc this folder lacks, names Modkit's tree, where the finding was made.
-> So do its commands (`azurik-mod`, `bootstrap.py --with re`), its environment variables and its "this repo" and
-> "today" claims: AGENTS.md is AzurKit's rule and wins where the two differ.
+> Ported from Azurik_Modkit's `docs/` (Step 4.11g); its paths, verbs and links point at AzurKit's since Step
+> 4.24d. A `scripts/`, `tests/` or `shims/include/` path, a module or a doc that AzurKit lacks (often written
+> "Modkit's") names Modkit's tree, where the finding was made; its history is the private archived repository
+> (AGENTS.md § Porting from Modkit). Modkit's `azurik.h` is AzurKit's `devkit/re/data/structs.h` and `anchors.toml`,
+> its `azurik_vanilla.h` and kernel headers are the ones shimkit writes from the facts (`src/azurkit/core/facts.*.json`,
+> the functions' notes in `devkit/re/data/function_notes.toml`), and `python -m devkit AREA VERB` is the developer
+> side's (`devkit/README.md`). Its "this repo" and "today" claims are Modkit's at the time: AGENTS.md is AzurKit's
+> rule and wins where the two differ.
 
 How the engine moves the player: walking and the shared 3.0, wing
 flaps and their ceiling, fuel, armor and HP, air control, the jump,
@@ -17,7 +21,7 @@ in REORG_PLAN Step 3.3d (2026-10-10) without rewording, so "above" or
 "below" may mean a section that is
 now in [`RE_DATA.md`](RE_DATA.md) (data files),
 [`RE_XBE.md`](RE_XBE.md) (the XBE itself) or
-[`Finished/LEARNINGS_HISTORY.md`](Finished/LEARNINGS_HISTORY.md)
+Modkit's `Finished/LEARNINGS_HISTORY.md`
 (superseded findings and retired attempts).
 
 ---
@@ -41,7 +45,7 @@ use the C1-style redirect (rewrite the instruction at the call site
 to reference a freshly-injected per-game constant) instead of
 mutating the shared value.
 
-Reference: `azurik_mod/patches/player_physics/__init__.py::apply_swim_speed`
+Reference: `src/azurkit/tools/mods/packs/player_physics.py` (the swim speed's scale; Modkit's `apply_swim_speed`)
 (the walk slider used the same redirect until D53, when it moved to
 `config.xbr`'s `runSpeed`).
 
@@ -132,7 +136,7 @@ path strings:
 |----------------|----------------------------------------------|------------------|
 | FUN_00085F50   | `fx/sound/player/walkl`, `fx/sound/player/walkr` | Walking / running |
 | FUN_00087F80   | `fx/sound/player/climb[u/d/l/r]`             | Climbing         |
-| FUN_00088490   | `PTR_s_m_grab_001a9c60`                       | The climb with the stick at rest (its only caller `player_climb_tick`, 0x88473): while the ladder is still in front it loops `climb_idle` (anim_change at 0x88733) and places the model so its `m_grab` marker sits on the rung point (0x42E40 at 0x8875B), else it falls (anim 0x12) [verified static, Ghidra serve, 2026-10-15, Step 2.63; the onto- and off-ladder moves are the setter 0x8BDB0's aligned clip changes, `azurik_mod/patches/player_model/README.md` § `climb.c`]. It never ran when the player jumped at a ledge (xemu s6, 2026-10-11). Was "Grabbing ledges" |
+| FUN_00088490   | `PTR_s_m_grab_001a9c60`                       | The climb with the stick at rest (its only caller `player_climb_tick`, 0x88473): while the ladder is still in front it loops `climb_idle` (anim_change at 0x88733) and places the model so its `m_grab` marker sits on the rung point (0x42E40 at 0x8875B), else it falls (anim 0x12) [verified static, Ghidra serve, 2026-10-15, Step 2.63; the onto- and off-ladder moves are the setter 0x8BDB0's aligned clip changes, `src/azurkit/tools/characters/player_model/climb.c`]. It never ran when the player jumped at a ledge (xemu s6, 2026-10-11). Was "Grabbing ledges" |
 | FUN_00084A40   | `PTR_s_m_root_001a9c54`, `m_feet`, `m_grab`, the guard byte 0x1AAB7D | `player_move_offsets_init`: once per boot (the PlayerPhysics constructor's CALL at 0x84E59) it samples `m_root`, `m_feet` and `m_grab` (0xCAB80) at t 0 and at the clip's length for each of the player's 113 clip slots into three BSS arrays of 0x18 bytes a slot (USA 0x38A610, 0x389B78, 0x38B0D0; Europe +0x1FA0), zeros for an empty slot or a marker the body lacks. The ladder latches read them for their sweep height (0x38B678 less 0x38ABB8: `m_grab` over `m_root` at `climb_start`'s start, garret4 2.269 and 1.073) and their targets, as do the top moves (0x87470, 0x87950) and the overhead hang (0x8A200, slot 0x44) [verified static, capstone, and L2: the vanilla code on garret4's clips gives the values xemu 2.75a's control read; Step 2.63b] |
 | FUN_0008CCC0   | State-machine dispatch (calls via case 0 / 6) | Per-frame switcher |
 
@@ -188,7 +192,7 @@ f6):
 
 The April-2026 "independence math" that injected a walk base and a
 roll multiplier so two sliders could scale one field is archived in
-[`Finished/LEARNINGS_HISTORY.md`](Finished/LEARNINGS_HISTORY.md) §
+Modkit's `Finished/LEARNINGS_HISTORY.md` §
 "Walk/roll independence math".  Neither leg ships: since Step 2.12
 the roll slider is a shim at 0x8C745 ("Roll, not run" below), and
 since owner decision D53 (2026-10-09) the walk slider sets
@@ -616,7 +620,7 @@ and `health_bar_full_scale` 50 draw a full-length tube.
   `0x6F570`, inferred; not seen in game].  Every placed pickup and
   enemy is a critterGenerator (§ "Level node graph" in
   [`XBR_FORMAT.md`](XBR_FORMAT.md)).  `0x45C10` has 11 direct callers
-  (`azurik-mod xbe calls --to 0x45C10 --iso iso/usa.iso`); the player
+  (`python -m devkit re xbe calls --to 0x45C10`); the player
   spawn (`0x53F2C`) and the generator (`0x6FB64`) are traced, the
   other nine aren't.
 - **`max hp`** (vanilla 400) is read only by the HUD (`0x1A570`,
@@ -707,7 +711,7 @@ and `health_bar_full_scale` 50 draw a full-length tube.
   - `0x57B70` has 7 direct callers: `0x52FD0` and `0x530C7` (in
     `0x52F50`), `0x58BDB` (the save-load fallback, approach B), and
     `0x52133`, `0x535B1`, `0x1C6A9` and `0x57B62`, which are
-    unexplained (`azurik-mod xbe calls --to 0x57B70 --iso iso/usa.iso`).
+    unexplained (`python -m devkit re xbe calls --to 0x57B70`).
     The title's save list runs it when it previews a save, so a hit
     doesn't mean a new game [verified xemu s5, 2026-10-11; the caller
     is not traced] (AZ-254).
@@ -715,8 +719,7 @@ and `health_bar_full_scale` 50 draw a full-length tube.
     name in the global `0x1BCDCC`, which `0x58E80` sets to `garret4`;
     `0x5946F` overwrites it right after `0x59449` pushes the string
     `-player` [verified static 2026-10-10: the four instructions that
-    name `0x1BCDCC`, `azurik-mod xbe insns --operand 0x1bcdcc --iso
-    iso/usa.iso`; that `-player` is a command-line switch is
+    name `0x1BCDCC`, `python -m devkit re xbe insns --operand 0x1bcdcc`; that `-player` is a command-line switch is
     inferred].
   - Leads, no step: `initial fuel` / `initial fuel cap` are a possible
     config-only starting-fuel knob, and the `-player` override bears on
@@ -739,7 +742,7 @@ loads the asset by string name `config/armor_properties`
 column via `config_cell_value`.
 
 The two tables the old notes confused, as the engine and
-`azurik_mod.xbr.toc_scan` read them [verified 2026-10-10:
+`azurkit.core.xbr.nodes` read them [verified 2026-10-10:
 `parse_toc` and `load_all_tables` over the vanilla `config.xbr`]:
 
 | Payload offset | TOC entry (offset) | Table | Rows × columns | Engine use |
@@ -767,11 +770,12 @@ and `air_shield_2` 4 flapped 3 and 4 times per jump against vanilla's
 1 and 2, each flap taking 1/Flaps of the gauge and the last dropping
 the shield; p9 saw `air_shield_3` 7 give 7].
 
-Users can verify their edits round-trip by running
-`azurik-mod dump --iso built.iso -s armor_properties -e air_shield_3`
-— the output shows each double as stored in the built ISO.  (`-i` is
-the short form of `--input` and wants an extracted raw `config.xbr`,
-not an ISO.)
+Users can verify their edits round-trip: `azurkit open built.iso`
+checks every file of the build against its manifest and gives its mods
+file back, and a developer reads the cells from the build's own
+`config.xbr` (`azurkit files built.iso --extract gamedata/config.xbr
+--out config.xbr`, then `python -m devkit xbr diff` against the vanilla
+one).
 
 ### Air-control speed has TWO dominant writer sites — FUN_00083F90 (April 2026)
 
@@ -797,7 +801,7 @@ the 5 static imm32s (0x84ED3, 0x856D4, 0x890EA, 0x89126, 0x8D322)
 and the two in FUN_00083F90 (0x83FAC, 0x83FCE), each as its own
 vanilla value × scale (12.0 → 12 × scale, 9.0 → 9 × scale), so the
 slider is observable regardless of which code path set the field
-(`_AIR_CONTROL_SITES` in `azurik_mod/patches/player_physics/__init__.py`).
+(`AIR_CONTROL` in `src/azurkit/tools/mods/packs/player_physics.py`).
 
 ### Flap count lives in armor_properties[level][0xE]
 
@@ -844,7 +848,7 @@ Its only direct callers are `wing_flap`'s two calls, 0x89354 (cost
 sustained drain of timed armors is separate, in
 `player_armor_state_tick` (0x83D80).  The deleted `infinite_fuel` pack
 forced this function to return 1 without consuming
-([`Finished/LEARNINGS_HISTORY.md`](Finished/LEARNINGS_HISTORY.md) §
+(Modkit's `Finished/LEARNINGS_HISTORY.md` §
 "Retired physics sliders").
 
 ### Air fluttering: a mid-air recast gives the flaps back (2026-10-24, Step R2.18)
@@ -1156,7 +1160,7 @@ velocity is rate-proportional: `roll_time_scale` k at that FLD gave 11
 ticks at k = 2 and 43 at 0.5 in game, the same distance from a 7 m/s
 run (3.600 and 3.568 m against 3.582) and less from standing at k > 1
 (2.826 m against 3.375 at 2), where the move code's ground-acceleration
-cap holds the first ticks back (`docs/PATCHES.md` § Roll speed).
+cap holds the first ticks back (Modkit's `PATCHES.md` § Roll speed).
 
 **The climb's pace rests on two constants** [verified static, find-refs;
 xemu sitting 2.185]: 2.0 at 0x1980E4 (Europe 0x19A28C), read only by
@@ -1263,7 +1267,7 @@ The shared `10.0` at VA `0x001A25B4` has 11 disp32 readers
 (10 in `.text`, 1 in DSOUND), so 10 besides the slider's site; most
 are unrelated to player movement, but one, the `FLD` at 0x47B51, is
 inside the move code 0x47380, so editing the constant in place would
-change the move code too [verified static 2026-10-11: `azurik-mod xbe
+change the move code too [verified static 2026-10-11: `python -m devkit re xbe
 insns --operand 0x1a25b4`].  We patch only the player
 site (VA `0x0008B7BF`) by rewriting the `FMUL [abs32]` to
 point at an injected `10.0 × swim_scale`.  With that redirect poked
@@ -1336,7 +1340,7 @@ The xemu calibration sitting measured these on sandboxed clones
 (2026-10-11 PDT). "Placed" means measured after a RAM teleport or
 poke: it shows the mechanism, not where it happens in a level (Q251).
 The randomizer's movement envelope
-(`azurik_mod/randomizer/draft/envelope.py`, Step R1.2) models each one.
+(`src/azurkit/tools/randomizer/draft/envelope.py`, Step R1.2) models each one.
 
 - **A springboard launch** [verified xemu, placed; verified static
   `0x890B6`-`0x890F7`, `0x8917F`-`0x891D6`]. jump_init (`0x89060`) also
@@ -1384,7 +1388,7 @@ The randomizer's movement envelope
 
 ### The volume query, pushes, swimming and springboards in the code (Step R2.19e, 2026-10-28)
 
-[verified static: `azurik-mod xbe fn|dis|read` on the USA XBE; the native kernel's port of each agrees with FastL3
+[verified static: `python -m devkit re xbe fn|dis|read` on the USA XBE; the native kernel's port of each agrees with FastL3
 tick by tick on R2.16e's bench (the game's words, push and depth read at
 0x85599 on 44,000-50,000 ticks a level, none differing where the kernel models the volume; the depth in two
 overlapping water volumes from its review's FastL3 check on w1: the deeper on 58 of 59 points).]
@@ -1553,7 +1557,7 @@ and xemu sitting skips-a; USA VAs; labels as there:
   and writes the stored contact normal entity +0xB8..+0xC0: (0, 0, 1) at 0x85A34, else the move's contact normal at
   0x85AC3; slope landing (0x8B040), the dead state (0x8D04E) and init (0x84DC3) write it too, and nothing in the
   climb, catch or grab code does, so in the air it holds the last ordinary contact's normal [verified static,
-  0x80000-0x90000 scanned]. `obs.Obs.normal` reads it; `azurik_mod/sim/faces.py` finds the face it belongs to (the
+  0x80000-0x90000 scanned]. `obs.Obs.normal` reads it; `devkit/sim/faces.py` finds the face it belongs to (the
   entity keeps no face pointer). Its arguments (Step R2.19f+'s read) are the input (EDX: +0x148 the push's z), the
   move request (ECX: +0x1C the velocity asked, +0x60 the one left) and the contact record (EBP: +0x38 its hit
   object). No hit object: a fast slide (state 4) stays one while its timer +0xD4 is under 0.5 s **and pushZ is 0**
@@ -1634,7 +1638,7 @@ read-only `ghidra-serve` copy, Step 2.105's read]:
   tick (0x42E40 at 0x8996D) unless the state has 0x100 (then 0x43170 at 0x8994B). In state 2 a wing flap's tick
   (0x89300, its placement at 0x8944E) ends before the airborne tick. So each moves the origin to its stance in one
   tick: 4.55-4.64 m at × 2, the control's 0.85 m [measured, sitting 2.104]. X22
-  (`azurik_mod/patches/player_model/hang_ease.c`, Step 2.105) eases those three placements at most 0.847 m a tick
+  (`src/azurkit/tools/characters/player_model/hang_ease.c`, Step 2.105) eases those three placements at most 0.847 m a tick
   for a body drawn at a model scale other than 1 [measured, sitting 2.105: at most 0.847 m a tick, the stance in 6
   ticks at × 2, the centre and +0x168 the game's to 0 mm].
 - **`hang_start` (0x8A200)** sweeps an ellipsoid up; on a cable hit it sets state 0x105 and 0x42430 sets the centre
@@ -1691,7 +1695,7 @@ and inject `g × k²` at their own sites (D16).  There is no single
 "effective reader": an old claim that 0x85700 was the only one was
 wrong.
 
-Reference: `azurik_mod/patches/player_physics/__init__.py::GRAVITY_PATCH`.
+Reference: `src/azurkit/tools/mods/packs/player_physics.py`'s `GRAVITY`.
 
 ## ControllerState struct (XInput polling) — pinned 2026-04-18
 

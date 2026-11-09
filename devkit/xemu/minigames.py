@@ -10,7 +10,7 @@ placed), then::
     m = mg.Minigames(sb, iso, "w2")                # the level's graph and collision, its live nodes
     m.hose()                                       # -> {"solved": True, ...}
 
-The minigames (``docs/RANDOMIZER.md`` "Minigames"; each one's wiring is in
+The minigames (``devkit/xemu/README.md`` "The minigames"; each one's wiring is in
 its realm's ``devkit/rando/draft/authoring/<level>.toml``):
 
 * :meth:`Minigames.hose` (w2): X at the console turns the water on; at

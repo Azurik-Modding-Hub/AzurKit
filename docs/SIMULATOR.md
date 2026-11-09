@@ -3,7 +3,7 @@
 Four levels, dev only (Unicorn is the `devkit` group's, GPL, and nothing
 under `src/azurkit` imports it; `devkit/README.md` says why none of it
 ships). Every level runs the USA release's code only (D146). Ported from
-Modkit's `azurik_mod/sim` at its cut (Step 4.13a): each module is Modkit's
+Modkit's `devkit/sim` at its cut (Step 4.13a): each module is Modkit's
 code with its imports pointed at AzurKit's (`devkit/sim/ports.py`).
 
 | Level | Module | Runs | Used by |
@@ -231,7 +231,7 @@ sim = L3(snap, vanilla_xbe, overlay=ov)                    # the snapshot is che
   (part of the problem's identity); a pool worker keeps the simulators of
   its last four overlays, so a bisection over slider values reuses its
   pool. `devkit/reach/l3_contact.py` measures the randomizer's contact flights
-  that way ([`SCRIPTS.md`](SCRIPTS.md)).
+  that way ([`devkit/reach/README.md`](../devkit/reach/README.md#l3-contact)).
 - **The copies:** a constant the game copied out when the world was built
   is rewritten where it went, where the snapshot holds vanilla's value
   (`overlay.COPIES`): the world clock's quantum, copied from 0x198410 into
@@ -1025,9 +1025,9 @@ and the switches). A fast `run` audits itself as it ends: about 1 job in
 500 again on base `L3` on the stock wheel, and with the patched library 1
 in 1,000 on FastL3 with `UC_X87_CHECK=1` on the check flavour (each audit
 worker writes the check's count to a file as it exits), every record compared with the run's
-(`l3_impl` aside); a difference stops it. `azurik-mod doctor` names the
-library a FastL3 worker loads (`l3_fast.probe()`: a fresh process started
-with `worker_env()`). On the bench
+(`l3_impl` aside); a difference stops it. `devkit/reach/l3_fast.py`'s
+`probe()` names the library a FastL3 worker loads (a fresh process started
+with `worker_env()`; Modkit's `doctor` printed it). On the bench
 the audits over every job of the four levels' buckets, 330 on base `L3` and
 158 with the x87 check (fan and aimed jobs on each level), gave round 1's
 records, and none of the check's 6.7 G fast results differed; R2.19a's

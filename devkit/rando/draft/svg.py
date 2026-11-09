@@ -1,6 +1,6 @@
 """Reach's pictures: what each movement tier reaches from a level's spawn.
 
-``azurik-mod rando derive LEVEL --svg DIR`` (Step R1.3c) writes one SVG per
+``python -m devkit rando derive LEVEL --svg DIR`` (Step R1.3c) writes one SVG per
 tier, ``<level>.svg`` (safe) and ``<level>_<tier>.svg``: the walkable
 floors coloured by the first rung of the coverage ladder that reaches them
 (no item, air 1-3, behind a gate, probe-needed movement, not reached),

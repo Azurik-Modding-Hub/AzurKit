@@ -144,3 +144,45 @@ def test_no_tracked_text_holds_a_home_path_or_cites_the_private_evidence_folder(
                     continue
                 hits.append(f"{rel}:{text.count(chr(10), 0, m.start()) + 1}: {m.group()}")
     assert not hits, "name $EV, a relative path or what a claim rests on in words instead:\n" + "\n".join(hits)
+
+
+#: A Markdown link's target, ``[text](target)``, read with its code spans blanked and its fences skipped.
+LINK = re.compile(r"\[[^\]\n]*\]\(([^)\s]+)\)")
+#: Modkit's checkout as a place to read (D1171 deletes it): its variables, a link into its package, an import.
+MODKIT = re.compile(r"\$\{?(?:AZURKIT_)?MODKIT\b|\.\./azurik_mod/|\bpython -m azurik_mod\b|\b(?:from|import) azurik_mod\b")
+
+
+def test_every_relative_link_in_tracked_markdown_reaches_a_tracked_file_and_no_text_points_into_modkit():
+    """Modkit's checkout is deleted and its history is a private archive
+    (D1171, D1030), so tracked text names it as provenance, in words, and
+    nothing here reads it (Step 4.24d): each relative link of a tracked
+    Markdown file (its code spans and fences aside) reaches a tracked file
+    or folder of this checkout, and no tracked text names Modkit's checkout
+    by its variables, links into its package or imports it (``MODKIT``). A
+    hit prints its file, line and target."""
+    files = tracked()
+    paths = set(files) | {parent.as_posix() for rel in files for parent in Path(rel).parents}
+    root = ROOT.resolve()
+    hits = []
+    for rel in files:
+        data = (ROOT / rel).read_bytes()
+        if b"\0" in data:
+            continue
+        lines = data.decode("utf-8", errors="replace").splitlines()
+        hits += [f"{rel}:{n}: {m.group()}" for n, line in enumerate(lines, 1) for m in MODKIT.finditer(line)]
+        if not rel.endswith(".md"):
+            continue
+        fenced = False
+        for n, line in enumerate(lines, 1):
+            if line.lstrip().startswith("```"):
+                fenced = not fenced
+                continue
+            for m in () if fenced else LINK.finditer(re.sub(r"`+[^`\n]*`+", "x", line)):
+                target = m.group(1).partition("#")[0]
+                if not target or re.match(r"[a-z][a-z0-9+.-]*:", target):
+                    continue
+                at = ((ROOT / rel).parent / target).resolve()
+                if not at.is_relative_to(root) or at.relative_to(root).as_posix() not in paths:
+                    hits.append(f"{rel}:{n}: {m.group(1)}")
+    assert not hits, "point it at this checkout's file, or name Modkit's in words, not as a link or a path:\n" + (
+        "\n".join(hits))

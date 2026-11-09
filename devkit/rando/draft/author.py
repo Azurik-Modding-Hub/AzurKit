@@ -1,7 +1,7 @@
 """Realm authoring: a level file written from its derived zone graph and the
 realm step's hand decisions (Step R1.8; ``docs/RANDOMIZER_DB.md`` §4, §16).
 
-``azurik-mod rando author LEVEL...`` writes ``data/levels/<level>.toml``
+``python -m devkit rando author LEVEL...`` writes ``data/levels/<level>.toml``
 for each level from four inputs: its generated file (the objects and their
 decoded requirements), its derived file (the reach model's zones and zone
 edges, §16), ``tricks.toml`` (the level's skips, projected as they are)

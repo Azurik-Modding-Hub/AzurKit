@@ -67,7 +67,7 @@ converts to int64 via ``FUN_000f5a40`` (FPU FISTP), stores the lower 32 bits at 
 AZ-113."""
 armor_reset_out_of_fuel = """\
 Per-armor-slot reset helper invoked when an armor feature runs out of fuel (``puVar1[0xD]`` / fuel-state word \
-reaches 0).  Takes the slot struct pointer (``int *``, layout documented in azurik_mod docs under \
+reaches 0).  Takes the slot struct pointer (``int *``, layout documented in docs/RE_MOVEMENT.md under \
 ``armor_properties``) and:\n\n  1. Calls ``FUN_000836b0(slot)`` — inner zeroer.\n  2. Re-resolves the slot's \
 ``Armor`` row via ``config_name_lookup(config_ctx, \"Armor\")``.\n  3. Re-links ``slot[8]`` to a default feature via \
 ``FUN_0003c660(1)``.\n  4. Clears scratch: ``slot[0x17] = 0``, ``slot->+0x61 byte = 0``, ``slot[9] / [0xb] / [0xd] = \
@@ -135,7 +135,7 @@ Entry point for Azurik's save-slot sign / verify.  __thiscall: the save-slot con
 0x7A; otherwise it opens an HMAC-SHA1 context with XCalculateSignatureBegin(0), hashes the slot's file tree \
 (FUN_0005C4B0), closes it with XCalculateSignatureEnd and writes the 20-byte digest to ``signature.sav`` in the \
 slot.\n\nIts sibling verify_save_signature (0x5C990) recomputes the digest and compares it (docs/SAVE_FORMAT.md § \
-7).  The hash-tree-walk is pinned in :mod:`azurik_mod.save_format.signature` for direct Python use."""
+7).  The hash-tree-walk is pinned in :mod:`azurkit.tools.saves.sign` for direct Python use."""
 xcalculate_signature_begin = """\
 XDK re-export.  ``XCalculateSignatureBegin(flags)`` — allocates + initialises an HMAC-SHA1 context keyed with \
 ``XboxSignatureKey``.  flags=0 means 'inner HMAC only' (no per-console HDKey outer layer); Azurik passes 0 from \
@@ -1234,7 +1234,7 @@ ai_hit_handler = """\
 The common AI hit handler, slot +0x18 of eight AI controller vtables (0x19FAE8, 0x19FEEC, 0x19FF28, 0x1A032C, \
 0x1A0510, 0x1A053C, 0x1A0838, 0x1A0B94); bosses have their own (the airship's 0x279B0 falls through to it at \
 0x27A37).  __thiscall: ECX the controller, the hit on the stack; RET 4 (0x38C91, 0x38D05, 0x39016) [verified \
-2026-10-22: ``azurik-mod xbe fn`` and ``find-refs --va 0x38C60 --data``; the same VA in Europe].  The player-model \
+2026-10-22: ``python -m devkit re xbe fn`` and ``find-refs --va 0x38C60 --data``; the same VA in Europe].  The player-model \
 drain shim (Step 2.153, X37) compares a toucher's controller's slot with it, so it passes only a common AI critter's \
 no-hit window."""
 critter_play_fx = """\
@@ -1242,14 +1242,14 @@ Plays an fx at a critter.  __thiscall: ECX the critter, the fx key (a string, e.
 stack; it plays it at the critter's bind interface (+0x170) through the fx system 0x649E0 and pops the key (RET 4 at \
 0x44166; PUSH ECX / PUSH EDI ... POP EDI / POP ECX).  Seven callers; the AI hit handler 0x38C60 plays a hit's visual \
 with it at 0x39006 (the victim species' critters_damage_fx key for the hit's damage record, S+0x90[index]), 0x37D16 \
-and 0x3A3D5 pass 0 [verified 2026-10-21: ``azurik-mod xbe fn`` and ``calls --to 0x440F0`` on both releases, the same \
+and 0x3A3D5 pass 0 [verified 2026-10-21: ``python -m devkit re xbe fn`` and ``calls --to 0x440F0`` on both releases, the same \
 VA in Europe, its inner callee 0x64990 there].  The player-model hit-fx shim (Step 2.132, X32) takes the CALL at \
 0x39006 and jumps to this."""
 move_query_clear = """\
 Clears a move query's struct before the move code fills it: EAX the struct, its +0x6C..+0x158 zeroed (its flag words \
 0x8000 and 0xCC set); clobbers ECX and EDX, keeps ESI (PUSH ESI ... POP ESI), plain RET at 0x308E2; no stack \
 argument.  Eight callers in each release; player_attack_root_motion (0x8C630) clears its stack query ([esp+0x40]) \
-with it at 0x8C728 (Europe 0x8C6D8) [verified 2026-10-21: ``azurik-mod xbe fn`` and ``calls --to 0x307E0`` on both \
+with it at 0x8C728 (Europe 0x8C6D8) [verified 2026-10-21: ``python -m devkit re xbe fn`` and ``calls --to 0x307E0`` on both \
 releases, the same VA in Europe].  The player-model attack-carry shim (Step 2.132, X33) takes that CALL and calls \
 this with EAX unchanged."""
 button_pressed_once = """\
@@ -1257,7 +1257,7 @@ Whether pad button ECX (0 A, 1 B, 3 jump, 4 BLACK: ControllerState +0x18 + 4 x E
 value above 0 with its latch (+0x48 + ECX) clear, which it then sets.  Real ABI: EDX = the ControllerState, ECX = \
 the button, returns AL, plain RET (0xA30EF, 0xA30F2), writes only AL and the latch.  Eight callers in each release: \
 the menus 0x55BDB-0x55D0D and the attack state's stamps 0x8D3E5, 0x8D406, 0x8D427 (Europe 0xA3250) [verified \
-2026-10-21: ``azurik-mod xbe fn`` and ``calls --to 0xA30D0``].  The player-model attack-carry shim (Step 2.140, X33) \
+2026-10-21: ``python -m devkit re xbe fn`` and ``calls --to 0xA30D0``].  The player-model attack-carry shim (Step 2.140, X33) \
 takes the A and B stamps' CALLs and calls this with ECX and EDX as the game set them."""
 player_air_attack_start = """\
 The airborne state's attack start: a press stamped under 0.3 s ago (PlayerControl +0xA0/+0xA8/+0xB0) or flagged \
