@@ -531,3 +531,32 @@ def test_shimkit_compiles_with_no_warning_and_no_shell_puts_double_math_on_x87_a
     src.write_text("#error simulated breakage\n", encoding="utf-8")
     with pytest.raises(RuntimeError, match="simulated breakage"):
         shimkit.compile(src)
+
+
+# --- Step 4.28a: Modkit's trampoline and float-parameter tests no test above pinned (test_trampoline_patch's
+# short site and missing .text, test_float_param_injection's AZ-172), ported leanly.
+
+
+def test_a_shim_that_cant_land_fails_its_site_by_name(usa_iso):
+    """Modkit's test_trampoline_patch and test_float_param_injection on the
+    engine: a trampoline at a facts site under 5 bytes, which can't hold its
+    rel32, and a shim declaring a parameter it can't read (qol_skip_logo's
+    object has no relocations, so nothing in it reads a slot: AZ-172) each
+    fail the pack, naming the site and why, so no layer is made; and an
+    XBE with no ``.text`` has no room for a shim, by name."""
+    with iso.Reader(usa_iso) as r:
+        vanilla = r.read("default.xbe")
+    pack = mods.PACKS["qol_skip_logo"]
+    short = min((s for s in facts.of(gate.USA).sites.values() if s.size < 5), key=lambda s: s.va)
+    cases = {dataclasses.replace(pack.sites[0], va=short.va, label="short"):
+             f"short at 0x{short.va:08X}: the facts' site is {short.size} B, too small for a rel32 call",
+             dataclasses.replace(pack.sites[0], floats=(engine.FloatParam("unused_scale", "_unused_scale"),)):
+             "the logo movie's call at 0x0005F6E5: its shim 'qol_skip_logo': it declares parameters, but the shim "
+             "has no relocations, so it reads none of them"}
+    for site, why in cases.items():
+        with pytest.raises(mods.PackError, match=f"^{re.escape(f"pack 'qol_skip_logo': 1 site(s) failed: {why}")}$"):
+            engine.plan(dataclasses.replace(pack, sites=(site,)), gate.USA, {"default.xbe": vanilla})
+    bare = bytearray(b"XBEH" + bytes(0x200))   # a header with no sections (Modkit's)
+    for build in (xbe.room, xbe.Carver):
+        with pytest.raises(ValueError, match=r"^the XBE has no \.text section$"):
+            build(bytes(bare))
