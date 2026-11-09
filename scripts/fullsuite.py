@@ -136,7 +136,8 @@ FLAKES = "AZURKIT_FLAKES"   # tests/_rerun.py's: the file a run appends each tes
 FLAKE_LEDGER, DEBT_LEDGER = "flakes.jsonl", "perf-debt.jsonl"   # kept beside the receipts, a row a flake or debt
 #: The flake stage (Step 4.4dx2): most lost CI rounds were tests a stack had just added or edited that failed only on
 #: CI's slow runners, so a changed-area run runs each such test again and again at their pace.
-FLAKE_RUNS = 5      # one that fails a run in three passes all five 13 % of the time ((2/3)^5); a run is a pytest start
+FLAKE_RUNS = 5      # one failing a try in three passes all five 55 % of the time ((8/9)^5: a run reruns a failure once,
+#                     tests/_rerun.py, as CI's does); a run is a pytest start
 #: The plugin that runs a test FLAKE_RUNS times in one session (``--flake-runs``), from the worktree (Step 4.4dx12):
 #: each case ``<id>[<its parameters>-flake-run-K]`` (:data:`REPEATED`), for a test that reaches no fixture of the
 #: suite's own wider than a test (``flake_repeat.starts_nothing_once``); the others keep a pytest start a run.
