@@ -49,7 +49,7 @@ may not, and game bytes are never printed in logs or chat.
 - Writing, applying or verifying a pack, slider or C shim: AGENTS.md's Packs (its "Patching and shims: what binds") and `docs/SHIMS.md`.
 - Measuring in xemu (gdbstub, input pipe, snapshots): `azurik-xemu-oracle`.
 - Ghidra or the MCP server: `azurik-ghidra-mcp`. Setup and Python version: `azurik-dev-environment`.
-- The `.xbr` byte format or authoring an XBR pack: `docs/XBR_FORMAT.md`, `docs/XBR_PACKS.md`.
+- The `.xbr` byte format or authoring an XBR pack: `docs/XBR_FORMAT.md` (its § "Packs and mods files that edit `.xbr` files").
 - Fixing a confirmed bug: `docs/ToDo/ISSUE_LEDGER.md`.
 - Test tiers, the simulator design or the edit contract: `docs/ToDo/REORG_PLAN.md` §12.2–§12.3.
 - Fps-unlock internals: `docs/RE_XBE.md` § "FPS unlock" and § "60 FPS patch re-audit (April 2026)", and `azurik_mod/patches/fps_unlock/__init__.py`.

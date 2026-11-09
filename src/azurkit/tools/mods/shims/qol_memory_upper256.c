@@ -1,7 +1,7 @@
 /* qol_memory_upper256: the RAM from 128 to 256 MiB, T3 of the upper heap
  * (D600, Step 2.162l), on top of qol_memory_upper64 and
  * qol_memory_upper64_gpu.  xemu only: v0.16.2 or later at mem_limit 256
- * (Modkit's docs/XEMU_ONLY.md).
+ * (docs/XEMU_ONLY.md).
  *
  * The run allocator 0xA4890 weighs every contiguous (mode-1) run against
  * the load budget (0xA48CC-0xA48E7: [0x1BF400] plus the rounded size

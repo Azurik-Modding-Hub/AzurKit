@@ -14,7 +14,7 @@ How to write, build and pin a patch that runs code of its own inside
 Azurik's `default.xbe`: a C shim compiled by zig, or a shim
 hand-assembled in Python. Which packs exist and what they do is
 [`PATCHES.md`](PATCHES.md); packs that edit `.xbr` files are
-[`XBR_PACKS.md`](XBR_PACKS.md); reverse-engineering findings are in
+[`XBR_FORMAT.md`](XBR_FORMAT.md#packs-and-mods-files-that-edit-xbr-files); reverse-engineering findings are in
 [`RE_MOVEMENT.md`](RE_MOVEMENT.md), [`RE_DATA.md`](RE_DATA.md) and
 [`RE_XBE.md`](RE_XBE.md). This file absorbed the shim authoring
 guide and the D1-extend design note in REORG_PLAN Step 3.3c.
