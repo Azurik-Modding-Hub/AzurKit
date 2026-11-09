@@ -633,6 +633,40 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
     assert "azurkit: Modkit mod: patches[0] damage/octo/damage: a retired" in capsys.readouterr().err
 
 
+def test_several_mods_files_build_in_order_and_each_later_overwrite_is_said(usa_iso, tmp_path, capsys):
+    """Step 4.24a (Modkit's ``patch --mod`` repeated): ``azurkit build --mods A --mods B`` applies A's edits, then
+    B's, each file's numbered; B's edit of a cell A set wins and the build names the conflict (D28), and the image
+    holds B's value and A's other edit. ``cli.merged`` joins the files' packs, a later file's slider, randomizer,
+    character, community pin and replaced file in place of an earlier one's, each overwrite a line; an equal
+    value or a new one is none."""
+    from azurkit.core.xbr import Document
+
+    a, b, out = tmp_path / "a.json", tmp_path / "b.json", tmp_path / "out.iso"
+    a.write_text(json.dumps({"_keyed_patches": {"damage": {"octo": {"Damage": 9}},
+                                                "settings_foo": {"initial hp": {"Value": 250}}}}), encoding="utf-8")
+    b.write_text(json.dumps({"_keyed_patches": {"damage": {"octo": {"Damage": 12}}}}), encoding="utf-8")
+    assert cli.main(["build", "--iso", str(usa_iso), "--out", str(out), "--no-defaults", "--mods", str(a),
+                     "--mods", str(b)]) == 0
+    said = capsys.readouterr().out.splitlines()
+    assert said[:2] == [f"mods {a}: data edits #1-#2", f"mods {b}: data edit #3"]
+    [conflict] = [line for line in said if line.startswith("conflict: ")]
+    assert "(#3 set damage/octo/Damage) overwrote data xbr, whose group #1 set damage/octo/Damage" in conflict
+    with iso.Reader(out) as r:
+        tables = Document(r.read("gamedata/config.xbr")).tables
+    assert (tables["damage"].find("octo", "Damage").value, tables["settings_foo"].find("initial hp", "Value").value
+            ) == (12, 250)
+    pin, put = {"id": "hard", "sha": "0" * 12}, {"path": "gamedata/a1.xbr", "sha256": "0" * 64, "size": 1}
+    mods, lines = cli.merged([
+        ("a", {"packs": {"fps_unlock": {"target_fps": 60}, "qol_skip_logo": {}}, "randomizer": {"seed": "1"},
+               "community": [pin], "files": [put]}),
+        ("b", {"packs": {"fps_unlock": {"target_fps": 120}}, "randomizer": {"seed": "1"},
+               "character": {"species": "keylord"}, "community": [pin | {"sha": "1" * 12}], "files": [put]})])
+    assert mods == {"packs": {"fps_unlock": {"target_fps": 120}, "qol_skip_logo": {}}, "randomizer": {"seed": "1"},
+                    "character": {"species": "keylord"}, "community": [pin | {"sha": "1" * 12}], "files": [put]}
+    assert lines == ["b's fps_unlock.target_fps replaces a's: the later mods file wins",
+                     "b's community pack hard replaces a's: the later mods file wins"]
+
+
 def test_a_modkit_mods_byte_edits_apply_in_order_each_checked_against_what_the_earlier_edits_left():
     """Step 4.6i (P19b): Modkit wrote a mod's edits in order over one
     buffer, each byte edit's original checked against what the earlier ones

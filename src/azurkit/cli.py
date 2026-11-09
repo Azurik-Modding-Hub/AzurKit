@@ -3,7 +3,7 @@ turns its flags into the sdk's JSON and prints what comes back.
 
     azurkit verify [--iso PATH ...]       is each image a release's vanilla one, every file of it?
     azurkit packs                         the packs: on by default or not, the releases, what each does, its sliders
-    azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
+    azurkit build --iso PATH --out PATH [--mods FILE ...] [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
                   [--pack-param PACK.SLIDER=VALUE ...]
                   [--seed SEED [--settings FILE | --share STRING] | --plan FILE] [--obsidian-cost N]
                   [--character JSON]
@@ -30,7 +30,10 @@ printing a line for each it moved (``mods.settle``); ``--no-defaults`` starts
 from none (no packs at all is the identity build). ``--mods FILE`` (Q268: a preset, an AzurKit build's manifest or a
 share link; what ``open`` prints) adds its xbr operations, and when it has
 a packs layer the build starts from its packs in place of those on by
-default. ``--pack-param`` sets a slider of a pack it applies, to
+default; several apply in their order (Modkit's ``patch --mod``): their
+packs joined, their edits one after another, and a later file's change to
+what an earlier one set (a slider, an edit's bytes, the randomizer, the
+character) wins and is said, D28's report. ``--pack-param`` sets a slider of a pack it applies, to
 any finite number (D23: never clamped). ``--seed`` randomizes the build:
 the plan (the seed under the default settings, a settings file's or a share
 string's, at the movement tier the build's movement sliders pick) is
@@ -162,6 +165,46 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
         {"character": mods["character"]} if mods and mods.get("character") else {})
 
 
+def merged(given: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
+    """Several mods files (each ``(path, sdk.read_mods'``) as one, applied in
+    their order (Modkit's ``patch --mod`` repeated): their packs joined, their
+    ``xbr`` operations one after another (a later one's write over an earlier
+    one's is the build's conflict, D28), their community packs and replaced
+    files joined by id and path, and a later file's slider value, randomizer,
+    character, community pin or replaced file in place of an earlier one's,
+    each such overwrite a line (D28's report: the later file wins)."""
+    out: dict = {}
+    said: list[str] = []
+    setter: dict[str, str] = {}
+
+    def take(what: str, path: str, old, new) -> None:
+        if what in setter and old != new:
+            said.append(f"{path}'s {what} replaces {setter[what]}'s: the later mods file wins")
+        setter[what] = path
+
+    for path, mods in given:
+        for name, params in mods.get("packs", {}).items():
+            held = out.setdefault("packs", {}).setdefault(name, {})
+            for slider, value in params.items():
+                take(f"{name}.{slider}", path, held.get(slider), value)
+                held[slider] = value
+        if "packs" in mods:
+            out.setdefault("packs", {})
+        for key in ("settled", "xbr"):
+            out[key] = [*out.get(key, []), *mods.get(key, [])]
+        for key in ("randomizer", "character"):
+            if key in mods:
+                take(key, path, out.get(key), mods[key])
+                out[key] = mods[key]
+        for key, field, what in (("community", "id", "community pack"), ("files", "path", "replaced file")):
+            for item in mods.get(key, []):
+                held = out.setdefault(key, [])
+                old = next((x for x in held if x[field] == item[field]), None)
+                take(f"{what} {item[field]}", path, old, item)
+                out[key] = [x for x in held if x[field] != item[field]] + [item]
+    return {key: value for key, value in out.items() if value or key == "packs"}, said
+
+
 def _randomizer(args: argparse.Namespace) -> dict | None:
     """The randomizer's flags as the sdk's recipe (``None`` without ``--seed``
     or ``--plan``, whose plan carries its own seed and settings: the sdk
@@ -200,7 +243,19 @@ def _replacing(flags: list[str], listed: list[dict]) -> tuple[list[dict], dict[s
 
 def _build(args: argparse.Namespace) -> int:
     try:
-        given = sdk.read_mods(Path(args.mods).read_bytes()) if args.mods else None
+        files = []
+        for path in args.mods:
+            try:
+                files.append((path, sdk.read_mods(Path(path).read_bytes())))
+            except ValueError as exc:
+                raise ValueError(f"{path}: {exc}" if len(args.mods) > 1 else str(exc)) from None
+        given, replaced_by = merged(files) if files else (None, [])
+        if len(files) > 1:   # the data edits' numbers each file's are, as a conflict names them
+            n = 0
+            for path, mods in files:
+                if k := len(mods.get("xbr", [])):
+                    print(f"mods {path}: data edits #{n + 1}-#{n + k}" if k > 1 else f"mods {path}: data edit #{n + 1}")
+                n += k
         made = recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given,
                       _randomizer(args), args.community)
         entries, picked = _replacing(args.file, (given or {}).get("files", []))
@@ -211,7 +266,7 @@ def _build(args: argparse.Namespace) -> int:
         return 1
     for layer in built["layers"]:
         print(f"{layer['id']}: {layer['sites']} sites, {layer['bytes']} B")
-    for conflict in built["conflicts"]:
+    for conflict in [*built["conflicts"], *replaced_by]:
         print(f"conflict: {conflict}")
     if (plan := built.get("randomizer")) is not None:
         print(f"randomizer: seed {plan['seed']!r}, share {plan['share']}, plan {plan['plan'][:12]}; the image "
@@ -481,8 +536,10 @@ def main(argv: list[str] | None = None) -> int:
                                          "packs on by default and each --pack, less each --no-pack, and write the "
                                          "image to --out. Nothing is written if any pack fails.")
     build.add_argument("--iso", required=True, metavar="PATH", help="the vanilla image")
-    build.add_argument("--mods", metavar="FILE", help="a mods file: a preset, an AzurKit build's manifest or a "
-                       "share link (azurkit open prints one); its packs, when it has them, replace those on by default")
+    build.add_argument("--mods", action="append", default=[], metavar="FILE",
+                       help="a mods file: a preset, an AzurKit build's manifest or a share link (azurkit open prints "
+                            "one); its packs, when it has them, replace those on by default (repeatable: applied in "
+                            "order, a later file's change to what an earlier one set wins and is said)")
     build.add_argument("--out", required=True, metavar="PATH", help="where to write the build (never the input)")
     build.add_argument("--pack", action="append", default=[], metavar="NAME", help="a pack to apply (repeatable)")
     build.add_argument("--no-pack", action="append", default=[], metavar="NAME",

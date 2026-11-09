@@ -252,7 +252,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Share links:** Copy link makes a short link with your packs, settings, seed and character, never your image or
   a path.
 - **Starts fresh each visit:** tick Remember settings to keep your setup for next time, never your image.
-- **Game data edits:** a mods file can set any value in `config.xbr` by name, or replace bytes in an XBR file.
+- **Game data edits:** a mods file can set any value in `config.xbr` by name, or replace bytes in an XBR file;
+  `azurkit build` takes several, applied in order, and says where a later one changes what an earlier one set.
 - **Modkit's mod files:** a mod file from Azurik_Modkit loads and builds too (its patches, sections,
   `_keyed_patches` and `xbr_edits`); what AzurKit can't apply as written is refused by name.
 - **Same bytes everywhere:** the page, the app and the command line make the identical image; only a character
@@ -303,7 +304,7 @@ lists every command.
 ```bash
 azurkit verify [--iso PATH]              # is it vanilla USA or Europe, every file of it?
 azurkit packs                            # the packs, and which a build applies by default
-azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] \
+azurkit build --iso PATH --out PATH [--mods FILE ...] [--pack NAME ...] [--no-pack NAME ...] \
     [--no-defaults] [--pack-param PACK.SLIDER=VALUE ...] \
     [--seed SEED [--settings FILE | --share STRING] | --plan FILE] [--obsidian-cost N] [--character JSON]
 azurkit open BUILD                       # a build's recipe, as a mods file for build --mods
