@@ -1089,7 +1089,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
       their sha256 (a re-record writes only the parts that moved), listed
       with the entry but left by Install for the Check that asks for one
       (`content.later`, which `web/content.mjs`'s `later` mirrors: Install
-      and the site's page start carry none of booblord's 99 MB). A part
+      and the site's page start carry none of booblord's 100 MB). A part
       neither the process nor `parts.STORE` holds is read from the content
       folder (a clone's), else fetched from the source its installed entry
       came from (`shipped.part` through `shipped.FETCH`: the sdk's `_later`
