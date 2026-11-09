@@ -7,9 +7,12 @@ the dress passed (D35), never inside the checkout (D36); ``inspect`` counts a
 body and names each budget it passes; ``export`` writes a body as glTF from
 the image or from a built ``characters.xbr``; ``jiggle`` and ``pose`` drive
 a dressed variant's springs with X41's twin (Step 4.15a3), ``rest`` poses
-its frozen mesh at other values. ``python -m devkit models fx LEAF``
-(Modkit's ``azurik-mod fx``) reads, plans and clones the fx graphs. Each
-reads the USA image."""
+its frozen mesh at other values; ``chains`` lists a body's hair and cloth
+chains and the spring rows X41 builds of them (Step 4.15a2: ``check``,
+``import``, ``clips`` and ``export --variant`` are pinned beside the engine
+they run, in ``tests/test_model_authoring.py``). ``python -m devkit models
+fx LEAF`` (Modkit's ``azurik-mod fx``) reads, plans and clones the fx
+graphs. Each reads the USA image."""
 
 from __future__ import annotations
 
@@ -372,6 +375,56 @@ def test_model_rest_poses_other_values_on_the_frozen_mesh_where_their_plans_put_
 
 FX_KEY = "characters/balthazar_airship/fx/fx_default"
 """The airship boss's (beamlord's base's) fx graph, TOC 115."""
+
+
+def test_model_chains_lists_her_sash_and_hair_with_rows_x41_builds(usa_iso, capsys):
+    """``model chains`` (Modkit's Step 2.169a, D536): town_female_2 (a
+    species: the body it wears) lists her hair_1..3 under her head and her
+    loincloth's two panels (booblord's tabard and tails), 4 links each to
+    their end node, each link's length to its child and the vertices it
+    weighs as the cloth design measured them, every clip keying each
+    chain's first link; her 11 rows are rows a recipe takes, and X41 builds
+    them each chained to the row above it, a level panel's travel none
+    along it (no stretch) and her slanted hair's a few mm, each cloth link
+    walled 5 mm off the clip's pose along its bind -up, the hair not.
+    hair_3 (an end whose vertices all lie behind its origin) swings about
+    booblord's tuned centre, 0.8 of hair_2 past it (D505).
+    balthazar_airship's hair_base_joint, a hub of 5 locks, is listed with
+    no row; a name that is no body is refused."""
+    from azurkit.tools.characters import jiggle, jiggle_rt, model_chains
+    from azurkit.tools.characters._player_variants import builtins
+    from azurkit.tools.characters.characters import bone_records, inverse_binds
+
+    code, said, _ = _run(capsys, "chains", "town_female_2", "--json", "--iso", str(usa_iso))
+    doc = json.loads(said)
+    assert (code, doc["species"], doc["body"], doc["clips"], doc["rows"]) == (0, "town_female_2", FEMALE_2, 5, 11)
+    chains = {c["root"]: c for c in doc["chains"]}
+    assert {r: ([li["bone"] for li in c["links"]], c["tip"], [li["vertices"] for li in c["links"]], c["keyed"])
+            for r, c in chains.items()} == {
+        "hair_1": (["hair_1", "hair_2", "hair_3"], None, [107, 48, 12], 5),
+        "loincloth_front_1": ([f"loincloth_front_{i}" for i in range(1, 5)], "loincloth_front_5", [24, 48, 48, 72], 5),
+        "loincloth_back_1": ([f"loincloth_back_{i}" for i in range(1, 5)], "loincloth_back_5", [36, 36, 48, 72], 5)}
+    assert [li["length"] for li in chains["loincloth_front_1"]["links"]] == pytest.approx(
+        [0.147, 0.183, 0.185, 0.381], abs=1e-3)
+    assert [li["stretch"] for li in chains["hair_1"]["links"]] == pytest.approx([0.0031, 0.0071, 0.0057], abs=2e-4)
+    data = image.read(usa_iso, "gamedata/characters.xbr")[0]
+    records, binds = bone_records(data, FEMALE_2), inverse_binds(data, FEMALE_2)
+    parents = [r.parent for r in records]
+    bones = [jiggle.Bone(r["role"], r["bone"], r["parent"], (), (), (), 0.0, 0.0, 0.0, 0.0, 0.0,
+                         spring=jiggle_rt.parse_spring(r["role"], r["spring"]))
+             for c in doc["chains"] for r in c["rows"]]
+    built = jiggle_rt.rows(jiggle_rt.spring_places([r.name for r in records], parents, binds, bones),
+                           {b.role: b.spring for b in bones}, binds, parents=parents)
+    assert [r.chain for r in built] == [-1, 0, 1, -1, 3, 4, 5, -1, 7, 8, 9]
+    assert all(r.spring.travel[1] == 0.0 < r.spring.travel[0] for r in built[3:7])
+    assert [r.spring.wall for r in built] == [None] * 3 + [(0.0, 0.0, -1.0, 0.005)] * 8
+    tuned = next(b for b in builtins()["booblord"].jiggle.springs if b.bone == "hair_3").spring.centre
+    assert built[2].centre == pytest.approx(tuned, abs=1e-4)
+    balthazar = {c["root"]: c for c in model_chains.chains(data, "balthazar_airship")["chains"]}
+    assert (balthazar["hair_base_joint"]["hub"], balthazar["hair_base_joint"]["rows"]) == (5, [])
+    assert sum(len(c["rows"]) for c in balthazar.values()) == 23
+    code, _, err = _run(capsys, "chains", "nobody_at_all", "--iso", str(usa_iso))
+    assert code == 1 and err.startswith("model chains: ")
 
 
 def _fx(capsys, *argv: str) -> tuple[int, str]:

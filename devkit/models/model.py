@@ -7,7 +7,14 @@ the ones ModelKit's adapter calls.
   on the verified vanilla image (D27), and writes its ``characters.xbr`` and
   ``index.xbr`` once the dress passed (D35).
 - ``inspect`` reports a body's counts, budgets and problems.
-- ``export`` writes a body as glTF 2.0 for Blender.
+- ``export`` writes a body as glTF 2.0 for Blender, or with ``--variant``
+  a variant's textures as its build recolours them, a PNG a material row
+  (Step 4.15a2).
+- ``check`` runs a build's checks on an edited glTF of a body and prints
+  the recipe row its ``mesh`` takes; ``import`` imports one with any
+  topology (or its weights) through the writer; ``clips`` imports a glTF's
+  animations as a body's clips; ``chains`` lists a body's hair and cloth
+  chains and the spring rows a recipe needs (Step 4.15a2).
 - ``jiggle`` previews a dressed variant's real-time springs (X41's twin,
   ``jiggle_rt``) over the physics scenarios and its clips (Step 4.15a3).
 - ``pose`` writes every bone's world each tick of its clips with those
@@ -17,11 +24,12 @@ the ones ModelKit's adapter calls.
 - ``preview`` renders a body's pictures with headless Blender.
 
 A leaf reads ``--iso``'s image, else the one AzurKit finds
-(``devkit.models.image``); ``inspect`` and ``export`` read any image, a
-build's too, or ``--characters`` (a built ``characters.xbr``: ``dress
---out``'s). What a leaf writes (``--out``) is a game asset: a new or empty
-folder (``pose``: a new file) outside this checkout and the images' folders
-(D36). It prints counts, sizes and ``sha256``, never a byte or a
+(``devkit.models.image``); ``inspect``, ``export`` and ``chains`` read any
+image, a build's too, or ``--characters`` (a built ``characters.xbr``:
+``dress --out``'s); ``check``, ``import`` and ``clips`` edit the image's
+vanilla body (D27). What a leaf writes (``--out``) is a game asset: a new or
+empty folder (``pose``, ``import``: a new file) outside this checkout and
+the images' folders (D36). It prints counts, sizes and ``sha256``, never a byte or a
 coordinate. A refusal is one ``model LEAF: ...`` line on stderr and exit
 1, as Modkit's; a usage error exits 2."""
 
@@ -131,9 +139,11 @@ def _inspect(args) -> int:
 def _export(args) -> int:
     """``export`` (Step 2.139, D332): the body as glTF 2.0
     (``gltf.export_body``), ``--clips`` a comma list; print counts and the
-    checks' numbers."""
+    checks' numbers. ``--variant`` (Step 2.203, D544): :func:`_export_variant`."""
     from azurkit.tools.characters import gltf
 
+    if args.variant is not None or args.body is None:
+        return _export_variant(args)
     try:
         characters, config, iso = _characters(args)
         inputs = (iso, *([Path(args.characters)] if args.characters else []))
@@ -162,7 +172,213 @@ def _export(args) -> int:
     return 0
 
 
-NO_SPRING = "has no jiggle bone with a real-time spring"
+def _export_variant(args) -> int:
+    """``export --variant`` (Step 2.203, D544): the variant's textures as
+    its build recolours them, one PNG per material row
+    (``colour_preview.rows``: the image's own body of its base, or for a
+    recipe whose build changes the body, ``colour_preview.dresses``, the
+    body ``dress`` dresses before its colours), written whole into ``--out``
+    (a new or empty folder outside the checkout and the images' folders,
+    D35, D36) once every row is made; each row's file, size and sha256 and
+    the recipe row an edited one takes printed."""
+    from azurkit.tools.characters import colour_preview, paint
+    from azurkit.tools.characters._player_variants import colour_folder
+
+    try:
+        if args.body is not None or args.variant is None:
+            raise ValueError("give BODY or --variant NAME (a variant's textures), not both" if args.body is not None
+                             else "give BODY, or --variant NAME for a variant's textures")
+        if args.clips or args.characters:
+            raise ValueError("--variant writes the variant's textures as its build recolours them: no --clips or "
+                             "--characters")
+        variant = _variant(args)
+        iso = image.find(args.iso)
+        out = image.output(args.out, iso)
+        colours = paint.located(variant.colours, colour_folder(variant)) if variant.colours else ()
+        if colour_preview.dresses(variant):
+            d = dressing.dress(colour_preview.uncoloured(variant), iso)
+            characters, body = bytes(d.game["characters.xbr"]), d.body.removeprefix("characters/")
+        else:
+            characters, config = image.read(iso, "gamedata/characters.xbr", "gamedata/config.xbr")
+            body = colour_preview.body_of(config, characters, variant.base)
+        rows = colour_preview.rows(characters, body, colours)
+        if not rows:
+            raise ValueError(f"{body} draws no texture")
+        pngs = colour_preview.pngs(variant.name, rows)
+        files = dressing.write(out, pngs, tuple(pngs))
+    except (OSError, ValueError) as exc:
+        return _refused("export", exc)
+    print(f"{variant.name} (a variant of {variant.base}, wearing {body}): {len(files)} rows' textures as its build "
+          f"recolours them -> {out}")
+    for (r, img), (name, (_, sha)) in zip(sorted(rows.items()), files.items()):
+        print(f"  row {r}: {img.shape[1]}x{img.shape[0]} {name} (sha256 {sha})")
+    print('an edited one, beside the recipe, is its row\'s first colours op: {"row": R, "ops": [{"op": "png", '
+          '"file": "<the file>", "sha256": "<its sha256 after the edit>"}]} (the row\'s other ops after it)')
+    return 0
+
+
+def _vanilla(iso: Path, why: str, *names: str) -> list[bytes]:
+    """The image's ``gamedata/characters.xbr`` and ``names``, once its
+    characters.xbr is vanilla (an edit is made on vanilla, D27)."""
+    from azurkit.tools.characters import gltf
+
+    files = image.read(iso, "gamedata/characters.xbr", *names)
+    if not gltf.vanilla_characters(files[0]):
+        raise ValueError(f"{iso}'s characters.xbr isn't vanilla: {why} (D27)")
+    return files
+
+
+def _worn(config: bytes, body: str) -> str:
+    """Who wears ``body``: the line ``check`` and ``import`` print."""
+    from azurkit.tools.characters import lods
+
+    worn = [w.species for w in lods.wearers(config, body)]
+    return (f"worn by {', '.join(worn)} (a build of the recipe keeps the NPCs a level places vanilla's, P2)" if worn
+            else "worn by no species")
+
+
+def _check(args) -> int:
+    """``check`` (Step 2.142): every check a build runs on ``args.file`` (an
+    edited glTF of ``args.body``) against the image's vanilla body
+    (``mesh_edit.plan``): what it would write, who wears the body and the
+    recipe row with the file's sha256; writes nothing."""
+    from azurkit.tools.characters import gltf, mesh_edit
+
+    try:
+        characters, config = _vanilla(image.find(args.iso), "an edit is checked against vanilla", "gamedata/config.xbr")
+        body, _ = gltf.resolve_body(characters, config, args.body)
+        path = Path(args.file).absolute()
+        sha = mesh_edit.file_sha256(path)
+        p = mesh_edit.plan(characters, body, mesh_edit.MeshSpec(gltf=(str(path), sha)))
+    except (OSError, ValueError) as exc:
+        return _refused("check", exc)
+    e = p.gltf
+    print(f"{p.body}: {e.vertices} glTF vertices for {p.vertices} ({e.merged} copies merged; ids from {e.carrier}"
+          f"{', y up' if e.swapped else ''})"
+          + (f"; ignored, no vertex id: {', '.join(e.ignored)}" if e.ignored else ""))
+    print(f"{len(p.positions)} vertices moved (up to {p.largest:.3f} model units), normals recomputed on "
+          f"{len(p.normals)}, {p.turned} triangles turned over")
+    print(_worn(config, p.body))
+    print(f'recipe row: "mesh": {{"gltf": {{"file": "{path.name}", "sha256": "{sha}"}}}}')
+    return 0
+
+
+def _import(args) -> int:
+    """``import`` (Step 2.154): ``args.file`` (an edited glTF of
+    ``args.body``) imported onto the image's vanilla body with any topology,
+    or its weights only (``--weights``), through the writer
+    (``gltf_import.read``, ``body_codec.write_asset``): what it kept,
+    changed, added and removed, the groups written and the recipe row; with
+    ``--out`` (a new file), the edited ``characters.xbr`` written whole."""
+    import os
+
+    from azurkit.tools.characters import body_codec, gltf, gltf_import
+
+    mode = "weights" if args.weights else "topology"
+    try:
+        iso = image.find(args.iso)
+        characters, config = _vanilla(iso, "an import is made onto vanilla", "gamedata/config.xbr")
+        body, _ = gltf.resolve_body(characters, config, args.body)
+        out = None
+        if args.out:
+            if (out := Path(args.out).absolute()).exists():
+                raise ValueError(f"--out {out} exists already; give a new file")
+            image.output(out, iso, file=True)
+        path = Path(args.file).absolute()
+        got = gltf_import.read(characters, body, path, mode)
+        written = body_codec.write_asset(characters, got.asset)
+        after = body_codec.read_asset(written, body).lods[0].groups
+        if out is not None:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            (part := out.with_name(f".{out.name}.part")).write_bytes(written)
+            os.replace(part, out)
+    except (OSError, ValueError) as exc:
+        return _refused("import", exc)
+    print(f"{body}: {got.vertices} glTF vertices imported ({mode}{', y up' if got.swapped else ''})"
+          + (f"; ignored, not skinned to it: {', '.join(got.ignored)}" if got.ignored else ""))
+    print(f"its vertices: {got.kept} kept, {got.changed} changed, {got.removed} removed, {got.added} added; "
+          f"{got.triangles} triangles; {got.new_groups} groups added, {got.removed_groups} removed")
+    if got.new_bones:
+        print(f"new bones: {', '.join(got.new_bones)}")
+    print(f"written: {len(after)} groups, {sum(len(g.vertices) for g in after)} vertices, "
+          f"{sum(len(g.triangles) for g in after)} triangles, the largest palette "
+          f"{max(len(g.palette) for g in after)}, "
+          f"characters.xbr {len(characters)} -> {len(written)} B" + (" (unchanged)" if written == characters else ""))
+    print(_worn(config, body))
+    print(f'recipe row: "mesh": {{"gltf": {{"file": "{path.name}", "sha256": "{got.sha256}", "import": "{mode}"}}}}')
+    if out is not None:
+        print(f"wrote {out}")
+    return 0
+
+
+def _clips(args) -> int:
+    """``clips`` (Step 2.154): the animations of ``args.file`` (all, or
+    ``--clips``) as clips of ``args.body`` from the image's vanilla
+    ``characters.xbr`` (``clip_import.read_clips``): each clip's tracks kept
+    and made, whether it replaces one, its keys before and after thinning,
+    its size and its root's travel, and a ``gltf`` clip's recipe row each;
+    with ``--out`` (a new or empty folder), the edited ``characters.xbr``
+    and ``index.xbr`` written whole (``clip_import.write_clips``)."""
+    from azurkit.tools.characters import clip_import, gltf, mesh_edit
+    from azurkit.tools.characters.retarget import write_clip
+
+    try:
+        iso = image.find(args.iso)
+        characters, config, index = _vanilla(iso, "clips are imported onto vanilla", "gamedata/config.xbr",
+                                             "gamedata/index/index.xbr")
+        body, _ = gltf.resolve_body(characters, config, args.body)
+        out = image.output(args.out, iso) if args.out else None
+        path = Path(args.file).absolute()
+        names = [c.strip() for c in args.clips.split(",") if c.strip()] if args.clips else None
+        got = clip_import.read_clips(characters, body, path, names)
+        written, indexed = clip_import.write_clips(characters, index, body, got)
+        sha = mesh_edit.file_sha256(path)
+        if out is not None:
+            dressing.write(out, {"characters.xbr": written, "index.xbr": indexed})
+    except (OSError, ValueError) as exc:
+        return _refused("clips", exc)
+    for c in got:
+        print(f"{body}/{c.name}: {'replaces its clip' if c.replaces else 'a new clip'}, {c.clip.length:.3f} s, "
+              f"{c.kept} bone tracks kept, {c.made} made from {c.channels} channels ({', '.join(c.interpolations)}"
+              + (f"; LINEAR rotations within {c.slerp_deg:.2g} degrees of slerp" if "LINEAR" in c.interpolations
+                 else "") + f"), {len(c.clip.markers)} marker tracks; keys {c.keys_before} -> {c.keys_after}, "
+              f"clip {len(write_clip(c.clip))} B; its root moves {c.root_travel:.3f} model units along the floor")
+        if not c.clip.markers:
+            print(f"  {c.name} has no marker track: an attack column needs box and active")
+    print(f"characters.xbr {len(characters)} -> {len(written)} B" + (" (unchanged)" if written == characters else "")
+          + (f", index.xbr +{len(indexed) - len(index)} B" if indexed != index else ""))
+    rows = ", ".join(f'"{c.name}": {{"generator": "gltf", "file": "{path.name}", "sha256": "{sha}", '
+                     f'"animation": "{c.name}"}}' for c in got)
+    print(f'recipe row: "clips": {{{rows}}}')
+    if out is not None:
+        print(f"wrote {out / 'characters.xbr'} and {out / 'index.xbr'}")
+    return 0
+
+
+def _chains(args) -> int:
+    """``chains`` (Step 2.169a, D536): ``model_chains.chains``' report on
+    ``args.body`` (a body or a species) in the image's characters.xbr or
+    ``--characters``: its hair and cloth chains, each link's length and
+    mass, the clips keying each chain and the ``jiggle.springs`` rows a
+    recipe would need (``--json``: one object, the species too)."""
+    from azurkit.tools.characters import gltf, model_chains
+
+    try:
+        characters, config, _ = _characters(args)
+        body, species = gltf.resolve_body(characters, config, args.body)
+        report = model_chains.chains(characters, body)
+    except (OSError, ValueError) as exc:
+        return _refused("chains", exc)
+    if args.json:
+        print(json.dumps(report | {"species": species}, indent=1))
+        return 0
+    if species:
+        print(f"{species} wears {body}")
+    print("\n".join(model_chains.lines(report)))
+    return 0
+
+
+NO_SPRING ="has no jiggle bone with a real-time spring"
 
 
 def _jiggle(args) -> int:
@@ -352,7 +568,54 @@ as animations, turned from z up to glTF's y up at the root. Reads the
 image's characters.xbr (any image) or --characters (a built one: dress
 --out's). The files are read back and checked against the game's model
 before they are kept; a failed check writes nothing. The files are game
-assets: never commit or share them."""
+assets: never commit or share them.
+
+--variant NAME writes a variant's textures instead, one PNG per material
+row, <NAME>_row<R>.png, as its build recolours them (its colours), at the
+texture's own size; an edited one is the row's colours png op
+(docs/VARIANTS.md)."""
+
+CHECK = """\
+Runs every check a build runs on FILE (a .glb or .gltf that export wrote and
+Blender or another tool moved vertices of) against BODY's vanilla mesh: the
+vertex ids, the skeleton and the mesh frame, the triangles, UVs and skin
+unchanged, no seam torn. Prints how many vertices it moves, who wears the
+body, and the recipe row with the file's sha256 for a variant's "mesh".
+Writes nothing."""
+
+IMPORT = """\
+Imports FILE (a .glb or .gltf that export wrote and Blender edited: new,
+moved or deleted vertices and triangles, new bones, painted weights) onto
+BODY's vanilla mesh, matched by its bones', materials' and vertices' names
+and ids, and writes it through the model toolkit's writer (new strips, a
+group past 31 bones split, the file grown in place). --weights takes only
+the skin weights (the same topology). Prints what it kept, changed, added
+and removed and the recipe row ("import": "topology" or "weights") for a
+variant's "mesh"; --out writes the edited characters.xbr (a game asset) for
+inspect and preview."""
+
+CLIPS = """\
+Reads FILE's animations (all, or --clips) as clips of BODY: each channel on
+a bone's node (a <bone>__scale helper's scale its bone's) becomes the clip's
+tracks (CUBICSPLINE keys as they are, LINEAR ones as straight runs, STEP
+ones held); an animation export wrote comes back byte for byte, a changed
+one keeps its clip's marker tracks, and every clip's pose is checked against
+the file's. A clip of that name is replaced, any other added under the body.
+--out (a new or empty folder outside the checkout) gets the edited
+characters.xbr and index.xbr (game assets), written once every clip is
+read."""
+
+CHAINS = """\
+Lists BODY's bone chains a variant's jiggle.springs rows could swing on X41
+(D536): its hair and its cloth (loincloth panels, booblord's sash and
+tabard, straps), found by their bones' names. Per chain: its links (each
+one's length, to its child or its vertices' reach, and mass: the LOD-0
+vertices it weighs at 0.25 or more and its weights' sum), its tip, and the
+clips keying its first link (one that doesn't shows the link unhung under a
+spring); then the rows a recipe would need, one a link that weighs a vertex,
+with a starting spring of its kind to tune with jiggle --set (a cloth link
+walled 5 mm off its clip's pose), against the 32 X41 holds. Reads the
+image's characters.xbr (any image) or --characters."""
 
 JIGGLE = """\
 Dresses VARIANT as dress does (writing nothing) and drives the twin of X41's
@@ -449,10 +712,36 @@ def parser() -> argparse.ArgumentParser:
                    help="the machine the lines are for: 128 (default, D588), 64 (a retail Xbox) or 256 (xemu at "
                         "mem_limit 256, with qol_memory_upper256); a built image without the packs keeps its lines")
     v = leaf("export", _export, "a body, its skeleton, skin, textures and clips as glTF 2.0", EXPORT)
-    v.add_argument("body", help="a body (barnacle, townspeople/female_2) or a species (town_female_2)")
+    v.add_argument("body", nargs="?", default=None,
+                   help="a body (barnacle, townspeople/female_2) or a species (town_female_2); none with --variant")
+    v.add_argument("--variant", default=None, metavar="NAME",
+                   help="a variant's textures as a PNG per material row: a built-in (booblord) or one of "
+                        "--variant-file's")
+    v.add_argument("--variant-file", default=None, metavar="PATH", help="a JSON file of variant recipes")
     v.add_argument("--out", required=True, metavar="DIR", help="a new or empty folder outside the checkout")
     v.add_argument("--clips", default=None, metavar="A,B", help="only these clips, by name (default: every clip)")
     characters(v)
+    v = leaf("check", _check, "an edited glTF a variant's mesh can take, checked; writes nothing", CHECK)
+    v.add_argument("body", help="a body (townspeople/female_2) or a species (town_female_2)")
+    v.add_argument("file", help="the edited .glb or .gltf")
+    v = leaf("import", _import, "an edited glTF with any topology (or its weights) imported and written", IMPORT)
+    v.add_argument("body", help="a body (townspeople/female_2) or a species (town_female_2)")
+    v.add_argument("file", help="the edited .glb or .gltf")
+    v.add_argument("--weights", action="store_true", help="take only the skin weights (and new bones); the same "
+                                                          "topology")
+    v.add_argument("--out", default=None, metavar="FILE",
+                   help="write the edited characters.xbr here (new, outside the checkout and the images' folders)")
+    v = leaf("clips", _clips, "a glTF's animations imported as a body's clips", CLIPS)
+    v.add_argument("body", help="a body (townspeople/female_2) or a species (town_female_2)")
+    v.add_argument("file", help="a .glb or .gltf with animations")
+    v.add_argument("--clips", default=None, metavar="A,B", help="only these animations, by name (default: every one)")
+    v.add_argument("--out", default=None, metavar="DIR",
+                   help="write characters.xbr and index.xbr into this new or empty folder")
+    v = leaf("chains", _chains, "a body's hair and cloth chains X41's springs could drive, and the rows a recipe "
+                                "needs", CHAINS)
+    v.add_argument("body", help="a body (townspeople/female_2) or a species (town_female_2)")
+    characters(v)
+    v.add_argument("--json", action="store_true", help="the report as JSON")
 
     def springy(v: argparse.ArgumentParser, recipe: bool = True) -> None:
         v.add_argument("variant", help="a variant: a built-in (booblord) or one of --variant-file's")
