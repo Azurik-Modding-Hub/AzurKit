@@ -563,10 +563,14 @@ def test_the_shim_data_a_build_declares_is_the_marker_x3_writes_each_tick(usa_is
     its shim's relocations, never a fixed address), holds the 0x34-byte marker
     X3 points critter+0x218 at and every SHIMS byte a tick of X3 writes, in
     the attack window and out of it, the marker's centre and window among
-    them; the vanilla XBE has none."""
+    them; the vanilla XBE has none. X12's attack hook and X44 share 0x7E3F0:
+    a farmer's default build (X12) and keylord's with the Axion staff (X44)
+    each declare the 0x40-byte key buffer of the one it landed there, and
+    the other's object at that hook raises nothing (AZ-688)."""
     from unicorn import UC_HOOK_MEM_WRITE
 
     from azurkit.core import xbe
+    from azurkit.tools.characters import _player_borrow as borrow
     from azurkit.tools.characters._player_damage_marker import DAMAGE_MARKER
     from devkit.sim.l2 import Sim
     from devkit.xemu import shim_ranges
@@ -596,6 +600,14 @@ def test_the_shim_data_a_build_declares_is_the_marker_x3_writes_each_tick(usa_is
         assert set(range(marker + 4, marker + 0x10)) | set(range(marker + 0x2C, marker + 0x34)) <= written
     with iso.Reader(usa_iso) as r:
         assert shim_ranges.player_model(r.read(characters.XBE)) == []
+    for recipe, hook, shim in (({"species": "town_male_farmer_1"}, borrow.ATTACK, borrow.SHIM),
+                               ({"species": "keylord", "sounds": "garret4", "weapon": "axion_staff"}, borrow.FIRST,
+                                borrow.FIRST_SHIM)):
+        _, base, layers, _, _ = sdk._plan({"iso": str(usa_iso), "character": recipe})
+        built = bytes(compose(base, layers)[0][characters.XBE])
+        with shim_ranges.building(built):
+            (lo, hi), = ports.trampoline_shim_data(built, hook, shim_source=shim.source_path())
+        assert hi - lo == 0x40 and (lo, hi) in shim_ranges.player_model(built), recipe["species"]
 
 
 @pytest.mark.parametrize("release", RELEASES)
