@@ -630,7 +630,7 @@ def suite_lint(trees: dict[str, ast.Module]) -> list[str]:
     the code it checks does: one asserting nothing, only ``len(x) >= 0``,
     only under an ``if`` or only a non-zero exit (AZ-073), one asserting on
     ``inspect.getsource`` text (AZ-066), and a skip on a constant condition
-    (AZ-065). An assertion is an ``assert``, a raise but SkipTest's, an
+    in any file, conftest and the helpers too (AZ-065). An assertion is an ``assert``, a raise but SkipTest's, an
     ``assert*`` or ``fail*`` call, ``pytest.raises`` or ``warns``, or a call
     of a helper (a function of ``trees``) that makes one; a nested ``def``
     asserts only when called, a lambda only as a call's argument."""
@@ -650,11 +650,11 @@ def suite_lint(trees: dict[str, ast.Module]) -> list[str]:
         helpers |= found
     hits = []
     for file, tree in trees.items():
-        if not file.startswith("test_"):
-            continue
         hits += [f"{file}:{n.lineno} {_called(n)}({ast.unparse(n.args[0])}): a skip on a constant condition"
                  for n in ast.walk(tree) if _called(n) in {"skipIf", "skipUnless", "skipif"} and n.args
-                 and isinstance(n.args[0], ast.Constant)]
+                 and isinstance(n.args[0], ast.Constant)]   # conftest's and the helpers' marks too
+        if not file.startswith("test_"):
+            continue
         for fn in ast.walk(tree):
             if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) or not fn.name.startswith("test"):
                 continue
@@ -736,7 +736,8 @@ def test_no_test_passes_whatever_the_code_it_checks_does():
              "    assert re.search('x', inspect.getsource(f))\n"
              "def test_all_in():\n"
              "    assert all(n in inspect.getsource(f) for n in names)\n")
-    assert suite_lint({"test_probe.py": ast.parse(probe)}) == [
+    helper = "slow = pytest.mark.skipif(True, reason='always')\n"
+    assert suite_lint({"test_probe.py": ast.parse(probe), "_helpers.py": ast.parse(helper)}) == [
         "test_probe.py:21 skipif(False): a skip on a constant condition",
         "test_probe.py:10 test_skip_raise: asserts nothing",
         "test_probe.py:12 test_uncalled_stub: asserts nothing",
@@ -744,7 +745,8 @@ def test_no_test_passes_whatever_the_code_it_checks_does():
         "test_probe.py:16 test_source: asserts on inspect.getsource text",
         "test_probe.py:24 test_dedented: asserts on inspect.getsource text",
         "test_probe.py:27 test_searched: asserts on inspect.getsource text",
-        "test_probe.py:29 test_all_in: asserts on inspect.getsource text"]
+        "test_probe.py:29 test_all_in: asserts on inspect.getsource text",
+        "_helpers.py:1 skipif(True): a skip on a constant condition"]
     trees = {p.name: ast.parse(p.read_text(encoding="utf-8"), str(p)) for p in sorted((ROOT / "tests").glob("*.py"))}
     assert suite_lint(trees) == []
 
