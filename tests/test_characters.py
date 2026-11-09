@@ -1167,6 +1167,22 @@ def test_a_recipe_on_garret4_plays_its_clips_in_his_columns_and_his_own_build_el
             "applied", "original", "original", *["original"] * len(SETS_HOOKS)]
 
 
+def test_a_recipe_on_garret4_fills_his_idle_jump_and_victory_slots(usa_iso, tmp_path):
+    """D813 (Modkit's Step 2.206): a recipe's idles, slots and victory_cancel on garret4's own body: X11 plays them
+    in his slots, X45 draws his fidgets' wait, X46 ends a victory at a push; default.xbe alone changes (his clips
+    and cells his own)."""
+    from azurkit.tools.characters._player_slots import HOOK as SLOTS_HOOK
+    from azurkit.tools.characters._player_slots import IDLE_HOOK
+    from azurkit.tools.characters._player_victory import CANCEL_HOOK
+
+    changed, files = _g4(usa_iso, tmp_path, {"idles": {"idle": "idle", "idle_1": "idle_3", "wait": [4, 8]},
+                                             "slots": {"jump": "jump_standing"}, "victory_cancel": 0.5})
+    assert list(changed) == [characters.XBE]
+    with _building(usa_iso):
+        assert [ports.verify_trampoline_patch(files[characters.XBE], h) for h in (SLOTS_HOOK, IDLE_HOOK,
+                                                                                  CANCEL_HOOK)] == ["applied"] * 3
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
