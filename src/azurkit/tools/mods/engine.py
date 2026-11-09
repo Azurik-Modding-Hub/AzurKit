@@ -536,8 +536,10 @@ class Xbe:
         obj, landed = shim(spec.shim), []
         try:
             placed, entry = coff.layout(obj, spec.symbol, self._place, self._facts.mangled(), self._extern(landed))
-            if (spec.tables or spec.floats) and not any(s.relocations for s in obj.sections):   # AZ-172
-                raise ValueError("it declares parameters, but the shim has no relocations, so it reads none of them")
+            text = next((s for s in obj.sections if s.name == ".text"), None)   # its code reads a slot by a relocation
+            if (spec.tables or spec.floats) and not (text and text.relocations):   # AZ-172
+                raise ValueError("it declares parameters, but the shim's .text has no relocations, so it reads "
+                                 "none of them")
             data = {p.index: bytearray(p.data) for p in placed}
             for param in (*spec.tables, *spec.floats):
                 symbol = obj.symbol(param.symbol)
