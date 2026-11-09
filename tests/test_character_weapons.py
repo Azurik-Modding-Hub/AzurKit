@@ -1391,12 +1391,14 @@ def test_booblords_default_weapon_is_the_axion_staff_and_her_spins_a_pick(usa_is
 
 def test_an_own_copy_of_booblord_builds_what_its_weapon_box_says_and_its_edits_build_or_are_refused(
         usa_iso, booblord, tmp_path, monkeypatch):
-    """New from this on booblord (``library.own_copy``; Modkit's Step 2.209's review, 1 and 2) leaves her Axion staff
-    out, and her notes (your own kept), so the copy's default plays its own spins (its Weapon box's one default: its
-    bare hands) and its Attacks numbers reach the build; a copy of her recipe with the staff loads, its Bare hands
-    pick builds bare hands with 1.0 hits, and an edit of her moveset under the staff is refused (it would play in no
-    build), as moves of its own are (D585); a recipe from her keeps the staff."""
+    """New from this on booblord (``library.own_copy``; Modkit's Step 2.209's review, 1 and 2) and ``devkit models
+    edit --from booblord`` (``edit._seed``) leave her Axion staff out, and her notes (your own kept), so the copy's
+    default plays its own spins (its Weapon box's one default: its bare hands) and its Attacks numbers reach the
+    build; a copy of her recipe with the staff loads, its Bare hands pick builds bare hands with 1.0 hits, and an edit
+    of her moveset under the staff is refused (it would play in no build), as moves of its own are (D585); a recipe
+    from her keeps the staff."""
     from azurkit.tools.characters import library
+    from devkit.models import edit
 
     monkeypatch.setenv(library.ENV, str(tmp_path / "lib"))
     characters_xbr = _vanilla(usa_iso, CHARACTERS)
@@ -1408,6 +1410,8 @@ def test_an_own_copy_of_booblord_builds_what_its_weapon_box_says_and_its_edits_b
     assert ({"weapon", "notes"} & recipe.keys(), copy.columns) == (set(), builtins()["booblord"].columns)
     yours = library.own_copy("yours", {"from": "booblord", "notes": "x"})
     assert json.loads(yours.read_text(encoding="utf-8"))["yours"]["notes"] == "x"
+    (tmp_path / "work").mkdir()
+    assert not {"weapon", "notes"} & edit._seed("mine", "town_female_2", None, "booblord", tmp_path / "work").keys()
     assert [name for name, fit in fits.items() if fit == "default"] == ["bare_hands"] and fits["booblord_spin"] == GOOD
     edited = {**recipe, "attacks": {**recipe["attacks"], "damage": 2.0}}
     assert options(load_variants(json.dumps({"mine": edited}), "test")["mine"])["attack_damage"] == 2.0
