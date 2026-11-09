@@ -74,8 +74,9 @@ def test_a_shim_built_against_the_facts_header_lands_with_each_call_at_its_facts
     are exactly the facts' functions as C mangles them, and laid out
     (``coff.layout``) each word of its table holds that function's address
     and the call's rel32 reaches it; its table, in .data, lands writable,
-    its code not. The repo tracks no header but a shim's own beside it, and a
-    shim includes only those and the two shimkit writes from the facts (no
+    its code not. The repo tracks no header but a shim's own beside it and the
+    RE data's ``structs.h`` (the developer side's, D990), and a shim includes
+    only its own and those shimkit writes from the facts, never that one (no
     GPL vendor header, Q85: ``azurik_kernel.h`` names the facts' kernel
     exports, a variable as an import); the facts carry AZ-116's corrected
     names."""
@@ -102,10 +103,11 @@ def test_a_shim_built_against_the_facts_header_lands_with_each_call_at_its_facts
     assert sorted(given) == [False, True] and len(placed) == 2
     tracked = subprocess.run(["git", "-C", str(shimkit.ROOT), "ls-files", "*.h"], capture_output=True, text=True,
                              check=True).stdout.split()
-    own = {Path(h).name for h in tracked}
+    shims = shimkit.SHIMS.relative_to(shimkit.ROOT)
+    own = {Path(h).name for h in tracked if Path(h).parent == shims}
     included = {h for folder in shimkit.FOLDERS for p in folder.glob("*.[ch]")
                 for h in re.findall(r'#include\s*[<"]([^>"]+)', p.read_text())}
-    assert all(Path(h).parent == shimkit.SHIMS.relative_to(shimkit.ROOT) for h in tracked)
+    assert [h for h in tracked if Path(h).parent != shims] == ["devkit/re/data/structs.h"]
     assert included <= {*shimkit.HEADERS, *own} and not own & set(shimkit.HEADERS)
     kernel = facts.of(gate.USA).kernel
     assert [line.split("/*")[0].strip() for line in shimkit.kernel_header().splitlines() if "/* ordinal" in line] == [
