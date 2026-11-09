@@ -109,47 +109,51 @@ The next session starts here (D1192), so 1.1 can follow.
 
 ## 4. Modkit's delete and the switch, if this session didn't finish them
 
-When this list was written, Modkit's checkout was still in place and none
-of these was done.
+When this list was written, Modkit's checkout was still in place. Of
+these, only 4.1's content install and proof round and 4.3's rename,
+rewrite and link were done.
 
 1. **ModelKit's re-point** (4.15a8, D1183, D1188): the lane
    `mk/4.15a8-azurkit-repoint` (17637b2, reviewed with no defect) isn't
-   pushed. In order:
+   pushed. Done: `uv run --locked azurkit content install booblord`
+   (booblord v5) and the proof round on `profiles/booblord` on AzurKit's
+   `main` 6a99347f (round new, build, measure `--tier gate`, sheet: PASS,
+   no fix, reviewed with no defect), which also ran `model pose`. Left, in
+   order:
    - before Modkit is deleted, re-install ModelKit's leak guard
      (`hooks/leak_guard.py --install --forbidden`) with AzurKit's
      byte-equal `src/azurkit/core/manifests/usa.json` and `europe.json`.
      Its forbidden list names Modkit's manifests, so once they are gone
      every ModelKit push is refused;
-   - `uv run --locked azurkit content install booblord`, or every booblord
-     build is refused (her clips and sounds aren't installed);
-   - one proof round on `profiles/booblord` on AzurKit's `main`: round new,
-     build, measure `--tier gate`, sheet (headless Blender);
    - then push the lane over SSH to ModelKit's private repo's `main`,
-     fast-forward its main checkout and run `modelkit install-skill`.
-   Never tested there: `model pose`, `model rest` through `kit/rest.py`, and
-   v4kit's user build cache. Her new base file sits in that step's
-   evidence, outside ModelKit's repo. Nit: `test_azurik_adapter`'s runner
-   stand-in still handles `--export`.
+     fast-forward its main checkout and run `modelkit install-skill`;
+   - if wanted, undo the content install: remove the user data folder's
+     `content/` booblord folders (variants, clips, sounds) and its
+     `installed.json`.
+   Never tested there: `model rest` through `kit/rest.py` and v4kit's user
+   build cache. Her new base file sits in that step's evidence, outside
+   ModelKit's repo. Nit: `test_azurik_adapter`'s runner stand-in still
+   handles `--export`.
 2. **Memory** (D1187, D1171): copy the shared memory folder to AzurKit's
    project slug, point AzurKit's and ModelKit's `autoMemoryDirectory` at it
    (both still named Modkit's slug), keep the old folder as history, and
    show the owner the MEMORY.md diff in chat. The resume pointer (still
    session 4718988a, 11-01) and the repo-layout memory change with it.
-3. **The xemu fixtures** (D1177): rename the fixtures folder to
-   `Azurik-fixtures` beside the checkouts. Rewrite the absolute paths in
-   its `xemu.toml` and that file's line in its `SHA256SUMS.txt`. Make the
-   user data folder's `xemu-fixtures` link (devkit's harness default),
-   check the sums, then run a smoke boot. 4.17a's report has the commands
-   and the revert.
+3. **The xemu fixtures** (D1177): done: the fixtures folder is renamed
+   `Azurik-fixtures` beside the checkouts, the absolute paths in its
+   `xemu.toml` and that file's line in its `SHA256SUMS.txt` are rewritten,
+   and the user data folder's `xemu-fixtures` link (devkit's harness
+   default) points at it. Left: check the sums, then run a smoke boot (no
+   record of either). 4.17a's report has the commands and the revert.
 4. **Tags** (G8): `oracle-rando-6` at 8bfef0ca6 (AGENTS.md cites it) and
    `modkit-final` at Modkit's last commit, pushed to Modkit's GitHub repo
    before it is archived.
 5. **The delete** (D1171, D1189): G11's checks from AzurKit inside the
    session. Then remove the one exact Modkit checkout path, never a glob
-   (the `-fixtures` and `-lanes` folders share its prefix), and put an
-   empty folder back for the wrap-up; the owner removes it. Leave ghidra,
-   ghidra-backups, the evidence folder, the user data folder and the old
-   memory folder alone.
+   (the `-lanes` folder and any other `Azurik_Modkit*` folder share its
+   prefix), and put an empty folder back for the wrap-up; the owner removes
+   it. Leave ghidra, ghidra-backups, the evidence folder, the user data
+   folder and the old memory folder alone.
 6. **Modkit's `$EV` tools** retire with it: fullsuite.py's Modkit path,
    suite_rules.py, suite_graph.py, the modkit profile, landq's Modkit half
    and the `.before-*` copies. Keep the evidence folder's suite-receipts:
