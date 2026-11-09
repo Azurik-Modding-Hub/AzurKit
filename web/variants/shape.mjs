@@ -213,17 +213,19 @@ export function shapeTab(ctx) {
   };
 
   // A Check answered: its pictures held at the values it checked (the nearest's exact one), and a let-go that came while
-  // it ran previews now (Modkit's _check_again).
+  // it ran previews now (Modkit's _check_again); a drag that moved its shapes' values while it ran or drew shows the
+  // nearest again, marked Preview, never those pictures as built.
   const checked = () => {
-    const answer = v.checked?.[1];
+    const answer = v.checked?.[1], recipe = v.checked ? JSON.parse(v.checked[0]) : null;
     t.shown = null;   // the views show the Check's pictures now
     if (answer && !answer.refusal && answer.front && t.shapes.length) {
-      const recipe = JSON.parse(v.checked[0]);
       hold(values(recipe), unshaped(recipe), answer.front, answer.back, true);
     }
     if (t.after) {
       t.after = false;
       letGo();
+    } else if (recipe && t.shapes.length && unshaped(recipe) === unshaped(v.recipe) && away(values(recipe), values())) {
+      nearest();
     }
   };
 

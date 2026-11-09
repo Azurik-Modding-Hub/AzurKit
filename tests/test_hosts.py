@@ -1440,7 +1440,8 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
         browser, tmp_path, monkeypatch, usa_iso):
     """Step 4.6d in the app's page, the image picked (Modkit's Shape and Jiggle tabs): a recipe on town_female_2
     whose one shape sizes her pelvis (its JSON tab's Apply) is checked with game data when its slider is first let
-    go (no Check yet: the build's own dress); a drag after it shows that Check's pictures at once, marked Preview,
+    go (no Check yet: the build's own dress); a drag after it shows that Check's pictures, marked Preview, at once or,
+    begun while they are still drawn, once they land (never as built: the perf gate's A96 and S82 waited on it),
     and once let go the engine's quick preview of the new value (the Check's dress, its vertices moved), still
     marked; back at the checked value, the Check's pictures unmarked, nothing asked; its JSON's Apply of a mesh edited
     beyond its shapes, then a drag back at that value, checks it again (Modkit's _base_key). A recipe from booblord, not
@@ -1478,13 +1479,21 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
         _page.click(page, "var-tab-shape")
         _page.until(page, "() => document.getElementById('var-shape-hips') && !document.getElementById('var-check')"
                           ".disabled", 120)
-        page.evaluate(VARIANTS_DRAG, ["hips", [1.1, 1.2]])   # no Check yet: let go, the Check
+        held = []   # its pictures, held till a drag moves on from its values (Step 4.29)
+        page.route("**/api/variant_pictures", lambda route: held.append(route))
+        with page.expect_request("**/api/variant_pictures", timeout=600_000):
+            page.evaluate(VARIANTS_DRAG, ["hips", [1.1, 1.2]])   # no Check yet: let go, the Check
         _variants_shown(page, status="checked: it builds")
-        _page.until(page, f"() => ({pictured})()[0] === 'From the front and from behind, as it builds.'", 60)
-        page.evaluate("""() => { const track = document.getElementById('var-shape-hips').previousElementSibling;
-            track.value = '1.4'; track.dispatchEvent(new Event('input', { bubbles: true })); }""")
-        assert _page.until(page, f"() => ({pictured})()[1] && ({pictured})()") == [
-            "Preview: the nearest shape drawn. Let go to preview these values.", True]
+        dragged = """(x) => { const track = document.getElementById('var-shape-hips').previousElementSibling;
+            track.value = x; track.dispatchEvent(new Event('input', { bubbles: true })); }"""
+        page.evaluate(dragged, "1.3")   # before its pictures land
+        assert len(held) == 1
+        held[0].continue_()
+        page.unroute("**/api/variant_pictures")
+        nearest = ["Preview: the nearest shape drawn. Let go to preview these values.", True]
+        assert _page.until(page, f"() => ({pictured})()[1] && ({pictured})()") == nearest
+        page.evaluate(dragged, "1.4")   # after
+        assert page.evaluate(pictured) == nearest
         page.evaluate("""() => document.getElementById('var-shape-hips').previousElementSibling
             .dispatchEvent(new Event('change', { bubbles: true }))""")
         assert _page.until(page, f"() => ({pictured})()[0].startsWith('A quick preview') && ({pictured})()", 120)[1]
