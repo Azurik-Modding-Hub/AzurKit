@@ -75,6 +75,8 @@ class XbrEditor:
         NUL must fit the old one's bytes and NUL, the rest NULs."""
         if not new.isascii():
             raise XbrEditError(f"new string {new!r} contains non-ASCII characters; an XBR's strings are ASCII")
+        if not 0 <= offset < len(self._data):    # a negative one would index from the end and grow the file (L34)
+            raise XbrEditError(f"replace_string_at out of range: offset={offset:#x} file_size={len(self._data):#x}")
         end = self._data.find(0, offset)
         if end < 0:
             raise XbrEditError(f"no NUL terminator after offset 0x{offset:x}")

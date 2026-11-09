@@ -551,8 +551,10 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
     has nothing to do; a null or empty shape is none, as Modkit read it,
     and its text may nest groups past a link's cap and give a key twice (the
     last kept), as Python's json read it, where a preset's text may not.
+    An edit names its file by ``xbr_file``, ``file`` or ``filename``.
     Every refusal names its edit and why, the whole mod's
-    in one message (D35): a retired registry.json name (AZ-123's and
+    in one message (D35): an unknown op, a file no release has, an offset,
+    value or column of the wrong type (AZ-180), a retired registry.json name (AZ-123's and
     AZ-167's, naming the cell it wrote), a typo'd shape (AZ-215), a value or
     cell a build refuses, ``level_patches``, a level byte edit with no
     original, a stale original or source hash (AZ-214), an unknown key."""
@@ -586,6 +588,8 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
             "value": "00" * 4}]
     text = json.dumps(mod)
     assert sdk.read_mods(text) == {"xbr": ops}
+    named = {("filename" if k == "file" else k): v for k, v in mod["xbr_edits"][1].items()}   # Modkit's older key
+    assert sdk.read_mods(json.dumps({"xbr_edits": [named]})) == {"xbr": [ops[4]]}
     assert sdk.mods_file({"text": text})["preset"]["layers"] == [{"tool": "data", "kind": "xbr",
                                                                    "recipe": {"ops": ops}}]
     assert sdk.read_mods(json.dumps({"patches": mod["patches"], "_keyed_patches": None, "xbr_edits": None,
@@ -622,6 +626,16 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
             "xbr_edits[0] (replace_bytes on config.xbr): at 0x",
         json.dumps({"source_hashes": {"a1.xbr": "0" * 64}, "xbr_edits": []}):
             "source_hashes: a1.xbr is not the file the mod was made from",
+        json.dumps({"xbr_edits": [{"op": "totally_not_a_real_op", "xbr_file": "config.xbr"}]}):
+            "xbr_edits[0] (totally_not_a_real_op on config.xbr): unknown op 'totally_not_a_real_op'",
+        json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"file": "not_a_real_file.xbr"}]}):
+            "xbr_edits[0] (replace_bytes on not_a_real_file.xbr): no release has an XBR file 'not_a_real_file.xbr'",
+        json.dumps({"xbr_edits": [mod["xbr_edits"][1] | {"offset": True}]}):   # Modkit's AZ-180: not offset 1
+            "xbr_edits[0] (replace_bytes on a1.xbr): offset True is not a non-negative integer",
+        json.dumps({"xbr_edits": [mod["xbr_edits"][0] | {"value": "7.5"}]}):
+            "xbr_edits[0] (set_keyed_double on config.xbr): value: '7.5' is not a finite number",
+        json.dumps({"xbr_edits": [mod["xbr_edits"][0] | {"col": True}]}):
+            "xbr_edits[0] (set_keyed_double on config.xbr): col True is not a column's index",
     }
     for given, why in refused.items():
         with pytest.raises(ValueError, match="^" + re.escape(f"Modkit mod: {why}")):

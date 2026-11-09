@@ -11,11 +11,17 @@ from the USA image."""
 from __future__ import annotations
 
 import json
+import re
 import struct
+import time
+from collections import Counter
 from pathlib import Path
+
+import pytest
 
 from azurkit.core import iso
 from azurkit.core.xbr import Document
+from azurkit.core.xbr.nodes import parse_toc
 from azurkit.tools import data, mods
 from azurkit.tools.mods import Pack, XbrParametricEdit
 from devkit.xbr import diff, edit, inspect, verify, xref
@@ -80,7 +86,7 @@ def test_diff_reports_tag_sizes_strings_and_in_place_changes_and_exits_1_when_th
     """Modkit's AZ-143: a same-size value edit is an in-place change of its
     entry (its first differing offset, how many bytes), a header-only one
     still differs; a grown tag and a new string show; the same file is no
-    change, exit 0; a folder is one line, exit 1 (AZ-121)."""
+    change, exit 0; a folder or a missing file is one line, exit 1 (AZ-121)."""
     before = xbr(("tabl", bytes(16)), ("node", bytes(16)))
     node = len(before) - 16
     edited = bytearray(before)
@@ -101,14 +107,15 @@ def test_diff_reports_tag_sizes_strings_and_in_place_changes_and_exits_1_when_th
     code, out, _ = run(capsys, diff, a, tmp_path / "d.xbr")
     assert code == 1 and "Size delta: +16 B" in out and "~ tag 'node'  16 → 32 B  (+16)" in out
     assert "    + 'lamppost'" in out
-    code, _, err = run(capsys, diff, tmp_path, a)
-    assert code == 1 and one_line(err, "diff")
+    for path in (tmp_path, tmp_path / "missing.xbr"):
+        code, _, err = run(capsys, diff, path, a)
+        assert code == 1 and one_line(err, "diff")
 
 
 def test_edit_writes_strings_bytes_and_cells_into_a_new_file_only_whole(tmp_path, capsys):
     """--set-string with --tag rewrites that tag's copy only (AZ-124's
-    framing); a string past its slot, bytes past the file, a bad spec and a
-    NaN are refused, one line, exit 1, with nothing written; the input is
+    framing); a string past its slot, bytes past the file or before it (a
+    negative offset), a bad spec and a NaN are refused, one line, exit 1, with nothing written; the input is
     never the output (AZ-152, D36); config.xbr's number and string cells are
     written by the file's names, the damage table's too (Modkit's model
     couldn't, its Q160), and the result parses whole."""
@@ -121,9 +128,12 @@ def test_edit_writes_strings_bytes_and_cells_into_a_new_file_only_whole(tmp_path
     want[len(before) - 16:len(before) - 12] = b"bulb"
     assert code == 0 and out.read_bytes() == bytes(want) and "OK  replace_string_at" in log
     for argv in (("--set-string", "lamp=lamppost"), ("--replace-bytes", f"{len(before) - 2}:AAAAAAAA"),
-                 ("--set-string", "lamp"), ("--set-value", "nonsense")):
+                 ("--replace-bytes=-2:AAAA",), ("--set-string", "lamp"), ("--set-value", "nonsense")):
         code, _, err = run(capsys, edit, src, tmp_path / "no.xbr", *argv)
         assert code == 1 and one_line(err, "edit") and not (tmp_path / "no.xbr").exists(), argv
+    for at in (-10, len(before)):    # never from the end, which grew the file (Modkit's L34)
+        with pytest.raises(edit.XbrEditError, match="out of range"):
+            edit.XbrEditor(before).replace_string_at(at, "AB")
     code, _, err = run(capsys, edit, src, src, "--set-string", "lamp=bulb")
     assert code == 1 and one_line(err, "edit") and src.read_bytes() == before
     code, _, err = run(capsys, edit, CONFIG, tmp_path / "no.xbr", "--set-value", "damage/norm_1/Damage=nan")
@@ -181,10 +191,38 @@ def test_the_xbr_verbs_read_the_games_level_files(usa_iso, tmp_path, capsys):
     """On the USA image's levels: a1's 2,696 entries parse whole with no
     modelled pointer (every tag but tabl and indx is unmodeled); w1's surf
     records are 16 bytes, detected; w1 against w2 shrinks, every level tag
-    changes size and hundreds of strings differ."""
+    changes size and hundreds of strings differ. Modkit's TOC invariants: a1,
+    w1 and town hold every level tag, one levl and one node (town two);
+    hourglass is 20 surf entries of 52 and 1,152 B; fx holds 113 effects (a
+    node, ndbg, sprv and gshd each); their nodes' strings hold a1's key_air*,
+    w1's levels/, speech/ or loc/english paths, town's levels/ ways out and
+    fx's *_timer names; and town's surf scan takes under 2 s of CPU (AZ-231:
+    a loaded host adds waiting, not work)."""
+    tags, strings = {}, {}
     with iso.Reader(usa_iso) as r:
-        for name in ("a1", "w1", "w2"):
-            (tmp_path / f"{name}.xbr").write_bytes(r.read(f"gamedata/{name}.xbr"))
+        for name in ("a1", "w1", "w2", "town", "hourglass", "fx"):
+            data = r.read(f"gamedata/{name}.xbr")
+            if name in ("a1", "w1", "w2"):
+                (tmp_path / f"{name}.xbr").write_bytes(data)
+            toc = parse_toc(data)
+            tags[name] = Counter(e.tag for e in toc), {e.size for e in toc}
+            strings[name] = {text for e in toc if e.tag == "node" for _, text in diff.find_strings_in_region(
+                data, e.file_offset, e.size, min_len=8 if name == "fx" else 6)}
+            if name == "town":
+                surf, start = [e for e in toc if e.tag == "surf"], time.process_time()
+                for e in surf:
+                    diff.find_strings_in_region(data, e.file_offset, e.size)
+                scan = len(surf), time.process_time() - start
+    level = {"levl", "node", "ndbg", "gshd", "surf", "rdms", "tern", "pbrw", "pbrc", "sprv", "wave"}
+    assert [(level <= set(tags[n][0]), tags[n][0]["levl"], tags[n][0]["node"]) for n in ("a1", "w1", "town")] == [
+        (True, 1, 1), (True, 1, 1), (True, 1, 2)]
+    assert (dict(tags["hourglass"][0]), tags["hourglass"][1]) == ({"surf": 20}, {52, 1152})
+    assert [tags["fx"][0][t] for t in ("node", "ndbg", "sprv", "gshd")] == [113] * 4
+    assert any("key_air" in text for text in strings["a1"])
+    assert any(re.search(r"levels/|speech/|loc/english", text) for text in strings["w1"])
+    assert any(text.startswith("levels/") for text in strings["town"])
+    assert any(text.endswith(("_timer", "Timer")) for text in strings["fx"])
+    assert scan[0] == 349 and scan[1] < 2.0
     code, out, _ = run(capsys, xref, tmp_path / "a1.xbr")
     assert code == 0 and "Total refs: 0" in out and "  'surf': 179 entries" in out
     assert run(capsys, verify, tmp_path / "a1.xbr")[1] == (
@@ -194,3 +232,19 @@ def test_the_xbr_verbs_read_the_games_level_files(usa_iso, tmp_path, capsys):
     found = diff.diff_xbr(tmp_path / "w1.xbr", tmp_path / "w2.xbr")
     assert found.total_size_delta < 0 and {"surf", "rdms", "node", "levl"} <= set(found.size_deltas)
     assert len(found.string_changes) > 100
+
+
+# --- Step 4.28g: Modkit's string scan (test_xbr_toc_scan) -----------------------------------------------------------
+
+
+def test_the_string_scan_takes_nul_ended_runs_of_its_length_with_a_letter_unless_told_otherwise():
+    """Modkit's ``find_strings_in_region`` (``xbr diff``'s scan): a run with no NUL after it is no string,
+    ``min_len`` drops the shorter, and a run with no letter is dropped unless ``require_alpha`` is off."""
+    data = b"\x00hello\x00world_foo\x00\x00hi\x00verylongstring\x00$|._\x00!@#$%^\x00unended"
+
+    def found(**kw) -> list[tuple[int, str]]:
+        return diff.find_strings_in_region(data, 0, len(data), **kw)
+    assert found(min_len=4) == [(1, "hello"), (7, "world_foo"), (21, "verylongstring")]
+    assert found(min_len=10) == [(21, "verylongstring")]
+    assert found(min_len=4, require_alpha=False) == [(1, "hello"), (7, "world_foo"), (21, "verylongstring"),
+                                                     (36, "$|._"), (41, "!@#$%^")]

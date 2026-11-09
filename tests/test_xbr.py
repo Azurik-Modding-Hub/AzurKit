@@ -123,7 +123,8 @@ def test_a_cell_edit_writes_only_its_cell_and_refuses_by_name():
     and not in a row of strings; a name finds its last column, an index
     another; a text the table holds is pointed at, a new one rewrites an
     unshared string in place if it fits (its NULs counted only up to its
-    table's payload end, not into the zeros after the last table); and
+    table's payload end, not into the zeros after the last table; a shrunk
+    one takes its old text back, the next string untouched: Modkit's L33); and
     every refusal names the table, cell and why. An edit parses only the
     tables it changed again (the other's parse is kept). A file that isn't
     an archive, or whose TOC or trailer runs off it, is refused by what
@@ -148,6 +149,8 @@ def test_a_cell_edit_writes_only_its_cell_and_refuses_by_name():
     grown = after(edits.set_text(t, data, "a", "note", "salt"))
     assert grown.tables["t"].find("a", "note").value == "salt" and grown.tables["t"].find("b", "note").value == "x"
     assert edits.set_text(t, data, "a", "kind", "fire") == []
+    shrunk = _apply(data, edits.set_text(t, data, "a", "note", "ab"))
+    assert _apply(shrunk, edits.set_text(Document(shrunk).tables["t"], shrunk, "a", "note", "slack")) == data   # L33
     for edit, why in (
             (lambda: edits.set_number(t, "b", "hp", 1, col=1), "config table t b/hp is an empty cell, not a number"),
             (lambda: edits.set_number(t, "a", "kind", 1), "config table t a/kind is a string cell, not a number"),
