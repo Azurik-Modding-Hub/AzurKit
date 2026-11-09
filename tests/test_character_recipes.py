@@ -22,8 +22,19 @@ from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.core.xbr.nodes import named_resources
 from azurkit.tools import characters, mods
-from azurkit.tools.characters import _player_variants, mesh_edit, ports
-from azurkit.tools.characters._player_variants import builtins, load_variants, recipe_sha
+from azurkit.tools.characters import _player_variants, mesh_edit, ports, reasons
+from azurkit.core.xbr.append import relocations
+from azurkit.core.xbr.clone import closure, refs_in
+from azurkit.core.xbr.graph import Graph, Schema, apply, bind_name, list_at, local_matrix
+from azurkit.core.xbr.nodes import parse_toc
+from azurkit.tools.characters import fx_edit, fx_templates, render, textures
+from azurkit.tools.characters._player_character import (ATTACK_BOX_HOOK, CARRY_HOOK, JIGGLE_HOOK, ROTATE_HOOK,
+                                                        SEARCH_HOOK, AttackLogic)
+from azurkit.tools.characters._player_damage_marker import DAMAGE_MARKER
+from azurkit.tools.characters._player_variants import (RAMP, VARIANT_DIR, _rx, _rz, builtins, load_variants, options,
+                                                       overlay, recipe_sha)
+from azurkit.tools.characters.characters import damage_windows, marker_records, mesh_groups, read_body
+from azurkit.tools.characters.retarget import Rig, _turn, evaluate, named_clip, origins, pose, qmul, read_clip
 
 CHARACTERS, CONFIG = "gamedata/characters.xbr", "gamedata/config.xbr"
 
@@ -1861,3 +1872,502 @@ def test_booblords_attacks_only_whoosh_and_her_other_sounds_are_the_owners_wavs(
         assert {k: bytes(v) for k, v in again.changed().items()} == {k: bytes(v) for k, v in game.changed().items()}
         assert l1.check(vanilla_xbe, xbe) == []
     assert builtins()["booblord"].sha == "481c4cfffa90"   # Modkit's last 1d7ad4bcbc8d, her vase dropped (Step 4.3)
+
+
+def _vanilla_file(image, path: str) -> bytes:
+    with iso.Reader(image) as r:
+        return r.read(path)
+
+
+def _engine(image, species: str, **options):
+    """``species`` dressed on a fresh staging of ``image``'s vanilla files by the swap's own entry
+    (``apply_player_model``, which ``characters.dressed`` calls for both hosts) with ``options`` as given: the staging."""
+    stamp = gate.verify(str(image), whole=False)
+    vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
+    staging = ports.IsoStaging(vanilla)
+    with ports.building(ports.Build(vanilla, taken=[], packs=characters.packs_view(stamp.release, mods.PACKS))):
+        characters._swap().apply_player_model(staging, species, **options)
+    return staging
+
+
+# --- a built-in variant's build (Modkit's test_a_variant_plays_its_recipes_clips_and_spares_the_npcs) -------------
+def _param(xbe: bytes, hook, symbol: str) -> float:
+    """A shim's float param in the built ``xbe`` (inside :func:`_building`)."""
+    return struct.unpack_from("<f", xbe, _at(xbe, hook, symbol))[0]
+
+
+def _payloads(characters: bytes, prefix: str) -> dict[str, str]:
+    """sha256[:12] of each ``characters.xbr`` resource named under ``prefix``."""
+    toc = parse_toc(characters)
+    return {name.casefold(): hashlib.sha256(characters[toc[i].file_offset:toc[i].file_offset + toc[i].size])
+            .hexdigest()[:12] for i, name in named_resources(characters).items()
+            if name.casefold().startswith(prefix)}
+
+
+def _yaw(rig: Rig, clip, bone: int) -> float:
+    """How far (degrees) ``bone`` turns about z over ``clip``."""
+    total, prev = 0.0, pose(rig, clip, 0.0)[bone]
+    for k in range(1, 401):
+        q = pose(rig, clip, clip.length * k / 400)[bone]
+        step = 2 * math.atan2(q[2], q[3]) - 2 * math.atan2(prev[2], prev[3])
+        total, prev = total + (step + math.pi) % (2 * math.pi) - math.pi, q
+    return math.degrees(total)
+
+
+
+def _cloned_only(schema, vanilla: bytes, characters: bytes, body: str, fx, grafts=(), keys=None) -> None:
+    """D385, D446 (Steps 2.140, 2.157): ``body``'s default fx in
+    ``characters`` and everything it reaches are vanilla's byte for byte
+    (every NPC of the body plays its own), and the player's clone
+    (``characters/<body>/v/fx/fx_default``; ``keys``: another graph and
+    its clone, the stand's of Step 2.155b) is vanilla's graph but at
+    ``fx``'s attributes, links (Step 2.145), inherit modes and material
+    rows (Step 2.146), the same length; each of its relocated fields names
+    the vanilla texture it named or a new copy of its target, each copy
+    vanilla's bytes but at its own relocated fields (and a material's
+    edited fields), so nothing it reaches is shared but the textures; a
+    ``texture`` edit's field names a new texture of the same format and
+    size (Step 2.157), a platform's on its material stage (a new list
+    the size of the one it drew); a ``mesh`` edit's copies are new
+    meshes (``tests/test_fx_mesh.py`` reads them) at the descriptor's
+    bounds and fourcc, and a ``parent`` edit's DAG parent the edit's
+    (Step 2.155e); a template's ``grafts`` add its records at the
+    end (their own reading is ``tests/test_xbr_clone.py``'s), the clone
+    and its ndbg vanilla's in front but for their counts and tables, and
+    an edit of a grafted record reads back on it."""
+    toc, built_toc = parse_toc(vanilla), parse_toc(characters)
+    src_key, clone_key = keys or (fx_edit.default_key(body), fx_edit.clone_key(body))
+    src = next(i for i, n in named_resources(vanilla).items() if n.casefold() == src_key)
+    clone = next(i for i, n in named_resources(characters).items() if n.casefold() == clone_key)
+    for i in closure(vanilla, [src]):   # the NPCs' graph and its closure, vanilla's
+        assert characters[built_toc[i].file_offset:][:built_toc[i].size] == vanilla[toc[i].file_offset:][:toc[i].size]
+    graphs = [Graph(vanilla, toc, toc[src], schema), Graph(characters, built_toc, built_toc[clone], schema)]
+    own = len(graphs[0].recs)
+    added = [(n, kind) for g in grafts for _, n, kind in fx_templates.GRAFTS[g["template"]].records]
+    assert list(zip(graphs[1].names[own:], graphs[1].types[own:])) == added
+    reverts: dict[int, list[tuple[int, int]]] = {src: []}   # vanilla entry -> (offset, length) the edits change
+    grown = {src: [(0, 8), (0x14, 8)], graphs[0].ndbg_index: [(8, 8)]} if added else {}   # counts and tables
+    recoloured = set()   # the clone's fields naming a new texture (Step 2.157)
+    restaged: set[tuple[int, int]] = set()   # (vanilla gshd, its stage field) naming a new texture (Step 2.155e)
+    remeshed: set[int] = set()   # the vanilla rdms and push buffers a mesh edit's copies replace (Step 2.155e)
+    for edit in fx:
+        if edit["record"] >= own:   # a grafted record's edit, on it
+            r = edit["record"]
+            assert {k: graphs[1].attr_named(r, k) for k in edit.get("set", {})} == pytest.approx(
+                edit.get("set", {}), rel=1e-6)
+            for rdms, _ in render.platform_bindings(graphs[1], r, every=True) if "material" in edit else ():
+                gshd, row = struct.unpack_from("<II", characters, built_toc[rdms].file_offset + 4)
+                assert {k: render.material(characters, built_toc, gshd, row)[k] for k in edit["material"]} == (
+                    pytest.approx(edit["material"], rel=1e-6))
+            continue
+        rec = graphs[0].recs[edit["record"]]
+        if "texture" in edit and edit["type"] != "platform":   # a renderer's: a new one, the one it drew's format, size
+            recoloured.add(rec + 0x18)
+        binds = render.platform_bindings(graphs[0], edit["record"], every=True) if edit["type"] == "platform" else []
+        if "texture" in edit and binds:   # a platform's material stage (Step 2.155e)
+            gshd, row = struct.unpack_from("<II", vanilla, toc[binds[0][0]].file_offset + 4)
+            stage = render.material_row(vanilla, toc, gshd, row) - toc[gshd].file_offset + 100 + 124 * edit[
+                "texture"].get("stage", 0)
+            restaged.add((gshd, stage))
+        if "mesh" in edit:   # Step 2.155e: its copies new; the descriptor's bounds, sub-bounds and fourcc the mesh's
+            remeshed |= set(binds[0])
+            d = list_at(graphs[0].s, rec + 0x1C)[0]
+            sub, n = list_at(graphs[0].s, d + 48)
+            reverts[src] += [(d + 4, 24), (sub, 24 * n), (list_at(graphs[0].s, d + 64)[0] + 8, 4)]
+        if "parent" in edit:
+            assert graphs[1].parent(edit["record"]) == edit["parent"]
+            reverts[src].append((rec + 0x18, 4))
+        start, _ = list_at(graphs[0].s, rec + 8)
+        for attr, value in edit.get("set", {}).items():
+            at = start + 4 * schema.types[edit["type"]].attrs.index(attr)
+            assert struct.unpack_from("<f", graphs[1].s, at)[0] == pytest.approx(value, rel=1e-6), attr
+            reverts[src].append((at, 4))
+        links, _ = list_at(graphs[0].s, rec + 0x10)
+        for link in edit.get("links", []):   # D416: the dome keyed by the nova's switch
+            old, new = (g.links(edit["record"])[link["index"]] for g in graphs)
+            assert (new.src_plug, new.curve, new.dst, graphs[1].plug_name(new.dst, new.dst_plug)) == (
+                old.src_plug, old.curve, link.get("dst", old.dst),
+                link.get("dst_plug", graphs[0].plug_name(old.dst, old.dst_plug)))
+            assert (new.weight, new.factor) == pytest.approx(
+                (link.get("weight", old.weight), link.get("factor", old.factor)), rel=1e-6)
+            reverts[src].append((links + 24 * link["index"], 24))
+        if "inherit" in edit:
+            assert struct.unpack_from("<I", graphs[1].s, rec + 0x28)[0] == edit["inherit"]
+            reverts[src].append((rec + 0x28, 4))
+        if "material" in edit:   # Step 2.146: the dome's material row, on the clone's copy alone
+            (rdms, _), = render.platform_bindings(graphs[0], edit["record"], every=True)
+            gshd, row = struct.unpack_from("<II", vanilla, toc[rdms].file_offset + 4)
+            at = render.material_row(vanilla, toc, gshd, row) - toc[gshd].file_offset
+            reverts.setdefault(gshd, []).extend((at + render.MATERIAL_FIELDS[k][0], 4) for k in edit["material"])
+            materials = {k: v for k, v in edit["material"].items()}
+    rows, built_rows = sorted(relocations(vanilla)), sorted(relocations(characters))
+    pairs, seen = [(src, clone)], set()
+    while pairs:
+        i, j = pairs.pop()
+        if (i, j) in seen:
+            continue
+        seen.add((i, j))
+        assert j >= len(toc) and (built_toc[j].tag in ("pbrc", "pbrw") if i in remeshed and toc[i].tag in ("pbrc", "pbrw")
+                                  else built_toc[j].tag == toc[i].tag)   # a new copy; only a remeshed pb retags
+        refs = refs_in(vanilla, toc, i, rows)
+        got = [(off, u) for off, u in refs_in(characters, built_toc, j, built_rows) if off < toc[i].size]
+        assert [off for off, _ in got] == [off for off, _ in refs]
+        if i in remeshed:   # a mesh edit's: its own bytes, its material the copy's
+            pairs += [(t, u) for (_, t), (_, u) in zip(refs, got)]
+            continue
+        assert (built_toc[j].size > toc[i].size) if i in grown else built_toc[j].size == toc[i].size
+        restored = bytearray(characters[built_toc[j].file_offset:][:toc[i].size])
+        for at, n in grown.get(i, ()):
+            restored[at:at + n] = vanilla[toc[i].file_offset + at:][:n]
+        for (off, t), (_, u) in zip(refs, got):
+            if (i == src and off in recoloured) or (i, off) in restaged:
+                assert (u >= len(toc), built_toc[u].tag, built_toc[u].size) == (True, "surf", toc[t].size)
+                new, old = (textures.info(d[e.file_offset:][:e.size]) for d, e in ((characters, built_toc[u]),
+                                                                                    (vanilla, toc[t])))
+                assert {**new, "list": len(new.get("list", ()))} == {**old, "list": len(old.get("list", ()))}
+            elif toc[t].tag == "surf":
+                assert u == t
+            else:
+                pairs.append((t, u))
+            restored[off:off + 4] = vanilla[toc[i].file_offset + off:][:4]
+        if toc[i].tag == "gshd" and i in reverts:
+            assert {k: render.material(characters, built_toc, j, row)[k] for k in materials} == pytest.approx(
+                materials, rel=1e-6)
+        for at, n in reverts.get(i, ()):
+            restored[at:at + n] = vanilla[toc[i].file_offset + at:][:n]
+        assert hashlib.sha256(restored).digest() == hashlib.sha256(
+            vanilla[toc[i].file_offset:][:toc[i].size]).digest(), (i, toc[i].tag)
+
+
+# Each built-in's authored clips (on, off, forward, corner, low z, high z at its drawn scale; root yaw
+# degrees, None: its source clip's own), its logic (reach, damage), X21's reach (None: no X21), how
+# many columns X33 carries, X33's held mask and its mesh (W24: vertices and normals written, the chest's
+# forward depth over vanilla's, the hips' half-width, the butt's back; None: none).
+# air_elemental is its own build's overlay (W23), not a variant.
+BUILT = {
+    "air_elemental": ({"gust": (0.36, 0.947, 13.138, 13.193, 0.0, 2.4, None)}, (2.465, 0.738), 13.19, 20, 0x1C0,
+                      None),
+    "beamlord": ({"beam": (0.373, 0.657, 14.0, 14.036, -1.0, 3.0, None),
+                  "sweep": (0.373, 0.657, 14.035, 16.511, -1.0, 3.0, None),
+                  "nova": (0.373, 0.657, 2.80, 3.96, 0.0, 2.4, None),
+                  "blast": (0.3, 2.697, 2.80, 3.96, -2.5, 2.0, None)},
+                 (2.80, 1.0), 3.96, 0, 0xEFFFFF, None),
+    "booblord": ({"spin": (0.04, 0.36, 0.897, 1.269, 0.0, 1.84, 720.0),
+                  "twirl": (0.10, 0.90, 0.897, 1.269, 0.0, 1.84, 1440.0),
+                  "stomp": (0.42, 0.57, 1.035, 1.464, 0.0, 1.38, 0.0),
+                  "hspin": (0.21, 1.407, 1.725, 2.44, 0.0, 1.725, 720.0)},
+                 (1.725, 0.6), None, 19, 0, (768, 882, 1.854, 0.183, -0.203)),
+}
+
+
+
+@pytest.mark.parametrize("name", sorted(BUILT))
+def test_a_variant_plays_its_recipes_clips_and_spares_the_npcs(usa_iso, name, monkeypatch, booblord):
+    """D332, D359-D361 (Step 2.137): a built-in variant's recipe columns
+    play its own clips (W3's Anims ``v/<clip>``), every other column what
+    the base's own build plays there (booblord's hose_attack_3 the
+    bare-hands kit's shove, as her townswoman base swings it since Step
+    2.159a, its X3 box her farthest reach, D237; her three casts her whip
+    since Step 2.171), and neither X3 nor X13's fill touches them (the
+    sweep's bar turns: filled, it would be its bounds);
+    X10 is off; each clip's box opens and closes when its recipe says, as far
+    ahead and as high as it says at the body's drawn scale, the spin's
+    root turning its turns; the bake's hidden props stay hidden and no
+    authored clip keys ``m_feet`` (no lunge); the grown ``m_damage`` rests
+    off and no baked clip keys it (C5); the logic reads its recipe's
+    damage and the reach of its idle swings (basic1 and the sweeps,
+    AZ-566, D719), and a plan wearing it reads verified though booblord's
+    hand spin reaches 1.725 m ahead (her shove's X3 box, hose_attack_3, no
+    longer counts) and the air elemental's basic1 2.47 m, short of
+    garret4's 2.76 m (D726: reach never flags); X21 searches no farther than its melee
+    boxes; X33 carries its ``carry`` columns and chains its ``held`` ones
+    while held (beamlord's every column but the roll, planted: Step 2.153,
+    D450; at D449's speed 2.0 and damage 1.0 his logic reads 1.0); X41
+    hooks the pose for booblord, whose jiggle has real-time springs
+    (Step 2.156), and for beamlord, whose balthazar_airship's locks
+    ``chains.json`` swings (Step 2.169f), not the air elemental's overlay;
+    and the base's NPCs keep
+    their own clips (and Balthazar his fx) byte for byte, but where the
+    variant's ``arms`` restyle them (W28, Step 2.143).  booblord's
+    spins are 0.897 m ahead of her (1.27 m to the corner), each turning
+    its turns, her jump attack the spin; her B (sweep1, sweep2, sweep
+    ledge) the hand spin (D378): two turns over 1.4 s with her right
+    hand's end node planted within 0.02 model units of (0, 0, 0.05) at
+    every root key of the plant, no bone deeper than the planted pose's
+    lowest as she leans in and out, its box 1.725 m all round;
+    beamlord's beam and sweep run 14 m ahead (ranged: the sweep's corner
+    16.51 m) over his lightning's switch window, 1 m to
+    either side and -1 to 3 m high, his nova 2.80 m ahead and 3.96 m to
+    its corner (melee, so the logic's anchor and X21's 3.96 m), his jump
+    attack's blast (Step 2.153, D451) a bolt column under him from 0.3 s,
+    then a box round him growing to 2.8 m half, on to 2.7 s, -2.5 to 2 m
+    high (the same 2.80 m and 3.96 m), and (Step 2.153b) its bolt's
+    emitter [23] within 0.03 model units of his two hand endnodes' mean
+    at every time of the bolt phase, then the switch 0 and the aim unturned at his
+    feet, its extents the box's x half over blast.dome_unit (the grafted
+    floor dome's rim on the box's edge) and 1 outside the blast, and
+    (AZ-669, Step 2.153c) the origin of the fx transform it drives
+    ([12], scaling about its pivot) within 1 mm of his feet at the
+    blast's start, its grow_until and either side of its until; and
+    (D385, Step 2.140) the beams' switch keyed to its switch_z (0.02 since
+    Step 2.145: the bolts on, the dome unseen) from the clip's start to
+    the window's end, the beams' aim pitched up 10.1 degrees and the
+    nova's down 30 under its whirl, the player's clone of his
+    ``fx/fx_default`` changed only at the recipe's attributes, links and
+    inherit modes, the same length, and every NPC's graph vanilla's
+    (Step 2.157, D446),
+    and garret4's hitsThroughWalls 1.0 in his build (0.0 in booblord's);
+    (D416, Step 2.145) the nova's switch ramps 0.02 to 1.0 by the box's
+    grow_until of the window and holds it to the window's end, then
+    (AZ-658, D479, Step 2.153b) falls straight to 0 over beamlord's
+    switch_fade (0.24 s) with the aim turning on through it, his box
+    still closing at the window's end; (D433,
+    D442, Step 2.157) the game's electric shield grafted under his
+    spine_2 (records 64-67), keyed by it: the switch's stream link
+    weighs 0 (the stream off), its gameVisible link goes to the shield's
+    platform at weight 1 (opacity z), the shield at scale 1.25, its
+    shader's ShaderAlpha and its material's opacity 0.45 and both its
+    textures recoloured, on the clone's copies; the old dome undriven.  W24 (Step 2.142, D370, D376; v3
+    Step 2.143, D403; booblord here her v3, ``tests/_variant_fixtures.py``,
+    Step 2.154): her mesh moves 768 vertices and rewrites 882
+    normals, her chest 1.85 times as deep, her hips 0.183 half-wide and
+    her butt 0.203 behind, her front sash and vase where they were, and
+    nothing else of any mesh changes;
+    beamlord's mesh is vanilla's.  D374 (Step 2.140, W23): the air elemental's own build
+    (no variant worn) throws its wind on B (sweep1, sweep2, sweep ledge):
+    a 2.4 m box 1.2 m up whose centre travels from 1 to 12 m ahead over
+    0.36-0.95 s (ranged), its wind puff m_turbulence on the same path at
+    3 times its size, the three columns out of X33's carry and X13's fill
+    (0xEFFE3F) and W14's balance (garret4's multiplier: a thrown box
+    passes a target once); its grade and logic are its own build's.
+    D414, D415 (Step 2.145): held, B throws again as each box arrives (the
+    three columns X33's held mask 0x1C0, their Move end1 arrive / length,
+    0.8636) and its hits skip the wall test (hitsThroughWalls 1.0); the
+    plain build has neither. Step 2.135 (X36, the critique's C2): its
+    second attack set plays the gust in basic1-3, so its X21 searches out
+    to the gust's 13.19 m. D434 (Step 2.155): the body grows
+    spideyzar's 14 fx bind names at his own records, the gust keys
+    m_projectile on the box's path at the floor (extents 1.5, on over the
+    travel) and nothing keys m_whirlwind_trigger; no clip of the body keys
+    the drain switch, the projectile and death-beam triggers, the iceball
+    or the trigger (AZ-453's class); spideyzar's body and fx are
+    vanilla's, and (D501, Step 2.155b) the player's clone of his graph
+    the ring stands (``characters/air_elemental/v/fx/fx_stand``) is his
+    but at the recipe's ``fx_ring.stand.fx``."""
+    with _building(usa_iso):
+        _plays(usa_iso, name, monkeypatch, Schema(_vanilla_file(usa_iso, XBE)))
+
+
+def _plays(usa_iso, name: str, monkeypatch, schema) -> None:
+    """:func:`test_a_variant_plays_its_recipes_clips_and_spares_the_npcs`' checks of ``name``'s build."""
+    variant = (booblord_v3() if name == "booblord" else builtins().get(name)) or overlay(name)
+    overlaid = variant.source == "overlay"
+    clips, (reach, damage), search, carried, held_mask, reshaped = BUILT[name]
+    logic = AttackLogic()
+    built = _engine(usa_iso, variant.base, variant=None if overlaid else variant, logic=logic, **options(variant))
+    kept = {k: v for k, v in options(variant).items() if k in ("mode", "size", "sounds", "attack_balance",
+                                                                "attack_ground")}
+    monkeypatch.delitem(_player_variants.OVERLAYS, name, raising=False)   # the base's own build, without its overlay
+    plain = _engine(usa_iso, variant.base, **kept)
+    anims = [ports.XbrDocument.from_bytes(bytes(g["config.xbr"])).keyed_section("attacks_anims") for g in (built, plain)]
+    columns = anims[0].col_names()
+    played = [[a.find_cell(col, "Anim", i).string_value for i, col in enumerate(columns)] for a in anims]
+    recipe = sum(1 << i for i, col in enumerate(columns) if col in variant.columns)
+    vanilla = _vanilla_characters(usa_iso)
+    base = read_body(vanilla, ports.XbrDocument.from_bytes(bytes(built["config.xbr"])).keyed_section(
+        "critters_engine").find_cell(variant.base, "body", None).string_value)
+    # every other column what the base's own build plays (D421: a townswoman's, Balthazar's attacks)
+    assert played[0] == [variant.clip_of(col) or played[1][i] for i, col in enumerate(columns)]
+    xbe, base_xbe = bytes(built["default.xbe"]), bytes(plain["default.xbe"])
+    x3 = [round(_param(x, DAMAGE_MARKER, "_player_model_x3_columns"))
+          if ports.verify_trampoline_patch(x, DAMAGE_MARKER) == "applied" else 0 for x in (xbe, base_xbe)]
+    site = ports.resolve_va_to_file(xbe, ROTATE_HOOK.va)   # X10's site keeps vanilla's CALL of anim_change
+    assert x3[0] == x3[1] & ~recipe and xbe[site:site + len(ROTATE_HOOK.replaced_bytes)] == ROTATE_HOOK.replaced_bytes
+    fill = [round(_param(x, ATTACK_BOX_HOOK, "_player_attack_ground_mask")) for x in (xbe, base_xbe)]
+    assert fill[0] == fill[1] & ~recipe != fill[1]   # X13 leaves a recipe's own boxes as keyed (the sweep's bar)
+
+    characters, body_name = bytes(built["characters.xbr"]), base.name
+    body, rig = read_body(characters, body_name, dirs=(VARIANT_DIR,)), Rig.read(characters, body_name)
+    scale = 1.15 if variant.base.startswith("town_female") else 1.0
+    root = next(k for k, b in enumerate(rig.bones) if b.parent < 0)
+    hidden = {k for k, b in enumerate(rig.bones) if b.name == "vase_joint"}
+    feet = body.markers.index("m_feet")
+    for clip, (on, off, ahead, corner, low, high, turned) in clips.items():
+        (w,) = damage_windows(characters, body_name, VARIANT_DIR + clip, scale)
+        assert ((w.on, w.off, w.forward, w.reach, w.low[2], w.high[2])
+                == pytest.approx((on, off, ahead, corner, low, high), abs=6e-3)), clip
+        made = named_clip(characters, body_name, VARIANT_DIR + clip)
+        assert turned is None or _yaw(rig, made, root) == pytest.approx(turned, abs=0.5), clip
+        params = variant.clips[clip]
+        if "switch_z" in params or "switch_ramp" in params:   # D385: the switch from switch_from to the window's
+            keyed = {(tr.target, tr.comp): tr.keys for tr in made.markers}   # end, the aim's pitch
+            switch, aim = (body.markers.index(params[k]) for k in ("switch", "aim"))
+            if "switch_z" in params:
+                assert [round(evaluate(keyed[switch, 2], t), 3) for t in (
+                    params.get("switch_from", w.on) + 0.01, (w.on + w.off) / 2, w.off + 0.01)] == [
+                        params["switch_z"]] * 2 + [0.0]
+            else:   # D416: the nova's ramp, 0.02 at the window's start to 1.0 as the box is grown; AZ-658 (D479):
+                # a fade to 0 switch_fade after the window, the whirl turning on through it, the box closing on time
+                values = [round(k[1], 4) for k in keyed[switch, 2]]   # the last (0 at the clip's end) unless the fade ends it
+                assert values[:6] == [0.0, 0.0, 0.02, 1.0, 1.0, 0.0] and values[6:] in ([], [0.0])
+                assert keyed[switch, 2][3][0] == pytest.approx(
+                    w.on + params["box"]["grow_until"] * (w.off - w.on), abs=0.01)
+                fade = params.get("switch_fade", 0.0)
+                assert [keyed[switch, 2][5][0], keyed[aim, 3][-1][0]] == pytest.approx(
+                    [w.off + (fade or RAMP / 2), w.off + fade], abs=0.01)
+                assert evaluate(keyed[switch, 2], w.off + (fade / 2 if fade else 2 * RAMP)) == pytest.approx(
+                    0.5 if fade else 0.0, abs=0.03)   # halfway down a fade, else past the step
+            pitch = _rx(math.radians(params.get("level_deg", params.get("pitch_deg", 0.0))))
+            first = keyed[aim, 3][0][0]   # the aim's first key: W's start for a turning aim
+            assert [evaluate(keyed[aim, c], first) for c in range(3, 7)] == pytest.approx(
+                qmul(_rz(-math.radians(params.get("sweep_deg", 0.0))), pitch), abs=1e-4), clip
+        assert {(tr.target, tr.comp) for tr in made.bones if tr.target in hidden} >= {
+            (k, c) for k in hidden for c in (7, 8, 9)} and not any(tr.target == feet for tr in made.markers)
+        if params.get("generator") == "gust":   # D374: the box and the wind puff on one path, the puff x3
+            keyed = {(tr.target, tr.comp): tr.keys for tr in made.markers}
+            box, cloud = body.markers.index("m_damage"), body.markers.index(params["cloud"])
+            assert [round(evaluate(keyed[box, 1], t), 3) for t in (params["release"], params["arrive"])] == [
+                params["from"], params["to"]]
+            assert [keyed[cloud, c] for c in range(3)] == [keyed[box, c] for c in range(3)]
+            assert [evaluate(keyed[cloud, c], w.on) for c in (7, 8, 9)] == pytest.approx(
+                [params["cloud_scale"] * v for v in dict(marker_records(characters, body_name))[params["cloud"]][7:10]])
+            funnel = body.markers.index(params["funnel"]["marker"])   # D434: his tornado's frame on the same path
+            mid = (params["release"] + params["arrive"]) / 2
+            assert keyed[funnel, 1] == keyed[box, 1] and [evaluate(keyed[funnel, c], mid) for c in (0, 2, 7, 8, 9, 11)
+                                                       ] == pytest.approx([0.0, 0.0, *[params["funnel"]["size"]] * 3, 1.0])
+        if params.get("generator") == "air_blast":   # D451 (Step 2.153b): one bolt from his hands, then a floor dome
+            keyed = {(tr.target, tr.comp): tr.keys for tr in made.markers}
+            switch, aim = (body.markers.index(params[k]) for k in ("switch", "aim"))
+            bolt, blast, impact = params["bolt"], params["blast"], params["impact"]
+            start, unit, top = impact + RAMP / 2, blast["dome_unit"], blast["half"][0]
+            for t, extents in ((bolt["from"], 1.0), (impact - 0.02, 1.0), (start, blast["grow_from"] / unit),
+                               ((start + blast["grow_until"]) / 2, (blast["grow_from"] + top) / 2 / unit),
+                               (blast["grow_until"], top / unit), (blast["until"] - 0.01, top / unit),
+                               (blast["until"] + 0.02, 1.0)):   # the aim's extents: the dome's rim on the box's edge
+                assert [evaluate(keyed[aim, c], t) for c in (7, 8, 9)] == pytest.approx([extents] * 3, rel=1e-4), t
+            for t in (start + (blast["until"] - start) * k / 8 for k in range(9)):   # no bolts, no shield, no whirl
+                assert evaluate(keyed[switch, 2], t) == 0.0 and [evaluate(keyed[aim, c], t) for c in range(3, 7)] == (
+                    pytest.approx([0.0, 0.0, 0.0, 1.0], abs=1e-6)), t
+            vtoc, schema = parse_toc(vanilla), schema
+            src = next(i for i, n in named_resources(vanilla).items() if n.casefold() == fx_edit.default_key(body_name))
+            graph = Graph(vanilla, vtoc, vtoc[src], schema)   # AZ-669: the transform the aim drives scales about its
+            bound = next(r for r, ro in enumerate(graph.recs) if ro is not None   # pivot, so its origin, the dome's,
+                         and schema.is_a(graph.types[r], "transform")             # stays at his feet as it grows
+                         and (bind_name(graph.s, ro) or "").casefold() == params["aim"].casefold())
+            for t in (start, blast["grow_until"], blast["until"] - 0.01, blast["until"] + 0.01):
+                x = dict(graph.xform_fields(bound), t=tuple(evaluate(keyed[aim, c], t) for c in range(3)),
+                         r=(0.0, 0.0, 0.0), s=tuple(evaluate(keyed[aim, c], t) for c in (7, 8, 9)))
+                assert [evaluate(keyed[aim, c], t) for c in range(3, 7)] == pytest.approx([0.0, 0.0, 0.0, 1.0], abs=1e-6)
+                assert apply(local_matrix(schema, x), (0.0, 0.0, 0.0)) == pytest.approx([0.0] * 3, abs=1e-3), t
+            e23 = [Graph(vanilla, vtoc, vtoc[src], schema).attr_named(23, k) for k in ("translateX", "translateY",
+                                                                                     "translateZ")]
+            assert bolt["emitter"] == pytest.approx(e23, abs=1e-4)   # the recipe's emitter is the graph's [23]
+            turned = _turn(_rx(math.radians(bolt["pitch_deg"])), e23)
+            hands = [k for k, b in enumerate(rig.bones) if b.name in bolt["hands"]]
+            for t in (impact * k / 36 for k in range(36)):   # F1: [23] rides his hands' mean through the bolt phase
+                mean = [sum(origins(rig, made, t)[k][c] for k in hands) / len(hands) for c in range(3)]
+                assert math.dist([evaluate(keyed[aim, c], t) + turned[c] for c in range(3)], mean) < 0.03, t
+        if "hand" in params:   # D378: the hand planted, the feet never sinking
+            hand = next(k for k, b in enumerate(rig.bones) if b.name == params["hand"])
+            p0, p1 = (made.length * f for f in params["plant"])
+            keyed = {k[0] for tr in made.bones if tr.target == root for k in tr.keys}
+            assert max(math.dist(origins(rig, made, t)[hand], (0.0, 0.0, params["hand_z"]))
+                       for t in keyed if p0 <= t <= p1) < 0.02, clip
+
+            def lowest(t: float) -> float:
+                return min(o[2] for k, o in enumerate(origins(rig, made, t)) if k not in hidden)
+            assert min(lowest(made.length * k / 140) for k in range(141)) >= lowest((p0 + p1) / 2) - 1e-3, clip
+    if overlaid:   # W23: the thrown box travels in her frame (no carry), and passes a target once (no balance)
+        carry = [round(_param(x, CARRY_HOOK, "_player_model_carry_columns")) for x in (xbe, base_xbe)]
+        assert carry[0] == carry[1] & ~recipe == fill[0] == 0xEFFE3F
+        held = [round(_param(x, CARRY_HOOK, "_player_model_held_columns")) for x in (xbe, base_xbe)]
+        assert held == [recipe, 0] and recipe == 0x1C0   # D414: held, the gust throws again as each box arrives
+        gust = variant.clips["gust"]
+
+        def fraction(col: str, i: int) -> float:   # Move end1 as 0x7E2E0 reads it (Anim start, end: 0, 1 if empty)
+            a0, a1, e1 = (c.double_value if (c := anims[0].find_cell(col, row, i)).type_code == 1 else empty
+                          for row, empty in (("Anim start", 0.0), ("Anim end", 1.0), ("Move end1", 1.0)))
+            return (e1 - a0) / (a1 - a0)
+        assert [fraction(col, i) for i, col in enumerate(columns) if recipe >> i & 1] == pytest.approx(
+            [gust["arrive"] / gust["length"]] * 3)
+        assert ports.XbrDocument.from_bytes(bytes(plain["config.xbr"])).keyed_section("critters_critter_data").find_cell(
+            "garret4", "hitsThroughWalls", None).double_value == 0.0   # D415: the overlay's alone
+        # D434: spideyzar's bind names at his records, never keyed where they hurt, show or switch his tornado on
+        spider = dict(marker_records(vanilla, variant.marker_source))
+        assert {m: v for m, v in marker_records(characters, body_name) if m in variant.markers} == {
+            m: spider[m] for m in variant.markers} and len(variant.markers) == 14
+        quiet = {body.markers.index(m) for m in ("m_lifedrainswitch", "m_projectile_trigger", "m_deathbeam_trigger",
+                                                 "m_ice_telltale", "m_whirlwind_trigger")}
+        assert not any(tr.target in quiet for clip in body.clips
+                       for tr in named_clip(characters, body_name, clip).markers)
+        assert _payloads(characters, "characters/balthazar_spider/") == _payloads(vanilla, "characters/balthazar_spider/")
+        stand = variant.fx_ring["stand"]   # D501 (Step 2.155b): his graph retuned on the player's clone X38 spawns
+        _cloned_only(schema, vanilla, characters, body_name, stand["fx"], keys=(stand["key"], fx_edit.stand_key(body_name)))
+        vanilla_anims = ports.XbrDocument.from_bytes(_vanilla_file(usa_iso, CONFIG)).keyed_section(
+            "attacks_anims")
+        for i, col in enumerate(columns):
+            if recipe >> i & 1:
+                cell = vanilla_anims.find_cell(col, "Damage multiplier", i)
+                assert anims[0].find_cell(col, "Damage multiplier", i).double_value == (
+                    cell.double_value if cell is not None and cell.type_code == 1 else 1.0), col
+    if "m_damage" in variant.markers:   # grown after B: at rest off, and no baked clip keys it (C5)
+        marker, toc = body.markers.index("m_damage"), parse_toc(characters)
+        assert dict(marker_records(characters, body_name))["m_damage"][10:12] == (0.0, 0.0)
+        assert not any(tr.target == marker for i, key in named_resources(characters).items()
+                       if key.casefold().startswith(f"characters/{body_name}/g4/".casefold())
+                       for tr in read_clip(characters, toc[i].file_offset).markers)
+    assert (logic.reach, logic.damage) == pytest.approx((reach, damage), abs=5e-3)
+    assert reasons(name, logic, variant.base) == []
+    assert (round(_param(xbe, SEARCH_HOOK, "_player_model_search_reach"), 2)
+            if ports.verify_trampoline_patch(xbe, SEARCH_HOOK) == "applied" else None) == search
+    assert (bin(round(_param(xbe, CARRY_HOOK, "_player_model_carry_columns"))).count("1")
+            if ports.verify_trampoline_patch(xbe, CARRY_HOOK) == "applied" else 0) == carried
+    assert (round(_param(xbe, CARRY_HOOK, "_player_model_held_columns"))
+            if ports.verify_trampoline_patch(xbe, CARRY_HOOK) == "applied" else 0) == held_mask
+    assert ports.verify_trampoline_patch(xbe, JIGGLE_HOOK) == (   # X41: her springs, his locks (chains.json, Step 2.169f)
+        "applied" if name in ("booblord", "beamlord") else "original")
+    npc = f"characters/{body_name}/".casefold()
+    own = (set() if variant.arms else {npc + c.casefold() for c in read_body(vanilla, body_name).clips}) | {
+        fx_edit.default_key(body_name)}   # W28 restyles her own clips (no level places her, D361)
+    assert {k: v for k, v in _payloads(characters, npc).items() if k in own} == {
+        k: v for k, v in _payloads(vanilla, npc).items() if k in own}
+    if variant.fx_edits:   # D385, D446: the recipe's edits on the player's clone alone
+        _cloned_only(schema, vanilla, characters, body_name, variant.fx, variant.fx_grafts)
+    else:
+        assert fx_edit.clone_key(body_name) not in _payloads(characters, npc)
+    walls = ports.XbrDocument.from_bytes(bytes(built["config.xbr"])).keyed_section("critters_critter_data").find_cell(
+        "garret4", "hitsThroughWalls", None)
+    assert walls.double_value == (1.0 if variant.through_walls else 0.0)
+    # W24: the mesh's written fields alone (positions +0, normals +28 of LOD 0), every other mesh vanilla's;
+    # W29 (Step 2.143): a jiggle's weights +12, slot bytes +56 and palette entries too
+    groups = [g for g in mesh_groups(characters, body_name) if g.lod == 0]
+    cells = [g.vertices + 60 * j for g in groups for j in range(g.count)]
+    restored = bytearray(characters)
+    fields = ((0, 12), (28, 40)) + (((12, 28), (56, 60)) if variant.jiggle else ())
+    for at in cells:
+        for a, b in fields:
+            restored[at + a:at + b] = vanilla[at + a:at + b]
+    for g in groups if variant.jiggle else ():
+        restored[g.bones_at:g.bones_at + 4 * len(g.bones)] = vanilla[g.bones_at:g.bones_at + 4 * len(g.bones)]
+    toc = parse_toc(vanilla)
+    assert all(restored[e.file_offset:e.file_offset + e.size] == vanilla[e.file_offset:e.file_offset + e.size]
+               for e in toc if e.tag == "bmsh")
+    if reshaped is None:
+        assert variant.mesh is None and restored == bytearray(characters)
+        return
+    moved = [at for at in cells if characters[at:at + 12] != vanilla[at:at + 12]]
+    normals = [at for at in cells if characters[at + 28:at + 40] != vanilla[at + 28:at + 40]]
+    before, after = (mesh_edit._read_mesh(x, body_name) for x in (vanilla, characters))
+    tops = [before.names[b] for b in before.heaviest]
+    flesh = [not (n.startswith("loincloth") or n == "vase_joint") for n in tops]
+
+    def band(points, z0, z1, half):
+        return [p for p, f in zip(points, flesh) if f and abs(p[0]) <= half and z0 <= p[2] <= z1]
+    spine = dict(read_body(vanilla, body_name).bones)["spine_2"][1]
+    depth = [max(p[1] for p in band(m.positions, 1.25, 1.47, 0.2)) - spine for m in (before, after)]
+    hips = band(after.positions, 0.95, 1.20, 0.3)
+    assert ((len(moved), len(normals), depth[1] / depth[0], max(abs(p[0]) for p in hips), min(p[1] for p in hips))
+            == pytest.approx(reshaped, abs=2e-3))
+    assert not any(characters[at:at + 12] != vanilla[at:at + 12] for at, n in zip(cells, tops)
+                   if n.startswith("loincloth_front") or n == "vase_joint")
+
