@@ -4,8 +4,10 @@ from the checkout's root.
 With no area (or ``-h``) it lists the areas, with an area alone (or ``AREA
 -h``) that area's verbs, and exits 0. With a verb it imports
 ``devkit.<area>.<verb>`` (a hyphen in the verb is an underscore in the
-module's name) and exits with what its ``main(ARGS)`` returns. An unknown
-area or verb is one ``devkit: ...`` line on stderr and exit 2.
+module's name) and exits with what its ``main(ARGS)`` returns. An area that
+is a command of its own (its package has a ``main``: ``doctor``) runs it
+with the rest, ``python -m devkit AREA [ARGS ...]``. An unknown area or
+verb is one ``devkit: ...`` line on stderr and exit 2.
 """
 
 from __future__ import annotations
@@ -44,7 +46,10 @@ def main(argv: list[str]) -> int:
     if area not in names:
         print(f"devkit: no area {area!r} (the areas: {', '.join(names) or 'none yet'})", file=sys.stderr)
         return 2
-    verbs = getattr(importlib.import_module(f"devkit.{area}"), "VERBS", {})
+    module = importlib.import_module(f"devkit.{area}")
+    if hasattr(module, "main"):   # an area that is a command of its own
+        return module.main(rest)
+    verbs = getattr(module, "VERBS", {})
     if not rest or rest[0] in HELP:
         print(f"usage: python -m devkit {area} VERB [ARGS ...]\n\nits verbs:\n{_table(verbs)}", end="")
         return 0

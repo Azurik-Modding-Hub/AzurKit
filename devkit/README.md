@@ -37,6 +37,7 @@ and certification and `models`' first model verbs are here; the rest come after 
 | `xbr` | the XBR file tools: inspect, diff, edit, xref and verify (here) |
 | `movies` | a Bink movie's header and frame table, its frames by ffmpeg (here) |
 | `audio` | an XBR's waves written out with their WAVs and a manifest (here) |
+| `doctor` | is this machine ready: one line a check of AzurKit's tools, the images and the RE install (a command of its own, here) |
 | `builds` | any build's pack sites and physics sliders read back: verify-patches, inspect-physics; the release manifests written from the vanilla images: write-manifest (here) |
 
 ## Its dependencies
