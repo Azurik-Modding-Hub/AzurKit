@@ -3350,14 +3350,15 @@ def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_mo
             assert stand((middle[0] + 0.04 * (-1) ** k, middle[1] - 0.03 * k % 2, 0.01 * k))[:5] == held[:5]
         page.evaluate("() => { const m = azurkit.tracker.map; m.drawn = []; const draw = m.draw.bind(m); "
                       "m.draw = () => { draw(); m.drawn.push(m.o[0]); }; }")   # each frame's view
-        after = stand((middle[0] + 60, middle[1], 0.0))   # out of the view's middle
-        frames = page.evaluate("() => azurkit.tracker.map.drawn")
         cw = page.evaluate("() => azurkit.tracker.map.room()[0]")
+        east = middle[0] + 0.4 * cw / (held[0] * s)   # 0.4 of the view's width: out of its middle (its half) at any size
+        after = stand((east, middle[1], 0.0))
+        frames = page.evaluate("() => azurkit.tracker.map.drawn")
         between = {o for o in frames if held[1] < o < after[1]}
         assert len(between) >= 3 and frames[-1] == after[1] and abs(after[5] - cw / 2) < 2
         page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off
-        moved = stand((middle[0] + 60, middle[1] + 80, 0.0))
-        assert stand((middle[0] + 60, middle[1] - 80, 0.0))[:5] == moved[:5] == after[:5]
+        moved = stand((east, middle[1] + 80, 0.0))
+        assert stand((east, middle[1] - 80, 0.0))[:5] == moved[:5] == after[:5]
         busy = """() => { const st = document.getElementById("track-status"), was = st.textContent;
             const top = (text) => { st.textContent = text; return document.getElementById("map-room")
                 .getBoundingClientRect().top; };
