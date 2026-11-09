@@ -2371,3 +2371,243 @@ def _plays(usa_iso, name: str, monkeypatch, schema) -> None:
     assert not any(characters[at:at + 12] != vanilla[at:at + 12] for at, n in zip(cells, tops)
                    if n.startswith("loincloth_front") or n == "vase_joint")
 
+
+
+def _over_packs(image, packs: dict, worn, **fields):
+    """``worn`` (a ``Variant``) dressed by ``characters.dressed`` over the layers ``packs`` plan on ``image``
+    (``sdk._plan``'s: the swap reads the files they leave), ``fields`` the character's other fields
+    (``springs_out``: the spring rows' preview data): the staging."""
+    stamp, _, layers, _, _ = sdk._plan({"iso": str(image), "packs": packs})
+    springs = fields.pop("springs_out", None)
+    vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
+    staging, _, _, _ = characters.dressed({"species": worn.name, **fields}, vanilla, layers,
+                                          characters.packs_view(stamp.release, mods.PACKS), worn=worn,
+                                          springs_out=springs)
+    return staging
+
+
+BAKED_JIGGLE = {
+    "bones": [
+        {"role": "bust", "bone": "joint32", "parent": "spine_2", "shape": ["bust", "bust low", "bust fill"],
+         "groups": [1, 4], "takes": ["spine_1", "spine_2", "spine_3", "spine_endnode"], "weight": 0.9, "freq": 1.6,
+         "damping": 0.3, "travel": 0.045, "turn": 0.35, "hang": 0.5, "gain": 2.2, "drive": 6.5},
+        {"role": "glutes", "bone": "joint39", "parent": "root_joint", "shape": ["glutes"], "groups": [1],
+         "takes": ["root_joint", "left_hip", "right_hip"], "weight": 0.75, "freq": 2.2, "damping": 0.3,
+         "travel": 0.03, "turn": 0.3, "hang": 0.5, "gain": 2.2, "drive": 6.5}],
+    "keys": 15, "still": ["idle", "listen", "sit", "talk"],
+    "loops": ["walk", "climb_idle", "climb_up", "climb_down", "climb_left", "climb_right", "fall", "fall_big", "hover",
+              "hang", "slide", "swim_idle", "swim_idle_up", "swim_idle_down", "swim_2", "spin"]}
+"""Step 2.143's booblord jiggle, baked (W28): her bones without a real-time
+spring, so the bake stays pinned until Step 2.156's sitting retires it."""
+
+
+def test_a_variants_jiggle_bones_swing_on_real_time_springs_or_baked_keys(usa_iso, monkeypatch, tmp_path, booblord):
+    """Step 2.156 (D444, D445; X41): booblord's jiggle bones have real-time
+    springs: her build hooks the pose's per-bone CALL (0xCB5CB) with X41,
+    whose table is her rows as ``jiggle_rt.table`` packs them (the bust,
+    the glutes, her hair chain, D485: hair_2 chained to hair_1, hair_3
+    to hair_2, and her sash's two chains, Step 2.169b: the tabard's
+    loincloth_front_1-4 and the tails' loincloth_back_1-4, each link
+    chained to the one above and walled off the clip's pose along its bind
+    -up, 5 mm on the tabard's top two links and the tails' first, 15 mm
+    below; the scene global's address read from the image, X26's latch
+    words), every clip under her body keying both sash chains'
+    first links (their hang: X41 swings each about what the clip keys),
+    and no clip under her body but her recipe's own keys either bone and
+    no ``r/`` copy is made (her clips are the baked build's with its jiggle
+    tracks off); at
+    strength 0 the site holds vanilla's CALL and nothing else in her
+    characters.xbr differs.
+    Step 2.143 (D403, D428; W29, W28), on her bones baked (the same rows
+    without springs, :data:`BAKED_JIGGLE`): the jiggle rewrites the
+    leaf bones joint32 and joint39 in place under spine_2 and root_joint,
+    their rest world against their new inverse bind the identity (at rest
+    they skin as their parents do); group 1's palette entries 14 and 17
+    (joint19, joint10, merged into the feet they ride) and group 4's 13
+    (left_hand, dropped) re-aimed at them, no vertex left on a freed bone,
+    every vertex's weights summing to 1 with the heaviest in slot 0; every
+    clip the build gives her body keys both bones (three translation
+    components, q's y and z) but her still ones (idle, listen, sit, talk),
+    which key neither, and only adds those tracks to the same build
+    with real-time springs; every keyed offset stays within its bone's travel,
+    each clip her ``loops`` names (by its name's last part: her walk, the
+    climbs, swims and falls, the spin) has its keys meet at its seam and
+    every other clip, a one-shot, starts at rest and ends there (the
+    judge's D2: a hit that ends in its start pose is no loop; D1: it eases
+    out, k after the limit), and her landing and hit (g4/touchdown,
+    g4/ouch_1) throw the bust over a centimetre with no key a travel from
+    the one before (D3: the drive capped, so it rings, not bangs between
+    the limit's stops).  AZ-648 (the sitting: her walk baked at the run
+    slot's 1.217 shook in the walk slot, which plays it at 4.7-6.6, and
+    the climbs baked at 1 jerked at 1.5 and 2): each clip is keyed at the
+    rate the game plays it, her walk at the walk slot's 0.8 x walkSpeed
+    over (1.15 x walkAnimSpeed), the run slots' copy ``r/walk`` (the only
+    clip she gains, its other tracks her walk's) at garret4's runSpeed
+    over runAnimSpeed, which the walk slider scales (here x 2, as
+    randomize-full applies player_physics before the model: 14 m/s, not
+    1.4 x walkSpeed; the review's D1), the climb loop at 2, its latch 1.5,
+    step_up 3, her hit at its length over 0.4 s, the roll at its column's
+    Rate and the hand spin at the geometric middle of sweep1's and
+    sweep2's.
+    Step 2.168 (D553): a recipe's own clip may key a jiggle bone (her
+    ``v/press``, made in Blender, lifts the bust bone 1 cm): with
+    real-time springs it
+    plays its keys, which X41 swings about; baked, the bone it keys keeps
+    its keys unbaked and the bones it leaves are baked as in any clip.
+    (Her ``slots`` are left out here, Step 2.171: her walk plays in the
+    walk and run slots as before, which AZ-648's copy is about.)"""
+    with _building(usa_iso):
+        _springs(usa_iso, monkeypatch, tmp_path)
+
+
+def _springs(usa_iso, monkeypatch, tmp_path) -> None:
+    """:func:`test_a_variants_jiggle_bones_swing_on_real_time_springs_or_baked_keys`' builds and checks."""
+    from azurkit.tools.characters import jiggle, jiggle_rt, model_chains
+    from azurkit.tools.characters._player_character import STANCE_HOOK
+    from azurkit.tools.characters.characters import bone_records, inverse_binds
+    from azurkit.tools.characters.retarget import Clip, Track, write_clip
+
+    body = "townspeople/female_2"
+    booblord = booblord_v3(sash=True)
+    recipe = booblord_v3_recipe()
+    vanilla = _vanilla_characters(usa_iso)
+    dressed = bytearray(vanilla)   # W24 and W29 as the build makes them, for the Blender clip's rig
+    mesh_edit.write(dressed, mesh_edit.plan(vanilla, body, booblord.mesh), vanilla)
+    jiggle.rig(dressed, vanilla, body, booblord.jiggle, booblord.mesh)
+    bust = [b.name for b in bone_records(bytes(dressed), body)].index("joint32")
+    idle = named_clip(bytes(dressed), body, "idle")
+    lift = Track(bust, 1, tuple((t, Rig.read(bytes(dressed), body).bones[bust].t[1] + d, 0.0, 0.0)
+                                for t, d in ((0.0, 0.0), (2.0, 0.01), (idle.length, 0.0))))
+    (tmp_path / "booblord").mkdir()
+    (tmp_path / "booblord" / "press.glb").write_bytes(
+        _clip_only(bytes(dressed), body, [("press", Clip(idle.length, (*idle.bones, lift), ()))]))
+    monkeypatch.setattr(_player_variants, "CLIPS", tmp_path)
+    springy = dataclasses.replace(booblord, slots={}, clips={**booblord.clips, "press": {   # her walk in both gaits
+        "generator": "gltf", "file": "press.glb", "sha256": mesh_edit.file_sha256(tmp_path / "booblord" / "press.glb"),
+        "animation": "press"}})
+    variant = dataclasses.replace(springy, jiggle=_player_variants._jiggle(
+        "test", {"frees": recipe["jiggle"]["frees"]} | BAKED_JIGGLE))
+    springs = {}
+    built, plain, zero = (_over_packs(usa_iso, {"player_physics": {"walk_speed_scale": 2.0}}, worn, **extra)
+                          for worn, extra in ((variant, {}), (springy, {"springs_out": springs}),
+                                              (springy, {"jiggle_strength": 0.0})))
+    characters = bytes(built["characters.xbr"])
+    # X41: the springy build's hook and table; at strength 0, nothing
+    xbe = bytes(plain["default.xbe"])
+    assert ports.verify_trampoline_patch(xbe, JIGGLE_HOOK) == "applied"
+    assert ports.verify_trampoline_patch(bytes(zero["default.xbe"]), JIGGLE_HOOK) == "original"
+    assert ports.verify_trampoline_patch(bytes(built["default.xbe"]), JIGGLE_HOOK) == "original"
+    assert bytes(zero["characters.xbr"]) == bytes(plain["characters.xbr"])
+
+    def word(symbol: str, size: int) -> bytes:
+        at = _at(xbe, JIGGLE_HOOK, symbol)
+        return xbe[at:at + size]
+    bones_n = len(bone_records(bytes(plain["characters.xbr"]), body))
+    assert [(r.role, r.bone, r.parent, r.chain) for r in springs["rows"]] == [
+        ("bust", 22, 16, -1), ("glutes", 24, 0, -1), ("hair1", 27, 20, -1), ("hair2", 28, 27, 2), ("hair3", 29, 28, 3),
+        *((f"loincloth_{side}_{k}", at + k, at + k - 1 if k > 1 else 0, first + k - 1 if k > 1 else -1)
+          for side, at, first in (("front", 81, 4), ("back", 86, 8)) for k in range(1, 5))]
+    assert [r.spring.wall[3] for r in springs["rows"][5:]] == [0.005, 0.005, 0.015, 0.015, 0.005, 0.015, 0.015, 0.015]
+    assert [r.spring.wall and r.spring.wall[:3] for r in springs["rows"]] == [None] * 5 + [(0.0, 0.0, -1.0)] * 8
+    assert jiggle_rt.kinds(springs) == {"bust": "bust", "glutes": "glutes", "hair1": "", "hair2": "", "hair3": ""} | {
+        f"loincloth_{side}_{k}": "hem" if k == 4 else "cloth" for side in ("front", "back") for k in range(1, 5)}
+    sash = {c["root"]: c for c in model_chains.chains(bytes(plain["characters.xbr"]), "townspeople/female_2")["chains"]}
+    assert [(sash[f"loincloth_{side}_1"]["keyed"], sash[f"loincloth_{side}_1"]["unkeyed"]) for side in ("front", "back")
+            ] == [(59, [])] * 2   # her v3 stand-in's 58 clips and the test's press (idle's keys and the lift)
+    assert word("_player_model_jiggle_bones", jiggle_rt.TABLE_SIZE) == jiggle_rt.table(
+        springs["rows"], bones_n, 1.0, springs["drawn"])
+    assert word("_player_model_jiggle_scene", 4) == struct.pack("<I", 0x1BF63C)
+    assert word("_player_model_jiggle_x26", 8) == struct.pack("<II", *(
+        ports.trampoline_symbol_va(xbe, STANCE_HOOK, f"_player_model_stance_{w}") for w in ("held", "edge")))
+    assert struct.unpack("<f", word("_player_model_jiggle_strength", 4)) == (1.0,)
+    rig, records = Rig.read(characters, body), bone_records(characters, body)
+    names = [b.name for b in records]
+    bones = {jb.role: (names.index(jb.bone), jb) for jb in variant.jiggle.bones}
+    assert {r: rig.bones[k].parent for r, (k, _) in bones.items()} == {
+        "bust": names.index("spine_2"), "glutes": names.index("root_joint")}
+    binds = inverse_binds(characters, body)
+    home = []
+    for b in rig.bones:
+        home.append(tuple(b.t) if b.parent < 0 else
+                    tuple(p + d for p, d in zip(home[b.parent], _turn(rig.world[b.parent], b.t))))
+    for k, _ in bones.values():   # rest world x inverse bind = I: rotation and origin
+        m = binds[k]
+        assert max(abs(m[4 * i + j] - _turn(qmul((-rig.world[k][0], -rig.world[k][1], -rig.world[k][2],
+                                                       rig.world[k][3]), (0.0, 0.0, 0.0, 1.0)), axis)[j])
+                   for i, axis in enumerate(((1, 0, 0), (0, 1, 0), (0, 0, 1))) for j in range(3)) < 1e-5
+        assert max(abs(sum(home[k][i] * m[4 * i + j] for i in range(3)) + m[12 + j]) for j in range(3)) < 1e-5
+    groups = {g.index: g for g in mesh_groups(characters, body) if g.lod == 0}
+    assert ([groups[1].bones[e] for e in (14, 17)], groups[4].bones[13]) == (
+        [bones["bust"][0], bones["glutes"][0]], bones["bust"][0])
+    gone = {1: {names.index("joint19"), names.index("joint10")}, 4: {names.index("left_hand")}}
+    for g in groups.values():
+        for j in range(g.count):
+            at = g.vertices + 60 * j
+            w = struct.unpack_from("<4f", characters, at + 12)
+            used = [g.bones[b - 1 if b <= 12 else b - 2] for b, x in zip(characters[at + 56:at + 60], w) if x > 0]
+            assert abs(sum(w) - 1.0) < 1e-6 and w[0] == max(w) and not set(used) & gone.get(g.index, set())
+    mine, theirs = (_clips(bytes(x["characters.xbr"]), body) for x in (built, plain))
+    still = {f"characters/{body}/{c}" for c in variant.jiggle.still}
+    cycled = set(variant.jiggle.loops)
+    run = f"characters/{body}/r/walk"
+    assert set(mine) == set(theirs) | {run} and len(mine) == 60 and len(still) == 4
+    jig = {k for k, _ in bones.values()}   # Step 2.168: a recipe's own clip plays its keys on a jiggle bone
+    own = {key for key, (_, clip) in theirs.items() if any(tr.target in jig for tr in clip.bones)}
+    assert {key.rsplit("/", 1)[-1] for key in own} == {"press"}
+    for key in own:
+        (_, made), (_, sprung) = mine.pop(key), theirs[key]
+        keyed = {tr.target for tr in sprung.bones if tr.target in jig}
+        assert [tr for tr in made.bones if tr.target in keyed] == [tr for tr in sprung.bones if tr.target in keyed]
+        for k in jig - keyed:
+            assert {tr.comp for tr in made.bones if tr.target == k} == {0, 1, 2, 4, 5}, key
+    lifted = {tr.comp: tr.keys for tr in theirs[f"characters/{body}/v/press"][1].bones if tr.target == bones["bust"][0]}
+    assert evaluate(lifted[1], 2.0) == pytest.approx(rig.bones[bones["bust"][0]].t[1] + 0.01, abs=1e-3)
+    assert b"r/walk\0" in bytes(built["default.xbe"]) and b"r/walk\0" not in bytes(plain["default.xbe"])   # X11's
+    for key, (data, clip) in mine.items():
+        added = [tr for tr in clip.bones if tr.target in {k for k, _ in bones.values()}]
+        source = theirs[f"characters/{body}/walk" if key == run else key][1]
+        assert [tr for tr in clip.bones if tr not in added] == list(source.bones), key
+        if key in still:
+            assert data == theirs[key][0], key
+            continue
+        assert sorted((tr.target, tr.comp) for tr in added) == sorted(
+            (k, c) for k, _ in bones.values() for c in (0, 1, 2, 4, 5)), key
+        for k, jb in bones.values():
+            keyed = {tr.comp: tr.keys for tr in added if tr.target == k}
+            off = [math.dist([evaluate(keyed[c], clip.length * i / 60) for c in range(3)], rig.bones[k].t)
+                   for i in range(61)]
+            assert max(off) <= jb.travel * 1.1, (key, jb.role)
+            if key.rsplit("/", 1)[-1] in cycled:
+                assert all(keys[0][1] == keys[-1][1] for keys in keyed.values()), key
+            else:
+                assert off[0] < 1e-3 and off[-1] < 1e-3, (key, jb.role)
+            if key.endswith(("/g4/touchdown", "/g4/ouch_1")):
+                at = [[k[1] for k in keyed[c]] for c in range(3)]
+                assert jb.role != "bust" or max(off) > 0.01
+                assert max(math.dist([a[j] for a in at], [a[j + 1] for a in at])
+                           for j in range(len(at[0]) - 1)) < jb.travel, (key, jb.role)
+    # AZ-648: each clip's springs are the ones its slot's rate keys, on W29's rig as the dress makes it
+    edited = bytearray(vanilla)
+    mesh_edit.write(edited, mesh_edit.plan(vanilla, body, variant.mesh), vanilla)
+    rigged = jiggle.rig(edited, vanilla, body, variant.jiggle, variant.mesh)
+    config = ports.XbrDocument.from_bytes(bytes(built["config.xbr"]))
+    data, anims = config.keyed_section("critters_critter_data"), config.keyed_section("attacks_anims")
+    cell = {p: data.find_cell("garret4", p, None).double_value
+            for p in ("walkSpeed", "runSpeed", "walkAnimSpeed", "runAnimSpeed")}
+    drawn = config.keyed_section("critters_engine").find_cell("garret4", "scale", None).double_value
+    rate = {c: anims.find_cell(c, "Rate", i).double_value for i, c in enumerate(anims.col_names())}
+    assert (cell["walkSpeed"], cell["runSpeed"], round(drawn, 6)) == (5.0, 14.0, 1.15)
+    for name, at in (("walk", 0.8 * 5.0 / (drawn * cell["walkAnimSpeed"])),
+                     ("r/walk", cell["runSpeed"] / (drawn * cell["runAnimSpeed"])), ("g4/climb_up", 2.0),
+                     ("g4/climb_start", 1.5), ("g4/step_up", 3.0),
+                     ("g4/ouch_1", mine[f"characters/{body}/g4/ouch_1"][1].length / 0.4),
+                     ("g4/roll_forward", rate["roll forward"]),
+                     ("v/hspin", math.sqrt(rate["sweep1"] * rate["sweep2"]))):
+        data, clip = mine[f"characters/{body}/{name}"]
+        rest = Clip(clip.length, tuple(tr for tr in clip.bones if tr.target not in {k for k, _ in bones.values()}),
+                    clip.markers)
+        again, _ = jiggle.keyed(rig, rest, rigged.bones, variant.jiggle.keys, at, drawn,
+                                name.rsplit("/", 1)[-1] in cycled)
+        assert write_clip(again) == data, (name, at)
+    assert rate["sweep1"] != rate["sweep2"]
+
