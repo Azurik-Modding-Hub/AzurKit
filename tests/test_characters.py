@@ -1080,6 +1080,25 @@ def test_a_recipe_on_garret4_builds_his_own_build_at_its_options_and_refuses_wha
         _g4(usa_iso, tmp_path, {"attacks": {"balance": True}})
 
 
+def test_a_recipe_on_garret4_reshapes_and_restyles_his_own_body_in_place(usa_iso, tmp_path):
+    """D813 (Modkit's Step 2.206): a recipe's look on garret4's own body (W24's mesh, W28's arms, W38's colours) is
+    made on his own body in place, only he wearing it: characters.xbr alone changes (no X47, no shim, no config
+    cell), its mesh op moves his LOD 0, and his idle's left arm turns out."""
+    from azurkit.tools.characters.retarget import Rig, named_clip
+
+    op = {"op": "scale", "bone": "spine_2", "radius": [0.2, 0.2, 0.2], "factors": [1.2, 1.2, 1.2]}
+    changed, files = _g4(usa_iso, tmp_path, {"mesh": {"ops": [op]}, "arms": {"out_deg": 10},
+                                             "colours": [{"ops": [{"op": "hsv", "hue": 120}]}]})
+    assert list(changed) == [CHARACTERS]
+    with iso.Reader(usa_iso) as r:
+        vanilla, built = r.read(CHARACTERS), files[CHARACTERS]
+    lod0 = [[v.position for g in bc.read_asset(c, "garret4").lods[0].groups for v in g.vertices] for c in (vanilla, built)]
+    assert len(lod0[0]) == len(lod0[1]) and lod0[0] != lod0[1]
+    k = [b.name for b in Rig.read(vanilla, "garret4").bones].index("left_arm_1")
+    arm = [[t for t in named_clip(c, "garret4", "idle").bones if t.target == k] for c in (vanilla, built)]
+    assert arm[0] and arm[0] != arm[1]
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
