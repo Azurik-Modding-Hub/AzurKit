@@ -590,9 +590,7 @@ def test_the_shim_data_a_build_declares_is_the_marker_x3_writes_each_tick(usa_is
     farmer, axion = built({"species": "town_male_farmer_1"}), built(
         {"species": "keylord", "sounds": "garret4", "weapon": "axion_staff"})
     shims = next(s for s in xbe_.sections(flicken) if s.name == "SHIMS")
-    stamp = gate.verify(str(usa_iso), whole=False)
-    with ports.building(ports.Build(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), taken=[],
-                                    packs=characters.packs_view(stamp.release, mods.PACKS))):
+    with _building(usa_iso):
         data = shim_data(flicken)
         for done in (0.35, 0.6):
             marker, written = x3_tick(flicken, done)
@@ -1004,13 +1002,36 @@ def test_a_mesh_drop_takes_its_bones_last_groups_off_lod_0_and_refuses_any_other
 
 
 # --- a recipe on garret4's own body (Modkit's Step 2.206, D813): his own build at its fields -------------------------
-def _g4(usa_iso, folder: Path, recipe: dict, name: str = "g4x") -> dict[str, str]:
-    """``recipe`` on garret4's own body, its file written in ``folder`` (its files beside it), built from the USA
-    image through ``sdk.image``: each file the build changed and its sha256 (``filelist.txt``, derived, left out)."""
+def _built(usa_iso, character: dict) -> tuple[dict[str, str], dict[str, bytes]]:
+    """``character`` built from the USA image through ``sdk.image``, no pack on: each file the build changed and its
+    sha256 (``filelist.txt``, derived, left out), and those files' bytes."""
+    made, report = sdk.image({"iso": str(usa_iso), "packs": {}, "character": character})
+    changed = {f: sha for f, sha in report["result"].items() if f != "filelist.txt"}
+    with iso.Reader(made) as r:
+        return changed, {f: r.read(f) for f in changed}
+
+
+def _g4(usa_iso, folder: Path, recipe: dict, name: str = "g4x", **given) -> tuple[dict[str, str], dict[str, bytes]]:
+    """``recipe`` on garret4's own body, its file written in ``folder`` (its files beside it), built (``given``: the
+    character's other fields) as :func:`_built` builds it."""
     file = folder / "recipe.json"
     file.write_text(json.dumps({name: {"base": "garret4", **recipe}}), encoding="utf-8")
-    _, report = sdk.image({"iso": str(usa_iso), "packs": {}, "character": {"species": name, "variant_file": str(file)}})
-    return {f: sha for f, sha in report["result"].items() if f != "filelist.txt"}
+    return _built(usa_iso, {"species": name, "variant_file": str(file), **given})
+
+
+def _building(usa_iso):
+    """The context the swap's hook and shim readers run in (``ports.building``): the USA image's vanilla files."""
+    stamp = gate.verify(str(usa_iso), whole=False)
+    return ports.building(ports.Build(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), taken=[],
+                                      packs=characters.packs_view(stamp.release, mods.PACKS)))
+
+
+def _param(xbe: bytes, hook, shim, symbol: str) -> float:
+    """A shim's float param in the built ``xbe`` (inside :func:`_building`)."""
+    from azurkit.tools.characters._player_character import CHECKOUT
+
+    at = ports.trampoline_symbol_va(xbe, hook, symbol, CHECKOUT, shim_source=shim.source_path())
+    return struct.unpack_from("<f", xbe, ports.resolve_va_to_file(xbe, at))[0]
 
 
 def test_a_recipe_on_garret4_reads_its_png_colours_beside_its_file_with_its_other_fields(usa_iso, tmp_path):
@@ -1025,9 +1046,38 @@ def test_a_recipe_on_garret4_reads_its_png_colours_beside_its_file_with_its_othe
     (tmp_path / "row0.png").write_bytes(draw.png_rgba(edit))
     png = {"op": "png", "file": "row0.png", "sha256": hashlib.sha256((tmp_path / "row0.png").read_bytes()).hexdigest()}
     colours, damage = {"colours": [{"row": 0, "ops": [png]}]}, {"attacks": {"damage": 1.5}}
-    both, alone, number = (_g4(usa_iso, tmp_path, r) for r in ({**colours, **damage}, colours, damage))
+    both, alone, number = (_g4(usa_iso, tmp_path, r)[0] for r in ({**colours, **damage}, colours, damage))
     assert list(alone) == [CHARACTERS] and CHARACTERS not in number
     assert both == {**number, **alone}
+
+
+def test_a_recipe_on_garret4_builds_his_own_build_at_its_options_and_refuses_what_means_nothing_on_him(usa_iso,
+                                                                                                       tmp_path):
+    """D813 (Modkit's Step 2.206): a recipe on garret4's own body is his own build at its options. At every default
+    it writes nothing; its scale and attack numbers build the bytes his character's scale and attack fields build,
+    its weapon those his weapon builds (under Balthazar's magic its drain too), and its hits through walls set his
+    own hitsThroughWalls alone. What has no meaning on him fails by name at load (mode, size and sounds garret4: he
+    is garret4; fx_ring: his attacks' effects are his staff's), and a balance his own staff swings can't weigh at
+    build."""
+    from azurkit.tools.characters._player_character import DRAIN_HOOKS, DRAIN_SHIM
+
+    assert _g4(usa_iso, tmp_path, {})[0] == {}
+    for recipe, given in (({"scale": 1.3, "attacks": {"reach": 1.2, "damage": 1.5, "speed": 1.25}},
+                           {"scale": 1.3, "attack_reach": 1.2, "attack_damage": 1.5, "attack_speed": 1.25}),
+                          ({"weapon": "farmers_hoe"}, {"weapon": "farmers_hoe"})):
+        assert _g4(usa_iso, tmp_path, recipe)[0] == _built(usa_iso, {"species": "garret4", **given})[0], recipe
+    drained = _g4(usa_iso, tmp_path, {"weapon": "balthazar_magic", "drain": {"targets": "all"}})[1][characters.XBE]
+    with _building(usa_iso):
+        assert _param(drained, DRAIN_HOOKS[2], DRAIN_SHIM, "_player_model_drain_every") == 1.0
+    changed, walls = _g4(usa_iso, tmp_path, {"attacks": {"through_walls": True}})
+    assert list(changed) == [characters.CONFIG] and ports.XbrDocument(bytearray(walls[characters.CONFIG])).keyed_section(
+        "critters_critter_data").find_cell("garret4", "hitsThroughWalls", None).double_value == 1.0
+    for field, value in (("mode", "garret4"), ("size", "garret4"), ("sounds", "garret4"), ("fx_ring", False)):
+        said = f"{field} {value}" if value else field
+        with pytest.raises(ValueError, match=re.escape(f"{said}: a recipe on garret4's own body can't ask it")):
+            _player_variants.load_variants(json.dumps({"g4x": {"base": "garret4", field: value}}), "test")
+    with pytest.raises(ValueError, match=re.escape("attacks.balance true: garret4 plays his own attacks with his staff")):
+        _g4(usa_iso, tmp_path, {"attacks": {"balance": True}})
 
 
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
