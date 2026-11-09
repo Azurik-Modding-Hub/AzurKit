@@ -405,7 +405,7 @@ def test_both_shipped_node_type_tables_are_what_capstone_reads_from_each_release
         node_types.scan(xbes["usa"])
 
 
-# Step 4.28b: Modkit's unpinned devkit verb behaviours (its test census, lane B), ported lean.
+# Step 4.28b: Modkit's unpinned devkit verb behaviours, ported lean.
 
 
 def test_a_byte_count_or_a_record_stride_takes_only_a_positive_integer(capsys):

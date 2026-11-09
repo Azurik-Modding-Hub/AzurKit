@@ -459,7 +459,7 @@ def test_slots_are_read_from_an_xemu_hdd_image(tmp_path):
         saves.slots(tmp_path / "small.img")
 
 
-# Step 4.28b: Modkit's unpinned save command behaviours (its test census, lanes B and C6), ported lean.
+# Step 4.28b: Modkit's unpinned save command behaviours, ported lean.
 
 
 def test_save_with_no_verb_exits_2_naming_what_it_needs(capsys):

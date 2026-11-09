@@ -488,7 +488,7 @@ def test_ci_runs_the_pure_tier_once_on_each_runner_and_a_push_asks_for_at_most_5
     assert {label for label, measured in table.items() if measured.get("head", 0) > 0} == ci_matrix.FOLDED
 
 
-# Step 4.28b: Modkit's suite guards (its test census, lanes B and C6), ported lean.
+# Step 4.28b: Modkit's suite guards, ported lean.
 
 
 def test_a_europe_mark_without_vanilla_stops_the_run_and_the_europe_fixture_marks_both(pytester, monkeypatch):

@@ -231,7 +231,7 @@ def test_each_vanilla_image_matches_its_manifest_file_by_file(release, request):
     assert (stamp.release, stamp.whole) == (release, True)
 
 
-# Step 4.28b: Modkit's unpinned core behaviours (its test census, lane B), ported lean.
+# Step 4.28b: Modkit's unpinned core behaviours, ported lean.
 
 
 def test_each_release_is_found_by_its_own_variable_else_in_the_user_data_folder(tmp_path, monkeypatch):

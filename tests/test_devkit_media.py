@@ -195,7 +195,7 @@ def test_the_media_verbs_read_the_games_movies_and_sound_banks(usa_iso, tmp_path
             i: own[k] for i, k in enumerate(toc) if k in own} and len([e for e in report.entries if e.name]) == named
 
 
-# Step 4.28b: Modkit's unpinned audio dump behaviours (its test census, lane B), ported lean.
+# Step 4.28b: Modkit's unpinned audio dump behaviours, ported lean.
 
 
 def test_the_dump_scores_entropy_refuses_an_implausible_header_and_previews_each_raw_blob_once(tmp_path):

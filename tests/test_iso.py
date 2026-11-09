@@ -260,7 +260,7 @@ def test_inserted_root_entries_read_back_and_vanilla_entries_keep_their_sectors(
             iso.read(path, None, add=given)
 
 
-# Step 4.28b: Modkit's unpinned core behaviours (its test census, lane B), ported lean.
+# Step 4.28b: Modkit's unpinned core behaviours, ported lean.
 
 
 def test_a_written_image_is_whole_on_the_disk_before_it_appears_under_its_name(tmp_path, monkeypatch):

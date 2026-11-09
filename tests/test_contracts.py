@@ -603,7 +603,7 @@ def test_every_locked_package_but_the_project_has_a_wheel_and_proxy_tools_is_the
         assert "\nLicense: MIT\n" in zf.read(f"{meta}METADATA").decode()
 
 
-# Step 4.28b: Modkit's suite guards (its test census, lane C6) and the encoding rule, ported lean.
+# Step 4.28b: Modkit's suite guards and the encoding rule, ported lean.
 
 
 def _called(node: ast.AST) -> str:

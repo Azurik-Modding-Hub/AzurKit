@@ -1788,7 +1788,7 @@ time.sleep(300)
         raise AssertionError(f"pytest's controller {controller} or its worker {worker} still runs")
 
 
-# Step 4.28b: Modkit's unpinned dev tool behaviour (its test census, lane C6), ported lean.
+# Step 4.28b: Modkit's unpinned dev tool behaviour, ported lean.
 
 
 def test_restack_runs_its_batch_work_at_nice_15_or_lower_priority_and_only_in_a_lane(monkeypatch):

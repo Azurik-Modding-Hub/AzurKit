@@ -2501,7 +2501,7 @@ def test_a_body_case_under_pyodide_is_its_goldens_file_for_file(usa_iso, pyodide
     assert got["report"]["result"] == {f: sha for f, sha in _golden(G3["usa"])[case].items() if f != "ISO"}
 
 
-# Step 4.28b: Modkit's unpinned index.xbr and grade table behaviours (its test census, lane B), ported lean.
+# Step 4.28b: Modkit's unpinned index.xbr and grade table behaviours, ported lean.
 
 
 def _indx_xbr(records: list[tuple[str, str, str]], count: int | None = None) -> bytes:
