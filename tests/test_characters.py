@@ -1129,6 +1129,44 @@ def test_a_recipe_on_garret4_swings_its_jiggle_on_both_his_lods(usa_iso, tmp_pat
     assert struct.unpack_from("<I", xbe, at + 8)[0] == len(asset.bones) == his + 1 + 2 * (weapon is not None)
 
 
+def test_a_recipe_on_garret4_plays_its_clips_in_his_columns_and_his_own_build_elsewhere(usa_iso, tmp_path):
+    """D813 (Modkit's Step 2.206): a recipe's moves on garret4's own body: its clip under characters/garret4/v/
+    (W22), his 360_sweep and the air elemental's attack_1 lent (a bake onto his rig) in its three columns, each
+    other column his own Anim, and every Rate and Damage multiplier his (no W5, no balance); X33 carries its carry
+    column and chains its held one, X10 rotates; no X3, X13 or X36 (his own attacks)."""
+    from azurkit.tools.characters._player_character import (ATTACK_BOX_HOOK, CARRY_HOOK, CARRY_SHIM, ROTATE_HOOK,
+                                                             SETS_HOOKS)
+    from azurkit.tools.characters._player_damage_marker import DAMAGE_MARKER
+
+    spin = {"generator": "t_spin", "length": 0.4, "turns": 2, "active": [0.1, 0.9],
+            "box": {"centre": [0.0, 0.0, 0.8], "half": [0.78, 0.78, 0.8]}}
+    _, files = _g4(usa_iso, tmp_path, {
+        "clips": {"spin": spin, "ae": {"generator": "bake", "body": "air_elemental", "clip": "attack_1"}},
+        "columns": {"basic1": "spin", "basic2": "360_sweep", "basic3": "ae"}, "carry": ["basic1"], "held": ["basic2"],
+        "rotate": True})
+    with iso.Reader(usa_iso) as r:
+        his = ports.XbrDocument(bytearray(r.read(characters.CONFIG))).keyed_section("attacks_anims")
+    anims = ports.XbrDocument(bytearray(files[characters.CONFIG])).keyed_section("attacks_anims")
+    columns = anims.col_names()
+    picks = {c: anims.find_cell(c, "Anim", i).string_value for i, c in enumerate(columns)}
+    assert picks == {c: {"basic1": "v/spin", "basic2": "360_sweep", "basic3": "v/ae"}.get(
+        c, his.find_cell(c, "Anim", i).string_value) for i, c in enumerate(columns)}
+    for row in ("Rate", "Damage multiplier", "Move end1"):
+        cells = [[(t.type_code, t.double_value) if (t := table.find_cell(c, row, i)) is not None else None
+                  for i, c in enumerate(columns)] for table in (anims, his)]
+        assert cells[0] == cells[1], row
+    xbe = files[characters.XBE]
+    assert {"characters/garret4/v/spin", "characters/garret4/v/ae"} <= {
+        n.casefold() for n in named_resources(files[CHARACTERS]).values()}
+    with _building(usa_iso):
+        assert (round(_param(xbe, CARRY_HOOK, CARRY_SHIM, "_player_model_carry_columns")),
+                round(_param(xbe, CARRY_HOOK, CARRY_SHIM, "_player_model_held_columns"))) == (
+            1 << columns.index("basic1"), 1 << columns.index("basic2"))
+        assert [ports.verify_trampoline_patch(xbe, h) for h in (ROTATE_HOOK, DAMAGE_MARKER, ATTACK_BOX_HOOK,
+                                                                *SETS_HOOKS)] == [
+            "applied", "original", "original", *["original"] * len(SETS_HOOKS)]
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
