@@ -897,7 +897,7 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_marks_a_sample_whose_page_f
     click (at once once the change's own wait passed 3 s; never a Build
     again); a tick of the freeze probe due in a gap (the head start, a
     dialog's wait) over 250 ms late marks the next sample (``froze``: a perf-debt row, D1170), a head start's
-    timed from the change, and one no sample takes stops the pass; a late
+    timed from the change, and one no sample takes is a log line, never an error; a late
     tick under that, due in an action's own wait or before the gap only
     logs. One click's done-states race, each its own first true poll (the
     click's op takes its head start's freeze); a state made once is cloned
@@ -915,11 +915,10 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_marks_a_sample_whose_page_f
         d.act(p, None, "pick", "picked", change=True)
         if dialog:
             d.idle(p, "the save dialog", dialog)
-        try:
-            d.act(p, op, "build", "built")
-            d.over()
-        except RuntimeError as exc:
-            return "stops", str(exc)
+        d.act(p, op, "build", "built")
+        d.over()
+        if op is None:
+            return "logged", d.log[-1]
         s = d.samples[op][0]
         return p.clicks["build"], s["s"], s.get("froze"), s.get("gap_ms"), s["late_ms"]
     froze = "the page froze 400 ms in "
@@ -930,7 +929,8 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_marks_a_sample_whose_page_f
     )] == [
         (3000, 2.0, None, 0, 0), (4000, 2.0, None, None, 0), (500, 2.0, None, None, 0),
         (3000, 5.0, froze + "the head start before A12", 400, 0), (3000, 2.0, None, 200, 0), (3000, 2.0, None, 0, 0),
-        (3000, 2.0, None, 0, 400), (1500, 2.0, froze + "the save dialog", 400, 0), ("stops", froze + "the save dialog"),
+        (3000, 2.0, None, 0, 400), (1500, 2.0, froze + "the save dialog", 400, 0),
+        ("logged", "app: " + froze + "the save dialog, after the pass's last sample"),
     ]
     p, d = driven({"seed": {"typed": 0}, "track": {"tracked": 5000, "world": 50, "art": 100}}, [(1000, 400)])
     d.act(p, None, "seed", "typed", change=True)

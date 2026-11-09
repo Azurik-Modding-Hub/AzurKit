@@ -588,9 +588,10 @@ class Driver:
     or Build that follows one) is clicked :data:`HEAD_START` after it, the
     clock still starting at the click. A gap between actions (:meth:`idle`:
     a head start, a dialog's wait, the warm-up's) in which a tick of the
-    freeze probe was due and came :data:`FREEZE_MS` late fails the next
-    sample the pass records (a head start's: its op's, timed from the
-    change); one no sample takes stops the pass (:meth:`over`). Lateness in
+    freeze probe was due and came :data:`FREEZE_MS` late marks the next
+    sample the pass records (``froze``: a perf-debt row, D1170; a head
+    start's: its op's, timed from the change); one no sample takes is a line
+    of the run's log (:meth:`over`), never an error. Lateness in
     an action's own wait is its work: its sample logs it (``late_ms``), as
     each logs its gaps' worst (``gap_ms``).
 
@@ -769,10 +770,12 @@ class Driver:
         return clone
 
     def over(self) -> None:
-        """The pass is over: a freeze no sample took stops it (its ops still needing samples get the error)."""
+        """The pass is over: a freeze no sample took is a line of the run's log (D1170: never an error)."""
         gap, self.gap = self.gap, None
         if gap and gap[0] > FREEZE_MS:
-            raise RuntimeError(f"the page froze {gap[0]:.0f} ms in {gap[1]}")
+            self.log.append(f"{self.run.name}: the page froze {gap[0]:.0f} ms in {gap[1]}, "
+                            "after the pass's last sample")
+            print(self.log[-1], flush=True)
 
     def start(self, p: Page, op: str | None, action: str | Callable[[], None] | None, arg=None) -> float:
         """Do ``action`` (a page function, a Python callable, or nothing), as
