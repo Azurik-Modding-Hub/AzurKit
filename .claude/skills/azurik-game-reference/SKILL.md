@@ -46,7 +46,7 @@ may not, and game bytes are never printed in logs or chat.
 
 ## When NOT to use this skill
 
-- Writing, applying or verifying a pack, slider or C shim: `azurik-patching-and-shims`.
+- Writing, applying or verifying a pack, slider or C shim: AGENTS.md's Packs (its "Patching and shims: what binds") and `docs/SHIMS.md`.
 - Measuring in xemu (gdbstub, input pipe, snapshots): `azurik-xemu-oracle`.
 - Ghidra or the MCP server: `azurik-ghidra-mcp`. Setup and Python version: `azurik-dev-environment`.
 - The `.xbr` byte format or authoring an XBR pack: `docs/XBR_FORMAT.md`, `docs/XBR_PACKS.md`.

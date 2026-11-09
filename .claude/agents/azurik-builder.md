@@ -36,8 +36,6 @@ the main checkout); it binds with AGENTS.md.
   before reading a big file and read only the ranges you need, and poll
   a running job at most every 240 s, one blocking wait a call (never a
   sleep loop or repeated `--status`).
-- A sitting: first read the xemu skill, Modkit's
-  `.claude/skills/azurik-xemu-oracle/SKILL.md` until Step 4.14a3 ports
-  it here; checkpoint `results/` as rows finish and write `REPORT.txt`
-  before you return.
+- A sitting: first load `azurik-xemu-oracle`; checkpoint `results/` as
+  rows finish and write `REPORT.txt` before you return.
 - Return head, base, commits, the receipt key or path and what is left.

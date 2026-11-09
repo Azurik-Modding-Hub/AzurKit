@@ -1,5 +1,6 @@
-"""The agents' files: each role in ``.claude/agents/`` pins its model, the
-tracked skills hold no text the Skill tool runs as a shell command, and no
+"""The agents' files: each role in ``.claude/agents/`` pins its model, each
+tracked skill's frontmatter names its folder and the skills hold no text
+the Skill tool runs as a shell command, and no
 tracked text holds a home path or cites the private evidence folder but
 its tools.
 
@@ -75,7 +76,7 @@ def test_the_roles_gate_with_agents_mds_gate_and_load_only_skills_tracked_here()
     Modkit until Step 4.16b teaches them AzurKit, and ``waitfor`` finds a
     receipt by key only there (by its path, anywhere), so no role names the
     queue or waits on a key. Each skill a role says to load is one tracked
-    in .claude/skills/; one not ported yet is read from Modkit."""
+    in .claude/skills/ (every one of Modkit's is, since Step 4.16a2)."""
     gate = re.search(r"\*\*The gate:\*\* run `([^`]+)`", (ROOT / "AGENTS.md").read_text(encoding="utf-8"))
     bodies = {path.stem: " ".join(path.read_text(encoding="utf-8").split("---\n", 2)[2].split())
               for path in sorted((ROOT / ".claude" / "agents").glob("*.md"))}
@@ -85,15 +86,29 @@ def test_the_roles_gate_with_agents_mds_gate_and_load_only_skills_tracked_here()
     assert {name for body in bodies.values() for name in re.findall(r"\bload `([\w-]+)`", body)} <= skills
 
 
-def test_no_skill_holds_text_the_skill_loader_runs_as_a_shell_command():
-    """Claude Code's Skill tool runs a "!" plus a backtick-quoted span
-    (after whitespace) and a fence opened by three backticks and "!" as
-    shell commands before the skill loads, and a failing command fails the
-    load: a quoted pytest banner ending in " !" plus a backtick kept one of
+def test_every_skill_loads_its_frontmatter_naming_its_folder_and_no_text_the_loader_runs_as_a_shell_command():
+    """Claude Code lists a skill by its SKILL.md's frontmatter: each tracked
+    skill's folder holds one that opens with a ``---`` block whose ``name``
+    is the folder's and whose ``description`` (inline, or a folded block's
+    indented lines) says when to load it (Step 4.16a2's seven skills).
+    And its Skill tool runs a "!" plus a backtick-quoted span (after
+    whitespace) and a fence opened by three backticks and "!" as shell
+    commands before the skill loads, and a failing command fails the load:
+    a quoted pytest banner ending in " !" plus a backtick kept one of
     Modkit's skills from loading. The guard refuses any "!" directly before
     a backtick, a superset of both of the loader's patterns (Claude Code
     2.1.296), in every line of every tracked skill."""
     skills = [rel for rel in tracked(".claude/skills") if rel.endswith(".md")]
+    heads = {}
+    for rel in skills:
+        if Path(rel).name == "SKILL.md":
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            head = text.split("---\n", 2)[1] if text.startswith("---\n") and text.count("---\n") > 1 else ""
+            name = re.search(r"^name: *(\S+) *$", head, re.M)
+            said = re.search(r"^description: *(.*)\n((?:[ \t]+\S.*\n)*)", head, re.M)
+            heads[Path(rel).parent.name] = (name and name.group(1),
+                                            bool(said and (said.group(1).strip(" >-|") or said.group(2).strip())))
+    assert heads == {folder: (folder, True) for folder in {Path(rel).parts[2] for rel in skills}}
     hits = [f"{rel}:{n}: {line.strip()}"
             for rel in skills
             for n, line in enumerate((ROOT / rel).read_text(encoding="utf-8").splitlines(), 1)

@@ -20,13 +20,17 @@ line is plain and short, with no step, D or AZ ids, and true on `main`.
 
 | Home | Load it for |
 |---|---|
-| This file | the rules: setup and tests, game data, the goldens, porting from Modkit, packs, the randomizer, characters, the engine's contracts, the two hosts, commits and landing |
+| This file | the rules: setup and tests, game data, the goldens, porting from Modkit, packs (with patching and shims: what binds), the randomizer, characters, the engine's contracts, the two hosts, commits and landing |
+| `azurik-change-control` (`.claude/skills/`) | how a change lands: the change classes and the evidence each owes, the gate and green (D1170's rerun and perf debt), landing, CI and the release's shape, the protected paths and their update commands, commits, the never-commit list |
+| `azurik-testing` (`.claude/skills/`) | running and writing tests: which to run for a change, the tiers and markers, the empty allow-list and flakes, fixtures, one behavior-named test a fix, determinism, goldens and facts, the simulator's levels, the perf gate's window, CI's tiers |
+| `azurik-dev-environment` (`.claude/skills/`) | uv and Python 3.14, the dependency groups, `bootstrap.py` and a lane's setup, where the images and the user data live, the environment variables, devkit's areas, the MCP servers, setup hazards, the owner's environment rules |
+| `azurik-orchestration` (`.claude/skills/`) | the orchestrator's: the four roles and typing a seat, the step shapes with their reviews and skeptics, the gate and the window seats share, prompts and returns, the traps, seat practice and the reach seats; load it before writing a workflow or spawning a seat |
 | `azurik-game-reference` (`.claude/skills/`) | VAs, structs, ABIs, measured movement and armor numbers, patches whose bytes landed with no in-game effect |
 | `azurik-xemu-oracle` (`.claude/skills/`) | the sitting card: in-game ground truth from the owner's xemu fork in a sandbox, the kit, demos, hazards and save states; only a seat that sits loads it (its history: `docs/archive/xemu-oracle-history.md`) |
 | `azurik-ghidra-mcp` (`.claude/skills/`) | devkit's Ghidra side: `bootstrap.py --with re`, the ports, `ghidra-serve` copies, `ghidra-apply` (the one writer of the owner's project), `ghidra-sync`, the snapshot; read it before anything opens `Azurik Ghidra.gpr` |
 | `.claude/agents/` | the seats' roles (D951's `azurik-*` names): `azurik-builder` (Opus: build, fix, gate, sitting), `azurik-reader` (Opus, read-only: RE, reads, reviews, skeptics), `azurik-scout` (Sonnet, read-only: locate and cite), `azurik-mechanic` (Haiku: a command list handed over); `tests/test_agent_files.py` pins each one's model, effort and denied tools |
 | `$EV`, the private evidence folder beside the main checkout | the brief (`$EV/tools/BRIEF.md`), the decisions, the ledger, plans, evidence and the tools the seats run (D951, D952); never copied into the repo |
-| Modkit (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout) | the reference: its skills and docs not ported yet |
+| Modkit (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout) | the reference, frozen: its docs not ported yet (every skill is here since Step 4.16a2) |
 
 Tracked files name the private folder as `$EV`, never by a home path, and
 cite nothing in it but its tools (`$EV/tools/`): a comment, a data file's
@@ -571,6 +575,55 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `tests/_g1.py` reads G1, whose Europe half has no case for a
   config.xbr-only pack: the file is the same in both releases, so its USA
   cases stand for it).
+
+### Patching and shims: what binds
+
+Modkit's `azurik-patching-and-shims` skill, cut to the rules that still
+bind (Step 4.16a2); the how-to (a hook's anatomy, calling the engine, the
+kernel imports, per-apply floats, hand-assembled shims, pitfalls) is
+[`docs/SHIMS.md`](docs/SHIMS.md), whose Modkit paths and commands map to
+AzurKit's as its header says. The packs, sliders and shims above are the
+model; the swap's shims (`src/azurkit/tools/characters/player_model/`)
+are the Characters section's.
+
+- **Pentium III code only (AZ-021):** the Xbox's CPU has MMX and SSE, no
+  SSE2. shimkit compiles with zig at `-mcpu=pentium3` (Modkit's flags),
+  so `double` maths lowers to x87 and `float` may use scalar SSE; xemu
+  runs SSE2 code anyway and only real hardware faults on it. Check an
+  object: `objdump -d <object>.o | grep -E 'sd[[:space:]]|cvt[a-z]*sd'`
+  prints nothing; L1 (`devkit/sim/l1.py`) refuses any instruction a
+  Pentium III lacks and a misaligned m128 in patched code.
+- **Keep the callee's contract:** a hook that replaces a CALL keeps the
+  callee's `ret N` and return registers (a NOP'd stdcall CALL once gave a
+  black screen). A game function a shim calls is a facts `functions`
+  entry (its VA, convention and argument bytes), confirmed at the callee's
+  `RET N` (stdcall and thiscall) or its callers' `ADD ESP,N` (cdecl) at two
+  or more call sites, cited as VA + N in the commit body; an argument in
+  EAX, ESI or EDI needs shimkit's thunk (`THUNKS`), and register inputs
+  are checked by eye at the call sites. A new site, hook or function owes
+  Europe's address or a named absence in `facts.europe.json`. The prologue
+  guard (`tests/test_shims.py`) failing means a mid-function VA: fix the
+  VA, never `PROLOGUE_FIRST_BYTES`.
+- **A config.xbr cell is edited only once the engine is shown to consume
+  it** for what the edit wants: garret4's `hitPoints` is loaded but unused
+  by the player (`player_max_hp` writes `settings_foo`), `runSpeed` is the
+  live walk base while `walkSpeed` is the walk-to-run threshold, and the
+  old "dead armor table" is `attacks_anims` (`azurik-game-reference`).
+- **A patch is done when its behavior is seen, not its bytes:** Modkit
+  catalogued 14 patches whose bytes landed with no effect in game
+  (`azurik-game-reference`). A gameplay change is done once (1) the facts
+  hold its sites and the goldens its cases (G1 and `sites.json`; G2 for a
+  shim's object; a pack owes no byte test of its own); (2) it is seen once
+  in xemu, built from vanilla with only it, under conditions that reach
+  its code, one sitting per stack (`azurik-xemu-oracle`), a movement
+  slider also in L2 at the value the game consumes
+  (`tests/test_simulator.py`); (3) its outcome is written in its
+  subsystem's RE doc (`docs/RE_MOVEMENT.md`, `docs/RE_DATA.md`,
+  `docs/RE_XBE.md`), or the doc says it is unverified, or the pack goes.
+- **The HDD cache:** the game plays its cached copy of a prefetch-listed
+  file until that file's `filelist.txt` line (md5, size) changes; every
+  build writes through `core/iso.py`, which rewrites the line, and a new
+  build path must too.
 
 ## The randomizer
 
