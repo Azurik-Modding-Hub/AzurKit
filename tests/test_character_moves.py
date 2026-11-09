@@ -29,6 +29,7 @@ from azurkit.core import coff, gate
 from azurkit.core.xbr.graph import Graph, Schema
 from azurkit.core.xbr.nodes import named_resources, parse_toc
 from azurkit.tools import characters, mods
+from azurkit.tools.characters import _player_character as swapper
 from azurkit.tools.characters import _player_fx_ring as fx_ring
 from azurkit.tools.characters import _player_variants as variants
 from azurkit.tools.characters import ports
@@ -3450,3 +3451,588 @@ def test_x13_scales_the_players_hit_box_reach_and_fills_a_box_to_the_feet_the_li
                        ("attack_speed", math.nan), ("scale", math.inf)):
         with pytest.raises(ValueError, match=f"^character: {field} {bad!r} is not a finite number"):
             characters.normalize({"species": "keylord", field: bad})
+
+
+def _ring(built: bytes) -> tuple[int, int, int, int, list[int], int, dict[int, tuple[float, float]]]:
+    """X10's ring in a build: its count, next entry, rotate mask, carry
+    flag, each entry's column, the chained mask and each entry's chain
+    point's terms (hit, after) by its column."""
+    (start, _), = [span for span in shim_data(built) if span[1] - span[0] == RING_SIZE]
+    at = resolve_va_to_file(built, start)
+    count, turn, rotate, carry, chained = struct.unpack_from("<iiIII", built, at)
+    entries = [RING_ENTRY.unpack_from(built, at + 0x14 + RING_ENTRY.size * k) for k in range(count)]
+    return count, turn, rotate, carry, [e[0] for e in entries], chained, {e[0]: e[2:4] for e in entries}
+
+
+@pytest.mark.parametrize("species, mode, options, weighed", [
+    ("keylord", "own", {}, {"basic1": 1.55, "basic2": 3.34, "jump attack": 2.51}),
+    ("balthazar", "own", {}, {"basic1": 2.45, "basic3": 1.32, "jump attack": 2.64, "up2": 2.08, "down": 2.2}),
+    ("spideyzar", "own", {"attack_damage": 2.0, "attack_speed": 1.5}, {"basic1": 1.79, "right1": 0.88}),
+    ("fire_elemental", "own", {}, {"basic1": 1.28, "basic2": 1.82, "basic3": 1.4}),
+    ("balthazar", "garret4", {"attack_balance": True}, {"basic1": 1.0, "jump attack": 1.0, "elemental3": 1.0}),
+    ("keylord", "garret4", {}, None),
+    ("spideyzar", "own", {"attack_balance": False, "attack_damage": 0.5, "attack_speed": 2.0}, None),
+    ("keylord", "own", {"attack_balance": False}, None),
+])
+def test_the_attack_balance_weighs_each_attacks_damage_against_garret4s_with_the_sliders_on_top(
+        species, mode, options, weighed):
+    """D223, D228 (Step 2.69, 2.61's formula): with the attack balance,
+    on by default in own body, each attacks_anims column's Damage
+    multiplier (W14; its empty cells filled) is garret4's x B, B = (the
+    move's ticks / garret4's for that column) x sqrt(garret4's reach /
+    its reach, x1.25 for a short melee box) x (garret4's hits / its),
+    held to 0.5-4.0: per hit keylord's basic1 x1.55 and his 1.27 s
+    attack_2 in basic2 x3.34 (both bumped since Step 2.132 draws the
+    bump's line at 0.75 of garret4's reach, D345). D350 (Step 2.132,
+    AZ-614): a slow attacker, whose basics chain on average at least
+    twice as late as garret4's, takes its own factor on every attack,
+    up to 5.0 (D350 amending D228's hold): Balthazar (2.10x, x1.12) his
+    basic1 x2.45, his basic3 beam x1.32 and jump attack x2.64; the fire
+    elemental (1.39x, its basics bumped) and keylord (1.24x) aren't slow,
+    and the fire elemental, under garret4's damage on one enemy, takes
+    x1.19 to reach it (D389): x1.28-1.82; spideyzar, whose basics play
+    its own three clips since Step 2.135 (X36's sets, no X10 ring), isn't
+    slow either and takes x1.77 (D389): its 6.1 m basic1 x1.79 and right1
+    the floor's 0.5 x 1.77 (since Step 2.202b, AZ-804, garret4's norm as
+    the game sends it). garret4's exact (every move in
+    garret4's time, garret4's box) writes none, unless asked: an explicit option overrides the mode's default (garret4's
+    exact, Step 2.68: X3 plays garret4's own box and window for each
+    column in his time, so every column weighs x1.00).
+    The damage slider multiplies
+    every attack's multiplier and the speed slider every attack's Rate
+    (W5's, if any) on top, never the roll's (any finite number, D23); at
+    1.0 with the balance off nothing is written."""
+    damage, speed = options.get("attack_damage", 1.0), options.get("attack_speed", 1.0)
+    plain = {k: v for k, v in options.items() if k not in ("attack_damage", "attack_speed")}
+    told: list[str] = []
+    game = _swap(species, lines=told, mode=mode, **options)
+    log = " ".join(told)
+    tables = [XbrDocument.from_bytes(config).keyed_section("attacks_anims") for config in (
+        _read("gamedata/config.xbr"), game["config.xbr"],
+        _swap(species, mode=mode, **plain)["config.xbr"])]
+    clause = re.search(r"\((a slow attacker|garret4's damage on one enemy): x([\d.]+) the balance's, (D350|D389)\)",
+                       log)
+    assert (clause and clause.group(3)) == (None if weighed is None or mode != "own" or species == "keylord" else
+                                            "D389" if species in ("fire_elemental", "spideyzar") else "D350"
+                                            ) and SLOW_RATIO == 2.0
+    factors = {}
+    for i, col in enumerate(tables[0].col_names()):
+        (m0, rate0), (m, rate), (_, rate1) = (
+            tuple(c.double_value if c.type_code == 1 else None
+                  for c in (t.find_cell(col, MULTIPLIER, i), t.find_cell(col, "Rate", i))) for t in tables)
+        if col == "roll forward":
+            assert (m, rate) == (m0, rate1)
+            continue
+        assert rate == pytest.approx(rate1 * speed, rel=1e-12), col
+        if weighed is None:
+            assert m == (m0 if damage == 1.0 else (m0 or 1.0) * damage), col
+        else:
+            factors[col] = m / ((m0 or 1.0) * damage)
+    k = float(clause.group(2)) if clause else 1.0
+    assert weighed is None or (all(BALANCE_FLOOR * (k - 0.005) <= b <= min(BALANCE_CAP * (k + 0.005), BALANCE_CAP
+                                                                          * SLOW_BONUS) for b in factors.values())
+                               and {col: round(factors[col], 2) for col in weighed} == weighed)
+
+
+
+def test_the_balance_weighs_an_own_bodys_attacks_against_garret4s_moves_as_the_game_sends_them():
+    """AZ-804 (Step 2.202b; the late review of f46a9b550, P1): W14 weighed
+    an own body's columns against garret4's moves read from his clip's
+    boxes, but the game sends a lunge's box back from the body by his
+    clip's horizontal m_feet (``sent_windows``, AZ-766), so his basic2,
+    basic3, finish, sweeps and ups reached x1.08-1.16 farther in the
+    measuring alone and an own body's multipliers there stood x1.09-1.16
+    too high (a borrowed column, weighed as sent since Step 2.197b's F1,
+    didn't). Now the norm is his move as sent in every column but in
+    garret4's exact: keylord own's (no lift) basic1 0.7741 as before,
+    basic2 1.6688, basic3 0.8506, finish 3.7515, sweep2 2.678, up1 1.1103
+    and up2 5.3674 (were 1.8198, 0.9376, 4.3037, 3.11, 1.2586, 5.9651),
+    the review's probe's values read as sent."""
+    anims = XbrDocument.from_bytes(bytes(_swap("keylord")["config.xbr"])).keyed_section("attacks_anims")
+    columns = anims.col_names()
+    got = {col: round(anims.find_cell(col, MULTIPLIER, columns.index(col)).double_value, 4)
+           for col in ("basic1", "basic2", "basic3", "finish", "sweep2", "up1", "up2")}
+    assert got == {"basic1": 0.7741, "basic2": 1.6688, "basic3": 0.8506, "finish": 3.7515, "sweep2": 2.678,
+                   "up1": 1.1103, "up2": 5.3674}
+
+def test_a_skin_only_bodys_basics_chain_inside_the_stun_at_any_attack_speed():
+    """AZ-568 (Step 2.175a; Step 2.123's chain rule, D312, Q2's default):
+    Skin only (garret4 mode) plays each attack in garret4's time with his
+    windows, so the speed slider moved its chain point with his raw one
+    (basic1 2.6 ticks after its hit at x2, past the stun at x0.5); W14 now
+    holds its basics' chain inside the stun as on his own body
+    (``speed_chain``): keylord's basic1-3 Move end1 his own body's at x0.5
+    and x2, and the log says so (a clipless body's:
+    ``test_the_attack_sliders_write_garret4s_own_table_and_a_clipless_bodys_and_keep_his_combo_chaining``)."""
+    vanilla = XbrDocument.from_bytes(_read("gamedata/config.xbr")).keyed_section("attacks_anims")
+    columns = vanilla.col_names()
+
+    def end1(game) -> list[float]:
+        anims = XbrDocument.from_bytes(game["config.xbr"]).keyed_section("attacks_anims")
+        return [anims.find_cell(col, "Move end1", columns.index(col)).double_value for col in CHAINED]
+    raw = end1({"config.xbr": _read("gamedata/config.xbr")})
+    for speed in (0.5, 2.0):
+        his = end1(_swap("garret4", attack_speed=speed))
+        assert his[0] != raw[0], speed
+        told: list[str] = []
+        game = _swap("keylord", lines=told, mode="garret4", attack_speed=speed)
+        log = " ".join(told)
+        named = "basic1, basic2" if speed < 1 else "speed x2, basic1 "   # x2: basic2's own sees the stun (AZ-712)
+        assert end1(game) == his and named in log.split("chaining inside the stun")[0][-40:], speed
+
+
+def test_an_x3_column_is_weighed_at_the_reach_of_x3s_box_where_the_build_puts_it(monkeypatch):
+    """AZ-415 (Step 2.175a; Step 2.64's action point, 2.70b): W14 weighs a
+    column X3 serves at the reach of X3's box where the build puts it, the
+    one the logic reads (``x3_reach``), not garret4's attack_1 box ahead of
+    his feet (2.77 m): at its m_damage firedrake own's reaches 3.30 m and
+    fire_shard's, centred on its feet, 1.53 m, so each of their X3 columns
+    weighs sqrt(2.77 m / that reach) times what his box gave it (2.61's
+    reach term), its own columns as before; on a hand (guard_fire1 own)
+    X3's box is his where he holds it, weighed at his attack_1 as before."""
+    calls = []
+    real = weigh_attacks
+
+    def spy(*args, **kw):
+        calls.append((args, kw))
+        return real(*args, **kw)
+    monkeypatch.setattr(swapper, "weigh_attacks", spy)
+    garret4 = max(w.reach for w in damage_windows(_read("gamedata/characters.xbr"), "garret4",
+                                                  "attack_1"))
+    for species, far in (("firedrake", 3.302), ("fire_shard", 1.530), ("guard_fire1", None)):
+        calls.clear()
+        _swap(species, fresh=True)
+        (args, kw), = calls
+        assert kw["x3_far"] == (None if far is None else pytest.approx(far, abs=5e-4)), species
+        if far is None:
+            continue
+        x3, (new, *_, lift, _), (old, *_, was, _) = args[6], real(*args, **kw), real(*args, **{**kw, "x3_far": None})
+        assert x3, species   # each over its build's D389 factor (AZ-804: fire_shard's at garret4's box x1.016)
+        new = [None if b is None else b / (lift[0] if lift else 1.0) for b in new]
+        old = [None if b is None else b / (was[0] if was else 1.0) for b in old]
+        vanilla = args[3]   # a B held at D799's heavy-hit line (heavy_side) isn't free either
+        base = [c.double_value if (c := vanilla.find_cell(col, MULTIPLIER, i)) is not None and c.type_code == 1
+                else 1.0 for i, col in enumerate(vanilla.col_names())]
+        free = [i for i, (a, b) in enumerate(zip(old, new)) if a is not None and BALANCE_FLOOR < min(a, b)
+                and max(a, b) < BALANCE_CAP and (base[i] < LIGHT or base[i] * min(a, b) > LIGHT)]
+        assert {i: new[i] / old[i] for i in free if x3 >> i & 1} == pytest.approx(
+            {i: math.sqrt(garret4 / kw["x3_far"]) for i in free if x3 >> i & 1}) and len(free) > 3, species
+        assert [new[i] for i in free if not x3 >> i & 1] == [old[i] for i in free if not x3 >> i & 1], species
+
+
+@pytest.mark.parametrize("species, chains, factor, aim", [
+    ("guard_air", (36.0, 36.0, 36.0), 1.93, SLOW_BONUS),
+    ("kingkong", (8.6, 10.9, 11.2), 1.91, 1.0),
+    ("fire_elemental", (12.6, 14.3, 14.3), 1.19, 1.0),
+    ("keylord", None, None, None),
+])
+def test_an_own_body_deals_one_enemy_garret4s_damage_per_second_or_more_and_a_slow_attacker_1_25x_his(
+        species, chains, factor, aim, monkeypatch):
+    """AZ-614, D389 (Step 2.138; D334, D345, D350): the slow test paces
+    each basic by the swing the combo plays, W19's chain point (0.2 s
+    after its first hit, or 4 ticks after its box meets the target
+    ahead), which the build writes as its Move end1, against garret4's
+    first hit + 0.2 s (11.0, 9.25, 9.25 ticks): guard_air's basics chain
+    at 36 ticks (Step 2.132's sitting: 36/37/36), slow; kingkong's at
+    9-11 (9/11/12) and the fire elemental's at 13-14 (13/15/15), not,
+    though their whole moves last 2.55x and 2.17x garret4's, which Step
+    2.132's test weighed. A body's every weighed attack then takes the
+    factor that makes its combo's damage per second on one target
+    (combo_rate: basic1-3 a hit each to their chain points, then the
+    finisher's, which the target recovers from in 3.75 s), at the
+    multipliers it writes, 1.25x garret4's on a slow attacker (D350:
+    guard_air x1.93 since Step 2.202b's AZ-804, x1.87 before; Step 2.132's x1.25 dealt 0.87x garret4's on a held
+    sleeth) and garret4's on any body the balance leaves under his
+    (D389: kingkong x1.91, the fire elemental x1.19, x1.89 and x1.11 before AZ-804, which the owner
+    found "a bit weak", D334, at 0.92x on that sleeth); a body already
+    at or above his (keylord, 1.78x) keeps its balance."""
+    calls = []
+    real = combo_rate
+
+    def record(basics, finisher):
+        calls.append((basics, finisher))
+        return real(basics, finisher)
+    monkeypatch.setattr(swapper, "combo_rate", record)
+    told: list[str] = []
+    game = _swap(species, mode="own", lines=told, fresh=True)
+    log = " ".join(told)
+    anims = XbrDocument.from_bytes(game["config.xbr"]).keyed_section("attacks_anims")
+    characters = bytes(game["characters.xbr"])
+    garret4 = read_body(characters, "garret4")
+    body = read_body(characters, XbrDocument.from_bytes(game["config.xbr"]).keyed_section(
+        "critters_engine").find_cell("garret4", "body", None).string_value, dirs=(CENTRED_DIR,))
+
+    def cell(col: str, row: str):
+        return anims.find_cell(col, row, anims.col_names().index(col))
+    written = []   # each basic's chain point as written, ticks into its move
+    for col in CHAINED:
+        owner, clip = source_clip(body, garret4, cell(col, "Anim").string_value)
+        a0, a1, e1, rate = (cell(col, row).double_value for row in ("Anim start", "Anim end", "Move end1", "Rate"))
+        start = move_window(anims, anims.col_names().index(col))[0]
+        written.append(30 * ((e1 - a0) / (a1 - a0) - start) * owner.length(clip) / rate)
+    assert chains is None or written == pytest.approx(chains, abs=0.5)
+    clauses = re.findall(r"\((a slow attacker|garret4's damage on one enemy): x([\d.]+) the balance's, (D350|D389)\)",
+                         log)
+    assert clauses == ([] if factor is None else [
+        ("a slow attacker", f"{factor:.2f}", "D350") if aim == SLOW_BONUS else
+        ("garret4's damage on one enemy", f"{factor:.2f}", "D389")])
+    (norm, *_), (own, finisher) = calls
+    assert [t for *_, t in norm] == pytest.approx((11.0, 9.25, 9.25), abs=0.01)
+    assert [t for *_, t in own] == pytest.approx(written, abs=1.0)   # W19 may keep a Move end1 a tick later
+    k = factor or 1.0
+    m = [cell(col, MULTIPLIER).double_value for col in CHAINED]
+    end = statistics.fmean(cell(col, MULTIPLIER).double_value for col in FINISHERS)
+    assert m + [end] == pytest.approx([b * k for b, _, _ in own] + [finisher[0] * k], rel=0.005)
+    dealt = real([(b, h, t) for (_, h, t), b in zip(own, m)], (end, finisher[1])) / real(*calls[0])
+    assert dealt == pytest.approx(aim, rel=0.005) if aim else dealt >= 1.0
+
+
+def test_match_garret_gives_values_a_build_measures_as_garret4s():
+    """D358 (Step 2.165b): the Player page's match-Garret values, each
+    read at the sliders matched before it (Model size, then Attack reach
+    at that size, then speed and damage at both), build the fire
+    elemental as garret4, read from what the build wrote: its
+    critters_engine scale draws it 2.002 m tall (his mesh top), its best
+    melee hit is his basic swing's 2.76 m ahead (GARRET4_FORWARD), its
+    basics chain at his mean 9.83 ticks (the chain points W19 writes at
+    that speed, its own Move end1 where W19 keeps one) and its written
+    Damage multipliers deal one target his damage per second (combo_rate
+    at those chain points); garret4's own body matches at 1 throughout; a
+    farmer, whose basics swing his own moves (Step 2.134a: their Move end1
+    his, so the chain moves with the speed slider, not as W19's would),
+    matches his damage at Attack speed 1 alone."""
+    from azurkit.tools.characters._player_match import Match, garret_match
+
+    def matched(species: str, **kw) -> Match:   # the engine's match on a staging of the image (sdk.match's own)
+        return garret_match(ports.IsoStaging(ports._build().vanilla), species, **kw)
+    assert matched("garret4") == Match(1.0, 1.0, 1.0)
+    farmer = matched("town_male_farmer_1")
+    assert (farmer.damage(1.0)[0], farmer.damage(2.0)[0]) == (pytest.approx(1.0), None)
+    size = matched("fire_elemental").size
+    reach = matched("fire_elemental", scale=size).reach
+    match = matched("fire_elemental", scale=size, reach=reach)
+    damage, _ = match.damage(match.speed)
+    logic = AttackLogic()
+    game = _swap("fire_elemental", model_scale=size, attack_reach=reach, attack_speed=match.speed,
+                 attack_damage=damage, sounds="garret4", logic=logic)
+    doc = XbrDocument.from_bytes(game["config.xbr"])
+    anims = doc.keyed_section("attacks_anims")
+    characters = bytes(game["characters.xbr"])
+    garret4, body = read_body(characters, "garret4"), read_body(characters, "fire_elemental")
+
+    def cell(col: str, row: str):
+        return anims.find_cell(col, row, anims.col_names().index(col))
+
+    def chain(col: str) -> float:   # ticks into the move, as written
+        a0, a1, e1, rate = (cell(col, row).double_value for row in ("Anim start", "Anim end", "Move end1", "Rate"))
+        owner, clip = source_clip(body, garret4, cell(col, "Anim").string_value)
+        return 30 * ((e1 - a0) / (a1 - a0) - move_window(anims, anims.col_names().index(col))[0]) * (
+            owner.length(clip) / rate)
+    basics = [(cell(col, MULTIPLIER).double_value, swing.ticks(match.speed)[0], chain(col))
+              for col, (swing,) in zip(CHAINED, logic.combo.basics)]
+    ends = [(cell(col, MULTIPLIER).double_value, swing.ticks(match.speed)[0])
+            for col, (swing,) in zip(FINISHERS, logic.combo.finishers) if swing is not None]
+    dealt = combo_rate(basics, tuple(statistics.fmean(v) for v in zip(*ends))) / logic.combo.norm_rate
+    drawn = doc.keyed_section("critters_engine").find_cell("garret4", "scale", None).double_value * height(
+        characters, body)
+    assert ([drawn, logic.reach], dealt) == (pytest.approx([height(characters, garret4), GARRET4_FORWARD]),
+                                             pytest.approx(1.0, rel=1e-3))
+    assert (logic.combo.norm_pace, statistics.fmean(t for *_, t in basics)) == (
+        pytest.approx(9.83, abs=0.01), pytest.approx(logic.combo.norm_pace, abs=0.01))
+
+
+def test_match_garret_dresses_the_body_on_the_build_s_packs_for_its_target_ram(image, monkeypatch):
+    """Step 2.162i (D576): the match-Garret buttons (``sdk.match``) dress
+    the body on the build's default.xbe, its packs on by default (its 42 MiB
+    budget and both upper packs, so the build's size lines; at 256 MiB with
+    qol_memory_upper256 too, Step 2.162l) with the build's ``ram`` passed
+    on, so they measure every body the build would take."""
+    from azurkit import sdk
+    from azurkit.tools.characters import _player_match
+    from azurkit.tools.characters import model_inspect as mi
+
+    seen = []
+
+    def dress(game, *_a, ram=64, **_k):
+        xbe = bytes(game["default.xbe"])
+        seen.append((mi.budget_of(xbe), mi.lines_ram(xbe, 256), ram))
+        raise LookupError("dressed")
+    monkeypatch.setattr(_player_match, "apply_player_model", dress)
+    packs = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+    for ram in (64, 128, 256):
+        with pytest.raises(LookupError):
+            sdk.match({"iso": str(image), "packs": packs | ({mi.UPPER256_PACK: {}} if ram == 256 else {}),
+                       "character": {"species": "fire_elemental", "ram": ram}})
+    assert seen == [(42 * mi.MiB, 128, 64), (42 * mi.MiB, 128, 128), (42 * mi.MiB, 256, 256)]
+
+
+def _hit_level(xbe: bytes, damage: int, multiplier: float, column: int, by_player: bool = True,
+               own_multiplier: float | None = None) -> int:
+    """The level the hit-level chooser 0x30BD0 of ``xbe`` gives a hit
+    (L2, run to 0x30C26, before it reads the level): ``damage`` against a
+    target whose ouch thresholds are a keylord's (5, 25; alive), its record
+    carrying ``multiplier`` and as its attacker the player critter (else
+    another), whose attack row's multiplier (+0x224) is ``own_multiplier``
+    (by default the record's) and whose PlayerControl plays ``column``."""
+    sim, base = Sim(xbe), 0x20000000
+    sim.uc.mem_map(base, 0x10000)
+    hit, holder, target, species, world, player, control, other = (base + 0x1000 * k for k in range(8))
+    for at, fmt, value in ((hit + 4, "<I", player if by_player else other), (hit + 0xC, "<f", multiplier),
+                           (holder + 0x20, "<I", target), (target + 0x178, "<I", species),
+                           (target + 0x154, "<I", world), (target + 0x210, "<I", 1),
+                           (species + 0x48, "<i", 5), (species + 0x4C, "<i", 25), (world + 0xBC, "<I", player),
+                           (world + 0xC0, "<I", player), (player + 0x180, "<I", control),
+                           (player + 0x224, "<f", multiplier if own_multiplier is None else own_multiplier),
+                           (control + 0x134, "<i", column)):
+        sim.uc.mem_write(at, struct.pack(fmt, value))
+    sim.call(0x30BD0, regs={"eax": damage, "ecx": hit, "edx": holder}, args=(0,), until=0x30C26)
+    return sim.reg("ebx")
+
+
+def test_the_players_hit_in_a_column_garret4_hits_light_stuns_whatever_its_damage_multiplier():
+    """AZ-525 (Step 2.104, X18): the hit-level chooser 0x30BD0 makes a hit
+    whose Damage multiplier is under 1.0 level 1, a stun, and any other
+    one its level by the damage (2 or 3 on a keylord, no stun), so own
+    mode's balance, which lifts keylord's basic2 to 2.0 and guard_water's
+    basic1 to 1.1667, and the damage slider at 2 (garret4's 0.5 to 1.0)
+    left the player's basics stunning nothing and the combo stuck at
+    basic1. With X18 the player's melee hit in a column whose vanilla
+    multiplier is under 1.0 (basic1-3, right1, up1) is level 1 whatever
+    its multiplier; its heavy columns, another attacker's hit and a hit
+    whose multiplier isn't the attack row's keep the game's level. A
+    build whose light columns stay under 1.0 (kingkong own) gets no X18."""
+    vanilla = _xbe()
+    keylord = bytes(_swap("keylord", sounds="garret4")["default.xbe"])
+    columns = XbrDocument.from_bytes(_read("gamedata/config.xbr")).keyed_section(
+        "attacks_anims").col_names()
+    assert verify_trampoline_patch(keylord, LIGHT_HIT_HOOK) == "applied"
+    assert round(struct.unpack_from("<f", keylord, resolve_va_to_file(keylord, trampoline_symbol_va(
+        keylord, LIGHT_HIT_HOOK, "_player_model_light_columns",
+        shim_source=LIGHT_HIT_SHIM.source_path())))[0]) == sum(
+        1 << columns.index(c) for c in ("basic1", "basic2", "basic3", "right1", "up1"))
+    for (damage, multiplier, column, kw), levels in {
+            (10, 0.5, "basic1", ()): (1, 1),                                 # garret4's: the game's stun
+            (24, 1.1667, "basic1", ()): (2, 1),                              # guard_water own's basic1
+            (40, 2.0, "basic2", ()): (3, 1),                                 # keylord own's basic2
+            (20, 1.0, "up1", ()): (2, 1),                                    # the damage slider at 2
+            (50, 2.5, "finish3", ()): (3, 3),                                # a heavy column
+            (24, 1.0, "basic1", (("by_player", False),)): (2, 2),            # another attacker's
+            (24, 1.1667, "basic1", (("own_multiplier", 1.5),)): (2, 2),      # not the attack row's
+    }.items():
+        got = tuple(_hit_level(xbe, damage, multiplier, columns.index(column), **dict(kw))
+                    for xbe in (vanilla, keylord))
+        assert got == levels, (damage, multiplier, column, kw)
+    assert verify_trampoline_patch(bytes(_swap("kingkong", sounds="garret4")["default.xbe"]),
+                                   LIGHT_HIT_HOOK) == "original"
+
+
+@pytest.mark.parametrize("kw, met, evened", [
+    ({}, {"sweep1", "elemental2", "hose_attack_3", "left1", "left2", "back2", "down"},
+     {"basic1": 0.4030, "sweep2": 1.3420, "back1": 1.7327}),
+    ({"weapon": "farmers_hoe"}, {"sweep1", "sweep2", "sweep ledge", "jump attack", "left2", "back1", "back2"}, {}),
+])
+def test_the_balance_never_takes_a_swing_garret4_staggers_with_under_the_games_heavy_hit_line(kw, met, evened):
+    """AZ-774, D799 (Step 2.201): the hit-level chooser 0x30BD0 makes a
+    hit whose Damage multiplier is under 1.0 level 1, a light flinch (a
+    0.30 s no-hit window, so a sweep's contacts land twice), and a 20-damage
+    one of 1.0 or more level 2, a heavy one (2.55 s, one hit a swing). W14's
+    weight took golem own's sweep1 to 0.7569 and golem with the hoe's sweep2
+    to 0.9521 (sitting 2.197b: 20 + 20 where main's 21 once). Every column
+    garret4 hits heavy (vanilla 1.0 or more) keeps a multiplier of 1.0 or
+    more, the least the balance gave under it 1.0 exactly, and its hit
+    stays heavy; a light column and a heavy one the balance leaves above 1.0
+    keep their evened multipliers (golem own's basic1 0.4030, sweep2
+    1.3420 since Step 2.202b's AZ-804; 0.3887, 1.5030 before)."""
+    game = _swap("golem", **kw)
+    built = bytes(game["default.xbe"])
+    vanilla, anims = (XbrDocument.from_bytes(c).keyed_section("attacks_anims")
+                      for c in (game.stored("config.xbr"), bytes(game["config.xbr"])))
+    held, levels = set(), {}
+    for i, col in enumerate(vanilla.col_names()):
+        if col == "roll forward":
+            continue
+        his, cell = vanilla.find_cell(col, MULTIPLIER, i), anims.find_cell(col, MULTIPLIER, i)
+        m = his.double_value if his is not None and his.type_code == 1 else 1.0
+        w = _f32(cell.double_value)
+        if col in evened:
+            assert w == pytest.approx(evened[col], abs=5e-5), col
+        if m < LIGHT:
+            continue
+        held |= {col} if w == LIGHT else set()
+        if w not in levels:
+            levels[w] = _hit_level(built, math.ceil(20 * w), w, i)
+        assert w >= LIGHT and levels[w] >= 2, (col, w)
+    assert held == met
+
+
+@pytest.mark.parametrize("species, model_scale, late", [
+    ("guard_water", 1.0, {}), ("keylord", 1.0, {}), ("keylord", 2.0, {}), ("balthazar", 1.0, {"left1": (13.90, 19.90)}),
+    ("magmar", 1.0, {}), ("air_elemental", 1.0, {"right2": (30.0, 36.0)}),
+    ("guard_air", 1.0, {col: (30.11, 36.0) for col in ("finish2", "right1", "left1")} | {"right2": (30.67, 36.0)}),
+    ("sleeth_momma", 1.0, {"basic1": (21.20, 25.20), "right1": (25.90, 31.90), "left1": (31.80, 35.80)}),
+    ("barnacle", 0.5, {"basic1": (9.07, 13.07), "basic2": (11.08, 15.08), "basic3": (11.0, 15.0)}),
+    ("ice_shard", 1.0, {"basic3": (24.83, 28.83), "sweep1": (28.8, 32.8)})])
+def test_an_own_bodys_attack_never_chains_before_it_touches_the_target_ahead(species, model_scale, late):
+    """AZ-496 (Step 2.104, W19): the chain check 0x8D452 lets an A press
+    start the next basic once the clip's fraction reaches the column's
+    Move end1, and the next basic needs the target stunned, which a light
+    hit holds 10-28 ticks (xemu sitting 2.103). An own body's basic1-3
+    kept garret4's fractions of its own, longer clip, so guard_water's
+    basic1 chained 53 ticks after its first hit and its stun was over.
+    Own mode's basic1-3 (not a column X10 turns) chain 0.2 s (6 ticks)
+    after the move's first damage tick, or keep their own chain when it
+    comes after the hit and at most a tick later than that; Move start and
+    Move end2, so a single press's whole move, stay the column's. AZ-495
+    (Step 2.105): a box whose window opens before it reaches the target
+    chained before its hit's stun showed (3 ticks after the hit; guard_air
+    own's chain at 36-37 with its hit on the keylord ahead at 35-36), so
+    a chain comes at least 4 ticks after the box first meets a keylord
+    standing against the player dead ahead (``contact``): sleeth_momma's
+    basic1 at 25.20; the others' are unchanged. X10's ring entries do
+    the same at Rate 1: since Step 2.135 a body with two attack sets
+    (rock_shard's, whose third and fourth clips chained 4 ticks after they
+    met the target) gets no ring, and splinter's four, X3's boxes, chain
+    6 ticks after their first damage. AZ-534 (Step 2.106): the
+    contact is X13's box, lowered to the feet in a column it grounds
+    (AZ-605, Step 2.132: filled, so guard_air's basics meet the target as
+    their windows open, at 30-31 ticks, and chain 0.2 s after their first
+    hit, 36, where they chained at 39.70-40.66 after a contact at
+    35.70-36.66, the box's corner 1.27 m ahead), so keylord own x2's
+    basic2 (its box 2.46-7.39 m up unlowered) meets the keylord at 8.25
+    ticks, as xemu saw, and chains at its first hit's 15, not 18. AZ-495
+    (Step 2.106): every other attack column but the roll kept garret4's
+    Move end1 fraction, which on guard_air own let right1 and left1 chain
+    into basic1 at 18 ticks, before their box reached the target at 36.66
+    (sitting 2.75b's captures), so a column whose own chain comes before
+    its move touches the target (its first damage tick, or that contact
+    if later) chains as a basic does, and one already chaining at or
+    after it keeps its own: guard_air's finish2, sweep1, right1, left1 and
+    right2, balthazar's left1, air_elemental's right2 and sleeth_momma's right1 and
+    left1 move, among others (sleeth's, evil_noreht's, the harvesters', the
+    catalisks'). X10 turns
+    such a column by its ring's chained mask: rock_shard's right1 and
+    left1 (0x14007). AZ-537 (Step 2.118, D296): the player's move query
+    keeps garret4's 0.5 m radius at every drawn scale, so a body drawn
+    under x1 meets the target 0.5 m ahead, not 0.5 x D: barnacle own
+    x0.5's basic1-3 chain 4 ticks after their boxes meet it (they kept
+    their own chains against a target 0.25 m ahead). An own build's
+    overlay columns (W23: the air elemental's gust) chain as its box
+    arrives instead (Step 2.145, D414; test_player_variants.py). Step
+    2.135: a column an X36 attack set plays in basic1-3 chains as the
+    basics do (ice_shard's sweep1, attack_4 in its second set, 4 ticks
+    after its box meets the target)."""
+    thrown = set(overlay(species).columns) if overlay(species) is not None else set()
+    vanilla = _read("gamedata/config.xbr")
+    characters = _read("gamedata/characters.xbr")
+    played = {a.column: a for a in attacks(vanilla, characters, species, model_scale=model_scale)}
+    columns = list(played)
+    chained = set(CHAINED) | {columns[c] for cols in attack_sets(columns, [a.clip for a in played.values()])[1:]
+                              for c in cols[:3]}   # a set's basic slots (Step 2.135)
+    engine = XbrDocument.from_bytes(vanilla).keyed_section("critters_engine")
+    body, scale = (engine.find_cell(species, row) for row in ("body", "scale"))
+    drawn = (scale.double_value if scale.type_code == 1 else 1.0) * model_scale
+    anims, was = (XbrDocument.from_bytes(c).keyed_section("attacks_anims") for c in (
+        _swap(species, sounds="garret4", model_scale=model_scale)["config.xbr"], vanilla))
+    ticks = {}
+    for i, col in enumerate(anims.col_names()):
+        cells = [anims.find_cell(col, row, i) for row in (
+            "Anim start", "Anim end", "Move end1", "Move start", "Move end2", "Rate")]
+        attack = played[col]
+        if col == "roll forward" or col in thrown or any(c is None or c.type_code != 1 for c in cells) or not (
+                attack.windows or attack.x3):
+            continue
+        a0, a1, end1, start, end2, rate = (c.double_value for c in cells)
+        assert (start, end2) == tuple(was.find_cell(col, row, i).double_value for row in ("Move start", "Move end2"))
+        window = move_window(anims, i)
+        hit = 30 * windup(rate, attack.length, window, None if attack.x3 else attack.windows)
+        met = None if attack.x3 else contact(characters, body.string_value, attack.clip, drawn, attack.length, window,
+                                             fill=attack.ground)
+        touch = hit if met is None else max(hit, 30 * (met - window[0] * attack.length) / rate)
+
+        def at(e1: float) -> float:
+            return 30 * ((e1 - a0) / (a1 - a0) - window[0]) * attack.length / rate
+        chain, kept = at(end1), at(was.find_cell(col, "Move end1", i).double_value)
+        if col not in chained and kept >= touch - 1e-9:
+            assert end1 == was.find_cell(col, "Move end1", i).double_value, col
+            continue
+        assert hit < chain <= max(hit + 30 * CHAIN_AFTER_HIT, touch + 30 * STUN_LAG) + (col in chained) + 1e-9, (
+            col, hit, chain)
+        assert met is None or chain >= touch + 30 * STUN_LAG - 1e-9, (col, touch, chain)
+        if col not in chained or touch + 30 * STUN_LAG > hit + 30 * CHAIN_AFTER_HIT:
+            ticks[col] = (round(touch, 2), round(chain, 2))
+    assert ticks == late
+    _, _, _, _, ring, chained, terms = _ring(bytes(_swap("splinter", sounds="garret4")["default.xbe"]))
+    assert [tuple(round(v, 4) for v in terms[c]) for c in ring] == [(0.2, 0.1034)] * 4
+    assert chained == 0x7
+
+
+def test_an_own_body_whose_basics_reach_past_3_m_chains_on_a_stunned_target_out_to_its_reach():
+    """AZ-523's 3 m rule (Step 2.105, X21): the combo's next basic needs a
+    stunned target the transition search's finder 0x7EBB0 (the CALL at
+    0x7EF80) returns, and it takes none past 3.0 m distance less radius
+    (the 0x1A25BC it reads seven times), so golem own, whose hit stunned
+    f6's blaze sentinel 3.6 m out, replayed basic1 in 12 of 12 presses
+    (sitting 2.104). X21 (L2, golem own's build, 0x7EBB0 stubbed to find
+    a target at 3.6 m or 2.5 m by the radius its 0x7EDA4 operand reads):
+    the seven operands read the shim's radius (3.0 at rest); the
+    player's search in basic1-3 (its PlayerControl's +0x134) that finds
+    nothing within 3 m searches again at the build's reach (golem's
+    basics 6.59 m) and keeps a stunned (0x8000) or frozen (0x10000)
+    target there, else the first result; the radius is 3.0 again after.
+    A target within 3 m, a fresh press (-1: rows 16 and 32 keep 3 m), the
+    finish and another critter take one search. RET 0xC, EBX, ESI, EDI
+    and EBP kept. keylord own (its basics under 3 m) and vanilla keep the
+    CALL and the 0x1A25BC reads."""
+    vanilla = _xbe()
+    built = bytes(_swap("golem", sounds="garret4")["default.xbe"])
+    assert l1.check(vanilla, built) == []
+    radius = trampoline_symbol_va(built, SEARCH_HOOK, SEARCH_RADIUS_SYMBOL, shim_source=SEARCH_SHIM.source_path())
+    reach = struct.unpack_from("<f", built, resolve_va_to_file(built, trampoline_symbol_va(
+        built, SEARCH_HOOK, "_player_model_search_reach", shim_source=SEARCH_SHIM.source_path())))[0]
+    assert round(reach, 2) == 6.59
+    assert all(struct.unpack_from("<I", built, va_to_file(site.va) + 2)[0] == radius for site in SEARCH_SITES)
+    at = va_to_file(0x7EF80)
+    entry = 0x7EF85 + struct.unpack_from("<i", built, at + 1)[0]
+    base = 0x20000000
+    critter, species, found, control = base, base + 0x1000, base + 0x2000, base + 0x2400
+
+    def search(*, player: bool = True, far: float = 3.6, flags: int = 0x8000,
+               column: int = 2) -> tuple[list[float], list[int]]:
+        sim = Sim(built)
+        sim.uc.mem_map(base, 0x3000)
+        sim.uc.mem_write(critter + 0x178, struct.pack("<I", species))
+        sim.uc.mem_write(critter + 0x180, struct.pack("<I", control))
+        sim.uc.mem_write(control + 0x134, struct.pack("<i", column))
+        sim.uc.mem_write(species + 0x64, struct.pack("<I", 0x24 if player else 0x04))
+        seen = []
+
+        def find(uc, addr, size, _):   # attack_target_find: __stdcall(12), RET 0xC
+            esp = sim.reg("esp")
+            ret, who, _facing, out = struct.unpack("<4I", uc.mem_read(esp, 16))
+            live = sim.f32(struct.unpack("<I", uc.mem_read(0x7EDA4 + 2, 4))[0])
+            seen.append(live)
+            hit = far <= live
+            uc.mem_write(out, struct.pack("<6I", int(hit), len(seen), 0, 0, 0, 0)
+                         + struct.pack("<fI", far if hit else 0.0, flags if hit else 0) + bytes(0x18))
+            uc.reg_write(UC_X86_REG_EIP, ret)
+            uc.reg_write(UC_X86_REG_ESP, esp + 16)
+
+        sim.uc.hook_add(UC_HOOK_CODE, find, begin=0x7EBB0, end=0x7EBB0)
+        kept = {"ebx": 0x11, "esi": 0x22, "edi": 0x33, "ebp": 0x44}
+        sim.call(entry, regs=kept, args=(critter, 0, found), until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100   # RET 0xC
+        assert {r: sim.reg(r) for r in kept} == kept
+        assert sim.f32(radius) == 3.0
+        return [round(r, 2) for r in seen], list(struct.unpack("<8I", sim.uc.mem_read(found, 32)))
+
+    seen, out = search()                                 # stunned 3.6 m out: chains
+    assert (seen, out[0], out[1], out[7]) == ([3.0, 6.59], 1, 2, 0x8000)
+    assert search(flags=0x10000)[1][7] == 0x10000         # frozen
+    seen, out = search(flags=0)                            # not stunned: the game's empty result
+    assert (seen, out[:2]) == ([3.0, 6.59], [0, 1])
+    for kw in ({"far": 2.5}, {"column": -1}, {"column": 3}, {"player": False}):
+        seen, out = search(**kw)
+        assert (seen, out[0]) == ([3.0], int(kw.get("far", 3.6) <= 3.0)), kw
+    for xbe in (vanilla, bytes(_swap("keylord", sounds="garret4")["default.xbe"])):
+        assert verify_trampoline_patch(xbe, SEARCH_HOOK) == "original"
+        assert all(xbe[va_to_file(site.va):va_to_file(site.va) + 6] == site.original for site in SEARCH_SITES)
