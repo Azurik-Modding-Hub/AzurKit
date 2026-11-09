@@ -1141,7 +1141,8 @@ def test_the_apps_replace_files_holds_the_picked_file_and_refuses_a_share_or_an_
         assert built["report"]["result"][name] == entry["sha256"] and "picked" not in built["recipe"]
         assert str(mine) not in json.dumps(built)
         saved = []
-        monkeypatch.setattr(server.engine, "call", lambda job, recipe, *_, **__: saved.append((job, recipe)) or {})
+        monkeypatch.setattr(server.engine, "call", lambda job, recipe, out, *_, **__: saved.append((job, recipe))
+                            or {"out": out, "size": 0, "sha256": ""})   # sdk.save's reply, which the build log reads
         plain = {"iso": str(usa_iso), "packs": {}}
         call("api/save", {"recipe": plain | {"picked": {name: str(other)}}, "out": str(tmp_path / "saved.iso")})
         assert saved == [("save", plain)]
