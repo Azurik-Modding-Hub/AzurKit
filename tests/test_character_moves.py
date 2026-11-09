@@ -4036,3 +4036,561 @@ def test_an_own_body_whose_basics_reach_past_3_m_chains_on_a_stunned_target_out_
     for xbe in (vanilla, bytes(_swap("keylord", sounds="garret4")["default.xbe"])):
         assert verify_trampoline_patch(xbe, SEARCH_HOOK) == "original"
         assert all(xbe[va_to_file(site.va):va_to_file(site.va) + 6] == site.original for site in SEARCH_SITES)
+
+
+def test_a_player_models_attacks_list_each_columns_damage_window_reach_and_fill_flag():
+    """Step 2.61's evaluator (Step 2.70): a damage window is where a clip's
+    m_damage or m_damage2 is on (active at least 0.5, length above 0, as
+    the damage pass reads it), its box the marker's at the species' scale
+    (garret4's attack_1: 2.77 m ahead, -0.13 to 1.26 m); X13 fills every
+    column's box but the roll's, melee or ranged (Step 2.132, AZ-605:
+    Balthazar's 6.96 m beam too); a column X3 serves (Step 2.64: its clip
+    has no damage window, Balthazar's attack_2, every attack of flicken)
+    hits with garret4's box, and so does a column whose own box can't
+    hit a target on the ground (own mode's reach test, Step 2.69): a box
+    reaching under 0.6 m (splinter's 0.33-0.43 m), while a short box seen
+    hitting keeps its own (D222 amended: overlord's 0.97 m, which hit at
+    0.9 m in sitting q281, and shard's 0.78 m, which dealt damage in p8).
+    The fill brings every box ahead to the feet and the floor, so a box
+    high or far no longer fails the test: spideyzar's ten clips all ring
+    (its sweep ledge's 3.01 m attack_6, its 26.5 m jump), none X3 (its
+    jump attack's 6.2 m attack_2 staying 1.29 m up keeps its own), and
+    sized to garret4's height (Step 2.68: judged at the scale the build
+    writes) sleeth x3.25 keeps its own 7.2 m box, in the build too, where
+    splinter x6.19 reaches 2.69 m. garret4's build writes nothing: it
+    lists the table's own Anims, none filled at x1, all but the roll
+    drawn x2 (D347)."""
+    config = _read("gamedata/config.xbr")
+    characters = _read("gamedata/characters.xbr")
+    garret4 = damage_windows(characters, "garret4", "attack_1")
+    assert [(w.marker, round(w.on, 3), round(w.off, 3), round(w.reach, 2), round(w.low[2], 2),
+             round(w.high[2], 2)) for w in garret4] == [("m_damage", 0.25, 0.327, 2.77, -0.13, 1.26)]
+    for species, x3, first in (
+            ("keylord", set(), ("attack_1", 0.23, 0.527, 1.74, 1.11, 2.31)),   # its boxes at its ticks from the
+            # body (AZ-766, Step 2.197b): 1.81 m and 2.42 high its clip's
+            ("balthazar", {"attack_2"}, ("attack_1", 0.463, 0.86, 1.33, 1.23, 1.77)),
+            ("flicken", {"ouch_1"}, None),
+            ("overlord", set(), ("attack_1", 0.397, 0.727, 0.97, 1.57, 3.07)),
+            ("shard", set(), ("attack", 0.0, 0.933, 0.78, -0.25, 0.25)),
+            ("splinter", {"attack", "eat", "eat_2", "eat_3"}, ("attack", 0.597, 1.927, 0.33, -0.02, 0.2)),
+            ("spideyzar", set(), None)):
+        rows = attacks(config, characters, species)
+        assert len(rows) == 24 and {r.column for r in rows if not r.ground} == {"roll forward"}, species
+        assert {r.column for r in rows if r.x3} == {
+            r.column for r in rows if r.clip in x3 and r.column != "roll forward"}, species
+        w = rows[0].windows[0] if first else None
+        assert first is None or (rows[0].clip, round(w.on, 3), round(w.off, 3), round(w.reach, 2),
+                                 round(w.low[2], 2), round(w.high[2], 2)) == first
+    spideyzar = {r.column: r for r in attacks(config, characters, "spideyzar")}
+    assert spideyzar["sweep ledge"].clip == "attack_6" and min(w.low[2] for w in spideyzar["jump attack"].windows) > 1
+    sized = {sp: {r.column for r in attacks(config, characters, sp, size="garret4") if r.x3}
+             for sp in ("splinter", "sleeth")}
+    assert sized == {"splinter": set(), "sleeth": set()}
+    hook = slice(va_to_file(DAMAGE_MARKER.va), va_to_file(DAMAGE_MARKER.va) + 5)
+    assert bytes(_swap("sleeth", size="garret4")["default.xbe"])[hook] == _xbe()[hook]
+    anims = XbrDocument.from_bytes(config).keyed_section("attacks_anims")
+    assert [(r.column, r.clip, r.ground) for r in attacks(config, characters, "garret4")] == [
+        (col, anims.find_cell(col, "Anim", i).string_value, False)
+        for i, col in enumerate(anims.col_names())]
+    assert {r.column for r in attacks(config, characters, "garret4", model_scale=2.0) if not r.ground} == {
+        "roll forward"}
+
+
+def test_a_swapped_bodys_attack_sets_hold_every_attack_it_plays_four_to_a_set():
+    """D325 (Step 2.135, its census): WHITE cycles a swapped body's attack
+    sets. Set 0 is the game's combo as W3 picks it (basic1, basic2, basic3,
+    finish); every other distinct pick, by its first column in table order
+    and the roll left out, goes four to a set onto basic1, basic2, basic3
+    and the finisher, a short last set repeating its own, so every attack
+    the body plays is in some set (finish2's and finish3's in set 0's):
+    Balthazar one set, the shards two (sweep1's attack_4), spideyzar three
+    (its whirlwind in finish, where W3's plan moves it), a farmer six
+    (garret4's 23 baked clips); a body with no clips none.
+    Each set's line names "Attack set k/n" and its clips, dirs stripped,
+    repeats dropped, whole names wrapped at 40 characters (Step 2.153,
+    D441: a farmer's)."""
+    config = _read("gamedata/config.xbr")
+    characters = _read("gamedata/characters.xbr")
+    for species, want, line in (
+            ("balthazar", [[0, 1, 2, 3]], "Attack set 1/1\nattack_1 attack_2 attack_3"),
+            ("ice_shard", [[0, 1, 2, 3], [6, 6, 6, 6]], "Attack set 2/2\nattack_4"),
+            ("spideyzar", [[0, 1, 2, 3], [6, 7, 8, 9], [10, 11, 10, 11]], "Attack set 3/3\ndeathbeam jump"),
+            ("town_male_farmer_1", [[0, 1, 2, 3], [6, 7, 8, 9], [10, 11, 12, 13], [14, 15, 16, 17], [18, 19, 21, 22],
+                                    [23, 23, 23, 23]], "Attack set 6/6\nattack_17")):
+        rows = attacks(config, characters, species)
+        columns, picks = [r.column for r in rows], [r.clip for r in rows]
+        sets = attack_sets(columns, picks)
+        assert sets == want, species
+        assert {picks[c] for cols in sets for c in cols + [4, 5]} == {
+            p for col, p in zip(columns, picks) if col != "roll forward"}, species
+        assert set_lines(picks, sets)[-1] == line, species
+    rows = attacks(config, characters, "town_male_farmer_3")
+    picks = [r.clip for r in rows]
+    assert set_lines(picks, attack_sets([r.column for r in rows], picks))[1] == (
+        "Attack set 2/6\n360_basic_attack 360_sweep 360_ledge\nelemental_attack")
+    assert attack_sets([r.column for r in attacks(config, characters, "keylord")], []) == []
+
+
+def test_player_models_lists_each_builds_statuses_and_their_counts_in_that_mode_and_size():
+    """Steps 2.74 and 2.75 (P8; Modkit's ``player-models --mode --size``,
+    whose list the Characters tab shows, ``sdk.pickers``): each species'
+    status as a build in that gameplay mode and size, from a sitting of
+    that build (``MODE_GRADES``) or of the partner whose ISO it builds
+    there; a mode and size no sitting graded is "unseen" (D242): garret4's
+    exact on the bodies sittings graded there and their shares (kingkong
+    unseen there, water_tentacle1 green, yellow in own body; flicken green,
+    with flicken of peril, which builds flicken's ISO); garret4's height on
+    sitting 2.75b S4's nine (water_tentacle1 and kingkong green there). The
+    counts: garret4's exact 19 green, 3 yellow, 73 red (the 73 items,
+    untested), 83 unseen, 6 refused; own body 60, 44, 73, 1, 6; own body at
+    garret4's height 7, 3, 73, 95, 6. A species' attacks in a mode and size
+    (``attacks``) are that build's: keylord's in garret4's exact aren't own
+    body's, and splinter's X3 columns at garret4's height aren't its own
+    size's."""
+    config, bodies = _read("gamedata/config.xbr"), _read("gamedata/characters.xbr")
+    listed = {mode: player_models(config, bodies, mode) for mode in MODES} | {
+        "sized": player_models(config, bodies, "own", "garret4")}
+    assert {(key, m.species): m.status for key, models in listed.items() for m in models
+            if m.species in ("flicken", "flicken of peril", "water_tentacle1", "kingkong")} == {
+        **{(mode, sp): "green" for mode in ("garret4", "own") for sp in ("flicken", "flicken of peril")},
+        ("garret4", "kingkong"): "unseen", ("own", "kingkong"): "yellow",
+        ("garret4", "water_tentacle1"): "green", ("own", "water_tentacle1"): "yellow",
+        ("sized", "flicken"): "unseen", ("sized", "flicken of peril"): "unseen",
+        ("sized", "water_tentacle1"): "green", ("sized", "kingkong"): "green"}
+    assert {key: Counter(m.status for m in models) for key, models in listed.items()} == {
+        "garret4": {"green": 19, "yellow": 3, "red": 73, "unseen": 83, "refused": 6},
+        "own": {"green": 60, "yellow": 44, "red": 73, "unseen": 1, "refused": 6},
+        "sized": {"green": 7, "yellow": 3, "red": 73, "unseen": 95, "refused": 6}}
+    assert {key: sum(m.note == "untested" for m in models) for key, models in listed.items()} == dict.fromkeys(
+        listed, 73)
+    assert attacks(config, bodies, "keylord") != attacks(config, bodies, "keylord", "garret4")
+    assert [r.x3 for r in attacks(config, bodies, "splinter", "own", "garret4")] != [
+        r.x3 for r in attacks(config, bodies, "splinter")]
+
+
+_GARRET4_SOUNDS = "loc/english/speech/azurik_speech"
+
+
+@pytest.mark.parametrize("species, sound_dir, own, binds, counts, xbe", [
+    ("keylord", "fx/sound/keylord", ("attack", "hurt", "death", "idle", "roll", "hit"),
+     {"ouch_1": "ouch_1", "ouch_1b": "ouch_1", "die_3": "die", "idle_6": "idle",
+      "basic1": "attack_1", "basic2": "attack_2", "touchdown": None, "climb_up": None,
+      "victory_1": None, "roll forward": "attack_1"},
+     (41, 24, "fx/sound/Overlord/overlord_ouch", None, 46, 0), {}),
+    ("flicken", "fx/sound/flicken", ("hurt", "death", "hit"),
+     {"ouch_1": "ouch_1", "ouch_2": "ouch", "die_1": "die", "basic1": "", "jump attack": "",
+      "idle": None, "roll forward": None},
+     (33, 0, None, None, 46, 0), {}),
+    ("spideyzar", "fx/sound/balthazar_spider", ("attack", "hurt", "taunt", "jump", "roll", "hit"),
+     {"jump": None, "jump_standing": None, "victory_6": "laugh", "ouch_3": "ouch",
+      "elemental1": "attack_2", "die": None, "roll forward": "attack_1"},
+     (36, 24, None, None, 46, 0),
+     {"jump": "fx/sound/balthazar_spider/jump", "flap": "fx/sound/balthazar_spider/jump"}),
+    ("overlord and golem", "fx/sound/golem_ol", ("attack", "hurt", "death", "footstep", "roll", "hit"),
+     {"walk": "walk", "run": None, "ouch_1r": "ouch_1", "roll forward": "walk", "basic2": "attack_2"},
+     (35, 24, "fx/sound/Golem/golem_ouch", None, 46, 0),
+     {"walkl": "fx/sound/golem_ol/foot_left", "walkr": "fx/sound/golem_ol/foot_right"}),
+    ("firefly", "fx/sound/firefly", ("ambient", "hit"), {"ouch_1": None, "basic1": None},
+     (0, 0, None, "fx/sound/Firefly/firefly_fly_loop", 46, 0), {}),
+    ("town_male_6", "loc/english/speech/male_6", ("attack", "hurt", "roll"),
+     {"ouch_1": "talk_d", "ouch_2": "talk_o", "ouch_3": "talk_k", "ouch_1r": "talk_d",
+      "basic1": "talk_q", "basic2": "talk_p", "die": None, "victory_1": None, "roll forward": "talk_q"},
+     (30, 24, None, None, 0, 7), {}),
+    ("balthazar", "fx/sound/balthazar_airship", ("attack", "hurt", "death", "taunt", "roll", "hit"),
+     {"ouch_1": "ouch_1", "die": "die", "victory_1": "laugh", "idle": None, "basic1": "attack_1",
+      "roll forward": "attack_1"},
+     (40, 24, None, None, 46, 0),
+     {"ouch": "fx/sound/balthazar_airship/ouch_1", "fallingdeath": "fx/sound/balthazar_airship/die"}),
+])
+def test_each_model_sound_role_is_its_own_species_or_garret4s(species, sound_dir, own, binds,
+                                                                 counts, xbe):
+    """D224, D231-D233 (Step 2.71): a swapped body's sounds are its own
+    species' per role, read from the build's own Anim cells: hurt, death,
+    idle and taunt by the slot's name or the species' alias for the role
+    (ouch, die, laugh), jump only by its own name, each attack column the
+    wave of its clip or the species' attack sounds in turn, and the
+    townspeople's shortest speech lines as hurt and attack sounds. A role
+    it has none for keeps Garret's (no bind: None), and an attack whose
+    clip would bind Garret's ouch_1 binds nothing (AZ-392, flicken).
+    counts: the binds, and Step 2.72's cells (the columns whose shouts
+    give way, ouch, ambient, the hit rows, the speech lines). A build
+    installs X14 at both hooks exactly when the map binds a slot.
+    Step 2.72 (the option, own by default): the build empties the shout
+    cells of those columns (W9; the roll's grunt too where the roll has a
+    sound of its own, the overlord's golem: golem's rolls on garret4's baked
+    roll since Step 2.134a), points garret4's critters_sounds ouch,
+    ambient and hit rows at the species' (W10, W11) and changes no other
+    cell, and X15 points the XBE's jump path (spideyzar's jump, which
+    no jump slot binds again) or walkl and walkr paths (the golem
+    family's feet) at the species' wave carved into the image; with
+    sounds garret4 none of that, and no X14.  D328 (Step 2.141): a roll
+    with no sound of its own takes its first attack column's (keylord's
+    and spideyzar's attack_1, town_male_6's talk_q), so its grunt goes
+    too; golem keeps its walk, and flicken, whose attacks bind none
+    (AZ-392), and firefly keep Garret's.  D447, D448 (Step 2.153): X15
+    points Balthazar's fall damage (0x8ADC2) and falling death (0x8BF61)
+    at his own ouch_1 and die."""
+    game, garret = _swap(species), _swap(species, sounds="garret4")
+    roles = sound_roles({"config.xbr": game["config.xbr"], "fx.xbr": game.stored("fx.xbr"),   # its own waves, not
+                         "english.xbr": game["english.xbr"]}, species)   # the kit's whoosh the build adds (Step 2.159a)
+    columns = XbrDocument.from_bytes(bytes(game["config.xbr"])).keyed_section(
+        "attacks_anims").col_names()
+    vanilla, built = _xbe(), bytes(game["default.xbe"])
+
+    def slot(name: str) -> int:
+        return BASE_CLIPS.index(name) if name in BASE_CLIPS else ATTACK_SLOT + columns.index(name)
+
+    assert (roles.sound_dir, roles.own) == (sound_dir, own)
+    assert {name: roles.binds.get(slot(name)) for name in binds} == binds
+    assert (len(roles.binds), len(roles.shouts), roles.ouch, roles.ambient, len(roles.hit_rows),
+            len(roles.speech)) == counts
+    for va in (BASE_HOOK_VA, ATTACK_HOOK_VA):
+        at = va_to_file(va)
+        assert (built[at:at + 5] != vanilla[at:at + 5]) == bool(roles.binds), hex(va)
+        assert garret["default.xbe"][at:at + 5] == vanilla[at:at + 5], hex(va)
+    before, after = _cells(bytes(garret["config.xbr"])), _cells(bytes(game["config.xbr"]))
+    sounds = XbrDocument.from_bytes(bytes(game["config.xbr"])).keyed_section("critters_sounds")
+    player = f"{sounds.col_names().index('garret4')}:garret4"
+    mine = {row: value for row, value in (("ouch", roles.ouch), ("ambient", roles.ambient))
+            if value} | roles.hit_rows
+    assert {key: after[key] for key in before if before[key] != after[key]} == {
+        **{("attacks_anims", f"{columns.index(col)}:{col}", row): (0, None, None)
+           for col in roles.shouts for row in SHOUT_ROWS
+           if before["attacks_anims", f"{columns.index(col)}:{col}", row][0]},
+        **{("critters_sounds", player, row): (2, None, value) for row, value in mine.items()
+           if before["critters_sounds", player, row] != (2, None, value)}}
+    assert roles.xbe == xbe
+    for site in XBE_SOUND_SITES:
+        at = va_to_file(site.va)
+        assert garret["default.xbe"][at:at + 5] == site.original
+        if site.sound in xbe:
+            assert built[at] == site.original[0], hex(site.va)
+            path = resolve_va_to_file(built, struct.unpack_from("<I", built, at + 1)[0])
+            assert built[path:built.index(b"\0", path)].decode() == xbe[site.sound], hex(site.va)
+        else:
+            assert built[at:at + 5] == site.original, hex(site.va)
+    if xbe:
+        assert l1.check(vanilla, built) == []
+
+
+def test_x14_binds_the_players_slots_from_the_models_sound_dir_and_every_other_as_before():
+    """X14 (Step 2.71; D231, D232): 0x4B680 binds <S+8>/<clip> to a slot
+    of the species record S (EDI), so the swapped player, still garret4,
+    bound Garret's azurik_speech everywhere. Through each of its hooks
+    (0x4B93C, the base clips; 0x7E3DD, the attack slots) X14 binds every
+    slot its table names for the player's species (flag 0x20 in S+0x64)
+    from the model's dir, the table's name in place of the clip (an empty
+    one for flicken's attacks); a slot it doesn't name (a level's, past
+    the table) and every slot of another species bind the clip from S+8
+    unchanged. S+8 and EDI are put back and the stack is popped as
+    0x4B680 pops it (RET 8); L1 is clean."""
+    vanilla = _xbe()
+    slots = range(ATTACK_SLOT + 28)
+    config = _read("gamedata/config.xbr")
+    characters = _read("gamedata/characters.xbr")
+    for species in ("keylord", "flicken"):
+        game = _swap(species)
+        columns = XbrDocument.from_bytes(config).keyed_section("attacks_anims").col_names()
+        played = dict(zip(columns, [a.clip for a in attacks(config, characters, species)]))   # keylord's c/0: attack_1
+        built, roles = bytes(game["default.xbe"]), sound_roles(game, species, played if species == "keylord" else None)
+        assert l1.check(vanilla, built) == []
+        for va in (BASE_HOOK_VA, ATTACK_HOOK_VA):
+            target = va + 5 + struct.unpack_from("<i", built, va_to_file(va) + 1)[0]
+            sim, record = Sim(built), 0x20000000
+            folder, clip = record + 0x100, record + 0x200
+            sim.uc.mem_map(record, 0x1000)
+            sim.uc.mem_write(folder, _GARRET4_SOUNDS.encode() + b"\0")
+            sim.uc.mem_write(clip, b"clip\0")
+            sim.uc.mem_write(record + 8, struct.pack("<I", folder))
+            seen = []
+
+            def bind(uc, addr, size, _):   # 0x4B680: __stdcall(8), EDI = S
+                esp, edi = sim.reg("esp"), sim.reg("edi")
+                seen.append((edi, sim.cstr(sim.u32(edi + 8)), sim.u32(esp + 4),
+                             sim.cstr(sim.u32(esp + 8))))
+                uc.reg_write(UC_X86_REG_EIP, sim.u32(esp))
+                uc.reg_write(UC_X86_REG_ESP, esp + 12)
+
+            sim.uc.hook_add(UC_HOOK_CODE, bind, begin=0x4B680, end=0x4B680)
+            got, want = [], []
+            for flags in (0x24, 0x04):
+                sim.uc.mem_write(record + 0x64, struct.pack("<I", flags))
+                for k in slots:
+                    seen.clear()
+                    sim.call(target, regs={"edi": record}, args=(k, clip), until=l2._RETURN)
+                    got.append((*seen, sim.reg("esp"), sim.reg("edi"), sim.u32(record + 8)))
+                    mine = flags & 0x20 and k in roles.binds
+                    want.append(((record, roles.sound_dir if mine else _GARRET4_SOUNDS, k,
+                                  roles.binds[k] if mine else "clip"),
+                                 l2._STACK_TOP - 0x100, record, folder))
+            assert got == want, (species, hex(va))
+
+
+def test_a_swapped_body_s_air_armor_wings_restart_their_stroke_on_each_flap():
+    """Step 2.77: the air armor's wings (fx_jump1-3) restart their stroke
+    only when their fx transform m_jump, bound by name to the wearer's
+    body marker m_jump, pulses its z: garret4's superjump, which wing_flap
+    asks for on each flap, keys it 5 then 0. No other body has the
+    marker, so the bind (the critter bind interface's slot 1, 0x44270,
+    looking it up with the CALL 0xCA1D0 at 0x44355) found nothing and the
+    wings held their end pose. Its build hooks that CALL and slot 2's
+    (0x44370) CALL 0xCCDF0 at 0x44389 (L1 well formed): for the player's
+    species (flag 0x20, S+0x64) a missing m_jump binds to 0xC000, which
+    slot 2 poses as garret4's (x, -4, z), z 5 on the first evaluation
+    that sees a new nonzero flap count (PlayerControl+0xD8) and 0 after,
+    x his superjump's 2 while anim 17 plays (critter+0x200), his jumps'
+    1 in 15 and 16 and 0 in every other (Step 2.134b: held at 2, the
+    wings stuck in the stroke's raised end pose 4.27 s after a flap);
+    other names, species and found nodes bind and pose as before, and
+    the 4 bytes it keeps the count in are one span of the build's shim
+    data (AZ-300)."""
+    vanilla = _xbe()
+    built = bytes(_swap("flicken")["default.xbe"])
+    assert l1.check(vanilla, built) == []
+    sim, base = Sim(built), 0x20000000
+    this, species, anim, body, name, xf, control, markers = (base + k * 0x400 for k in range(8))
+    sim.uc.mem_map(base, 0x2000 * 4)
+    sim.uc.mem_write(this + 8, struct.pack("<3I", species, anim, control))   # critter+0x178..
+    sim.uc.mem_write(anim, struct.pack("<I", body))
+    sim.uc.mem_write(anim + 0xC, struct.pack("<I", markers))
+    sim.uc.mem_write(markers, struct.pack("<I3f4f3f", 0, 0.5, 0.25, 2.0, 0, 0, 0, 1, 1, 1, 1))
+
+    def bind(flags: int, node: bytes, has_it: bool = False) -> int:
+        sim.uc.mem_write(species + 0x64, struct.pack("<I", flags))
+        sim.uc.mem_write(name, node + b"\0")
+        sim.uc.mem_write(body + 0x18, struct.pack("<II", int(has_it), 0x64))   # 1 marker, its record:
+        sim.uc.mem_write(body + 0x84, struct.pack("<i", name - (body + 0x84)))  # a self-relative name
+        return sim.call(0x44270, regs={"ecx": this}, args=(name,))
+
+    def pose(index: int, flaps: int | None = None, playing: int = 17) -> tuple:
+        sim.uc.mem_write(this + 0x90, struct.pack("<I", playing))   # critter+0x200: the anim index
+        sim.uc.mem_write(this + 0x10, struct.pack("<I", 0 if flaps is None else control))
+        sim.uc.mem_write(control + 0xD8, struct.pack("<I", flaps or 0))
+        sim.uc.mem_write(xf, b"\xAA" * 0x70)
+        sim.call(0x44370, regs={"ecx": this}, args=(index, xf))
+        return (struct.unpack("<3f", sim.uc.mem_read(xf + 0x50, 12)),
+                struct.unpack("<4f", sim.uc.mem_read(xf + 0x40, 16)),
+                struct.unpack("<3f", sim.uc.mem_read(xf + 0x5C, 12)),
+                tuple(sim.uc.mem_read(xf + 0x68, 2)))
+
+    assert bind(0x24, b"m_jump") == 0xC000
+    assert [bind(0x04, b"m_jump"), bind(0x24, b"m_jumps"), bind(0x24, b"m_hit")] == [0, 0, 0]
+    assert bind(0x24, b"m_jump", has_it=True) == 0x8000            # the body's own marker 0
+    written: set[int] = set()
+    sim.uc.hook_add(UC_HOOK_MEM_WRITE, lambda uc, access, va, size, value, _:
+                    written.update(range(va, va + size)))
+    rest = ((0.0, 0.0, 0.0, 1.0), (1.0, 1.0, 1.0), (1, 0))
+    assert [pose(0xC000, n) for n in (0, 1, 1, 2, 0, 1, None)] == [
+        ((2.0, -4.0, z), *rest) for z in (0.0, 5.0, 0.0, 5.0, 0.0, 5.0, 0.0)]
+    assert [pose(0xC000, 3, playing)[0] for playing in (17, 15, 16, 9, 1, 0, 21)] == [   # x: garret4's in that anim
+        (x, -4.0, z) for x, z in ((2.0, 5.0), (1.0, 0.0), (1.0, 0.0), (0.0, 0.0), (0.0, 0.0), (0.0, 0.0), (0.0, 0.0))]
+    assert pose(0x8000, 1) == ((0.5, 0.25, 2.0), *rest)              # a found node: 0xCCDF0
+    shims = next(s for s in parse_xbe_sections(built)[1] if s["name"] == "SHIMS")
+    kept = {va for va in written if shims["vaddr"] <= va < shims["vaddr"] + shims["vsize"]}
+    assert kept in [set(range(lo, hi)) for lo, hi in shim_data(built)]
+
+
+def test_a_swapped_body_s_armor_pieces_ride_its_bones_from_where_w15_puts_them():
+    """AZ-447/AZ-448 (Step 2.118, D294): the armors' pieces bind by name to
+    garret4's ten armor nodes, which no other body has but m_root and
+    m_waist, so on a swapped body each stayed at W15's fixed point in the
+    model whatever the clip did (keylord's shoulder pieces out while his
+    arms hang), and guard_air's own m_root bound its bubble at garret4's
+    size. Through the game's own fx bind (0x62A20, the critter bind
+    interface's slot 1 at 0x44270) and one fx frame (0x62C40: slot 2 at
+    0x44370, then 0x68DE0 into each transform) on keylord own's build:
+    for the player each armor name binds to X16's virtual node 0xC000 | n
+    of the build's table (its role-mapped bone: m_chest his spine_2, the
+    wrists his arm_2s), m_jump to 0xC000 and a node the body has as
+    before; at the bind pose each piece's local is the one the game
+    builds from W15's frame, and with the bones posed it is that frame
+    times its own bone's motion (mode 6, the matrix given), its rotate
+    attributes saying the same turn (the shoulder pads' links read them).
+    m_jump poses (0, -4, 0) (anim 0 plays); another critter binds none of them,
+    nor (Step 2.134b) the m_root W27 grew on keylord when it wears keylord;
+    the x87 stack is as it was."""
+    import numpy as np
+
+    game = _swap("keylord")
+    built, characters = bytes(game["default.xbe"]), bytes(game["characters.xbr"])
+    sim, base = Sim(built), 0x20000000
+    sim.uc.mem_map(base, 0x200000)
+    table_va = trampoline_symbol_va(built, WINGS_POSE, "_player_model_wings_armor",
+                                    shim_source=WINGS_SHIM.source_path())
+    count = sim.u32(table_va)
+    table = [(sim.cstr(table_va + 4 + 84 * k), sim.u32(table_va + 20 + 84 * k)) for k in range(count)]
+    bones = read_body(characters, "keylord").bones
+    assert {name: bones[b][0] for name, b in table} == {
+        "m_root": "root_joint", "m_chest": "spine_2", "m_waist": "spine_2", "m_skull": "head",
+        "m_shoulderLeft": "left_arm_1", "m_shoulderRight": "right_arm_1", "m_wristLeft": "left_arm_2",
+        "m_wristRight": "right_arm_2", "m_ankleLeft": "left_leg_2", "m_ankleRight": "right_leg_2"}
+    frames = _armor_frames(bytes(game["fx.xbr"]))
+    jump = {"t": (2.0, -4.0, 0.0), "r": (0.0, 0.0, 0.0), "s": (1.0, 1.0, 1.0), "order": 0}
+    nodes = [(name, frames[name]) for name, _ in table] + [("m_jump", jump), ("m_feet", jump), ("x_none", jump)]
+    species, iface, anim, binder, graph, lists = (base + 0x100 * k for k in range(1, 7))
+    body_at, runtime, markers, pairs, xforms = base + 0x100000, base + 0x40000, base + 0x60000, base + 0x70000, base + 0x80000
+    off, size = _clip(characters, "characters/keylord")
+    sim.uc.mem_write(body_at, characters[off:off + size])
+    sim.uc.mem_write(iface, struct.pack("<I4xIII", 0x19FBCC, species, anim, 0))   # its vtable, as the critter's
+    sim.uc.mem_write(anim, struct.pack("<I4xII", body_at, runtime, markers))
+    sim.uc.mem_write(binder, struct.pack("<I", iface + 4))
+    sim.uc.mem_write(graph + 0x24, struct.pack("<I", graph + 0x80))
+    sim.uc.mem_write(graph + 0x54, struct.pack("<I", lists))
+    sim.uc.mem_write(base + 0xF00, bytes.fromhex("89c8c3"))   # a node's +0x20: itself (mov eax, ecx; ret)
+    sim.uc.mem_write(base + 0xE00 + 0x20, struct.pack("<I", base + 0xF00))
+    for i, (name, x) in enumerate(nodes):
+        o = xforms + 0x400 * i
+        sim.uc.mem_write(graph + 0x80 + 4 * i, struct.pack("<I", o))
+        sim.uc.mem_write(o, struct.pack("<I", base + 0xE00))
+        sim.uc.mem_write(o + 0x08, struct.pack("<I", o + 0x200))
+        sim.uc.mem_write(o + 0x200, struct.pack("<10f", 0.0, *x["t"], *x["r"], *x["s"]))
+        sim.uc.mem_write(o + 0xF0, struct.pack("<III", 0, x["order"], o + 0x300))
+        sim.uc.mem_write(o + 0x300, name.encode() + b"\0")
+
+    def malloc(uc, addr, size, _):   # 0xEB1B0, cdecl(size): the bind's list
+        esp = sim.reg("esp")
+        uc.reg_write(UC_X86_REG_EAX, pairs)
+        uc.reg_write(UC_X86_REG_EIP, sim.u32(esp))
+        uc.reg_write(UC_X86_REG_ESP, esp + 4)
+
+    sim.uc.hook_add(UC_HOOK_CODE, malloc, begin=0xEB1B0, end=0xEB1B0)
+
+    def local(o: int, mode: int | None = None) -> np.ndarray:   # the game's 0x68BE0 from the attributes
+        if mode is not None:
+            sim.uc.mem_write(o + 0xF0, struct.pack("<I", mode))
+        sim.call(l2.XFORM_LOCAL, regs={"ecx": o}, args=(base + 0x1000,))
+        return np.array(struct.unpack("<16f", sim.uc.mem_read(base + 0x1000, 64))).reshape(4, 4)
+
+    authored = [local(xforms + 0x400 * i) for i in range(len(table))]
+
+    def bind(flags: int, wears: bytes = b"keylord") -> dict[str, int]:
+        sim.uc.mem_write(species + 0x64, struct.pack("<I", flags))
+        sim.uc.mem_write(species + 4, struct.pack("<I", base + 0xD00))   # S+4: its body's name
+        sim.uc.mem_write(base + 0xD00, wears + b"\0")
+        sim.uc.mem_write(lists, struct.pack("<IIIII", lists + 0x40, lists + 0x40 + 2 * len(nodes), 0, 0, 7))
+        sim.uc.mem_write(lists + 0x40, struct.pack(f"<{len(nodes)}H", *range(len(nodes))))
+        sim.uc.mem_write(binder + 8, bytes(8))
+        sim.call(0x62A20, args=(binder, graph))
+        n = sim.u32(binder + 0xC) & 0xFFFFFFF
+        got = [struct.unpack("<II", sim.uc.mem_read(pairs + 8 * k, 8)) for k in range(n)]
+        return {nodes[(o - xforms) // 0x400][0]: index for index, o in got}
+
+    feet, grown = (list(read_body(characters, "keylord").markers).index(m) for m in ("m_feet", "m_root"))
+    assert bind(0x04) == bind(0x04, b"KeyLord") == {"m_feet": 0x8000 | feet}   # another critter: the game's binds
+    assert bind(0x04, b"golem") == {"m_feet": 0x8000 | feet, "m_root": 0x8000 | grown}   # W27's m_root: its body's
+    assert bind(0x24) == {**{name: 0xC000 | n for n, (name, _) in enumerate(table, 1)},
+                          "m_jump": 0xC000, "m_feet": 0x8000 | feet}
+    binds = [np.array(m).reshape(4, 4) for m in inverse_binds(characters, "keylord")]
+
+    def frame(motion) -> list[np.ndarray]:   # each bone's runtime matrix: its bind x motion(b)
+        for b, ibm in enumerate(binds):
+            sim.uc.mem_write(runtime + 0xB0 * b + 0x70, struct.pack("<16f", *(np.linalg.inv(ibm) @ motion(b)).ravel()))
+        top = sim.uc.reg_read(UC_X86_REG_FPSW) >> 11 & 7
+        sim.call(0x62C40, args=(binder, graph))
+        assert sim.uc.reg_read(UC_X86_REG_FPSW) >> 11 & 7 == top
+        return [np.array(struct.unpack("<16f", sim.uc.mem_read(xforms + 0x400 * i + 0x70, 64))).reshape(4, 4)
+                for i in range(len(table))]
+
+    def turn(b: int) -> np.ndarray:   # a rigid motion of bone b's own
+        a, c = 0.1 * (b % 7 + 1), 0.07 * (b % 3 + 1)
+        rz = np.array([[math.cos(a), math.sin(a), 0, 0], [-math.sin(a), math.cos(a), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        rx = np.array([[1, 0, 0, 0], [0, math.cos(c), math.sin(c), 0], [0, -math.sin(c), math.cos(c), 0],
+                       [0.01 * b, -0.02 * b, 0.03, 1]])
+        return rz @ rx
+
+    for motion in (lambda b: np.eye(4), turn):
+        got = frame(motion)
+        for i, (name, b) in enumerate(table):
+            want = authored[i] @ motion(b)
+            o = xforms + 0x400 * i
+            assert sim.u32(o + 0xF0) == 6 and np.allclose(got[i], want, atol=1e-4), name
+            assert np.allclose(local(o, 0), want, atol=1e-4), name           # the attributes: the same turn
+    jump_at = xforms + 0x400 * len(table)
+    assert struct.unpack("<3f", sim.uc.mem_read(jump_at + 0x204, 12)) == (0.0, -4.0, 0.0)   # anim 0: x 0
+
+
+@pytest.mark.parametrize("species, size", [("keylord", None), ("flicken", None), ("water_tentacle1", 11.97),
+                                           ("guard_air", 2.76)])
+def test_a_swapped_body_wears_the_air_armor_on_its_body_sized_to_it(species, size):
+    """Step 2.77b (sitting 2.75a, row 48: on keylord at x2 and flicken the
+    air armor's wing skeleton floated well above the body): the armors' fx
+    hang the helm, breastplate, wings and limb pieces from transforms bound
+    by name to garret4's m_skull, m_chest, m_root, m_waist and limb
+    markers. No other body has them, so each kept its authored point,
+    garret4's, in the player's model, which the critter's scale scales
+    (the chest 1.5 units up, above flicken's 0.68 top). W15 multiplies each
+    such transform's translate and scale by the body's height over
+    garret4's, and the scale of each inherit-mode-1 child, which drops its
+    parent's scale (the force shield's ForceField). The game's own
+    transform code (L2: 0x68BE0, 0x681E0) then puts fx_jump3's wing group
+    and helm, both above the body on vanilla's fx, at the same fraction of
+    the body's height as of garret4's, under its top, and those and the
+    ForceField at that size; m_jump keeps the (2, -4, 0) X16 pulses.
+    A body whose bones lie flat (water_tentacle1's top 9.02e-10) is
+    measured by its mesh, so its armor isn't sized to nothing (AZ-558:
+    x11.97 garret4's, not 4.49e-10). A body with an m_root of its own
+    (guard_air) has its m_root pieces sized too, the force bubble x2.76
+    (it was garret4's size, 0.36 x the rest: AZ-448)."""
+    xbe = _xbe()
+    schema = Schema(xbe)
+    characters = _read("gamedata/characters.xbr")
+    body = read_body(characters, XbrDocument.from_bytes(_read("gamedata/config.xbr")).keyed_section(
+        "critters_engine").find_cell(species, "body").string_value)
+    garret4 = read_body(characters, "garret4")
+    tall = body_height(characters, body)
+    k = tall / garret4.top
+    assert size is None or round(k, 2) == size
+    pieces = (("fx_jump3", "fx_jumpWings:public_WingGroup"), ("fx_jump3", "Helm"), ("fx_shield_force3", "ForceField"))
+
+    def worlds(fx: bytes) -> tuple[Graph, list]:
+        toc, names = parse_toc(fx), named_resources(fx)
+        out = []
+        for res, name in pieces:
+            graph = Graph(fx, toc, next(e for e in toc if names.get(e.index) == f"fx/magic/{res}"), schema)
+            i = graph.names.index(name)
+            chain = (*reversed(graph.ancestors(i)), i)   # the graph's root first
+            out.append((graph, l2.transform_world(xbe, [graph.xform_fields(j) for j in chain])))
+        return out[0][0], [m for _, m in out]
+
+    _, his = worlds(_read("gamedata/fx.xbr"))
+    graph, mine = worlds(bytes(_swap(species)["fx.xbr"]))
+    for m, h in zip(mine[:2], his[:2]):
+        assert tall > m[2][3] > 0.5 * tall and (h[2][3] > tall or tall > garret4.top)
+    for m, h in zip(mine, his):
+        assert [row[:4] for row in m[:3]] == [pytest.approx([k * v for v in row[:4]], abs=1e-5) for row in h[:3]]
+    jump = graph.xform_fields(graph.names.index("m_jump"))
+    assert (jump["t"], jump["s"]) == ((2.0, -4.0, 0.0), (1.0, 1.0, 1.0))
+
+
+def test_every_attack_plays_one_of_the_bodys_attack_clips_and_the_combo_its_first_three():
+    """AZ-294 kept every attack on a clip that switches the body's damage
+    marker on (balthazar's attack_2 made no damage pass in sitting
+    modelswap). D219 amended (Step 2.64: "give them as many attacks as we
+    can"): X3 now gives a clip without a damage window a hit box, so
+    every attack column plays one of the body's attack clips (its damage
+    clips and every attack* clip): basic1, basic2 and basic3 its
+    attack_1, attack_2 and attack_3, the others in turn, but a jump
+    attack whose attack_2 deals no damage takes attack_1 when that does
+    (Step 2.24f: 23 ticks against 45). Balthazar's combo is attack_1,
+    attack_2 (his life-drain cast, with X3's box) and attack_3; a body
+    whose clips switch none on (bosses/fire_guardian) attacks with its
+    attack clips too, and one with none (flicken) with its ouch_1. A
+    clip whose columns' strings are all shared or short takes another
+    column's own (W3; the test below)."""
+    config = _read("gamedata/config.xbr")
+    characters = _read("gamedata/characters.xbr")
+    columns = XbrDocument.from_bytes(config).keyed_section("attacks_anims").col_names()
+    bodies = {m.body for m in player_models(config, characters) if m.status != "refused"}
+    plays = {}
+    for name in sorted(bodies):
+        body = read_body(characters, name)
+        if body.clips:
+            plays[name] = dict(zip(columns, substitutes(columns, body)))
+            attacks = {clip for col, clip in plays[name].items() if col != "roll forward"}
+            assert not attack_clips(body) or attacks <= set(attack_clips(body)), name
+
+    assert [plays["balthazar_airship"][col] for col in ("basic1", "basic2", "basic3", "jump attack")] == [
+        "attack_1", "attack_2", "attack_3", "attack_1"]
+    assert plays["keylord"]["jump attack"] == "attack_2"
+    assert set(plays["bosses/fire_guardian"].values()) - {"walk"} == {"attack_1", "attack_2"}
+    assert set(plays["flicken"].values()) == {"ouch_1", "run"}
