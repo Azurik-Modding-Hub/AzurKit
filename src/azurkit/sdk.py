@@ -132,6 +132,7 @@ from azurkit.edits import modkit, preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import characters, mods, randomizer
 from azurkit.tools import data as datatool
+from azurkit.tools.characters import shipped as _shipped
 from azurkit.tools.mods import community as communal
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
@@ -2508,6 +2509,21 @@ def _fetch(source: str) -> Callable[..., bytes]:
                 else "its manifest lists"))
         return data
     return fetch
+
+
+def _later(source: str, path: str, size: int) -> bytes:
+    """``tools.characters.shipped.FETCH`` on CPython hosts (the app's
+    engine, the CLI's): a file Install left for the Check that asks for it
+    (``content.later``), read from ``source`` (its entry's, held to
+    :func:`_source`'s rule; ``ValueError`` an ``OSError`` here) by
+    :func:`_fetch`, at most ``size`` bytes."""
+    try:
+        return _fetch(_source(source))(path, size)
+    except ValueError as exc:
+        raise OSError(str(exc)) from None
+
+
+_shipped.FETCH = _later
 
 
 def content(given: Mapping | None = None) -> dict:

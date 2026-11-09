@@ -45,8 +45,9 @@ its stage reads, never a name or a folder), so a row is that key, the
 part's :func:`~.part_codec.digest` (its ``answer``) and its file
 (:func:`part`): ``part_codec``'s bytes (no pickle) in the entry's
 ``shipped/parts/`` folder, named for their sha256 (a part a re-record
-leaves alone keeps its file), read no further than its size and taken
-only when its sha256 is the row's.
+leaves alone keeps its file), which Install leaves for the Check that asks
+for one (``content.later``: fetched then, :data:`FETCH`), read no further
+than its size and taken only when its sha256 is the row's.
 
 Each row's floats are its recording host's (:data:`TABLE`'s ``host``,
 :func:`host`). Another host's maths may round otherwise and that's close
@@ -63,7 +64,8 @@ import json
 import platform
 import struct
 import sys
-from collections.abc import Mapping, Sequence
+import time
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from azurkit.edits.layer import Change, Claim, Layer
@@ -218,19 +220,45 @@ def _part_rows(name: str) -> Sequence[Mapping]:
     return _INDEX[1].get(name, ())
 
 
-def part(name: str, root: Path | None = None) -> bytes | None:
+FETCH: Callable[[str, str, int], bytes] | None = None
+"""A host's ``fetch(source, path, size) -> bytes`` of a file Install leaves
+for the Check that asks for it (``content.later``) from the source its
+entry came from, ``OSError`` where it can't: the sdk's on CPython (the
+app's engine, the CLI's), the site's worker's (a synchronous request);
+``None``: none fetched."""
+DOWN = 60.0
+"""Seconds a source whose fetch failed isn't asked again, so an offline Check works its parts out at once."""
+_DOWN: dict[str, float] = {}
+
+
+def part(name: str, root: Path | None = None) -> tuple[bytes, bool] | None:
     """The bytes (``part_codec``'s) of the part :mod:`.parts` keeps under
-    ``name`` as a row ships them in the content folder ``root`` (its
-    :data:`~.content.ROOT`), read no further than the row's size and held
-    to its sha256 (:func:`_blob`); ``None`` where no row lists it, none's
-    file is there as listed, or :data:`OFF`."""
+    ``name`` as a row ships them, and whether they were fetched now: the
+    row's file in the content folder ``root`` (its :data:`~.content.ROOT`),
+    else fetched (:data:`FETCH`) from the source of the installed entry
+    that lists it at the row's sha256 (``content.source_of``; Install
+    leaves the parts for the Check that asks, ``content.later``), either
+    no further than the row's size and held to its sha256 (:func:`_blob`);
+    ``None`` where no row lists it, neither holds its bytes, or :data:`OFF`."""
     from azurkit.tools.characters import content as kit
 
     if OFF:
         return None
-    for row in _part_rows(name):
-        if (data := _blob(row["blob"], root or kit.ROOT)) is not None:
-            return data
+    root, rows = root or kit.ROOT, _part_rows(name)
+    for row in rows:
+        if (data := _blob(row["blob"], root)) is not None:
+            return data, False
+    for want in (row["blob"] for row in rows if FETCH is not None):
+        if (source := kit.source_of(want["path"], want["sha256"], root)) is None or \
+                time.monotonic() < _DOWN.get(source, -DOWN) + DOWN:
+            continue
+        try:
+            data = bytes(FETCH(source, want["path"], want["size"]))
+        except OSError:
+            _DOWN[source] = time.monotonic()
+            continue
+        if len(data) == want["size"] and hashlib.sha256(data).hexdigest() == want["sha256"]:
+            return data, True
     return None
 
 

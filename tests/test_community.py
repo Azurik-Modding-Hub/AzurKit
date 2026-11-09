@@ -266,7 +266,7 @@ def test_a_community_pack_builds_its_packs_and_edits_as_its_own_layer_and_its_li
 
 
 DRIVE = r"""
-const { content, needs } = await import(process.argv[2]);
+const { content, later, needs } = await import(process.argv[2]);
 const enc = (text) => new TextEncoder().encode(text);
 const entry = (id, requires, files, version = 1) => ({ id, kind: "pack", title: id, version, requires,
   files: files.map(([path, text, size]) => ({ path, size: size ?? enc(text).length, sha256: `${path}@${version}` })) });
@@ -356,6 +356,16 @@ for (const id of ["f", "e"]) await c.install(c.state.manifest.entries.find((e) =
 out.moved = { f: Object.keys(store.get("installed").f.files).sort(),
               shared: new TextDecoder().decode(store.get("files")["packs/shared.json"] ?? new Uint8Array()),
               handed: handed.at(-1).includes("packs/shared.json") };
+
+const part = "variants/v/shipped/parts/p.azkp";   // a built-in's shipped Check part: left for the Check that asks
+Object.assign(bodies, { "manifest.json": JSON.stringify(list(entry("v", [], [["variants/v/v.md", "v"], [part, "p"]]))),
+                        "variants/v/v.md": "v", [part]: "p" });
+await c.read();
+fetched.length = 0;
+await c.install(c.state.manifest.entries[0]);
+out.later = { fetched: [...fetched], kept: Object.keys(store.get("files")).filter((p) => p.startsWith("variants/")),
+              listed: Object.keys(store.get("installed").v.files).sort(), handed: handed.at(-1).includes(part),
+              rule: JSON.parse(process.argv[3]).map(later) };
 console.log(JSON.stringify(out));
 """
 
@@ -370,11 +380,18 @@ def test_the_pages_content_install_fetches_each_entry_once_keeps_nothing_it_refu
     the files its new version doesn't hold, but not one another installed
     entry holds now (a file moved to it); an engine refusal, an Install
     past MAX_ENTRY (refused before any fetch) and a reply past its listed
-    size keep nothing; the requires walk names a cycle and an unknown id."""
+    size keep nothing; the requires walk names a cycle and an unknown id. A built-in's shipped Check part is listed
+    in its entry's record but left for the Check that asks for it (Step 4.6p: never fetched, kept or handed to the
+    engine at a page start), by content.py's rule (``content.later``)."""
+    from azurkit.tools.characters import content
+
+    paths = ["variants/booblord/shipped/parts/85b8a79a6d8d5c18.azkp", "variants/booblord/shipped/usa-0123.azkp",
+             "variants/booblord/shipped/parts/x/y.azkp", "clips/booblord/shipped/parts/a.glb", "variants/b/variant.json"]
     driver = tmp_path / "drive.mjs"
     driver.write_text(DRIVE, encoding="utf-8")
     module = (ROOT / "web" / "content.mjs").as_uri()
-    done = subprocess.run(["node", str(driver), module], capture_output=True, text=True, timeout=60, check=False)
+    done = subprocess.run(["node", str(driver), module, json.dumps(paths)], capture_output=True, text=True, timeout=60,
+                          check=False)
     assert done.returncode == 0, done.stderr[-2000:]
     out = json.loads(done.stdout)
     pack = "packs/{}/pack.json".format
@@ -394,6 +411,10 @@ def test_the_pages_content_install_fetches_each_entry_once_keeps_nothing_it_refu
     assert out["cycle"] == 'entry "x" requires itself (x -> y -> x)'
     assert out["unknown"] == 'no entry "z" in the community list'
     assert out["moved"] == {"f": ["packs/f/pack.json", "packs/shared.json"], "shared": "s2", "handed": True}
+    assert out["later"] == {"fetched": ["variants/v/v.md"], "kept": ["variants/v/v.md"], "handed": False,
+                            "listed": ["variants/v/shipped/parts/p.azkp", "variants/v/v.md"],
+                            "rule": [content.later(path) for path in paths]}
+    assert out["later"]["rule"] == [True, False, False, False, False]
 
 
 OVERTAKEN = r"""

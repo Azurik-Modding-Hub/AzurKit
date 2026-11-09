@@ -8,7 +8,8 @@
 // isn't kept at its version (the requires walk keeps a done set: each entry once, a cycle or an unknown id refused by
 // name), at most MAX_ENTRY bytes as the manifest lists them and no reply past its listed size, then the engine checks
 // every file's size and sha256 before anything is kept (D35); an installed entry stays at its version until its Update,
-// which drops the files the new version doesn't hold. The site keeps what it installed in IndexedDB and hands it to its
+// which drops the files the new version doesn't hold. A built-in's shipped Check parts (later) are listed with their
+// entry but left for the Check that asks for one: its engine fetches it then. The site keeps what it installed in IndexedDB and hands it to its
 // engine (handoff) as the page starts and after each Install; the app writes it into its content folder. Each tab
 // listens for a change (on) and draws the list its own way.
 export const SOURCE = "azurkit.content_source";   // the site's remembered source (localStorage)
@@ -35,6 +36,12 @@ export function where(source, here) {
     ? `${source} is plain http: the site reads an https address (the desktop app reads http on this computer too).`
     : `${source} is no https address: the site reads an https one.`);
 }
+
+// later(path): whether Install leaves a listed file for the Check that asks for it, a built-in's shipped Check part
+// (variants/<id>/shipped/parts/), which the engine fetches from the entry's source then and holds to AzurKit's own row
+// (Step 4.6p: booblord's are 99 MB of her entry's 115), so Install and a page start carry none. content.py's later
+// holds the same.
+export const later = (path) => /^variants\/[^/]+\/shipped\/parts\/[^/]+$/.test(path);
 
 // keeper(db, name): this browser's keeping of what the site installed (the last manifest read, installed.json's record
 // and the files), in IndexedDB's "azurkit-content" (the Characters tab's since Step 4.3d), opened on first use; with
@@ -211,7 +218,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
       const need = needs(ids, entry.id);
       const files = { ...((await kept.get("files")) ?? {}) }, record = { ...((await kept.get("installed")) ?? {}) };
       const todo = need.filter((id) => id === entry.id || record[id]?.version !== ids.get(id).version);
-      const wanted = todo.flatMap((id) => ids.get(id).files);
+      const wanted = todo.flatMap((id) => ids.get(id).files.filter((f) => !later(f.path)));
       const bytes = wanted.reduce((n, f) => n + f.size, 0);
       if (bytes > MAX_ENTRY) {
         throw new Error(`its files are ${bytes.toLocaleString("en-US")} bytes, past the `
@@ -226,8 +233,8 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
         fetched[f.path] = await capped(reply, f.path, f.size);
         progress(k + 1, wanted.length);
       }
-      const held = Object.fromEntries(need.filter((id) => !todo.includes(id))
-        .flatMap((id) => ids.get(id).files.map((f) => [f.path, files[f.path] ?? new Uint8Array()])));
+      const held = Object.fromEntries(need.filter((id) => !todo.includes(id)).flatMap((id) => ids.get(id).files
+        .filter((f) => !later(f.path)).map((f) => [f.path, files[f.path] ?? new Uint8Array()])));
       const checked = await call("content_check", { manifest: JSON.stringify(s.manifest), id: entry.id,
                                                     files: { ...held, ...fetched }, source: s.source });
       if ("refused" in checked) throw new Error(checked.refused);
@@ -238,7 +245,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
         }
         record[id] = { version: ids.get(id).version, source: s.source,
                        files: Object.fromEntries(ids.get(id).files.map((f) => [f.path, f.sha256])) };
-        for (const f of ids.get(id).files) files[f.path] = fetched[f.path];
+        for (const f of ids.get(id).files) if (!later(f.path)) files[f.path] = fetched[f.path];
       }
       await kept.put([["files", files], ["installed", record]]);
       s.installed = record;

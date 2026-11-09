@@ -55,6 +55,7 @@ import { keepParts, partsHint, partsOf } from "./parts.mjs";
 import { PREFIX } from "./outputs.mjs";
 
 const base = new URL("./", import.meta.url);
+self.azurkitBase = base.href;   // the site's folder, which a relative content source is read against (fetched(), ENGINE)
 let heap = () => undefined;
 const post = (message, transfer = []) => self.postMessage(
   message.type === "progress" || message.type === "at" || "heap" in message ? message : { ...message, heap: heap() },
@@ -138,7 +139,7 @@ import azurkit
 from azurkit import sdk
 from azurkit.core import iso, native, progress
 from azurkit.tools import characters
-from azurkit.tools.characters import parts, pool
+from azurkit.tools.characters import parts, pool, shipped
 
 PIECE = "/tmp/azurkit-piece"
 VARIANTS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
@@ -210,6 +211,31 @@ def kept(files, installed):
     content.ROOT.mkdir(parents=True, exist_ok=True)
     (content.ROOT / content.INSTALLED).write_text(json.dumps(installed), encoding="utf-8")
     return dropped
+
+
+def fetched(source, path, size):
+    """tools.characters.shipped.FETCH here (Step 4.6p): a file Install left for the Check that asks for it
+    (content.later: a built-in's shipped Check part, held to its row there), fetched from source (its entry's: an
+    https address or this site's own, as content.mjs's where() holds a source, a relative one read against the site's
+    folder: this worker's location is a blob: URL) by a synchronous request, which a worker may make, so the dress
+    that asks waits on it; OSError where it can't (the part is worked out)."""
+    here = browser.azurkitBase
+    url = browser.URL.new(path, browser.URL.new(source, here))
+    if url.protocol != "https:" and url.origin != browser.URL.new(here).origin:
+        raise OSError(f"{path}: {source} is no https address")
+    request = browser.XMLHttpRequest.new()
+    try:
+        request.open("GET", url.href, False)
+        request.responseType = "arraybuffer"
+        request.send()
+    except Exception as exc:   # a JsException: offline, or a source that lets no other site read it
+        raise OSError(f"{path}: no answer ({exc})") from None
+    if request.status != 200:
+        raise OSError(f"{path}: HTTP {request.status}")
+    data = browser.Uint8Array.new(request.response).to_bytes()
+    if len(data) > size:
+        raise OSError(f"{path}: past the {size:,} bytes its row lists")
+    return data
 
 
 def library(folders):
@@ -312,7 +338,7 @@ class Parts(Kept):
         if self.made is None:
             return
         if key not in self.known:
-            self.made[key] = make
+            self.made.setdefault(key, make)   # a part fetched (shipped.part) keeps its bytes: none made again
         elif key not in self.took:
             self.took.append(key)
 
@@ -332,6 +358,7 @@ class Parts(Kept):
 
 KEPT = characters.CACHE = Kept()
 PARTS = parts.STORE = Parts()
+shipped.FETCH = fetched
 BUILDING = ("build", "ahead", "hash", "hashed", "spoiler", "kept", "parts")   # a build's own asks (build()), its kept
 # asks last
 

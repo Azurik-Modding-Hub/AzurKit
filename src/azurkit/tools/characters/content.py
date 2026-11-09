@@ -9,7 +9,8 @@ Characters tab's community entries):
   one file a release (``shipped.py``, D995), read in place of dressing her,
   and the parts a Check of each built-in and its own copy works out
   (``parts/``, one ``.azkp`` file a part, Step 4.6p), read in place of
-  those stages.
+  those stages: listed with the entry, but Install leaves them for the
+  Check that asks for one (:func:`later`, ``shipped.part``).
 
 The townsfolk's bare-hands kit (``clips/townsfolk/``, ``_player_kit.KIT``)
 and the air elemental's funnel (``fx/air_elemental/``,
@@ -75,6 +76,8 @@ a note (``.md``) in each; no page, script or document a browser renders (``.html
 ``.xml``: D992's SEC-3)."""
 FOLDERS = tuple(SUFFIXES)
 """The folders an entry's files lie in (a variant's recipe in ``variants/<id>/variant.json``)."""
+LATER = re.compile(r"variants/[^/]+/shipped/parts/[^/]+\Z")
+"""The listed files Install leaves for later (:func:`later`): a built-in's shipped Check parts."""
 MAX_MANIFEST, MAX_FILE = 1 << 20, 64 << 20
 MAX_ENTRIES, MAX_FILES = 1000, 10000
 """A manifest's entries and its files in all, at most (D992's SEC-6: a small manifest is untrusted input)."""
@@ -107,6 +110,30 @@ def root() -> Path:
 
 ROOT = root()
 """The content folder of this process (:func:`root`, read once)."""
+
+
+def later(path: str) -> bool:
+    """Whether Install leaves the listed file ``path`` for the Check that
+    asks for it (Step 4.6p): a built-in's shipped Check part
+    (``variants/<id>/shipped/parts/``: booblord's are 99 MB of her entry's
+    115, and a Check of one recipe on one release reads a few of them),
+    fetched then from the source its entry came from (:func:`source_of`)
+    and held to AzurKit's own row (``shipped.part``), so Install and the
+    site's page start carry none. ``web/content.mjs``'s ``later`` holds the
+    same."""
+    return LATER.match(path) is not None
+
+
+def source_of(path: str, sha256: str, root: Path | None = None) -> str | None:
+    """The source the installed entry that lists ``path`` at ``sha256``
+    (``installed.json``'s record in ``root``, :data:`ROOT`) came from, where
+    a file Install left (:func:`later`) is fetched; ``None`` where none
+    lists it so."""
+    for held in installed(root).values():
+        files = held.get("files") if isinstance(held, Mapping) else None
+        if isinstance(files, Mapping) and files.get(path) == sha256 and isinstance(held.get("source"), str):
+            return held["source"]
+    return None
 
 
 def _path(where: str, value: object, suffix: bool = True) -> str:
@@ -308,15 +335,17 @@ def verify(manifest: Mapping, entry: str, files: Mapping[str, bytes], refusal: R
     no XISO image or part of one (D960), and each entry as ``refusal``
     reads it (:data:`Refusal`; ``None``: a built-in variant's recipe the
     engine's, :func:`builtin_refusal`), the whole install at most
-    :data:`MAX_ENTRY`. ``ValueError`` names the entry, the path and, for a
+    :data:`MAX_ENTRY`; a file Install leaves for later (:func:`later`) only
+    if it is given. ``ValueError`` names the entry, the path and, for a
     sha256, both values' first 12 digits."""
     manifest = check(manifest)
     entries = {e["id"]: e for e in manifest["entries"]}
     chosen = _chosen(entry, entries)
     for e in chosen:
-        for f in e["files"]:
+        landed = [f for f in e["files"] if f["path"] in files or not later(f["path"])]
+        for f in landed:
             _checked(e, f, files.get(f["path"]))
-        if (why := (refusal or builtin_refusal)(e, {f["path"]: files[f["path"]] for f in e["files"]})) is not None:
+        if (why := (refusal or builtin_refusal)(e, {f["path"]: files[f["path"]] for f in landed})) is not None:
             raise ValueError(f"{e['id']}: {why}")
     return chosen
 
@@ -418,7 +447,9 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     holds), then its files moved into place, and ``installed.json`` written last, each
     entry's version, ``source`` and files' sha256. An installed entry is
     Updated the same way, held to :func:`held_to` before anything is
-    fetched. Returns :func:`installed`'s record."""
+    fetched. A file Install leaves for later (:func:`later`) is listed in
+    the record but neither fetched nor read back. Returns :func:`installed`'s
+    record."""
     root = root or ROOT
     manifest = check(manifest)
     entries = {e["id"]: e for e in manifest["entries"]}
@@ -429,15 +460,16 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     made, parts = [p for p in (root, *root.parents) if not p.exists()], []   # removed deepest first on a fault
     try:
         for e in chosen:
-            paths = [f["path"] for f in e["files"]]
+            now = [f for f in e["files"] if not later(f["path"])]
+            paths = [f["path"] for f in now]
             if e["id"] not in todo:   # installed at its version: its files read back
-                for f in e["files"]:
+                for f in now:
                     _checked(e, f, _held(root, f))
                 landed = _Landed(root, paths)
             else:
                 parts.append(part := root / f".part-{e['id']}")
                 shutil.rmtree(part, ignore_errors=True)
-                for f in e["files"]:
+                for f in now:
                     data = _checked(e, f, fetch(f["path"]))
                     (part / f["path"]).parent.mkdir(parents=True, exist_ok=True)
                     (part / f["path"]).write_bytes(data)
@@ -461,6 +493,8 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
             if path.lower() not in others:   # another entry's file, letter case aside: one file on APFS and NTFS
                 (root / path).unlink(missing_ok=True)
         for f in entries[name]["files"]:   # after the dropped files go, so a rename by letter case keeps its file
+            if later(f["path"]):
+                continue
             (root / f["path"]).parent.mkdir(parents=True, exist_ok=True)
             os.replace(part / f["path"], root / f["path"])
         shutil.rmtree(part, ignore_errors=True)

@@ -53,7 +53,7 @@ import pytest
 from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import characters, data, mods, randomizer
-from azurkit.tools.characters import parts, pool
+from azurkit.tools.characters import parts, pool, shipped
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tables, web_tools
@@ -5772,6 +5772,7 @@ def _site_engine(monkeypatch, tmp_path):
         monkeypatch.setitem(sys.modules, module.__name__, module)
     monkeypatch.setattr(characters, "CACHE", characters.CACHE)   # each as it was after
     monkeypatch.setattr(parts, "STORE", parts.STORE)
+    monkeypatch.setattr(shipped, "FETCH", shipped.FETCH)
     monkeypatch.setattr(pool, "TICK", pool.TICK)
     engine = {"__name__": "worker"}
     exec((_page.WEB / "worker.mjs").read_text(encoding="utf-8").split("const ENGINE = `")[1].split("`;")[0], engine)
@@ -5850,6 +5851,55 @@ def test_the_site_engine_offers_a_check_the_parts_kept_for_its_content_and_hands
     ask("catalog")
     assert ask("parts") == {"made": {}, "taken": []}
     parts.clear()
+
+
+def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_one_synchronous_request(monkeypatch,
+                                                                                                         tmp_path):
+    """Step 4.6p: worker.mjs's engine, its Python run here under CPython (Pyodide's js modules stood in for), is the
+    shipped parts' fetch (``shipped.FETCH``): a file Install left for the Check that asks for it (``content.later``)
+    comes from its entry's source, read against the site (a relative one is the site's own), by one synchronous
+    request for its bytes; a source neither https nor the site's own is asked nothing, and no answer, an HTTP error or
+    a reply past the row's size is an OSError (the part is worked out)."""
+    _site_engine(monkeypatch, tmp_path)
+    js, path, asked = sys.modules["js"], "variants/x/shipped/parts/0.azkp", []
+    served = {f"https://raw.example.test/c/{path}": b"part", f"http://site.test/content/{path}": b"own"}
+
+    class URL:
+        def __init__(self, url, base=None):
+            self.href = url if base is None else urllib.parse.urljoin(getattr(base, "href", base), url)
+            split = urllib.parse.urlsplit(self.href)
+            self.protocol, self.origin = f"{split.scheme}:", f"{split.scheme}://{split.netloc}"
+        new = classmethod(lambda cls, *args: cls(*args))
+
+    class Request:
+        new = classmethod(lambda cls: cls())
+
+        def open(self, method, url, wait):
+            self.url = url
+            asked.append((method, url, wait))
+
+        def send(self):
+            if self.url.startswith("https://down."):
+                raise RuntimeError("NetworkError")   # as a JsException comes
+            assert self.responseType == "arraybuffer"
+            self.status, self.response = (200, served[self.url]) if self.url in served else (404, None)
+
+    monkeypatch.setattr(js, "URL", URL, raising=False)
+    monkeypatch.setattr(js, "XMLHttpRequest", Request, raising=False)
+    monkeypatch.setattr(js, "Uint8Array", types.SimpleNamespace(
+        new=lambda data: types.SimpleNamespace(to_bytes=lambda: bytes(data))), raising=False)
+    monkeypatch.setattr(js, "azurkitBase", "http://site.test/", raising=False)   # its folder (its location: a blob:)
+    assert (shipped.FETCH("https://raw.example.test/c/", path, 4), shipped.FETCH("content/", path, 3)) == (b"part",
+                                                                                                          b"own")
+    assert asked == [("GET", f"https://raw.example.test/c/{path}", False), ("GET", f"http://site.test/content/{path}",
+                                                                            False)]
+    for source, size, words in (("http://elsewhere.test/c/", 9, "no https address"),
+                                ("https://down.example.test/", 9, "no answer"),
+                                ("https://raw.example.test/gone/", 9, "HTTP 404"),
+                                ("https://raw.example.test/c/", 3, "past the 3 bytes")):
+        with pytest.raises(OSError, match=words):
+            shipped.FETCH(source, path, size)
+    assert len(asked) == 5   # the plain-http source elsewhere asked nothing
 
 
 def test_the_site_engines_restore_reads_the_logic_before_the_page_is_ready_when_randomize_comes_back_on(

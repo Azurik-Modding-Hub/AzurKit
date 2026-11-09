@@ -1086,12 +1086,20 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
       reads, its `part_codec.digest`, the answer, and its file) and its
       bytes (`part_codec`'s at zstd 19) a file in the entry's
       `variants/<entry>/shipped/parts/` in Azurik-Custom-Content, named for
-      their sha256 (a re-record writes only the parts that moved), which
-      Install brings with the entry. A part neither the process nor
-      `parts.STORE` holds is read from there (`shipped.part`: no further
-      than its size, held to its sha256), never handed to the store, so a
-      first Check of a built-in or its own copy, under any name, dresses
-      only the glue. `shipped.OFF` takes none; a fresh part is heard
+      their sha256 (a re-record writes only the parts that moved), listed
+      with the entry but left by Install for the Check that asks for one
+      (`content.later`, which `web/content.mjs`'s `later` mirrors: Install
+      and the site's page start carry none of booblord's 99 MB). A part
+      neither the process nor `parts.STORE` holds is read from the content
+      folder (a clone's), else fetched from the source its installed entry
+      came from (`shipped.part` through `shipped.FETCH`: the sdk's `_later`
+      on CPython, the site worker's synchronous request; a source that
+      failed is let be for `shipped.DOWN`), no further than its size and
+      held to its sha256; a fetched one is handed to the store as a part
+      made there (the app's signed store, the site's IndexedDB under the
+      recipe's hint), one a content folder holds never, so a first Check of
+      a built-in or its own copy, under any name, dresses only the glue.
+      `shipped.OFF` takes none; a fresh part is heard
       (`shipped.SEEN`) by its digest, a set's items in one order in every
       process, and the goldens' pin builds each own copy too
       (`test_characters.py`'s `_own_copies`), so every part row is a fresh

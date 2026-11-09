@@ -367,43 +367,74 @@ def test_a_part_kept_across_visits_reads_back_as_it_was_and_a_spoiled_stale_or_f
     assert part_codec.decode(part_codec.encode(kept)) == kept and xbox_adpcm.read_wav(sound) == read
 
 
-def test_a_part_shipped_for_a_built_in_is_taken_where_its_bytes_are_its_rows_and_its_answer_is_one_in_every_process(
+def test_a_built_ins_shipped_part_is_fetched_only_when_a_check_asks_for_it_held_to_its_row_and_kept_by_the_host(
         tmp_path, monkeypatch):
     """Step 4.6p (the Check design's L3): a part a ``part`` row of ``shipped.json`` ships (``record_shipped.py``'s: a
-    file in its entry's ``shipped/parts/`` in the content folder, at zstd 19) is taken in place of working it out, read
-    back as it was and heard as shipped, and taken again it is never handed to the host's store as one it made; one
-    whose file there isn't its row's (a byte spoiled, another part's, gone), or with ``shipped.OFF``, is worked out. A
-    fresh part is heard (``shipped.SEEN``) by its digest, the row's answer, which a set of names doesn't move from one
-    process to another (a str's hash does), so the re-record pin holds it to its row."""
+    file in its entry's ``shipped/parts/`` in Azurik-Custom-Content, at zstd 19) is listed with its entry, but Install
+    leaves it (``content.later``: the rest written, the record listing it; the site's check passes without it), and a
+    Check that asks for it fetches it from the source its entry came from (the sdk's fetch: a folder here), reads it
+    back as it was, hears it fetched and hands it to the host's store as a part made there, so a later visit fetches
+    none; one a content folder holds (a clone's) is taken there and never handed to the store. One whose fetched bytes
+    aren't its row's (a byte spoiled, another part's, gone), one no installed entry lists at its sha256, and any with
+    ``shipped.OFF`` are worked out, and a source that failed isn't asked again for ``shipped.DOWN``. A fresh part is
+    heard (``shipped.SEEN``) by its digest, the row's answer, which a set of names doesn't move from one process to
+    another (a str's hash does), so the re-record pin holds it to its row."""
     from azurkit.tools.characters import content, part_codec, shipped
 
     held = ((8192, array.array("q", [0, 4096]), b"\x01" * 4096), parts.dump({"bones": {"hip", "tail", "ear"}}), False)
     blob, other = part_codec.encode((held, 64), 19), part_codec.encode(("another", 1))
-    path = tmp_path / "variants/x/shipped/parts/0.azkp"
-    path.parent.mkdir(parents=True)
-    path.write_bytes(blob)
-    row = {"part": "W24:k", "answer": part_codec.digest((held, 64)), "blob": {
-        "path": "variants/x/shipped/parts/0.azkp", "sha256": hashlib.sha256(blob).hexdigest(), "size": len(blob)}}
-    table = {"part": [row], "host": shipped.host()}
-    used = []
-    store = type("Store", (), {"get": lambda *_: None, "put": lambda *_: None,
+    at, note, source, root = "variants/x/shipped/parts/0.azkp", "variants/x/README.md", tmp_path / "source", tmp_path / "c"
+    files = []
+    for path, data in ((at, blob), (note, b"x")):
+        (source / path).parent.mkdir(parents=True, exist_ok=True)
+        (source / path).write_bytes(data)
+        files.append({"path": path, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)})
+    listed = json.dumps({"format": content.FORMAT, "schema_version": 1, "entries": [{
+        "id": "x", "kind": "variant", "title": "x", "author": "a", "licence": "l", "version": 1, "files": files,
+        "requires": []}]})
+    (source / content.MANIFEST).write_text(listed, encoding="utf-8")
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
+    monkeypatch.setattr(content, "ROOT", root)
+    sdk.content_install({"id": "x", "source": str(source)})
+    assert sorted(f.relative_to(root).as_posix() for f in root.rglob("*") if f.is_file()) == [
+        content.INSTALLED, content.MANIFEST, note]
+    assert content.installed()["x"]["files"] == {f["path"]: f["sha256"] for f in files}
+    assert sdk.content_check({"manifest": listed, "id": "x", "files": {note: b"x"}})["install"] == ["x"]
+    row = {"part": "W24:k", "answer": part_codec.digest((held, 64)), "blob": files[0]}
+    table, put, used, fetches = {"part": [row], "host": shipped.host()}, [], [], []
+    store = type("Store", (), {"get": lambda *_: None, "put": lambda _, key, data: put.append((key, data)),
                                "used": lambda _, key, make: used.append(key)})
-    monkeypatch.setattr(content, "ROOT", tmp_path)
     monkeypatch.setattr(shipped, "table", lambda: table)
     monkeypatch.setattr(shipped, "OFF", False)
+    monkeypatch.setattr(shipped, "_DOWN", {})
+    monkeypatch.setattr(shipped, "FETCH", lambda *args: fetches.append(args[1]) or sdk._later(*args))
     monkeypatch.setattr(parts, "STORE", store())
     monkeypatch.setattr(parts, "HEARD", {})
     parts.clear()
+    assert _exact(parts.get("W24:k", "W24"), held) and parts.HEARD["W24"] == {"hit": 1, "miss": 0, "fetched": 1}
+    assert put == [(parts._stored("W24:k"), blob)] and fetches == [at]
+    (root / at).parent.mkdir(parents=True)
+    (root / at).write_bytes(blob)   # a clone's content folder: taken there, never handed to the store
+    parts.clear()
+    parts.HEARD = {}
     assert _exact(parts.get("W24:k", "W24"), held) and parts.HEARD["W24"] == {"hit": 1, "miss": 0, "shipped": 1}
-    assert _exact(parts.get("W24:k"), held) and used == []
-    for why, spoil in {"a byte spoiled": lambda: path.write_bytes(blob[:-1] + bytes([blob[-1] ^ 1])),
-                       "another part's": lambda: path.write_bytes(other), "gone": path.unlink,
-                       "shipped.OFF": lambda: setattr(shipped, "OFF", True)}.items():
+    assert _exact(parts.get("W24:k"), held) and used == [] and len(put) == 1 and fetches == [at]
+    (root / at).unlink()
+    record = (root / content.INSTALLED).read_text(encoding="utf-8")
+    for why, spoil in {"a byte spoiled": lambda: (source / at).write_bytes(blob[:-1] + bytes([blob[-1] ^ 1])),
+                       "another part's": lambda: (source / at).write_bytes(other),
+                       "listed by no entry at its sha256": lambda: (root / content.INSTALLED).write_text(
+                           record.replace(files[0]["sha256"], "0" * 64), encoding="utf-8"),
+                       "gone": (source / at).unlink, "shipped.OFF": lambda: setattr(shipped, "OFF", True)}.items():
         spoil()
         parts.clear()
         assert parts.get("W24:k") is None, why
-        path.write_bytes(blob)
+        (source / at).write_bytes(blob)
+        (root / content.INSTALLED).write_text(record, encoding="utf-8")
         shipped.OFF = False
+    assert fetches == [at] * 4 and parts.get("W24:k") is None and fetches == [at] * 4   # gone a moment ago: not asked
+    shipped._DOWN.clear()
+    assert _exact(parts.get("W24:k"), held) and fetches == [at] * 5
     monkeypatch.setattr(shipped, "SEEN", [])
     parts.put("W24:k", held, 64)
     assert shipped.SEEN == [{"part": {"part": "W24:k", "answer": row["answer"]}}]

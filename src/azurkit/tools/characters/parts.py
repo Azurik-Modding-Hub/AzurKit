@@ -39,11 +39,13 @@ offers with a Check and keeps after its answer.
 
 And a part neither holds is asked of what ships (Step 4.6p, the design's
 L3): ``shipped.part``, the parts ``scripts/record_shipped.py`` recorded
-from a Check of each built-in and of its own copy, which Install brings
-with the entry (its ``shipped/`` folder) on every host, so their first
-Check needs no dress. A part taken from there is never handed to
-:data:`STORE` (it ships), and a fresh one is heard (``shipped.SEEN``) for
-the re-record pin."""
+from a Check of each built-in and of its own copy, listed with the entry
+(its ``shipped/parts/`` folder) but left by Install for the Check that
+asks for one, which fetches it then from the entry's source on every
+host, so their first Check needs no dress. A part fetched so is handed to
+:data:`STORE` as one made here (a later visit fetches none); one a content
+folder holds (a clone's) is never; and a fresh one is heard
+(``shipped.SEEN``) for the re-record pin."""
 
 from __future__ import annotations
 
@@ -61,8 +63,8 @@ ROOM = 256 << 20
 PAGE = 4096
 """The bytes a part's file is compared and kept in: each page that differs from the stage's input (:func:`delta`)."""
 HEARD: dict[str, dict[str, int]] | None = None
-"""A dict: each stage's parts taken (``hit``; of them ``stored``, from :data:`STORE`, and ``shipped``) and worked out
-(``miss``), by stage name (a test's, a measure's)."""
+"""A dict: each stage's parts taken (``hit``; of them ``stored``, from :data:`STORE`, ``shipped`` and ``fetched``) and
+worked out (``miss``), by stage name (a test's, a measure's)."""
 
 STORE = None
 """A host's store of parts across visits (``get(key) -> bytes | None``, ``put(key, bytes or what makes them)``, made
@@ -173,14 +175,16 @@ def _stored(name: str) -> str:
 
 def _fetch(name: str) -> tuple[object, int, str] | None:
     """The part :data:`STORE` keeps under ``name``, else the one shipped
-    (``shipped.part``), its size and where it came from (``stored`` or
-    ``shipped``), held in this process again; ``None`` where neither has
-    one, or none this codec reads."""
+    (``shipped.part``), its size and where it came from (``stored``,
+    ``shipped`` from the content folder, or ``fetched`` from its entry's
+    source, then handed to :data:`STORE` as a part made here, so a later
+    visit fetches none), held in this process again; ``None`` where neither
+    has one, or none this codec reads."""
     from azurkit.tools.characters import part_codec, shipped
 
     blob, came = None if STORE is None else STORE.get(_stored(name)), "stored"
-    if blob is None:
-        blob, came = shipped.part(name), "shipped"
+    if blob is None and (found := shipped.part(name)) is not None:
+        blob, came = found[0], "fetched" if found[1] else "shipped"
     if blob is None:
         return None
     try:
@@ -191,6 +195,8 @@ def _fetch(name: str) -> tuple[object, int, str] | None:
     if came == "shipped":
         with LOCK:
             _SHIPPED.add(name)
+    elif came == "fetched" and STORE is not None:
+        STORE.put(_stored(name), blob)
     return part, size, came
 
 
