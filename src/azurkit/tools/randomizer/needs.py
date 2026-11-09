@@ -6,6 +6,11 @@ steers by stay vanilla in v1, so :func:`overlays` is the same for every
 seed and computed once a process (about 4 s, the solver's ``within`` for
 each exit's switch).
 
+Each spot is named with what reaching it needs too (Modkit's map tips,
+``item_needs``: :func:`spot_need`), read from :data:`SPOT_NEEDS`, which
+``scripts/spot_needs.py`` writes from :func:`spot_needs`: a reach of every
+spot takes seconds, more than a map may wait.
+
 A level map's exit is a ring in the colour of what using it needs
 (:func:`need_kind`, :data:`NEEDS`: one colour a key, disc fragments, an
 event, a power, the powers of a barrier type's spell, else several),
@@ -20,12 +25,14 @@ from __future__ import annotations
 
 import collections
 import functools
+import json
 import re
+from pathlib import Path
 
 from azurkit.core import progress
 from azurkit.tools.randomizer.planner.grammar import ParseError, atoms, parse
 from azurkit.tools.randomizer.planner.loader import kept_logic
-from azurkit.tools.randomizer.planner.settings import skips_on
+from azurkit.tools.randomizer.planner.settings import DARK_FIRE, skips_on
 
 
 # What a connection needs, one colour each (Modkit's ``NEEDS``, M9)
@@ -278,6 +285,56 @@ def need_words(req: str) -> str:
     return "unreachable" if need_kind(req) == "unreachable" else f"needs {say(req)}"
 
 
+def light(lg, node: str) -> str:
+    """What anything done at ``node`` needs for its darkness under the default options, as the solver's
+    ``light_at`` (§2.12, D1061): Fire 1, or a nolight skip they turn on; "true" where it isn't dark."""
+    dark = lg.db.nodes[node][1].get("dark", False)
+    if dark is False:
+        return "true"
+    if dark is True or dark not in skips_on(lg.db.defaults, lg.skip_tables):
+        return f"fire>={DARK_FIRE}"
+    skip = lg.skip_tables[dark].get("requires", "true")
+    return "true" if skip.strip() == "true" else f"fire>={DARK_FIRE} | ({skip})"
+
+
+def spot_need(lg, level: str, loc: dict) -> str:
+    """What a tip says reaching the location ``loc`` (its vanilla data's) of ``level`` needs, on ``lg`` (Modkit's
+    ``item_needs``): on an authored level what reaching its node from the level's arrivals needs, its own
+    requirement and its node's light, as the solver's location rule (AZ-341: an authored level puts its gates on
+    its own edges), then the gates the vanilla data puts on it (an obsidian lock, a barrier, a key lock, a seal, a
+    keylord, a guardian); "unreachable" when no arrival reaches it."""
+    gen, said = lg.db.generated[level], []
+    if level not in lg.db.stubs:
+        node = lg.db.node_of[loc["id"]]
+        path = reaching(lg, level, [n for _, n in arrivals()[level]], node)
+        if path is None:
+            return "unreachable"
+        said.append(say(_and(path, lg.location_rows.get(loc["id"], {}).get("requires", "true"), light(lg, node))))
+    for gid in loc["gated_by"]:
+        for table in ("obsidian_locks", "barriers", "keylocks", "seals"):
+            said += [say(o["requires"]) for o in gen.get(table, []) if o["id"] == gid and o.get("requires")]
+        said += ["beating its keylord" for o in gen.get("keylords", []) if o["id"] == gid]
+        said += [f"beating {o['critter']}" for o in gen.get("bosses", []) if o["id"] == gid]
+    return "needs " + (" + ".join(dict.fromkeys(s for s in said if s != "nothing")) or "nothing")
+
+
+def spot_needs() -> dict[str, str]:
+    """:func:`spot_need` of every location of the vanilla data, by id, but those of an authored level no node
+    holds (two disc fragments no level file places): what :data:`SPOT_NEEDS` ships."""
+    lg = kept_logic()
+    return {loc["id"]: spot_need(lg, level, loc) for level, doc in sorted(lg.db.generated.items())
+            for loc in doc["locations"] if level in lg.db.stubs or loc["id"] in lg.db.node_of}
+
+
+SPOT_NEEDS = Path(__file__).with_name("spot_needs.json")   # scripts/spot_needs.py writes it
+
+
+@functools.cache
+def shipped_spot_needs() -> dict[str, str]:
+    """:data:`SPOT_NEEDS`' spots and what reaching each needs (:func:`spot_needs` when it was written)."""
+    return json.loads(SPOT_NEEDS.read_text(encoding="utf-8"))["needs"]
+
+
 def one_way(level: str, dest: str) -> bool:
     """No exit edge of ``dest`` the logic can use leads back to ``level`` (M9)."""
     return all(need_kind(r) == "unreachable" for a, b, _, r in exit_edges() if (a, b) == (dest, level))
@@ -298,7 +355,8 @@ def overlays(grid: tuple[str, ...]) -> dict:
     does, by name and in the vanilla data's order (where each lies is ``maps.json``'s): each level's
     ``exits`` (its live exits in maps.json's order: the spot, the level it leads to, its need's ``kind`` and
     ``colour``, ``dashed`` when one way, and its ``tip``), ``barriers`` and ``features`` (by id: their icon or
-    letter, colour, tip and the barrier's power level), and the world's ``lines`` (each pair of levels an
+    letter, colour, tip and the barrier's power level) and ``spots`` (by id: what reaching each needs,
+    :func:`shipped_spot_needs`), and the world's ``lines`` (each pair of levels an
     exit joins, coloured by what it needs, dashed when one way, its tip naming each way)."""
     db = kept_logic().db
     levels, ways = {}, {}
@@ -331,7 +389,9 @@ def overlays(grid: tuple[str, ...]) -> dict:
             barriers[g["id"]] = {"icon": BARRIER_ICONS[kind], "level": lvl,
                                  "tip": f"{BARRIER_NAMES[kind]}{name}" + (f", level {lvl}" if lvl else "")
                                         + f": needs {say(g['requires'] or 'true')}"}
-        levels[level] = {"exits": exits, "features": features, "barriers": barriers}
+        shipped = shipped_spot_needs()
+        levels[level] = {"exits": exits, "features": features, "barriers": barriers,
+                         "spots": {loc["id"]: shipped[loc["id"]] for loc in gen["locations"] if loc["id"] in shipped}}
     lines = []
     for pair in sorted({frozenset(w) for w in ways}, key=sorted):
         a, b = sorted(pair)

@@ -4799,6 +4799,12 @@ def _png_size(png: bytes) -> list[int]:
     return [int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")]
 
 
+# A level map's spots that no other hit overlaps, each hovered: its tip's text (a spot's line, then what reaching it
+# needs), for the spots whose first line is one of the given
+SPOT_TIPS = """(firsts) => { const m = azurkit.tracker.map;
+  return m.hits.filter((h) => firsts.includes(h.tip) && m.under([h.x, h.y]).length === 2).map((h) => {
+    m.tip([h.x, h.y]); return document.getElementById("map-tip").textContent; }); }"""
+
 def test_the_site_shows_the_trackers_shipped_maps_and_with_no_plan_each_levels_vanilla_spots(browser, site, tmp_path):
     """Step 4.3f (D961): the Tracker view shows Modkit's world map, every
     level's picture on it, as soon as it shows, with no image picked and no
@@ -4808,8 +4814,8 @@ def test_the_site_shows_the_trackers_shipped_maps_and_with_no_plan_each_levels_v
     with no plan its engine's tracker gives the vanilla game's spots (no
     image picked), and each level picked on Map (the levels by realm as
     the Table groups them) opens its map with each spot ringed plain and
-    its vanilla item's icon, a spot's tip naming that item and a click on
-    it marking nothing. A plan opened then shows the level browsed with
+    its vanilla item's icon, a spot's tip naming that item (and, its second
+    line, what reaching it needs) and a click on it marking nothing. A plan opened then shows the level browsed with
     the plan's spots, and each floor from the same files. No CSP
     violation, no request but GETs of the site's files. The view's own
     asks are counted (``ASKED``): the work ahead's plan of the Settings
@@ -4838,6 +4844,7 @@ def test_the_site_shows_the_trackers_shipped_maps_and_with_no_plan_each_levels_v
         assert page.evaluate("""() => [...document.getElementById("track-pick").children].map((n) => n.tagName === "OPTGROUP"
             ? [n.label, [...n.children].map((o) => o.value)] : [n.textContent, [n.value]])""") == [
             ["World map", [""]], *bare["levels"]]   # a realm of one level (life, town, the airship) its own row
+        hovered = 0
         for level in [*sorted(levels), "e6"]:
             page.select_option("#track-pick", level)
             _page.until(page, f"() => azurkit.tracker.map.level === '{level}' "
@@ -4850,6 +4857,14 @@ def test_the_site_shows_the_trackers_shipped_maps_and_with_no_plan_each_levels_v
                        for m in spots), level
             assert sorted(tips) == sorted([f"{bare['spots'][loc]['name']} · {tracking.SPOT[bare['spots'][loc]['class']]}",
                                            False] for loc in main), level
+            needs_of, firsts = bare["world"]["maps"]["levels"][level]["spots"], {}
+            for loc in main:
+                firsts.setdefault(f"{bare['spots'][loc]['name']} · {tracking.SPOT[bare['spots'][loc]['class']]}",
+                                  set()).add(needs_of[loc])
+            shown = page.evaluate(SPOT_TIPS, list(firsts))   # a spot no other hit overlaps: its tip, as hovered
+            assert all(second in firsts[first] for first, second in (s.split("\n") for s in shown)), level
+            hovered += len(shown)
+        assert hovered   # (a level whose every spot overlaps another, as the airship's, hovers none)
         assert page.evaluate(hint) == "The vanilla game's items: click an exit to open its level. Scroll to zoom, drag to pan."
         assert page.evaluate("() => azurkit.tracker.state.marks") == {}
         (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")

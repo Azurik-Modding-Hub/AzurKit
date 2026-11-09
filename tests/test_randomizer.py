@@ -2005,20 +2005,19 @@ def test_a_map_tip_names_each_way_a_spot_is_reached_by_not_one_of_them_as_the_ne
     r2955 "needs 2 circuitboard keys + water 1" though the golden plan
     collects it holding none. It names each way, a lower threshold of the
     same counter too: f4's r1289 said "needs air 3" though air 2 + water 2
-    reaches it. (Modkit's map tips said it of each spot; AzurKit's say it of
-    each exit and each line between levels.)"""
-    from azurkit.tools.randomizer import needs
-
-    lg = kept_logic()
-
-    def tip(lid):
-        level = lid.split("/")[0]
-        return needs.say(needs.reaching(lg, level, [n for _, n in needs.arrivals()[level]], lg.db.node_of[lid]))
-
-    assert [tip("f3/g0/r1002"), tip("e2/g0/r2955"), tip("f4/g0/r1289")] == [
-        "3 fire1 keys or air 3",
-        "(2 circuitboard keys + water 1) or (fire 1 + water 1) or (air 1 + 2 circuitboard keys)",
-        "air 3 or (air 2 + water 2)"]
+    reaches it. Each level's map names it on each spot (Modkit's map tips,
+    ``item_needs``: ``tracking.world``'s maps, which the page draws as the
+    spot's tip's second line), from ``spot_needs.json``, which holds what
+    ``needs.spot_needs`` says of every spot now (``scripts/spot_needs.py``;
+    the reach, the spot's own requirement and its darkness, then its
+    gates)."""
+    spots = {loc: words for m in tracking.world()["maps"]["levels"].values() for loc, words in m["spots"].items()}
+    assert [spots["f3/g0/r1002"], spots["e2/g0/r2955"], spots["f4/g0/r1289"]] == [
+        "needs 3 fire1 keys or air 3",
+        "needs (2 circuitboard keys + water 1) or (fire 1 + water 1) or (air 1 + 2 circuitboard keys)",
+        "needs air 3 or (air 2 + water 2)"]
+    shipped = needs.shipped_spot_needs()
+    assert spots.items() <= shipped.items() and needs.spot_needs() == shipped
 
 
 @pytest.mark.parametrize("walk, tier", ((0.995, "standard"), (0.9, "safe")), ids=("walk-0.995", "walk-0.9"))

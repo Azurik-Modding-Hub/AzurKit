@@ -56,6 +56,7 @@ uv run --locked python scripts/record_shipped.py [--check] [--content CLONE]  # 
 uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images
 uv run --locked python scripts/web_tables.py [--check]                    # web/tables.json: each release's table pages (the site's read ahead)
 uv run --locked python scripts/slider_tiers.py [--check]                  # the movement sliders' tier table, from the physics (D1066)
+uv run --locked python scripts/spot_needs.py [--check]                    # what reaching each spot needs, the tracker's spot tips
 uv run --locked python scripts/ci_shards.py [LABEL=]LOG ...               # tests/ci_durations.json, CI's vanilla parts' seconds, from its logs
 uv run --locked --group icon python assets/icon/render.py   # the icon, from its sources (macOS, dev only)
 ```

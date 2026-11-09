@@ -686,12 +686,15 @@ export class MapView {
           ctx.textAlign = "start";
         }
         ctx.globalAlpha = 1;
+        // what reaching it needs (the default options' logic, the same for every seed): its tip's second line, hit
+        // first (under() lists the later hit first)
+        if (maps?.spots?.[m.loc]) this.hit(x, y, 12, maps.spots[m.loc]);
         if (view.vanilla) {   // no plan: nothing to mark
           this.hit(x, y, 12, `${s.name} · ${SPOT[s.class]}`);
-          continue;
+        } else {
+          const name = m.icon ? s.name : SPOT[s.class];
+          this.hit(x, y, 12, `${name}: ${STATE[s.state]}`, () => this.hooks.toggle(m.loc));
         }
-        const name = m.icon ? s.name : SPOT[s.class];
-        this.hit(x, y, 12, `${name}: ${STATE[s.state]}`, () => this.hooks.toggle(m.loc));
       }
       if (next < Infinity) {
         clearTimeout(this.flashing);

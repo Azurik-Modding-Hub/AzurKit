@@ -92,8 +92,8 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
   on the floor of the room it stands in, and each floor's button shows how many are left on it; the other floors'
   items show faintly, fainter the further the floor. Sharp when zoomed in: 18 levels carry each floor again at 2 px
   a metre, up to 5 times finer.
-- **Every lock labelled:** exits, barriers, key locks and disc seals show what they need; save points and
-  teleporters are marked.
+- **Every lock labelled:** exits, barriers, key locks and disc seals show what they need, and so does each spot
+  you hover; save points and teleporters are marked.
 - **World map:** each level with a badge of the spots you can reach now.
 - **Table view:** the same as a list of items and places.
 - **Gems:** a coloured dot for each of the 1,215 gem spots, and the gems taken and left on each level.
