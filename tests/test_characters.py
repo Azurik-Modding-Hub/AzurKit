@@ -945,6 +945,33 @@ def test_a_mesh_drop_takes_its_bones_last_groups_off_lod_0_and_refuses_any_other
             mesh_edit.plan(data, body, mesh_edit.MeshSpec(drop=(drop,)))
 
 
+# --- a recipe on garret4's own body (Modkit's Step 2.206, D813): his own build at its fields -------------------------
+def _g4(usa_iso, folder: Path, recipe: dict, name: str = "g4x") -> dict[str, str]:
+    """``recipe`` on garret4's own body, its file written in ``folder`` (its files beside it), built from the USA
+    image through ``sdk.image``: each file the build changed and its sha256 (``filelist.txt``, derived, left out)."""
+    file = folder / "recipe.json"
+    file.write_text(json.dumps({name: {"base": "garret4", **recipe}}), encoding="utf-8")
+    _, report = sdk.image({"iso": str(usa_iso), "packs": {}, "character": {"species": name, "variant_file": str(file)}})
+    return {f: sha for f, sha in report["result"].items() if f != "filelist.txt"}
+
+
+def test_a_recipe_on_garret4_reads_its_png_colours_beside_its_file_with_its_other_fields(usa_iso, tmp_path):
+    """A ``png`` colours op on garret4's own body is read beside the recipe's file (``colour_folder``) when the recipe
+    asks his build for more (an attack number): his rows are those its colours alone write (characters.xbr alone),
+    his table that number's (Modkit's Step 2.206, its rebase review's D1)."""
+    from azurkit.tools.characters import colour_preview, draw
+
+    with iso.Reader(usa_iso) as r:
+        edit = colour_preview.rows(r.read(CHARACTERS), "garret4", ())[0].copy()
+    edit[:32, :32, :3] = (20, 40, 220)
+    (tmp_path / "row0.png").write_bytes(draw.png_rgba(edit))
+    png = {"op": "png", "file": "row0.png", "sha256": hashlib.sha256((tmp_path / "row0.png").read_bytes()).hexdigest()}
+    colours, damage = {"colours": [{"row": 0, "ops": [png]}]}, {"attacks": {"damage": 1.5}}
+    both, alone, number = (_g4(usa_iso, tmp_path, r) for r in ({**colours, **damage}, colours, damage))
+    assert list(alone) == [CHARACTERS] and CHARACTERS not in number
+    assert both == {**number, **alone}
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
