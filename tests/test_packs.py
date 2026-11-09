@@ -544,3 +544,24 @@ def test_every_text_the_patches_tab_shows_is_one_short_line_with_no_tag_range_or
     assert len(texts) > 100 and [t for t in texts if len(t) > 80 or "\n" in t] == []
     assert [t for t in texts if re.search(r"\bany\b|from \d", t) or any(
         word in t for word in ("[", "range", "unrestricted", "xperimental", "commonly", "logic-safe"))] == []
+
+
+# --- Step 4.28f: Modkit's unpinned pack behaviours, ported ------------------------------------------------------
+
+
+def test_player_physics_past_float32s_range_writes_infinity_with_a_note_and_never_raises(usa_iso):
+    """AZ-171 (Modkit's L14): the jump and flap height square their scale
+    (g x k x k), so jump 1e20 overflows float32, 1e200 the double too, and
+    swim 1e39 is past float32: each builds its float32's +inf, a C cast's,
+    never an OverflowError, with Q110's note naming the slider's site, a
+    product already infinite too."""
+    pack = mods.PACKS["player_physics"]
+    with iso.Reader(usa_iso) as r:
+        base = {name: r.read(name) for name in pack.files()}
+    for params, what in (({"jump_speed_scale": 1e20}, "the jump's gravity: 9.8e+40"),
+                         ({"swim_speed_scale": 1e39}, "the swim stroke: 1e+40"),
+                         ({"jump_speed_scale": 1e200}, "the jump's gravity: inf"),
+                         ({"flap_height_scale": 1e200}, "the flap's gravity: inf")):
+        made = engine.plan(pack, gate.USA, base, params)
+        assert struct.pack("<f", math.inf) in [c.after for c in made.changes], params
+        assert made.notes == (f"player_physics {what} is past float32's range: written as inf (Q110)",), params

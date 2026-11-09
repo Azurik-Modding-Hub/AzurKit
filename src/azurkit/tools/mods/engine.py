@@ -211,8 +211,9 @@ def f32(value: float) -> bytes:
 
 
 def saturated(value: float, data: bytes) -> str | None:
-    """Q110's note when the finite ``value`` became an infinity as ``data``, its float32."""
-    if math.isfinite(value) and math.isinf(from_f32(data)):
+    """Q110's note when ``value`` became an infinity as ``data``, its float32: a slider's finite value, or a
+    product of one (jump and flap height's g x k x k) already past a double's range (AZ-171)."""
+    if not math.isnan(value) and math.isinf(from_f32(data)):
         return f"{value:g} is past float32's range: written as {from_f32(data):g} (Q110)"
     return None
 
