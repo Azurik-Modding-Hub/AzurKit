@@ -6994,14 +6994,18 @@ def test_the_data_tabs_search_picks_by_name_its_grid_sorts_numbers_text_then_emp
         served.close()
 
 
-# The Randomizer tab's seed box; a skip's box and toggle; the shown level map's floor and room width, its hits named for
-# an exit and the line under it
+# The Randomizer tab's seed box; a skip's box and toggle; the level map's floor k picked and drawn: the floor and room
+# width, its hits named for an exit, whether a text drawn on it is the exit's name, and the line under it
 SEED = "() => document.getElementById('rando-seed').value"
 BATCH = """(id) => { const box = document.querySelector(`#rando-skips input[data-skip='${id}']`);
     return [box.checked, box.indeterminate, azurkit.rando.overrides[id] ?? null]; }"""
-EDGE = """(named) => { const m = azurkit.tracker.map; return [m.floor, m.room()[0],
-    m.hits.filter((h) => h.tip?.startsWith(named)).map((h) => [h.x, h.y, h.tip]),
-    document.getElementById("map-note").textContent]; }"""
+EDGE = """([k, named]) => { const m = azurkit.tracker.map, ctx = m.ctx, own = Object.getPrototypeOf(ctx).fillText,
+        drawn = [];
+    document.querySelector(`#map-floors input[data-floor='${k}']`).click();
+    ctx.fillText = (text, ...at) => { drawn.push(text); return own.call(ctx, text, ...at); };
+    try { m.draw(); } finally { delete ctx.fillText; }
+    return [m.floor, m.room()[0], m.hits.filter((h) => h.tip?.startsWith(`${named}:`)).map((h) => [h.x, h.y, h.tip]),
+            drawn.includes(named), document.getElementById("map-note").textContent]; }"""
 
 
 def test_new_draws_a_seed_a_batch_partly_on_clicks_all_on_all_off_and_back_and_an_exit_with_no_place_sits_at_the_maps_edge(
@@ -7013,9 +7017,10 @@ def test_new_draws_a_seed_a_batch_partly_on_clicks_all_on_all_off_and_back_and_a
     crossing that differ only in kit) the Skips ceiling turns only partly on
     shows half; a click turns it all on, the next all off, the next back to
     the ceiling's. The airship's flight to a3 (W1_A3) has no place on its
-    map: it is drawn at the map's right edge on every floor, named with its
-    need on hover (the engine's tip: its colour and dash are
-    test_randomizer's), and the line under the map says it has no place."""
+    map: it is drawn at the map's right edge on every floor, named beside it
+    ("W1_A3 → a3") and with its need on hover (the engine's tip: its colour
+    and dash are test_randomizer's), and the line under the map says it has
+    no place."""
     [flight] = [e for e in tracking.world()["maps"]["levels"]["airship"]["exits"] if e["spot"] == "W1_A3"]
     batch = next(s["id"] for s in sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"]})["skips"]
                  if min(s["ratings"]) <= 2 < max(s["ratings"]))   # partly on at Standard's ceiling
@@ -7049,9 +7054,8 @@ def test_new_draws_a_seed_a_batch_partly_on_clicks_all_on_all_off_and_back_and_a
                                "Number(r.dataset.floor))")
         shown = []
         for floor in floors:
-            page.evaluate("(k) => document.querySelector(`#map-floors input[data-floor='${k}']`).click()", floor)
-            shown.append(page.evaluate(EDGE, "W1_A3 → a3:"))
-        assert len(floors) > 1 and shown == [[floor, width, [[width - 14, 40, flight["tip"]]],
+            shown.append(page.evaluate(EDGE, [floor, "W1_A3 → a3"]))
+        assert len(floors) > 1 and shown == [[floor, width, [[width - 14, 40, flight["tip"]]], True,
                                               "At the right edge, with no place: W1_A3."]
                                              for floor, width, *_ in shown] and [s[0] for s in shown] == floors
         _page.check_csp(page)
