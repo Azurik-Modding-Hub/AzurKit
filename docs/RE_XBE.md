@@ -421,7 +421,7 @@ above) or raise a damage type for every critter that uses it, and an
 XBE edit can change the constants and the attack table above, which are
 his alone. None of them can depend on what the player holds: that takes
 code, such as a shim on his think (slot 0) and on the CALL at 0x8D648
-(`docs/ToDo/RANDOMIZER_PLAN.md` § 7, R2.12).
+([`archive/RANDOMIZER_PLAN.md`](archive/RANDOMIZER_PLAN.md) § 7, R2.12).
 
 The disc counts such code reads are the `gameState` variables `earth
 fragments` … `life fragments` (21–25): 0x711C0 counts the non-zero
@@ -1438,7 +1438,7 @@ calls (0xF4ED9) passed L3's wall-clock render cap of 5 s under load; not a spin 
 
 ### Save points, level requests and arrivals (Step R2.1a, 2026-10-15)
 
-What a save-point warp (D202, `docs/ToDo/RANDOMIZER_PLAN.md` §7 R2.1)
+What a save-point warp (D202, [`archive/RANDOMIZER_PLAN.md`](archive/RANDOMIZER_PLAN.md) §7 R2.1)
 reuses (the pack `qol_save_warp`).  All [verified static 2026-10-15:
 capstone (`azurik-mod xbe dis/fn/calls/find-refs`) and decompiles of
 a read-only Ghidra copy]; the pack built on them was seen in xemu (sitting r21a, 2026-10-15): from w1's W1_3 (SaveGame #1's platform) to town's Temple and back, each arrival 0.883 m from the platform's place, as a save load's; the inventory unchanged; a cheat-code save in town, a death and Continue (the save reloaded), then the ritual on Temple back to W1_3; with every element level 0 (poked), both ways; out of d2 from D2_1 (reached by the debug menu's warp and a RAM placement).
