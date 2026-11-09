@@ -69,7 +69,7 @@ def swap(built: bytes | None = None) -> Iterator[None]:
         yield
 
 
-def output(out: str | Path, *inputs: Path, file: bool = False) -> Path:
+def output(out: str | Path, *inputs: Path, file: bool = False, flag: str = "--out") -> Path:
     """``out`` as an absolute path, once it may be written (D36): a new or
     empty folder (``file``: a file, which may replace one there, as
     ``fx texture --png``'s and the Blender batch's MP4 do), outside this
@@ -78,7 +78,8 @@ def output(out: str | Path, *inputs: Path, file: bool = False) -> Path:
     image read (an input named ``*.iso``) or found (whatever its name, as
     ``AZURKIT_ISO`` may name ``Azurik.xiso``), each folder compared by file
     identity (Modkit's ``require_new_output``), so another letter case can't
-    slip through; ``ValueError`` names why not."""
+    slip through; ``ValueError`` names why not, ``out`` as ``flag`` (the
+    option that gave it: ``model edit``'s ``--work`` and ``--build``)."""
     out = Path(out).absolute()
     real = out.resolve()
     above = [d for d in (real, *real.parents) if d.exists()]
@@ -87,14 +88,14 @@ def output(out: str | Path, *inputs: Path, file: bool = False) -> Path:
         return folder.exists() and any(os.path.samefile(d, folder) for d in above)
 
     if inside(CHECKOUT):
-        raise ValueError(f"--out {out} is inside the checkout {CHECKOUT}: what it writes is a game asset")
+        raise ValueError(f"{flag} {out} is inside the checkout {CHECKOUT}: what it writes is a game asset")
     images = [p for p in inputs if p.suffix.lower() == ".iso"] + [p for p in map(gate.find, gate.RELEASES) if p]
     for folder in {d for p in images for d in (p.absolute().parent, p.resolve().parent)}:
         if inside(folder):
-            raise ValueError(f"--out {out} is inside {folder}, an image's folder")
+            raise ValueError(f"{flag} {out} is inside {folder}, an image's folder")
     for p in inputs:
         if p.exists() and real.exists() and real.samefile(p):
-            raise ValueError(f"--out {out} is the same file as {p}, which it reads")
+            raise ValueError(f"{flag} {out} is the same file as {p}, which it reads")
     if not file and out.exists() and (not out.is_dir() or any(out.iterdir())):
-        raise ValueError(f"--out {out} already holds something; give a new or empty folder")
+        raise ValueError(f"{flag} {out} already holds something; give a new or empty folder")
     return out

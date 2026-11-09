@@ -22,6 +22,8 @@ the ones ModelKit's adapter calls.
 - ``rest`` writes a variant's rest positions for other values of its mesh
   ops on its frozen mesh (a shape slider's ends).
 - ``preview`` renders a body's pictures with headless Blender.
+- ``edit`` takes a body from its export through Blender, a pass a save
+  (import, clips, inspect, preview), to a built image (Step 4.15a5).
 
 A leaf reads ``--iso``'s image, else the one AzurKit finds
 (``devkit.models.image``); ``inspect``, ``export`` and ``chains`` read any
@@ -533,6 +535,35 @@ def _preview(args) -> int:
     return 0
 
 
+def _edit(args) -> int:
+    """``edit`` (Step 2.158, D465): ``devkit.models.edit``'s session on
+    ``args.body`` in ``--work``, a pass a save, then ``--build``; exit 1
+    naming the refusal (a refused pass is logged and the session goes on)."""
+    import subprocess
+
+    from devkit.models import edit
+
+    try:
+        edit.check_mode(args.headless, Path(args.script) if args.script else None)
+        clips = tuple(c.strip() for c in args.clips.split(",") if c.strip()) if args.clips else ()
+        session = edit.prepare(args.body, Path(args.work), iso=Path(args.iso) if args.iso else None,
+                               name=args.variant, variant_file=Path(args.variant_file) if args.variant_file else None,
+                               builtin=args.from_builtin, base=args.base, weights=args.weights, clips=clips)
+        session.ram = args.ram
+        if args.build:
+            edit.check_build_out(Path(args.build), session.iso)
+        print(f"{session.body} as variant {session.name!r} (base {session.species}) in {session.work}")
+        edit.run(session, headless=args.headless, script=Path(args.script) if args.script else None,
+                 blender=args.blender, preview=not args.no_preview)
+        if session.last_ok is None:
+            print("no save was read: nothing to build")
+        if args.build:
+            edit.build(session, Path(args.build))
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        return _refused("edit", exc)
+    return 0
+
+
 DRESS = """\
 Dresses VARIANT (a built-in, or one of --variant-file's) as a build wearing
 it does, in memory on the verified vanilla image (D27), on the packs on by
@@ -674,6 +705,20 @@ camera and light, <body>_lod<K>_<view>.png. Reads the image's characters.xbr
 (any image) or --characters. The pictures are of a game asset: keep them out
 of the repo."""
 
+EDIT = """\
+Exports BODY into --work (a new folder outside the checkout and the images'
+folders, or one an earlier model edit made), opens it in Blender and reads
+each save back: import (topology, or --weights) with the recipe's ops after
+it, the saved animations as clips, inspect's budgets on the body as its
+build leaves its LODs and preview's pictures, a log.jsonl row and
+--work/recipe.json (the variant's recipe: --variant-file seeds it and is
+never written). A refused save is logged and the session goes on. --build
+OUT.iso builds the last passing recipe when Blender closes, on the packs on
+by default for --ram's machine. --headless runs Blender in the background
+with --script (agents and tests must: the interactive mode refuses to start
+under $CLAUDECODE or $PYTEST_CURRENT_TEST). Everything it writes is a game
+asset."""
+
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m devkit models model", description=__doc__.split("\n\n")[0],
@@ -794,6 +839,27 @@ def parser() -> argparse.ArgumentParser:
                    help="leave out the faces of these materials (rowN or gshdG_rowN: female_2's vase is row3)")
     characters(v)
     v.add_argument("--blender", default=None, metavar="PATH", help="the Blender executable")
+    v = leaf("edit", _edit, "export, edit in Blender, import, inspect, preview and build in one verb", EDIT)
+    v.add_argument("body", help="a species (town_female_2) or a body with --base")
+    v.add_argument("--work", required=True, metavar="DIR", help="the work folder (new, or a model edit's)")
+    v.add_argument("--variant", default=None, metavar="NAME",
+                   help="the variant's name (default: the --variant-file's one recipe, else <species>_edit)")
+    seed = v.add_mutually_exclusive_group()
+    seed.add_argument("--variant-file", default=None, metavar="FILE",
+                      help="a recipe file to start from (read, never written)")
+    seed.add_argument("--from", dest="from_builtin", default=None, metavar="BUILTIN",
+                      help="start from a built-in variant's recipe (its WAVs and clip files copied into --work)")
+    v.add_argument("--base", default=None, metavar="SPECIES", help="the species that wears BODY")
+    v.add_argument("--weights", action="store_true", help="read only the skin weights (the same topology)")
+    v.add_argument("--clips", default=None, metavar="A,B", help="clips to export for editing (default none)")
+    v.add_argument("--headless", action="store_true", help="Blender in the background, no window")
+    v.add_argument("--script", default=None, metavar="PY", help="a bpy script the headless session runs")
+    v.add_argument("--blender", default=None, metavar="PATH", help="the Blender executable")
+    v.add_argument("--no-preview", action="store_true", help="no pictures per save")
+    v.add_argument("--build", default=None, metavar="OUT.iso", help="build an image when Blender closes")
+    v.add_argument("--ram", type=int, choices=RAMS, default=128, metavar="MIB",
+                   help="the machine the body is for: 128 (default, D588), 64 (a retail Xbox) or 256 (with "
+                        "qol_memory_upper256 on too), each pass weighed against its lines and --build made for it")
     return p
 
 
