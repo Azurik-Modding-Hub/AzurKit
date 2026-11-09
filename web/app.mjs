@@ -1660,11 +1660,13 @@ function randoStarved() {
   return String(view.settings.exclude_categories) === String(randoSettings().exclude_categories) ? view : null;
 }
 
-// What the page remembers of the tab with Remember settings ticked (D915, D1156): nothing at its defaults (off, D144's settings, vanilla's cost).
+// What the page remembers of the tab with Remember settings ticked (D915, D1156): nothing at its defaults (off, D144's
+// settings, vanilla's cost). The settings' save_warp is the qol_save_warp pack's tick (D1155), which the setup's packs
+// keep: alone it leaves the tab at its defaults.
 function randoSetup() {
   const settings = randoSettings(), cost = randoCost();
   const plain = !R("on").checked && !("obsidian_cost" in cost)
-    && JSON.stringify(settings) === JSON.stringify(randoOptions().defaults);
+    && JSON.stringify({ ...settings, save_warp: undefined }) === JSON.stringify(randoOptions().defaults);
   return plain ? null : { on: R("on").checked, seed: R("seed").value, settings,
                           ...(typeof cost.obsidian_cost === "number" ? cost : {}) };
 }
