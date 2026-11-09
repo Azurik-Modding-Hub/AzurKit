@@ -2421,3 +2421,545 @@ def test_l3_gates_whole_step_mode_draws_and_replays_5000_whole_steps_and_the_cor
     out = l3_gate.replay(Sandbox(), "s", segs, store, scene=True)
     assert (out["mode"], out["gate_5000"], out["exact_ticks"]) == ("scene", True, out["l3_ticks"])
     assert corpus.read(store)[-1]["mode"] == "scene" and corpus.read(store)[-1]["passed"]
+
+
+# --- Step 4.28c: Modkit's simulator checks no golden carried (the test census's lanes C, L1 and C4): L0's empty
+# pointer, the world matrices, the memory and stream packs, photo mode and the speed toggle under L2. A pack's bytes
+# are its goldens'; these run its code.
+
+from azurkit.core.xbr import Document
+from azurkit.edits import layer as _layer
+from azurkit.tools.mods import PACKS, engine
+from azurkit.tools.mods.packs import player_physics as pp
+from devkit.sim import l2, static
+from devkit.sim.ports import build as _build
+
+
+def test_level0_takes_a_zero_xbr_pointer_as_an_empty_slot(usa):
+    """Modkit's L0 (``static.check``): a self-relative XBR pointer of 0 is an empty slot, not a pointer outside
+    the file, so config.xbr with its first string reference zeroed (Modkit's pointer graph's first, 0x1018: the
+    first table's first row name) is sound."""
+    config = bytearray(usa["gamedata/config.xbr"])
+    field, _ = next(next(iter(Document(bytes(config)).tables.values())).refs())
+    struct.pack_into("<I", config, field, 0)
+    assert static.check(usa["default.xbe"], {"config.xbr": bytes(config)}) == []
+
+
+def test_world_matrices_compose_each_decoded_inherit_mode_as_the_games_own_code(usa):
+    """AZ-353 (HM-87): a level graph's world matrix (each parent's ``inherit``, then ``local_matrix``: the
+    randomizer's ``art.nodes`` and the swap's ``core.xbr.graph`` alike) composes a chain as 0x68BE0 and 0x681E0
+    do under Unicorn (``l2.transform_world``), for each inherit mode it decodes, under tilted and scaled parents:
+    mode 2's upright carrier (the parent's tilt removed, the anchor kept; e5's 152 platforms on RotateX_Pivot)
+    among them, which stays level under an unscaled parent."""
+    import random
+
+    from azurkit.core.xbr import graph
+    from azurkit.tools.randomizer.art import nodes
+
+    xbe = usa["default.xbe"]
+    rnd = random.Random(353)
+
+    def xform(mode):
+        v = lambda a: tuple(rnd.uniform(-a, a) for _ in range(3))  # noqa: E731
+        return {"t": v(10.0), "r": v(3.1), "s": tuple(rnd.uniform(0.5, 2.0) for _ in range(3)), "mode": mode,
+                "sp": v(2.0), "spt": v(1.0), "rp": v(2.0), "rpt": v(1.0), "order": rnd.randrange(6)}
+
+    chains = {modes: [xform(m) for m in modes] for modes in ((0, 0, 2), (0, 2, 2), (0, 1, 2), (0, 2, 0), (0, 0, 1),
+                                                             (0, 6, 0))}
+    game = {modes: l2.transform_world(xbe, chain) for modes, chain in chains.items()}
+    parent, carrier = dict(xform(0), s=(1.0, 1.0, 1.0)), xform(2)   # an unscaled, tilted parent
+    for mod in (nodes, graph):
+        schema = mod.Schema(xbe)
+        for modes, chain in chains.items():
+            mine = mod.IDENTITY
+            for k, x in enumerate(chain):
+                mine = mod.mat_mul(mod.inherit(mine, x) if k else mine, mod.local_matrix(schema, x))
+            assert max(abs(mine[r][c] - game[modes][r][c]) for r in range(4) for c in range(4)) < 1e-4, \
+                (mod.__name__, modes)
+        up = mod.inherit(mod.local_matrix(schema, parent), carrier)   # a scaled parent's quaternion skews it
+        assert [round(up[r][2], 6) + 0.0 for r in range(3)] == [0.0, 0.0, 1.0], mod.__name__
+
+
+MESH = 0x34DA000      # a body's mesh run, 52.85 MiB: past the 40 MiB budget
+MESH_42 = 0x2A56000   # another's, 42.34 MiB: past T2's 36 MiB first-fit span at a1's save (Modkit's Step 2.162m)
+
+
+def _packs(usa, *packs: str) -> bytes:
+    """The USA XBE built with ``packs``, each at its defaults."""
+    return _build(usa["default.xbe"], {name: {} for name in packs}) if packs else usa["default.xbe"]
+
+
+def test_upper64_places_runs_above_64_mib_outside_the_budget_only_where_the_ram_is_free(usa):
+    """qol_memory_upper64 (Modkit's Steps 2.162e and 2.162n, D520, D625) under L2's allocator 0xA4890 and free
+    0xBAD10: on a 128 MiB machine whose kernel leaves VA 0x84000000 unmapped, the first mode-0 run maps phys
+    0x04000000-0x07FFFFFF there (16 PDEs of 4 MiB) and each run takes the highest pages that fit, from T2's top
+    down, which [0x1BF400] never counts: a freed run's pages go to the next run and the counter stays 0 (a free
+    that took them off it again wrapped it at the second level change, xemu's FV-wtail). On a 64 MiB machine, or
+    under a kernel that maps the range itself (PDE[0x210] set, even to the shim's own value), the runs, the
+    counter and the PDEs are vanilla's. The kernel's memory calls are stand-ins and the page directory one page
+    of words (Modkit's blind spots; xemu saw the mapping, rows FV-pde and FQ-qpde)."""
+    vanilla, built = usa["default.xbe"], _packs(usa, "qol_memory_upper64")
+    up = l2.Runs(built, 128)
+    assert [up.alloc(n) for n in (0x1000, 0x2800, 0x5000)] == [0x87FFE000, 0x87FFB000, 0x87FF6000]
+    assert up.pdes() == [0x040000E3 + k * 0x400000 for k in range(16)]
+    up.free(0x87FFB000, 0x2800)
+    assert (up.alloc(0x2000), up.alloc(0x1000), up.used) == (0x87FFC000, 0x87FFB000, 0)
+    for ram, pde in ((64, 0), (128, 0x040000E3)):
+        seen = []
+        for xbe in (vanilla, built):
+            runs = l2.Runs(xbe, ram, pde)
+            run = runs.alloc(0x2800)
+            used = runs.used
+            runs.free(run, 0x2800)
+            seen.append((run, used, runs.used, runs.pdes()))
+        assert seen[0] == seen[1] == (l2.LOW_RUNS, 0x3000, 0, [pde] + [0] * 15), (ram, pde)
+
+
+def test_upper64_gpu_places_the_gpu_runs_high_where_d3d_reaches_them_only_on_128_mib(usa):
+    """qol_memory_upper64_gpu over qol_memory_upper64 (Modkit's Steps 2.162h, 2.162m and 2.162n; D576, D616,
+    D625): a 128 MiB machine's contiguous (mode-1) runs take the heap's blocks typed GPU by their first run (PDE
+    write-combined, 0x...EB), never a mode-0 run's write-back block, uncounted in [0x1BF400], and a block that
+    empties takes either kind again. D3DResource_Register gives a high run's texture its offset above 64 MiB
+    (vanilla's mask wraps it onto low RAM), and the DMA objects made with limit 0x03FFAFFF get 0x0FFFEFFF (T3's
+    top, which xemu's offset check makes inert at 128 MiB), other limits and 64 MiB's as given. A run that fits
+    the heap passes the budget compare at 0xA48DD: the 52.85 MiB mesh run, past the 40 MiB budget, takes T2 on a
+    fresh heap at 128 MiB, and behind 28 MiB of mode-0 runs, where it fits nowhere high, is refused as vanilla
+    refuses it. The mode-0 runs pack from T2's top down and the mode-1 runs from its bottom up, so behind a
+    stand-in of the runs a1's save has placed when the body's mesh asks (CPU and GPU runs in turn, two of the
+    GPU's freed) the 42.34 MiB mesh run takes the 43 MiB between them, uncounted (xemu: about 43.09 MiB there).
+    On 64 MiB, or under a kernel that maps the range itself (and hands out contiguous runs there), the runs, the
+    counter, the PDEs and the offsets are vanilla's. (A build without qol_memory_upper64 is refused by name:
+    ``tests/test_packs.py``.)"""
+    vanilla, built = usa["default.xbe"], _packs(usa, "qol_memory_upper64", "qol_memory_upper64_gpu")
+    past = {}
+    for name, xbe in (("vanilla", vanilla), ("built", built)):
+        for ram, behind in ((128, 0), (128, 28 << 20), (64, 0)):
+            runs = l2.Runs(xbe, ram)
+            if behind:
+                runs.alloc(behind)
+            past[name, ram, behind] = (runs.alloc(MESH, mode=1), runs.used)
+    assert past == {("vanilla", 128, 0): (0, 0), ("vanilla", 128, 28 << 20): (0, 28 << 20), ("vanilla", 64, 0): (0, 0),
+                    ("built", 128, 0): (0x84000000, 0), ("built", 128, 28 << 20): (0, 0), ("built", 64, 0): (0, 0)}
+    boot = l2.Runs(built, 128)
+    run = 250 << 12
+    for _ in range(4):
+        boot.alloc(run)
+    gpus = [boot.alloc(run, mode=1) for _ in range(4)]
+    for _ in range(4):
+        boot.alloc(run)
+    boot.alloc(232 << 12, mode=1)
+    for _ in range(6):
+        boot.alloc(run)
+    for gpu in gpus[:2]:
+        boot.free(gpu, run, mode=1)
+    assert (boot.alloc(MESH_42, mode=1), boot.used) == (0x844D0000, 0)
+    up = l2.Runs(built, 128)
+    cpu, gpu = up.alloc(0x1000), up.alloc(0x2800, mode=1)
+    assert (cpu, gpu, up.used, up.pdes()[0], up.pdes()[15]) == (0x87FFE000, 0x84000000, 0, 0x040000EB, 0x07C000E3)
+    assert (up.register(0x1000, gpu), l2.Runs(vanilla, 128).register(0x1000, gpu)) == (0x04001000, 0x00001000)
+    up.free(gpu, 0x2800, mode=1)
+    assert (up.alloc(0x3F00000), up.used, up.pdes()[0]) == (0x840FE000, 0, 0x040000E3)
+    limits = ((128, 0x03FFAFFF), (128, 0x1F), (64, 0x03FFAFFF))
+    assert [l2.Runs(built, ram).dma_limit(limit) for ram, limit in limits] == [0x0FFFEFFF, 0x1F, 0x03FFAFFF]
+    for ram, pde, contig in ((64, 0, l2.LOW_CONTIG), (128, 0x040000E3, 0x84000000)):
+        seen = []
+        for xbe in (vanilla, built):
+            runs = l2.Runs(xbe, ram, pde, contig)
+            run = runs.alloc(0x2800, mode=1)
+            used = runs.used
+            runs.free(run, 0x2800, mode=1)
+            seen.append((run, used, runs.used, runs.pdes(), runs.register(0x1000, 0x80800000)))
+        assert seen[0] == seen[1] == (contig, 0x3000, 0, [pde] + [0] * 15, 0x00801000), ram
+
+
+def test_upper256_maps_128_to_256_mib_only_on_256_mib_for_the_runs_t2_cannot_hold(usa):
+    """qol_memory_upper256 over the two upper packs (Modkit's Steps 2.162l and 2.162m, D600): the first mode-1
+    run on a 256 MiB machine (CSTATUS still reads 128) probes W2's alias 128 MiB up at 0xA48D7, finds RAM and maps
+    T3 (32 PDEs of 4 MiB at VA 0x88000000, phys 0x08000000), so the GPU pack's budget hook (0xA48DD) passes a
+    mode-1 run that fits T2 or T3 uncounted: T2 first, so on a fresh heap the 52.85 MiB mesh run takes T2's
+    bottom; behind 28 MiB of mode-0 runs it takes T3, its blocks write-combined, and a mode-0 run spills after
+    it. Register gives the mesh 0x08001000 (the 0x0FFFFFFF mask), the DMA limit is 0x0FFFEFFF, and both frees
+    give T3's pages and blocks back. On 128 MiB, where W2 folds onto the alias (hardware) or the alias is a hole
+    (xemu), and on 64 MiB, the probe maps nothing, W2 is put back and the runs, the counter and the PDEs are the
+    default build's (the two upper packs alone): behind the 28 MiB the mesh run fits nowhere high and is
+    refused, a small one goes to T2's bottom (64 MiB: both low, counted); the default build at 256 MiB probes
+    nothing and plays as at 128. The probe's word above 128 MiB is a model of three answers (``l2.TOPS``)."""
+    default = _packs(usa, "qol_memory_upper64", "qol_memory_upper64_gpu")
+    built = _packs(usa, "qol_memory_upper64", "qol_memory_upper64_gpu", "qol_memory_upper256")
+    up = l2.Runs(built, 256)
+    low, mesh, spill = up.alloc(28 << 20), up.alloc(MESH, mode=1), up.alloc(40 << 20)
+    assert (low, mesh, spill, up.used, up.u32(l2.T3_VERDICT)) == (0x863FF000, 0x88000000, 0x8B800000, 0, 1)
+    t3 = [(0x080000EB if k < 14 else 0x080000E3) + k * 0x400000 for k in range(32)]
+    assert up.pdes(3) == t3
+    assert (up.register(0x1000, mesh), up.dma_limit(0x03FFAFFF)) == (0x08001000, 0x0FFFEFFF)
+    up.free(mesh, MESH, mode=1)
+    up.free(spill, 40 << 20)
+    assert (up.alloc(40 << 20), up.pdes(3)[0], up.used) == (0x88000000, 0x080000E3, 0)
+    fresh = l2.Runs(built, 256)
+    assert (fresh.alloc(MESH, mode=1), fresh.pdes(3)[0], fresh.used) == (0x84000000, 0x080000E3, 0)
+    rows = {}
+    for ram, top in ((128, "fold"), (128, "hole"), (64, "hole"), (256, "ram")):
+        for name, xbe in (("default", default), ("built", built)):
+            runs = l2.Runs(xbe, ram, top=top)
+            runs.alloc(28 << 20)
+            rows[ram, top, name] = (runs.alloc(MESH, mode=1), runs.alloc(0x2800, mode=1), runs.used,
+                                    runs.pdes(3), runs.u32(l2.UPPER_W2), runs.u32(l2.T3_VERDICT))
+    t2, low = (0, 0x84000000, 0, [0] * 32, 0), (0, l2.LOW_CONTIG, (28 << 20) + 0x3000, [0] * 32, 0)
+    assert rows == {(128, "fold", "default"): (*t2, 0), (128, "fold", "built"): (*t2, 2),
+                    (128, "hole", "default"): (*t2, 0), (128, "hole", "built"): (*t2, 3),
+                    (64, "hole", "default"): (*low, 0), (64, "hole", "built"): (*low, 0),
+                    (256, "ram", "default"): (*t2, 0),   # no probe: the default build plays 256 as 128
+                    (256, "ram", "built"): (0x88000000, 0x84000000, 0, t3, 0, 1)}   # T3 for the mesh, T2 first
+
+
+def test_the_stream_threads_start_their_pump_and_keep_off_the_lists_another_thread_walks(usa):
+    """The stream threads' fixes under L2, each against vanilla (Modkit's ``test_memory.py``):
+
+    - AZ-687, qol_memory_budget (on in every build): with free memory near 0 at a level change the stream
+      pump's CreateThread (0xB5CED) returns NULL ``n`` times; vanilla 0xB5CC0 marks the pump running anyway
+      (handle 0: "Loading..." holds for good, xemu's FR-cnull), the build retries 20 ms apart until the thread
+      is made (FR-cretry) and stops after 250 tries (about 5 s) with vanilla's NULL; a first try that works is
+      vanilla's.
+    - AZ-695, qol_alloc_race (on in every build): the load thread, freeing X from STLport's unlocked 32-byte
+      list, is cut between its load of the head and its store (0xC49ED, 0xC49FD) while the sound thread's map
+      pops H for a node: vanilla's map owns a block still on the list; the build's map calls the game's
+      serialized heap (malloc 0x20, free of the node) and touches none of the lists' state.
+    - AZ-814: when the 40 MiB budget refuses a stream's 1 MiB buffer, vanilla 0xB5490 evicts all 31 run lists
+      on the opening thread, the DVD-copy thread's race with main; the build commits a read-ahead-0 stream's
+      buffer (the copy thread's) past the budget, counted, and evicts nothing; a refused commit, the movie's
+      stream (read-ahead 0x200000, on main) and a buffer the budget holds run vanilla's way.
+    - AZ-817: when the heap refuses the copy thread's stream object (0xB5D00), vanilla's handler 0xA66A0 evicts
+      on the copy thread; the build's gate has main's next frame (0x59C90) walk the lists while main runs, evicts
+      at once while main sleeps on the copy (0xB14E1), holds main's wake when the copy's pulse came just before
+      this open, and evicts itself as vanilla does before main's first frame or when main is silent for 500
+      sleeps of 1 ms.
+
+    The kernel's thread is a stand-in (refused, then made), the thread switches are placed by hand and the heap
+    behind malloc and free isn't run (Modkit's blind spots)."""
+    h, h2, x, n = l2.NODE_BLOCKS
+    full, walked, race = 40 << 20, len(l2.RUN_LISTS), ("qol_alloc_race",)
+    rows = [((), l2.pump_start, (1,), l2.Pump(tries=1, sleeps=0, handle=0, running=1)),
+            ((), l2.pump_start, (0,), l2.Pump(1, 0, l2.PUMP_THREAD, 1)),
+            (("qol_memory_budget",), l2.pump_start, (0,), l2.Pump(1, 0, l2.PUMP_THREAD, 1)),
+            (("qol_memory_budget",), l2.pump_start, (2,), l2.Pump(tries=3, sleeps=2, handle=l2.PUMP_THREAD, running=1)),
+            (("qol_memory_budget",), l2.pump_start, (10**6,), l2.Pump(tries=250, sleeps=249, handle=0, running=1)),
+            ((), l2.node_race, (), l2.NodeRace(node=h, free=(x, h, h2), heap=(),
+                                               touched=(0xAF3B0, 0xAF3BB, 0xAF322, 0xAF32D, 0xAE76C, 0xAE774))),
+            (race, l2.node_race, (), l2.NodeRace(node=None, free=(x, h, h2),
+                                                 heap=(("malloc", 0x20), ("malloc", 0x20), ("free", n)), touched=())),
+            ((), l2.stream_buffer, (0, full, True), l2.StreamBuffer(0, full, l2.RUN_LISTS, 0)),
+            (race, l2.stream_buffer, (0, full, True), l2.StreamBuffer(l2.LOW_RUNS, full + l2.COPY_BUFFER, (), 0)),
+            (race, l2.stream_buffer, (0, full, False), l2.StreamBuffer(0, full, l2.RUN_LISTS, 0)),
+            (race, l2.stream_buffer, (l2.MOVIE_READ_AHEAD, full, True), l2.StreamBuffer(0, full, l2.RUN_LISTS, 0)),
+            (race, l2.stream_buffer, (0, 0, True), l2.StreamBuffer(l2.LOW_RUNS, l2.COPY_BUFFER, (), 0)),
+            ((), l2.copy_oom, ("ticks",), l2.CopyOom((("copy", walked),), 0)),
+            (race, l2.copy_oom, ("ticks",), l2.CopyOom((("main", walked),), 1)),
+            (race, l2.copy_oom, ("parked",), l2.CopyOom((("copy", walked),), 0)),
+            (race, l2.copy_oom, ("woken",), l2.CopyOom((("copy", walked),), 0, l2.HOLD)),
+            (race, l2.copy_oom, ("silent",), l2.CopyOom((("copy", walked),), 500)),
+            (race, l2.copy_oom, ("none",), l2.CopyOom((("copy", walked),), 0))]
+    built = {packs: _packs(usa, *packs) for packs in {packs for packs, *_ in rows}}
+    assert [(packs, fn.__name__, args, fn(built[packs], *args)) for packs, fn, args, _ in rows] == \
+        [(packs, fn.__name__, args, want) for packs, fn, args, want in rows]
+
+
+PHOTO_TICK_HOOK, PHOTO_CAMERA_HOOK = 0x55BB9, 0x548E3
+CHEAT_TICK, CHEAT_ACTION, FREE_CAMERA_UPDATE, TEXT_CLEAR = 0x15DA0, 0x16610, 0x827E0, 0x50950
+BUTTONS = ("a", "b", "x", "y", "black", "white", "lt", "rt", "l3", "r3", "start", "back")
+PAD = l2.CONTROLLERS                      # ControllerState[0]: buttons +0x18, latches +0x48
+DT_BITS = struct.unpack("<I", struct.pack("<f", 1 / 30))[0]
+PHOTO_KEPT = {"ebx": 0x11111111, "esi": 0x22222222, "ebp": 0x33333333}
+PHOTO_BASE = 0x20000000
+
+
+def _photo(usa, **params) -> tuple[Sim, dict[int, int]]:
+    """A Sim of the USA build of qol_photo_mode, and the landing each hook's ``CALL`` reaches, by the hook's VA."""
+    xbe = bytearray(usa["default.xbe"])
+    apply_pack(get_pack("qol_photo_mode"), xbe, params)
+    sim = Sim(bytes(xbe))
+    sim._name(l2.CONTROLLER_INDEX, "I", 0)          # the guarded pad globals, named
+    return sim, {va: va + 5 + struct.unpack_from("<i", xbe, va_to_file(va) + 1)[0]
+                 for va in (PHOTO_TICK_HOOK, PHOTO_CAMERA_HOOK)}
+
+
+def _press(sim: Sim, held: tuple[str, ...]) -> None:
+    """The pad poll: ``held`` down, every released button's latch cleared."""
+    latches = bytearray(sim.uc.mem_read(PAD + 0x48, 12))
+    for i, b in enumerate(BUTTONS):
+        if b not in held:
+            latches[i] = 0
+    sim._name(PAD + 0x18, "12f12s", (*(float(b in held) for b in BUTTONS), bytes(latches)))
+
+
+def _put(sim: Sim, va: int, fmt: str, value) -> None:
+    sim.uc.mem_write(va, struct.pack("<" + fmt, value))
+
+
+def test_l3_r3_freezes_into_the_free_camera_and_resumes_with_nothing_held_firing(usa):
+    """qol_photo_mode's first hook (Modkit's D489, Step 2.160) replaces scene_state_tick's CALL of the
+    cheat-owner tick (0x55BB9) and still runs it each update with EDI the owner and the scene and dt as the game
+    passed them (RET 8, EBX/ESI/EBP kept, x87 empty). The update both sticks' clicks first make a chord, in
+    normal play, opens the game's free camera after the tick, action 3 of 0x16610 (state 1: the world pauses),
+    hides the HUD (camera +0x194) and empties the world text (0x50950), which the paused world would keep; the
+    chord held on does nothing. In photo mode a new chord, or START, sets state 4 before the tick, which destroys
+    the camera and returns to state 0 in that call; BACK is the game's own exit. On entry and on every exit each
+    held button's press is taken (its latch set), so nothing held fires afterwards and START opens no pause menu.
+    Refused: the chord a cheat code's next step makes (code 2's L3 + R3, or the second stick click of codes 0, 3,
+    6, 7 and 9 pressed before the first is let go), a cutscene, a pulled pad, gem mode, a level load or save
+    waiting, no world, player or request, and a chord on which the code walker finished a code; a world with no
+    camera to start from (0x16610 makes none) takes nothing. The game's pieces are stubs acting as the game does
+    (the tick 0x15DA0 by its state, 0x16610 making the free camera); the pad is ControllerState[0]."""
+    from unicorn import UC_HOOK_CODE
+    from unicorn.x86_const import UC_X86_REG_EIP, UC_X86_REG_ESP, UC_X86_REG_FPSW
+
+    sim, landing = _photo(usa)
+    owner, scene, world, request, critter, camera = (PHOTO_BASE + 0x1000 * i for i in range(6))
+    sim.uc.mem_map(PHOTO_BASE, 0x6000)
+    _put(sim, scene + 0x2C, "I", world)
+    _put(sim, world + 0xC0, "I", critter)
+    _put(sim, world + 0xD8, "I", request)
+    calls: list[tuple] = []
+    game = {"walker": None, "makes": True}       # a code the walker ends on this update; case 3's camera
+
+    def state() -> int:
+        return sim.u32(owner + 0x1C)
+
+    def latched() -> set[str]:
+        return {b for b, v in zip(BUTTONS, sim.uc.mem_read(PAD + 0x48, 12)) if v}
+
+    def tick(uc, addr, size, _):                  # 0x15DA0 by the owner's state
+        esp = sim.reg("esp")
+        ret, at, dt = struct.unpack("<3I", uc.mem_read(esp, 12))
+        s = state()
+        calls.append(("tick", sim.reg("edi"), at, dt, s))
+        if s == 4:
+            _put(sim, owner + 0x2C, "I", 0)
+            s = 0
+        elif s == 1 and sim.f32(PAD + 0x44) > 0 and not uc.mem_read(PAD + 0x53, 1)[0]:
+            uc.mem_write(PAD + 0x53, b"\x01")     # BACK's edge: the camera destroyed
+            _put(sim, owner + 0x2C, "I", 0)
+            s = 0
+        elif s == 0 and game["walker"] is not None:
+            s = game["walker"]
+        _put(sim, owner + 0x1C, "I", s)
+        uc.reg_write(UC_X86_REG_EIP, ret)
+        uc.reg_write(UC_X86_REG_ESP, esp + 12)
+
+    def action(uc, addr, size, _):                # 0x16610: case 3 makes the free camera
+        esp = sim.reg("esp")
+        ret, *args = struct.unpack("<4I", uc.mem_read(esp, 16))
+        calls.append(("action", *args))
+        if game["makes"]:
+            _put(sim, camera + 0x194, "B", 0)
+            _put(sim, owner + 0x2C, "I", camera)
+            _put(sim, owner + 0x1C, "I", 1)
+        uc.reg_write(UC_X86_REG_EIP, ret)
+        uc.reg_write(UC_X86_REG_ESP, esp + 16)
+
+    def clear(uc, addr, size, _):                 # 0x50950: the world text emptied
+        calls.append(("clear",))
+        esp = sim.reg("esp")
+        uc.reg_write(UC_X86_REG_EIP, sim.u32(esp))
+        uc.reg_write(UC_X86_REG_ESP, esp + 4)
+
+    sim.uc.hook_add(UC_HOOK_CODE, tick, begin=CHEAT_TICK, end=CHEAT_TICK)
+    sim.uc.hook_add(UC_HOOK_CODE, action, begin=CHEAT_ACTION, end=CHEAT_ACTION)
+    sim.uc.hook_add(UC_HOOK_CODE, clear, begin=TEXT_CLEAR, end=TEXT_CLEAR)
+
+    def update(*held: str) -> list:
+        """One scene update with ``held`` down: the calls, ticks shown by the state each saw."""
+        _press(sim, held)
+        calls.clear()
+        sim.call(landing[PHOTO_TICK_HOOK], args=(scene, DT_BITS), regs={"edi": owner, **PHOTO_KEPT},
+                 until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100                       # RET 8
+        assert {r: sim.reg(r) for r in PHOTO_KEPT} == PHOTO_KEPT and sim.reg("edi") == owner
+        assert sim.uc.reg_read(UC_X86_REG_FPSW) >> 11 & 7 == 0
+        assert [c[:4] for c in calls if c[0] == "tick"] == [("tick", owner, scene, DT_BITS)]
+        return [c[4] if c[0] == "tick" else c[1:] if c[0] == "action" else c[0] for c in calls]
+
+    enter = [0, (owner, 3, scene), "clear"]
+    assert [update("l3"), update("r3"), update()] == [[0]] * 3            # one stick isn't the chord
+    assert update("l3", "r3", "a", "start") == enter
+    assert state() == 1 and sim.uc.mem_read(camera + 0x194, 1)[0] == 1
+    assert latched() == {"a", "l3", "r3", "start"}
+    assert [update("l3", "r3", "a", "start"), update()] == [[1], [1]]     # held on: still frozen
+    assert update("l3", "r3", "a", "b", "white", "black") == [4]           # the chord again: out
+    assert (state(), sim.u32(owner + 0x2C)) == (0, 0)
+    assert latched() == {"a", "b", "white", "black", "l3", "r3"}
+    assert [update(), update("l3", "r3"), update()] == [[0], enter, [1]]
+    assert update("start") == [4] and state() == 0 and latched() == {"start"}
+    assert [update(), update("l3", "r3"), update()] == [[0], enter, [1]]
+    _put(sim, scene + 0x4C, "B", 1)                                      # a pulled pad's START is the game's
+    assert update("start") == [1] and latched() == set()
+    _put(sim, scene + 0x4C, "B", 0)
+    assert update("back", "b", "white") == [1] and state() == 0          # the game's BACK exit
+    assert latched() == {"back", "b", "white"}
+
+    refusals = [(owner + 0x0C, "B", 1, 0), (scene + 0x168, "B", 1, 0),
+                (scene + 0x4C, "B", 1, 0), (request + 0x10, "I", 1, 0), (request + 0x14, "I", 1, 0),
+                (world + 0xC0, "I", 0, critter), (world + 0xD8, "I", 0, request), (scene + 0x2C, "I", 0, world)]
+    for va, fmt, refuse, ok in refusals:
+        _put(sim, va, fmt, refuse)
+        assert [update(), update("l3", "r3")] == [[0], [0]], hex(va)
+        _put(sim, va, fmt, ok)
+    # The walker's code (+0x04) and steps matched (+0x00) when its next step is
+    # code 2's L3 + R3, or the second of two stick clicks in a row (codes 0, 3,
+    # 6, 7: R3 then L3; 9: L3 then R3): the chord is the code's; a step short, ours.
+    for code, steps in ((0, 5), (2, 4), (3, 6), (6, 4), (7, 4), (9, 2)):
+        _put(sim, owner + 0x04, "I", code)
+        _put(sim, owner, "I", steps)
+        assert [update(), update("l3", "r3")] == [[0], [0]], code
+        _put(sim, owner, "I", steps - 1)
+        assert [update(), update("l3", "r3"), update(), update("l3", "r3")] == [[0], enter, [1], [4]], code
+    _put(sim, owner, "I", 0)
+    for code_state in (1, 2):                                            # code 3's camera; code 0's menu
+        assert update() == [0]
+        game["walker"] = code_state
+        assert update("l3", "r3") == [0] and state() == code_state
+        game["walker"] = None
+        _put(sim, owner + 0x1C, "I", 0)
+    game["makes"] = False                                                # no camera to start from
+    assert [update(), update("l3", "r3", "a")] == [[0], enter[:2]] and state() == 0
+    assert latched() == set()
+
+
+def test_the_free_camera_flies_at_fly_speed_a_quarter_on_b_four_times_on_y_and_other_cameras_keep_dt(usa):
+    """qol_photo_mode's second hook replaces the frame function's call of the active camera's update, its
+    vtable slot +0xCC (0x548E3: `push eax; mov ecx, ebp; call [edx+0xCC]`, EBP the camera, EAX dt; a plain RET)
+    and makes it: the free camera's update (0x827E0) gets dt times the Fly speed slider, a quarter of that while
+    B is held and four times while Y is (both: one), the camera in ECX; a camera with another update gets its dt
+    as it was, B held or not. EBX/ESI/EDI/EBP are kept."""
+    from unicorn import UC_HOOK_CODE
+    from unicorn.x86_const import UC_X86_REG_EIP, UC_X86_REG_ESP
+
+    seen: list[tuple] = []
+    other = PHOTO_BASE + 0x800                                            # another camera's update
+
+    def update(uc, addr, size, _):
+        esp = sim.reg("esp")
+        ret, dt = struct.unpack("<If", uc.mem_read(esp, 8))
+        seen.append((addr, sim.reg("ecx"), dt))
+        uc.reg_write(UC_X86_REG_EIP, ret)
+        uc.reg_write(UC_X86_REG_ESP, esp + 8)
+
+    dt = struct.unpack("<f", struct.pack("<I", DT_BITS))[0]
+    kept = {"ebx": 0x11111111, "esi": 0x22222222, "edi": 0x44444444}
+    for speed in (1.0, 2.0):
+        sim, landing = _photo(usa, fly_speed=speed)
+        free, cam = PHOTO_BASE, PHOTO_BASE + 0x400
+        sim.uc.mem_map(PHOTO_BASE, 0x1000)
+        _put(sim, free, "I", free + 0x100)
+        _put(sim, free + 0x100 + 0xCC, "I", FREE_CAMERA_UPDATE)
+        _put(sim, cam, "I", cam + 0x100)
+        _put(sim, cam + 0x100 + 0xCC, "I", other)
+        sim.uc.hook_add(UC_HOOK_CODE, update, begin=FREE_CAMERA_UPDATE, end=FREE_CAMERA_UPDATE)
+        sim.uc.hook_add(UC_HOOK_CODE, update, begin=other, end=other)
+        for held, camera, k in (((), free, 1.0), (("b",), free, 0.25), (("y",), free, 4.0),
+                                (("b", "y"), free, 1.0), ((), cam, None), (("b",), cam, None)):
+            _press(sim, held)
+            seen.clear()
+            sim.call(landing[PHOTO_CAMERA_HOOK], regs={"ebp": camera, "eax": DT_BITS, **kept}, until=l2._RETURN)
+            assert sim.reg("esp") == l2._STACK_TOP - 0x100                   # a plain RET
+            assert {r: sim.reg(r) for r in kept} == kept and sim.reg("ebp") == camera
+            want = (FREE_CAMERA_UPDATE, camera, dt * speed * k) if k else (other, camera, dt)
+            assert seen == [want], (speed, held)
+
+
+def _image(sim: Sim, xbe: bytes) -> bytes:
+    base, sections = parse_xbe_sections(xbe)
+    return bytes(sim.uc.mem_read(base, max(s["vaddr"] + s["vsize"] for s in sections) - base))
+
+
+def _changed(before: bytes, after: bytes, base: int) -> set[int]:
+    """The bytes (VAs) where ``after`` differs from ``before``."""
+    return {base + i + j for i in range(0, len(after), 4096) if after[i:i + 4096] != before[i:i + 4096]
+            for j in range(min(4096, len(after) - i)) if after[i + j] != before[i + j]}
+
+
+def test_the_left_stick_click_flips_the_picked_sliders_between_the_build_and_vanilla(usa, monkeypatch):
+    """The speed toggle (Modkit's Step 2.186, D713) under L2: its tick entry (the hook at 0x8C37D's shim, up to
+    its jump to the state machine 0x8CCC0) with the pad's L3 and R3, its latch and the kernel's KeTickCount, and
+    its game start hook (0x52F50, up to 0x52F56). With walk, roll distance, climb, swim, air control, the
+    per-flap fuel and gravity picked, a click (L3 pressed, then let go: the flip comes at the release) writes
+    vanilla's value to exactly those sliders' bytes (gravity 9.8, the jump's float, unpicked, to 9.8 x 1.5², its
+    height kept: D16; the seven air-control immediates 9 and 12, the fuel 1.0, the roll's, climb's and swim's k
+    1 and 10) and garret4's runSpeed 7.0, and the next click the build's (a tick with no click leaves the
+    toggle's state as the image holds it); a held L3 flips once; no click flips with R3 held on any of its
+    ticks (L3 + R3 is photo mode's chord), with R3 down a tick after L3 or across a world that stood still while
+    L3 was down (photo mode freezes it the tick the chord forms: KeTickCount 5 s on); an unpicked slider (roll
+    speed) never flips; a game start puts the build's values back. The HUD note and the game's reads of each
+    value are xemu's (Modkit's sitting of Step 2.186)."""
+    sliders = {"gravity": 19.6, "walk_speed_scale": 2.0, "jump_speed_scale": 1.5, "roll_speed_scale": 2.0,
+               "roll_time_scale": 2.0, "climb_speed_scale": 2.0, "swim_speed_scale": 2.0, "air_control_scale": 2.0,
+               "flap_entry_fuel_cost_scale": 0.5}
+    picked = ("gravity", "walk_speed_scale", "roll_speed_scale", "climb_speed_scale", "swim_speed_scale",
+              "air_control_scale", "flap_entry_fuel_cost_scale")
+    hands, landed = {}, {}
+    real_hand, real_install = pp._hand, pp._toggle_install
+
+    def hand(xbe, label, *args, **kwargs):          # a hand-written shim's (body, data) addresses, by its label
+        hands[label] = got = real_hand(xbe, label, *args, **kwargs)
+        return got
+
+    def install(xbe, *args):                        # each landing's symbols
+        real_install(xbe, *args)
+        landed.update(xbe.landed)
+    monkeypatch.setattr(pp, "_hand", hand)
+    monkeypatch.setattr(pp, "_toggle_install", install)
+    params = sliders | {f"toggle_{name}": 1 for name in picked}
+    xbe = bytes(_layer.compose(usa, [engine.plan(PACKS["player_physics"], gate.USA, usa, params)])[0]["default.xbe"])
+    base, _ = parse_xbe_sections(xbe)
+    sim = Sim(xbe)
+    f32 = struct.Struct("<f").pack
+    vanilla = {pp.GRAVITY.va: f32(9.8), sim.u32(pp.JUMP + 2): f32(9.8 * 1.5 * 1.5),   # a rewritten load's float
+               sim.u32(pp.SWIM + 2): f32(10.0), pp.ENTRY_FUEL: f32(1.0), hands["the roll's distance"][1]: f32(1.0),
+               hands["the climb's speed"][1]: f32(1.0),
+               **{va: f32(12.0 if va == 0x83FAC else 9.0) for va in pp.AIR_CONTROL}}
+    build = {va: bytes(sim.uc.mem_read(va, 4)) for va in vanilla}
+    assert all(build[va] != vanilla[va] for va in vanilla)
+    roll_time = hands["the roll's speed"][1]
+    tick = pp.TOGGLE_HOOKS[0][0]
+    entry = tick.va + 5 + struct.unpack("<i", sim.uc.mem_read(tick.va + 1, 4))[0]
+    state = landed[tick.label]["_speed_toggle_state"]
+    pc, inputs, species, clock, ticks = 0x06000000, 0x06001000, 0x06002000, 0x06003000, 0x06004000   # unguarded
+    l3, r3, l3_latch = l2.CONTROLLERS + 0x38, l2.CONTROLLERS + 0x3C, l2.CONTROLLERS + 0x50
+    for va in (pc, inputs, species, clock, ticks):
+        sim.uc.mem_map(va, 0x1000)
+    sim.uc.mem_write(next(t.thunk_va for t in sim.thunks if t.name == "KeTickCount"), struct.pack("<I", ticks))
+    sim.uc.mem_write(pc + 0xC, struct.pack("<I", clock))
+    sim.uc.mem_write(inputs + 0x34, struct.pack("<I", species))
+    sim._name(l2.CONTROLLER_INDEX, "I", 0)
+    ms = [1000]
+
+    def tick_with(down: float, r3_down: float = 0.0, wait: int = 33) -> tuple[dict, bytes, bool, set]:
+        sim._name(l3, "f", down)
+        sim._name(r3, "f", r3_down)
+        if not down:
+            sim._name(l3_latch, "B", 0)    # the poll clears the latch while L3 is up
+        ms[0] += wait
+        sim.uc.mem_write(ticks, struct.pack("<I", ms[0]))
+        before = _image(sim, xbe)
+        sim.call(entry, regs={"eax": inputs}, args=(pc,), until=0x8CCC0)
+        changed = _changed(before, _image(sim, xbe), base) - set(range(state, state + 24)) - {l3_latch}
+        values = {va: bytes(sim.uc.mem_read(va, 4)) for va in vanilla}
+        kept = (sim.reg("eax") == inputs and sim.arg(0) == pc   # the state machine's input and argument
+                and bytes(sim.uc.mem_read(roll_time, 4)) == f32(2.0))
+        return values, bytes(sim.uc.mem_read(species + 0x40, 4)), kept, changed
+
+    slots = {va + i for va in vanilla for i in range(4)}
+    at_rest = bytes(sim.uc.mem_read(state, 24))
+    assert tick_with(0.0) == (build, f32(14.0), True, set())
+    assert bytes(sim.uc.mem_read(state, 24)) == at_rest    # no click, no write: the image's bytes (xemu's boot check)
+    assert tick_with(1.0)[:3] == (build, f32(14.0), True)            # pressed: nothing yet
+    off, walk, kept, changed = tick_with(0.0)                        # let go: the click
+    assert (off, walk, kept, changed - slots) == (vanilla, f32(7.0), True, set())
+    assert [tick_with(down)[:2] for down in (1.0, 1.0, 1.0, 0.0)] == [(vanilla, f32(7.0))] * 3 + [(build, f32(14.0))]
+    for chord in (((1.0, 1.0), (0.0, 0.0)),                          # L3 + R3 at once
+                  ((0.0, 1.0), (1.0, 1.0), (1.0, 0.0), (0.0, 0.0)),  # R3 first
+                  ((1.0, 0.0), (1.0, 1.0), (0.0, 0.0))):             # R3 a tick after L3
+        assert [tick_with(down, r3_down)[:2] for down, r3_down in chord] == [(build, f32(14.0))] * len(chord)
+    assert tick_with(1.0)[:2] == tick_with(0.0, wait=5000)[:2] == (build, f32(14.0))   # the world stood still
+    assert tick_with(1.0)[:2] == (build, f32(14.0)) and tick_with(0.0)[:2] == (vanilla, f32(7.0))
+    sim.call(pp.TOGGLE_HOOKS[2][0].va, until=0x52F56)                # a game start
+    assert {va: bytes(sim.uc.mem_read(va, 4)) for va in vanilla} == build
