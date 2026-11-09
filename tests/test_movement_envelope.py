@@ -229,3 +229,52 @@ def test_physics_reach_is_the_simulators_at_vanilla_and_a_modified_setting(setti
     vz, gauge, empty = p.flap(kit, -4.0, -11.0)
     assert abs(flap.vz - DESCENT_VZ[setting]) <= 1e-3 and abs(vz - flap.vz) <= 1e-6, setting
     assert (flap.fuel, flap.armor_reset) == (gauge, empty) == (0.0, True), setting
+
+
+# --- Step 4.28c: Modkit's walk and air-control checks under simulator Level 2 that no AzurKit test pinned (the test
+# census's lane C4): where the game consumes each value, the velocity player_walk_state (0x85F50) hands to the
+# movement code at 0x860C8 and the air control (entity+0x140) a takeoff leaves for the airborne tick.
+
+def test_the_walk_slider_hands_the_movement_code_k_times_vanillas_speed_on_flat_ground_and_a_slope(usa_iso):
+    """walk_speed_scale k hands the movement code k x vanilla: 7.0 along the stick on flat ground, and on a
+    14 degree slope the same speed along the projected direction (xemu: 7.00 m/s on flat ground, 6.87 m/s on
+    level 1's slope). The slider sets config.xbr's garret4 runSpeed (D53), which the critters loader 0x49480 puts
+    in CritterData+0x40 (xemu: 14.0 walks at 14.000 m/s), so the probe runs the build's XBE with the build's
+    runSpeed there, at k 0.5 and 2 (Modkit's ``test_walk.py``)."""
+    import math
+    import struct
+
+    from azurkit.core import gate
+    from azurkit.core.xbr import Document
+    from azurkit.edits.layer import compose
+    from azurkit.tools.mods import PACKS, engine
+    from devkit.sim.l2 import F32_EPS
+
+    base = {name: read_file(usa_iso, name) for name in ("default.xbe", "gamedata/config.xbr")}
+    dx, dy, _ = STANDING.direction
+    slope = replace(STANDING, ground_normal=(-0.6 * dx, -0.6 * dy, 0.8))   # rising along the stick
+    flat, up = PlayerSim(base["default.xbe"]).walk(), PlayerSim(base["default.xbe"], slope).walk()
+    assert flat == struct.unpack("<3f", struct.pack("<3f", *(7.0 * d for d in STANDING.direction)))
+    assert math.isclose(math.hypot(*up), 7.0, rel_tol=2 * F32_EPS) and up[2] > 0.0   # projected onto the slope
+    for k in (0.5, 2.0):
+        built = compose(base, [engine.plan(PACKS["player_physics"], gate.USA, base, {"walk_speed_scale": k})])[0]
+        run_speed = Document(bytes(built["gamedata/config.xbr"])).tables["critters_critter_data"].number(
+            "garret4", "runSpeed")
+        xbe = bytes(built.get("default.xbe", base["default.xbe"]))
+        for player, v in ((STANDING, flat), (slope, up)):
+            got = PlayerSim(xbe, replace(player, walk_speed=run_speed)).walk()
+            assert all(math.isclose(a, k * b, rel_tol=2 * F32_EPS) for a, b in zip(got, v)), (k, player, got, v)
+
+
+def test_air_control_after_a_charged_or_zipline_takeoff_is_k_times_jump_inits_own_9(usa_iso):
+    """air_control_scale k leaves k x vanilla at entity+0x140 after a charged takeoff and one off the zipline
+    ride, which keep jump_init's own 9 (0x890EA, 0x89126) where an ordinary jump's airborne_reinit 0x83F90
+    rewrites it (that one and air power's are the reach test's above) (Modkit's ``test_walk.py``)."""
+    from devkit.sim.l2 import SHIELD_2, build_physics
+
+    vanilla = read_file(usa_iso, "default.xbe")
+    xbe = build_physics(vanilla, air_control_scale=2.0)
+    for takeoff, player in (("charged", replace(STANDING, charged_jump_height=3.0)),
+                            ("zipline ride", replace(SHIELD_2, state=5))):   # entity+0x94: 0x8A510's state
+        assert (PlayerSim(vanilla, player).jump().air_control, PlayerSim(xbe, player).jump().air_control) == \
+            (9.0, 18.0), takeoff
