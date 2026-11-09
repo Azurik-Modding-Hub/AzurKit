@@ -62,6 +62,8 @@ from azurkit.tools.randomizer.planner.solver import Logic
 loader.SHIPPED = functools.partial(dbcache.shipped_logic, logic_type=Logic)
 
 RECIPE = ("seed", "settings", "share")
+# An empty seed (no text, or spaces) is refused, never planned as a default (Modkit's N9, Q74)
+EMPTY_SEED = "the seed is empty: type any text, or draw one (New)"
 #: The tab's offers (§5.5): Movement's three tiers (D261; a loaded safe shows as its own), the skip ceiling's none and
 #: D259's three skip tiers (a loaded 1 shows as its own).
 MOVEMENT = (("standard", "Standard"), ("hard", "Hard"), ("frame_perfect", "Frame-perfect"), ("safe", "Safe (loaded)"))
@@ -162,6 +164,8 @@ def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> d
         raise ValueError(f"recipe: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(RECIPE)})")
     if not isinstance(recipe.get("seed"), str):
         raise ValueError("recipe: seed is a string (any string; the same seed and settings give the same plan)")
+    if not recipe["seed"].strip():
+        raise ValueError(f"recipe: {EMPTY_SEED}")
     if "settings" in recipe and "share" in recipe:
         raise ValueError("recipe: settings and share both give the settings: give one")
     with noting(Steps(progress)) as steps:

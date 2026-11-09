@@ -57,7 +57,7 @@ from azurkit.core import iso
 from azurkit.core.progress import note
 from azurkit.core.xbr import Document, edits, nodes
 from azurkit.edits.layer import Change, Conflict, Layer
-from azurkit.tools.randomizer import layer, physics, writer
+from azurkit.tools.randomizer import EMPTY_SEED, layer, physics, writer
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import settings_from_table, share_decode, share_encode
 
@@ -89,7 +89,7 @@ def _skips(db) -> dict:
 
 
 def normalize(recipe: object) -> dict:
-    """``recipe`` checked: its keys, the seed a string, at most one of
+    """``recipe`` checked: its keys, the seed a string with some text, at most one of
     ``settings`` (a settings file's table) and ``share`` (a share string),
     or in their place ``plan`` (a plan file's object, which carries its own
     seed and settings), and ``obsidian_cost`` any number whose thresholds (x1
@@ -106,6 +106,8 @@ def normalize(recipe: object) -> dict:
             raise ValueError("randomizer: plan is a plan file's object (azurkit plan's)")
     elif not isinstance(recipe.get("seed"), str):
         raise ValueError("randomizer: seed is a string (any string; the same seed and settings give the same plan)")
+    elif not recipe["seed"].strip():
+        raise ValueError(f"randomizer: {EMPTY_SEED}")
     if "settings" in recipe and "share" in recipe:
         raise ValueError("randomizer: settings and share both give the settings: give one")
     if "settings" in recipe and not isinstance(recipe["settings"], Mapping):

@@ -1780,7 +1780,7 @@ def test_the_recorder_writes_the_trackers_golden_from_azurkits_own_tracker_and_m
 
 
 # ---------------------------------------------------------------- Step 4.28d: Modkit's unpinned Randomizer-page tests
-# (the test census's lane D): what the maps say each way needs.
+# (the test census's lane D): what the maps say each way needs, and an empty seed refused.
 
 @pytest.mark.parametrize("src, dest, kind, words, per_exit, dashed", [
     ("w1", "w2", "nothing", "needs nothing", {"W1_W2": "needs air 1"}, (False, False)),
@@ -1839,3 +1839,16 @@ def test_a_needs_colour_goes_by_key_or_by_the_barrier_its_spell_breaks_and_an_ex
     assert (flight["colour"], flight["dashed"], flight["tip"]) == (
         needs.colour("event"), True, "W1_A3 → a3: needs balthazar killed; one way")
 
+
+def test_an_empty_seed_is_refused_by_name_never_planned_as_a_default(tmp_path):
+    """Modkit's N9 (Q74): a seed the build couldn't use once silently became
+    42. Any text is a seed; one with none (empty, or spaces) is refused by
+    name, by a plan (``azurkit plan`` and Track this seed's) and by a build
+    on either host (Build sends the Randomizer tab's seed), before an image
+    is read."""
+    said = "the seed is empty: type any text, or draw one (New)"
+    for call in (lambda: sdk.plan({"seed": ""}),
+                 lambda: sdk.image({"iso": str(tmp_path / "none.iso"), "packs": {}, "randomizer": {"seed": "  "}})):
+        with pytest.raises(ValueError, match=f": {re.escape(said)}$"):
+            call()
+    assert cli.main(["plan", "--seed", " "]) == 1
