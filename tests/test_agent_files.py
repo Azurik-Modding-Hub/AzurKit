@@ -72,10 +72,10 @@ def test_every_agent_role_pins_the_model_that_fits_its_job():
 
 def test_the_roles_gate_with_agents_mds_gate_and_load_only_skills_tracked_here():
     """A role's commands work on AzurKit: the builder gates with AGENTS.md's
-    gate. ``$EV/tools/land`` and its queue resolve branches and receipts in
-    Modkit until Step 4.16b teaches them AzurKit, and ``waitfor`` finds a
-    receipt by key only there (by its path, anywhere), so no role names the
-    queue or waits on a key. Each skill a role says to load is one tracked
+    gate. ``$EV/tools/land`` and its queue work on Modkit until Step 4.17's
+    switch, so no role names the queue; a gate seat returns its key and ends
+    (``waitfor`` finds AzurKit's keys since Step 4.16b, for the orchestrator),
+    so no role waits on a key. Each skill a role says to load is one tracked
     in .claude/skills/ (every one of Modkit's is, since Step 4.16a2)."""
     gate = re.search(r"\*\*The gate:\*\* run `([^`]+)`", (ROOT / "AGENTS.md").read_text(encoding="utf-8"))
     bodies = {path.stem: " ".join(path.read_text(encoding="utf-8").split("---\n", 2)[2].split())
