@@ -1674,20 +1674,24 @@ def test_the_weapon_preview_shows_each_weapons_shipped_pictures_in_a_popup_befor
 
 def test_reset_stays_on_the_chosen_model_and_picking_garret_clears_everything(browser, site):
     """D1062: Reset takes the sliders, options and weapon back to the chosen model's defaults and stays on it (plain
-    Garret on Garret); another model keeps the size and the numbers, and picking Garret clears everything."""
+    Garret on Garret); another model keeps the size and the numbers, and picking Garret clears everything. The Target
+    RAM (Modkit's Build page's, D1171's G31: the recipe's ram, none from your packs) is the machine's, not the model's:
+    Reset and another model keep it, Garret clears it, and Garret with it alone is no character."""
     settled = """() => azurkit.characters.state.view?.asked === JSON.stringify(azurkit.characters.state.character)
         && azurkit.characters.state.view.chosen.name === azurkit.characters.state.character.species"""
     shown = """() => [azurkit.characters.character(), document.getElementById("char-scale").value,
         document.getElementById("char-weapon").value, document.getElementById("char-height").checked,
-        document.querySelector("#char-species .model[aria-selected=true]")?.dataset.model]"""
-    dressed = """() => { for (const [id, value] of [["char-scale", "2"], ["char-weapon", "farmers_hoe"]]) {
+        document.querySelector("#char-species .model[aria-selected=true]")?.dataset.model,
+        document.getElementById("char-ram").value]"""
+    dressed = """() => { for (const [id, value] of [["char-scale", "2"], ["char-weapon", "farmers_hoe"],
+                                                     ["char-ram", "64"]]) {
             const box = document.getElementById(id);
             box.value = value;
             box.dispatchEvent(new Event("change"));
         }
         document.getElementById("char-height").click(); }"""
     wear = """(name) => document.querySelector(`#char-species .model[data-model="${name}"]`).click()"""
-    worn = {"scale": 2, "size": "garret4", "weapon": "farmers_hoe"}
+    worn = {"scale": 2, "size": "garret4", "weapon": "farmers_hoe", "ram": 64}
     served = Site(browser, site)
     try:
         page = served.open()
@@ -1699,25 +1703,25 @@ def test_reset_stays_on_the_chosen_model_and_picking_garret_clears_everything(br
         assert _page.until(page, f"() => ({settled})() && azurkit.characters.character()", 120) == {"species": "keylord", **worn}
         _page.click(page, "char-reset")
         _page.until(page, settled, 120)
-        assert page.evaluate(shown) == [{"species": "keylord"}, "1", "", False, "keylord"]
+        assert page.evaluate(shown) == [{"species": "keylord", "ram": 64}, "1", "", False, "keylord", "64"]
 
         page.evaluate(dressed)
         _page.until(page, settled, 120)
         page.evaluate(wear, "garret4")
         _page.until(page, settled, 120)
-        assert page.evaluate(shown) == [None, "1", "", False, "garret4"]
+        assert page.evaluate(shown) == [None, "1", "", False, "garret4", ""]
 
         page.evaluate(dressed)
         assert _page.until(page, f"() => ({settled})() && azurkit.characters.character()", 120) == {"species": "garret4", **worn}
         _page.click(page, "char-reset")
         _page.until(page, settled, 120)
-        assert page.evaluate(shown) == [None, "1", "", False, "garret4"]
+        assert page.evaluate(shown) == [None, "1", "", False, "garret4", "64"]
 
         page.evaluate(dressed)
         _page.until(page, settled, 120)
         page.evaluate(wear, "keylord")   # another model: the size and numbers come along, the weapon doesn't
         assert _page.until(page, f"() => ({settled})() && azurkit.characters.character()", 120) == {
-            "species": "keylord", "scale": 2, "size": "garret4"}
+            "species": "keylord", "scale": 2, "size": "garret4", "ram": 64}
         _page.check_csp(page)
         assert served.stray() == []
     finally:

@@ -142,6 +142,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Attack sets:** a creature with more than one set of attacks switches sets with LB in game, the set's moves
   shown top-left; once your image is read the tab says so, each set's moves in the line's tip.
 - **Voice:** the creature's own sounds, or Garret's.
+- **Target RAM:** the machine the build is for, From your packs (the default), 64 MiB for a retail Xbox, or 128 or
+  256 MiB for xemu; it moves only how large a model may be (`"ram": 64`), and another model and Reset keep it.
 - **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both, each a recipe over a
   creature's body applied to your own copy; or your own: a recipe file, or a variant you saved, worn by name (a
   folder each in `variants` in AzurKit's data folder, where Modkit saves them), its shapes sized as you like (a

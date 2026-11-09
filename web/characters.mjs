@@ -197,11 +197,12 @@ export function characters({ call, app, host, say, image, packs, changed, shared
 
   // The models' list: the species, each in its grade's colour, then the community entries under them (each marked,
   // its state and its variants once installed), filtered by the search box.
-  // Another model keeps the size and the numbers; Garret is the clean way back, so picking him clears everything (D1062).
+  // Another model keeps the size, the numbers and the Target RAM; Garret is the clean way back, so picking him clears
+  // everything (D1062).
   const pick = (name) => {
     if (name === c.character.species) return;
     const keep = name === "garret4" ? {}
-      : Object.fromEntries(Object.entries(c.character).filter(([k]) => ["size", "scale", ...NUMBERS].includes(k)));
+      : Object.fromEntries(Object.entries(c.character).filter(([k]) => ["size", "scale", "ram", ...NUMBERS].includes(k)));
     c.character = { ...keep, species: name };   // (Chain on any press stays with the model it was ticked on, D1045)
     c.choice++;
     $("char-chain").checked = false;
@@ -311,6 +312,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     $("char-mode").value = locked.mode ?? ch.mode ?? defaults.mode;
     $("char-mode").disabled = "mode" in locked;
     $("char-chain").checked = (ch.chain ?? "hit") === "any";   // D1045: off by default, for any model
+    $("char-ram").value = String(ch.ram ?? "");   // the recipe's ram (Modkit's Target RAM): none, the packs' room
     weaponBox(chosen);
     weaponShown();
     $("char-clips").checked = (ch.anims ?? defaults.anims) === "own";
@@ -610,6 +612,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   });
   $("char-mode").addEventListener("change", () => option("mode", $("char-mode").value, defaults().mode));
   $("char-chain").addEventListener("change", () => option("chain", $("char-chain").checked ? "any" : "hit", "hit"));
+  $("char-ram").addEventListener("change", () => option("ram", Number($("char-ram").value) || null, null));
   $("char-weapon").addEventListener("change", () => {
     option("weapon", $("char-weapon").value || null, null);
     weaponShown();
@@ -635,8 +638,8 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   // defaults (every number's is 1, the Weapon box's its own), and its own pictures; the engine's answer follows (the
   // list's colours, the info). They waited for that answer, behind a dress or a build in its worker (Step 4.4u2).
   $("char-reset").addEventListener("click", () => {
-    const name = c.character.species, held = c.panels.get(name);
-    set({ species: name }, REST);
+    const name = c.character.species, held = c.panels.get(name), { ram } = c.character;
+    set({ species: name, ...(ram ? { ram } : {}) }, REST);   // the machine isn't the model's: Reset keeps it
     if (!held || c.view?.chosen.name !== name) return;   // none held: the answer shows them
     c.view = { ...c.view, chosen: { ...c.view.chosen, ...held, weapon: null } };
     render();
@@ -673,10 +676,12 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   };
 
   // What a build, a link and the remembered setup take: the engine's recipe of the tab's choice (its answer to this
-  // choice; until it comes, the choice), none for garret4 at every default.
+  // choice; until it comes, the choice), none for garret4 at every default, a Target RAM alone too (it moves only a
+  // model's size lines, and his own body is within every machine's).
+  const plain = (made) => Object.keys(made).every((k) => k === "species" || k === "ram") && made.species === "garret4";
   const character = () => {
     const made = c.view?.asked === JSON.stringify(c.character) ? c.view.character : c.character;
-    return Object.keys(made).length === 1 && made.species === "garret4" ? null : made;
+    return plain(made) ? null : made;
   };
 
   return {
@@ -702,7 +707,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     },
     set,
     character,
-    choice: () => (Object.keys(c.character).length === 1 && c.character.species === "garret4" ? null : c.character),   // as chosen, its engine's answer or not
+    choice: () => (plain(c.character) ? null : c.character),   // as chosen, its engine's answer or not
     setup: character,
     refused: () => c.view?.asked === JSON.stringify(c.character) ? c.view.chosen.refused : null,
     waiting: () => c.opened && c.view?.asked !== JSON.stringify(c.character),   // Build's recipe is its answer's
