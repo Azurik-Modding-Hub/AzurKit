@@ -16,8 +16,10 @@ import json
 import math
 import re
 import struct
+import sys
 from collections import OrderedDict
 from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -52,6 +54,7 @@ from azurkit.tools.characters.index_xbr import parse_index_xbr
 from azurkit.tools.characters.retarget import (BAKED_DIR, MAPS, TARGETS, Retarget, Rig, _turn, bake_clip, evaluate,
                                                named_clip, origins, pose, qinv, qmul, qnorm, turned)
 from devkit.sim import l1, l2
+from tests.test_characters import booblords  # noqa: F401 (a fixture)
 
 XBE, CONFIG, CHARACTERS, FX, INDEX = "default.xbe", "config.xbr", "characters.xbr", "fx.xbr", "index.xbr"
 FULL = {XBE: "default.xbe", CONFIG: "gamedata/config.xbr", CHARACTERS: "gamedata/characters.xbr",
@@ -87,7 +90,9 @@ def _swap(image, species: str, *, logic: pc.AttackLogic | None = None, worn=None
     (``tools.characters.dressed``, no pack on): each file it reads, by short name; ``logic`` gets the build's
     ``AttackLogic`` and ``lines`` its log."""
     character = {k: v for k, v in character.items() if v is not None}
-    key = (str(image), species, json.dumps(character, sort_keys=True), worn and worn.sha)
+    key = (str(image), species, json.dumps(character, sort_keys=True))
+    if worn is not None:   # a variant object is built fresh: two may share a sha (``replace``) and differ
+        _BUILT.pop(key, None)
     if key not in _BUILT:
         v, filled = _image(str(image)), pc.AttackLogic()
         staging, _, _, log = characters.dressed(characters.normalize({"species": species, **character}), v, (),
@@ -95,7 +100,7 @@ def _swap(image, species: str, *, logic: pc.AttackLogic | None = None, worn=None
         _BUILT[key] = ({name: bytes(staging[name]) for name in FULL}, dict(vars(filled)), list(log))
         while len(_BUILT) > 4:
             _BUILT.popitem(last=False)
-    files, filled, log = _BUILT[key]
+    files, filled, log = _BUILT.pop(key) if worn is not None else _BUILT[key]
     if logic is not None:
         vars(logic).update(filled)
     if lines is not None:
@@ -108,6 +113,21 @@ def usa(usa_iso):
     """The USA image, inside :func:`_building`."""
     with _building(usa_iso):
         yield usa_iso
+
+
+@pytest.fixture
+def booblord(booblords, monkeypatch):
+    """Booblord installed from Azurik-Custom-Content (``booblords``), and the folders the swap's modules bound to
+    the content folder at import (``_player_variants``' ``CLIPS`` and ``SOUNDS``) rebound to that one, so this
+    process dresses her."""
+    from azurkit.tools.characters import _player_variants, content
+
+    old, new = _player_variants.SOUNDS.parent, content.ROOT
+    for name, module in list(sys.modules.items()):
+        if name == characters.__name__ or name.startswith(f"{characters.__name__}."):
+            for attr, value in list(vars(module).items()):
+                if isinstance(value, Path) and value.is_relative_to(old):
+                    monkeypatch.setattr(module, attr, new / value.relative_to(old))
 
 
 def _doc(data: bytes) -> ports.XbrDocument:
@@ -1293,3 +1313,368 @@ def test_a_creature_or_token_holds_a_weapon_on_its_grip(usa, species, weapon, mo
             c = [v * drawn for v in origins(rig, motion, (want[0] + (want[1] - want[0]) * s / 40) * length)[tip]]
             ahead.append(forward([v - side / 2 for v in c], [v + side / 2 for v in c]) if col not in pc.CASTS else 0)
     assert logic.reach == pytest.approx(max(ahead), abs=1e-6)
+
+
+def test_a_variant_under_another_weapon_keeps_the_clips_its_idles_and_slots_name():
+    """Booblord wearing another weapon drops her attack clips and columns but keeps the clips her ``idles`` and
+    ``slots`` name (her stance, gait and victory are no attack), each still one of her recipe's; a lent clip joins
+    them (Modkit's Steps 2.168, 2.171 on 2.161g's moveset rule, D585)."""
+    from azurkit.tools.characters._player_variants import VARIANT_DIR, lend, unarmed
+
+    her = builtins()["booblord"]
+    bare = unarmed(her)
+    assert set(bare.clips) == {*her.idles.values(), *her.slots.values()} and not bare.columns
+    assert all(c.startswith(VARIANT_DIR) for c in (*bare.idle_clips().values(), *bare.slot_clips().values()))
+    assert {"spin", "pony_whip"} <= set(her.clips) - set(bare.clips)
+    assert set(lend(her, her, her.base, {"spin": her.clips["spin"]}).clips) == {*bare.clips, "spin"}
+
+
+def test_booblord_shouts_in_her_voice_where_garret_shouts_under_any_other_weapon(usa_iso):
+    """D705 (Modkit's Steps 2.183, 2.209): under the Axion staff (her default), the hoe, bare hands or Balthazar's
+    magic her one sfx is her shouts (attack1.wav, attack2.wav, shout.wav, a take at random as each attack starts) in
+    the 20 columns whose Sound cells give Garret a shout (not his casts; her roll keeps roll.wav), her moves'
+    whooshes gone with her moves; her own spins take no such recipe."""
+    characters_xbr = _vanilla(usa_iso, CHARACTERS)
+    anims = _doc(_vanilla(usa_iso, CONFIG)).keyed_section("attacks_anims")
+    shouted = [col for k, col in enumerate(anims.col_names())
+               if col != pc.ROLL and any(anims.find_cell(col, row, k).type_code for row in SHOUT_ROWS)]
+    assert list(SHOUTED) == shouted and len(shouted) == 20
+    her = builtins()["booblord"]
+    body = read_body(characters_xbr, "townspeople/female_2")
+    voice = {"shout": {"generator": "wav", "files": ["attack1.wav", "attack2.wav", "shout.wav"], "columns": shouted}}
+    for weapon in (None, "axion_staff", "farmers_hoe", "bare_hands", "balthazar_magic"):
+        assert loadout(characters_xbr, body, "own", True, her, weapon).recipe.sfx == voice, weapon
+    assert loadout(characters_xbr, body, "own", True, her, "booblord_spin").recipe is None
+
+
+def test_a_variants_attack_sliders_are_the_moveset_its_build_wears(usa_iso):
+    """A variant's attack sliders and on/off rules are taken from the recipe its build wears (``loadout``'s
+    ``recipe``, else its own) where a build reads its options (``tools.characters.variant``; Modkit's
+    ``variant_options``, the 2.161g review's 1): beamlord's speed 2.0, balance off and ground on with no pick,
+    ``own`` or his default's own name, the mode's under the hoe; booblord's the mode's under the Axion staff, her
+    default (Step 2.209), her own under her spin."""
+    characters_xbr, vanilla = _vanilla(usa_iso, CHARACTERS), _image(str(usa_iso))
+    engine = _doc(_vanilla(usa_iso, CONFIG)).keyed_section("critters_engine")
+    for name, weapon, speed in (("beamlord", None, 2.0), ("beamlord", "own", 2.0), ("beamlord", "balthazar_magic", 2.0),
+                                ("beamlord", "farmers_hoe", 1.0), ("booblord", None, 1.0),
+                                ("booblord", "axion_staff", 1.0), ("booblord", "booblord_spin", 1.0)):
+        variant = builtins()[name]
+        body = read_body(characters_xbr, pc._species(engine)[variant.base]["body"])
+        lo = loadout(characters_xbr, body, variant.mode, pc.bakes(body, pc.MODE_ANIMS[variant.mode]), variant, weapon)
+        worn = lo.recipe if lo.recipe is not None else variant
+        _, got = characters.variant(characters.normalize({"species": name} | ({"weapon": weapon} if weapon else {})),
+                                    vanilla)
+        assert (got["attack_speed"], got["attack_damage"], got["attack_balance"], got["attack_ground"]) == (
+            speed, worn.damage, worn.balance, worn.ground) and worn.speed == speed, (name, weapon)
+
+
+def test_booblords_default_weapon_is_the_axion_staff_and_her_spins_a_pick(usa_iso):
+    """D939 (Modkit's Step 2.209, the owner: "let's make booblord's default weapon the axion"): her recipe names
+    the Axion staff, so a build of her with no pick is the build of the Axion staff on her recipe before (its
+    loadout, her shout-only recipe and its options) and Booblord spin builds her spins as her default did; the
+    Weapon box offers the Axion staff as her default, first, and her spins as a pick, each graded by a sitting."""
+    characters_xbr = _vanilla(usa_iso, CHARACTERS)
+    body = read_body(characters_xbr, "townspeople/female_2")
+    her = builtins()["booblord"]
+    before = replace(her, weapon=None)
+
+    def worn(variant, weapon=None):   # a style's clip reader is a new closure each time, and a recipe equals only
+        lo = loadout(characters_xbr, body, "own", True, variant, weapon)   # itself: its fields, its weapon aside
+        return replace(lo, kit=lo.kit and (lo.kit.source, lo.kit.dir),
+                       recipe=lo.recipe and {k: v for k, v in vars(lo.recipe).items() if k != "weapon"})
+    assert (worn(her), options(her)) == (worn(before, "axion_staff"), options(before, weapon="axion_staff"))
+    assert (worn(her, "booblord_spin"), options(her, weapon="booblord_spin")) == (worn(before), options(before))
+    assert [(name, fit) for name, (fit, _) in offers(characters_xbr, body, "own", her).items()][:2] == [
+        ("axion_staff", "default"), ("booblord_spin", GOOD)]
+    graded = [grade("booblord", "own", loadout(characters_xbr, body, "own", True, her, w)) for w in (None, "booblord_spin")]
+    assert [colour for colour, _ in graded] == ["green", "green"] and not any(pw.NOT_SEEN in why for _, why in graded)
+
+
+def test_an_own_copy_of_booblord_builds_what_its_weapon_box_says_and_its_edits_build_or_are_refused(
+        usa_iso, booblord, tmp_path, monkeypatch):
+    """New from this on booblord (``library.own_copy``; Modkit's Step 2.209's review, 1 and 2) leaves her Axion staff
+    out, and her notes (your own kept), so the copy's default plays its own spins (its Weapon box's one default: its
+    bare hands) and its Attacks numbers reach the build; a copy of her recipe with the staff loads, its Bare hands
+    pick builds bare hands with 1.0 hits, and an edit of her moveset under the staff is refused (it would play in no
+    build), as moves of its own are (D585); a recipe from her keeps the staff."""
+    from azurkit.tools.characters import library
+
+    monkeypatch.setenv(library.ENV, str(tmp_path / "lib"))
+    characters_xbr = _vanilla(usa_iso, CHARACTERS)
+    body = read_body(characters_xbr, "townspeople/female_2")
+    made = library.own_copy("mine", {"from": "booblord", "notes": builtins()["booblord"].notes})
+    recipe = json.loads(made.read_text(encoding="utf-8"))["mine"]
+    copy = load_variants(made.read_text(encoding="utf-8"), str(made), tuple(builtins()))["mine"]
+    fits = {name: fit for name, (fit, _) in offers(characters_xbr, body, "own", copy).items()}
+    assert ({"weapon", "notes"} & recipe.keys(), copy.columns) == (set(), builtins()["booblord"].columns)
+    yours = library.own_copy("yours", {"from": "booblord", "notes": "x"})
+    assert json.loads(yours.read_text(encoding="utf-8"))["yours"]["notes"] == "x"
+    assert [name for name, fit in fits.items() if fit == "default"] == ["bare_hands"] and fits["booblord_spin"] == GOOD
+    edited = {**recipe, "attacks": {**recipe["attacks"], "damage": 2.0}}
+    assert options(load_variants(json.dumps({"mine": edited}), "test")["mine"])["attack_damage"] == 2.0
+    hers = load_variants(json.dumps({"mine": {**recipe, "weapon": "axion_staff"}}), "test")["mine"]
+    bare = loadout(characters_xbr, body, "own", True, hers, "bare_hands")
+    assert (bare.name, bare.recipe.columns, pw.attack_recipe(hers, "bare_hands", "bare_hands").damage) == (
+        "bare_hands", {}, 1.0)
+    for field, value in (("attacks", edited["attacks"]), ("columns", {**recipe["columns"], "down": "spin"})):
+        with pytest.raises(ValueError, match="weapon axion_staff plays every attack column"):
+            load_variants(json.dumps({"mine": {**recipe, "weapon": "axion_staff", field: value}}), "test")
+    assert load_variants(json.dumps({"mine": {"from": "booblord"}}), "test")["mine"].weapon == "axion_staff"
+
+
+def test_garret4s_staff_moves_clear_the_wearers_chest(usa):
+    """AZ-696 (Modkit's Step 2.161g, W35): Garret's staff moves swung by another body put the staff through its
+    chest (town_male_6's attack_9 on 9 of its 16 ticks); weapons.json's ``fits`` turn both ``*_arm_1`` in each clip
+    that clips, the prop riding the turned hand: in town_male_6's built attack_9 the staff is inside his chest on at
+    most one tick more than on garret4, and X3's row for the column playing it holds the turned tip on every tick of
+    the window. Every built-in variant's fit row is its recipe's."""
+    characters_xbr = _vanilla(usa, CHARACTERS)
+    body = "townspeople/male_6"
+    lo = loadout(characters_xbr, read_body(characters_xbr, body), "own", True, None, "axion_staff")
+    assert lo.turns == pw.fits()[body].clips and "attack_9" in lo.turns
+    assert loadout(characters_xbr, read_body(characters_xbr, body), "garret4", True, None, "axion_staff").turns == lo.turns
+    game = _swap(usa, "town_male_6", sounds="garret4", weapon="axion_staff")
+    built, xbe = game[CHARACTERS], game[XBE]
+    clip = named_clip(built, body, BAKED_DIR + "attack_9")
+    his = pw.Chest(characters_xbr, "garret4", (*weapons()["axion_staff"].prop.mesh.bones, "staff_constraint")).ticks(
+        named_clip(characters_xbr, "garret4", "attack_9"))[0]
+    assert pw.Chest(built, body, lo.prop.carriers).ticks(clip)[0] <= his + 1
+    i = _played(game[CONFIG])[1].index("attack_9")
+    box = BOX.unpack_from(xbe, _boxes(xbe) + BOX.size * i)
+    drawn, rig = _drawn(game[CONFIG]), Rig.read(built, body)
+    tip = [b.name for b in rig.bones].index(lo.prop.carriers[0])
+    w = garret4_window(characters_xbr, read_body(characters_xbr, "garret4"), "attack_9")
+    for s in range(pw.HELD_SAMPLES + 1):
+        at = [drawn * c for c in origins(rig, clip, w.on + (w.off - w.on) * s / pw.HELD_SAMPLES)[tip]]
+        assert all(c - e / 2 - 0.01 <= a <= c + e / 2 + 0.01 for a, c, e in zip(at, box[2:5], box[5:8])), s
+    assert {n: row.sha for n, row in pw.fits().items() if n in builtins()} == {
+        n: builtins()[n].sha for n in pw.fits() if n in builtins()}
+
+
+def test_an_untested_models_weapon_picks_read_grey_not_seen_in_game_in_its_builds_status_line():
+    """AZ-807 (D830): an untested model's red was each pick's cap, so every weapon on one read red; its picks are
+    grey, not seen in game, in the build's status line (``pick_grade`` with the model's status), as the Characters
+    tab's Weapon box shows them (``test_characters.py``'s species-grades test)."""
+    assert pc.mode_status("frag_fire_1", "own", "own") == pc.UNTESTED
+    line = pick_grade("frag_fire_1", "own", "farmers_hoe", True, "frag_fire_1", "odd", pc.UNTESTED)
+    assert (line[0], line[1].startswith(pw.NOT_SEEN)) == ("unseen", True)
+
+
+# --- the moveset weapons (Modkit's Step 2.161g; D585, D592) on booblord's v3 -------------------------------------
+BOOBLORD_V3 = {
+    "mesh": {
+        "keep": ["loincloth_front_1", "loincloth_back_1", "vase_joint"],
+        "ops": [
+            {"op": "push", "name": "bust", "bone": "spine_2", "offset": [0.0719, 0.1257, 0.0575],
+             "dir": [0.048, 1.0, -0.209], "height": 0.1378,
+             "radius": {"in": 0.092, "out": 0.0675, "up": 0.1383, "down": 0.0917}, "depth": 0.157,
+             "fold": 0.062, "groups": [4], "mirror": True},
+            {"op": "push", "name": "bust", "bone": "spine_2", "offset": [0.0719, 0.0564, 0.0575],
+             "dir": [0.048, 1.0, -0.209], "height": 0.1047,
+             "radius": {"in": 0.0659, "out": 0.075, "up": 0.1286, "down": 0.1013}, "depth": 0.0462,
+             "fold": 0.131, "groups": [1], "mirror": True},
+            {"op": "push", "name": "bust low", "bone": "spine_2", "offset": [0.0719, 0.1257, -0.0416],
+             "dir": [0.048, 1.0, -0.08], "height": 0.0752,
+             "radius": {"in": 0.0815, "out": 0.0617, "up": 0.0653, "down": 0.0511}, "depth": 0.1596,
+             "fold": 0.0, "groups": [4], "mirror": True},
+            {"op": "push", "name": "bust low", "bone": "spine_2", "offset": [0.0719, 0.0564, -0.0416],
+             "dir": [0.048, 1.0, -0.08], "height": 0.0344,
+             "radius": {"in": 0.0664, "out": 0.0606, "up": 0.0658, "down": 0.0499}, "depth": 0.0462,
+             "fold": 0.0, "groups": [1], "mirror": True},
+            {"op": "push", "name": "bust fill", "bone": "spine_2", "offset": [0.0928, 0.0233, -0.0439],
+             "dir": [0.048, 1.0, -0.09], "height": 0.0274,
+             "radius": {"in": 0.0519, "out": 0.0709, "up": 0.0335, "down": 0.0421}, "depth": 0.064,
+             "fold": 0.0, "groups": [1], "mirror": True},
+            {"op": "push", "name": "glutes", "bone": "root_joint", "offset": [0.071, -0.105, -0.09],
+             "dir": [0.04, -1.0, 0.0], "height": 0.115,
+             "radius": {"in": 0.075, "out": 0.077, "up": 0.13, "down": 0.118}, "depth": 0.1, "fold": 0.48,
+             "mirror": True},
+            {"op": "scale", "name": "pelvis", "profile": "smooth", "bone": "root_joint",
+             "offset": [0.0, -0.0331, -0.09], "radius": [0.4624, 0.1534, 0.17],
+             "factors": [1.1578, 1.0, 1.0]},
+            {"op": "push", "name": "hips", "bone": "root_joint", "offset": [0.1505, -0.021, -0.1195],
+             "dir": [1.0, -0.433, 0.0], "height": 0.0155,
+             "radius": {"in": 0.1132, "out": 0.1278, "up": 0.1223, "down": 0.0417}, "depth": 0.08,
+             "fold": 0.0, "mirror": True},
+            {"op": "taper", "name": "waist", "bone": "root_joint", "offset": [0.0, 0.015, 0.11],
+             "factors": [0.86, 0.92], "plateau": 0.05, "half": 0.09, "reach": [0.2, 0.3]},
+            {"op": "scale", "name": "thighs", "profile": "smooth", "bone": "left_leg_1",
+             "offset": [0.0, -0.014, -0.1515], "radius": [0.112, 0.125, 0.169],
+             "factors": [1.02, 1.2195, 1.0], "mirror": True},
+            {"op": "push", "name": "hamstring", "bone": "left_leg_1", "offset": [0.0, -0.1, -0.17],
+             "dir": [0.0, -1.0, 0.0], "height": 0.026,
+             "radius": {"in": 0.07, "out": 0.08, "up": 0.09, "down": 0.1}, "depth": 0.08, "fold": 0.0,
+             "mirror": True},
+            {"op": "push", "name": "drape", "bone": "loincloth_back_1", "offset": [0.0, -0.2, -0.03],
+             "dir": [0.0, -0.05, 1.0], "height": 0.11,
+             "radius": {"in": 0.15, "out": 0.15, "up": 0.188, "down": 0.9}, "depth": 0.05, "fold": 1.0,
+             "only": ["loincloth_back_1"]},
+            {"op": "tuck", "name": "tuck", "groups": [1], "under": [4],
+             "skip": ["loincloth_front_1", "loincloth_back_1"], "dir": [0.0, 1.0, 0.0], "margin": 0.003,
+             "strict": True, "band": [1.225, 1.28], "faces": True},
+            {"op": "tuck", "name": "tuck", "groups": [1], "under": [4],
+             "skip": ["loincloth_front_1", "loincloth_back_1"], "dir": [0.0, 1.0, 0.0], "margin": 0.0066,
+             "band": [1.28, 9.0], "strict": True, "faces": True}
+        ]
+    },
+    "arms": {"out_deg": 4.0},
+    "jiggle": {
+        "frees": [
+            {"group": 1, "bone": "joint19", "into": "left_foot_2"},
+            {"group": 1, "bone": "joint10", "into": "right_foot_2"},
+            {"group": 4, "bone": "left_hand", "drop": True}
+        ],
+        "bones": [
+            {"role": "bust", "bone": "joint32", "parent": "spine_2", "shape": ["bust", "bust low", "bust fill"],
+             "groups": [1, 4], "takes": ["spine_1", "spine_2", "spine_3", "spine_endnode"], "weight": 0.9,
+             "spring": {"freq": 2.6, "damping": 0.1, "mass": 2.4, "travel": [0.05, 0.06, 0.3],
+                        "weights": [0.65, 0.42, 1.0], "gain": 3.6, "give": 0.04, "accel": 3.5,
+                        "gravity": 0.4, "turn": 0.3, "rot_share": 0.65, "sides": "auto",
+                        "centre": "auto", "pivot": [0.0, -0.07, 0.0], "swim": [0.15, 3.0],
+                        "pace": 3.0, "squash": [0.0, -0.1, 0.35], "kick": 0.5, "kick_hold": 2.0,
+                        "kick_time": 1.5, "impact": 0.125}},
+            {"role": "glutes", "bone": "joint39", "parent": "root_joint", "shape": ["glutes"], "groups": [1],
+             "takes": ["root_joint", "left_hip", "right_hip"], "weight": 0.75,
+             "spring": {"freq": 3.1, "damping": 0.15, "mass": 3.0, "travel": [0.03, 0.045, 0.12],
+                        "weights": [0.15, 0.4, 1.0], "gain": 4.3, "give": 0.05, "accel": 3.0,
+                        "gravity": 0.4, "turn": 0.25, "rot_share": 0.5, "sides": "auto",
+                        "centre": "auto", "pivot": [0.0, 0.06, 0.0], "swim": [0.15, 3.0],
+                        "pace": 2.0, "squash": [0.0, -0.08, 0.17], "kick": 0.3, "kick_hold": 2.0,
+                        "kick_time": 1.5, "impact": 0.1}}
+        ],
+        "springs": [
+            {"role": "hair1", "bone": "hair_1", "parent": "head",
+             "spring": {"freq": 2.0, "damping": 0.2, "travel": 0.06, "gain": 1.0, "gravity": 0.0, "accel": 3.0,
+                        "give": 0.04, "rot_share": 1.0, "pivot": "origin", "pace": 2.0}},
+            {"role": "hair2", "bone": "hair_2", "parent": "hair_1",
+             "spring": {"freq": 2.0, "damping": 0.2, "travel": 0.06, "gain": 1.0, "gravity": 0.0, "accel": 3.0,
+                        "give": 0.04, "rot_share": 1.0, "pivot": "origin", "pace": 2.0}},
+            {"role": "hair3", "bone": "hair_3", "parent": "hair_2",
+             "spring": {"freq": 2.0, "damping": 0.2, "travel": 0.06, "gain": 1.0, "gravity": 0.0, "accel": 3.0,
+                        "give": 0.04, "rot_share": 1.0, "pivot": "origin", "pace": 2.0,
+                        "centre": [0.0, -0.3169, 1.6447]}}
+        ]
+    }
+}
+
+"""Booblord's v3 ``mesh``, ``arms`` and ``jiggle`` (Modkit's ``variants.json`` at its Step 2.174)."""
+
+
+def _booblord_v3():
+    """Booblord's v3 as the built-in ``booblord`` (Modkit's ``tests/_variant_fixtures.py``: her shipped recipe's
+    dress takes minutes, v3's seconds): her recipe with v3's mesh, arms and jiggle, and no poses, textures, idles,
+    slots, victory_cancel, lods or weapon (her spins her default, as v3's were), her moves.glb and idles.glb clips
+    and the columns playing them left out; its recipe ``12ee3e6638f4``, as Modkit's."""
+    from azurkit.tools.characters._player_variants import BUILTIN, _variant
+
+    recipe = json.loads(BUILTIN.read_text(encoding="utf-8"))["booblord"]
+    for key in ("poses", "textures", "slots", "victory_cancel", "lods", "weapon", "idles"):
+        recipe.pop(key, None)
+    moves = {k for k, clip in recipe["clips"].items() if clip.get("file") in ("moves.glb", "idles.glb")}
+    recipe["clips"] = {k: clip for k, clip in recipe["clips"].items() if k not in moves}
+    recipe["columns"] = {c: clip for c, clip in recipe["columns"].items() if clip not in moves}
+    recipe["carry"] = [c for c in recipe["carry"] if c in recipe["columns"]]
+    recipe |= json.loads(json.dumps(BOOBLORD_V3))
+    variant = _variant("booblord", recipe, "built-in")
+    assert variant.sha == "12ee3e6638f4", variant.sha
+    return variant
+
+
+def _x14(xbe: bytes) -> tuple[str, dict[int, str]]:
+    """X14's table in the built ``xbe``: its dir and each slot it names (a miss left out)."""
+    from azurkit.tools.characters._player_sounds import SOUND_HOOKS, SOUNDS_TABLE, TABLE_SIZE
+
+    table = _read(xbe, _symbol(xbe, SOUND_HOOKS[0], SOUNDS_TABLE.symbol), TABLE_SIZE)
+    dir_at, count = struct.unpack_from("<HH", table)
+
+    def name(off: int) -> str:
+        return table[off:table.index(b"\0", off)].decode()
+    return name(dir_at), {slot: name(off) for slot, off in enumerate(struct.unpack_from(f"<{count}H", table, 4))
+                          if off}
+
+
+MOVESETS = [("booblord", None), ("booblord", "axion_staff"), ("booblord", "farmers_hoe"),
+            ("town_male_6", "booblord_spin"), ("garret4", "booblord_spin"), ("catalisk", "booblord_spin"),
+            ("air_elemental", "booblord_spin")]
+"""Booblord's own moveset, Garret's swung by her, and her spins on four other bodies (Modkit's T-G1 rows)."""
+SPUN = {"booblord": ("root_joint", "right_hand_endnode"), "town_male_6": ("root_joint", "right_hand_endnode"),
+        "garret4": ("root_joint", "right_hand_endnode"), "catalisk": ("root_joint", "right_hand"),
+        "air_elemental": ("tail", "r_wrist")}
+"""The bone each body's spins turn and the hand its hand spin plants."""
+
+
+@pytest.mark.parametrize("model, weapon", MOVESETS)
+def test_a_bodys_own_moves_are_a_weapon_any_body_can_pick(usa, booblord, model, weapon):
+    """D585 (the owner: "for weapons, booblord's spin would be a type of weapon, whereas if she has the axion she
+    would have garret's moveset"), D592, AZ-697 (Modkit's Step 2.161g): booblord's (v3's) default is her own
+    moveset, her spins in her recipe's columns and the bare-hands kit in the rest; with the Axion staff or the hoe
+    she swings Garret's attack in every column, no clip of hers, her look kept (her jiggle's X41), the attack
+    sliders the mode's, her shouts where Garret's were (D705). Booblord spin on another body generates her spins on
+    its own rig (W22): its root turned (the air elemental's tail), its hand spin planted on her hand where it has
+    one, else its grip, each box her recipe's x its height over hers, m_damage grown where it has none, X33 carrying
+    her columns, her damage 0.6; its other columns the kit on a body the bake serves (garret4: his staff cut, X17
+    forced), else its own (the catalisk, an odd fit). Her whip, a clip of her own rig, is no spin she lends."""
+    characters_xbr, config = _vanilla(usa, CHARACTERS), _vanilla(usa, CONFIG)
+    variant = _booblord_v3() if model == "booblord" else builtins().get(model)
+    species = variant.base if variant is not None else model
+    body = _body(characters_xbr, config, species)
+    lo = loadout(characters_xbr, read_body(characters_xbr, body), "own", True, variant, weapon)
+    logic = pc.AttackLogic()
+    game = (_swap(usa, model, worn=variant, weapon=weapon, logic=logic) if variant is not None
+            else _swap(usa, model, sounds="garret4", weapon=weapon, logic=logic))
+    built, xbe = game[CHARACTERS], game[XBE]
+    columns, picks = _played(game[CONFIG])
+    played = dict(zip(columns, picks))
+    boob = builtins()["booblord"]
+    under = f"characters/{body}/v/".casefold()
+    if weapon in ("axion_staff", "farmers_hoe"):   # D585: Garret's moves in every column, her look hers
+        assert picks == _played(config)[1]
+        assert not any(n.casefold().startswith(under) for n in named_resources(built).values())   # AZ-697
+        assert ports.verify_trampoline_patch(xbe, pc.JIGGLE_HOOK) == "applied"
+        assert {k: options(variant, weapon=weapon)[k] for k in ("attack_damage", "attack_balance", "attack_ground")} \
+            == {"attack_damage": 1.0, "attack_balance": None, "attack_ground": None}
+        assert (lo.name, lo.picked, lo.recipe.columns) == (weapon, True, {})
+        mine = {r.key.rsplit("/", 1)[1].split("_")[0] for r in parse_index_xbr(game[INDEX]).records
+                if r.key.startswith("fx/sound/v/booblord/")}
+        assert mine == {*variant.wavs, "shout"}   # her WAVs and shouts stay; her moves' whooshes go with her moves
+        folder, binds = _x14(xbe)   # D705: her shouts where Garret's were (W9), the roll her roll.wav
+        assert folder == "fx/sound/v/booblord" and {col: binds.get(ATTACK_SLOT + k) for k, col in enumerate(columns)} \
+            == {col: "shout" if col in SHOUTED else "roll" if col == pc.ROLL else "" for col in columns}
+        anims = _doc(game[CONFIG]).keyed_section("attacks_anims")
+        assert not any(anims.find_cell(col, row, k).type_code for k, col in enumerate(columns) for row in SHOUT_ROWS)
+        return
+    lent = {clip for clip, p in boob.clips.items() if p["generator"] in pw.PORTABLE}   # her whip is her rig's
+    spins = {col: "v/" + clip for col, clip in boob.columns.items() if clip in lent}
+    assert {col: played[col] for col in spins} == spins
+    rest = [col for col in columns if col not in spins and col != pc.ROLL]
+    kit = kit_document()["columns"]
+    if body.casefold() in TARGETS:
+        assert {col: played[col] for col in rest} == {col: "t/" + kit[col] for col in rest}
+    else:
+        assert not any(played[col].startswith(("v/", "t/")) for col in rest)
+    carry = round(_param(xbe, pc.CARRY_HOOK, "_player_model_carry_columns"))
+    mask = sum(1 << columns.index(col) for col in boob.carry if col in spins)
+    assert carry & mask == mask
+    s = 1.0 if variant is not None else (height(characters_xbr, read_body(characters_xbr, body))
+                                         / height(characters_xbr, read_body(characters_xbr, "townspeople/female_2")))
+    mine = read_body(built, body, dirs=("v/",))
+    assert mine.markers.count("m_damage") == 1 and (model in ("booblord", "town_male_6")) == (
+        "m_damage" not in read_body(characters_xbr, body).markers)
+    rig, damage = Rig.read(built, body), mine.markers.index("m_damage")
+    root, hand = SPUN[model]
+    for clip, p in ((clip, p) for clip, p in boob.clips.items() if clip in lent):
+        made = named_clip(built, body, "v/" + clip)
+        assert root in {rig.bones[tr.target].name for tr in made.bones if tr.comp <= 6}, clip   # turned or hopped
+        extents = [tr.keys[0][1] for tr in sorted(made.markers, key=lambda tr: tr.comp)
+                   if tr.target == damage and 7 <= tr.comp <= 9]
+        assert extents == pytest.approx([2 * h * s for h in p["box"]["half"]], rel=1e-5), clip
+        if p["generator"] == "hand_spin":   # planted on its hand at her hand's height x s
+            k = [b.name for b in rig.bones].index(hand)
+            p0, p1 = (made.length * f for f in p["plant"])
+            keyed = sorted({key[0] for tr in made.bones if rig.bones[tr.target].name == root for key in tr.keys})
+            assert max(math.dist(origins(rig, made, t)[k], (0.0, 0.0, s * p["hand_z"]))
+                       for t in keyed if p0 <= t <= p1) < 0.02, clip
+    assert (lo.name, lo.fit, logic.damage) == ("booblord_spin", "odd" if model == "catalisk" else GOOD, 0.6)
+    if model == "garret4":
+        off, _, patch = ports.patch_spec_site(xbe, pc.STAFF_WALLS)
+        assert (lo.cut, lo.walls_off, xbe[off:off + len(patch)] == patch) == (True, True, True)
