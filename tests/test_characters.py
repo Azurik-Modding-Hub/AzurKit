@@ -1216,6 +1216,39 @@ def test_a_recipe_on_garret4_retunes_his_fx_clone_and_plays_its_effects_rows(usa
             FX_DEFAULT_HOOK, THROW_HOOK, SEARCH_HOOK, *FX_RING_HOOKS)] == ["applied"] * (3 + len(FX_RING_HOOKS))
 
 
+# --- an effect platform's mesh (Modkit's Step 2.155e, D525) and the effects templates' file (Step 2.167a, D538) -----
+SPIDER = "characters/balthazar_spider/fx/fx_default"
+"""Spideyzar's graph: [84] blastdomeShape draws rdms 289 and pbrc 268 on gshd 267 row 2."""
+
+
+def test_every_fx_platform_mesh_decodes_and_re_encodes_byte_for_byte(usa_iso):
+    """Each rdms and push buffer a platform of the fx graphs of characters.xbr and fx.xbr draws (1,155 of each,
+    every LOD) reads and writes back to its own bytes, its push buffer under its own tag (``fx_mesh``)."""
+    from azurkit.core.xbr.graph import Graph, Schema
+    from azurkit.tools.characters import fx_mesh, render
+
+    with iso.Reader(usa_iso) as r:
+        schema, archives = Schema(r.read(characters.XBE)), [r.read(f) for f in (CHARACTERS, FX)]
+    seen = set()
+    for archive, data in enumerate(archives):
+        toc = parse_toc(data)
+        for index in named_resources(data):
+            if toc[index].tag != "node":
+                continue
+            g = Graph(data, toc, toc[index], schema)
+            for k, kind in enumerate(g.types):
+                if kind != "platform" or g.recs[k] is None:
+                    continue
+                for rdms, pb in render.platform_bindings(g, k, every=True):
+                    if (archive, rdms) in seen:
+                        continue
+                    seen.add((archive, rdms))
+                    a, b = (bytes(data[toc[i].file_offset:toc[i].file_offset + toc[i].size]) for i in (rdms, pb))
+                    assert fx_mesh.write_rdms(fx_mesh.read_rdms(a)) == a, (archive, rdms)
+                    assert fx_mesh.write_push(fx_mesh.read_push(b)) == (b, toc[pb].tag), (archive, pb)
+    assert len(seen) == 1155
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
