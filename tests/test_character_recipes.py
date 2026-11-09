@@ -875,16 +875,20 @@ RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
 XBE = "default.xbe"
 
 
-def _files(image, folder: Path, recipe: dict, name: str = "tspin", **given) -> dict[str, bytes]:
-    """``recipe`` as ``name`` in a recipe file in ``folder`` (its files beside it), worn (``given``: the character's
-    other fields) in a build of ``image`` through ``sdk.image``, no pack on: each file the build changed (but
+def _worn(image, character: dict) -> dict[str, bytes]:
+    """``character`` worn in a build of ``image`` through ``sdk.image``, no pack on: each file the build changed (but
     filelist.txt) and its bytes."""
-    file = folder / f"{name}.json"
-    file.write_text(json.dumps({name: recipe}), encoding="utf-8")
-    made, report = sdk.image({"iso": str(image), "packs": {},
-                              "character": {"species": name, "variant_file": str(file), **given}})
+    made, report = sdk.image({"iso": str(image), "packs": {}, "character": character})
     with iso.Reader(made) as r:
         return {f: r.read(f) for f in report["result"] if f != "filelist.txt"}
+
+
+def _files(image, folder: Path, recipe: dict, name: str = "tspin", **given) -> dict[str, bytes]:
+    """``recipe`` as ``name`` in a recipe file in ``folder`` (its files beside it), worn (``given``: the character's
+    other fields) as :func:`_worn` wears it."""
+    file = folder / f"{name}.json"
+    file.write_text(json.dumps({name: recipe}), encoding="utf-8")
+    return _worn(image, {"species": name, "variant_file": str(file), **given})
 
 
 def _building(image):
@@ -1234,3 +1238,96 @@ def test_a_recipes_victory_cancel_ends_a_victory_at_a_push_of_the_stick_after_it
         assert got[2] == was[2], row
         assert got[:2] == ((0, 0.0) if row[-1] else was[:2]), (row, got, was)
         assert was[0] == (0 if row[5] != 0x4D else 0x100)
+
+
+def test_the_guis_movement_hint_measures_a_variant_at_the_player_pages_shape_values(usa_iso, monkeypatch):
+    """Modkit's Step 2.164d: the worn body's size folded into the walk and
+    roll (``characters.size``, the sdk's fold before a plan) measures a
+    variant as its build sizes it at the character's shape values: booblord
+    with her Bust size at 1.3 reshaped, at 1.0 her own body."""
+    from azurkit.tools.characters._player_variants import reshaped
+
+    measured, swap = [], characters._swap()
+    monkeypatch.setattr(swap, "size_shape", lambda *args: measured.append(args[5].sha) or "her shape")
+    monkeypatch.setattr(swap, "movement_size", lambda _shape, _scale: 2.0)
+    stamp = gate.verify(str(usa_iso), whole=False)
+    vanilla, her = ports.Vanilla(stamp.release, stamp.path, stamped=stamp), builtins()["booblord"]
+    sizes = [characters.size(characters.normalize({"species": "booblord", "shapes": {"bust": v}}), vanilla)
+             for v in (1.3, 1.0)]
+    assert (sizes, measured) == ([2.0, 2.0], [reshaped(her, {"bust": 1.3}).sha, her.sha])
+
+
+def test_beamlords_beams_turn_to_their_target_in_the_cone_at_the_attacks_start(usa_iso):
+    """D762 (Modkit's Step 2.194b): beamlord's ``beam`` and ``sweep`` clips
+    seek, so X49 lands at player_attack_enter's load of the swing's yaw
+    (0x88A3A) for every column playing them (not the nova's), at the kit
+    throw's 14 m and 45 degrees, with X21's radius. L2 on the vanilla XBE
+    with X21 and X49 at his mask (attack_target_find stubbed): a beam or
+    sweep whose own slot plays asks the finder from the yaw plus its Aim
+    with the radius at 14 m (3 m after) and, a target 40 degrees off, takes
+    its bearing less the Aim as the yaw (EAX, PC+0x138 and PC+0x90); 50
+    degrees off or none counted, the yaw stays the game's, and a slot not
+    playing or the nova asks nothing. EBX, ECX, EDX, ESI, EDI and EBP are
+    kept."""
+    from unicorn import UC_HOOK_CODE
+    from unicorn.x86_const import UC_X86_REG_EIP, UC_X86_REG_ESP
+
+    from azurkit.tools.characters._player_character import (SEARCH_HOOK, SEARCH_RADIUS_SYMBOL, SEEK_HOOK,
+                                                             install_search_shim, install_seek_shim)
+    from devkit.sim import l2
+
+    variant = builtins()["beamlord"]
+    built = _worn(usa_iso, {"species": "beamlord"})
+    xbe = built[XBE]
+    columns = ports.XbrDocument.from_bytes(built[CONFIG]).keyed_section("attacks_anims").col_names()
+    seeking = sum(1 << i for i, c in enumerate(columns) if variant.columns.get(c) in ("beam", "sweep"))
+    with iso.Reader(usa_iso) as r:
+        probe = bytearray(r.read(XBE))
+    with _building(usa_iso):
+        assert [struct.unpack_from("<f", xbe, _at(xbe, SEEK_HOOK, f"_player_model_seek_{k}"))[0]
+                for k in ("columns", "range", "cone")] == [seeking, 14.0, 45.0]
+
+        def radius_at(data: bytes) -> tuple[int, int]:   # X21's radius, and the VA X49's bytes param holds
+            return (ports.trampoline_symbol_va(data, SEARCH_HOOK, SEARCH_RADIUS_SYMBOL),
+                    struct.unpack_from("<I", data, _at(data, SEEK_HOOK, "_player_model_seek_radius_at"))[0])
+        assert len(set(radius_at(xbe))) == 1
+        install_search_shim(probe, 3.0)
+        radius = ports.trampoline_symbol_va(probe, SEARCH_HOOK, SEARCH_RADIUS_SYMBOL)
+        install_seek_shim(probe, seeking, radius)
+        assert radius_at(probe) == (radius, radius)
+    site = ports.resolve_va_to_file(probe, SEEK_HOOK.va)
+    entry = SEEK_HOOK.va + 5 + struct.unpack_from("<i", probe, site + 1)[0]
+    sim = l2.Sim(bytes(probe))
+    pc, critter = 0x20000000, 0x20001000
+    sim.uc.mem_map(pc, 0x2000)
+    sim.uc.mem_write(pc + 0x20, struct.pack("<I", critter))
+    log, answer = [], {}
+
+    def find(uc, *_):   # attack_target_find(critter, facing, out): RET 0xC
+        esp = sim.reg("esp")
+        who, facing, out = struct.unpack("<IfI", uc.mem_read(esp + 4, 12))
+        log.append((who, facing, sim.f32(radius)))
+        uc.mem_write(out, struct.pack("<i5f", answer["count"], 0.0, 0.0, 0.0, answer["bearing"], answer["off"]))
+        uc.reg_write(UC_X86_REG_EIP, sim.u32(esp))
+        uc.reg_write(UC_X86_REG_ESP, esp + 16)
+    sim.uc.hook_add(UC_HOOK_CODE, find, begin=0x7EBB0, end=0x7EBB0)
+
+    def enter(column: str, yaw: float, *, aim: float = 1e5, playing: bool = True, **found) -> float:
+        k = columns.index(column)
+        answer.update({"count": 1, "bearing": 1.0, "off": math.radians(40)} | found)
+        for va, data in ((pc + 0xE8, struct.pack("<f", aim)), (pc + 0x134, struct.pack("<i", k)),
+                         (pc + 0x138, struct.pack("<f", yaw)), (pc + 0x90, struct.pack("<f", yaw)),
+                         (critter + 0x200, struct.pack("<i", 0x52 + k if playing else 37))):
+            sim.uc.mem_write(va, data)
+        kept = {"ebx": 0x11, "ecx": 0x33, "edx": 0x100, "esi": 0x22, "ebp": 0x44, "edi": pc}
+        eax = sim.call(entry, regs=kept, until=l2._RETURN)
+        assert {r: sim.reg(r) for r in kept} == kept and sim.reg("esp") == l2._STACK_TOP - 0x100
+        assert struct.pack("<I", eax) == bytes(sim.uc.mem_read(pc + 0x138, 4)) == bytes(sim.uc.mem_read(pc + 0x90, 4))
+        return sim.f32(pc + 0x138)
+    beam, sweep, nova = (next(c for c in columns if variant.columns.get(c) == n) for n in ("beam", "sweep", "nova"))
+    yaw = pytest.approx(0.3)
+    assert (enter(beam, 0.3), log) == (1.0, [(critter, yaw, 14.0)]) and sim.f32(radius) == 3.0
+    assert (enter(sweep, 0.3, aim=10.0, bearing=1.2), log[-1]) == (
+        pytest.approx(1.2 - math.radians(10)), (critter, pytest.approx(0.3 + math.radians(10)), 14.0))
+    assert (enter(beam, 0.3, off=math.radians(50)), enter(beam, 0.3, count=0), len(log)) == (yaw, yaw, 4)
+    assert (enter(beam, 0.3, playing=False), enter(nova, 0.3), len(log)) == (yaw, yaw, 4)
