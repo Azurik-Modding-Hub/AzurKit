@@ -1685,9 +1685,15 @@ are the Characters section's.
     the Characters tab uses too). A cell's edit is checked by the engine
     (`sdk.data_edit`: any finite number, D23; refused only where the
     cell's encoding can't hold it, D45) into the recipe's `xbr` `set`
-    operations, which the tab keeps (Undo, Redo, Revert, Reset table,
-    Clear edits) and the page builds with (after the packs), remembers and
-    links (`state.xbr`; the Patches tab's line names them); ⚠ marks a cell
+    operations; a value set's editor (Step 4.24b, Modkit's Step 2.100) is
+    a dropdown that greys what the cell can't take yet, a word list's a
+    checklist capped at `max_words`, each grey the engine's
+    (`sdk.data_edit`'s `texts`: `tools.data.needs`, a new string or a
+    clear edit); the Critters and Items pickers show each one's body in
+    the Characters tab's shipped picture (the index's `body`). The tab
+    keeps the edits (Undo, Redo, Revert, Reset table, Clear edits), and the
+    page builds with them (after the packs), remembers and links them
+    (`state.xbr`; the Patches tab's line names them); ⚠ marks a cell
     a ticked pack's slider also writes (`sdk._written`: each config.xbr
     slider's spans as a build plans them; a pack a build would refuse
     marks none). The tab asks again each time it shows, so the marks

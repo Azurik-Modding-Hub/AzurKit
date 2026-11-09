@@ -198,6 +198,29 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
                    "value": 2147483647.5}], gate.USA, {data.FILE: data.vanilla()})
 
 
+def test_the_texts_a_cell_cant_take_yet_are_named_with_what_they_need_as_its_editor_greys_them():
+    """D1171's census row G38 (Modkit's greyed values, Step 2.100): asked
+    with texts, the Data tab's edit names each the cell can't take yet. The
+    magic A spell's empty Damage takes a code another magic cell holds
+    (fire) and not one none holds (kill: a new string); earth_armor_2's
+    Strong vs takes fire and stem, the ice armors' "stem fire" in another
+    order, but not fire alone; the word the game reads an empty cell as
+    (attacks_transitions' button "any") needs a clear edit where the game
+    data fills the cell; a cell that isn't there is refused by name, as
+    its edit is, and so are texts that aren't a list of texts."""
+    def needs(table, entity, prop, texts):
+        c, r = _at(table, entity, prop)
+        return sdk.data_edit({"edit": {"table": table, "col": c, "row": r}, "texts": texts})["needs"]
+    assert needs("magic", "A", "Damage", ["fire", "kill"]) == {"kill": data.NEEDS_STRING}
+    assert needs("armor_properties", "earth_armor_2", "Strong vs", ["fire stem", "fire"]) == {"fire": data.NEEDS_STRING}
+    assert needs("attacks_transitions", "a", "button", ["any", ""]) == {"any": data.NEEDS_CLEAR}
+    for edit, texts, why in [({"table": "magic", "col": 999, "row": 0}, ["fire"],
+                              "config table magic has no cell at column 999, row 0"),
+                             ({"table": "magic", "col": 0, "row": 0}, "fire", "texts is a list of a cell's texts")]:
+        with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+            sdk.data_edit({"edit": edit, "texts": texts})
+
+
 def test_a_cell_a_ticked_packs_slider_writes_is_marked_and_the_data_edit_wins(usa_iso, capsys):
     """sdk.data marks ⚠ (``written``) each cell a ticked pack's slider also
     writes, as a build plans it (Starting HP's settings_foo initial hp, in

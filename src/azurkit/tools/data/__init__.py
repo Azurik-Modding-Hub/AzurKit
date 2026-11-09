@@ -22,6 +22,8 @@ image's, a build's too, read-only and never gated: :func:`image_files` every
   with its info rows.
 - :func:`view`: one entity's cells of every table that holds it, as
   sections of blocks (:mod:`.views`); :func:`table`: a table as a grid.
+- :func:`needs`: which of a value set's texts a cell can't take yet, and
+  what each needs (a new string, a clear edit), which its editor greys.
 - :func:`check`: a cell's edit as the recipe's ``xbr`` ``set`` operation
   (``edits.xbr``), or a ``ValueError`` saying why the cell can't hold it,
   with its type and an example, never game bytes: a number cell takes any
@@ -66,6 +68,9 @@ KIND = {EMPTY: "empty", NUMBER: "number", STRING: "text"}
 VIEWS = ("player", "critter", "item", "armor", "weapon", "changes")
 LABELS = {table: (category, label) for category, tables in CATEGORIES.items() for table, label in tables.items()}
 _RESETS = "empty resets it"
+NEEDS_STRING, NEEDS_CLEAR = "needs a new string", "needs a clear edit"
+"""What a value a cell's editor lists but the cell can't take yet needs (:func:`needs`): a string the table
+doesn't hold, or, for the word the game reads an empty cell as, emptying a cell the game data fills."""
 
 
 @functools.cache
@@ -595,11 +600,44 @@ def check(edit: Mapping, ops: object = (), base: bytes | None = None, release: g
     return {"op": op, "ops": [*kept, op]}
 
 
+def needs(cell: Mapping, texts: object, ops: object = (), base: bytes | None = None,
+          release: gate.Release = gate.USA) -> dict:
+    """Which of ``texts`` the cell ``{table, col, row}`` (with ``file``,
+    another file's table, as :func:`check` takes it) can't take yet, as its
+    editor greys them (Modkit's, Step 2.100: a dropdown's values, and a
+    checklist's words by the text each toggle gives): ``{"needs": {text:
+    what}}``, :data:`NEEDS_CLEAR` for the word the game reads an empty cell
+    as where the game data fills the cell, :data:`NEEDS_STRING` for any
+    other text :func:`check` refuses. ``ValueError`` names a cell that
+    isn't there, as :func:`check` does."""
+    if not (isinstance(cell, Mapping) and {"table", "col", "row"} <= set(cell) <= {"file", "table", "col", "row"}):
+        raise ValueError("a cell is {table, col, row}, with file for another file's table")
+    if not (isinstance(texts, list) and all(isinstance(text, str) for text in texts)):
+        raise ValueError("texts is a list of a cell's texts")
+    check({**cell, "value": ""}, ops, base, release)   # the cell itself: there, or refused by name
+    file = cell.get("file", FILE)
+    t = (_vanilla_tables() if file == FILE else Document(base).tables)[cell["table"]]
+    word, filled = _word(t, cell["col"], cell["row"], file), t.cell(cell["col"], cell["row"]).kind != EMPTY
+    out = {}
+    for text in dict.fromkeys(texts):
+        try:
+            check({**cell, "value": text}, ops, base, release)
+        except ValueError:
+            out[text] = NEEDS_CLEAR if filled and text.strip() == word else NEEDS_STRING
+    return {"needs": out}
+
+
+def _word(t: Table, col: int, row: int, file: str) -> str | None:
+    """The word schema.json gives what the game reads the empty cell as (button's "any"), else ``None``."""
+    entry = _entry(t.name, t.cols[col], t.rows[row])[1] if file == FILE else {}
+    return entry["empty_default"] if isinstance(entry.get("empty_default"), str) else None
+
+
 def _op(t: Table, col: int, row: int, given: object, file: str = FILE, base: bytes | None = None) -> dict | None:
     """The ``set`` operation that puts ``given`` in vanilla's cell (``None``: the cell as vanilla), or why not."""
     entity, prop, was = t.cols[col], t.rows[row], t.cell(col, row)
     entry = _entry(t.name, entity, prop)[1] if file == FILE else {}
-    word = entry.get("empty_default") if isinstance(entry.get("empty_default"), str) else None
+    word = _word(t, col, row, file)
     if isinstance(given, str) and (not given.strip() or given.strip() == word):
         if given.strip() and was.kind != EMPTY:
             raise ValueError(f"{given.strip()!r} is an empty cell, and AzurKit can't empty a cell the game data "

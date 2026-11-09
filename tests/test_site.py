@@ -3073,6 +3073,94 @@ def test_the_data_tabs_critters_and_items_show_each_ones_body_in_the_picture_the
         served.close()
 
 
+# A Data tab cell by its ref ([table, col, row]): its editor opened, its checklist as it reads ([its text, each word's
+# [word, ticked, disabled, greyed], the line under them]), a word's box clicked, a button of its editor pressed, and
+# its dropdown's options ([value, disabled, text]) and one chosen.
+DATA_REF = """const td = [...document.querySelectorAll("#data td.cell")].find((n) =>
+    JSON.stringify(JSON.parse(n.dataset.cell).ref) === JSON.stringify(ref));"""
+DATA_OPEN = f"""(ref) => {{ {DATA_REF} td.click(); }}"""
+DATA_WORDS = f"""(ref) => {{ {DATA_REF} const list = td?.querySelector(".data-words");
+    return list && [td.querySelector("input").value, [...list.querySelectorAll("label")].map((l) => [l.textContent,
+        l.firstChild.checked, l.firstChild.disabled, l.classList.contains("needs")]),
+        list.querySelector(".note").textContent]; }}"""
+DATA_TICK = f"""([ref, word]) => {{ {DATA_REF}
+    [...td.querySelectorAll(".data-words label")].find((l) => l.textContent === word).firstChild.click(); }}"""
+DATA_BUTTON = f"""([ref, label]) => {{ {DATA_REF}
+    [...td.querySelectorAll("button")].find((b) => b.textContent === label).click(); }}"""
+DATA_OPTIONS = f"""(ref) => {{ {DATA_REF} const box = td?.querySelector("select");
+    return box && [...box.options].map((o) => [o.value, o.disabled, o.textContent]); }}"""
+DATA_CHOOSE = f"""([ref, value]) => {{ {DATA_REF} const box = td.querySelector("select");
+    box.value = value;
+    box.dispatchEvent(new Event("change")); }}"""
+
+
+def test_a_word_list_cell_edits_as_a_checklist_and_a_dropdown_greys_the_values_that_need_a_new_string(browser, site):
+    """D1171's census row G38 (Modkit's Step 2.100 dropdowns and
+    checklists): earth_armor_2's Strong vs, in the Armor view, opens a
+    checklist of the damage type codes over its text box, its text's watr
+    ticked and, once the engine answers, each word whose toggle gives a
+    text the cell can't take yet greyed, the line under them saying it
+    needs a new string; unticking watr and ticking fire and stem stops at
+    the game's 2 words (the rest disabled), and Set writes the engine's
+    operation, pointed at the ice armors' "stem fire"; Undo takes it back.
+    The magic A spell's empty Damage, in All tables, is a dropdown that
+    greys (disables) each code no magic cell holds, saying it needs a new
+    string, and takes fire. No CSP violation, no request but GETs of the
+    site's files."""
+    tables = data._vanilla_tables()
+    strong = ["armor_properties", tables["armor_properties"].column("earth_armor_2"),
+              tables["armor_properties"].row("Strong vs")]
+    damage = ["magic", tables["magic"].column("A"), tables["magic"].row("Damage")]
+
+    def op(ref, value):
+        return sdk.data_edit({"edit": dict(zip(("table", "col", "row"), ref)) | {"value": value}})["op"]
+    codes = sdk.data({"what": "table", "table": "magic"})["rows_meta"][damage[2]]["choices"]["values"]
+    needs = sdk.data_edit({"edit": dict(zip(("table", "col", "row"), damage)), "texts": codes})["needs"]
+    assert needs["kill"] == data.NEEDS_STRING and "fire" not in needs
+    pick = """(name) => document.querySelector(`#data .picker-list .picker-entry[data-name="${name}"]`).click()"""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-data")
+        _page.until(page, "() => azurkit.data.state.index")
+        page.evaluate(DATA_VIEW, "Armor")
+        page.evaluate(pick, "earth_armor")
+        _page.until(page, "() => azurkit.data.state.answer?.name === 'earth_armor'")
+        page.evaluate(DATA_OPEN, strong)
+        text, words, line = _page.until(page, f"""() => {{ const w = ({DATA_WORDS})({json.dumps(strong)});
+            return w && w[2] && w; }}""")
+        assert (text, line) == ("watr", f"Grey: {data.NEEDS_STRING}")
+        assert {"fire", "stem", "litn", "watr", "kill"} <= {w for w, *_ in words}
+        assert [w for w, ticked, *_ in words if ticked] == ["watr"] and not any(off for _, _, off, _ in words)
+        assert any(grey for *_, grey in words)
+        for word in ("watr", "fire", "stem"):
+            page.evaluate(DATA_TICK, [strong, word])
+        text, words, _ = page.evaluate(DATA_WORDS, strong)
+        assert text == "fire stem" and [w for w, ticked, *_ in words if ticked] == ["fire", "stem"]
+        assert all(off for w, ticked, off, _ in words if not ticked)
+        page.evaluate(DATA_BUTTON, [strong, "Set"])
+        _page.until(page, "() => azurkit.xbr.length === 1")
+        assert page.evaluate("() => azurkit.xbr") == [op(strong, "fire stem")]
+        assert op(strong, "fire stem")["value"] == "stem fire"
+        page.evaluate(DATA_PRESS, "Undo")
+        _page.until(page, "() => !azurkit.xbr.length")
+
+        page.evaluate(DATA_VIEW, "All tables")
+        page.evaluate(pick, "magic")
+        _page.until(page, "() => azurkit.data.state.answer?.name === 'magic'")
+        page.evaluate(DATA_OPEN, damage)
+        greyed = f"() => {{ const o = ({DATA_OPTIONS})({json.dumps(damage)}); return o?.some((x) => x[1]) && o; }}"
+        assert _page.until(page, greyed) == [["", False, "(vanilla)"]] + [
+            [v, v in needs, f"{v} · {needs[v]}" if v in needs else v] for v in codes]
+        page.evaluate(DATA_CHOOSE, [damage, "fire"])
+        _page.until(page, "() => azurkit.xbr.length === 1")
+        assert page.evaluate("() => azurkit.xbr") == [op(damage, "fire")]
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 def test_a_modkit_mod_file_loads_in_the_tools_tab_and_the_data_tabs_changes_list_what_it_changes(browser, site,
                                                                                                   tmp_path):
     """Step 4.6i (P19b, P23): the Tools tab's Load reads Modkit's mod file

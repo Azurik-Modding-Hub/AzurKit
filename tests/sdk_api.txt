@@ -574,7 +574,11 @@ cell's earlier operations dropped and it last (``tools.data.check``).
 A number cell takes any finite number (D23) but what int32 can't hold
 where the game reads one (D45); a refusal says why, with the cell's
 type and an example, never game bytes. An edit with ``file`` (another
-file's table, All files) reads that file from the image ``iso``.
+file's table, All files) reads that file from the image ``iso``. With
+``texts`` (a list of the cell's texts) and an edit with no ``value``:
+``{"needs": {text: what}}``, each text the cell can't take yet and what
+it needs, a new string or a clear edit, which its editor greys
+(``tools.data.needs``).
 
 
 def mods_diff(given: 'Mapping') -> 'dict':

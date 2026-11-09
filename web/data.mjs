@@ -5,7 +5,8 @@
 // category (the list filtered by table name), a table as a grid with an entity a row and a property a column, sorted by
 // a column's header, Changed only; and Changes, every cell the edits change (a loaded mods file's too) with its vanilla
 // value beside it, table by table, and the byte edits a mods file brought: what a build will change, before it. A cell edits on a click, Enter or F2: a number cell takes any number (never
-// clamped: its range is a hint), a value set is a dropdown or a checkbox, an empty cell with a known default shows it
+// clamped: its range is a hint), a value set is a dropdown (each value the cell can't take yet greyed, saying what it
+// needs), a word list a checklist or a yes/no a checkbox, an empty cell with a known default shows it
 // greyed; the engine checks every edit (tools/data's check) and a refusal is one red line under the cell saying why.
 // A changed cell is marked ● with its vanilla value in its note, a cell a ticked pack's slider also writes ⚠ (the data
 // edit wins: the build says so). Revert (a cell), Reset table, Undo, Redo, Clear edits and the count of edits. The edits
@@ -35,6 +36,10 @@ const el = (tag, props = {}, ...children) => {
   return node;
 };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// A dropdown editor's box: a clone of index.html's template's, never one made in the page by script (createElement, or
+// a clone of one in the page): WebKit gives such a select an inline style the page's CSP refuses (style-src-attr, which
+// the status line would say), but not one cloned from a template's content.
+const select = () => document.getElementById("data-select").content.firstElementChild.cloneNode(true);
 
 // dataTab({ call, root, say, packs, changed, image, app }): call is the engine's (the site's worker, the app's api),
 // root the tab's panel, say(text) the page's status line, packs() the Patches tab's ticks (the engine marks the cells
@@ -325,26 +330,32 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
       : []);
   };
 
-  // Editing: a click, Enter or F2 on a cell opens its editor; Enter (or a dropdown's or checkbox's change) commits,
-  // Escape or leaving it cancels. A refusal is one line under the cell's table; Revert is the editor's empty text.
+  // Editing: a click, Enter or F2 on a cell opens its editor; Enter (or a dropdown's or checkbox's change, or a
+  // checklist's Set) commits, Escape or leaving it cancels. A refusal is one line under the cell's table; Revert is the
+  // editor's empty text. A dropdown greys (disables) each value the cell can't take yet, saying what it needs, and a
+  // word list is a checklist (Modkit's, Step 2.100), each as the engine answers (grey()). A click in the editor
+  // anywhere but its box leaves the box the focus, so a word ticked, Set or Revert never cancels it.
   const editor = (node) => {
     const cell = JSON.parse(node.dataset.cell);
     const choices = cell.choices;
-    let input;
+    let input, more = [];
     if (choices?.kind === "yes_no") {
       input = el("input", { type: "checkbox", checked: cell.text !== "" && cell.text !== "0" });
     } else if (choices?.kind === "one") {
-      input = el("select", {}, el("option", { value: "", textContent: "(vanilla)" }),
-                 ...choices.values.map((v) => el("option", { value: v, textContent: v })));
+      input = select();
+      input.append(el("option", { value: "", textContent: "(vanilla)" }),
+                   ...choices.values.map((v) => el("option", { value: v, textContent: v })));
       input.value = cell.text;
+      grey(cell, choices.values).then((needs) => {
+        for (const option of input.options) {
+          if (!Object.hasOwn(needs, option.value)) continue;
+          option.disabled = true;
+          option.textContent = `${option.value} · ${needs[option.value]}`;
+        }
+      });
     } else {
       input = el("input", { type: "text", value: cell.text, spellcheck: false, autocomplete: "off" });
-      if (choices?.values?.length) {
-        const list = el("datalist", { id: `data-values-${d.ticket}` },
-                        ...choices.values.map((v) => el("option", { value: v })));
-        node.append(list);
-        input.setAttribute("list", list.id);
-      }
+      if (choices?.kind === "words") more = [button("Set", () => send(input.value)), checklist(cell, choices, input)];
     }
     const revert = button("Revert", () => send(""));
     revert.disabled = !("vanilla" in cell);
@@ -362,11 +373,62 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
       input.addEventListener("change", () => send(input.type === "checkbox" ? (input.checked ? "1" : "0")
         : input.value));
     }
-    input.addEventListener("blur", (event) => {
-      if (!done && event.relatedTarget !== revert) setTimeout(() => { if (!done) draw(); }, 0);
+    node.addEventListener("mousedown", (event) => {
+      if (!input.contains(event.target)) event.preventDefault();
     });
-    node.replaceChildren(input, revert);
+    node.addEventListener("focusout", (event) => {   // leaving the editor, not for its own words or buttons (a key's Tab)
+      if (!done && !node.contains(event.relatedTarget)) setTimeout(() => { if (!done) draw(); }, 0);
+    });
+    node.replaceChildren(input, ...more.slice(0, 1), revert, ...more.slice(1));
     input.focus();
+  };
+  // What each of texts the cell can't take yet needs ({text: what}; the engine's check, sdk.data_edit's texts).
+  const grey = async (cell, texts) => {
+    if (!texts.length) return {};
+    const [table, col, row] = cell.ref;
+    const given = { edit: { table, col, row, ...cell.file ? { file: cell.file } : {} }, texts, ops: d.ops };
+    const reply = await call("data_edit", cell.file ? imaging(given) : { given });
+    return "refused" in reply ? {} : reply.needs;
+  };
+  // A word list's checklist (Modkit's): a box a word of the cell's value set, ticked for each the text holds; a tick
+  // adds its word to the text, an untick takes it out, and typing ticks them. Once the text holds as many words as the
+  // game does (max_words) the unticked ones are disabled, and a word whose toggle gives a text the cell can't take yet
+  // is greyed (it still ticks, toward a text it can), the line under the words saying what grey needs.
+  const checklist = (cell, choices, input) => {
+    let asked = 0;
+    const line = el("span", { className: "note" });
+    const words = choices.values.map((word) => {
+      const box = el("input", { type: "checkbox" });
+      box.addEventListener("change", () => {
+        const kept = input.value.split(/\s+/).filter((w) => w && w !== word);
+        input.value = [...kept, ...box.checked ? [word] : []].join(" ");
+        sync();
+      });
+      return { word, box, label: el("label", {}, box, word) };
+    });
+    const sync = async () => {
+      const held = input.value.split(/\s+/).filter(Boolean);
+      const full = Boolean(cell.max_words) && held.length >= cell.max_words;
+      for (const w of words) {
+        w.box.checked = held.includes(w.word);
+        w.box.disabled = full && !w.box.checked;
+        const other = w.box.checked ? held.filter((h) => h !== w.word) : [...held, w.word];
+        w.toggled = other.length && !w.box.disabled ? other.join(" ") : null;   // an empty text resets: never grey
+      }
+      const mine = ++asked, needs = await grey(cell, [...new Set(words.map((w) => w.toggled).filter(Boolean))]);
+      if (mine !== asked) return;
+      const said = new Set();
+      for (const w of words) {
+        const what = w.toggled && Object.hasOwn(needs, w.toggled) ? needs[w.toggled] : null;
+        w.label.classList.toggle("needs", Boolean(what));
+        w.label.title = what ? `${w.word}: ${what}` : "";
+        if (what) said.add(what);
+      }
+      line.textContent = said.size ? `Grey: ${[...said].join(", ")}` : "";
+    };
+    input.addEventListener("input", sync);
+    sync();
+    return el("div", { className: "data-words" }, ...words.map((w) => w.label), line);
   };
   // One edit asked at a time, each with the edits as they stand once the one before it is in (an edit sent before
   // the last one's answer would drop it), and asked again if Undo, Redo, Clear, Reset or a load changes the edits while

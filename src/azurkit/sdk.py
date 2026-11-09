@@ -2127,16 +2127,21 @@ def data_edit(given: Mapping) -> dict:
     A number cell takes any finite number (D23) but what int32 can't hold
     where the game reads one (D45); a refusal says why, with the cell's
     type and an example, never game bytes. An edit with ``file`` (another
-    file's table, All files) reads that file from the image ``iso``."""
-    if not (isinstance(given, Mapping) and "edit" in given and set(given) <= {"edit", "ops", "iso"}):
-        raise ValueError("data_edit: {edit: {table, col, row, value}, ops}")
+    file's table, All files) reads that file from the image ``iso``. With
+    ``texts`` (a list of the cell's texts) and an edit with no ``value``:
+    ``{"needs": {text: what}}``, each text the cell can't take yet and what
+    it needs, a new string or a clear edit, which its editor greys
+    (``tools.data.needs``)."""
+    if not (isinstance(given, Mapping) and "edit" in given and set(given) <= {"edit", "ops", "iso", "texts"}):
+        raise ValueError("data_edit: {edit: {table, col, row, value}, ops}, or {edit: {table, col, row}, texts, ops}")
     if not isinstance(ops := given.get("ops") or [], list):
         raise ValueError("data_edit: ops is a list of xbr operations")
-    edit = given["edit"]
+    edit, release, base = given["edit"], gate.USA, None
     if isinstance(edit, Mapping) and edit.get("file", datatool.FILE) != datatool.FILE:
         release, base = _keyed_file(given, edit["file"])
-        return datatool.check(edit, ops, base, release)
-    return datatool.check(edit, ops)
+    if "texts" in given:
+        return datatool.needs(edit, given["texts"], ops, base, release)
+    return datatool.check(edit, ops, base, release)
 
 
 def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:

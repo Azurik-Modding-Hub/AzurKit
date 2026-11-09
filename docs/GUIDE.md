@@ -209,6 +209,8 @@ before you pick your image: AzurKit ships the game's original config.xbr, the sa
   `--input FILE` a loose .xbr file; `azurkit diff` and `entity diff` take one too. They never write it.
 - **Edit any cell:** any number, never clamped; only a value the game can't store is refused, saying why. Each cell
   has a note on what it does.
+- **Lists and word lists:** a cell with a set of values is a dropdown, and a list of words a checklist that stops at
+  as many words as the game holds; a value the cell can't take yet is greyed, saying it needs a new string.
 - **Marks:** ● on what you changed, with the original value; ⚠ where a ticked pack also writes it (your edit wins,
   and the build says so).
 - **Changes:** every value your edits or a loaded mods file change, the original beside it, and its byte edits: what
