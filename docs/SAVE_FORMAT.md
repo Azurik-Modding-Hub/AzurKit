@@ -3,7 +3,7 @@
 > **Status**: verified against a real save extracted from an
 > `xbox_hdd.qcow2` xemu HDD image.  Directory layout, Xbox container
 > files, and `.sav` file variants all decoded; per-file payload
-> field structure is partially decoded (TextSave lines, a level
+> field structure is partially decoded (text saves' lines, a level
 > save's record count) — full record-by-record decoders for `inv.sav`,
 > `shared.sav`, and level saves remain future work.
 >
@@ -120,11 +120,14 @@ NoCopy=1\r\n
 <optional binary tail>
 ```
 
-Python API (`SaveMetaXbx`): `from_bytes()`, `get()`, `set()`,
-`save_name`, `title_name`, `no_copy`, `to_bytes()`.  Round-trip is
-byte-identical when no fields are mutated.  `from_bytes` keeps the
-BOM off the first key (`bom=True`) and `to_bytes` writes it back,
-so `save_name` / `title_name` work on real files (AZ-122).
+Python API (`saves.Meta`, in `container.py`): `Meta.from_bytes()`,
+`get(key)`, `fields` (each `[key, value, line ending]`), `tail` (the
+bytes after the last line), `bom`, `to_bytes()`.  Round-trip is
+byte-identical when no field is changed: each line keeps its own
+ending (a `\r\n\0\0` too), and `from_bytes` keeps the BOM off the
+first key (`bom=True`) and `to_bytes` writes it back, so `get("Name")`
+works on real files (AZ-122).  `saves.decode` gives a slot's top-level
+meta file as its `fields` and its tail's length.
 
 ### 3b. SaveImage.xbx / TitleImage.xbx
 
@@ -136,7 +139,8 @@ exist in Cxbx-Reloaded, XGCore, etc.).
 
 Unlike the initial scaffold assumed, there is **no single 20-byte
 header** across all `.sav` files.  The format splits into four
-shapes, classified by `AzurikSave.kind`:
+shapes, which `saves.decode` names by each file's `kind` (`text`,
+`binary` or `signature`; a level save is `binary`):
 
 ### 4a. Text saves (`loc.sav`, `magic.sav`, `options.sav`)
 
@@ -178,19 +182,23 @@ refreshes line 0 as it writes: a poked 0.25 was saved as 1.0
 
 `options.sav` has **no header**: it is three CRLF-delimited lines
 of printable ASCII (`0.333333\r\n0.333333\r\n0\r\n` in the real
-save).  `AzurikSave` classifies any file of printable ASCII lines
-(LF or CRLF) that ends in a newline as text too, with
-`version=None` and `newline="\r\n"`, so `to_bytes()` re-emits it
-with no header and CRLF line endings (before Step 1.33 it was read
-as `kind="binary"`, its ASCII digits taken for a u32 header).
+save).  `container.is_text` takes any file of printable ASCII lines
+(LF or CRLF) that ends in a newline for a text save too, and
+`Text.from_bytes` reads it with `version=None` and
+`newline="\r\n"`, so `to_bytes()` re-emits it with no header and
+CRLF line endings (Modkit read it as binary until its Step 1.33, its
+ASCII digits taken for a u32 header).
 
-Python API (`TextSave`): `version` (None when headerless), `lines`,
-`binary_tail`, `raw`, `newline`, `to_bytes()`.  Editing `lines` then
-calling `to_bytes()` re-emits the file with the same header, line
-ending and preserved binary tail — so a user can open `magic.sav`
-in a text editor, change a value (line 4, the armor gauge, say),
-then save (and re-sign: see § 4c).  What an edited value does in
-game is not measured.
+Python API (`saves.Text`, in `container.py`): `Text.from_bytes()`,
+`version` (None when headerless), `lines`, `tail` (the bytes from
+the first NUL: `loc.sav`'s binary tail, or the padding), `newline`,
+`final_newline`, `to_bytes()`.  Editing `lines` then calling
+`to_bytes()` re-emits the file with the same header, line ending and
+tail.  `saves.edit` does that for a slot, every edit or none (§ 5),
+and `azurkit save edit FOLDER --set magic.sav:4=<value>`, with § 7's
+flags, changes line 4, the armor gauge, and signs the slot again
+(§ 4c).  What an edited
+value does in game is not measured.
 
 ### 4b. Binary saves (`inv.sav`, `shared.sav`, level saves)
 
@@ -213,7 +221,7 @@ From real samples:
   bytes 4–472 equal the inventory in RAM at the writer `0x58B50` and
   after the reader on a reload].  The f32 at +4 is the inventory's
   first field, from which the gameState values `current day` and
-  `day night timer` derive, so `save inspect` shows it as `clock`
+  `day night timer` derive, so `saves.decode` names it `clock`
   [those reads: static, the randomizer plan's RAM recipes § 2.1, not
   re-checked here].  It is the day-night clock: `0x55920` adds
   (1/30)/600 to it per update (a 600 s day), and a new game sets it to
@@ -238,17 +246,17 @@ From real samples:
 - **Level saves:** § 4d.
 
 Sources for the sitting: xemu sitting rz-a's report, § 0 (I-0), and the
-randomizer plan's RAM recipes, § 6 (private evidence, outside git).  Until Step 2.20h `BinarySave` called the u32 at +4
-`record_count`, and `save inspect` printed it as every binary save's
-record count (1057679148 "records" for `inv.sav`).
+randomizer plan's RAM recipes, § 6 (private evidence, outside git).  Until its Step 2.20h Modkit called the u32 at +4
+`record_count`, and its `save inspect` printed it as every binary
+save's record count (1057679148 "records" for `inv.sav`).
 
-Python API (`BinarySave`): `version`, `word_at_4` (the raw u32
-at +4), `body` (the bytes after +8), `raw`, `to_bytes()`.
-`AzurikSave.summary()` and `save inspect` name the word by its file:
-`clock` for `inv.sav`, `records` for a level save, nothing for
-`shared.sav` (and `word_at_4` for a save read with no file name).
-Per-file decoders (e.g. an `Inventory` class that walks `inv.sav`'s
-slots) are future work.
+Python API: a binary save has no class of its own.  `saves.decode`
+gives its `version`, `body` (the length after +8) and the u32 at +4
+named by its file: `clock` for `inv.sav` (read as an f32; `None` when
+not finite), `records` for a level save, nothing for `shared.sav`.
+`azurkit save inspect` prints each file's kind and size (and a text
+save's lines), not these fields.  Per-file decoders (e.g. one that
+walks `inv.sav`'s slots) are future work.
 
 ### 4c. `signature.sav` — HMAC-SHA1 integrity digest
 
@@ -270,9 +278,10 @@ called it a plain SHA-1 with an unknown hash domain; § 7's April
 `src/azurkit/tools/saves/sign.py`, which uses
 `hmac.new(key, digestmod=hashlib.sha1)`].)
 
-Python API (`SignatureSave`): `digest`, `hex()`, `to_bytes()`;
-`azurkit.tools.saves.sign.compute_signature(root,
-xbox_signature_key=...)` recomputes it.
+Python API: `saves.decode` gives the file's 20 bytes as its
+`digest` (hex); `saves.signature(slot, key)` (`sign.py`) recomputes
+it, `saves.resign(slot, key)` puts it in the slot and
+`saves.signed(slot, key)` checks it (§ 5, § 7).
 
 ### 4d. Level saves (`levels/<element>/<level>.sav`)
 
