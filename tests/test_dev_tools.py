@@ -1218,10 +1218,11 @@ def test_land_needs_a_perf_block_blocking_nothing_for_src_or_web_and_a_list_that
     with a perf block (one whose stage ran) in which nothing blocks, read from
     its verdicts: a debt row doesn't, an op the last release never measured
     that errs among them (an older perf.py failed the block on it), while an
-    error on an op the release measured, an op slower than there or a memory
-    peak does; any stack, one changing only tests/perf_ceilings.toml too, is
-    refused when its list adds an op or raises a ceiling against main's. No
-    landing waits for a release (a release tags a commit on main)."""
+    error on an op the release measured, an error row with no reference (an
+    older perf.py's), an op slower than there or a memory peak does; any
+    stack, one changing only tests/perf_ceilings.toml too, is refused when its
+    list adds an op or raises a ceiling against main's. No landing waits for a
+    release (a release tags a commit on main)."""
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     (lane / "src").mkdir()
     (lane / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
@@ -1234,10 +1235,12 @@ def test_land_needs_a_perf_block_blocking_nothing_for_src_or_web_and_a_list_that
     _receipt(receipts, top)
     code, why = land.land(repo, "p2/x")
     assert code == 1 and "and a perf block blocking nothing" in why
-    erring = {"verdict": "error", "ok": False, "slower": False, "debt": False, "error": "timed out after 600 s"}
+    old = {"verdict": "error", "ok": False, "slower": False, "debt": False, "error": "timed out after 600 s"}
+    erring = old | {"reference": None, "debt": True}
     new = {"passed": False, "cases": {"A96/app": erring}, "memory": {}, "native_failures": [], "list": [],
            "failures": ["A96/app: error (timed out after 600 s)"]}
-    for block in ({"passed": False}, new | {"cases": {"A96/app": erring | {"reference": 0.4}}},
+    for block in ({"passed": False}, new | {"cases": {"A96/app": old}},
+                  new | {"cases": {"A96/app": erring | {"reference": 0.4}}},
                   new | {"cases": {"A13/app": {"verdict": "over", "slower": True, "reference": 3.0, "median": 4.1,
                                                "budget": 3.0}}},
                   new | {"memory": {"capped-app": {"peak": 7 * 2**30, "ok": False}}}):

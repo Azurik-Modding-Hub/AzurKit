@@ -199,8 +199,9 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
 
 def blocks(case: dict) -> bool:
     """Whether a case's verdict blocks (D1170): a clear regression against the last release's run, an op ``slower``
-    than its median there, or one it measured (a ``reference``) that errors."""
-    return bool(case.get("slower")) or case.get("verdict") == "error" and case.get("reference") is not None
+    than its median there, or one it measured (a ``reference``) that errors. An error row with no ``reference`` key
+    (an older perf.py's, whose judge returned before it set one) blocks too: only a ``None`` reference is debt."""
+    return bool(case.get("slower")) or case.get("verdict") == "error" and case.get("reference", 0) is not None
 
 
 def blocking(block: dict | None) -> list[str]:
@@ -214,7 +215,8 @@ def blocking(block: dict | None) -> list[str]:
         return [] if block.get("passed") is True else list(block.get("failures") or ["no perf verdicts"])
     out = [f"{k}: slower than the release's {r['reference']} s ({r['median']} s, over its {r['budget']} s budget "
            f"and the release's by {REGRESSION:.0%} and {REGRESSION_S} s: D1170)" if r.get("slower")
-           else f"{k}: error ({r.get('error')}), an op the release measured ({r['reference']} s)"
+           else f"{k}: error ({r.get('error')}), " + (f"an op the release measured ({r['reference']} s)"
+                                                       if "reference" in r else "judged by an older perf.py")
            for k, r in block["cases"].items() if blocks(r)]
     out += [f"memory {k}: {v['peak'] / 2**30:.2f} GiB" for k, v in block.get("memory", {}).items() if not v["ok"]]
     return out + list(block.get("native_failures", [])) + list(block.get("list", []))
