@@ -1672,3 +1672,1121 @@ def test_the_fx_ring_spawns_arms_detaches_and_ends_an_attacks_copy(monkeypatch):
     assert attr(own, 2, 4) == 0.0
     tick(22.25)
     assert attr(own, 2, 4) == 1.0
+
+
+def test_beamlords_air_blast_jumps_to_its_impact_when_he_lands():
+    """D451 (Step 2.153, X39; the owner: "an air attack which is him
+    firing a bolt straight downwards that expands into an aoe blast"):
+    beamlord's jump attack plays his air_blast clip, its bolt phase until
+    the impact (1.8 clip s); no box meets the floor, so the blast has to
+    come from his landing. The build hooks the attack state's chain
+    check's CALL 0xCB020 at 0x8D44D, and (Step 2.153b) the state
+    machine's CALL 0x89480 at 0x8D39A and the classifier's two CALLs of
+    the hard landing 0x8B100 at 0x85A7C and 0x85B65 (beamlord's alone:
+    plain Balthazar's keeps them), each landing with his blast mask
+    (column 13) and impact. L2 at each entry (X39 alone on vanilla, the
+    callee stubbed), column 13 playing and its slot (0x5F) still the
+    critter's: (a) 0x8D44D in state 0x100: the top layer's time goes
+    0.4 -> 1.8 and 2.0 stays 2.0; state 0x102 (still in the air),
+    another slot (a hard landing's touchdown), another column or a layer
+    with no clip leave it; 0xCB020 gets ECX, the anim object, once; a
+    plain RET, EBX, EDX, ESI, EDI and EBP kept; (b) 0x8D39A in state
+    0x102: the time 1.79 is held at 1.5 (the impact less 0.3: a tick's
+    advance comes after it), 0.4 stays, and 2.0 stays (a ground blast
+    whose floor went is 0x102 again: never rewound); state 0x100, another slot or
+    column leave it; 0x89480 gets EDI and its argument as the game set
+    them, once, and pops the argument (RET 4); every register kept; (c)
+    0x85A7C and 0x85B65 in state 0x102: the soft landing's writes, +0x94
+    0x100 and +0x16C's bit 2, the hard landing's copy of the move result's
+    +0xC0 velocity into +0x24 (fall damage reads its z), and a plain RET
+    without 0x8B100; another
+    column, slot or state: 0x8B100 gets EAX, ECX and EDX as the game set
+    them, once, and nothing is written."""
+    built = bytes(_swap("beamlord")["default.xbe"])
+    plain = bytes(_swap("balthazar")["default.xbe"])
+    assert [verify_trampoline_patch(built, hook) for hook in BLAST_HOOKS] == ["applied"] * 4
+    assert [verify_trampoline_patch(plain, hook) for hook in BLAST_HOOKS] == ["original"] * 4
+    assert [[_param(built, hook, BLAST_SHIM, f"_player_model_blast_{k}") for k in ("columns", "impact")]
+            for hook in BLAST_HOOKS] == [[1 << 13, pytest.approx(1.8)]] * 4
+    vanilla = _xbe()
+    blasting = bytearray(vanilla)
+    install_air_blast_shim(blasting, 1 << 13, 1.8)
+    assert l1.check(vanilla, built) == l1.check(vanilla, bytes(blasting)) == []
+
+    def entry(hook) -> int:
+        return hook.va + 5 + struct.unpack_from("<i", blasting, va_to_file(hook.va) + 1)[0]
+    base = 0x20000000
+    pc, critter, anim, clip, inp = (base + 0x1000 * k for k in range(5))
+
+    def staged(state: int, column: int, slot: int, time: float, played: int) -> Sim:
+        sim = Sim(bytes(blasting))
+        sim.uc.mem_map(base, 0x8000)
+        for at, data in ((pc + 0x20, struct.pack("<I", critter)), (pc + 0x94, struct.pack("<i", state)),
+                         (pc + 0x134, struct.pack("<i", column)), (pc + 0x16C, b"\x10"),
+                         (critter + 0x17C, struct.pack("<I", anim)), (critter + 0x200, struct.pack("<i", slot)),
+                         (anim + 0x10, struct.pack("<i", 1)), (anim + 0x84, struct.pack("<I", played)),
+                         (anim + 0x98, struct.pack("<f", time)), (clip + 0x10, struct.pack("<f", 3.0))):
+            sim.uc.mem_write(at, data)
+        return sim
+
+    def callee(sim: Sim, va: int, seen: list, regs: tuple[str, ...], pops: int) -> None:
+        def hit(uc, addr, size, _):   # the game's callee: what it was given, then RET (pops)
+            esp = sim.reg("esp")
+            seen.append(tuple(sim.reg(r) for r in regs) + tuple(sim.u32(esp + 4 * (k + 1)) for k in range(pops // 4)))
+            uc.reg_write(UC_X86_REG_EIP, sim.u32(esp))
+            uc.reg_write(UC_X86_REG_ESP, esp + 4 + pops)
+        sim.uc.hook_add(UC_HOOK_CODE, hit, begin=va, end=va)
+
+    def landed(*, state: int = 0x100, column: int = 13, slot: int = 0x5F, time: float = 0.4, played: int = clip
+               ) -> float:   # (a)
+        sim, seen = staged(state, column, slot, time, played), []
+        callee(sim, 0xCB020, seen, ("ecx",), 0)
+        kept = {"ebx": 0x11, "edx": 0x22, "esi": 0x33, "edi": 0x44, "ebp": pc}
+        sim.call(entry(BLAST_HOOK), regs={**kept, "ecx": anim}, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100 and seen == [(anim,)]
+        assert {r: sim.reg(r) for r in kept} == kept
+        return sim.f32(anim + 0x98)
+    assert (landed(), landed(time=2.0)) == (pytest.approx(1.8), 2.0)
+    for kw in ({"state": 0x102}, {"slot": 0x25}, {"column": 12, "slot": 0x5E}, {"played": 0}):
+        assert landed(**kw) == pytest.approx(0.4), kw
+
+    def held(*, state: int = 0x102, column: int = 13, slot: int = 0x5F, time: float = 1.79) -> float:   # (b)
+        sim, seen = staged(state, column, slot, time, clip), []
+        regs = {"eax": 0x55, "ebx": 0x11, "ecx": 0x66, "edx": 0x22, "esi": 0x33, "edi": pc, "ebp": 0x77}
+        callee(sim, 0x89480, seen, tuple(regs), 4)
+        sim.call(entry(BLAST_HOLD_HOOK), regs=regs, args=(inp,), until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100 and seen == [(*regs.values(), inp)]
+        assert {r: sim.reg(r) for r in regs} == regs
+        return sim.f32(anim + 0x98)
+    assert (held(), held(time=0.4), held(time=2.0)) == (pytest.approx(1.5), pytest.approx(0.4), 2.0)
+    for kw in ({"state": 0x100}, {"slot": 0x25}, {"column": 12, "slot": 0x5E}):
+        assert held(**kw) == pytest.approx(1.79), kw
+
+    moved, fall = base + 0x5000, struct.pack("<3f", 0.25, -0.5, -9.75)
+
+    def touched(hook, *, state: int = 0x102, column: int = 13, slot: int = 0x5F) -> tuple:   # (c)
+        sim, seen = staged(state, column, slot, 1.5, clip), []
+        sim.uc.mem_write(moved + 0xC0, fall)
+        regs = {"eax": moved, "ecx": pc, "edx": inp, "ebx": 0x11, "esi": 0x33, "edi": 0x44, "ebp": 0x77}
+        callee(sim, 0x8B100, seen, ("eax", "ecx", "edx"), 0)
+        sim.call(entry(hook), regs=regs, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100
+        assert {r: sim.reg(r) for r in ("ebx", "esi", "edi", "ebp")} == {r: regs[r] for r in ("ebx", "esi", "edi", "ebp")}
+        return seen, sim.u32(pc + 0x94), sim.uc.mem_read(pc + 0x16C, 1)[0], bytes(sim.uc.mem_read(pc + 0x24, 12))
+    for hook in BLAST_LAND_HOOKS:
+        assert touched(hook) == ([], 0x100, 0x14, fall), hook.va
+        for kw in ({"column": 12, "slot": 0x5E}, {"slot": 0x0B}, {"state": 0x100}):
+            assert touched(hook, **kw) == ([(moved, pc, inp)], kw.get("state", 0x102), 0x10, bytes(12)), (hook.va, kw)
+
+
+@pytest.mark.parametrize("region", REGIONS)
+def test_white_cycles_a_swapped_bodys_attack_sets_and_direction_never_picks(region):
+    """D325, D326, D352 (Step 2.135, X36; the owner: WHITE cycles which
+    attacks are used, direction shouldn't restrict them, and a short line
+    names the set) and D441 (Step 2.153: the line in the HUD's top-left
+    corner, small): the transition search 0x7EF10 keyed the column on the
+    stick's direction (a sideways stick played right1/left1, never the
+    combo's forward rows), and nothing cycled. X36 in own body:
+    (a) the build: the search's je at 0x7EF90 and the three direction
+        writes' imm32 hold forward (USA; Europe each 0x50 lower), the three
+        hooks land, the white and HUD landings point at the search's
+        state, the HUD landing at its release's 2D material (0x97420,
+        Europe 0x974F0), the map holds the set count and each set's columns
+        (spideyzar three, its finisher in finish, finish2 and finish3;
+        beamlord's from his recipe, the air elemental's gust from W23),
+        the lines the sets' (set_lines, whole names wrapped at 40
+        characters) in the HUD landing's copy too; attacks_transitions'
+        combo rows 28-31 keep their target features at the default chain
+        (AzurKit's D1045, where Modkit's D432 cleared them: a recipe's
+        ``chain`` "any" clears them, ``test_characters.py``'s chain test),
+        16 and 32 keep theirs; X10 off with two sets or more;
+        Balthazar one set; garret4's own body and Skin only keep every byte
+        of 0x7EF10's, the three CALLs and the six cells;
+    (b) L2 at 0x88D78's entry (0x7EF10 stubbed, 0x7F1F0 real): in set 2 a
+        combo column C the search picks plays the set's column S: S's
+        record, PC+0x134 S, the yaw H for an empty Aim, else the game's
+        yaw plus C's Aim less S's (the same target); the next search of
+        a set's swing still playing (+0x200 0x52 + S) is keyed on C; the
+        stub sees the six arguments, AL and CL as the game passed them;
+        set 1 and a column past finish3 are the game's; RET 0x18, EBX,
+        ESI, EDI and EBP kept;
+    (c) L2 at 0x854B4's entry (0x84940 real): a fresh WHITE press
+        selects the next set (its latch taken) and shows its line for 2.0
+        s; held (latched), swimming (state 6) or while the presses wait no
+        cycle, the latch still taken (WHITE held onto land never cycles);
+        past 2.0 s or a clock set back no line; outside the attack state
+        the last set swing is forgotten; a plain RET;
+    (d) L2 at 0x1B306's entry (0x1B110, 0xD09E0, 0xD0830, 0x97420 and
+        0xD0D60 stubbed): the HUD's list is drawn first (the HUD its
+        argument), then, while the line shows, the font, the anchor left |
+        top at 0.8, the material yellow with EDI the font, a draw of each
+        of the set's lines, the pen at x 2 and y -2 - font[+8], stepped
+        by -font[+4], and the HUD's own anchor (5 at 1.0) back; not
+        shown, no font or no material: no draw; RET 4, EBX, ESI, EDI and
+        EBP kept."""
+    europe = region == "europe"
+    game = _swap("spideyzar", sounds="garret4")
+    built = bytes(game["default.xbe"])
+    search, white, hud = SETS_HOOKS
+
+    def gates(game) -> list:   # attacks_transitions' target features: 16, the combo's 28-31, 32
+        t = XbrDocument.from_bytes(bytes(game["config.xbr"])).keyed_section("attacks_transitions")
+        return [t.find_cell("a", "target features", c).string_value for c in (16, *CHAIN_GATES, 32)]
+    assert gates(game) == ["stunned frozen"] * 5 + ["stunned"]   # D1045: chain "hit" by default
+
+    def landed(xbe: bytes, hook, symbol: str, size: int) -> bytes:
+        at = resolve_va_to_file(xbe, trampoline_symbol_va(xbe, hook, symbol, shim_source=SETS_SHIM.source_path()))
+        return xbe[at:at + size]
+    for xbe in (built,):
+        assert [verify_trampoline_patch(xbe, hook) for hook in (*SETS_HOOKS, ROTATE_HOOK)] == [
+            "applied", "applied", "applied", "original"]
+        assert all(xbe[(off := patch_spec_site(xbe, spec)[0]):off + len(spec.patch)] == spec.patch
+                   for spec in DIRECTION_EDITS)
+    state = trampoline_symbol_va(built, search, SETS_STATE, shim_source=SETS_SHIM.source_path())
+    assert [struct.unpack("<I", landed(built, hook, "_player_model_sets_state_at", 4))[0]
+            for hook in (white, hud)] == [state, state]
+    assert landed(built, hud, "_player_model_sets_material", 4) == struct.pack("<I", 0x974F0 if europe else 0x97420)
+    rows = landed(built, search, "_player_model_sets_map", 49)
+    assert (rows[0], list(rows[1:19])) == (3, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 10, 11, 10, 11, 11, 11])
+    lines = ["Attack set 1/3\nattack_1 attack_2 attack_3 whirlwind", "Attack set 2/3\nattack_4 attack_5 attack_6 attack_7",
+             "Attack set 3/3\ndeathbeam jump"]
+    for hook in (search, hud):
+        text = landed(built, hook, "_player_model_sets_lines", 3 * 80)
+        assert [text[80 * k:80 * k + 80].rstrip(b"\0").decode() for k in range(3)] == lines
+    if europe:
+        return
+    vanilla = _xbe()
+    assert l1.check(vanilla, built) == []
+    for name, want in (("beamlord", [[0, 1, 2, 3, 4, 5], [8, 9, 10, 13, 13, 13]]),   # his air blast set 2's 4th
+                       ("air_elemental", [[0, 1, 2, 3, 4, 5], [6, 6, 6, 6, 6, 6]]),   # (booblord's sets: her
+                       ("balthazar", [[0, 1, 2, 3, 4, 5]])):                           # G3 golden's default.xbe)
+        xbe = bytes((_swap(name) if name in builtins() else _swap(name, sounds="garret4"))["default.xbe"])
+        got = landed(xbe, search, "_player_model_sets_map", 49)
+        assert [list(got[1 + 6 * k:7 + 6 * k]) for k in range(got[0])] == want, name
+    for kw in ({"mode": "garret4"}, {"model_scale": 2.0, "species": "garret4"}):
+        swapped = _swap(kw.pop("species", "spideyzar"), sounds="garret4", **kw)
+        xbe = bytes(swapped["default.xbe"])
+        assert gates(swapped) == ["stunned frozen"] * 5 + ["stunned"], kw
+        assert [verify_trampoline_patch(xbe, hook) for hook in SETS_HOOKS] == ["original"] * 3, kw
+        assert all(xbe[va_to_file(spec.va):va_to_file(spec.va) + len(spec.original)] == spec.original
+                   for spec in DIRECTION_EDITS), kw
+    base = 0x20000000
+    pc, inp, critter, records, clock, font, hud_at = (base + 0x1000 * k for k in range(7))
+
+    def entry(hook) -> int:
+        return hook.va + 5 + struct.unpack_from("<i", built, va_to_file(hook.va) + 1)[0]
+
+    def record(column: int, aim: float) -> bytes:
+        return (struct.pack("<iiif", column * 1000, 0x52 + column, column * 1000 + 2, aim)
+                + struct.pack("<18i", *(column * 1000 + 4 + j for j in range(18))))
+
+    def sim_at(aims: dict[int, float], *, set_: int, logical: int = -1, source: int = -1, pressed: float = -1e300,
+               column: int = -1, slot: int = 1, now: float = 10.0, move: int = 0) -> Sim:
+        sim = Sim(built)
+        sim.uc.mem_map(base, 0x8000)
+        for at, data in ((pc + 0x20, struct.pack("<I", critter)), (pc + 0xC, struct.pack("<I", clock)),
+                         (pc + 0x94, struct.pack("<i", move)), (pc + 0x134, struct.pack("<i", column)),
+                         (critter + 0x200, struct.pack("<i", slot)), (clock + 0x10, struct.pack("<d", now)),
+                         (0x38BC60, struct.pack("<I", records)), (0x38BC50, struct.pack("<f", math.pi / 180)),
+                         (state, struct.pack("<iiiid", set_, logical, source, 0, pressed))):
+            sim.uc.mem_write(at, data)
+        for k in range(24):
+            sim.uc.mem_write(records + 0x58 * k, record(k, aims.get(k, 1e5)))
+        return sim
+
+    def sets_state(sim: Sim) -> tuple:
+        return struct.unpack("<iiiid", sim.uc.mem_read(state, 24))
+    heading, facing = 0.7, 0.25
+    sim_args = (pc + 0xDC, *struct.unpack("<2I", struct.pack("<2f", facing, heading)), 1, 1, 0)
+
+    def pick(sim: Sim, picked: int, yaw: float, seen: list) -> None:
+        def stub(uc, addr, size, _):   # 0x7EF10: __stdcall(24) with AL, CL; the game's pick
+            esp = sim.reg("esp")
+            ret, *args = struct.unpack("<7I", uc.mem_read(esp, 28))
+            seen.append((tuple(args), sim.reg("eax") & 0xFF, sim.reg("ecx") & 0xFF,
+                         struct.unpack("<i", uc.mem_read(pc + 0x134, 4))[0]))
+            uc.mem_write(pc + 0x134, struct.pack("<i", picked))
+            uc.mem_write(pc + 0xDC, bytes(uc.mem_read(records + 0x58 * picked, 0x58)))
+            uc.mem_write(pc + 0x138, struct.pack("<f", yaw))
+            uc.reg_write(UC_X86_REG_EIP, ret)
+            uc.reg_write(UC_X86_REG_ESP, esp + 4 + 0x18)
+        sim.uc.hook_add(UC_HOOK_CODE, stub, begin=0x7EF10, end=0x7EF10)
+
+    def searched(picked: int, yaw: float, aims: dict[int, float], **kw) -> tuple:
+        sim, seen = sim_at(aims, **kw), []
+        sim.uc.mem_write(inp + 0x38, struct.pack("<f", heading))
+        pick(sim, picked, yaw, seen)
+        kept = {"ebx": 0x11, "esi": inp, "edi": pc, "ebp": 0x44}
+        sim.call(entry(search), regs={**kept, "eax": 0x1201, "ecx": 0x3400}, args=sim_args, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100   # RET 0x18
+        assert {r: sim.reg(r) for r in kept} == kept
+        assert [s[:3] for s in seen] == [(sim_args, 0x01, 0x00)]
+        return (sim.u32(pc + 0x134), bytes(sim.uc.mem_read(pc + 0xDC, 0x58)), sim.f32(pc + 0x138),
+                sets_state(sim)[1:3], seen[0][3])
+    rec = {k: record(k, a) for k, a in ((7, 1e5), (6, 0.0), (9, 0.0))}
+    assert searched(1, heading, {}, set_=1)[:4] == (7, rec[7], _f32(heading), (1, 7))   # basic2 -> sweep2
+    assert searched(0, 1.2, {0: 0.0, 6: 0.0}, set_=1)[:4] == (6, rec[6], _f32(1.2), (0, 6))
+    assert searched(0, 1.2, {0: 0.0, 6: 30.0}, set_=1)[2] == pytest.approx(1.2 - math.radians(30), abs=1e-6)
+    assert searched(4, 1.2, {4: 0.0, 9: 0.0}, set_=1)[:4] == (9, rec[9], _f32(1.2), (4, 9))   # finish2's
+    assert searched(1, 0.5, {}, set_=1, logical=0, source=6, column=6, slot=0x58)[4] == 0   # keyed on basic1
+    assert searched(1, 0.5, {}, set_=1, logical=0, source=6, column=6, slot=1)[4] == 6    # its swing over
+    for set_, picked in ((0, 1), (1, 6)):   # the game's combo; a sweep
+        got = searched(picked, 0.5, {}, set_=set_)
+        assert (got[0], got[3][0]) == (picked, -1), set_
+    pad = l2.CONTROLLERS
+
+    def pressed(*, white_: float = 1.0, latch: int = 0, locked: int = 0, **kw) -> tuple:
+        sim = sim_at({}, **kw)
+        sim._name(l2.CONTROLLER_INDEX, "I", 0)   # the guarded pad globals, named
+        sim._name(pad + 0x2C, "f", white_)
+        sim._name(pad + 0x4D, "B", latch)
+        sim.uc.mem_write(inp + 0x30, bytes([locked]))
+        kept = {"ebx": 0x11, "esi": inp, "edi": 0x33, "ebp": pc, "ecx": inp}
+        sim.call(entry(white), regs=kept, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100   # a plain RET
+        return sets_state(sim), sim.uc.mem_read(pad + 0x4D, 1)[0]
+    got, latch = pressed(set_=0, now=10.0)
+    assert (got[0], got[3], got[4], latch) == (1, 1, 10.0, 1)
+    assert pressed(set_=2)[0][0] == 0                                      # the third wraps to the first
+    for kw in ({"move": 6}, {"latch": 1}, {"locked": 1}):
+        got, latch = pressed(set_=0, **kw)
+        assert (got[0], got[3], latch) == (0, 0, 1), kw
+    for since, shows in ((1.0, True), (2.5, False), (-5.0, False)):
+        got, _ = pressed(set_=1, white_=0.0, pressed=10.0 - since, now=10.0)
+        assert got[:1] + got[3:4] == (1, int(shows)), since
+
+    def drawn(*, shown: int = 1, typeface: int = font, material: int = 1) -> list:
+        sim = sim_at({}, set_=1)
+        sim.uc.mem_write(state + 12, struct.pack("<i", shown))
+        sim.uc.mem_write(font + 4, struct.pack("<2i", 20, 13))   # the line step, the top
+        calls = []
+
+        def stub(va: int, pop: int, what):
+            def hook(uc, addr, size, _):
+                esp = sim.reg("esp")
+                ret, *args = struct.unpack(f"<{1 + pop // 4}I", uc.mem_read(esp, 4 + pop))
+                eax = what(args)
+                if eax is not None:
+                    uc.reg_write(UC_X86_REG_EAX, eax)
+                uc.reg_write(UC_X86_REG_EIP, ret)
+                uc.reg_write(UC_X86_REG_ESP, esp + 4 + pop)
+            sim.uc.hook_add(UC_HOOK_CODE, hook, begin=va, end=va)
+        stub(0x1B110, 4, lambda a: calls.append(("list", *a)))
+        stub(0xD09E0, 0, lambda a: calls.append(("font",)) or typeface)
+        stub(0xD0830, 8, lambda a: calls.append(("anchor", a[0], struct.unpack(
+            "<2f", sim.uc.mem_read(a[1], 8)))))
+        stub(0x97420, 8, lambda a: calls.append(("material", struct.unpack(
+            "<4f", sim.uc.mem_read(sim.reg("esi"), 16)), sim.reg("edi"), *a)) or material)
+        stub(0xD0D60, 8, lambda a: calls.append(("text", struct.unpack(
+            "<9f", sim.uc.mem_read(sim.reg("esi"), 36)), a[0], sim.cstr(a[1]))))
+        kept = {"ebx": 0x11, "esi": 0x22, "edi": 0x33, "ebp": 0x44}
+        sim.call(entry(hud), regs=kept, args=(hud_at,), until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100   # RET 4
+        assert {r: sim.reg(r) for r in kept} == kept
+        return calls
+    corner, back = ("anchor", 9, (_f32(0.8), _f32(0.8))), ("anchor", 5, (1.0, 1.0))
+    yellow = ("material", tuple(_f32(v) for v in (1.0, 0.9, 0.2, 1.0)), font, 0, 1)
+    assert drawn() == [("list", hud_at), ("font",), corner, yellow,
+                       *(("text", (2.0, -15.0 - 20.0 * k, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0), font, row)
+                         for k, row in enumerate(lines[1].split("\n"))), back]
+    assert drawn(material=0) == [("list", hud_at), ("font",), corner, yellow, back]
+    assert drawn(typeface=0) == [("list", hud_at), ("font",)]
+    assert drawn(shown=0) == [("list", hud_at)]
+    assert [pressed(white_=0.0, set_=1, logical=2, source=8, move=m)[0][1] for m in (0x100, 0)] == [2, -1]
+
+
+def test_a_white_set_plays_its_four_slots_round_and_round_and_no_swing_twice_in_a_row():
+    """AZ-680 (Step 2.159a's sitting B, row A5): booblord's set 2 (hspin,
+    the kit's shove, stomp) padded its fourth with its first, and its
+    fourth, chaining at sweep1's early point while its own hit's stun
+    held, was keyed on finish3, from which no chain row leads: the first
+    row a stunned target matches is row 32's finish2 (no last move), which
+    the set maps to its fourth again, so it hand-spun on every press.
+    A short set walks back through its picks (a b c b, a b a b; one pick
+    all four), so no swing follows itself round the cycle but a set's only
+    one; and in X36's search (L2 at 0x88D78's entry, spideyzar's set 2:
+    sweep1, sweep2, sweep ledge, elemental1) a chain out of the set's
+    fourth still playing that the game's search answers with a finisher
+    plays the set's first, keyed basic1 for the next chain, while a fresh
+    press it answers with finish2 still plays the fourth, as the game's
+    combo plays finish2."""
+    columns = ["basic1", "basic2", "basic3", "finish", "finish2", "finish3", "sweep1", "sweep2", "sweep ledge",
+               "elemental1", "roll forward"]
+    for n, want in ((1, [6, 6, 6, 6]), (2, [6, 7, 6, 7]), (3, [6, 7, 8, 7]), (4, [6, 7, 8, 9])):
+        picks = ["a"] * 6 + [f"p{k}" for k in range(n)] + ["a"] * (4 - n) + ["roll"]
+        assert attack_sets(columns, picks)[1:] == [want], n
+    built = bytes(_swap("spideyzar", sounds="garret4")["default.xbe"])
+    search = SETS_HOOKS[0]
+    state = trampoline_symbol_va(built, search, SETS_STATE, shim_source=SETS_SHIM.source_path())
+    base = 0x20000000
+    pc, inp, critter, records = (base + 0x1000 * k for k in range(4))
+
+    def searched(picked: int, *, logical: int = -1, source: int = -1, column: int = -1) -> tuple:
+        """The search's key, then PC+0x134 and X36's (logical, source) after the entry, the game's search
+        picking ``picked`` in set 2 while the critter plays ``source``'s slot."""
+        sim, keys = Sim(built), []
+        sim.uc.mem_map(base, 0x4000)
+        for at, data in ((pc + 0x20, struct.pack("<I", critter)), (pc + 0x134, struct.pack("<i", column)),
+                         (critter + 0x200, struct.pack("<i", 0x52 + source)), (0x38BC60, struct.pack("<I", records)),
+                         (0x38BC50, struct.pack("<f", math.pi / 180)),
+                         (state, struct.pack("<iiiid", 1, logical, source, 0, -1e300)),
+                         *((records + 0x58 * k, struct.pack("<iiif", k, 0x52 + k, k, 0.0) + bytes(0x48))
+                           for k in range(24))):
+            sim.uc.mem_write(at, data)
+
+        def stub(uc, addr, size, _):   # 0x7EF10: __stdcall(24), keyed on PC+0x134; the game's pick
+            esp = sim.reg("esp")
+            keys.append(struct.unpack("<i", uc.mem_read(pc + 0x134, 4))[0])
+            uc.mem_write(pc + 0x134, struct.pack("<i", picked))
+            uc.mem_write(pc + 0xDC, bytes(uc.mem_read(records + 0x58 * picked, 0x58)))
+            uc.reg_write(UC_X86_REG_EIP, sim.u32(esp))
+            uc.reg_write(UC_X86_REG_ESP, esp + 4 + 0x18)
+        sim.uc.hook_add(UC_HOOK_CODE, stub, begin=0x7EF10, end=0x7EF10)
+        entry = search.va + 5 + struct.unpack_from("<i", built, va_to_file(search.va) + 1)[0]
+        sim.call(entry, regs={"esi": inp, "edi": pc}, args=(pc + 0xDC, 0, 0, 1, 1, 0), until=l2._RETURN)
+        return keys, sim.u32(pc + 0x134), struct.unpack("<iiiid", sim.uc.mem_read(state, 24))[1:3]
+    for finisher in (3, 4, 5):   # out of the fourth (elemental1), row 32's finish2: the set's first, then basic2
+        assert searched(4, logical=finisher, source=9, column=9) == ([finisher], 6, (0, 6)), finisher
+    assert searched(1, logical=0, source=6, column=6) == ([0], 7, (1, 7))
+    assert searched(4) == ([-1], 9, (4, 9))   # a fresh press on a stunned target: the fourth
+
+
+@pytest.mark.parametrize("region", REGIONS)
+def test_balthazars_drain_beam_drains_the_enemy_it_lands_on_never_the_wearer_and_heals_what_it_deals_per_enemy(
+        region):
+    """D324, D357 (Step 2.135, X37; the owner: "Beam drains enemies",
+    "Heals you a little") and D452 (Step 2.153: "let's make it heal 100%.
+    also the drain life attack should heal per enemy hit, and give it a
+    bigger and wider range"): Balthazar's attack_2 keys m_lifedrainswitch,
+    whose stream and norm_2 box hang under 'onPlayer' (inherit mode 7: at
+    [[[node+4]+0x44]+0xC0], the player critter, 0x68A49), so worn he
+    drained himself and W17 played a copy without the switch, losing the
+    beam. X37 in own body:
+    (a) the build: balthazar's seven attack_2 columns play attack_2 itself
+        (mask 0x224492), beamlord's elemental2 (0x400), every critter (D782); the three hooks
+        land (the finder's state the others'), share 1.0, range 16.0, the
+        radius X21's; the drain box [45] scaled 12, 12, 2 in both builds'
+        fx ([46]'s 2 x 2 x 2 m: 24 x 24 x 4 m, Step 2.153b, AZ-663);
+        Skin only keeps W17's copy and no X37, keylord none;
+    (b) L2 at 0x7EE3B's entry: the finder's candidate ESI is kept, EDX its
+        +0x168, a plain RET;
+    (c) L2 at 0x68A49's entry (attack_target_find stubbed): in the drain's
+        window ESI is the critter the finder returns at 16 m at any bearing
+        (the radius 3.0 again after), once a window while it lives (again
+        after 1 s with no evaluation: a new beam, its passed list
+        cleared); with no live target (none found, or dead) it picks again
+        each evaluation, the passed list kept; no target or no drain
+        playing is the game's player; (AZ-653, Step 2.153c) once the
+        drain stops its target stays 0.5 s past the last evaluation while
+        it lives (0.2 s on: the target; 0.6 s on or dead: the player, the
+        window closed), and a node of an instance (EDX) in the held list
+        X38 fills is on its target while it lives, drain or none (dead:
+        the player), another instance's the game's; (AZ-682, Step 2.153d)
+        each target is kept with its vtable and serial (+0xE0's low 24
+        bits), and one whose vtable is the delete's 0x19DF08 or whose
+        serial changed is gone whatever its HP reads: the window picks
+        again, the tail closes, a held entry keeps its instance with no
+        target (the player); a new tag byte is the same critter;
+    (d) L2 at 0x7A1CA's entry (the hit's vtable +0xB4 stubbed, apply_damage
+        real): in the window a norm platform's touch by the player is
+        dropped (RET 4, no hit), by the enemy it drains (the window's
+        target: AZ-758's test has the others) sent and the player healed by
+        what it lost (15 -> 15, at least 1), a plain RET; a common AI
+        enemy's (its controller's slot +0x18 0x38C60) first touch in the
+        window at a no-hit window of 2.9 s is sent at 0 and listed, its
+        window then 2.9 again (a heavy hit's longer one: AZ-765's test); a listed one's, one
+        at 5.0 s and a boss's are sent as they are; the knock the hit
+        writes at a common AI enemy's controller+0x24 (6.261, 0.5, 3.1305)
+        loses its horizontal part, (0, 0, 3.1305) (AZ-672, Step 2.153c),
+        where a boss's or a hit taking no HP keeps it; 0.3 s after the window
+        (the switch's fade) the player's still dropped, 0.6 s after sent;
+        another platform type, level 0, a dead player and no drain are the
+        game's;
+    (e) (Step 2.161c, the review's P1) only the player's own graph: a node
+        of his fx_default's instance (critter+0x230's handle less 0x20) or
+        of another instance of its asset (+0x4C: X38's copy) is placed as
+        above; another critter's (the airship boss's own, its asset
+        another) keeps the game's player in the drain, its target and
+        window untouched; a platform whose node (+0x294) is another
+        graph's, or which no node made, is the game's: the player's touch
+        sent, an enemy's sent with no heal."""
+    europe = region == "europe"
+    game = _swap("balthazar", sounds="garret4")
+    built = bytes(game["default.xbe"])
+    find, anchor, touch = DRAIN_HOOKS
+    assert [verify_trampoline_patch(built, hook) for hook in DRAIN_HOOKS] == ["applied"] * 3
+    state = trampoline_symbol_va(built, find, DRAIN_STATE, shim_source=DRAIN_SHIM.source_path())
+    radius = trampoline_symbol_va(built, SEARCH_HOOK, SEARCH_RADIUS_SYMBOL, shim_source=SEARCH_SHIM.source_path())
+
+    def landed(xbe: bytes, hook, symbol: str) -> int:
+        return struct.unpack_from("<I", xbe, resolve_va_to_file(xbe, trampoline_symbol_va(
+            xbe, hook, symbol, shim_source=DRAIN_SHIM.source_path())))[0]
+    assert [landed(built, hook, "_player_model_drain_state_at") for hook in DRAIN_HOOKS] == [0, state, state]
+    assert landed(built, touch, "_player_model_drain_radius_at") == radius
+    assert [_param(built, find, DRAIN_SHIM, f"_player_model_drain_{k}") for k in ("columns", "share", "range")] == [
+        0x224492, 1.0, 16.0]
+    if europe:
+        return
+    assert l1.check(_xbe(), built) == []
+    assert _anims(game["config.xbr"])[1] == "attack_2"
+    variant = builtins()["beamlord"]
+    beam = _swap("beamlord")
+    assert [_param(bytes(beam["default.xbe"]), hook, DRAIN_SHIM, f"_player_model_drain_{k}")
+            for hook, k in ((find, "columns"), (touch, "every"))] == [0x400, 1.0]   # D782: his drain takes every critter
+    assert DRAIN_BOX in overlay("balthazar").fx and DRAIN_BOX in variant.fx   # their fx edits pinned by test_player_variants
+    assert DRAIN_BOX["set"] == {"scaleX": 12.0, "scaleY": 12.0, "scaleZ": 2.0}   # [46]'s 2 x 2 x 2 m: 24 x 24 x 4
+    for species, kw in (("balthazar", {"mode": "garret4"}), ("keylord", {})):
+        xbe = bytes(_swap(species, sounds="garret4", **kw)["default.xbe"])
+        assert [verify_trampoline_patch(xbe, hook) for hook in DRAIN_HOOKS] == ["original"] * 3, species
+    base = 0x20000000
+    world, player, pc, clock, enemy, platform, vtable, control = (base + 0x1000 * k for k in range(8))
+    hit_stub, ai_vtable = base + 0x9000, base + 0x9100
+    own, boss_fx, ring_copy, node = base + 0x9400, base + 0x9600, base + 0x9700, base + 0x9A00   # P1's
+    serial = 0x03012345   # the enemy's +0xE0: its serial 0x012345 under a tag byte
+    ids = {0: (0, 0, 0), enemy: (enemy, vtable, serial & 0xFFFFFF), player: (player, vtable, 0)}   # X37's identity
+
+    def entry(hook) -> int:
+        return hook.va + 5 + struct.unpack_from("<i", built, va_to_file(hook.va) + 1)[0]
+
+    def sim_at(*, column: int = 1, slot: int = 0x53, flags: int = 8, now: float = 10.0, seen: float = -1e300,
+               active: int = 0, target: int = 0, player_hp: int = 150, enemy_hp: int = 100, window: float = 0.0,
+               handler: int = 0x38C60, passed: tuple = (), held: tuple = (), made_by: int = 0) -> Sim:
+        sim = Sim(built)
+        sim.uc.mem_map(base, 0xA000)
+        for at, data in ((world + 0xC0, struct.pack("<I", player)), (player + 0x180, struct.pack("<I", pc)),
+                         (player + 0x200, struct.pack("<i", slot)), (player + 0x210, struct.pack("<ii", player_hp, 200)),
+                         (pc + 0xC, struct.pack("<I", clock)), (pc + 0x134, struct.pack("<if", column, 0.3)),
+                         (pc + 0x16C, bytes([flags])), (clock + 0x10, struct.pack("<d", now)),
+                         (enemy, struct.pack("<I", vtable)), (enemy + 0x168, struct.pack("<I", 0x40)),
+                         (enemy + 0xE0, struct.pack("<I", serial)),
+                         (enemy + 0x210, struct.pack("<ii", enemy_hp, 100)), (player, struct.pack("<I", vtable)),
+                         (vtable + 0xB4, struct.pack("<I", hit_stub)), (platform + 0x154, struct.pack("<I", world)),
+                         (enemy + 0x180, struct.pack("<I", control)), (enemy + 0x1E0, struct.pack("<f", window)),
+                         (control, struct.pack("<I", ai_vtable)), (ai_vtable + 0x18, struct.pack("<I", handler)),
+                         (state, struct.pack("<I3Iiid8I64I", 0, *ids[target], active, len(passed), seen,
+                                             *passed, *(0,) * (8 - len(passed)),
+                                             *(v for copy, who in held for v in (copy, *ids[who])),
+                                             *(0,) * (64 - 4 * len(held)))),
+                         (radius, struct.pack("<f", 3.0)), (player + 0x230, struct.pack("<I", own + 0x20)),
+                         (own + 0x4C, struct.pack("<i", 7)), (ring_copy + 0x4C, struct.pack("<i", 7)),
+                         (boss_fx + 0x4C, struct.pack("<i", 9)), (platform + 0x294, struct.pack("<I", node)),
+                         (node + 4, struct.pack("<I", made_by))):
+            sim.uc.mem_write(at, data)
+        return sim
+    # (b) the finder's candidate
+    sim = sim_at()
+    sim.uc.mem_write(enemy + 0x168, struct.pack("<I", 0x4040))
+    kept = {"ebx": 0x11, "esi": enemy, "edi": 0x33, "ebp": 0x44}
+    sim.call(entry(find), regs=kept, until=l2._RETURN)
+    assert (sim.reg("esp"), sim.u32(state), sim.reg("edx"), {r: sim.reg(r) for r in kept}) == (
+        l2._STACK_TOP - 0x100, enemy, 0x4040, kept)
+
+    # (c) the anchor
+    def anchored(*, off: float = 0.4, count: int = 1, instance: int = own, gone: dict | None = None, **kw) -> tuple:
+        sim, seen = sim_at(**kw), []
+        for at, word in (gone or {}).items():   # AZ-682: the game deleted the enemy, or gave its block again
+            sim.uc.mem_write(enemy + at, struct.pack("<I", word))
+
+        def finder(uc, addr, size, _):   # attack_target_find: __stdcall(12); F would keep its candidate
+            esp = sim.reg("esp")
+            ret, who, facing, out = struct.unpack("<IIfI", uc.mem_read(esp, 16))
+            seen.append((who, round(facing, 6), sim.f32(radius)))
+            uc.mem_write(out, struct.pack("<I", count) + bytes(16) + struct.pack("<f", off) + bytes(0x20))
+            uc.mem_write(state, struct.pack("<I", enemy if count else 0))
+            uc.reg_write(UC_X86_REG_EIP, ret)
+            uc.reg_write(UC_X86_REG_ESP, esp + 16)
+        sim.uc.hook_add(UC_HOOK_CODE, finder, begin=0x7EBB0, end=0x7EBB0)
+        kept = {"ebx": 0x11, "edi": 0x33, "ebp": 0x44}
+        sim.call(entry(anchor), regs={**kept, "eax": world, "edx": instance}, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100 and {r: sim.reg(r) for r in kept} == kept
+        got = struct.unpack("<I3Iiid", sim.uc.mem_read(state, 32))
+        return sim.reg("esi"), seen, sim.f32(radius), (got[1], got[4]), got[6], got[5], got[1:4], \
+            struct.unpack("<4I", sim.uc.mem_read(state + 64, 16))
+    esi, seen, after, (target, active), stamped, _, ident, _ = anchored(off=2.6)       # any bearing
+    assert (esi, seen, after, target, active, stamped) == (enemy, [(player, 0.3, 16.0)], 3.0, enemy, 1, 10.0)
+    assert ident == ids[enemy]                                                         # kept with its identity
+    assert anchored(active=1, target=enemy, seen=9.97)[:2] == (enemy, [])            # once a window
+    got = anchored(active=1, target=0, seen=9.0, passed=(enemy,))                       # a new beam, no reset between
+    assert (got[1], got[5]) == ([(player, 0.3, 16.0)], 0)
+    for kw in ({"target": 0}, {"target": enemy, "enemy_hp": 0}):   # no live target: picked again, the list kept
+        got = anchored(active=1, seen=9.97, count=0, passed=(enemy,), **kw)
+        assert (got[0], got[1], got[5]) == (player, [(player, 0.3, 16.0)], 1), kw
+    for kw in ({"count": 0}, {"column": 0}, {"slot": 1}, {"flags": 0}):
+        esi, seen, *_ = anchored(**kw)
+        assert esi == player, kw
+    # AZ-653 (Step 2.153c): the drain stopped, its target kept for 0.5 s past its last evaluation while it lives
+    got = anchored(column=0, active=1, target=enemy, seen=9.8)
+    assert (got[0], got[1], got[3], got[4]) == (enemy, [], (enemy, 1), 9.8)
+    for kw in ({"seen": 9.4}, {"enemy_hp": 0}):
+        got = anchored(column=0, active=1, target=enemy, **{"seen": 9.8} | kw)
+        assert (got[0], got[1], got[3]) == (player, [], (0, 0)), kw
+    copy = base + 0x9800   # X38's detached drain copy: on its held target while it lives, whatever else plays
+    for kw, want in (({}, enemy), ({"column": 0}, enemy), ({"enemy_hp": 0}, player)):
+        got = anchored(instance=copy, held=((0x1234, player), (copy, enemy)), **kw)
+        assert (got[0], got[1]) == (want, []), kw
+    assert anchored(instance=copy + 4, held=((copy, enemy),), column=0)[0] == player   # another instance: the game's
+    # AZ-682 (Step 2.153d): a kept critter whose vtable or serial changed is gone, its HP never read: the game's
+    # delete writes the base vtable 0x19DF08 (its HP still reads 100), a block given again holds another serial;
+    # a new tag byte over the serial is the same critter
+    deleted, reused, tagged = {0: 0x19DF08}, {0xE0: serial + 1}, {0xE0: serial & 0xFFFFFF | 0x05000000}
+    for gone in (deleted, reused):
+        got = anchored(active=1, target=enemy, seen=9.97, count=0, gone=gone)       # in the window: picked again
+        assert (got[0], got[1], got[3]) == (player, [(player, 0.3, 16.0)], (0, 1)), gone
+        got = anchored(column=0, active=1, target=enemy, seen=9.8, gone=gone)       # in the tail: closed
+        assert (got[0], got[1], got[3]) == (player, [], (0, 0)), gone
+        got = anchored(instance=copy, held=((copy, enemy),), gone=gone)             # a held copy's: X38 closes it
+        assert (got[0], got[7]) == (player, (copy, 0, 0, 0)), gone
+    assert anchored(active=1, target=enemy, seen=9.97, gone=tagged)[:2] == (enemy, [])
+    # (e) P1 (Step 2.161c): X38's copy of his graph is his; the airship boss's own graph keeps the game's player
+    assert anchored(instance=ring_copy)[:2] == (enemy, [(player, 0.3, 16.0)])
+    got = anchored(instance=boss_fx, active=1, target=enemy, seen=9.97)
+    assert (got[0], got[1], got[3], got[4]) == (player, [], (enemy, 1), 9.97)
+    got = anchored(instance=boss_fx)
+    assert (got[0], got[1], got[3]) == (player, [], (0, 0))
+
+    # (d) the touch
+    def touched(toucher: int, *, kind: bytes = b"norm", level: int = 2, dealt: int = 15, gives: float | None = None,
+                made_by: int = own, **kw) -> tuple:
+        sim, hits = sim_at(made_by=made_by or 0, **{"target": enemy} | kw), []   # the enemy the window drains
+        sim.uc.mem_write(platform + 0x27E, bytes([level]) + b"\0" + kind)
+        if made_by is None:   # no node made it
+            sim.uc.mem_write(platform + 0x294, struct.pack("<I", 0))
+
+        def hit(uc, addr, size, _):   # the toucher's slot: thiscall, RET 4; it deals and gives its window
+            esp = sim.reg("esp")
+            ret, message = struct.unpack("<2I", uc.mem_read(esp, 8))
+            hits.append((sim.reg("ecx"), message))
+            if sim.reg("ecx") == enemy:
+                windows.append(sim.f32(enemy + 0x1E0))
+                if gives is not None:
+                    uc.mem_write(enemy + 0x1E0, struct.pack("<f", gives))
+                uc.mem_write(control + 0x24, struct.pack("<3f", *KNOCK))   # 0x30BD0's knock, inside the send
+            hp = struct.unpack("<i", uc.mem_read(sim.reg("ecx") + 0x210, 4))[0]
+            uc.mem_write(sim.reg("ecx") + 0x210, struct.pack("<i", hp - dealt))
+            uc.reg_write(UC_X86_REG_EIP, ret)
+            uc.reg_write(UC_X86_REG_ESP, esp + 8)
+        windows = []
+
+        def play(uc, addr, size, _):   # critter_play_fx (AZ-759's stream, its own test's): RET 4
+            esp = sim.reg("esp")
+            uc.reg_write(UC_X86_REG_EIP, struct.unpack("<I", uc.mem_read(esp, 4))[0])
+            uc.reg_write(UC_X86_REG_ESP, esp + 8)
+        sim.uc.hook_add(UC_HOOK_CODE, hit, begin=hit_stub, end=hit_stub)
+        sim.uc.hook_add(UC_HOOK_CODE, play, begin=0x440F0, end=0x440F0)
+        kept = {"ebx": 0x11, "esi": 0x22, "edi": vtable, "ebp": platform}
+        sim.call(entry(touch), regs={**kept, "eax": 0x5150, "ecx": toucher}, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100 and {r: sim.reg(r) for r in kept} == kept   # a plain RET
+        listed = struct.unpack("<8I", sim.uc.mem_read(state + 32, 32))[:struct.unpack(
+            "<i", sim.uc.mem_read(state + 20, 4))[0]]
+        return hits, struct.unpack("<i", sim.uc.mem_read(player + 0x210, 4))[0], \
+            struct.unpack("<i", sim.uc.mem_read(enemy + 0x210, 4))[0], windows, sim.f32(enemy + 0x1E0), list(listed), \
+            struct.unpack("<3f", sim.uc.mem_read(control + 0x24, 12))
+    KNOCK = (6.261, 0.5, 3.1305)
+    assert touched(player)[:3] == ([], 150, 100)                                   # never the wearer
+    assert touched(enemy)[:3] == ([(enemy, 0x5150)], 165, 85)                      # 15 dealt, 15 back
+    assert touched(enemy, dealt=2)[:3] == ([(enemy, 0x5150)], 152, 98)             # 2 back
+    assert touched(enemy, dealt=0)[1] == 150
+    # the first touch passes a common AI critter's no-hit window, once a window
+    assert touched(enemy, window=2.9, gives=2.6)[1:6] == (165, 85, [0.0], _f32(2.9), [enemy])
+    for kw, w in (({"passed": (enemy,)}, 2.9), ({"window": 5.0}, 5.0), ({"handler": 0x279B0}, 2.9)):   # the game's
+        assert touched(enemy, **({"window": 2.9} | kw))[3:5] == ([_f32(w)], _f32(w)), kw
+    # AZ-672: a common AI enemy the drain took HP from hops where it stands; a boss, or no HP taken, the game's
+    assert touched(enemy)[6] == pytest.approx((0.0, 0.0, KNOCK[2]))
+    for kw in ({"handler": 0x279B0}, {"dealt": 0}):
+        assert touched(enemy, **kw)[6] == pytest.approx(KNOCK), kw
+    assert touched(player, column=0, seen=9.7)[:3] == ([], 150, 100)               # the switch's fade
+    assert touched(player, column=0, seen=9.4)[0] == [(player, 0x5150)]           # past it
+    for kw in ({"kind": b"fire"}, {"level": 0}, {"column": 0}):
+        hits, hp, *_ = touched(enemy, **kw)
+        assert (hits, hp) == ([(enemy, 0x5150)], 150), kw
+    assert touched(enemy, player_hp=0)[1] == 0                                     # no heal from the dead
+    # (e) P1: X38's copy's box is his; the airship boss's box and a platform no node made are the game's
+    assert touched(player, made_by=ring_copy)[:3] == ([], 150, 100)
+    for made_by in (boss_fx, None):
+        assert touched(player, made_by=made_by)[:2] == ([(player, 0x5150)], 135), made_by
+        assert touched(enemy, made_by=made_by)[:3] == ([(enemy, 0x5150)], 150, 85), made_by
+
+
+def _drain_touch(built: bytes, toucher: str, *, target: str | None = "enemy", every: bool = False, gone: bool = False,
+                 dealt: int = 15, hp: int = 100, gives: float | None = None, times: tuple = (10.0,),
+                 window: float = 0.0) -> tuple:
+    """X37's touch (0x7A1CA's entry) under L2 on ``built`` (plain Balthazar's
+    build: column 1 drains) in a drain whose window holds ``target``: the
+    ``toucher`` ("player", or "enemy" or "other", two common AI critters of
+    ``hp`` HP) touches a norm_2 platform of the player's own graph, its hit
+    slot (vtable +0xB4) dealing ``dealt`` while its no-hit window (+0x1E0)
+    is 0 (0x4323C), then setting the window and +0x1E4 to ``gives`` (a heavy
+    reaction's, 0x38EED), else to the hit record's Delay 0.33 (0x43591),
+    with drain_every ``every``; ``gone``: the game deleted the target (its
+    vtable 0x19DF08, AZ-682); one touch at each clock time of ``times`` in one
+    sim, the toucher's window ``window`` at the first (+0x1E0 and +0x1E4),
+    running down between.  critter_play_fx (0x440F0) is
+    stubbed (it links the critter's +0x23C handle, its flags 1, as the
+    game's does).  Returns (the critters hit, the player's, enemy's and
+    other's HP, each (critter, key, the handle's flags after the touch) it
+    played, the toucher's (+0x1E0, +0x1E4) after each touch)."""
+    find, _, touch = DRAIN_HOOKS
+    state = trampoline_symbol_va(built, find, DRAIN_STATE, shim_source=DRAIN_SHIM.source_path())
+    flag = trampoline_symbol_va(built, touch, "_player_model_drain_every", shim_source=DRAIN_SHIM.source_path())
+    base = 0x20000000
+    world, player, pc, clock, enemy, other, platform, vtable, control = (base + 0x1000 * k for k in range(9))
+    hit_stub, ai_vtable, own, node = base + 0x9000, base + 0x9100, base + 0x9400, base + 0x9A00
+    message, record = base + 0x9900, base + 0x9940   # the platform's hit (0x255C0: +8 its record) and norm_2's record
+    who = {"player": player, "enemy": enemy, "other": other}
+    name = {v: k for k, v in who.items()}
+    ident = {"enemy": (enemy, vtable, 0x12345), None: (0, 0, 0)}
+    sim, hits, plays = Sim(built), [], []
+    sim.uc.mem_map(base, 0xA000)
+    for at, data in ((world + 0xC0, struct.pack("<I", player)), (player + 0x180, struct.pack("<I", pc)),
+                     (player + 0x200, struct.pack("<i", 0x53)), (player + 0x210, struct.pack("<ii", 150, 200)),
+                     (player + 0x230, struct.pack("<I", own + 0x20)), (own + 0x4C, struct.pack("<i", 7)),
+                     (pc + 0xC, struct.pack("<I", clock)), (pc + 0x134, struct.pack("<if", 1, 0.3)),
+                     (pc + 0x16C, bytes([8])), (clock + 0x10, struct.pack("<d", 10.0)),
+                     (platform + 0x154, struct.pack("<I", world)), (platform + 0x27E, b"\x02\0norm"),
+                     (platform + 0x294, struct.pack("<I", node)), (node + 4, struct.pack("<I", own)),
+                     (vtable + 0xB4, struct.pack("<I", hit_stub)), (control, struct.pack("<I", ai_vtable)),
+                     (ai_vtable + 0x18, struct.pack("<I", 0x38C60)), (flag, struct.pack("<f", float(every))),
+                     (message, struct.pack("<3If", 3, platform, record, 1.0)), (record + 0x10, struct.pack("<f", 0.33)),
+                     (state, struct.pack("<I3Iiid", 0, *ident[target], 1, 0, 9.97))):
+        sim.uc.mem_write(at, data)
+    for critter in (enemy, other):
+        for at, data in ((0, struct.pack("<I", vtable)), (0xE0, struct.pack("<I", 0x12345)),
+                         (0x168, struct.pack("<I", 0x40)), (0x180, struct.pack("<I", control)),
+                         (0x210, struct.pack("<ii", hp, 100))):
+            sim.uc.mem_write(critter + at, data)
+    sim.uc.mem_write(who[toucher] + 0x1E0, struct.pack("<ff", window, window))
+    if gone:   # AZ-682: the game deleted the target (the base vtable 0x19DF08), its HP still reading as it was
+        sim.uc.mem_write(enemy, struct.pack("<I", 0x19DF08))
+
+    def hit(uc, addr, size, _):   # the toucher's slot: thiscall, RET 4; it deals ``dealt`` outside its window
+        esp, ecx = sim.reg("esp"), sim.reg("ecx")
+        hits.append(name[ecx])
+        if sim.f32(ecx + 0x1E0) <= 0:
+            uc.mem_write(ecx + 0x210, struct.pack("<i", struct.unpack("<i", uc.mem_read(ecx + 0x210, 4))[0] - dealt))
+            uc.mem_write(ecx + 0x1E0, struct.pack("<ff", *(2 * (0.33 if gives is None else gives,))))
+        uc.reg_write(UC_X86_REG_EIP, struct.unpack("<I", uc.mem_read(esp, 4))[0])
+        uc.reg_write(UC_X86_REG_ESP, esp + 8)
+
+    def play(uc, addr, size, _):   # critter_play_fx: thiscall (ECX the critter, the key), RET 4
+        esp = sim.reg("esp")
+        ret, key = struct.unpack("<2I", uc.mem_read(esp, 8))
+        plays.append((sim.reg("ecx"), bytes(uc.mem_read(key, 64)).split(b"\0")[0].decode()))
+        uc.mem_write(sim.reg("ecx") + 0x23C, struct.pack("<3I", base + 0x9820, 0, 1))
+        uc.reg_write(UC_X86_REG_EIP, ret)
+        uc.reg_write(UC_X86_REG_ESP, esp + 8)
+    sim.uc.hook_add(UC_HOOK_CODE, hit, begin=hit_stub, end=hit_stub)
+    sim.uc.hook_add(UC_HOOK_CODE, play, begin=0x440F0, end=0x440F0)
+    kept = {"ebx": 0x11, "esi": 0x22, "edi": vtable, "ebp": platform}
+    windows, now = [], times[0]
+    for t in times:   # the damage pass runs the window down meanwhile
+        sim.uc.mem_write(clock + 0x10, struct.pack("<d", t))
+        sim.uc.mem_write(who[toucher] + 0x1E0, struct.pack("<f", max(0.0, sim.f32(who[toucher] + 0x1E0) - (t - now))))
+        now = t
+        sim.call(touch.va + 5 + struct.unpack_from("<i", built, va_to_file(touch.va) + 1)[0],
+                 regs={**kept, "eax": message, "ecx": who[toucher]}, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100 and {r: sim.reg(r) for r in kept} == kept   # a plain RET
+        windows.append(tuple(round(sim.f32(who[toucher] + o), 4) for o in (0x1E0, 0x1E4)))
+    return hits, *(struct.unpack("<i", sim.uc.mem_read(c + 0x210, 4))[0] for c in (player, enemy, other)), [
+        (name.get(c, c), key, struct.unpack("<I", sim.uc.mem_read(c + 0x244, 4))[0]) for c, key in plays], windows
+
+
+def test_the_drain_takes_life_from_its_target_alone_unless_a_recipe_or_style_takes_every_critter_it_touches():
+    """AZ-758 (Step 2.196, D765, the owner: "also the drain attack is
+    currently draining all enemies life within radius, not just the
+    nearest. can you make it just drain the nearest? Although having multi
+    enemy target attacks like this is cool, for future weapons"): X37's
+    drain box ([45], 24 x 24 x 4 m round its pick) sent every critter's
+    touch, so each enemy within 12 m of the target lost norm_2's 15 and
+    healed the wearer. Now:
+    (a) a recipe's or weapon style's ``drain`` {"targets": "nearest" | "all"}
+        ("nearest" by default; a style's left out hashes nothing, so every
+        weapon keeps its sha) sets X37's float param drain_every: 0.0 on
+        plain Balthazar's build, 1.0 on beamlord's (D782, the owner:
+        "beamlord keeps the area drain, balthazar drains one target": his
+        recipe asks "all", every other built-in none, the X37 test reading
+        his build's); another value or key fails by name;
+    (b) L2 at 0x7A1CA's entry (the hit's vtable +0xB4 stubbed, apply_damage
+        real), in the drain: the target's touch is sent and heals 15;
+        another enemy's is dropped (no hit, no HP lost, no heal), and with
+        no live target (none, or one the game deleted: AZ-682's identity)
+        every enemy's; at drain_every 1.0 the other enemy's is sent and
+        heals 15, as before."""
+    from azurkit.tools.characters._player_weapons import WEAPONS_FILE, load_weapons
+
+    built = bytes(_swap("balthazar", sounds="garret4")["default.xbe"])
+    touch = DRAIN_HOOKS[2]
+    assert _param(built, touch, DRAIN_SHIM, "_player_model_drain_every") == 0.0
+    assert {n: v.drain for n, v in builtins().items()} == {n: "all" if n == "beamlord" else "nearest" for n in builtins()}
+    for bad, why in (({"targets": "few"}, "drain.targets: 'few' is not one of nearest, all"),
+                     ({"target": "all"}, "drain: unknown key 'target'")):
+        with pytest.raises(ValueError, match=re.escape(why)):
+            load_variants(json.dumps({"drainall": {"base": "balthazar", "drain": bad}}), "test")
+    doc = json.loads(WEAPONS_FILE.read_text(encoding="utf-8"))
+    assert {n: w.style.drain for n, w in weapons().items()} == {n: None for n in doc["weapons"]}
+    doc["styles"]["balthazar"]["drain"] = {"targets": "all"}
+    assert load_weapons(json.dumps(doc))["balthazar_magic"].style.drain == "all"
+
+    assert _drain_touch(built, "enemy")[:4] == (["enemy"], 165, 85, 100)      # the target: drained, 15 back
+    assert _drain_touch(built, "other")[:4] == ([], 150, 100, 100)            # another enemy in the box: untouched
+    for kw in ({"target": None}, {"gone": True}):                              # no live target: none drained
+        assert _drain_touch(built, "other", **kw)[:4] == ([], 150, 100, 100), kw
+    assert _drain_touch(built, "other", every=True)[:4] == (["other"], 165, 100, 85)   # drain.targets all
+
+
+def test_a_drain_hit_leaves_its_target_open_to_the_next_swing_and_drains_it_once_a_heavy_reaction():
+    """AZ-765 (Step 2.197, D789, the owner: "Fix now"): X37's drain hit is
+    the platform's, not the player's, so X18 never makes it light, and
+    norm_2's 15 HP over a blaze sentinel's threshold 5 is a level-2 hit,
+    whose reaction gives the target a no-hit window of 0.25 s plus its
+    ouch clip (0x38EED: 2.58 s), which 0x4356E keeps: in plain play it
+    voided the wearer's beam and finish3 after the drain (Step 2.195b's
+    record, R4; main too).  L2 at 0x7A1CA's entry, the target's hit slot
+    stubbed (it deals 15 while its window is 0, then gives its window):
+    a heavy reaction's window (2.5833) is left as a light hit's, the hit
+    record's Delay 0.33 in +0x1E0 and +0x1E4, and the drain's own touches
+    on it are dropped until the heavy window would have ended (0.5 and
+    2.0 s on: no hit), then sent (2.6 s on: 15 more, 15 more heal); over a
+    longer window the touch passed (2.0 s) it leaves that one, held off the
+    same; a light reaction's window (the record's Delay) is the game's, the
+    drain held off nothing (its touch 0.5 s on sent)."""
+    built = bytes(_swap("balthazar", sounds="garret4")["default.xbe"])
+    hits, player, enemy, _, _, windows = _drain_touch(built, "enemy", gives=2.5833, times=(10.0, 10.5, 12.0, 12.6))
+    assert (hits, player, enemy) == (["enemy", "enemy"], 180, 70)
+    assert windows == [(0.33, 0.33), (0.0, 0.33), (0.0, 0.33), (0.33, 0.33)]
+    hits, player, enemy, _, _, windows = _drain_touch(built, "enemy", window=2.0, gives=2.5833, times=(10.0, 10.5, 12.6))
+    assert (hits, player, enemy, windows) == (["enemy", "enemy"], 180, 70, [(2.0, 2.0), (1.5, 2.0), (0.33, 0.33)])
+    hits, player, enemy, _, _, windows = _drain_touch(built, "enemy", times=(10.0, 10.5))
+    assert (hits, player, enemy, windows) == (["enemy", "enemy"], 180, 70, [(0.33, 0.33), (0.33, 0.33)])
+
+
+def test_balthazars_beam_bolts_reach_its_target_and_past_his_blasts_reach_his_combo_ends_on_the_beam():
+    """AZ-769 and D797 (Step 2.197b; D767: magic is the ranged style): his
+    beam drew its bolts at three fixed points 6 and 15 units ahead under
+    the floor, never at what it hit, and past 3 m his combo ended on the
+    short blast, which misses there.
+    (a) his build: the three bolt targets (locator1-3, records 58, 60, 62)
+        inherit mode 7 on the player's clone; X37 holds them, the beam's
+        columns (attack_3's: basic3 and finish3 among them), the beam's
+        reach (its box's far face) and his chest; W40 makes the transition
+        search's long-range line his blast's reach (0.6; D797's 3.0 m
+        until Step 2.202, D804 (b): his blast stops reaching at 1.26 m, so
+        from there to 3 m the finisher whiffed): the finish column's box's
+        far face ahead of his feet, x X13's bump there, and its basic3 ->
+        finish3 row long range, so the blast plays where it reaches and
+        the beam past it; keylord's own build keeps both;
+    (b) X37's anchor at 0x68A49 under L2, EBX a bolt target's node: in
+        the beam, on the critter the finder gives along the swing's yaw
+        within the reach (the radius at the reach for the call) where it
+        stands in the beam's box (ahead within the reach, within the
+        box's half-width of the yaw, its radius added; the review's F2: a
+        45 degree cone took one 2 m to the side, which the box misses),
+        its translate (side, 0, its chest: 0.7 of its bounds' height over
+        glide_origin's point); none found, one off the box, or no beam, on
+        the player straight ahead to the reach at his chest; the drain's
+        last pick before the finder's where it stands in the box; a kept
+        target knocked out of the box picked again (AZ-805, Step 2.202b:
+        the late review's P2, firedrake's bolts followed one knocked 5 m
+        past its 2.83 m box); the
+        anchor the one the node's matrix this pass holds (its local y past
+        0.5 m: straight ahead's, the player; else the target its last
+        translate was written for while it is that object, dead or alive:
+        the review's P1, a target knocked off the box put its offset on the
+        player for a tick, and the late review's F1, so did one the beam
+        killed with another critter in the box), the translate for the
+        next."""
+    game = _swap("balthazar", sounds="garret4")
+    built = bytes(game["default.xbe"])
+    find, anchor, _ = DRAIN_HOOKS
+    assert aim_records(overlay("balthazar").fx) == (58, 60, 62)
+    aim_at = resolve_va_to_file(built, trampoline_symbol_va(built, anchor, "_player_model_drain_aim",
+                                                            shim_source=DRAIN_SHIM.source_path()))
+    assert built[aim_at:aim_at + 4] == bytes([3, 58, 60, 62])
+    beams = round(_param(built, anchor, DRAIN_SHIM, "_player_model_drain_beams"))
+    columns = XbrDocument.from_bytes(bytes(game["config.xbr"])).keyed_section("attacks_anims").col_names()
+    assert {"basic3", "finish3"} <= {c for i, c in enumerate(columns) if beams >> i & 1} and not beams & 0b11
+    reach, chest, half = (_param(built, anchor, DRAIN_SHIM, f"_player_model_drain_aim_{k}")
+                          for k in ("reach", "chest", "half"))
+    assert 6.0 < reach < 8.0 and 1.0 < chest < 3.0 and 0.4 < half < 0.6
+    bodies, config0 = (_read(f"gamedata/{n}.xbr") for n in ("characters", "config"))
+    finish = columns.index("finish")
+    bump = round(_param(built, ATTACK_BOX_HOOK, ATTACK_BOX_SHIM, "_player_attack_bump_mask")) >> finish & 1
+    blast = max(w.forward for w in next(a for a in attacks(config0, bodies, "balthazar")
+                                        if a.column == "finish").windows) * (REACH_BUMP if bump else 1.0)
+    for xbe, config, line in ((built, game["config.xbr"], blast),
+                              (*(lambda g: (bytes(g["default.xbe"]), g["config.xbr"]))(_swap("keylord")), None)):
+        off = patch_spec_site(bytearray(xbe), FINISH_RANGE)[0]
+        row = XbrDocument.from_bytes(bytes(config)).keyed_section("attacks_transitions")
+        assert (struct.unpack_from("<f", xbe, off)[0], row.find_cell(row.col_names()[FINISH_ROW], "long range",
+                                                                    FINISH_ROW).double_value) == (
+            (_f32(line), 1.0) if line else (_f32(0.6), 0.0))
+    assert 1.2 < blast < 1.7   # his blast's 1.26 m, x1.25 where W14 bumps the column
+    state = trampoline_symbol_va(built, find, DRAIN_STATE, shim_source=DRAIN_SHIM.source_path())
+    radius = trampoline_symbol_va(built, SEARCH_HOOK, SEARCH_RADIUS_SYMBOL, shim_source=SEARCH_SHIM.source_path())
+    base = 0x20000000
+    world, player, pc, clock, enemy, other, vtable, own, recs, node, onplayer = (
+        base + 0x1000 * k for k in range(11))
+    beam = next(i for i in range(len(columns)) if beams >> i & 1)
+
+    def sim_at(side: float = 1.2) -> Sim:
+        sim = Sim(built)
+        sim.uc.mem_map(base, 0xC000)
+        for at, data in ((world + 0xC0, struct.pack("<I", player)), (player + 0x180, struct.pack("<I", pc)),
+                         (player + 0x210, struct.pack("<i", 150)), (pc + 0xC, struct.pack("<I", clock)),
+                         (pc + 0x138, struct.pack("<f", 0.0)), (pc + 0x16C, bytes([8])),
+                         (player + 0x230, struct.pack("<I", own + 0x20)), (own + 0x4C, struct.pack("<i", 7)),
+                         (own + 0x24, struct.pack("<2I", recs, recs + 64 * 4)), (recs + 58 * 4, struct.pack("<I", node)),
+                         (node + 8, struct.pack("<I", node + 0x100)), (radius, struct.pack("<f", 3.0)),
+                         *((c, struct.pack("<I", vtable)) for c in (enemy, other)),
+                         *((c + 0x210, struct.pack("<i", 100)) for c in (enemy, other)),
+                         *((c + 0x90, struct.pack("<f", 1.0)) for c in (enemy, other)),
+                         (enemy + 0x15C, struct.pack("<3f", 0.0, 3.0, 0.0)), (other + 0x15C, struct.pack("<3f", side, 4.0, 0.0)),
+                         (enemy + 0xF8, struct.pack("<6f", -1.0, 2.0, 0.0, 1.0, 4.0, 2.0)),
+                         (other + 0xF8, struct.pack("<6f", 1.0, 3.0, 0.5, 3.0, 5.0, 1.5))):
+            sim.uc.mem_write(at, data)
+        return sim
+
+    def anchored(sim: Sim, *, column: int, now: float, finds: int, count: int = 1, at: int = node) -> tuple:
+        seen = []
+        sim.uc.mem_write(pc + 0x134, struct.pack("<i", column))
+        sim.uc.mem_write(player + 0x200, struct.pack("<i", 0x52 + column))
+        sim.uc.mem_write(clock + 0x10, struct.pack("<d", now))
+
+        def finder(uc, addr, size, _):   # attack_target_find, __stdcall(12): its candidate into X37's state
+            esp = sim.reg("esp")
+            ret, _who, _facing, out = struct.unpack("<IIfI", uc.mem_read(esp, 16))
+            seen.append(round(sim.f32(radius), 4))
+            uc.mem_write(out, struct.pack("<I", count) + bytes(16) + struct.pack("<f", 0.4) + bytes(0x20))
+            uc.mem_write(state, struct.pack("<I", finds if count else 0))
+            uc.reg_write(UC_X86_REG_EIP, ret)
+            uc.reg_write(UC_X86_REG_ESP, esp + 16)
+
+        def origin(uc, addr, size, _):   # glide_origin, __stdcall(8): the critter's centre, its feet's z
+            esp = sim.reg("esp")
+            ret, who, out = struct.unpack("<3I", uc.mem_read(esp, 12))
+            uc.mem_write(out, struct.pack("<3f", *struct.unpack("<2f", uc.mem_read(who + 0x15C, 8)), 0.0))
+            uc.reg_write(UC_X86_REG_EAX, out)
+            uc.reg_write(UC_X86_REG_EIP, ret)
+            uc.reg_write(UC_X86_REG_ESP, esp + 12)
+        hooks = [sim.uc.hook_add(UC_HOOK_CODE, finder, begin=0x7EBB0, end=0x7EBB0),
+                 sim.uc.hook_add(UC_HOOK_CODE, origin, begin=0x42070, end=0x42070)]
+        sim.call(anchor.va + 5 + struct.unpack_from("<i", built, va_to_file(anchor.va) + 1)[0],
+                 regs={"eax": world, "edx": own, "ebx": at}, until=l2._RETURN)
+        for h in hooks:
+            sim.uc.hook_del(h)
+        return sim.reg("esi"), [round(v, 4) for v in struct.unpack("<3f", sim.uc.mem_read(node + 0x104, 12))], seen
+    ahead = [-0.4, round(_f32(0.8 * reach), 4), round(chest, 4)]
+    sim = sim_at()   # in the beam: on the critter the finder gives along his yaw, the side bolt at its chest
+    assert anchored(sim, column=beam, now=10.0, finds=other) == (player, [-0.15, 0.0, 1.2], [round(reach, 4)])
+    assert anchored(sim, column=beam, now=10.1, finds=other) == (other, [-0.15, 0.0, 1.2], [])   # 0.5 + 0.7 x 1.0
+    sim.uc.mem_write(other + 0x210, struct.pack("<i", 0))   # killed, the enemy in the box: on its body a tick more (F1)
+    assert anchored(sim, column=beam, now=10.2, finds=enemy) == (other, [-0.15, 0.0, 1.4], [round(reach, 4)])
+    assert anchored(sim, column=beam, now=10.3, finds=enemy) == (enemy, [-0.15, 0.0, 1.4], [])
+    assert anchored(sim_at(), column=beam, now=10.0, finds=other, count=0) == (player, ahead, [round(reach, 4)])
+    assert anchored(sim_at(2.0), column=beam, now=10.0, finds=other) == (player, ahead, [round(reach, 4)])   # off the box
+    assert anchored(sim_at(), column=0, now=10.0, finds=other) == (player, ahead, [])   # basic1: no beam
+    sim = sim_at()   # the drain's pick (basic2, onPlayer's evaluation), then the beam: on the drain's pick
+    assert anchored(sim, column=1, now=10.0, finds=enemy, at=onplayer)[0] == enemy
+    assert anchored(sim, column=beam, now=11.0, finds=other) == (player, [-0.15, 0.0, 1.4], [])
+    sim = sim_at()   # a kept target knocked off the box: picked again, none in it, so straight ahead (AZ-805),
+    anchored(sim, column=beam, now=10.0, finds=other)   # the bolts on it while the matrix holds its translate (P1)
+    sim.uc.mem_write(other + 0x15C, struct.pack("<3f", 2.0, 4.0, 0.0))
+    assert anchored(sim, column=beam, now=10.1, finds=other) == (other, ahead, [round(reach, 4)])
+    sim.uc.mem_write(node + 0xA4, struct.pack("<f", 5.0))
+    assert anchored(sim, column=beam, now=10.2, finds=other) == (player, ahead, [round(reach, 4)])
+    sim = sim_at()   # the matrix this pass built still straight ahead's (its local y): on the player a tick more
+    sim.uc.mem_write(node + 0xA4, struct.pack("<f", 5.0))
+    assert anchored(sim, column=beam, now=10.0, finds=other) == (player, [-0.15, 0.0, 1.2], [round(reach, 4)])
+
+
+
+def test_the_magic_finishers_line_is_met_on_the_level_so_the_blast_plays_where_it_reaches_its_target():
+    """AZ-803 (Step 2.202b, D829, the owner: "Blast where it hits, beam
+    beyond"): W40's line is the blast box's far face, but the transition
+    search compared it with its finder's distance less radius between the
+    bounds centres, which counts their height: f6's blaze sentinel's
+    centre stands 1.0 m over the player's, so it was called long range
+    0.15-0.3 m inside the blast's reach and the beam's 28-30 HP replaced
+    the blast's 84-97 there (Step 2.202's record). The blast hits wherever
+    its face reaches the target's side on the level (Step 2.202b's
+    sitting, its line poked past every gap: town_male_6 1.275 m hit and
+    1.375 missed against its 1.302 face, Balthazar 1.50 / 1.60 against
+    1.574, Balthazar x0.7 1.05 / 1.15 against 1.102, keylord missed at
+    1.00 against 0.995). X50 at 0x7F0B2 (L2, Balthazar's own build, run
+    to 0x7F0CF): it stores ESI as the game's mov did and the compare
+    meets the finder's distance less radius on the level (less its
+    vector's height share), so a target 1.0 m higher 0.05 m inside the
+    face plays the blast (long range 0) where the game called it long
+    range, one 0.05 m past it the beam, a level one the same; with no
+    target the game's stale distance. keylord's own build, no W40, keeps
+    the game's bytes."""
+    built = bytes(_swap("balthazar", sounds="garret4")["default.xbe"])
+    assert verify_trampoline_patch(built, FINISH_RANGE_HOOK) == "applied"
+    line = struct.unpack_from("<f", built, patch_spec_site(bytearray(built), FINISH_RANGE)[0])[0]
+    assert 1.5 < line < 1.6   # his blast's face, x1.25 where W14 bumps the finish
+    frame = l2._STACK_TOP - 0x104   # ESP at 0x7F0B2: the finder's result at +0x18
+
+    def long_range(ahead: float, up: float, *, found: int = 1, stale: float | None = None) -> int:
+        sim = Sim(built)
+        whole = math.hypot(ahead, up)
+        sim.uc.mem_write(frame + 0x18, struct.pack("<I3f", found, 0.0, ahead, up))
+        sim.uc.mem_write(frame + 0x30, struct.pack("<f", whole - 1.0 if stale is None else stale))
+        sim.uc.mem_write(frame + 0x54, struct.pack("<I", 0xBAD))
+        sim.call(FINISH_RANGE_HOOK.va, regs={"esi": 1, "ebx": 0x33, "edi": 0x44}, until=0x7F0CF)
+        assert sim.reg("esp") == frame and (sim.reg("ebx"), sim.reg("esi"), sim.reg("edi")) == (0x33, 1, 0x44)
+        return sim.u32(frame + 0x54)
+    assert math.hypot(line + 0.95, 1.0) - 1.0 > line   # the game's distance: past the line
+    assert [long_range(line + 1.0 + d, up) for d in (-0.05, 0.05) for up in (1.0, 0.0)] == [0, 0, 1, 1]
+    assert [long_range(9.0, 0.0, found=0, stale=v) for v in (line - 0.1, line + 0.1)] == [0, 1]
+    keylord = bytes(_swap("keylord")["default.xbe"])
+    assert verify_trampoline_patch(keylord, FINISH_RANGE_HOOK) == "original"
+
+def test_a_drain_hit_streams_red_particles_from_the_critter_it_drains_into_the_players_chest():
+    """AZ-759 (Step 2.196, D764, the owner: "also for the life drain attack,
+    can you have some visual particles coming from the enemy into the
+    player to indicate their life was drained?"):
+    (a) an X37 build (plain Balthazar's) appends fx/damage/v/fx_drain to
+        fx.xbr with its index.xbr record and names it in X37's 32-byte
+        drain_fx slot, each landing's: fx_norm_1's copy (the plain hit's
+        flash, its timer, its unload) with NPC Balthazar's drain stream
+        grafted: [6] onPlayer, inherit 7 (the game's player: X37's anchor
+        leaves another graph's to the game), holding the pull [12]-[13]
+        (300, his 50) and the box sink [14] at the player's chest, 0.7 of
+        the body's drawn height (Balthazar's 1.476 m); the emitter [16]-[18]
+        on the victim's m_hitLocation [1] (bound), the pool [8]-[9] under
+        onPlayer, unscaled (the player's frame: a victim that moves doesn't
+        drag the stream's end off his chest); the timer turns the emitter off by its
+        flash's fade curve at half speed (0.67 s) and unloads at 2.0 s
+        (stopped at 2.2); red additive sprites (blend 5) living 1.3 s;
+    (b) L2 at 0x7A1CA's entry (critter_play_fx stubbed): a drain hit that
+        takes life from a critter plays the stream on it, once, a killing
+        one too (Step 2.196's skeptic, F1: the third of the drain's hits
+        that killed a sleeth streamed nothing), and sets its handle's flags
+        to 2, so what releases it next (the AI's death clip's key 0 at
+        0x37D16, another hit's visual, the delete) detaches it to play out
+        where it is rather than stopping it; a hit taking none, the
+        player's touch and a dropped one play none; with drain.targets all
+        each critter it drains plays its own."""
+    from azurkit.tools.characters._player_character import DRAIN_FX, DRAIN_STREAM
+
+    game = _swap("balthazar", sounds="garret4")
+    built, fx = bytes(game["default.xbe"]), bytes(game["fx.xbr"])
+    old = parse_toc(_read("gamedata/fx.xbr"))
+    for hook in DRAIN_HOOKS:
+        slot = resolve_va_to_file(built, trampoline_symbol_va(built, hook, DRAIN_FX.symbol,
+                                                              shim_source=DRAIN_SHIM.source_path()))
+        assert built[slot:built.index(b"\0", slot)] == DRAIN_STREAM.encode(), hook.name
+    toc, named = parse_toc(fx), {k: i for i, k in named_resources(fx).items()}
+    assert named[DRAIN_STREAM] >= len(old) and (DRAIN_STREAM, "fx.xbr", "node") in {
+        (r.key, r.archive, r.fourcc) for r in parse_index_xbr(bytes(game["index.xbr"])).records}
+    schema = Schema(built)
+    g = Graph(fx, toc, toc[named[DRAIN_STREAM]], schema)
+
+    def attr(r: int, name: str) -> float:
+        return round(g.attr_named(r, name), 4)
+
+    def parent(r: int) -> int:
+        return struct.unpack_from("<i", g.s, g.recs[r] + 0x18)[0]
+    assert [(g.names[r], g.types[r]) for r in range(19)] == [
+        ("effectOrigin", "transform"), ("m_hitLocation", "transform"), ("NormalHit_timer", "timer"),
+        ("Flash", "transform"), ("FlashShape", "platform"), ("Unload_effectControl", "effectControl"),
+        ("onPlayer", "transform"), ("pRendererB1", "pRendererB"), ("pSystem1", "transform"),
+        ("pSystemShape1", "pSystem"), ("pSink1", "transform"), ("pSinkShape1", "pSink"), ("pGravity1", "transform"),
+        ("pGravityShape1", "pGravity"), ("pBoxSink1", "transform"), ("pBoxSinkShape1", "pBoxSink"),
+        ("pEmitter1", "transform"), ("timer1", "timer"), ("pEmitterShape1", "pEmitter")]
+    assert [struct.unpack_from("<iI", g.s, g.recs[r] + 0x18) for r in (0, 1, 6)] == [(-1, 1), (0, 1), (-1, 0)]
+    assert struct.unpack_from("<I", g.s, g.recs[6] + 0x28)[0] == 7   # the victim's two bound nodes; onPlayer a root, 7
+    assert {r: parent(r) for r in (8, 12, 14, 16, 18)} == {8: 6, 12: 6, 14: 6, 16: 1, 18: 16}
+    assert attr(12, "translateZ") == attr(14, "translateZ") == 1.4759          # his chest, 0.7 of his drawn height
+    assert (attr(13, "magnitude"), attr(11, "maxAge"), attr(8, "scaleX"), attr(14, "scaleX"), attr(14, "scaleZ")) == (
+        300.0, 1.3, 1.0, 1.6, 2.2)
+    assert (attr(7, "blendMode"), attr(7, "color2R"), attr(7, "color2G"), attr(2, "stopTime")) == (5.0, 0.95, 0.15, 2.2)
+    links = [(k.dst, schema.types[g.types[k.dst]].attrs[k.dst_plug], k.weight) for k in g.links(2)]
+    assert links[3:] == [(18, "enable", 0.5), (5, "forceUnload", pytest.approx(1 / 6))]
+    assert [(k.dst, schema.types[g.types[k.dst]].attrs[k.dst_plug]) for k in g.links(17)] == [(18, "emitRate")]
+
+    plays = {kw_key: _drain_touch(built, *args, **kw)[4] for kw_key, args, kw in (
+        ("drained", ("enemy",), {}), ("none taken", ("enemy",), {"dealt": 0}), ("killed", ("enemy",), {"hp": 15}),
+        ("player", ("player",), {}), ("dropped", ("other",), {}), ("all", ("other",), {"every": True}))}
+    assert plays == {"drained": [("enemy", DRAIN_STREAM, 2)], "none taken": [], "killed": [("enemy", DRAIN_STREAM, 2)],
+                     "player": [], "dropped": [], "all": [("other", DRAIN_STREAM, 2)]}
+
+
+def test_the_drain_streams_pull_rides_the_players_drawn_chest_and_its_sink_spans_the_lift_for_its_particles_life():
+    """AZ-764 (Step 2.196's skeptic, F2): the stream's pull [12] and box
+    sink [14] hang under its inherit-7 onPlayer [6], which follows the
+    player's critter frame alone, so while Balthazar's basic3 lifted his
+    drawn feet 2.0 m the stream ended under them. X37's anchor, placing [6]
+    for an instance neither his nor held whose graph is the stream's (19
+    records, [6] inherit 7), sets [12]'s translateZ to the chest (float
+    param drain_chest: plain Balthazar's 1.4759 m) plus his lowest posed
+    bone (anim object +8, 0xB0 bytes each, z at +0xA8; his rig's 135,
+    drain_bones) over his bind pose's lowest (drain_feet), times his drawn
+    scale (drain_drawn), with its dirty bit (1 << 3); the critter it
+    returns is the player's. Step 2.202 (AZ-764's open part: as beamlord's
+    jump attack raised the pull 0.5-0.6 m a tick, particles at the chest
+    it left passed under the lifted box and were flung 12-17 m): [14]
+    spans the standing chest to the lifted one, its translateZ the chest
+    plus half the lift and its scaleZ the standing height (float param
+    drain_sink, 2.2 m) plus the lift's size, with both dirty bits (1 << 3,
+    1 << 9). Under L2 at 0x68A49's entry: lifted 2.0 model units the pull
+    sits 2.0 m higher and the sink 4.2 m tall from 1.1 m under the chest;
+    dipped 0.5 the pull 0.5 m lower and the sink 2.7 m tall up to 1.1 m
+    over the chest; standing, or with no anim object, both at the chest,
+    the sink 2.2 m; another graph's (20 records, or [6] not inherit 7)
+    untouched. Step 2.202b (AZ-764's long stream: as basic3's lift ended,
+    particles flying in from a target 10 m off passed over the standing
+    box and flew 11-13 m off the line): by the player's clock (his
+    PlayerControl's +0xC, +0x10) the sink keeps the largest lift's span for
+    the particles' 1.3 s life, the pull back at the chest at once: lifted
+    2.0 at 10.0 s, standing at 10.5 s the sink still 4.2 m tall to the
+    lifted chest, at 11.4 s 2.2 m at the chest."""
+    built = bytes(_swap("balthazar", sounds="garret4")["default.xbe"])
+    _, anchor, _ = DRAIN_HOOKS
+    body = read_body(_read("gamedata/characters.xbr"), "balthazar_airship")
+    feet = min(p[2] for _n, p in body.bones)
+    got = {k: _param(built, anchor, DRAIN_SHIM, f"_player_model_drain_{k}")
+           for k in ("chest", "bones", "feet", "drawn", "sink")}
+    assert got == pytest.approx({"chest": 1.4759, "bones": 135.0, "feet": feet, "drawn": 1.0, "sink": 2.2}, abs=1e-4)
+    base = 0x20000000
+    world, player, instance, recs, anim, bones = (base + 0x1000 * k for k in range(6))
+    nodes = {r: base + 0x10000 + 0x200 * r for r in range(20)}
+
+    pc, clock = base + 0x6000, base + 0x7000
+
+    def placed(lift: float, *, count: int = 19, inherit: int = 7, animated: bool = True, sim: Sim | None = None,
+               now: float | None = None) -> tuple:
+        if sim is None:
+            sim = Sim(built)
+            sim.uc.mem_map(base, 0x14000)
+        if now is not None:   # his PlayerControl's clock
+            sim.uc.mem_write(player + 0x180, struct.pack("<I", pc))
+            sim.uc.mem_write(pc + 0xC, struct.pack("<I", clock))
+            sim.uc.mem_write(clock + 0x10, struct.pack("<d", now))
+        for at, data in ((world + 0xC0, struct.pack("<I", player)), (player + 0x17C, struct.pack("<I", anim * animated)),
+                         (anim + 8, struct.pack("<I", bones)),
+                         (instance + 0x24, struct.pack("<II", recs, recs + 4 * count)),
+                         (recs, struct.pack(f"<{count}I", *(nodes[r] for r in range(count)))),
+                         (nodes[6] + 0xF0, struct.pack("<i", inherit))):
+            sim.uc.mem_write(at, data)
+        for r in (12, 14):
+            sim.uc.mem_write(nodes[r] + 8, struct.pack("<I", nodes[r] + 0x100))
+        for k in range(135):   # his posed bones: the lowest ``lift`` model units over his bind pose's lowest
+            sim.uc.mem_write(bones + 0xB0 * k + 0xA8, struct.pack("<f", feet + lift + (0.5 if k % 7 else 0.0)))
+        kept = {"ebx": nodes[6], "edi": 0x33, "ebp": 0x44}
+        sim.call(DRAIN_HOOKS[1].va + 5 + struct.unpack_from("<i", built, va_to_file(anchor.va) + 1)[0],
+                 regs={**kept, "eax": world, "edx": instance}, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100 and {r: sim.reg(r) for r in kept} == kept
+        assert sim.reg("esi") == player
+        return tuple((round(sim.f32(nodes[r] + 0x100 + 12), 4), round(sim.f32(nodes[r] + 0x100 + 36), 4),
+                      sim.u32(nodes[r] + 0x10)) for r in (12, 14))
+    assert placed(2.0) == ((3.4759, 0.0, 8), (2.4759, 4.2, 0x208))     # lifted 2 m: the pull 2 m up, the sink to it
+    assert placed(-0.5) == ((0.9759, 0.0, 8), (1.2259, 2.7, 0x208))    # dipped 0.5 m: the sink down to it
+    assert placed(0.0) == ((1.4759, 0.0, 8), (1.4759, 2.2, 0x208))     # standing: at his chest
+    assert placed(2.0, animated=False) == ((1.4759, 0.0, 8), (1.4759, 2.2, 0x208))   # no anim object: at his chest
+    for kw in ({"count": 20}, {"inherit": 0}):                           # another graph's: untouched
+        assert placed(2.0, **kw) == ((0.0, 0.0, 0), (0.0, 0.0, 0)), kw
+    sim = Sim(built)   # by his clock: the sink keeps the lift's span for the particles' 1.3 s
+    sim.uc.mem_map(base, 0x14000)
+    assert [placed(up, sim=sim, now=t)[1][:2] for up, t in ((2.0, 10.0), (0.0, 10.5), (0.0, 11.4))] == [
+        (2.4759, 4.2), (2.4759, 4.2), (1.4759, 2.2)]
+    assert placed(0.0, sim=sim, now=11.5)[0][0] == 1.4759   # the pull at the chest
