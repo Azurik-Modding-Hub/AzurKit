@@ -699,6 +699,8 @@ def _content(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):   # Windows writes a pipe or a file in its code page (cp1252), which has
+        sys.stdout.reconfigure(errors="replace")   # no byte for some of what we print: a ? beats a crash (AZ-190)
     parser = argparse.ArgumentParser(prog="azurkit", description="Mods for Azurik: Rise of Perathia.")
     parser.add_argument("--version", action="version", version=f"azurkit {__version__}")
     verbs = parser.add_subparsers(dest="verb")

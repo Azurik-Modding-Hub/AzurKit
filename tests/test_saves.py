@@ -470,3 +470,20 @@ def test_save_with_no_verb_exits_2_naming_what_it_needs(capsys):
         cli.main(["save"])
     assert exc.value.code == 2
     assert "the following arguments are required: action, FOLDER|HDD" in capsys.readouterr().err
+
+
+def test_the_commands_output_replaces_what_the_consoles_code_page_cant_encode(tmp_path):
+    """Modkit's AZ-190: on Windows a pipe or a file is written in the ANSI
+    code page (cp1252), so a character it has no byte for (a save's text
+    line holding 0x81, read as Latin-1) failed the command with a codec
+    error and exit 1. ``azurkit`` replaces it with ``?`` and goes on."""
+    import os
+    import subprocess
+    import sys
+
+    (slot := tmp_path / ID).mkdir()
+    (slot / "loc.sav").write_bytes(b"fileversion=1\nlevels/water/w1\x81\n")
+    done = subprocess.run([sys.executable, "-m", "azurkit", "save", "inspect", str(slot)], capture_output=True,
+                          env={**os.environ, "PYTHONIOENCODING": "cp1252"}, timeout=120)
+    assert (done.returncode, done.stderr) == (0, b"")
+    assert b"levels/water/w1?" in done.stdout
