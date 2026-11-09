@@ -6915,3 +6915,146 @@ def test_the_colours_tab_recolours_on_the_sites_engine_and_keeps_an_imported_png
         assert served.stray() == []
     finally:
         served.close()
+
+
+# ---------------------------------------------------------------- Step 4.28d: Modkit's unpinned page tests (the test
+# census's lane D): the Data tab's search, sort and Reset table, the Randomizer tab's New and a map's exit with no place.
+
+# The Data tab's picker as it lists (each entry's name) and its count; the grid's entities in the order it shows them
+DATA_LISTED = """() => [[...document.querySelectorAll("#data .picker-list .picker-entry")].map((b) => b.dataset.name),
+    document.querySelector("#data .picker-search .note").textContent]"""
+DATA_ORDER = """() => [...document.querySelectorAll("#data table.data-grid tr")].slice(1).map((r) => r.firstChild.textContent)"""
+DATA_CHANGED = """() => [azurkit.data.state.ops.map((op) => op.table), azurkit.data.state.undo.length,
+    document.querySelectorAll("#data table.data-grid td.changed").length]"""
+DATA_SEARCH = """(text) => { const box = document.querySelector("#data .picker-search input"); box.value = text;
+    box.dispatchEvent(new Event("input")); }"""
+
+
+def test_the_data_tabs_search_picks_by_name_its_grid_sorts_numbers_text_then_empty_and_reset_table_is_one_undo(
+        browser, site):
+    """Modkit's D260, D262 (the gallery picker), its grid sort and its Reset
+    section (test_game_data_editor's): the Data tab's picker lists only the
+    entities whose name holds the text typed, in any case, saying how many
+    of all, and a click hands back the one picked, whose cells the view then
+    shows; a column header's click sorts the grid's entities by it, numbers
+    then text, ascending, then descending, empty cells last either way (on
+    Modkit's own grid of five); Reset table puts every cell of the table
+    shown back as one edit, which one Undo takes back, another table's edit
+    left as it is."""
+    critters = sdk.data({"what": "index"})["pickers"]["critter"]
+    groups = {}   # the picker lists an entry's group in the order it first comes
+    for e in critters:
+        if "elem" in e["name"].lower() or "elem" in (e.get("label") or "").lower():
+            groups.setdefault(e.get("group"), []).append(e["name"])
+    found = [name for names in groups.values() for name in names]
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-data")
+        _page.until(page, "() => azurkit.data.state.answer?.kind === 'player'")
+        page.evaluate(DATA_EDIT, ["settings_foo", "initial hp", "500"])   # another table's edit, kept by Reset table
+        _page.until(page, "() => azurkit.data.state.ops.length === 1")
+        page.evaluate(DATA_VIEW, "Critters")
+        _page.until(page, "() => azurkit.data.state.answer?.kind === 'critter'")
+        page.evaluate(DATA_SEARCH, "ELEM")
+        assert page.evaluate(DATA_LISTED) == [found, f"{len(found)} of {len(critters)}"] and len(found) > 1
+        page.evaluate("(name) => document.querySelector(`#data .picker-entry[data-name='${name}']`).click()", found[-1])
+        assert _page.until(page, f"""() => azurkit.data.state.answer?.name === {json.dumps(found[-1])} && [
+            azurkit.data.state.chosen.critter, document.querySelector("#data .picker-entry[aria-selected=true]")
+            .dataset.name]""") == [found[-1]] * 2
+
+        page.evaluate(DATA_SEARCH, "")
+        page.evaluate(DATA_VIEW, "All tables")
+        page.evaluate("() => document.querySelector(`#data .picker-entry[data-name='armor_properties']`).click()")
+        _page.until(page, "() => azurkit.data.state.answer?.name === 'armor_properties'")
+        for k, (prop, text) in enumerate((("Level", "4321"), ("Strong protection", "0.25"))):
+            page.evaluate(DATA_EDIT, ["armor_properties", prop, text])
+            _page.until(page, f"() => ({DATA_CHANGED})()[2] === {k + 1}")
+        edited = page.evaluate(DATA_CHANGED)
+        assert edited[0] == ["settings_foo", "armor_properties", "armor_properties"]
+        page.evaluate(DATA_PRESS, "Reset table")
+        assert _page.until(page, f"() => ({DATA_CHANGED})()[2] === 0 && ({DATA_CHANGED})()") == [
+            ["settings_foo"], edited[1] + 1, 0]
+        page.evaluate(DATA_PRESS, "Undo")
+        assert _page.until(page, f"() => ({DATA_CHANGED})()[2] === 2 && ({DATA_CHANGED})()") == edited
+
+        grid = [[None, 2.0], [None, None], [None, "x"], [None, -1.0], [None, 5.0]]   # Modkit's: entities a to e
+        page.evaluate("""(cells) => { const d = azurkit.data.state;
+            d.answer = { ...d.answer, cols: ["a", "b", "c", "d", "e"], rows: [d.answer.rows[0], "v"], cells,
+                         changed: [], written: [], rows_meta: [{}, {}], cols_meta: null };
+            d.sort = null; }""", grid)
+        orders = []
+        for _ in range(2):   # the header's first click sorts ascending, its next descending
+            page.evaluate("() => document.querySelector('#data table.data-grid th[data-row=\"1\"]').click()")
+            orders.append(page.evaluate(DATA_ORDER))
+        assert orders == [list("daecb"), list("ceadb")]
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+# The Randomizer tab's seed box; a skip's box and toggle; the shown level map's floor and room width, its hits named for
+# an exit and the line under it
+SEED = "() => document.getElementById('rando-seed').value"
+BATCH = """(id) => { const box = document.querySelector(`#rando-skips input[data-skip='${id}']`);
+    return [box.checked, box.indeterminate, azurkit.rando.overrides[id] ?? null]; }"""
+EDGE = """(named) => { const m = azurkit.tracker.map; return [m.floor, m.room()[0],
+    m.hits.filter((h) => h.tip?.startsWith(named)).map((h) => [h.x, h.y, h.tip]),
+    document.getElementById("map-note").textContent]; }"""
+
+
+def test_new_draws_a_seed_a_batch_partly_on_clicks_all_on_all_off_and_back_and_an_exit_with_no_place_sits_at_the_maps_edge(
+        browser, site):
+    """Modkit's D185 (its seed roll), D275 (R1.31's batches) and AZ-462: a
+    fresh page starts on a seed drawn from 0 to 999999 and New draws another
+    (AzurKit draws any seed: every seed plans, D1160, so no roll for one that
+    fills at its first attempt). A batch of skips (the variants of one
+    crossing that differ only in kit) the Skips ceiling turns only partly on
+    shows half; a click turns it all on, the next all off, the next back to
+    the ceiling's. The airship's flight to a3 (W1_A3) has no place on its
+    map: it is drawn at the map's right edge on every floor, named with its
+    need on hover (the engine's tip: its colour and dash are
+    test_randomizer's), and the line under the map says it has no place."""
+    [flight] = [e for e in tracking.world()["maps"]["levels"]["airship"]["exits"] if e["spot"] == "W1_A3"]
+    batch = next(s["id"] for s in sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"]})["skips"]
+                 if min(s["ratings"]) <= 2 < max(s["ratings"]))   # partly on at Standard's ceiling
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-randomizer")
+        _page.until(page, SETTLED, 120)
+        _page.click(page, "rando-on")
+        seeds = [page.evaluate(SEED)]
+        for _ in range(3):   # New draws again: four draws all alike would be one chance in 10^18
+            _page.click(page, "rando-new")
+            seeds.append(page.evaluate(SEED))
+        assert all(re.fullmatch(r"\d{1,6}", seed) for seed in seeds) and len(set(seeds)) > 1, seeds
+        page.evaluate("""() => { const ceiling = document.getElementById("rando-ceiling"); ceiling.value = "2";
+            ceiling.dispatchEvent(new Event("change")); }""")
+        _page.until(page, f"() => ({SETTLED})() && azurkit.rando.view.settings.skip_ceiling === 2", 120)
+        seen = []
+        for _ in range(4):
+            seen.append(page.evaluate(BATCH, batch))
+            page.evaluate("(id) => document.querySelector(`#rando-skips input[data-skip='${id}']`).click()", batch)
+            _page.until(page, SETTLED, 120)
+        assert seen == [[False, True, None], [True, False, True], [False, False, False], [False, True, None]]
+
+        _page.click(page, "rando-view-tracker")
+        _page.until(page, "() => !document.getElementById('track-pick').disabled", 300)
+        page.select_option("#track-pick", "airship")
+        _page.until(page, "() => azurkit.tracker.map.level === 'airship' "
+                          "&& azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
+        floors = page.evaluate("() => [...document.querySelectorAll('#map-floors input[data-floor]')].map((r) => "
+                               "Number(r.dataset.floor))")
+        shown = []
+        for floor in floors:
+            page.evaluate("(k) => document.querySelector(`#map-floors input[data-floor='${k}']`).click()", floor)
+            shown.append(page.evaluate(EDGE, "W1_A3 → a3:"))
+        assert len(floors) > 1 and shown == [[floor, width, [[width - 14, 40, flight["tip"]]],
+                                              "At the right edge, with no place: W1_A3."]
+                                             for floor, width, *_ in shown] and [s[0] for s in shown] == floors
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
