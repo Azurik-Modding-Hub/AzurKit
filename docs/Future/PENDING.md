@@ -58,17 +58,16 @@ owner except what group 7 lists (D115).
     id. The rows it can't close in time are retired by name under D1171 and
     listed in 2.D.
 11. **4.6r, booblord_high's own copy** (built and reviewed with no defect,
-    not yet in the stack): rebase it onto the stack, re-run
-    `scripts/record_shipped.py --content` on top of the stack's re-record
-    with content v7, run the `[europe]` pin, then gate it. Modkit's full
+    in `p2/stack2` with `shipped.json` re-recorded on the stack, 84 part
+    rows, content v7): run the `[europe]` pin, then gate it. Modkit's full
     build of the copy, for comparison, must run before the delete. This
     closes 4.6p's gap: booblord_high's own copy refused.
 12. **The content repo push** (4.6p, 4.6r): the published `main` is still
     v5. The clone's `p2/next-stack` holds v6, re-recorded (78 parts,
-    100 MB). 4.6r's v7 (+16 MB) still sits on the older v6. Push whichever
-    matches the landed stack (v7 rebuilt on the re-recorded v6 if 4.6r
-    lands), and only once a site and app that read `content.later` are live:
-    before that, v1.0.1's apps would fetch 99 MB of parts they don't read.
+    100 MB), and `p2/stack2` v7 on it (84 parts, 117 MB: 4.6r's re-record
+    on the stack). Push whichever matches the landed stack (`p2/stack2` if
+    4.6r lands), and only once a site and app that read `content.later` are live:
+    before that, v1.0.1's apps would fetch 117 MB of parts they don't read.
     Push by the Azurik-Modding-Hub URL, because the clone's `origin` still
     names the old archive.
 

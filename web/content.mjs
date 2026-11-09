@@ -39,7 +39,7 @@ export function where(source, here) {
 
 // later(path): whether Install leaves a listed file for the Check that asks for it, a built-in's shipped Check part
 // (variants/<id>/shipped/parts/), which the engine fetches from the entry's source then and holds to AzurKit's own row
-// (Step 4.6p: booblord's are 100 MB of her entry's 116), so Install and a page start carry none. content.py's later
+// (Step 4.6p: booblord's are 117 MB of her entry's 133), so Install and a page start carry none. content.py's later
 // holds the same.
 export const later = (path) => /^variants\/[^/]+\/shipped\/parts\/[^/]+$/.test(path);
 

@@ -115,8 +115,8 @@ ROOT = root()
 def later(path: str) -> bool:
     """Whether Install leaves the listed file ``path`` for the Check that
     asks for it (Step 4.6p): a built-in's shipped Check part
-    (``variants/<id>/shipped/parts/``: booblord's are 100 MB of her entry's
-    116, and a Check of one recipe on one release reads a few of them),
+    (``variants/<id>/shipped/parts/``: booblord's are 117 MB of her entry's
+    133, and a Check of one recipe on one release reads a few of them),
     fetched then from the source its entry came from (:func:`source_of`)
     and held to AzurKit's own row (``shipped.part``), so Install and the
     site's page start carry none. ``web/content.mjs``'s ``later`` holds the

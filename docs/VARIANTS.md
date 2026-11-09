@@ -71,7 +71,8 @@ attack column.
 
 **Shape:** `mesh` sculpts the body (`ops`: `scale`, `push`, `taper`, `tuck` …) or takes an edited glTF of it
 (`{"gltf": {"file": "body.glb", "sha256": "…"}}`); `shapes` names sliders over its ops
-(`{"hips": {"title": "Hips", "ops": ["pelvis"], "value": 1.2}}`); `jiggle` frees bones and hangs springs on them.
+(`{"hips": {"title": "Hips", "ops": ["pelvis"], "value": 1.2}}`); `jiggle` frees bones and hangs springs on them;
+`places` (New from this writes it) hangs them where another body's build does.
 
 **Looks:** `colours` recolours its material rows (`[{"row": 0, "ops": [...]}]`, or an edited PNG of a row); `textures`
 paints new ones through its mesh; `texture_scale` sizes them; `lods` sets its detail levels and shadow.
@@ -282,6 +283,10 @@ then. Lengths are model units (about a metre), in the body's frame: x right, y f
   (only the recipe's own clips move it). `springs` hangs real-time springs on the body's own bones (hair, cloth:
   `python -m devkit models model chains BODY` prints a starting set), 32 rows in all; `keys`, `still`, `loops` and
   `clear` tune the baked swing. A recipe with a `jiggle` takes none of its body's own hair springs.
+- `places` (needs a `jiggle`): `{"of": NAME, "mesh": M, "jiggle": J}`, the `mesh` and `jiggle` whose build places
+  the recipe's jiggle bones, each checked as a recipe's is. New from this writes it on its own copy of a built-in
+  whose build places its springs by the recipe it is `from` (booblord_high: booblord's), so the copy's springs sit
+  where the built-in's do and its clips' rests hold; `of` names that recipe. A recipe `from` the copy keeps it.
 
 ### Looks
 
