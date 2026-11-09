@@ -258,3 +258,31 @@ def test_inserted_root_entries_read_back_and_vanilla_entries_keep_their_sectors(
                                "/: 100 new entries would outgrow its table's 1 sector(s)")):
         with pytest.raises(error, match="^" + re.escape(why)):
             iso.read(path, None, add=given)
+
+
+# Step 4.28b: Modkit's unpinned core behaviours (its test census, lane B), ported lean.
+
+
+def test_a_written_image_is_whole_on_the_disk_before_it_appears_under_its_name(tmp_path, monkeypatch):
+    """Modkit's AZ-236: a part file renamed into place with no fsync could
+    leave a short file under the final name after a power cut. Cloned or
+    streamed, ``pack`` flushes and fsyncs its part at the image's whole
+    size before ``out`` exists; the image is smaller than a write chunk, so
+    a stream that forgot to flush Python's buffer first would sync less."""
+    src = tmp_path / "in.iso"
+    src.write_bytes(image({"a.bin": fill("a", 90), "gamedata/big.xbr": fill("big", 3 * S)}))
+    built = iso.read(src, {"gamedata/big.xbr": fill("B", 3 * S + 1)})
+    synced, out, fsync = [], [None], os.fsync
+
+    def recording(fd: int) -> None:
+        synced.append((os.fstat(fd).st_size, out[0].exists()))
+        fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", recording)
+    clone = iso._clone
+    for name, made in (("cloned", clone), ("streamed", lambda source, part: None)):
+        monkeypatch.setattr(iso, "_clone", made)
+        synced.clear()
+        out[0] = tmp_path / f"{name}.iso"
+        assert iso.pack(built, out[0]) == built.sha256()
+        assert (synced[:1], out[0].stat().st_size) == ([(built.size, False)], built.size), name

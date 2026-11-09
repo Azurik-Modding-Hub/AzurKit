@@ -2499,3 +2499,69 @@ def test_a_body_case_under_pyodide_is_its_goldens_file_for_file(usa_iso, pyodide
     got = pyodide(image=_bodies()[case] | {"iso": str(usa_iso)}, packages=(_pyodide.numpy(),))
     assert (got["code"], got["platform"]) == (0, "emscripten"), got["stderr"][-2000:]
     assert got["report"]["result"] == {f: sha for f, sha in _golden(G3["usa"])[case].items() if f != "ISO"}
+
+
+# Step 4.28b: Modkit's unpinned index.xbr and grade table behaviours (its test census, lane B), ported lean.
+
+
+def _indx_xbr(records: list[tuple[str, str, str]], count: int | None = None) -> bytes:
+    """An XBR of one ``indx`` entry holding ``records`` (key, archive, fourcc)
+    as vanilla lays them out; ``count`` overrides the record count it says."""
+    table, rows, strings = 8, bytearray(), bytearray()
+    strings_at = table + 20 * len(records)
+    for k, (key, archive, fourcc) in enumerate(records):
+        row, key_at = table + 20 * k, strings_at + len(strings)
+        strings += key.encode("ascii") + b"\0"
+        archive_at = strings_at + len(strings)
+        strings += archive.encode("ascii") + b"\0"
+        rows += struct.pack("<IiIi4s", len(key), key_at - (row + 4), len(archive), archive_at - (row + 12),
+                            fourcc.encode("ascii"))
+    payload = struct.pack("<Ii", len(records) if count is None else count, table - 4) + rows + strings
+    head = bytearray(0x1000)
+    head[:4] = b"xobx"
+    struct.pack_into("<II", head, 0x0C, 1, 0x1000)
+    struct.pack_into("<II4sI", head, 0x3C, 0, len(payload), b"indx", 8)
+    return bytes(head + payload)
+
+
+def test_the_index_reader_refuses_a_file_that_isnt_one_or_a_record_outside_its_payload_by_name(tmp_path):
+    """Modkit's index.xbr refusals (its BUG_HUNT M1: a struct.error escaped):
+    a bad magic, a truncated file, a record count past the table and a key
+    pointer past the ``indx`` payload are each a ValueError naming the
+    file; the same layout with sound pointers reads back."""
+    from azurkit.tools.characters.index_xbr import load_index_xbr
+
+    good = [("levels/town", "town.xbr", "levl")]
+    (path := tmp_path / "index.xbr").write_bytes(_indx_xbr(good))
+    assert load_index_xbr(path).records == (IndexRecord("levels/town", "town.xbr", "levl"),)
+    bad_key = bytearray(_indx_xbr(good))
+    struct.pack_into("<i", bad_key, 0x1000 + 8 + 4, 0x10000)
+    for blob, why in ((b"XXXX" + bytes(0x20), ""), (b"xobx" + bytes(4), ""),
+                      (_indx_xbr(good, count=3), " inside the indx payload"),
+                      (bytes(bad_key), " inside the indx payload")):
+        path.write_bytes(blob)
+        with pytest.raises(ValueError, match=f"^index.xbr: .*{why}"):
+            load_index_xbr(path)
+
+
+def test_each_grade_table_holds_one_grade_a_line_and_refuses_a_key_graded_twice(tmp_path):
+    """Modkit's Step X.85 (D838, D853): the weapon, variant and mode grades
+    are their files' lines, one a line, each after the first starting with a
+    comma (two lanes' new lines merge by union), every key once; the
+    union's copy of a line both lanes changed is a key held twice, which
+    ``load_grades`` refuses by name."""
+    from azurkit.tools.characters import _player_character as pc
+    from azurkit.tools.characters import _player_weapons as pw
+    from azurkit.tools.characters.grades import load_grades
+
+    modes = {(mode, size, species): graded for (mode, size), grades in pc.MODE_GRADES.items()
+             for species, graded in grades.items()}
+    for name, key, table in (("weapon_grades.json", ("name", "mode", "weapon", "sha"), pw.WEAPON_GRADES),
+                             ("variant_grades.json", ("variant", "sha"), _player_variants.VARIANT_GRADES),
+                             ("mode_grades.json", ("mode", "size", "species"), modes)):
+        head, *lines, end = (pw.WEAPONS_FILE.parent / name).read_text(encoding="utf-8").splitlines()
+        assert head.startswith("[{") and end == "]" and all(line.startswith(",{") for line in lines), name
+        assert load_grades(pw.WEAPONS_FILE.parent / name, key) == table and len(table) == len(lines), name
+        (twice := tmp_path / name).write_text("\n".join([head, *lines, lines[0], end]), encoding="utf-8")
+        with pytest.raises(ValueError, match=rf"^{name}: \(.*\) is graded twice"):
+            load_grades(twice, key)

@@ -229,3 +229,32 @@ def test_each_vanilla_image_matches_its_manifest_file_by_file(release, request):
     whole)."""
     stamp = gate.verify(request.getfixturevalue(f"{release.name}_iso"))
     assert (stamp.release, stamp.whole) == (release, True)
+
+
+# Step 4.28b: Modkit's unpinned core behaviours (its test census, lane B), ported lean.
+
+
+def test_each_release_is_found_by_its_own_variable_else_in_the_user_data_folder(tmp_path, monkeypatch):
+    """Modkit's resolver order (Q303) as AzurKit keeps it (``gate.find``): a
+    release's image is the file its own variable names whenever that is set
+    (one in the user data folder is then not read), else its image in the
+    user data folder, else none, and ``gate.missing`` says which to fix; the
+    other release's variable is never read (AzurKit has no "AZURKIT_ISO
+    holds Europe" rule)."""
+    data = tmp_path / "data"
+    data.mkdir()
+    monkeypatch.setattr(gate, "data_path", lambda release: data / f"{release.name}.iso")
+    for release in gate.RELEASES:
+        other = next(r for r in gate.RELEASES if r is not release)
+        for var in (release.env, other.env):
+            monkeypatch.delenv(var, raising=False)
+        (named := tmp_path / f"named-{release.name}.iso").touch()
+        monkeypatch.setenv(other.env, str(named))
+        assert (gate.find(release), gate.missing(release)) == (
+            None, f"set {release.env} or put it at {data / f'{release.name}.iso'}")
+        (data / f"{release.name}.iso").touch()
+        assert gate.find(release) == data / f"{release.name}.iso"
+        monkeypatch.setenv(release.env, str(named))
+        assert gate.find(release) == named
+        monkeypatch.setenv(release.env, str(gone := tmp_path / "gone.iso"))
+        assert (gate.find(release), gate.missing(release)) == (None, f"{release.env} names no file ({gone})")

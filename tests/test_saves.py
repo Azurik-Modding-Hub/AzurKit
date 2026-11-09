@@ -457,3 +457,16 @@ def test_slots_are_read_from_an_xemu_hdd_image(tmp_path):
     (tmp_path / "small.img").write_bytes(bytes(4096))
     with pytest.raises(ValueError, match="too small for the Xbox's E: drive"):
         saves.slots(tmp_path / "small.img")
+
+
+# Step 4.28b: Modkit's unpinned save command behaviours (its test census, lanes B and C6), ported lean.
+
+
+def test_save_with_no_verb_exits_2_naming_what_it_needs(capsys):
+    """Modkit's M2: ``save`` with no verb dispatched to inspect and died with
+    an AttributeError. ``azurkit save`` alone is a usage error, exit 2,
+    naming the verb and the slot it needs."""
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["save"])
+    assert exc.value.code == 2
+    assert "the following arguments are required: action, FOLDER|HDD" in capsys.readouterr().err

@@ -193,3 +193,31 @@ def test_the_media_verbs_read_the_games_movies_and_sound_banks(usa_iso, tmp_path
                if data[0x3C + 16 * k + 8:0x3C + 16 * k + 12] == b"wave"]
         assert {e.index: e.name for e in report.entries if e.name} == {
             i: own[k] for i, k in enumerate(toc) if k in own} and len([e for e in report.entries if e.name]) == named
+
+
+# Step 4.28b: Modkit's unpinned audio dump behaviours (its test census, lane B), ported lean.
+
+
+def test_the_dump_scores_entropy_refuses_an_implausible_header_and_previews_each_raw_blob_once(tmp_path):
+    """Modkit's EntropyHeuristics, WaveHeaderParser and RawPreviewWav rows:
+    a blob's entropy is 0 for zeros and for nothing, 1 for a uniform one; a
+    header whose rate isn't a standard one (0xDEADBEEF) or whose count
+    passes 10 minutes is no audio; a raw preview takes the rate it is
+    given and pads an odd payload by one byte to whole 16-bit samples; and
+    a blob that duplicates an earlier one gets no preview of its own."""
+    assert (dump.entropy_ratio(bytes(256)), dump.entropy_ratio(b"")) == (0.0, 0.0)
+    assert dump.entropy_ratio(bytes(range(256)) * 4) == pytest.approx(1.0)
+    for rate, count in ((0xDEADBEEF, 1000), (22050, 22050 * 601)):
+        assert dump.parse_wave_header(struct.pack("<III", rate, count, 0x01000401) + bytes(8)) is None, rate
+    assert dump.parse_wave_header(struct.pack("<III", 22050, 22016, 0x01000401) + bytes(8)).sample_count == 22016
+    assert struct.unpack_from("<HHI", dump.build_raw_preview_wav(bytes(128), sample_rate=44100), 20)[2] == 44100
+    odd = dump.build_raw_preview_wav(b"\x01" * 7)
+    assert struct.unpack_from("<I", odd, odd.rindex(b"data") + 4)[0] == 8
+    common, distinct = bytes(range(256)) * 2, bytes(reversed(range(256))) * 2
+    (fx := tmp_path / "fx.xbr").write_bytes(xbr([(b"wave", common), (b"wave", common), (b"wave", distinct)], {}))
+    report = dump.dump_waves(fx, tmp_path / "out", emit_raw_previews=True)
+    assert [(e.classification, e.duplicate_of) for e in report.entries] == [("non-audio", -1), ("non-audio", 0),
+                                                                            ("non-audio", -1)]
+    assert report.preview_wav_written == 2
+    assert sorted(p.name for p in (tmp_path / "out" / "waves").glob("*.preview.wav")) == [
+        "wave_0000.preview.wav", "wave_0002.preview.wav"]

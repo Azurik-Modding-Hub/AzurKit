@@ -403,3 +403,29 @@ def test_both_shipped_node_type_tables_are_what_capstone_reads_from_each_release
     monkeypatch.setattr(graph, "REGISTER_FN", graph.REGISTER_FN + 1)
     with pytest.raises(ValueError, match="a vanilla default.xbe"):
         node_types.scan(xbes["usa"])
+
+
+# Step 4.28b: Modkit's unpinned devkit verb behaviours (its test census, lane B), ported lean.
+
+
+def test_a_byte_count_or_a_record_stride_takes_only_a_positive_integer(capsys):
+    """Modkit's AZ-211: ``hexdump --length 0`` said the address was outside
+    the XBE, and ``xbr inspect --stride 0`` listed every record at one
+    offset (a negative stride walked backwards). ``re xbe hexdump``'s
+    ``--length`` and ``xbr inspect``'s ``--stride`` take a positive
+    integer; anything else exits 2 naming the option."""
+    import pytest
+
+    from devkit.xbr import inspect
+
+    refused = []
+    for parser, argv in ((xbe.parser(), ["hexdump", "0x11000", "--length", "0"]),
+                         (xbe.parser(), ["hexdump", "0x11000", "--length", "-5"]),
+                         (inspect.parser(), ["x.xbr", "--tag", "node", "--stride", "0"]),
+                         (inspect.parser(), ["x.xbr", "--tag", "node", "--stride", "-4"])):
+        with pytest.raises(SystemExit) as exc:
+            parser.parse_args(argv)
+        refused.append((exc.value.code, f"argument {argv[-2]}: " in capsys.readouterr().err))
+    assert refused == [(2, True)] * 4
+    assert xbe.parser().parse_args(["hexdump", "0x11000", "--length", "1"]).length == 1
+    assert inspect.parser().parse_args(["x.xbr", "--tag", "node", "--stride", "4"]).stride == 4
