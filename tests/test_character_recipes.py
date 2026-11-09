@@ -11,8 +11,10 @@ import dataclasses
 import hashlib
 import json
 import math
+import os
 import re
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -1118,12 +1120,20 @@ def test_a_recipes_slots_play_its_gait_and_victories_untimed_and_a_wrong_one_is_
         assert said in str(caught.value)
 
 
+def _content_source() -> str:
+    """Azurik-Custom-Content's source: ``$AZURKIT_CONTENT_SOURCE``, else its clone beside the main checkout."""
+    if env := os.environ.get(sdk.SOURCE_ENV):
+        return env
+    common = subprocess.run(["git", "-C", str(Path(__file__).resolve().parents[1]), "rev-parse", "--path-format=absolute",
+                             "--git-common-dir"], capture_output=True, text=True, check=True).stdout.strip()
+    return str(Path(common).parent.parent / "Azurik-Custom-Content")
+
+
 @pytest.fixture(scope="module")
 def _booblord_installed(tmp_path_factory) -> Path:
     """A content folder with booblord installed from Azurik-Custom-Content (``sdk.content_install``, every file checked
     against its manifest), once a module."""
     from azurkit.tools.characters import content
-    from tests.test_characters import _content_source
 
     folder = tmp_path_factory.mktemp("content")
     with pytest.MonkeyPatch.context() as mp:
