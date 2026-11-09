@@ -1,7 +1,7 @@
 """L3 proof records (Step X.7, D170): what a ``proven = { by = "l3", ref }`` mark, or a skip's ``confirmed = { by =
 "l3", ref }`` (Step R1.8g, D177), resolves to.
 
-``azurik_mod/randomizer/data/proofs.jsonl`` holds one record per line, sorted by ``ref``.  A record is
+``data/proofs.jsonl`` holds one record per line, sorted by ``ref``.  A record is
 coordinate-free and RAM-free: the claim (a location, an edge's zones, or a skip with its kit and the most flaps it
 made in one jump), the start as a recipe (the loadvm tag,
 the R7 hop, the R2 kit, an R6 teleport named by its reach-model sample and the place struct's sha12, the settle
@@ -12,9 +12,11 @@ skip's since D277, Step R1.31: the simulator's run confirms it, so its replay ma
 ``ref`` is ``<sitting>/<string sha12>@<snapshot meta sha12>``.  The loader resolves every ``l3`` mark to its record
 and checks the claim names the same location or edge; ``rando author`` refuses a ``[[probed]]`` walk whose record's
 ``zoning`` (:func:`zoning`: the sha256 of the level's derived ``zones`` section, which a re-derive renumbers and
-``rando author`` never touches) isn't the level's current one (``scripts/l3_certify.py recheck`` re-runs the
-strings and re-zones them).  The records stay out of ``db_digest``: evidence never changes a plan.
-Stdlib only: the sim writes none of this (``scripts/l3_certify.py`` does) and the planner stays pure.
+``rando author`` never touches) isn't the level's current one (``python -m devkit reach l3-certify recheck`` re-runs
+the strings and re-zones them).  A record whose start snapshot is gone is ``retired`` (a string saying why, D1175):
+it stays as history and its marks still resolve, but ``recheck`` passes over it.  The records stay out of
+``db_digest``: evidence never changes a plan.  Stdlib only: the sim writes none of this (devkit's ``l3-certify``
+does) and the planner stays pure.
 """
 
 from __future__ import annotations

@@ -2237,6 +2237,27 @@ def test_certify_finds_a_step_x7_records_teleport_whose_yaw_is_minus_zero(tmp_pa
     assert cert._teleport("e7", dict(r6, place_sha12="000000000000")) is None
 
 
+def test_certify_recheck_names_a_retired_record_and_passes_over_it(tmp_path, monkeypatch, capsys):
+    """D1175 (Step 4.13f): a proof record whose start snapshot is gone is ``retired`` (it stays as history, its marks
+    still resolve); ``recheck`` names it and goes on, reading neither the image, its snapshot nor a reach model,
+    where it stopped on the first such record."""
+    import json
+
+    from azurkit.tools.randomizer.planner import proofs as pr
+    from devkit.reach import l3_certify as cert
+    from devkit.sim import ports
+
+    ref, rec = sorted(pr.read_proofs(cert.PROOFS)[0].items())[0]
+    rec = dict(rec, retired="D1175: its start snapshot is gone")
+    pr.write_proofs(tmp_path / pr.FILE, {ref: rec})
+    monkeypatch.setattr(cert, "PROOFS", tmp_path / pr.FILE)
+    for mod, name in ((ports, "vanilla_iso"), (cert, "_router"), (cert.l3, "read_snapshot"), (cert, "_teleport")):
+        monkeypatch.setattr(mod, name, mock.Mock(side_effect=AssertionError(f"{name} read")))
+    row = {"ref": ref, "level": rec["claim"]["level"], "kind": rec["claim"]["kind"], "retired": rec["retired"]}
+    assert cert.recheck() == [row] and json.loads(capsys.readouterr().out) == row
+    assert cert.recheck(levels=("no-such-level",)) == []
+
+
 def test_a_certify_verify_that_stops_is_run_once_more_then_kept_inconclusive_with_its_site(monkeypatch):
     """AZ-640 (Step R1.34): ``l3_certify``'s end-to-end verify (``search_all``'s and a skip rung's ``_check_rung``)
     runs ``_verify`` once more from a reset when L3 stops on the way (a warm render past its 5 s cap on a loaded

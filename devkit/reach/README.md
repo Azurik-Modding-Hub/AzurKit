@@ -24,8 +24,8 @@ What it reads and writes, none of it in the repository:
 | The kernel's and FastL3's C step builds, the patched Unicorn | the user cache's `AzurKit/reach-native/`, `fastl3-step/` and `unicorn-fastl3/<the patch's sha12>/`, rebuilt on first use |
 | The frozen truth set (frames and R's rows) | `reach-truth/<level>/truth/` in the user data folder, read where it is |
 | The engine's start snapshots | the L3 store's `reach-live/`, read where they are |
-| The levels' reach models | the L3 store's `x7/reach/`, Modkit's pickles read where they are (`models.py`: a fixed module table, any other class refused; a missing one is built beside them) |
-| Their route graphs | `x7/reach/routers-azurkit/`, beside them (Modkit's keys stay in its `routers/`) |
+| The levels' reach models | the L3 store's `x7/reach/`, this checkout's pickles (`models.py`: any global but this checkout's modules and a few standard ones refused; a missing one is built beside them) |
+| Their route graphs | `x7/reach/routers/`, beside them |
 | The certification's private starts and kit snapshots | the L3 store's `x7/` (`by-dir/`) and `x11/`, mode 700 |
 
 Cache keys hash the code at its devkit paths (`engine/cache.py`'s
@@ -773,8 +773,8 @@ uv run --locked python -m devkit reach l3-certify apply-skips DIR --sitting NAME
   while its `.stamp` names that zoning, else `<level>@<sha12>.pkl` keyed by
   it, built from the vanilla ISO the first time (minutes). A re-derive
   that renumbers the zones so gets a fresh model rather than searches
-  aimed at the old zones (AZ-362); the older ones stay, and `recheck`
-  finds a record's teleport in the one whose sample gives its place.
+  aimed at the old zones (AZ-362); `recheck` finds a record's teleport in
+  the kept one whose sample gives its place.
   A route graph built on a model (`l3_goal.load_router`: 2 s for d1,
   16.5 s for w1) is kept, the router with its model, in `routers/`
   beside it under its content key (`router_key`: the model file's path
@@ -790,7 +790,9 @@ uv run --locked python -m devkit reach l3-certify apply-skips DIR --sitting NAME
   climbing, or from the floor under a rig's tooth or a ledge's top it
   stands on; the douse's to-node reads the same way); `rando author` refuses a `[[probed]]` walk whose record's
   `zoning` (the sha256 of the level's derived `zones` section) isn't the
-  level's until then.
+  level's until then. A record whose start snapshot is gone is `retired`
+  (a field saying why: D1175's 21) and stays as history, its marks still
+  resolving; `recheck` names it and passes over it.
 - `replays` also adds each replay to the conformance corpus
   (`l3_conformance.py`).
 - The skips (Step R1.8g; D183, D177, D178): `plan-skips` turns the

@@ -1215,11 +1215,11 @@ def test_the_goal_factories_share_one_router_per_reach_model_in_a_process(monkey
 def test_a_built_router_is_kept_by_its_content_key_beside_its_reach_model_and_built_again_once_the_model_changes(
         tmp_path, monkeypatch):
     """Step X.95 (X.93: router loads were 3-5 s of each sandbox; w1's router takes 16.5 s to build and 0.8 s to load):
-    ``load_router`` keeps the router it built in ``routers-azurkit/`` beside its reach model under ``router_key``
-    and loads it from there, equal, while the model file stands as it was; the model written again builds it again
-    and its older key's file goes, and Modkit's ``routers/`` beside it is never touched (Step 4.13d2: the L3 store
-    is shared, and Modkit's keys are other keys).  The key reads ``physics.py``, whose run and swim speeds the
-    router's costs divide by (X.95's review: an edit there served the old costs)."""
+    ``load_router`` keeps the router it built in ``routers/`` beside its reach model under ``router_key`` and
+    loads it from there, equal, while the model file stands as it was; the model written again builds it again and
+    its older key's file goes, and another model's router there stays (Step 4.13f: one folder).  The key reads
+    ``physics.py``, whose run and swim speeds the router's costs divide by (X.95's review: an edit there served the
+    old costs)."""
     import pickle
 
     from azurkit.tools.randomizer import physics
@@ -1229,20 +1229,20 @@ def test_a_built_router_is_kept_by_its_content_key_beside_its_reach_model_and_bu
                                                 for rel in l3_goal.ROUTER_CODE}
     reach = tmp_path / "t.pkl"
     reach.write_bytes(pickle.dumps(Reach(_level(_quad(-8, -8, 8, 8, 0.0)), flights.Env.kept())))
-    modkit = tmp_path / "routers" / "t-logic-0123456789ab.pkl"
-    modkit.parent.mkdir()
-    modkit.write_bytes(b"Modkit's router")
+    other = tmp_path / "routers" / "u-logic-0123456789ab.pkl"
+    other.parent.mkdir()
+    other.write_bytes(b"u's router")
     builds, init = [], Router.__init__
     monkeypatch.setattr(Router, "__init__", lambda self, R, prof="logic": builds.append(prof) or init(self, R, prof))
     a, b = l3_goal.load_router(str(reach)), l3_goal.load_router(str(reach))
-    kept = [p.name for p in (tmp_path / "routers-azurkit").glob("*.pkl")]
+    kept = [p.name for p in (tmp_path / "routers").glob("t-*.pkl")]
     assert builds == ["logic"] and kept == [f"t-logic-{l3_goal.router_key(str(reach), 'logic')}.pkl"]
     assert np.array_equal(a.cost, b.cost) and np.array_equal(a.dst, b.dst) and np.array_equal(a.X, b.X)
     reach.write_bytes(reach.read_bytes())
     l3_goal.load_router(str(reach))
-    assert builds == ["logic", "logic"] and [p.name for p in (tmp_path / "routers-azurkit").glob("*.pkl")] == [
+    assert builds == ["logic", "logic"] and [p.name for p in (tmp_path / "routers").glob("t-*.pkl")] == [
         f"t-logic-{l3_goal.router_key(str(reach), 'logic')}.pkl"] != kept
-    assert modkit.read_bytes() == b"Modkit's router"
+    assert other.read_bytes() == b"u's router"
 
 
 def test_rando_author_of_some_authored_levels_names_the_ones_left_out(capsys):

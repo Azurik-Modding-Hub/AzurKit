@@ -368,8 +368,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   scripts as devkit verbs, at Modkit `f482ea041`, frozen (D1143). Its cache
   and kernel keys hash the code at its devkit paths, so Modkit's records
   aren't reused; the truth set is read from `reach-truth/` in the user data
-  folder and the reach models from the L3 store's `x7/reach/`, in place
-  (`devkit/reach/models.py`); `tests/test_reach_engine.py` holds it and
+  folder and the reach models from the L3 store's `x7/reach/`, which
+  this checkout built (`devkit/reach/models.py` refuses a pickle naming
+  any other module, Step 4.13f); `tests/test_reach_engine.py` holds it and
   [`docs/REACH.md`](docs/REACH.md) describes it.
 - **The certification's cut (Step 4.13d2):** `devkit/reach`'s `l3-certify`,
   `l3-contact` and `l3-gate` and `devkit/xemu`'s `chain`, `route` and
@@ -377,9 +378,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `l3_gate.py`, `xemu_chain.py`, `xemu_route.py` and `xemu_minigames.py`
   at `f482ea041`, each its code with its imports renamed; the level's
   reach model is `devkit/reach/models.py`'s, the route graph's builder
-  `devkit/rando/derive.py`'s, and the routers this checkout builds are
-  kept apart from Modkit's (`routers-azurkit/` beside the store's reach
-  models). `tests/test_reach_model.py` and `tests/test_simulator.py` hold
+  `devkit/rando/derive.py`'s, and its routers are kept in `routers/`
+  beside the store's reach models. `tests/test_reach_model.py` and `tests/test_simulator.py` hold
   them, and the sitting kit's selftest the chain's rate and the pilot's
   pipe.
 - **Coverage:** Modkit's planner tests don't guard AzurKit's copy. A step

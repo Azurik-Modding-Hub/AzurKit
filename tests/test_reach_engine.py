@@ -1721,28 +1721,24 @@ def test_the_router_routes_a_witness_touching_a_mover_and_flags_one_passing_near
     assert M.route([(x, 10.0, 1.0) for x in (1.0, 2.0, 3.0)]) == {"rigs": [], "gates": [], "near": []}
 
 
-def test_a_reach_model_modkit_pickled_loads_onto_its_homes_here_and_any_other_global_is_refused():
-    """Step 4.13d1: the L3 store keeps Modkit's pickled reach models (``x7/reach``), read in place and never
-    rewritten: ``models.load`` maps each Modkit module they name to its home here by a fixed table, takes the
-    standard library's and numpy's few as they are and refuses any other global by name."""
+def test_a_reach_model_pickled_here_loads_and_one_naming_a_modkit_module_or_any_other_global_is_refused():
+    """Step 4.13f: the L3 store's reach models (``x7/reach``) are this checkout's pickles (Modkit's went, D1172):
+    ``models.load`` takes the modules they name and the standard library's and numpy's few globals they hold, and
+    refuses any other global by name, a Modkit module's too."""
     import io
 
     from azurkit.tools.randomizer.art import nodes as art_nodes
     from azurkit.tools.randomizer.planner import proofs as pr
     from devkit.reach import models
 
-    def renamed(obj, here, modkit):
-        return io.BytesIO(pickle.dumps(obj, protocol=0).replace(here.encode(), modkit.encode()))
-
-    got = models.load(renamed((pr.zoning, art_nodes.Link, collections.Counter("ab")),
-                              "azurkit.tools.randomizer.planner.proofs", "azurik_mod.randomizer.planner.proofs"))
-    assert got == (pr.zoning, art_nodes.Link, collections.Counter("ab"))
+    here = (pr.zoning, art_nodes.Link, collections.Counter("ab"))
+    assert models.load(io.BytesIO(pickle.dumps(here, protocol=0))) == here
     assert np.array_equal(models.load(io.BytesIO(pickle.dumps(np.arange(3.0), protocol=5))), np.arange(3.0))
-    assert models.load(renamed(art_nodes.Link, "azurkit.tools.randomizer.art.nodes", "azurik_mod.xbr.nodes")) is (
-        art_nodes.Link)
-    for evil in (shutil.rmtree, math.floor):
-        with pytest.raises(pickle.UnpicklingError, match=f"names {evil.__module__}.{evil.__name__}"):
-            models.load(io.BytesIO(pickle.dumps(evil, protocol=0)))
+    modkit = pickle.dumps(art_nodes.Link, protocol=0).replace(b"azurkit.tools.randomizer.art.nodes", b"azurik_mod.xbr.nodes")
+    for blob, named in ((modkit, "azurik_mod.xbr.nodes.Link"), *((pickle.dumps(f, protocol=0), f"{f.__module__}.{f.__name__}")
+                                                                for f in (shutil.rmtree, math.floor))):
+        with pytest.raises(pickle.UnpicklingError, match=f"names {named}"):
+            models.load(io.BytesIO(blob))
 
 
 def test_every_reach_verb_prints_its_usage_on_help_and_exits_0(capsys):

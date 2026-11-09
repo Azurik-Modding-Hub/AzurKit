@@ -1,17 +1,16 @@
-"""The reach models the L3 store keeps (Step 4.13d1): the store's ``x7/reach`` folder (Modkit's certification
-pipeline's private folder) holds each level's reach model (``draft.reach.Reach``) pickled by Modkit: ``<level>.pkl``
-while its ``.stamp`` names the level's zoning, else ``<level>@<sha256 of the zoning, 12>.pkl``.  They are read where
-they are and never rewritten:
+"""The reach models the L3 store keeps (Step 4.13d1): the store's ``x7/reach`` folder (the certification's private
+folder) holds each level's reach model (``draft.reach.Reach``), pickled by this checkout: ``<level>@<sha256 of the
+zoning, 12>.pkl`` (or ``<level>.pkl`` while its ``.stamp`` names the level's zoning).  Step 4.13f rebuilt every
+current one with this checkout's code; the pickles Modkit made are gone (D1172, D1173):
 
-- :func:`load` unpickles one: Modkit's modules are mapped to their homes here by a fixed table (:data:`HOMES`), the
-  standard library's and numpy's few globals a model holds (:data:`ALLOWED`) are taken as they are, and any other
-  global is refused (``pickle.UnpicklingError`` naming it);
-- :func:`reach_path` is Modkit's ``l3_certify._reach_path``: the level's model under the zoning of its derived file
-  (``proofs.zoning``), built from the vanilla image when the store has none (minutes) and kept beside the others
-  as a new file (a model this checkout pickles names this checkout's modules, which :func:`load` reads too).
+- :func:`load` unpickles one: the globals a model names are this checkout's modules (:data:`OWN`) and the standard
+  library's and numpy's few it holds (:data:`ALLOWED`); any other global, a Modkit module's too, is refused
+  (``pickle.UnpicklingError`` naming it);
+- :func:`reach_path` is the level's model under the zoning of its derived file (``proofs.zoning``), built from the
+  vanilla image when the store has none (minutes) and kept beside the others as a new file.
 
 A re-derive renumbers zones, so a model of another zoning would aim the searches' goals and route seeds at the old
-zones; the older models stay for the records made on them.  Positions stay in memory.
+zones.  Positions stay in memory.
 """
 
 from __future__ import annotations
@@ -22,19 +21,15 @@ import os
 import pickle
 from pathlib import Path
 
-HOMES = {   # a Modkit module a model names -> its home here
-    **{f"azurik_mod.randomizer.draft.{m}": f"azurkit.tools.randomizer.draft.{m}"
-       for m in ("envelope", "floors", "geometry", "wiring")},
-    **{f"azurik_mod.randomizer.draft.{m}": f"devkit.rando.draft.{m}"
-       for m in ("reach", "flights", "gates", "moves", "sites", "route", "l3_goal", "coverage", "value", "export",
-                 "author")},
-    "azurik_mod.randomizer.physics": "devkit.rando.physics",
-    **{f"azurik_mod.randomizer.planner.{m}": f"azurkit.tools.randomizer.planner.{m}"
-       for m in ("loader", "proofs", "solver", "fill", "plan", "grammar", "settings")},
-    **{f"azurik_mod.xbr.{m}": f"azurkit.tools.randomizer.art.{m}" for m in ("collision", "nodes", "tern")},
-    **{f"azurik_mod.reach_engine.{m}": f"devkit.reach.engine.{m}" for m in ("nodes", "triggers")},
-}
-OWN = frozenset(HOMES.values()) | {"azurkit.tools.randomizer.physics"}   # a model pickled here names these
+OWN = frozenset({   # the modules a reach model pickled here names
+    *(f"azurkit.tools.randomizer.draft.{m}" for m in ("envelope", "floors", "geometry", "wiring")),
+    *(f"devkit.rando.draft.{m}" for m in ("reach", "flights", "gates", "moves", "sites", "route", "l3_goal",
+                                          "coverage", "value", "export", "author")),
+    "devkit.rando.physics", "azurkit.tools.randomizer.physics",
+    *(f"azurkit.tools.randomizer.planner.{m}" for m in ("loader", "proofs", "solver", "fill", "plan", "grammar",
+                                                        "settings")),
+    *(f"azurkit.tools.randomizer.art.{m}" for m in ("collision", "nodes", "tern")),
+    *(f"devkit.reach.engine.{m}" for m in ("nodes", "triggers"))})
 ALLOWED = frozenset({   # (module, name): the standard library's and numpy's globals the models hold
     ("builtins", "list"), ("builtins", "set"), ("builtins", "frozenset"), ("builtins", "tuple"),
     ("collections", "Counter"), ("collections", "defaultdict"), ("collections", "OrderedDict"),
@@ -45,14 +40,14 @@ ALLOWED = frozenset({   # (module, name): the standard library's and numpy's glo
 
 class _Unpickler(pickle.Unpickler):
     def find_class(self, module: str, name: str):
-        home = HOMES.get(module, module if module in OWN else None)
-        if home is None and (module, name) not in ALLOWED:
-            raise pickle.UnpicklingError(f"a reach model names {module}.{name}, which no table here maps or allows")
-        return getattr(importlib.import_module(home or module), name)
+        if module not in OWN and (module, name) not in ALLOWED:
+            raise pickle.UnpicklingError(f"a reach model names {module}.{name}, which is no module of this checkout's "
+                                         "reach models nor a global they hold")
+        return getattr(importlib.import_module(module), name)
 
 
 def load(file):
-    """The reach model pickled in the open binary ``file`` (the module docstring's table)."""
+    """The reach model pickled in the open binary ``file`` (the module docstring's rules)."""
     return _Unpickler(file).load()
 
 

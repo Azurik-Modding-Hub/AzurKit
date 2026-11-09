@@ -2222,19 +2222,26 @@ def apply_skips(d: Path, sitting: str, unreplayed: bool = False, only=(), zoning
 def recheck(levels=(), write: bool = False) -> list[dict]:
     """Re-run every record's string in L3 from its kept snapshot and re-zone its claim under the current derive:
     per record, the old and new from/to zones (an edge), whether the string still reaches, and the stamps.  With
-    ``write``, the records and the authoring's ``[[probed]]`` walks get the new zones and stamp."""
+    ``write``, the records and the authoring's ``[[probed]]`` walks get the new zones and stamp.  A ``retired``
+    record (its start snapshot is gone: it stays as history, D1175) is named and passed over."""
     from devkit.sim.ports import vanilla_iso
     from devkit.sim.ports import read_file
     records, problems = pr.read_proofs(PROOFS)
     if problems:
         raise SystemExit(f"{PROOFS}: {problems}")
-    xbe = read_file(str(vanilla_iso()), "default.xbe")
+    xbe = None
     out = []
     for ref, rec in sorted(records.items()):
         c = rec["claim"]
         lvl = c["level"]
         if levels and lvl not in levels:
             continue
+        if rec.get("retired"):
+            out.append({"ref": ref, "level": lvl, "kind": c["kind"], "retired": rec["retired"]})
+            print(json.dumps(out[-1]), flush=True)
+            continue
+        if xbe is None:
+            xbe = read_file(str(vanilla_iso()), "default.xbe")
         stamp = pr.zoning(read_derived(lvl))
         router = _router(lvl)       # the reach model of the current zoning
         snap = l3.read_snapshot(l3.snapshot_path(rec["start"]["snapshot"]["label"]))
