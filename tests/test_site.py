@@ -6440,6 +6440,8 @@ def test_the_variants_moves_and_attacks_tabs_show_a_built_ins_moves_read_only_an
         assert _page.until(page, "() => document.getElementById('var-menu').open && [...document.querySelectorAll("
                                  "'#var-menu button[data-path]')].map((b) => b.dataset.path)") == [
             "— the build's pick", "beam (beam)", "blast (air_blast)", "nova (nova)", "sweep (beam)"]
+        assert page.evaluate("() => getComputedStyle(document.querySelector('#var-menu .var-menu-list')).position") == (
+            "static")   # the Effects tab's menus' lists float; this dialog's stays in it (after the stack)
         page.evaluate(VARIANTS_MENU, "nova (nova)")
         page.evaluate(VARIANTS_CHANGE, ["#var-attack-speed", "fast"])
         assert page.evaluate(VARIANTS_TAB)["kit"]["note"] == "Speed: 'fast' is not a number"
