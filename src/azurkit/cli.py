@@ -303,6 +303,8 @@ def _write_outputs(outputs: dict[str, Path], built: dict) -> None:
     each a part file renamed into place, all or none."""
     from azurkit.tools import randomizer
 
+    if not outputs:
+        return
     settings = built["randomizer"]["settings"]
     texts = {flag: built["spoiler"] if flag == "--spoiler" else randomizer.settings_file(settings) for flag in outputs}
     parts, placed = [], []
