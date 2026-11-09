@@ -94,9 +94,8 @@ variant as it measures any build.
 - **Its sounds** (Step 2.141; D384, D386): with ``voice`` ``silent`` the
   voice roles bind nothing, ``sfx`` and ``wavs`` add their waves to
   ``fx.xbr`` under ``fx/sound/v/<variant>/`` (:data:`VARIANT_SOUND_DIR`),
-  and a drop-in folder (``--player-variant-sounds``, :func:`drop_ins`)
-  lays the owner's WAVs over them by role (:data:`DROP_ROLES`,
-  :func:`variant_sounds`); the binding is
+  the ``wavs`` by role (:data:`DROP_ROLES`, :func:`recipe_wavs`); the
+  binding is
   :func:`~azurik_mod.patches._player_sounds.variant_roles`.  A base with
   sounds of its own can't take them (X14 binds every slot from one dir).
 - **The built-ins** are ``azurik_mod/assets/variants.json``; a user's are
@@ -345,9 +344,8 @@ VARIANT_SOUND_DIR = "fx/sound/v/"
 """Where a variant's sounds live in ``fx.xbr``: ``fx/sound/v/<variant>/<name>``
 (no vanilla key starts so, in any archive or either index.xbr)."""
 DROP_ROLES = ("hurt", "death", "idle", "taunt", "land", "roll", "jump", "footstep", "fall", "climb")
-"""The roles a recipe's ``wavs`` or a drop-in WAV may name besides a
-recipe's ``sfx`` (:func:`~azurik_mod.patches._player_sounds.variant_roles`
-binds them; ``fall``, a long fall's landing, and ``climb``, the ledge
+"""The roles a recipe's ``wavs`` may name besides its ``sfx``
+(:func:`~azurik_mod.patches._player_sounds.variant_roles` binds them; ``fall``, a long fall's landing, and ``climb``, the ledge
 hoist and the climb over a ladder's top: Step 2.144, D406, D408)."""
 from azurkit.tools.characters.content import ROOT as CONTENT_ROOT
 SOUNDS = CONTENT_ROOT / "sounds"
@@ -2171,7 +2169,7 @@ def _file_shas(fx: list) -> list:
 
 def sounds_sha(variant: Variant, drop: dict | None = None) -> str:
     """sha256[:12] of ``variant``'s ``voice``, ``sfx`` and ``wavs`` and
-    each WAV file's sha256 (:func:`variant_sounds`): what its sounds are
+    each WAV file's sha256 (:func:`recipe_wavs`): what its sounds are
     built from."""
     return _sha({"voice": variant.voice, "sfx": variant.sfx, "wavs": variant.wavs,
                  "drop": {leaf: d.sha256 for leaf, d in sorted((drop or {}).items())}})
@@ -3554,7 +3552,7 @@ def _sound_fields(where: str, name: str, voice, sfx, wavs) -> None:
             raise ValueError(f"{at}: a sound's name is lower-case letters, digits and _, not ending in _a .. _s "
                              "(the binder would read it as a take)")
         if sound in (*DROP_ROLES, SHOUT):
-            raise ValueError(f"{at}: {sound!r} is a drop-in role (--player-variant-sounds) or the shouts'; name the "
+            raise ValueError(f"{at}: {sound!r} is a wavs role or the shouts'; name the "
                              "sound otherwise")
         if len(f"{VARIANT_SOUND_DIR}{name}/{sound}_s") > KEY_MAX:
             raise ValueError(f"{at}: its key {VARIANT_SOUND_DIR}{name}/{sound}_s is past the {KEY_MAX} characters "
@@ -3977,57 +3975,19 @@ def refusal(variant: Variant, species: dict, columns: list[str], body: Body) -> 
 
 # --- the sounds (Step 2.141) -------------------------------------------------
 @dataclass(frozen=True)
-class DropIn:
-    """A WAV of a variant's (:func:`drop_ins`, :func:`recipe_wavs`): its
-    file, the role or ``sfx`` name it plays, its sha256, its sound as mono
-    PCM16 at 22050 Hz, what the file held and where it came from."""
+class RecipeWav:
+    """A WAV of a variant's recipe (:func:`recipe_wavs`): its file, the
+    role or ``sfx`` name it plays, its sha256, its sound as mono PCM16 at
+    22050 Hz and what the file held."""
 
     path: Path
     role: str
     sha256: str
     samples: tuple[int, ...]
     info: object
-    origin: str = "drop-in"
-    """``drop-in`` (:func:`drop_ins`) or ``recipe`` (:func:`recipe_wavs`)."""
 
 
-def drop_ins(folder: str | Path, variant: Variant) -> dict[str, DropIn]:
-    """``folder``'s ``*.wav`` files (any case; nothing else is read, so a
-    ``.DS_Store`` is ignored) as ``variant``'s sounds, by the leaf each
-    becomes (its stem, lower case): ``<name>.wav`` and ``<name>_a.wav`` ..
-    ``_s`` for a name of ``variant``'s ``sfx`` or :data:`DROP_ROLES`.  A
-    folder with none, a stem that names nothing of these (listing them),
-    two files of one leaf, or a WAV :func:`~azurik_mod.assets.xbox_adpcm.read_wav`
-    refuses raise :class:`ValueError` (D35)."""
-    from azurkit.tools.characters.xbox_adpcm import read_wav
-
-    folder = Path(folder)
-    if not folder.is_dir():
-        raise ValueError(f"--player-variant-sounds {folder}: not a folder")
-    files = sorted(p for p in folder.iterdir() if p.suffix.casefold() == ".wav" and p.is_file())
-    if not files:
-        raise ValueError(f"--player-variant-sounds {folder}: it holds no .wav file")
-    names = (*variant.sfx, *DROP_ROLES)
-    out: dict[str, DropIn] = {}
-    for path in files:
-        leaf = path.stem.casefold()
-        m = _TAKE.match(leaf)
-        role = leaf if leaf in names else m["name"] if m and m["take"] and m["name"] in names else None
-        if role is None:
-            raise ValueError(f"--player-variant-sounds: {path.name} names no sound of {variant.name}'s: a file is "
-                             f"<name>.wav, or <name>_a.wav .. <name>_s.wav for another take, a name one of "
-                             f"{', '.join(names)}")
-        if leaf in out:
-            raise ValueError(f"--player-variant-sounds: {path.name} and {out[leaf].path.name} are both {leaf}")
-        if len(f"{sound_dir(variant)}/{role}_s") > KEY_MAX:
-            raise ValueError(f"--player-variant-sounds: {path.name}'s key is past the {KEY_MAX} characters "
-                             "0x4B680 formats")
-        samples, info = read_wav(path)
-        out[leaf] = DropIn(path, role, hashlib.sha256(path.read_bytes()).hexdigest(), tuple(samples), info)
-    return out
-
-
-def recipe_wavs(variant: Variant) -> dict[str, DropIn]:
+def recipe_wavs(variant: Variant) -> dict[str, RecipeWav]:
     """``variant``'s own WAVs, its ``wavs``, its ``wav`` sounds' files and
     its ``shouts`` (as :data:`SHOUT`) from :func:`sound_folder`, by the leaf
     each becomes: a name's n-th file its take n (``<name>``, ``<name>_a``
@@ -4037,15 +3997,15 @@ def recipe_wavs(variant: Variant) -> dict[str, DropIn]:
     from azurkit.tools.characters.xbox_adpcm import read_wav
 
     folder = sound_folder(variant)
-    out: dict[str, DropIn] = {}
+    out: dict[str, RecipeWav] = {}
     for name, (where, files) in _named_wavs(variant).items():
         for take, file in enumerate(files):
             path = folder / file
             if not path.is_file():
                 raise ValueError(f"variant {variant.name!r}: {where}[{take}]: no such file {file} in {folder}")
             samples, info = read_wav(path)
-            out[take_name(name, take)] = DropIn(path, name, hashlib.sha256(path.read_bytes()).hexdigest(),
-                                                tuple(samples), info, "recipe")
+            out[take_name(name, take)] = RecipeWav(path, name, hashlib.sha256(path.read_bytes()).hexdigest(),
+                                                   tuple(samples), info)
     return out
 
 
@@ -4063,23 +4023,11 @@ def recipe_wav_files(variant: Variant) -> list[Path]:
     return [folder / file for _, files in _named_wavs(variant).values() for file in files]
 
 
-def variant_sounds(variant: Variant, folder: str | Path | None = None) -> dict[str, DropIn]:
-    """``variant``'s WAVs by leaf: :func:`recipe_wavs`, with ``folder``'s
-    (:func:`drop_ins`) laid over them, a name the folder fills taking the
-    place of all the recipe's files of it."""
-    mine = recipe_wavs(variant)
-    if folder is None:
-        return mine
-    dropped = drop_ins(folder, variant)
-    filled = {d.role for d in dropped.values()}
-    return {leaf: d for leaf, d in mine.items() if d.role not in filled} | dropped
-
-
-def waves(variant: Variant, drop: dict[str, DropIn] | None = None) -> dict[str, list[int]]:
+def waves(variant: Variant, drop: dict[str, RecipeWav] | None = None) -> dict[str, list[int]]:
     """``variant``'s sounds by leaf (``fx/sound/v/<variant>/<leaf>``), in
     the order the build appends them: each ``sfx``'s takes made by its
     generator (``<name>``, ``<name>_a`` ..), then its WAVs (``drop``,
-    :func:`variant_sounds`), a WAV of an ``sfx``'s name taking the place
+    :func:`recipe_wavs`), a WAV of an ``sfx``'s name taking the place
     of all its takes (a ``wav`` sound's takes are its WAVs)."""
     drop = drop or {}
     replaced = {d.role for d in drop.values()}
@@ -4460,16 +4408,16 @@ def reread(characters: bytes, body: Body, dirs: tuple[str, ...] = ()) -> Body:
     return read_body(characters, body.name, dirs=(VARIANT_DIR, *dirs))
 
 
-__all__ = ["ARMS", "ATTACKS", "BUILTIN", "CHAINS", "CLIPS", "DRAIN_BOX", "DROP_ROLES", "DropIn", "FIELDS",
+__all__ = ["ARMS", "ATTACKS", "BUILTIN", "CHAINS", "CLIPS", "DRAIN_BOX", "DROP_ROLES", "FIELDS",
            "FROM_FIELDS", "FX_FIELDS",
            "GENERATORS", "GRAFT_FIELDS", "Generator", "TEXTURE_FIELDS",
            "ATTACK_FIELDS", "KEY_MAX", "LABELS", "LINK_FIELDS", "MATERIAL_FIELDS", "MOVES", "MOVESET", "OVERLAYS", "RAMP", "SASH", "SASH_FLARE", "SASH_LAG",
            "SASH_LIFT", "SFX_GENERATORS", "SOUNDS", "TAKES", "UNGRADED", "VARIANT_DIR", "VARIANT_GRADES",
            "VARIANT_SOUND_DIR", "VOICES", "Lods", "Variant", "ROOT_TRAVEL_MAX", "arm_turns", "arms_posed", "beam", "builtins", "check_fx_ring",
-           "chain_springs", "clip_folder", "clip_rate", "colour_folder", "drop_ins", "files_shipped", "fit_sha", "fx_folder",
+           "chain_springs", "clip_folder", "clip_rate", "colour_folder", "files_shipped", "fit_sha", "fx_folder",
            "gltf_clip", "grow", "gust",
            "hand_spin", "laid_over", "lend", "load_variants", "moveset_moves", "nova", "options", "overlay", "own_recipe", "recipe_of", "recipe_sha",
-           "recipe_wav_files", "recipe_wavs",
+           "RecipeWav", "recipe_wav_files", "recipe_wavs",
            "refusal", "reread", "reshaped", "resolve",
            "restyled", "Shape", "sound_dir", "sound_folder", "sounds_sha", "status", "t_spin", "take_name", "templated",
-           "unarmed", "variant_sounds", "waves"]
+           "unarmed", "waves"]

@@ -295,8 +295,15 @@ name:
 
 ### D. Coverage rows retired under D1171
 
-None yet. The census (1.10) adds each row it can't close in time. The open
-rows known now: 1.6, 1.7, 1.8 and B1-B9.
+The census (1.10) adds each row it can't close in time. The open rows known
+now: 1.6, 1.7, 1.8 and B1-B9. Retired:
+
+- D1184: Modkit's drop-in WAV folder for a variant's sounds
+  (`--player-variant-sounds`): no host reached AzurKit's copy, so it is
+  deleted; a recipe's `wavs` (the Variants editor's Add WAV) take its place.
+- D1184: the shim toolchain's shared-library placement (Modkit's 8 tests in
+  `test_shared_library.py`): it had no consumer but its own fixture, and
+  AzurKit has no such feature.
 
 ### E. The switch (4.17), the gates and the delete
 

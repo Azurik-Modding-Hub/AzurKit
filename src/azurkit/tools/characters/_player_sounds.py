@@ -62,8 +62,8 @@ A variant's sounds (Step 2.141; D384, D386) are :func:`variant_roles`':
 with ``voice`` ``silent`` every voice slot (:data:`VOICE_SLOTS`) and
 attack column binds nothing but its ``sfx``, W9 empties every shout and
 X15 points the fall's ``ouch`` and the falling scream at names of its
-dir no wave has unless a WAV of the role is one (the recipe's ``wavs``
-or a drop-in, Step 2.144); its effects stay Garret's.
+dir no wave has unless a WAV of the role is one (the recipe's ``wavs``,
+Step 2.144); its effects stay Garret's.
 """
 
 from __future__ import annotations
@@ -486,8 +486,8 @@ def variant_roles(species: str, sound_dir: str, columns: list[str], sfx: dict[st
     its sound's name) binds each column from ``sound_dir``; with
     ``silent`` the :data:`VOICE_SLOTS` and every other column bind
     nothing and W9 empties every column's shouts; ``dropped`` (the
-    :data:`~azurik_mod.patches._player_variants.DROP_ROLES` its WAVs fill:
-    the recipe's ``wavs`` and a drop-in folder's) binds each role in its
+    :data:`~azurik_mod.patches._player_variants.DROP_ROLES` its recipe's
+    ``wavs`` fill) binds each role in its
     slots (:data:`DROP_SLOTS`) and X15's sites (:data:`DROP_SITES`), the
     falls' ``hurt`` (``fall`` when it has one) and ``death`` also when
     silent (a name no wave has: no sound); the roll takes a dropped
@@ -550,8 +550,7 @@ def describe_variant(roles: SoundRoles, emptied: dict[str, int], columns: list[s
     """The build-log lines of a variant's sounds (:func:`variant_roles`;
     ``columns``: ``attacks_anims``'): ``made`` (each ``sfx`` -> its takes
     and columns), ``waves`` and ``size`` (the waves added to ``fx.xbr``
-    and their bytes), ``drops`` (a line per WAV file, the recipe's and a
-    drop-in folder's)."""
+    and their bytes), ``drops`` (a line per WAV file of the recipe's)."""
     shouts = sum(emptied.values())
     quiet = ", ".join(r for r in VOICE_ROLES if r not in roles.own)
     grunts = [g for g in GRUNTS if not roles.binds.get(BASE_CLIPS.index(g))]

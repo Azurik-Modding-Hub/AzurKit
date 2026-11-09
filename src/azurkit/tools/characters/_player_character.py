@@ -8231,8 +8231,8 @@ class _Recipe:
     """A recipe on garret4's own body as :func:`_apply_garret4` builds it
     (Step 2.206, D813): the ``variant``, the moveset it plays (``worn``:
     its own, or :func:`~azurik_mod.patches._player_variants.unarmed`
-    under another weapon), its WAVs and drop-ins (``drop``,
-    :func:`~azurik_mod.patches._player_variants.variant_sounds`) and the
+    under another weapon), its WAVs (``drop``,
+    :func:`~azurik_mod.patches._player_variants.recipe_wavs`) and the
     :func:`apply_player_model` options its layers read."""
 
     variant: object
@@ -8492,7 +8492,7 @@ def _his_recipe(game, recipe: _Recipe, who: str, characters: bytes, body: Body, 
         takes = {name: (sum(variants.take_name(name, k) in made for k in range(variants.TAKES)), len(p["columns"]))
                  for name, p in sorted(worn.sfx.items())}
         voice = describe_variant(roles, emptied, columns, takes, len(waves), sum(len(e.payload) for e in waves), [
-            f"{d.origin} {d.path.name}: {leaf} (sha256 {d.sha256[:12]}), {len(d.samples) / SOUND_RATE:.3f} s from "
+            f"recipe {d.path.name}: {leaf} (sha256 {d.sha256[:12]}), {len(d.samples) / SOUND_RATE:.3f} s from "
             f"{d.info.rate} Hz, {d.info.channels} channel{'s' * (d.info.channels > 1)}, {d.info.bits}-bit"
             + (f"; past the game's longest inline wave ({LONGEST_WAVE} s), unseen in game"
                if len(d.samples) / SOUND_RATE > LONGEST_WAVE else "") for leaf, d in sorted(drop.items())])
@@ -9685,7 +9685,7 @@ def _his_words(variant, worn, columns: list[str], picks: list[str], recipe_picks
             + ([f"{len(rows)} config rows for its projectile (W30)"] if rows else []))
 
 
-def _garret4_recipe(game, variant, sound_files, options: dict) -> list[str] | None:
+def _garret4_recipe(game, variant, options: dict) -> list[str] | None:
     """A recipe on garret4's own body (Step 2.170c, D748; since Step
     2.206, D813, every field his body can take:
     :data:`~azurik_mod.patches._player_variants.GARRET4_REFUSED`): with
@@ -9711,7 +9711,7 @@ def _garret4_recipe(game, variant, sound_files, options: dict) -> list[str] | No
     why = variants.refusal(variant, _species(engine), columns, body)
     if why:
         raise ValueError(f"{who}: {why}")
-    drop = variants.variant_sounds(variant, sound_files)   # its WAVs and the drop-ins, read before any write
+    drop = variants.recipe_wavs(variant)   # its WAVs, read before any write
     try:
         lo = loadout(characters, body, options["mode"], False, variant, options["weapon"])
     except ValueError as exc:
@@ -9756,7 +9756,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
                        attack_balance: bool | None = None, attack_damage: float = 1.0,
                        attack_speed: float = 1.0, missing_anims: str | None = None,
                        sounds: str = "own", logic: AttackLogic | None = None, variant=None,
-                       sound_files: str | Path | None = None, jiggle_strength: float = 1.0,
+                       jiggle_strength: float = 1.0,
                        jiggle_stiffness: float = 1.0, springs_out: dict | None = None,
                        weapon: str | None = None, ram: int | None = None, plans: list | None = None,
                        player_only: bool = True, chain: str = DEFAULT_CHAIN) -> list[str]:
@@ -9799,11 +9799,9 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     :func:`~azurik_mod.patches._player_sounds.variant_roles` (X14, W9,
     X15), its sounds made at build time or read from its WAVs and
     appended to ``fx.xbr`` (with their ``index.xbr`` records) after every
-    other write; ``sound_files`` (``--player-variant-sounds``) is a
-    folder of WAVs laid over them by role
-    (``_player_variants.variant_sounds``).  Either takes a base with no
-    sounds of its own.  Under another weapon (Step 2.161g, D585) its
-    ``sfx`` and their WAVs go with its moveset.  A variant whose jiggle bones have a real-time
+    other write; they take a base with no sounds of its own.  Under
+    another weapon (Step 2.161g, D585) its ``sfx`` and their WAVs go with
+    its moveset.  A variant whose jiggle bones have a real-time
     ``spring`` gets X41 (Step 2.156; D444, D445): ``jiggle_strength``
     times every offset they show (0 installs nothing) and
     ``jiggle_stiffness`` times their springs' stiffness (any finite
@@ -9862,14 +9860,11 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     if chain not in CHAINS:
         raise ValueError(f"character: chain {chain!r} is not one of {', '.join(map(repr, CHAINS))}")
     check_player_model(game, species)
-    if sound_files is not None and variant is None:
-        raise ValueError(f"--player-variant-sounds {sound_files}: it fills a variant's sounds, and "
-                         f"--player-character {species!r} is a species")
     drop = {}
     from azurkit.tools.characters import _player_variants as variants
     if variant is not None and species == PLAYER:   # Step 2.170c (D748), Step 2.206 (D813): his own build and
         # the recipe's layers on it; under a style on his rig with layers, the swap path below
-        made = _garret4_recipe(game, variant, sound_files, dict(
+        made = _garret4_recipe(game, variant, dict(
             mode=mode, size=size, model_scale=model_scale, attack_reach=attack_reach, attack_ground=attack_ground,
             attack_balance=attack_balance, attack_damage=attack_damage, attack_speed=attack_speed,
             missing_anims=missing_anims, sounds=sounds, logic=logic, jiggle_strength=jiggle_strength,
@@ -9878,7 +9873,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         if made is not None:
             return made
     if variant is not None:
-        drop = variants.variant_sounds(variant, sound_files)   # its WAVs and the drop-ins, read before any write
+        drop = variants.recipe_wavs(variant)   # its WAVs, read before any write
     if species == PLAYER:   # his own body (Step 2.123), before the mode's attack defaults
         characters = game.stored("characters.xbr")
         try:
@@ -10385,12 +10380,12 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     made_waves = {}
     if voiced:   # a variant's own sounds (Step 2.141; D328, D384, D386)
         if roles is None:
-            raise ValueError(f"--player-variant-sounds: the variant {variant.name!r} keeps Garret's sounds "
-                             "(sounds garret4), so a drop-in would play no part")
+            raise ValueError(f"--player-character {variant.name!r}: it keeps Garret's sounds (sounds garret4), "
+                             "so its voice, sfx and wavs would play no part")
         if roles.own:
             raise ValueError(f"--player-character {variant.name!r}: its base {species} has sounds of its own "
                              f"({', '.join(roles.own)}) and X14 binds every slot from one dir, so voice, sfx and "
-                             "--player-variant-sounds take a base with none")
+                             "wavs take a base with none")
         made_waves = variants.waves(heard, drop)
         roles = variant_roles(species, variants.sound_dir(variant), columns,
                               {col: name for name, p in heard.sfx.items() for col in p["columns"]},
@@ -11099,7 +11094,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         made = {name: (sum(variants.take_name(name, k) in made_waves for k in range(variants.TAKES)), len(p["columns"]))
                 for name, p in sorted(heard.sfx.items())}
         voice = describe_variant(roles, emptied, columns, made, len(waves), sum(len(e.payload) for e in waves), [
-            f"{d.origin} {d.path.name}: {leaf} (sha256 {d.sha256[:12]}), {len(d.samples) / SOUND_RATE:.3f} s from {d.info.rate} Hz, "
+            f"recipe {d.path.name}: {leaf} (sha256 {d.sha256[:12]}), {len(d.samples) / SOUND_RATE:.3f} s from {d.info.rate} Hz, "
             f"{d.info.channels} channel{'s' * (d.info.channels > 1)}, {d.info.bits}-bit"
             + (f"; past the game's longest inline wave ({LONGEST_WAVE} s), unseen in game"
                if len(d.samples) / SOUND_RATE > LONGEST_WAVE else "") for leaf, d in sorted(drop.items())])
