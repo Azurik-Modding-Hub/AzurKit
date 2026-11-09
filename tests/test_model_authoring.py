@@ -2960,3 +2960,28 @@ def test_a_variants_rows_export_as_png_and_an_edited_one_is_its_rows_texture_in_
     assert render.material(built, btoc, npc, 0)["textures"][0] == surfs[0] != made
     code, _, err = _run(capsys, *argv)
     assert code == 1 and "already holds something" in err
+
+
+def test_a_recipe_on_garret4_with_a_look_exports_its_rows_recoloured_once(usa, usa_iso, tmp_path, capsys):
+    """Step 2.206 (the rebase review's D2): a recipe on garret4's own body whose build changes his body (a mesh op)
+    and recolours his own rows in place: ``model export --variant`` writes each row his vanilla texture recoloured
+    once (hue +120, not +240: ``colour_preview.uncoloured`` dresses him without his colours)."""
+    from azurkit.tools.characters import render, textures
+    from azurkit.tools.characters._player_variants import load_variants
+
+    op = {"op": "scale", "bone": "spine_2", "radius": [0.2, 0.2, 0.2], "factors": [1.2, 1.2, 1.2]}
+    file, out = tmp_path / "recipe.json", tmp_path / "out"
+    file.write_text(json.dumps({"g4c": {"base": "garret4", "mesh": {"ops": [op]},
+                                        "colours": [{"ops": [{"op": "hsv", "hue": 120}]}]}}), encoding="utf-8")
+    (hue,) = load_variants(file.read_text(encoding="utf-8"), str(file))["g4c"].colours
+    assert _run(capsys, "export", "--variant", "g4c", "--variant-file", str(file), "--out", str(out),
+                "--iso", str(usa_iso))[0] == 0
+    vanilla = usa("gamedata/characters.xbr")
+    toc = parse_toc(vanilla)
+    surfs = {row: render.material(vanilla, toc, g, row)["textures"][0]
+             for g, row in sorted(set(paint.materials(vanilla, "garret4").values()), key=lambda m: (m[1], m[0]))
+             if render.material(vanilla, toc, g, row).get("textures")}
+    assert sorted(p.name for p in out.iterdir()) == sorted(f"g4c_row{r}.png" for r in surfs) != []
+    for r, s in surfs.items():
+        assert (textures.read_png((out / f"g4c_row{r}.png").read_bytes())
+                == paint.recoloured(render.surf_image(vanilla, toc, s), hue.ops)).all(), r
