@@ -12,8 +12,9 @@ by sha256) and Playwright's headless Chromium, WebKit and Firefox go in the main
 the main checkout, not in a lane. Stdlib only.
 
 ``--with re`` installs each tool ``devkit/re/tools.toml`` pins for this host
-(Ghidra 12.1.2, its Temurin JDK, the ghidra-xbe loader and the stock
-GhydraMCP plugin and bridge; dev only, about 1.2 GB) into this checkout's
+(Ghidra 12.1.2, its Temurin JDK, the ghidra-xbe loader, the stock
+GhydraMCP plugin and bridge and the Xbox SDK headers; dev only, about
+1.2 GB) into this checkout's
 ``.tools/``, each download checked against its sha256 before it is
 unpacked, and prints, never runs, the ``claude mcp add`` line for the
 bridge. A re-run fetches only what changed; delete the folders to uninstall

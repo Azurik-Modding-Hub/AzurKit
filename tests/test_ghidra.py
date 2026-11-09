@@ -1,6 +1,7 @@
 """devkit's Ghidra side (``devkit/re/ghidra_*.py``, ``struct_diff.py``,
 ``ghidra_scripts/`` and ``bootstrap.py --with re``), Modkit's five Ghidra
-test files ported lean in Step 4.11d2.
+test files ported lean in Step 4.11d2, and the Xbox SDK headers' Ghidra copy
+(``sdk_headers.py``, Step 4.24c).
 
 The client and the verbs run against ``tests/mock_ghidra.py`` (stock
 GhydraMCP's routes and shapes over a real loopback socket; a test that
@@ -42,7 +43,7 @@ import pytest
 import bootstrap
 from devkit import __main__ as devkit_main
 from devkit.re import (
-    ghidra_apply, ghidra_project, ghidra_query, ghidra_serve, ghidra_snapshot, ghidra_sync, struct_diff)
+    ghidra_apply, ghidra_project, ghidra_query, ghidra_serve, ghidra_snapshot, ghidra_sync, sdk_headers, struct_diff)
 from devkit.re.ghidra_client import GhidraClient, GhidraClientError, GhidraStruct, GhidraStructField, _Response
 from devkit.re.ghidra_project import KEEP, ApplyError, LockState, backup, backups, lock_state, manifest, prune, restore
 from devkit.re.ghidra_sync import (
@@ -1151,12 +1152,13 @@ def test_bootstrap_with_re_installs_each_verified_tool_binds_ghidra_to_loopback_
     AZ-153), scripts only with ``--allow-scripts``. It prints the bridge's
     ``claude mcp add`` line: the bridge in ``ghidra_bridge.py``'s locked
     script environment, its host the IPv4 loopback. The real pins are devkit/re/tools.toml's: Ghidra
-    12.1.2, Temurin 25, GhydraMCP 3.0.0-rc.1 and ghidra-xbe, download only."""
+    12.1.2, Temurin 25, GhydraMCP 3.0.0-rc.1, ghidra-xbe and the Xbox SDK headers (GPL-2, Step 4.24c),
+    the last two download only."""
     import tomllib
     pins = tomllib.loads((ROOT / "devkit" / "re" / "tools.toml").read_text(encoding="utf-8"))["tools"]
     assert {name: tool["version"] for name, tool in pins.items()} == {
         "ghidra": "12.1.2", "jdk": "25.0.4.1+1", "ghidra-xbe": "build-202602250354", "ghydra": "3.0.0-rc.1",
-        "ghydra-bridge": "3.0.0-rc.1"}
+        "ghydra-bridge": "3.0.0-rc.1", "xbox-includes": "0f8e2521684a"}
     src, root = fake_re_checkout(tmp_path)
     line = bootstrap.install_re(root, allow_scripts=False)
     tools = root / ".tools"
@@ -1191,6 +1193,41 @@ def test_bootstrap_with_re_installs_each_verified_tool_binds_ghidra_to_loopback_
         'assets.any = { url = "https://example.invalid/b.py", sha256 = "" }\n', encoding="utf-8")
     with pytest.raises(SystemExit, match="no .* asset with a sha256 for ghydra-bridge"):
         bootstrap.install_re(root, allow_scripts=False)
+
+
+def test_sdk_headers_writes_the_fetched_xbox_headers_copy_ghidra_imports_and_with_none_fetched_is_one_line(
+        tmp_path, monkeypatch, capsys):
+    """Modkit's ``vendor/xbox-includes`` (GPL-2) isn't in the repository:
+    ``bootstrap.py --with re`` fetches mborgerson/xbox-includes (its pin
+    above) and ``devkit re sdk-headers`` writes the copy Ghidra's
+    ``ImportHeader`` reads beside it (Modkit's ``_patch_xboxkrnl_ghidra.py``,
+    Step 4.24c): ``xboxdef.h`` as the SDK's base types under ``XBX_`` names,
+    the bridge header defining the SDK's names as those, and ``xboxkrnl.h``
+    with the bridge included, no pragma, no ``extern "C"`` block and each
+    type-and-pointer typedef split in two; every other header as fetched.
+    It prints the import's arguments. With nothing fetched it is one line
+    and exit 2."""
+    monkeypatch.setattr(sdk_headers, "tools_dir", lambda: tmp_path)
+    assert sdk_headers.main([]) == 2 and capsys.readouterr().err.count("\n") == 1
+    include = tmp_path / "xbox-includes" / "include"
+    include.mkdir(parents=True)
+    (include / "xapi.h").write_text("int x;\n", encoding="utf-8")
+    (include / "xboxdef.h").write_text("typedef void *PVOID;\n", encoding="utf-8")
+    (include / "xboxkrnl.h").write_text(
+        '#include "xboxdef.h"\n#pragma pack(1)\n#if defined(__cplusplus)\nextern "C"\n{\n#endif\n'
+        "typedef struct _A {\n    int a;\n} A, *PA;\ntypedef UCHAR KIRQL, *PKIRQL;\n"
+        "#if defined(__cplusplus)\n}\n#endif\n", encoding="utf-8")
+    assert sdk_headers.main([]) == 0
+    out = tmp_path / "xbox-includes" / "ghidra"
+    assert sorted(p.name for p in out.iterdir()) == ["xapi.h", "xboxdef.h", "xboxkrnl.h", "xboxkrnl_ghidra_bridge.h"]
+    krnl = (out / "xboxkrnl.h").read_text(encoding="utf-8")
+    assert '#include "xboxdef.h"\n#include "xboxkrnl_ghidra_bridge.h"\n' in krnl
+    assert "#pragma" not in krnl and 'extern "C"' not in krnl
+    assert "} A;\ntypedef A *PA;" in krnl and "typedef UCHAR KIRQL;\ntypedef UCHAR *PKIRQL;" in krnl
+    assert (out / "xapi.h").read_text(encoding="utf-8") == "int x;\n"
+    assert "typedef unsigned int XBX_PVOID;" in (out / "xboxdef.h").read_text(encoding="utf-8")
+    assert "#define PVOID          XBX_PVOID" in (out / "xboxkrnl_ghidra_bridge.h").read_text(encoding="utf-8")
+    assert f'"{(out / "xboxkrnl.h").as_posix()}", "-I{out.as_posix()}"' in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------

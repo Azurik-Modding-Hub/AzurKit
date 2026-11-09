@@ -18,8 +18,8 @@
 #   VMARGS=-Dghidra.mcp.bind.host=127.0.0.1
 #   VMARGS=-Dghidra.mcp.cors.origin=http://127.0.0.1:1
 #   VMARGS=-Dghydra.dev.allowScripts=true      (only with --allow-scripts)
-# Uninstall = delete .tools/ghidra, jdk, ghidra-xbe, ghydra, ghydra-bridge and ghidra-home. Outside the checkout,
-# Ghidra writes only to its temp dir. Bump = one commit that changes version + url + sha256 together.
+# Uninstall = delete .tools/ghidra, jdk, ghidra-xbe, ghydra, ghydra-bridge, xbox-includes and ghidra-home. Outside
+# the checkout, Ghidra writes only to its temp dir. Bump = one commit that changes version + url + sha256 together.
 # Platforms: macos-arm64 macos-x86_64 linux-x86_64 linux-arm64 windows-x86_64 any
 schema = 1
 
@@ -57,3 +57,11 @@ assets.any = { url = "https://github.com/starsong-consulting/GhydraMCP/releases/
 version = "3.0.0-rc.1"
 kind = "file"
 assets.any = { url = "https://github.com/starsong-consulting/GhydraMCP/releases/download/v3.0.0-rc.1/bridge_mcp_hydra.py", sha256 = "c634976150ba6231075e2cc42ef715715ee47a43542384191e86316d21f8f876" }
+
+[tools.xbox-includes]   # GPL-2.0 (its COPYING): the Xbox SDK headers, Matt Borgerson's mborgerson/xbox-includes at the
+# commit Modkit's vendor/xbox-includes copied (Step 4.24c). Downloaded only, never committed (no GPL code in this MIT
+# tree): `python -m devkit re sdk-headers` writes the copy Ghidra's ImportHeader reads beside it. GitHub's archive of
+# a commit, hashed when pinned (2026-11-08).
+version = "0f8e2521684a"
+kind = "archive"
+assets.any = { url = "https://github.com/mborgerson/xbox-includes/archive/0f8e2521684a1881fba93941dad4f34b8693769b.tar.gz", sha256 = "fd66643215d010f71b636da0351f2682faf135e6ef6dd199e0ae478b3cf383ff" }

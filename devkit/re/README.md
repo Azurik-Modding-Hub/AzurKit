@@ -136,7 +136,7 @@ opened headlessly or written while a Ghidra holds it; headless work on a
 copy) and the ports.
 
 ```bash
-uv run bootstrap.py --with re [--allow-scripts]   # Ghidra 12.1.2, Temurin 25, ghidra-xbe, GhydraMCP and its bridge into .tools/
+uv run bootstrap.py --with re [--allow-scripts]   # Ghidra 12.1.2, Temurin 25, ghidra-xbe, GhydraMCP, its bridge and the Xbox SDK headers into .tools/
 uv run --locked python -m devkit re ghidra-serve start|status|stop [--project GPR] [--port 8212] [--max-seconds S] [--maxmem 2G] [--timeout S]
 uv run --locked python -m devkit re ghidra-query decompile|disasm|xrefs-to VA [--port 8212] [--json]
 uv run --locked python -m devkit re ghidra-sync [--apply --target PROJECT:/PROGRAM | --emit-plan FILE] [--force] [--push-structs [--recreate-structs]] [--port 8193] [--json]
@@ -144,6 +144,7 @@ uv run --locked python -m devkit re ghidra-snapshot PATH [--port 8193] [--keep-d
 uv run --locked python -m devkit re struct-diff [--offline] [--header H] [--verbose] [--port 8193] [--json]
 uv run --locked python -m devkit re ghidra-apply --plan P [--project GPR] [--apply --plan-sha256 SHA]
 uv run --locked python -m devkit re ghidra-backup list|restore NAME|prune [--project GPR] [--keep N]
+uv run --locked python -m devkit re sdk-headers
 ```
 
 | Verb | What it does |
@@ -155,9 +156,10 @@ uv run --locked python -m devkit re ghidra-backup list|restore NAME|prune [--pro
 | `struct-diff` | `data/structs.h`'s structs against Ghidra's: `header_only`, `ghidra_only`, `size_mismatch`, `field_mismatch`, `ok`; a failed listing or lookup exits 1 |
 | `ghidra-apply` | a plan (a JSON list of `rename`, `rename_label`, `comment`, `delete_equate`, `delete_category` and `create_function` lines, run by `ghidra_scripts/ApplyPlan.java`) dry-run on a copy, printing each line and the plan's sha256; with `--apply`, that sha256 and `--project`: refused while a Ghidra holds the project, backed up into `ghidra-backups/` beside its folder, written, verified on a copy, and put back byte-identical on any failure, timeout or Ctrl-C. Exit 0 applied, 1 failed (the project as before), 2 refused, 3 not put back |
 | `ghidra-backup` | `ghidra-apply`'s backups: `list`; `restore NAME` (the project as it is moves aside first); `prune` (the newest `--keep`, and the last verified apply's undo) |
+| `sdk-headers` | the Xbox SDK headers `bootstrap.py --with re` fetched (mborgerson/xbox-includes, GPL-2, never committed) copied into `.tools/xbox-includes/ghidra/` as Ghidra's `ImportHeader` reads them (Modkit's `vendor/xbox-includes`, Step 4.24c): `xboxdef.h` as the SDK's base types under `XBX_` names in standard C, `xboxkrnl_ghidra_bridge.h` defining the SDK's names as those, and `xboxkrnl.h` with no pragma, no `extern "C"` and each type-and-pointer typedef split; it prints the `ImportHeader` arguments. Exit 2 when nothing is fetched |
 
-The pins are `tools.toml`'s; ghidra-xbe, which has no licence, is only ever
-downloaded. The bridge (the `ghidra` MCP server) runs as `uv run --locked
+The pins are `tools.toml`'s; ghidra-xbe, which has no licence, and the SDK
+headers, which are GPL-2, are only ever downloaded. The bridge (the `ghidra` MCP server) runs as `uv run --locked
 --script devkit/re/ghidra_bridge.py .tools/ghydra-bridge/bridge_mcp_hydra.py`,
 in the script environment `ghidra_bridge.py.lock` pins (mcp 1.30.0, as
 Modkit ran it): not the bridge's own header's mcp 1.6.0, which a current

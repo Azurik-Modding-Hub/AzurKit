@@ -42,7 +42,7 @@ from the checkout's root.
 
 - **Install:** `uv run bootstrap.py --with re` (in the main checkout; a
   lane uses the main checkout's `.tools/`, unless it installed its own to
-  try a new pin) fetches the five `devkit/re/tools.toml` entries for the
+  try a new pin) fetches the six `devkit/re/tools.toml` entries for the
   host, checks each sha256 before unpacking it, and writes
   `.tools/<name>/.ok` = `"<version> <sha256>"`; a re-run fetches only what
   changed. It installs `.tools/ghidra/` and `.tools/jdk/` and unzips
@@ -84,9 +84,18 @@ from the checkout's root.
   `#define` enums in `/Cat/defines/`), never `/Cat/<file>.h/T` (AZ-036). A
   re-import keeps existing types; a missing `.h`, a parse error or a
   conflicting same-name type fails the run with nothing imported. The Xbox
-  SDK's headers (GPL-2; Modkit's `vendor/xbox-includes`, patched for this
-  import) are not in AzurKit and nothing fetches them yet: never vendor
-  them; import a header from a copy outside the repository.
+  SDK's headers: run `devkit re sdk-headers` once bootstrap has fetched
+  them, and pass the `xboxkrnl.h` and `-I` folder it prints (the piece
+  below).
+- **The pieces:**
+
+  | Piece | Where |
+  |---|---|
+  | Ghidra project (live) | the owner's `Azurik Ghidra.gpr` and `.rep`, outside every checkout; program `default.xbe`, image base `0x00010000` (§2) |
+  | Backups | `ghidra-backups/` beside the project's folder (written by `ghidra-apply`) |
+  | XBE loader | ghidra-xbe (mborgerson), unzipped into `.tools/ghidra/Ghidra/Extensions/` by `bootstrap --with re` |
+  | Xbox SDK headers | `.tools/xbox-includes/include/` (mborgerson/xbox-includes, GPL-2: fetched by `bootstrap --with re`, pinned in `tools.toml`, never vendored); the copy Ghidra imports is `.tools/xbox-includes/ghidra/`, which `devkit re sdk-headers` writes (`xboxkrnl.h` patched for `ImportHeader`, `xboxdef.h` as `XBX_` types, the bridge header) |
+
 - **A VA in the middle of a function:** the bridge's `functions_decompile`
   and `functions_get` answer "Function not found" for any VA that isn't an
   entry point; `functions_get_containing` finds the function that holds it.

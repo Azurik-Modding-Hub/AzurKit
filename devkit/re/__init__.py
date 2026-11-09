@@ -17,4 +17,5 @@ VERBS = {
     "struct-diff": "the structs of data/structs.h against a live Ghidra's",
     "ghidra-apply": "a reviewed plan dry-run on a copy of a Ghidra project, or written into the closed project",
     "ghidra-backup": "list, restore or prune ghidra-apply's backups of a project",
+    "sdk-headers": "write the fetched Xbox SDK headers' copy for Ghidra's ImportHeader into .tools",
 }
