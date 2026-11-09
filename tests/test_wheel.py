@@ -131,3 +131,16 @@ def test_the_wheel_carries_the_package_and_installs_alone_in_a_clean_venv(tmp_pa
     run(python, "-I", "-c", IMPORT_ALL)
     run(python, "-I", "-c", SHIPPED_ONLY)
     assert run(str(scripts / "azurkit"), "--version").strip() == f"azurkit {__version__}"
+
+
+# --- Step 4.28f: Modkit's unpinned packaging pin, ported -------------------------------------------------------
+
+
+def test_running_python_version_is_declared_in_classifiers():
+    """The Python a run uses (3.14 only, its release's) is one pyproject's
+    classifiers declare, so PyPI's page says the versions AzurKit is tested
+    on (Modkit's packaging pin)."""
+    classifiers = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["classifiers"]
+    declared = {c.rsplit("::", 1)[1].strip() for c in classifiers
+                if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", c)}
+    assert f"{sys.version_info.major}.{sys.version_info.minor}" in declared, sorted(declared)

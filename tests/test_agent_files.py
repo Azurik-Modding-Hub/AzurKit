@@ -186,3 +186,71 @@ def test_every_relative_link_in_tracked_markdown_reaches_a_tracked_file_and_no_t
                     hits.append(f"{rel}:{n}: {m.group(1)}")
     assert not hits, "point it at this checkout's file, or name Modkit's in words, not as a link or a path:\n" + (
         "\n".join(hits))
+
+
+# --- Step 4.28f: Modkit's retired-names guard, ported ------------------------------------------------------------
+
+#: A name Modkit retired (a regex, matched case-sensitively: ``XDVDFS``, the Xbox file system, stays) -> why: kept out
+#: of AzurKit's live docs and skills, which lanes still port from Modkit's. Modkit's list, but its config-mod files'
+#: ``registry.json`` and ``entity_values.json``, which AzurKit names to refuse them (``edits/modkit_retired.json``).
+#: The game-data repo's old paths and the xdvdfs env var are split so a ``git grep`` for either finds no live use.
+RETIRED = {
+    r"xdvdfs": "Modkit's Step 1.24b: every build reads and packs images with its own XISO code (D25, D30)",
+    r"AZURIK_" r"XDVDFS": "Modkit's Step 1.24b: the xdvdfs locator, downloader and their env var are deleted",
+    r"(?:MichaelJSr|Azurik-Testing)/" r"AzurKit-gamedata":
+        "the game-data repo is Azurik-Modding-Hub/AzurKit-gamedata since 2026-11-01 (D1028)",
+    r"compile\.sh": "Modkit's Step 1.28: zig builds every shim (Q37)",
+    r"new_shim\.sh": "Modkit's Step 1.28: the scaffolder replaced the script (Q37)",
+    r"\bAZURIK_VANILLA_(?:XBE|GAMEDATA)\b|\bAZURIK_GAMEDATA\b":
+        "Modkit's Step 1.4b: one resolver finds the vanilla image (AZURKIT_ISO)",
+    r"ghidra_plugin\b": "Modkit's Step 2.13a-ii: the GhydraMCP fork is deleted; stock Ghydra",
+    r"\bGHIDRA_DEFAULT_PORT\b": "Modkit's Step 2.13a-ii: the MCP server's Ghidra half is deleted (AZ-034)",
+    r"\bAZURIK_GHIDRA_\w+": "Modkit's Step 2.13a-ii: one Ghidra client, port 8193 or --port (AZ-034)",
+    r"\bAZURIK_DECOMP_CACHE\b": "Modkit's Step 2.13a-ii: decomp_cache is deleted",
+    r"azurik-mod xrefs\b|`xrefs`": "Modkit's Step 2.13a-ii: the xrefs verb is dropped (Q81)",
+    r"\bcall-graph\b": "Modkit's Step 2.13a-ii: the call-graph verb is dropped (Q81)",
+    r"\bdecomp-cache\b": "Modkit's Step 2.13a-ii: the decomp-cache verb is dropped (Q81)",
+    r"\bghidra-coverage\b": "Modkit's Step 2.13a-ii: the ghidra-coverage verb is dropped (Q81)",
+    r"\b(?:decomp_cache|re_recorder|call_graph|xref_aggregator|ghidra_coverage|scan_ghidra_hexdump)\b":
+        "Modkit's Step 2.13a-ii: dropped modules (Q50)",
+    r"\bINDEX\.md\b": "Modkit's Step 3.1: the doc index is gone",
+    r"\bAGENT_GUIDE\.md\b|\bONBOARDING\.md\b": "Modkit's Step 3.1: its CLAUDE.md and CONTRIBUTING.md replaced them",
+    r"\bSHIM_AUTHORING\.md\b": "Modkit's Step 3.3c: docs/SHIMS.md is the one shim doc",
+    r"\bMODDING_GUIDE\.md\b": "Modkit's Step 3.3c: its tools doc held the mod-file format",
+    r"\bLEARNINGS\.md\b|\bDECOMP\.md\b": "Modkit's Step 3.3d: docs/RE_MOVEMENT.md, RE_DATA.md and RE_XBE.md",
+    r"\b(?:LOADING_ZONES_AUDIT|RANDOMIZER_AUDIT|TOOLING_ROADMAP|TOOLS_UPKEEP|D1_EXTEND)\.md\b|\bFUTURE_PASSES\b":
+        "Modkit's Steps 3.3a, 3.3c and 3.3d archived them",
+    r"--index-xbr\b": "Modkit's Step 2.16l (AZ-217): audio dump names waves from the XBR's own table",
+    r"\bapprove\.yml\b": "Modkit's Step 2.20c: D5's approval was a step of its policy workflow",
+    r"\brandomize-gems\b|azurik-mod randomize(?![-\w])|\bcmd_randomize(?:_gems)?\b":
+        "Modkit's Step 2.23a (D133): randomize-full covered both verbs",
+    r"--(?:no-major|no-keys|no-gems|no-barriers|hard-barriers|no-connections|item-pool)\b":
+        "Modkit's Step R1.10b (Q287, D43): the randomizer's settings replaced the pool flags",
+    r"\brand_(?:major|keys|gems|barriers|connections)\b":
+        "Modkit's Step R1.10b (Q287, D43): the five pool packs are retired for the randomizer's settings",
+    r"--player-character-standardize\b|\bplayer_character_standardize\b":
+        "Modkit's Step 2.73a (D43, D133): the garret4 mode replaced it",
+    r"--player-character-mode (?:\w+\|)*full\b|\bFully the model\b":
+        "Modkit's Step 2.129 (D329): own (Balanced) replaced the mode full",
+}
+
+
+def test_live_docs_and_skills_never_mention_retired_names():
+    """Modkit's REORG_PLAN §6a.6 guard: no tracked Markdown file but the
+    archive and the developer log (histories) names a retired name
+    (:data:`RETIRED`), outside its ``## History`` sections (up to the next
+    ``#`` or ``##`` heading outside a code fence; a ``# comment`` in a
+    fenced shell block is no heading). A step that retires a name adds it
+    and rewrites the docs in the same change."""
+    pattern = re.compile("|".join(f"(?:{p})" for p in RETIRED))
+    hits = []
+    for rel in tracked("*.md", ":!docs/archive/", ":!docs/DEVLOG.md", ":!docs/devlog/"):
+        history = fence = False
+        for n, line in enumerate((ROOT / rel).read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("```"):
+                fence = not fence
+            elif not fence and re.match(r"#{1,2} ", line):
+                history = line.rstrip() == "## History"
+            if not history and (m := pattern.search(line)):
+                hits.append(f"{rel}:{n}: {m.group()}")
+    assert not hits, "retired names (see RETIRED) in live docs:\n" + "\n".join(hits)

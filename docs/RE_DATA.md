@@ -1834,8 +1834,8 @@ not records.
 
 Moved from the level loading-zone audit in Step 3.3d (2026-10-10),
 keeping its section numbers. The audit's per-level breakdown,
-side-file and implicit zones, Ghidra sync and method are archived in
-Modkit's `Finished/LOADING_ZONES_AUDIT.md`.
+side-file and implicit zones, Ghidra sync and method stayed in Modkit's
+archive (AzurKit has no copy of the audit).
 The catalogue module (`loading_zones.py`) and its tests went with the
 old randomizer at Step R1.10c; the randomizer's exit table is generated
 from the levels (Step R1.1).
