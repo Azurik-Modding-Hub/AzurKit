@@ -1,7 +1,8 @@
 # Developing AzurKit
 
 How to build and test AzurKit from a checkout. The rules contributors and agents follow are in
-[`AGENTS.md`](../AGENTS.md); the player's side is in [README](../README.md) and the [guide](GUIDE.md).
+[`AGENTS.md`](../AGENTS.md), and the design they stand on in [`INTERNALS.md`](INTERNALS.md); the player's side is in
+[README](../README.md) and the [guide](GUIDE.md).
 
 ## How it fits together
 

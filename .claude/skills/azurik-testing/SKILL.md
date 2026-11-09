@@ -16,7 +16,7 @@ description: >-
 
 # azurik-testing: running and writing tests
 
-AGENTS.md's Setup and tests binds and holds the detail this card points into. Run every command from
+AGENTS.md's Setup and tests binds; `docs/INTERNALS.md`'s holds the detail this card points into. Run every command from
 the checkout's root with `uv run --locked`. A lane finds the images through `AZURKIT_ISO` and
 `AZURKIT_ISO_EUROPE` (export both to the main checkout's images) or the user data folder's
 `usa.iso` and `europe.iso`. Ported from Modkit's skill (Step 4.16a2).
@@ -118,7 +118,7 @@ N and M at least 1 (D26). A europe test without vanilla is a usage error.
 - A test that drives a build writes its output under `tmp_path`, never beside an image.
 - The page: drive it through the DOM (`element.click()`) and poll with `page.evaluate` (Chromium's
   headless shell fires no `requestAnimationFrame`); a WebKit context gets a home of its own; serve
-  files from a process of its own (`tests/_page.py`'s `Served`); AGENTS.md's web tier has the rest.
+  files from a process of its own (`tests/_page.py`'s `Served`); `docs/INTERNALS.md`'s web tier has the rest.
 
 ## 5. Writing ONE behavior-named test per fix
 
