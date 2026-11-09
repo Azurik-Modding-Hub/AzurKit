@@ -309,7 +309,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
      `judge`, `outputs`, `write_outputs`), physics' `SOURCE_SHA256`,
      movement's slider ranges, the tracker's file reads (`placements`,
      `plan_doc`), live's `connect`, the L2 flights (`envelope.l2_*`), the
-     levels extractor (`extract`, `write_generated`), `nodes.scan_types`,
+     levels extractor (`extract`, `write_generated`), `nodes.scan_types` (devkit's `re node-types`),
      and the drawing's command lines and PNG writers. A Modkit import with
      no AzurKit home is ported into an AzurKit module first
      (`tests/test_contracts.py` holds the layers: no threads and no libm in

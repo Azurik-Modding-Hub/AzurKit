@@ -93,6 +93,22 @@ and the packs to Europe's map: every address a Europe pack names or writes
 has an entry or a named absence, every address a code patch holds is one it
 declares (`abs32`, `rel32`), and its shims fix no address of the image.
 
+## `node-types`: the shipped node-type table
+
+```bash
+uv run --locked python -m devkit re node-types [--update]
+```
+
+Builds read the 44 node types `default.xbe` registers (each one's base type
+and attribute names) from `node_types.json`, shipped beside both of its
+readers (`src/azurkit/core/xbr/` and `src/azurkit/tools/randomizer/art/`),
+so none needs capstone. This verb reads the registrations from both
+releases' vanilla images with capstone (Modkit's `gen_node_types.py`, Step
+4.24c) and says whether both copies hold them: exit 0 up to date, 1 a copy
+differs (`--update` writes both), 2 no image or registrations that aren't
+where it reads (AZ-315). It prints counts and `sha256[:12]` only.
+`tests/test_re_xbe.py` holds both copies to both images.
+
 ## The data: `devkit/re/data/`
 
 The RE knowledge AzurKit's player side has no use for, from Modkit's last

@@ -25,7 +25,7 @@ Ported on 2026-10-12 (Step R1.1) from the randomizer evidence's
   ``node_types.json`` beside this module (:class:`Schema`; Step X.102):
   each type's base type and attribute names, which both releases
   register alike; capstone reads the registrations only to make or
-  check the table (:func:`scan_types`, ``scripts/gen_node_types.py``).
+  check the table (``python -m devkit re node-types``).
 * Links (the link loader 0x658F0): record +0x10 is (count, ref) of
   24-byte links ``{f32 weight +0x00, u32 curve +0x04, f32 factor +0x08,
   u16 source plug +0x0C, u16 target plug +0x10, u32 target record
@@ -54,7 +54,7 @@ Ported on 2026-10-12 (Step R1.1) from the randomizer evidence's
   Step 2.75e); so a world matrix under any of these is composed like
   mode 0 and marked approximate.
 
-These are USA VAs; :func:`scan_types` and :class:`Euler` read them at
+These are USA VAs; the node-types scan and :class:`Euler` read them at
 the XBE's own release's addresses (its address map, Step RG.4c), so the
 Europe ``default.xbe`` gives the same 44 types and tables.
 
@@ -90,7 +90,7 @@ NODE_TYPES = 44
 """How many node types ``default.xbe`` registers (either release)."""
 NODE_TYPES_FILE = Path(__file__).with_name("node_types.json")
 """The node-type names table (:func:`node_types`), made by
-``scripts/gen_node_types.py`` from :func:`scan_types` on both releases."""
+``python -m devkit re node-types`` from both releases' registrations."""
 
 IDENTITY = ((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0),
             (0.0, 0.0, 1.0, 0.0), (0.0, 0.0, 0.0, 1.0))
@@ -152,9 +152,9 @@ class TypeInfo:
 def node_types() -> dict:
     """:data:`NODE_TYPES_FILE`: ``{"releases": the releases whose
     ``default.xbe`` registers these types, "types": name -> {"parent",
-    "attrs"} as :func:`scan_types` reads them}``.  Names only, no game
-    bytes; ``tests/test_level_graph.py`` checks it against capstone on
-    each release."""
+    "attrs"} as the node-types scan reads them}``.  Names only, no game
+    bytes; ``tests/test_re_xbe.py`` checks it against capstone on each
+    release."""
     return json.loads(NODE_TYPES_FILE.read_text(encoding="utf-8"))
 
 

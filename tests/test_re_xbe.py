@@ -8,8 +8,9 @@ facts, the Ghidra project's snapshot, the anchors and the packs know. The RE
 data (``devkit/re/data``, Step 4.11d1; Modkit's test_va_audit, its anchor and
 header guards, leanly) holds each anchor checkably, both releases' XBEs
 holding what it says, its structures compiling and a note for each function
-of the facts. The synthetic XBEs are neither release's; the rest read both
-images."""
+of the facts. ``node-types`` holds both copies of the shipped node-type
+table to what capstone reads from both images (Step 4.24c). The synthetic
+XBEs are neither release's; the rest read both images."""
 
 from __future__ import annotations
 
@@ -23,9 +24,12 @@ import sys
 import tomllib
 from pathlib import Path
 
+import pytest
+
 import shimkit
 from azurkit.core import facts, gate, iso
-from devkit.re import xbe
+from azurkit.core.xbr import graph
+from devkit.re import node_types, xbe
 
 ROOT = Path(__file__).resolve().parent.parent
 HOLDS = {"f32": lambda v: struct.pack("<f", v), "u32": lambda v: struct.pack("<I", v),   # an anchor's value's bytes
@@ -374,3 +378,28 @@ def test_each_anchor_holds_what_anchors_toml_says_in_both_releases(usa_iso, euro
             if section != a["section"] or b"".join(row.raw for row in xbe.hexdump(data, va, len(want))) != want:
                 wrong.append((release.name, name, f"0x{va:08X}", section))
     assert wrong == []
+
+
+def test_both_shipped_node_type_tables_are_what_capstone_reads_from_each_releases_registrations(
+        usa_iso, europe_iso, monkeypatch, capsys):
+    """A build reads the node types from the shipped names table, not
+    capstone (Modkit's Step X.102), so ``devkit re node-types`` reads them
+    from each release's vanilla ``default.xbe`` with capstone (Modkit's
+    ``gen_node_types.py``, Step 4.24c): both register the 44 types in the
+    table's order, each with its base type and attribute names, both copies
+    of ``node_types.json`` are that table, naming both releases, and the
+    verb says so. AZ-315: registrations that aren't where it reads (another
+    registration call) raise at once rather than read 0 types."""
+    monkeypatch.setenv(gate.USA.env, str(usa_iso))
+    monkeypatch.setenv(gate.EUROPE.env, str(europe_iso))
+    xbes = {}
+    for release, path in ((gate.USA, usa_iso), (gate.EUROPE, europe_iso)):
+        with iso.Reader(path) as r:
+            xbes[release.name] = r.read("default.xbe")
+    text = node_types.dumps(node_types.table(xbes))
+    assert json.loads(text)["releases"] == ["europe", "usa"] and len(json.loads(text)["types"]) == 44
+    assert [p.read_text(encoding="utf-8") == text for p in node_types.COPIES] == [True, True]
+    assert node_types.main([]) == 0 and capsys.readouterr().out.startswith("node_types.json up to date")
+    monkeypatch.setattr(graph, "REGISTER_FN", graph.REGISTER_FN + 1)
+    with pytest.raises(ValueError, match="a vanilla default.xbe"):
+        node_types.scan(xbes["usa"])
