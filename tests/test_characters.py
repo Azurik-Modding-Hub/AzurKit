@@ -1099,6 +1099,36 @@ def test_a_recipe_on_garret4_reshapes_and_restyles_his_own_body_in_place(usa_iso
     assert arm[0] and arm[0] != arm[1]
 
 
+@pytest.mark.parametrize("weapon", [None, "farmers_hoe"])
+def test_a_recipe_on_garret4_swings_its_jiggle_on_both_his_lods(usa_iso, tmp_path, weapon):
+    """AZ-783 (Modkit's Step 2.206b): a jiggle on garret4's own body builds, though he has two LODs (his realtime
+    shadow draws LOD 1): W29 rigs his LOD 0, W39 cuts his LOD 1 anew from it, so a vertex of each weighs its bone,
+    and X41 swings its springs, with the hoe in his hands too: X41 steps only a body of its table's bone count,
+    which counts the hoe's two W31 carriers added after it."""
+    from azurkit.tools.characters._player_character import CHECKOUT, JIGGLE_HOOK, JIGGLE_SHIM
+
+    belly = {"op": "push", "name": "belly", "bone": "spine_1", "dir": [0, 1, 0], "height": 0.01, "depth": 0.08,
+             "offset": [0.0, 0.12, 0.05], "radius": {"in": 0.12, "out": 0.12, "up": 0.1, "down": 0.1}}
+    spring = {"freq": 2.6, "damping": 0.15, "travel": 0.04, "gain": 2.0, "give": 0.04, "accel": 3.0,
+              "gravity": 0.0, "rot_share": 1.0, "pivot": "origin", "pace": 2.0}
+    _, files = _g4(usa_iso, tmp_path, {"mesh": {"ops": [belly]}, "jiggle": {"frees": [], "bones": [
+        {"role": "belly", "bone": "g4_belly", "parent": "spine_1", "shape": ["belly"], "groups": [0, 1],
+         "takes": ["spine_1"], "weight": 0.6, "spring": spring}]}}, **({"weapon": weapon} if weapon else {}))
+    asset = bc.read_asset(files[CHARACTERS], "garret4")
+    k = [b.name for b in asset.bones].index("g4_belly")
+    weighing = [sum(1 for g in lod.groups for v in range(len(g.vertices)) if g.skin(v).get(k, 0.0) > 0.0)
+                for lod in asset.lods]
+    assert len(weighing) == 2 and min(weighing) > 0, weighing
+    xbe = files[characters.XBE]
+    with iso.Reader(usa_iso) as r:
+        his = len(bc.read_asset(r.read(CHARACTERS), "garret4").bones)
+    with _building(usa_iso):
+        assert ports.verify_trampoline_patch(xbe, JIGGLE_HOOK) == "applied"
+        at = ports.resolve_va_to_file(xbe, ports.trampoline_symbol_va(xbe, JIGGLE_HOOK, "_player_model_jiggle_bones",
+                                                                      CHECKOUT, shim_source=JIGGLE_SHIM.source_path()))
+    assert struct.unpack_from("<I", xbe, at + 8)[0] == len(asset.bones) == his + 1 + 2 * (weapon is not None)
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
