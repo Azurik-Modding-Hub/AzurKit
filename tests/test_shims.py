@@ -352,3 +352,182 @@ def test_a_shims_call_of_a_kernel_function_the_game_doesnt_import_resolves_it_on
                                                            ((0x55667788, 0x24681357), 0x55667788 ^ 0x24681357)]
     with pytest.raises(mods.PackError, match="kernel variable 'KeSystemTime' has no slot in the USA XBE's thunk"):
         engine.plan(probe("reads"), gate.USA, {"default.xbe": vanilla})
+
+
+# --- Step 4.27e: Modkit's shim, COFF and kernel-import tests no test above pinned (test_coff_relocations,
+# test_coff_section_alignment, test_append_xbe_section, test_kernel_imports, test_vanilla_thunks and
+# test_shim_toolchain), ported leanly.
+
+
+def _object(sections, symbols) -> bytes:
+    """An i386 object as clang writes one: ``sections`` (name, flags, bytes or an uninitialized size, [(offset,
+    symbol index, type)]) and ``symbols`` (name, value, section, storage, auxiliary records); a section name past
+    8 bytes in the string table (``/N``)."""
+    body, headers, strings, at = b"", [], b"", 20 + 40 * len(sections)
+    for name, flags, data, relocs in sections:
+        raw, size = (0, data) if isinstance(data, int) else (at + len(body), len(data))
+        body += b"" if isinstance(data, int) else data
+        relocs_at = at + len(body)
+        body += b"".join(struct.pack("<IIH", *r) for r in relocs)
+        if len(name) > 8:
+            name, strings = f"/{4 + len(strings)}", strings + name.encode() + b"\0"
+        headers.append(name.encode().ljust(8, b"\0") + struct.pack("<IIIIIIHHI", 0, 0, size, raw, relocs_at if relocs
+                                                                  else 0, 0, len(relocs), 0, flags))
+    table = b"".join(name.encode().ljust(8, b"\0") + struct.pack("<IhHBB", value, section, 0, storage, aux)
+                     + bytes(18 * aux) for name, value, section, storage, aux in symbols)
+    count = sum(1 + s[4] for s in symbols)
+    return (struct.pack("<HHIIIHH", coff.MACHINE_I386, len(sections), 0, at + len(body), count, 0, 0)
+            + b"".join(headers) + body + table + struct.pack("<I", 4 + len(strings)) + strings)
+
+
+def test_a_shims_sections_land_each_its_own_writable_by_its_kind_at_its_alignment_relocated_to_its_own_symbols():
+    """Modkit's test_coff_relocations and test_coff_section_alignment, on
+    ``coff.layout``: an object's ``.text`` (a REL32 to its own helper, a
+    DIR32 to its static in ``.bss`` and one to its second ``.rdata``), its
+    ``.bss`` (zeros of its declared size, larger than the file: AZ-018;
+    writable: AZ-220) and its two ``.rdata`` sections (each its own bytes and
+    symbols, H8 and AZ-022; the ALIGN_16 one asked for at 16: AZ-019) each
+    land where the allocator says, and its metadata (``.debug$S``,
+    ``.llvm_addrsig``) doesn't; a symbol index past a section symbol's
+    auxiliary record names its own symbol; a relocation type it doesn't
+    land is refused by name, never skipped."""
+    text = (b"\xE8" + bytes(4)             # 0: call _helper           (REL32)
+            + b"\xFF\x05" + bytes(4)       # 5: inc dword [_g]         (DIR32)
+            + b"\xA1" + bytes(4) + b"\xC3"   # 11: mov eax, [_k2]; ret (DIR32)
+            + b"\x31\xC0\xC3")             # 17: _helper: xor eax, eax; ret
+    sections = [(".text", 0x60500020, text, [(1, 3, coff.REL32), (7, 4, coff.DIR32), (12, 6, coff.DIR32)]),
+                (".bss", 0xC0300080, 4096, []), (".rdata", 0x40300040, struct.pack("<f", 2.5), []),
+                (".rdata", 0x40500040, bytes(range(16)), []), (".debug$S", 0x42100040, b"\x04\0\0\0", []),
+                (".llvm_addrsig", 0x00100800, b"\x02", [])]
+    symbols = [(".text", 0, 1, 3, 1), ("_c_entry", 0, 1, coff.EXTERNAL, 0), ("_helper", 17, 1, 3, 0),
+               ("_g", 0, 2, 3, 0), ("_k1", 0, 3, 3, 0), ("_k2", 0, 4, 3, 0)]
+    obj, asked = coff.parse(_object(sections, symbols)), []
+
+    def allocate(size: int, align: int, writable: bool) -> tuple[int, int]:
+        asked.append((size, align, writable))
+        return 0x1000 * len(asked), 0x100000 * len(asked)
+    placed, entry = coff.layout(obj, "_c_entry", allocate, {})
+    assert [(p.section, p.index) for p in placed] == [(".text", 0), (".bss", 1), (".rdata", 2), (".rdata", 3)]
+    assert asked == [(len(text), 16, False), (4096, 4, True), (4, 4, False), (16, 16, False)]
+    code, bss, k1, k2 = placed
+    assert (bss.data, k1.data, k2.data, entry) == (bytes(4096), struct.pack("<f", 2.5), bytes(range(16)), code.va)
+    assert (code.va + 5 + struct.unpack_from("<i", code.data, 1)[0], struct.unpack_from("<I", code.data, 7)[0],
+            struct.unpack_from("<I", code.data, 12)[0]) == (code.va + 17, bss.va, k2.va)
+    odd = [(*sections[0][:3], [(7, 4, 0x1234)]), *sections[1:]]
+    with pytest.raises(ValueError, match=re.escape("relocation type 0x1234 at .text+0x7 (AzurKit lands DIR32 and "
+                                                   "REL32)")):
+        coff.layout(coff.parse(_object(odd, symbols)), "_c_entry", allocate, {})
+
+
+def test_the_carver_lays_shims_end_to_end_one_shims_section_at_their_alignment_whatever_their_bytes(usa_iso):
+    """Modkit's test_append_xbe_section's carve cases (H7, AZ-019): the carve
+    allocator places by claims, never by the bytes a claim holds, so three
+    4-byte landings in ``.text``'s gap lie 4 apart; landings past it fill
+    one appended SHIMS end to end, and one aligned 16 after an odd-sized one
+    lands on 16 in both; their claims grow ``.text`` by what its gap took
+    and append one SHIMS whose bytes cover the rest."""
+    with iso.Reader(usa_iso) as r:
+        vanilla = r.read("default.xbe")
+    room, carver = xbe.room(vanilla), xbe.Carver(vanilla)
+    small = [carver.place(4) for _ in range(3)]
+    assert [(p[2], p[3]) for p in small] == [(room.gap + 4 * i, room.text.va + room.text.raw_size + 4 * i)
+                                             for i in range(3)]
+    big = [carver.place(301), carver.place(100), carver.place(16, 16)]
+    assert [p[2] - room.shims for p in big] == [p[3] - room.shims_va for p in big] == [0, 301, 416]
+    claims = [(at, size, False) for at, size, *_ in small + big]
+    text, shims = (next(s for s in xbe.sections(xbe.grown(vanilla, claims)) if s.name == name)
+                   for name in (".text", xbe.SHIMS))
+    assert (text.raw_size - room.text.raw_size, shims.raw, shims.raw_size) == (12, room.shims, 432)
+    assert [s.name for s in xbe.sections(xbe.grown(vanilla, claims))].count(xbe.SHIMS) == 1
+
+
+def test_a_shims_kernel_imports_take_one_stub_a_function_and_a_variable_its_slot_and_an_unknown_one_is_refused(
+        usa_iso, tmp_path, monkeypatch):
+    """Modkit's test_kernel_imports (D1, AZ-020) on the engine: a shim's
+    calls of a kernel function the game imports go through one 6-byte
+    ``jmp [slot]`` stub a pack, however many calls (two functions, two
+    stubs, each its own facts slot); a kernel variable is read through its
+    slot itself, never a stub; another pack gets its own stubs past the
+    first's claims. An external that is no vanilla function or kernel
+    export the facts name is refused by name (Modkit's test_vanilla_thunks)."""
+    with iso.Reader(usa_iso) as r:
+        vanilla = r.read("default.xbe")
+    known, real_of, real_shim = facts.of(gate.USA), facts.of, engine.shim
+    extra = {"NtClose": facts.Kernel("NtClose", 187, "stdcall", 4, known.thunks)}   # the table's first slot
+    monkeypatch.setattr(facts, "of", lambda release: dataclasses.replace(known, kernel={**known.kernel, **extra})
+                        if release is gate.USA else real_of(release))
+    probes = {}
+    for name, body in (("calls", "MmFreeContiguousMemory(a); NtClose(MmFreeContiguousMemory(a + KeTickCount));"
+                                 " return KeTickCount;"), ("strays", "return Frotz(a);")):
+        (source := tmp_path / f"{name}.c").write_text(
+            "__attribute__((stdcall)) unsigned int MmFreeContiguousMemory(unsigned int);\n"
+            "__attribute__((stdcall)) unsigned int NtClose(unsigned int);\n"
+            "__attribute__((stdcall)) unsigned int Frotz(unsigned int);\n"
+            "__declspec(dllimport) extern unsigned int KeTickCount;\n"
+            f"unsigned int c_entry(unsigned int a) {{ {body} }}\n", encoding="utf-8")
+        probes[name] = coff.parse(shimkit.compile(source))
+    monkeypatch.setattr(engine, "shim", lambda name: probes.get(name) or real_shim(name))
+    pack = mods.PACKS["qol_skip_logo"]
+
+    def probe(name: str) -> mods.Pack:
+        return dataclasses.replace(pack, sites=(dataclasses.replace(pack.sites[0], shim=name, symbol="_c_entry"),))
+
+    def targets(layer) -> tuple[dict[str, set[int]], dict[int, bytes]]:
+        """Each external the shim names -> where its relocations reach, and the 6 bytes at each place it calls."""
+        built = bytes(compose({"default.xbe": vanilla}, [layer])[0]["default.xbe"])
+        hook = known.offset(0x5F6E5, 5)
+        text_va = 0x5F6E5 + 5 + struct.unpack_from("<i", built, hook + 1)[0] - probes["calls"].symbol("_c_entry").value
+        (text,) = (s for s in probes["calls"].sections if s.name == ".text")
+        at = xbe.resolve_va_to_file(built, text_va)
+        reach = {}
+        for rel in text.relocations:
+            word = struct.unpack_from("<I", built, at + rel.offset)[0]
+            va = word if rel.type == coff.DIR32 else (text_va + rel.offset + 4 + word) & 0xFFFFFFFF
+            reach.setdefault(probes["calls"].symbols[rel.symbol].name, set()).add(va)
+        stubs = {va: built[(o := xbe.resolve_va_to_file(built, va)):o + 6] for name, vas in reach.items()
+                 if not name.startswith("__imp__") for va in vas}
+        return reach, stubs
+    first = engine.plan(probe("calls"), gate.USA, {"default.xbe": vanilla})
+    reach, stubs = targets(first)
+    slot = {f"_{k}@4": known.kernel[k].slot if k in known.kernel else known.thunks for k in ("MmFreeContiguousMemory",
+                                                                                              "NtClose")}
+    assert {name: len(vas) for name, vas in reach.items()} == {"_MmFreeContiguousMemory@4": 1, "_NtClose@4": 1,
+                                                               "__imp__KeTickCount": 1}
+    assert reach["__imp__KeTickCount"] == {known.kernel["KeTickCount"].slot}
+    assert stubs == {next(iter(reach[name])): b"\xFF\x25" + struct.pack("<I", s) for name, s in slot.items()}
+    assert sorted(c.size for c in first.claims if c.size == 6) == [6, 6]
+    second = engine.plan(probe("calls"), gate.USA, {"default.xbe": vanilla}, occupied=first.claims)
+    assert not {(c.offset, c.size) for c in second.claims} & {(c.offset, c.size) for c in first.claims}
+    with pytest.raises(mods.PackError, match=re.escape("the shim's external '_Frotz@4' is no vanilla function or "
+                                                       "kernel export the facts name")):
+        engine.plan(probe("strays"), gate.USA, {"default.xbe": vanilla})
+
+
+def test_shimkit_compiles_with_no_warning_and_no_shell_puts_double_math_on_x87_and_names_a_compile_error(
+        tmp_path, monkeypatch):
+    """Modkit's test_shim_toolchain and test_autocompile's AZ-046/AZ-055:
+    the Xbox's CPU is a Pentium III (SSE, no SSE2: its opcodes raise #UD on
+    the hardware, though xemu runs them, AZ-021), so a shim's double math
+    and its float-double conversions compile to x87, never SSE2's movsd,
+    mulsd, cvttsd2si or cvtss2sd; a compile prints no warning (Q153, D86),
+    with zig run by its path, no shell or PATH (a stock Windows host); and a
+    source that doesn't compile raises with the compiler's own words
+    (AZ-060), never a skip or a stale object."""
+    runs, real_run = [], subprocess.run
+
+    def kept(*args, **kwargs):
+        runs.append(real_run(*args, **kwargs))
+        return runs[-1]
+    monkeypatch.setattr(shimkit.subprocess, "run", kept)
+    monkeypatch.setenv("PATH", "")
+    (src := tmp_path / "probe.c").write_text(
+        "double c_dmul(double a, double b) { return a * b; }\n"
+        "double c_widen(float f) { return f; }\n"
+        "int c_trunc(double d) { return (int)d; }\n", encoding="utf-8")
+    (text,) = (s.data for s in coff.parse(shimkit.compile(src)).sections if s.name == ".text")
+    assert b"\xf2\x0f" not in text and b"\xf3\x0f\x5a" not in text
+    shimkit.compile(shimkit.SHIMS / "qol_skip_logo.c")
+    assert [done.stderr for done in runs] == ["", ""]
+    src.write_text("#error simulated breakage\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="simulated breakage"):
+        shimkit.compile(src)

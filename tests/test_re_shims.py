@@ -313,3 +313,107 @@ def test_the_live_kits_place_and_level_hop_write_europes_own_buffers_through_the
     assert [(va, len(data)) for va, data in writes] == [
         (0x392100, 30), (recipes.R_PLACE, 4), (0x38F2C8, 1), (0x38F3CC, 15), (0x38F4D0, 10), (recipes.R_LEVEL, 4)]
     assert (writes[1][1], writes[-1][1]) == (struct.pack("<I", 0x392100), struct.pack("<I", 0x38F2C8))
+
+
+# --- Step 4.27e: Modkit's kernel-ordinal and shim-header tests no test above pinned (test_kernel_imports,
+# test_d1_extend's catalogue and test_shim_authoring), ported leanly.
+
+
+def test_the_kernel_catalogue_names_each_retail_export_once_and_each_releases_thunk_table_by_it(usa_iso, europe_iso):
+    """Modkit's test_kernel_imports' ordinal and thunk-table checks and
+    test_d1_extend's catalogue (AZ-114): devkit's kernel catalogue
+    (``devkit/sim/data/kernel.toml``) names every retail export, ordinals
+    1-366, each name once, at the retail kernel's ordinals; each release's
+    thunk table, read from its image (``parse_kernel_thunks``), is contiguous
+    dwords from the facts' address, every slot an ordinal the catalogue
+    names (USA's first four NtClose, NtQueryDirectoryFile, NtOpenFile and
+    RtlInitAnsiString), and each facts kernel export sits at its slot."""
+    import tomllib
+
+    from azurkit.core import iso
+    from devkit.sim import ports as sim
+
+    names = {int(k): v for k, v in tomllib.loads(sim.KERNEL.read_text(encoding="utf-8"))["names"].items()}
+    assert sorted(names) == list(range(1, 367)) and len(set(names.values())) == 366
+    retail = {"DbgBreakPoint": 5, "DbgPrint": 8, "DbgPrompt": 10, "IoStartNextPacketByKey": 82,
+              "IoSynchronousDeviceIoControlRequest": 84, "KdDebuggerEnabled": 88, "KeBugCheck": 95,
+              "KeGetCurrentThread": 104, "KeTickCount": 156, "MmFreeContiguousMemory": 171, "MmIsAddressValid": 174,
+              "NtClose": 187, "ObReferenceObjectByName": 247, "ObfReferenceObject": 251, "PsCreateSystemThread": 254,
+              "RtlZeroMemory": 320, "XboxKrnlVersion": 324, "HalEnableSecureTrayEject": 365}
+    assert {n: o for o, n in names.items() if n in retail} == retail
+    for release, path in ((gate.USA, usa_iso), (gate.EUROPE, europe_iso)):
+        with iso.Reader(path) as r:
+            table = sim.parse_kernel_thunks(r.read("default.xbe"))
+        known = facts.of(release)
+        assert [t.thunk_va for t in table] == [known.thunks + 4 * i for i in range(len(table))], release.name
+        assert [t.name for t in table] == [names[t.ordinal] for t in table], release.name
+        assert {k.name: k.slot for k in known.kernel.values()} == {
+            k.name: next(t.thunk_va for t in table if t.ordinal == k.ordinal) for k in known.kernel.values()}
+    assert known.thunks != facts.of(gate.USA).thunks and facts.of(gate.USA).thunks == 0x18F3A0
+    with iso.Reader(usa_iso) as r:
+        assert [t.name for t in sim.parse_kernel_thunks(r.read("default.xbe"))[:4]] == [
+            "NtClose", "NtQueryDirectoryFile", "NtOpenFile", "RtlInitAnsiString"]
+
+
+CONTROLLER = {"left_stick_x": 0x00, "left_stick_y": 0x04, "right_stick_x": 0x08, "right_stick_y": 0x0C, "dpad_y": 0x10,
+              "dpad_x": 0x14, "button_a": 0x18, "button_y": 0x24, "trigger_left": 0x30, "trigger_right": 0x34,
+              "stick_left_click": 0x38, "stick_right_click": 0x3C, "start_button": 0x40, "back_button": 0x44,
+              "edge_state": 0x48}
+"""ControllerState's fields at the offsets the game's XInput poll (0xA2880) writes (``dpad_y`` holds the X axis:
+AZ-234)."""
+STRUCTS = {
+    "PlayerInputState": {"stick_magnitude": 0x1C, "flags": 0x20, "dead": 0x21, "ref_x": 0x24, "critter_data": 0x34,
+                         "direction_angle": 0x120, "magnitude": 0x124, "direction_x": 0x128, "direction_y": 0x12C,
+                         "direction_z": 0x130},
+    "CritterData": {"collision_radius": 0x18, "scale": 0x24, "walk_speed": 0x38, "run_speed": 0x40,
+                    "ouch2_threshold": 0x48, "ouch3_threshold": 0x4C, "ouch1_knockback": 0x50, "ouch2_knockback": 0x54,
+                    "ouch3_knockback": 0x58, "hits_through_walls": 0x7C, "drown_time": 0x80, "shadow_size": 0x94,
+                    "range": 0xB8, "range_up": 0xBC, "range_down": 0xC0, "attack_range": 0xC4, "drop_1": 0xD4,
+                    "drop_5": 0xE4, "drop_count_1": 0xE8, "drop_count_5": 0xF8, "drop_chance_1": 0xFC,
+                    "drop_chance_5": 0x10C},
+    "ControllerState": CONTROLLER}
+"""The fields Ghidra placed (Modkit's test_shim_authoring; CritterData's ouch rows misnamed once)."""
+
+
+def test_the_structures_a_shim_or_the_re_data_declares_hold_each_field_at_ghidras_offset(tmp_path):
+    """Modkit's test_shim_authoring (AZ-258): a probe of one
+    ``_Static_assert`` a field (``__builtin_offsetof``) or a constant,
+    apart from the headers' own asserts, compiles against devkit's RE
+    structures (``structs.h``: PlayerInputState, CritterData,
+    ControllerState, and PLAYER_FLAG_RUNNING 0x40 and _FALLING 0x01, the
+    bits 0x84940 tests) and against the ControllerState shimkit's
+    ``azurik_vanilla.h`` gives every shim; a field moved fails by name."""
+    def asserts(offsets: dict[str, dict[str, int]]) -> str:
+        return "\n".join(f"_Static_assert(__builtin_offsetof({struct}, {field}) == 0x{at:X}, "
+                         f'"{struct}.{field} is not at 0x{at:X}");'
+                         for struct, fields in offsets.items() for field, at in fields.items())
+    flags = ('_Static_assert(PLAYER_FLAG_RUNNING == 0x40u, "RUNNING");\n'
+             '_Static_assert(PLAYER_FLAG_FALLING == 0x01u, "FALLING");\n')
+    for name, header, offsets, extra in (("re", (xbe.DATA / "structs.h").as_posix(), STRUCTS, flags),
+                                         ("shim", "azurik_vanilla.h", {"ControllerState": CONTROLLER}, "")):
+        (probe := tmp_path / f"{name}.c").write_text(f'#include "{header}"\n{asserts(offsets)}\n{extra}',
+                                                     encoding="utf-8")
+        assert coff.parse(shimkit.compile(probe)).machine == coff.MACHINE_I386, name
+    probe.write_text('#include "azurik_vanilla.h"\n' + asserts({"ControllerState": {"back_button": 0x40}}),
+                     encoding="utf-8")
+    with pytest.raises(RuntimeError, match=r"ControllerState\.back_button is not at 0x40"):
+        shimkit.compile(probe)
+
+
+def test_new_shim_lists_its_flags_and_refuses_a_bad_name_or_category_by_name_exit_1(capsys):
+    """Modkit's test_scaffolder CLI cases (Step 2.84): ``new-shim --help``
+    lists each flag; a name that isn't a lowercase identifier and a
+    category the packs don't have (Modkit's retired Experimental tab) are
+    each one ``new-shim:`` line naming why, exit 1, nothing printed or
+    written."""
+    with pytest.raises(SystemExit) as done:
+        new_shim.main(["--help"])
+    out = capsys.readouterr().out
+    assert done.value.code == 0 and all(f in out for f in ("--hook", "--iso", "--xbe", "--category", "--ghidra",
+                                                           "--port", "--dry-run"))
+    for argv, why in ((["BadName"], "invalid name 'BadName'"), (["my_x", "--category", "experimental"],
+                                                                 "no category 'experimental'")):
+        assert new_shim.main([*argv, "--dry-run"]) == 1
+        out, err = capsys.readouterr()
+        assert (out, err.startswith(f"new-shim: {why}"), err.count("\n")) == ("", True, 1), argv
+    assert not (ROOT / new_shim.PACKS / "my_x.py").exists()
