@@ -262,8 +262,9 @@ Azurik reject the save on load.  The hash domain is traced
 (§ 7): each `.sav` name plus a NUL and its bytes, then each
 subfolder's name plus a NUL, recursively, in byte order, with
 `flags=0` (no per-console layer).  The key derives from the
-console's BIOS: `azurkit save edit --kernel <flash image> --mcpx
-<boot ROM>` re-signs an edited slot (§ 7).  (Until 2026-10-11 this section
+console's BIOS: `azurkit save edit FOLDER --flash <flash image>
+--mcpx <boot ROM> --iso <image> --out <dir>` re-signs an edited slot
+(§ 7).  (Until 2026-10-11 this section
 called it a plain SHA-1 with an unknown hash domain; § 7's April
 2026 trace superseded that [verified 2026-10-11: read of
 `src/azurkit/tools/saves/sign.py`, which uses
