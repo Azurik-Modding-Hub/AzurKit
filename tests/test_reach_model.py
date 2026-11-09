@@ -20,6 +20,7 @@ import itertools
 import json
 import math
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -915,6 +916,53 @@ def test_every_derived_file_passes_the_consumers_checks_and_carries_the_current_
     assert [lvl for lvl, doc in db.derived.items() if export.read_text(export.path_of(lvl)) != export.dumps(doc)] == []
     assert {lvl: export.check_doc(doc, ids)[:5] for lvl, doc in db.derived.items()} == {lvl: [] for lvl in db.derived}
     assert {lvl: doc["_meta"]["stamp"] for lvl, doc in db.derived.items()} == {lvl: export.stamp(lvl) for lvl in db.derived}
+
+
+def test_restack_derives_again_only_the_stale_levels_then_authors_checks_and_records_and_refuses_the_main_checkout(
+        tmp_path, monkeypatch, capsys):
+    """``python -m devkit rando restack`` (Modkit's ``scripts/restack.py``,
+    Step 4.24c): it derives again only the levels whose derived file's stamp
+    isn't the current one, then authors the authored levels, checks the
+    database and records the randomizer's goldens, in that order; and it runs
+    only in a lane worktree: in the main checkout it is one line and exit 2,
+    before it renices itself or runs a step."""
+    from devkit.rando import restack
+    derived = tmp_path / "derived"
+    derived.mkdir()
+    for level, stamp in (("a1", "now"), ("a3", "old"), ("w1", "now")):
+        export.write_text(derived / f"{level}.json.gz", json.dumps({"_meta": {"stamp": stamp}}))
+    monkeypatch.setattr(export, "DERIVED", derived)
+    monkeypatch.setattr(export, "path_of", lambda level: derived / f"{level}.json.gz")
+    monkeypatch.setattr(export, "stamp", lambda level: "now")
+    assert restack.stale_levels() == ["a3"]
+    ran = []
+
+    def run(step: str, *args: str) -> str:
+        ran.append((step, args[-1]))
+        if step == "derive":   # the derive brings a3's stamp up to date
+            export.write_text(derived / "a3.json.gz", json.dumps({"_meta": {"stamp": "now"}}))
+        return "0 of 22 levels changed\n" if step == "author" else ""
+    monkeypatch.setattr(restack, "_run", run)
+    restack.restack(2, derive_check=False, goldens=True)
+    assert ran == [("derive", "a3"), ("author", restack.authored_levels()[-1]), ("check", "check"),
+                   ("goldens", restack.GOLDENS[-1])]
+
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitconfig"))   # never the developer's
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    main, lane = tmp_path / "main", tmp_path / "lane"
+    for argv in (["init", "-q", "-b", "main", str(main)],
+                 ["-C", str(main), "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q",
+                  "--allow-empty", "-m", "x"],
+                 ["-C", str(main), "worktree", "add", "-q", "-b", "lane", str(lane)]):
+        subprocess.run(["git", *argv], check=True, capture_output=True, timeout=60)
+    niced, called = [], []
+    monkeypatch.setattr(restack.os, "nice", lambda increment: niced.append(increment) or 0)
+    monkeypatch.setattr(restack, "restack", lambda *args: called.append(args))
+    monkeypatch.setattr(restack, "ROOT", main)
+    assert restack.main([]) == 2 and (niced, called) == ([], [])
+    assert capsys.readouterr().err == "ERROR: run restack in a lane worktree, not the main checkout\n"
+    monkeypatch.setattr(restack, "ROOT", lane)
+    assert restack.main(["-j", "3", "--no-goldens"]) == 0 and called == [(3, False, False)] and niced[-1] == 15
 
 
 REALM = ["a1", "a3", "a5", "a6", "airship", "d1", "d2", "e2", "e5", "e6", "e7", "f1", "f2", "f3", "f4", "f6", "life",
