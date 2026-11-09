@@ -1,8 +1,8 @@
 # C shims and kernel imports
 
 > Ported from Azurik_Modkit's `docs/` (Step 4.11g) and rewritten for AzurKit's engine in Step 4.24d: Modkit's
-> toolchain (zig at build time, `shim_builder`, `vanilla_symbols.py`, the hand-written headers, `AZURIK_NO_SHIMS`,
-> the D1-extend stubs) isn't AzurKit's, and its history is the private archived repository (AGENTS.md § Porting
+> toolchain (zig at build time, `shim_builder`, `vanilla_symbols.py`, the hand-written headers, `AZURIK_NO_SHIMS`)
+> isn't AzurKit's, and its history is the private archived repository (AGENTS.md § Porting
 > from Modkit). AGENTS.md § Packs (its Shims and "Patching and shims: what binds") is AzurKit's rule and wins where
 > the two differ; a `tests/test_*.py` or a module this checkout lacks names Modkit's tree, where a finding was made.
 
@@ -24,8 +24,8 @@ its prebuilt object `<name>.o` beside it: `qol_skip_logo`, `player_physics`
 (the BLACK roll at VA 0x8C745 and the wing-flap ceiling at VA 0x89154,
 § Hand-written shims). The player-model swap, which isn't a pack, lands
 its 40 shims from `src/azurkit/tools/characters/player_model/` (AGENTS.md
-§ Characters). `xboxkrnl_resolver.c` is committed for kernel exports the
-game doesn't import, which no shim calls yet (§ Kernel imports).
+§ Characters). `xboxkrnl_resolver.c` resolves the kernel exports the game
+doesn't import for a shim that calls one (§ Kernel imports).
 
 ## When to write a shim
 
@@ -354,14 +354,16 @@ void c_frame_time_probe(void) {
 shapes.
 
 **Every other export** (the 215 retail exports the game doesn't import)
-has no thunk slot, and AzurKit refuses a call to one by name. Modkit
-reached them through a runtime resolver (its D1-extend: a 37-byte stub a
-call that walked `xboxkrnl.exe`'s PE export table at the retail base
-`0x80010000` once and cached the address; no extended import was ever
-seen working in game). AzurKit keeps the resolver's source
+has no thunk slot. Add the function to `scripts/gen_facts.py`'s `KERNEL`
+(its ordinal, convention and argument bytes) and run it; a call to it then
+lands a 37-byte stub of its own (`engine.resolving_stub`, Modkit's
+D1-extend, Step 4.24c), writable for the cache it keeps: on the first call
+it asks the resolver
 ([`xboxkrnl_resolver.c`](../src/azurkit/tools/mods/shims/xboxkrnl_resolver.c),
-its object beside it) but not the stubs that would call it, until a shim
-needs one.
+its object beside it, landed once a pack), which walks `xboxkrnl.exe`'s PE
+export table at the retail base `0x80010000`, and keeps the address. A
+kernel variable with no slot is still refused by name. No extended import
+has been seen working in game yet.
 
 ### One state for several hooks: a door
 
@@ -480,7 +482,7 @@ xemu with a `DbgPrint` in the shim.
   ordinary game functions (above), called through flat `stdcall`
   externs; NXDK's real headers, structs and vtables aren't wired in, and
   no shim has needed them.
-- **No kernel export the game doesn't import** (§ Kernel imports).
+- **No kernel variable the game doesn't import** (§ Kernel imports).
 - **No shared shim library:** each hook lands its own copy; a door
   (above) shares state.
 
@@ -505,7 +507,7 @@ Phase 2 shipped the rest:
 | B3 | scaffolding | `python -m devkit re new-shim` |
 | C1 | player-speed shim (the motivating deliverable) | `player_physics` |
 | D1 | xboxkrnl imports through thunk-table stubs | the facts' `kernel` |
-| D1-extend | runtime resolver for every other export | the resolver's source only; calls refused |
+| D1-extend | runtime resolver for every other export | `engine.resolving_stub` and `xboxkrnl_resolver.c` |
 | D2 | NXDK (real Xbox SDK headers) | not started |
 | E | shared-library shim layout | not ported |
 

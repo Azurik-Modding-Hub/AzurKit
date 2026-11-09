@@ -300,7 +300,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   the tracker's file reads (`placements`, `plan_doc`), live's `connect`,
   the L2 flights (`envelope.l2_*`, devkit's since Step 4.13a), the levels
   extractor (`extract`, `write_generated`, devkit's since Step 4.13b),
-  `nodes.scan_types` (devkit's `re node-types`), and the drawing's command lines and PNG writers.
+  `nodes.scan_types` (devkit's `re node-types`), and the drawing's command
+  lines and PNG writers.
   The perf gate times the randomizer and tracker groups, and a change to
   the writer's or the layer's bytes owes an xemu sitting.
 - **The simulator's cut (Step 4.13a):** `devkit/sim` is Modkit's
@@ -555,8 +556,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 Modkit's `azurik-patching-and-shims` skill, cut to the rules that still
 bind (Step 4.16a2); the how-to (a hook's anatomy, calling the engine, the
 kernel imports, per-apply floats, hand-assembled shims, pitfalls) is
-[`docs/SHIMS.md`](docs/SHIMS.md), whose Modkit paths and commands map to
-AzurKit's as its header says. The packs, sliders and shims above are the
+[`docs/SHIMS.md`](docs/SHIMS.md), rewritten for AzurKit's engine (its
+header says what of Modkit's isn't AzurKit's). The packs, sliders and shims above are the
 model; the swap's shims (`src/azurkit/tools/characters/player_model/`)
 are the Characters section's.
 
