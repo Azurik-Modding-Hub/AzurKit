@@ -619,8 +619,9 @@ def test_the_perf_gate_keeps_an_op_over_budget_as_debt_fails_only_a_clear_regres
     download, whose write the browser's own bar shows, shows progress when
     its page part is within 1 s; an image's first check is within 3 s only
     with a moving bar (D982). An op fails only as ``slower``: its median
-    over main's last passing full run's (fullsuite.main_reference) by more
-    than 25 % and 0.5 s; it runs R more times first and fails only if the
+    over its budget and over main's last passing full run's
+    (fullsuite.main_reference; none for main's own, which re-baselines) by
+    more than 25 % and 0.5 s; it runs R more times first and fails only if the
     median of all still is (one spike can't fail it), and an error fails.
     The receipt's debt rows go to the debt ledger; the list may lower and
     drop but never add or raise against main's; changes reach the ops of
@@ -642,10 +643,10 @@ def test_the_perf_gate_keeps_an_op_over_budget_as_debt_fails_only_a_clear_regres
     assert [(r["verdict"], r["debt"], r["ok"]) for r in (
         perf.judge(slow, 3.0), perf.judge([s(1.5, progress=False)] * 3, 3.0), perf.judge([s(2.0)] * 3, 3.0),
         perf.judge([{**s(2.0), "froze": froze}, s(2.1), s(2.2)], 3.0), perf.judge([{**s(2.0), "error": "x"}], 3.0),
-        perf.judge([s(2.6)] * 3, 3.0, reference=2.0), perf.judge([s(2.6)] * 3, 3.0, reference=2.1),
-        perf.judge([s(0.8)] * 3, 3.0, reference=0.4), perf.judge([s(4.0)] * 3, 3.0, reference=3.5))] == [
+        perf.judge([s(3.6)] * 3, 3.0, reference=2.0), perf.judge([s(2.6)] * 3, 3.0, reference=2.0),
+        perf.judge([s(1.4)] * 3, 1.0, reference=1.0), perf.judge([s(4.0)] * 3, 3.0, reference=3.5))] == [
         ("over", True, True), ("no progress", True, True), ("pass", False, True), ("pass", True, True),
-        ("error", False, False), ("pass", False, False), ("pass", False, True), ("pass", False, True),
+        ("error", False, False), ("over", True, False), ("pass", False, True), ("over", True, True),
         ("over", True, True)]
     assert perf.judge(saved(1.3, 0.01), 3.0, browser_bar=True)["page"] == [0.01] * 3
     empty, bars = {"ceilings": {}, "debts": set()}, [{**s(6.8, bar=5), "page": 0.01}] * 3
@@ -669,8 +670,8 @@ def test_the_perf_gate_keeps_an_op_over_budget_as_debt_fails_only_a_clear_regres
             "passed": False, "cases": {"A12/app": {"median": 9.0}}}}), ("lane", main_run | {"finished_at": "4",
                                                                                            "perf_args": ["--select"]})):
         (receipts / f"suite-{name}.meta").write_text(json.dumps(m), encoding="utf-8")
-    reference = fullsuite.main_reference(receipts)
-    assert reference.name == "suite-older.meta"
+    reference = fullsuite.main_reference(receipts, ["--select", "A12"])
+    assert reference.name == "suite-older.meta" and fullsuite.main_reference(receipts, ["--all"]) is None
     medians = {k: r["median"] for k, r in json.loads(reference.read_text())["perf"]["cases"].items()}
     got, _, _ = perf.measure([("A12", "app"), ("A13", "app"), ("A15", "app"), ("A24", "app")], drive, lst,
                              reference=medians)

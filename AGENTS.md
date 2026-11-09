@@ -2144,9 +2144,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   in a gap is a perf-debt row (the block's `debt`, printed and appended to
   `perf-debt.jsonl` beside the receipts; a Save's row carries the free disk),
   a lane, not a block. The block fails only on a clear regression, an op's
-  median over main's last passing full run's for the same op and context
-  (`fullsuite.main_reference`, `perf.py --reference`) by more than 25 % and
-  0.5 s (`perf.REGRESSION`, `REGRESSION_S`), taken three more times first,
+  median over its budget and over main's last passing full run's for the
+  same op and context (`fullsuite.main_reference`, `perf.py --reference`;
+  main's own full run takes none, so each that passes re-baselines) by more
+  than 25 % and 0.5 s (`perf.REGRESSION`, `REGRESSION_S`), taken three more
+  times first,
   and on a memory peak, an error, a native failure or a list that grows,
   as before. An image's first check and the site's first engine load may pass
   3 s only with a moving bar (D982), and so may a character's first build

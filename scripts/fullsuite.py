@@ -52,9 +52,11 @@ receipt's ``perf`` block says how long). A run whose changes reach no op
 has no perf stage. Its timings are advisory (D1170): an op over its budget,
 past 1 s with no progress or whose page froze is a perf-debt row (the block's
 ``debt``, printed and appended to ``perf-debt.jsonl`` beside the receipts,
-:func:`ledger`), and the block fails only on a clear regression against the
-last passing main full run's receipt (:func:`main_reference`, ``perf.py
---reference``), a memory peak, an error or a list that grows.
+:func:`ledger`), and the block fails only on a clear regression, an op over
+its budget and against the last passing main full run's receipt
+(:func:`main_reference`, ``perf.py --reference``; main's own full run is
+judged against none, so each that passes re-baselines), a memory peak, an
+error or a list that grows.
 
 Every pytest run (the gate's and the flake stage's) reruns a failed test
 once (``tests/_rerun.py``, D1170): one that passes its rerun is flaky, kept
@@ -924,10 +926,13 @@ def ledger(meta: Path, m: dict) -> dict:
     return m
 
 
-def main_reference(folder: Path) -> Path | None:
+def main_reference(folder: Path, perf_args=()) -> Path | None:
     """The newest receipt of a passing main full run with a perf block (its
-    ``perf.py --all``), against which a perf stage judges a regression
-    (D1170), or None."""
+    ``perf.py --all``), against which a perf stage of ``perf_args`` judges a
+    regression (D1170), or None: always for main's own full run (``--all``),
+    judged against none, so each that passes is the next reference."""
+    if list(perf_args) == ["--all"]:
+        return None
     found = []
     for meta in folder.glob("suite-*.meta"):
         try:
@@ -1072,7 +1077,7 @@ def perf_stage(meta: Path, m: dict) -> dict:
         time.sleep(30)
     waited, out = round(time.time() - t0, 1), meta.with_suffix(".perf.json")
     out.unlink(missing_ok=True)
-    against = main_reference(meta.parent)   # D1170: a regression is judged against main's last passing full run
+    against = main_reference(meta.parent, m["perf_args"])   # D1170: a regression against main's last passing full run
     with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
         log.write(f"\n==== perf {' '.join(m['perf_args'])} (normal-priority load {load5}, waited {waited} s) ====\n")
         log.flush()

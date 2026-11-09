@@ -31,10 +31,12 @@ progress shown, or one a sample of which froze in a gap (``_perf.FREEZE_MS``)
 is a perf-debt row (the block's ``debt``, :func:`debt_rows`; a Save's with
 the free disk its run left), which fails nothing. A run fails only on a clear
 regression: with ``--reference`` (a receipt of main's last passing full run,
-``scripts/fullsuite.py``'s), an op whose median is over that run's for the same
-op and context by more than both :data:`REGRESSION` of it and
-:data:`REGRESSION_S` runs :data:`R` more times (one more past 30 s) and fails
-(``slower``) if the median of all of them still is; and on an error, a memory
+``scripts/fullsuite.py``'s; main's own full run takes none, so each that
+passes is the next), an op whose median is over its budget and over that
+run's for the same op and context by more than both :data:`REGRESSION` of it
+and :data:`REGRESSION_S` runs :data:`R` more times (one more past 30 s) and
+fails (``slower``) if the median of all of them still is (an op within its
+budget never fails on time); and on an error, a memory
 peak, a native failure or a list that grows, as before. D982's first-time ops
 (an image's first identity check, the site's first engine load) may pass
 their budget only with a moving bar (the progress element seen at 2 or more
@@ -152,8 +154,9 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     ``error``. Its ``debt`` (D1170): a verdict of :data:`DEBTS` or a sample
     whose page froze in a gap (the case's ``froze``), a perf-debt row that
     fails nothing; ``ok`` is false only for an error or ``slower``: its
-    median over the ``reference`` median (main's last passing full run's) by
-    more than both :data:`REGRESSION` of it and :data:`REGRESSION_S`.
+    median over its ``budget`` and over the ``reference`` median (main's last
+    passing full run's) by more than both :data:`REGRESSION` of it and
+    :data:`REGRESSION_S`.
     A ``browser_bar`` op's sample (a download) shows progress when
     its page part, ``"page"``, is within 1 s: the browser's own bar shows its
     write; the case keeps the page parts. A sample the driver tagged
@@ -186,7 +189,8 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
         verdict = "no progress"
     if froze := [s["froze"] for s in samples if s.get("froze")]:
         out["froze"] = froze
-    slower = reference is not None and median > reference * (1 + REGRESSION) and median - reference > REGRESSION_S
+    slower = (reference is not None and median > budget and median > reference * (1 + REGRESSION)
+              and median - reference > REGRESSION_S)
     if reference is not None:
         out["reference"] = reference
     return out | {"verdict": verdict, "ok": not slower, "slower": slower, "debt": verdict in DEBTS or bool(froze)}
@@ -581,8 +585,8 @@ def main(argv: list[str] | None = None) -> int:
                                       reference)
             for name, mem in block["memory"].items():
                 mem |= {"ceiling": lst["memory"].get(name), "ok": mem["peak"] <= max(MEMORY, lst["memory"].get(name, 0))}
-    failing = [f"{k}: slower than main's {r['reference']} s ({r['median']} s, over {REGRESSION:.0%} and "
-               f"{REGRESSION_S} s: D1170)" if r.get("slower") else f"{k}: {r['verdict']} ({r.get('error')})"
+    failing = [f"{k}: slower than main's {r['reference']} s ({r['median']} s, over its {r['budget']} s budget and "
+               f"main's by {REGRESSION:.0%} and {REGRESSION_S} s: D1170)" if r.get("slower") else f"{k}: {r['verdict']} ({r.get('error')})"
                for k, r in block["cases"].items() if not r["ok"]]
     failing += [f"memory {k}: {v['peak'] / 2**30:.2f} GiB" for k, v in block["memory"].items() if not v["ok"]]
     failing += block.get("native_failures", [])
