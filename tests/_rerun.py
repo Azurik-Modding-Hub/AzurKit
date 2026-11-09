@@ -2,7 +2,8 @@
 
 A test whose setup, call or teardown fails runs once more at once, in the same session and process (an xdist
 worker's own), the fixtures whose setup raised made again. The first try's failed reports are logged as ``rerun``
-(``R``, ``RERUN`` with ``-v``; never a failure, never a skip) and the second try's as any test's: a test that fails
+(``R``, ``RERUN`` with ``-v``; never a failure, never a skip), its passing call too, uncounted (a teardown's rerun
+passes once), and the second try's as any test's: a test that fails
 again fails the run as before, and one that passes is flaky. The summary names each flaky test with its first try's
 error ("flaky: N passed on their one rerun"), and a run with ``AZURKIT_FLAKES`` set appends a line ``<id>\\t<error>``
 for each to that file: ``scripts/fullsuite.py`` keeps them in the receipt (``flakes``) and its flake ledger, and CI
@@ -65,7 +66,7 @@ class Reruns:
             reports = runtestprotocol(item, nextitem=nextitem, log=False)
             again = left > 0 and any(report.failed for report in reports)
             for report in reports:
-                if again and report.failed:
+                if again and (report.failed or report.when == "call"):
                     report.outcome = "rerun"
                 item.ihook.pytest_runtest_logreport(report=report)
             item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
@@ -76,14 +77,15 @@ class Reruns:
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_report_teststatus(self, report):
-        if report.outcome == "rerun":
-            return "rerun", "R", ("RERUN", {"yellow": True})
+        if report.outcome == "rerun":   # a first try's passing call (no error) counts as nothing
+            return ("rerun", "R", ("RERUN", {"yellow": True})) if report.longrepr is not None else ("", "", "")
         return None
 
     def pytest_runtest_logreport(self, report):
         case = GROUP.sub("", report.nodeid)
         if report.outcome == "rerun":
-            self.reran.setdefault(case, _why(report))
+            if report.longrepr is not None:
+                self.reran.setdefault(case, _why(report))
         elif report.failed:
             self.failed.add(case)
         elif report.when == "call" and report.passed:

@@ -136,13 +136,14 @@ def test_the_ci_vanilla_tiers_printed_summary_names_its_slowest_tests(pytester, 
 
 def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake_that_fails_nothing(
         pytester, monkeypatch, tmp_path):
-    """D1170 (``tests/_rerun.py``): a test whose call or fixture setup fails
-    runs once more at once, on xdist's workers too, and a passing one never
-    again. One that passes its rerun is flaky: its run passes, the summary
-    names it with its first try's error after the tier lines (CI's log prints
-    from them on), ``AZURKIT_FLAKES``' file gets a line for it, and the
-    receipt keeps it and appends it to the flake ledger beside the receipts
-    (``fullsuite.ledger``, ``describe``); one that fails twice fails the run."""
+    """D1170 (``tests/_rerun.py``): a test whose call or fixture setup or
+    teardown fails runs once more at once, on xdist's workers too, and a
+    passing one never again; each counts as passed once. One that passes its
+    rerun is flaky: its run passes, the summary names it with its first try's
+    error after the tier lines (CI's log prints from them on),
+    ``AZURKIT_FLAKES``' file gets a line for it, and the receipt keeps it and
+    appends it to the flake ledger beside the receipts (``fullsuite.ledger``,
+    ``describe``); one that fails twice fails the run."""
     from scripts import fullsuite
 
     pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
@@ -167,6 +168,14 @@ def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake
         def test_setup(shaky):
             tried("setup")
 
+        @pytest.fixture
+        def sticky():
+            yield
+            assert tried("sticky") > 1, "its first teardown failed"
+
+        def test_teardown(sticky):
+            pass
+
         def test_steady():
             tried("steady")
 
@@ -175,19 +184,20 @@ def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake
     """)
     monkeypatch.setenv("PYTHONPATH", str(ROOT))
     flaky = [["test_r.py::test_once", "call: AssertionError: the first try failed"],
-             ["test_r.py::test_setup", "setup: AssertionError: its first setup failed"]]
-    for args, code, outcomes in ((("-n", "2"), 1, {"passed": 3, "failed": 1, "rerun": 3}),
-                                 (("-k", "not always"), 0, {"passed": 3, "rerun": 2, "deselected": 1})):
+             ["test_r.py::test_setup", "setup: AssertionError: its first setup failed"],
+             ["test_r.py::test_teardown", "teardown: AssertionError: its first teardown failed"]]
+    for args, code, outcomes in ((("-n", "2"), 1, {"passed": 4, "failed": 1, "rerun": 4}),
+                                 (("-k", "not always"), 0, {"passed": 4, "rerun": 3, "deselected": 1})):
         tries, flakes = tmp_path / f"tries{code}", tmp_path / f"flakes{code}.tsv"
         monkeypatch.setenv("TRIES", str(tries))
         monkeypatch.setenv("AZURKIT_FLAKES", str(flakes))
         run = pytester.runpytest_subprocess("-p", "no:cacheprovider", *args, timeout=300)
         out = run.stdout.str()
         assert (run.ret, {k: n for k, n in run.parseoutcomes().items() if k != "warnings"}) == (code, outcomes), out
-        assert Counter(tries.read_text().split()) == {"once": 2, "shaky": 2, "setup": 1, "steady": 1} | (
+        assert Counter(tries.read_text().split()) == {"once": 2, "shaky": 2, "setup": 1, "sticky": 2, "steady": 1} | (
             {"always": 2} if code else {}), args
         assert [line.split("\t") for line in flakes.read_text(encoding="utf-8").splitlines()] == flaky, args
-        assert out.index("vanilla: 0 run") < out.index("flaky: 2 passed on their one rerun") < out.index(
+        assert out.index("vanilla: 0 run") < out.index("flaky: 3 passed on their one rerun") < out.index(
             "test_r.py::test_setup: setup: AssertionError: its first setup failed"), out
     receipts = tmp_path / "receipts"
     receipts.mkdir()
@@ -199,7 +209,7 @@ def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake
     assert [[row["test"], row["why"], row["key"], row["branch"]] for row in map(json.loads, (
         receipts / fullsuite.FLAKE_LEDGER).read_text(encoding="utf-8").splitlines())] == [
         [*row, "k", "p2/x"] for row in flaky]
-    assert "flaky: 2 passed on their one rerun" in fullsuite.describe(m, meta) and fullsuite.status_code(m) == 0
+    assert "flaky: 3 passed on their one rerun" in fullsuite.describe(m, meta) and fullsuite.status_code(m) == 0
 
 
 def test_ci_reruns_a_failed_test_once_and_its_job_summary_lists_each_that_passed_its_rerun():
