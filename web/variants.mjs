@@ -121,7 +121,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   // var-tab-<name>; a module's tab builds on what the view hands it (ctx: the recipe open, its read, an edit, the
   // engine, the pictures).
   const ctx = {
-    root, state: v, app, el, button, text, field, typed, reason, CHOOSE,
+    root, state: v, app, el, button, text, field, typed, reason, canon, CHOOSE,
     call, image,
     read: () => v.readFor === now() ? v.read : null,   // the read of the recipe as it is (null: one is out)
     edit: () => edit(),

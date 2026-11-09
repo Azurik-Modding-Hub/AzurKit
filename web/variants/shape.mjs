@@ -2,10 +2,12 @@
 // from another: that one's shapes, the values its own), each a track (a display hint) and a box that takes any number
 // (D23), what it sizes in its title, then its mesh's ops, the sized first. A recipe from another writes a value as
 // shapes.<name>.value, dropped back at that one's own (so it builds as that one does there); one of its own sets its
-// shape's value. A drag shows at once the nearest shape this view holds (the last Check's, a quick preview's, else the
-// pictures shown), marked Preview (D1011); once let go, the engine's quick preview of those values (sdk.variant_preview:
-// the Check's dress, its vertices moved, none of the finer triangles a build makes; seconds, with the bar) replaces it,
-// or, with no Check of it yet, the Check itself (the build's own dress): never a dress mid-drag (Modkit's AZ-793).
+// shape's value. A drag shows at once the nearest shape this view holds of the recipe as it is but its shapes' values
+// (the last Check's, a quick preview's, else the pictures shown), marked Preview (D1011); once let go, the engine's
+// quick preview of those values (sdk.variant_preview: the Check's dress, its vertices moved, none of the finer
+// triangles a build makes; seconds, with the bar) replaces it, or, with no Check of it yet (none, or the recipe edited
+// since beyond its shapes and colours: Modkit's _base_key), the Check itself (the build's own dress): never a dress
+// mid-drag (Modkit's AZ-793).
 const HINT = "1 is the recipe's own look.";
 const TIP = "1 is the recipe's own look. A drag previews it; Check with game data draws it as built.";
 const NEAREST = "Preview: the nearest shape drawn";
@@ -29,7 +31,8 @@ export function shapeTab(ctx) {
     el("div", { className: "var-ops" }, el("table", { id: "var-ops" }, el("thead", {}, el("tr", {},
       ...["Op", "Kind", "Sized by"].map((title) => el("th", { textContent: title })))), ui.ops)));
   // The tab's own: the shapes as last read ({name, title, value, at, sizes}), the track, each row's controls, the
-  // pictures held ([{values, front, back, exact}]) and the quick preview's asks, all of the variant open (its ticket).
+  // pictures held ([{values, key, front, back, exact}]), the values and key it opened at ({values, key}) and the quick
+  // preview's asks, all of the variant open (its ticket).
   const t = { ticket: null, shapes: [], track: [0.5, 1.4, 0.05], rows: new Map(), names: "", ops: "", held: [],
               shown: null, opened: null, asking: false, again: false, after: false };
 
@@ -38,9 +41,26 @@ export function shapeTab(ctx) {
     const own = isObject(recipe.shapes) && isObject(recipe.shapes[s.name]) ? recipe.shapes[s.name].value : undefined;
     return [s.name, typeof own === "number" ? own : s.at ?? s.value];
   }));
+  // The recipe but its shapes' values (Modkit's _base_key(shapes=False)): not its title or notes; a recipe from another
+  // without its shapes (it lays only values), one of its own each shape without its value; with its colours, the key of
+  // the pictures held (they draw them), without, of the dress a quick preview moves (it paints the colours as they are).
+  const unshaped = (recipe, colours = true) => {
+    const rest = Object.fromEntries(Object.entries(recipe).filter(([k]) => !["title", "notes"].includes(k)
+      && (colours || k !== "colours")));
+    if (isObject(rest.shapes)) {
+      if ("from" in rest) delete rest.shapes;
+      else rest.shapes = Object.fromEntries(Object.entries(rest.shapes).map(([n, s]) => [n, isObject(s)
+        ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== "value")) : s]));
+    }
+    return ctx.canon(rest);
+  };
+  // Whether a let-go previews: the last Check dressed this recipe but its shapes' values and colours (else the Check).
+  const dressed = () => Boolean(v.checked && !v.checked[1].refusal)
+    && unshaped(JSON.parse(v.checked[0]), false) === unshaped(v.recipe, false);
   const away = (a, b) => Object.keys(a).reduce((n, k) => n + Math.abs(a[k] - (b[k] ?? 1)), 0);
-  const hold = (values, front, back, exact) => {
-    t.held = [{ values, front, back, exact }, ...t.held.filter((p) => away(p.values, values) > 0)].slice(0, KEPT);
+  const hold = (values, key, front, back, exact) => {
+    t.held = [{ values, key, front, back, exact },
+              ...t.held.filter((p) => p.key !== key || away(p.values, values) > 0)].slice(0, KEPT);
   };
 
   // A value into the recipe (Modkit's ShapeTab._set): a recipe from another lays shapes.<name>.value over that one's,
@@ -61,18 +81,19 @@ export function shapeTab(ctx) {
     ctx.edit();
   };
 
-  // While the drag runs: the nearest shape held (none: the pictures as they are), marked Preview unless it is these
-  // values' own Check, and what letting go does.
+  // While the drag runs: the nearest shape held of the recipe as it is but its shapes' values (none: the pictures as
+  // they are), marked Preview unless it is these values' own Check, and what letting go does.
   const nearest = () => {
-    const now = values();
-    if (!t.held.length && v.pictured === "shipped" && t.opened && away(t.opened, now) === 0) {   // as it ships
-      ctx.mark(false);
+    const now = values(), key = unshaped(v.recipe);
+    if (!t.held.length && v.pictured === "shipped" && t.opened?.key === key && away(t.opened.values, now) === 0) {
+      ctx.mark(false);   // as it ships
       ctx.note("From the front and from behind, as it ships.");
       return true;
     }
-    const near = t.held.reduce((best, p) => !best || away(p.values, now) < away(best.values, now) ? p : best, null);
+    const near = t.held.reduce((best, p) => p.key !== key ? best
+      : !best || away(p.values, now) < away(best.values, now) ? p : best, null);
     const exact = near && away(near.values, now) === 0;
-    const next = !ctx.image() ? `${ctx.CHOOSE} to draw these values.` : v.checked && !v.checked[1].refusal
+    const next = !ctx.image() ? `${ctx.CHOOSE} to draw these values.` : dressed()
       ? "Let go to preview these values." : "Let go to check these values with game data.";
     const note = exact && near.exact ? "From the front and from behind, as it builds."
       : exact ? QUICK : `${NEAREST}. ${next}`;
@@ -85,20 +106,21 @@ export function shapeTab(ctx) {
     t.shown = near;
     return exact;
   };
-  // Let go (Modkit's dress_on_release): the quick preview of the Check's dress, else the Check, the build's dress; while
-  // a Check runs, once it answers. A refusal that no Check of it is kept: the last Check asked again (the site's
-  // worker the pool replaced keeps no Check, but its dress is kept: at once) and the preview once more; else (its mesh
-  // changed beyond its shapes) the Check.
+  // Let go (Modkit's dress_on_release): the quick preview of the Check's dress, else (no Check of this recipe but its
+  // shapes' values and colours: Modkit's _dress_now) the Check, the build's dress; while a Check runs, once it answers.
+  // A refusal that no Check of it is kept: the last Check asked again (the site's worker the pool replaced keeps no
+  // Check, but its dress is kept: at once) and the preview once more; else (its mesh changed beyond its shapes) the
+  // Check.
   const letGo = () => {
     if (!ctx.image() || nearest()) return;
     if (v.checking) return void (t.after = true);
-    if (!v.checked || v.checked[1].refusal) return void ctx.check();
+    if (!dressed()) return void ctx.check();
     preview();
   };
   const preview = async (again = false) => {
     if (t.asking) return void (t.again = true);
     t.asking = true;
-    const mine = v.ticket, asked = values();
+    const mine = v.ticket, asked = values(), key = unshaped(v.recipe);
     ctx.note("Previewing these values…");
     const reply = await ctx.call("variant_preview", ctx.asked());
     t.asking = false;
@@ -110,7 +132,7 @@ export function shapeTab(ctx) {
       }
       ctx.note(`The preview failed: ${ctx.reason(reply.refused)}`);
     } else {
-      hold(asked, reply.front, reply.back, false);
+      hold(asked, key, reply.front, reply.back, false);
       if (!t.again) nearest();
     }
     if (t.again) {
@@ -165,7 +187,7 @@ export function shapeTab(ctx) {
       : r.shapes.length && parent ? `${parent}'s shapes, the values yours.` : r.shapes.length ? HINT : "No shape sliders.";
     if (r.refusal) return;
     t.shapes = r.shapes;
-    t.opened ??= values();   // the values it opened at: what a built-in's shipped pictures show
+    t.opened ??= { values: values(), key: unshaped(v.recipe) };   // what a built-in's shipped pictures show
     if (r.track) t.track = r.track;
     const names = JSON.stringify(r.shapes.map((s) => [s.name, s.title, s.at]));
     if (names !== t.names) {
@@ -196,7 +218,8 @@ export function shapeTab(ctx) {
     const answer = v.checked?.[1];
     t.shown = null;   // the views show the Check's pictures now
     if (answer && !answer.refusal && answer.front && t.shapes.length) {
-      hold(values(JSON.parse(v.checked[0])), answer.front, answer.back, true);
+      const recipe = JSON.parse(v.checked[0]);
+      hold(values(recipe), unshaped(recipe), answer.front, answer.back, true);
     }
     if (t.after) {
       t.after = false;

@@ -1349,7 +1349,8 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
     whose one shape sizes her pelvis (its JSON tab's Apply) is checked with game data when its slider is first let
     go (no Check yet: the build's own dress); a drag after it shows that Check's pictures at once, marked Preview,
     and once let go the engine's quick preview of the new value (the Check's dress, its vertices moved), still
-    marked; back at the checked value, the Check's pictures unmarked, nothing asked. A recipe from booblord, not
+    marked; back at the checked value, the Check's pictures unmarked, nothing asked; its JSON's Apply of a mesh edited
+    beyond its shapes, then a drag back at that value, checks it again (Modkit's _base_key). A recipe from booblord, not
     checked, lists town_female_2's own bones (read from the image) on its Jiggle tab's Add, which adds a spring on
     one, its parent the body's and its spring her last row's, and its x removes it again."""
     from azurkit.tools.characters import _player_variants
@@ -1398,6 +1399,16 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
         page.evaluate(VARIANTS_DRAG, ["hips", [1.3, 1.2]])
         assert _page.until(page, f"() => !({pictured})()[1] && ({pictured})()") == [
             "From the front and from behind, as it builds.", False]
+        hips["mesh"]["ops"][0]["factors"] = [1.6, 1.0, 1.0]   # its mesh edited beyond its shapes, at the checked value
+        hips["shapes"]["hips"]["value"] = 1.2
+        _page.click(page, "var-tab-json")
+        page.evaluate("(text) => { document.getElementById('var-text').value = text; }", json.dumps(hips))
+        _page.click(page, "var-apply")
+        _page.until(page, "() => azurkit.variants.state.recipe.mesh.ops[0].factors[0] === 1.6")
+        _page.click(page, "var-tab-shape")
+        page.evaluate(VARIANTS_DRAG, ["hips", [1.3, 1.2]])   # the Check's pictures are no longer it: the Check
+        _variants_shown(page, status="checked: it builds")
+        assert page.evaluate("() => JSON.parse(azurkit.variants.state.checked[0]).mesh.ops[0].factors") == [1.6, 1, 1]
         page.evaluate(VARIANTS_ROW, "booblord")
         _page.until(page, "() => document.getElementById('var-ask').open")
         _page.click(page, "var-ask-yes")   # leave the new one's edits
