@@ -524,8 +524,12 @@ def test_the_tests_that_start_a_ghidra_server_share_one_xdist_worker():
     (by its module's ``pytestmark`` or a mark of its own, a module constant
     such as ``SOCKETS`` too) and no other group: xdist joins every group a
     test carries into one name, a group of its own. So ``--dist loadgroup``
-    runs them on one worker, one after another. (The site's servers are
-    processes of their own, ``tests/_page.py``, and aren't grouped.)"""
+    runs them on one worker, one after another. Modkit's guard grouped every
+    ``socketserver`` and ``http.server`` start too; the app's and the site's
+    servers stay spread over the workers on purpose (the host tests'
+    in-process ``app.serve``, ``test_site.py``'s ``_static.Files``,
+    ``test_dev_tools.py``'s fetch server and ``tests/_page.py``'s server
+    processes): in one group the host tier would run on one worker."""
     import ast
 
     starts = {"MockGhidraServer", "ghidra_serve.start"}
