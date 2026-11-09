@@ -45,7 +45,7 @@ the tracker's maps and icons).
   movement, health, enemy scaling, a save-point warp, photo mode, fewer popups, and fixes for a crash and a
   "Loading..." hang. No setting is ever clamped.
 - **Randomizer:** shuffle disc fragments, powers, upgrades, gems, obsidians and fuel across all 22 levels, with
-  logic at the movement difficulty you pick, 36 rated skips and a spoiler log.
+  logic at the movement difficulty you pick, key items placed from Easy to Expert, 36 rated skips and a spoiler log.
 - **Item tracker and maps:** what you've collected and can reach now, on every level's map and the world map,
   spoiler-free; in the app, Play starts xemu with your build and Live marks your pickups as you play.
 - **Characters:** play as 178 of the game's 184 creatures, with moves and speed fitted to each body, any weapon and
