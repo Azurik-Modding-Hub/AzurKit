@@ -30,7 +30,7 @@ line is plain and short, with no step, D or AZ ids, and true on `main`.
 | `azurik-ghidra-mcp` (`.claude/skills/`) | devkit's Ghidra side: `bootstrap.py --with re`, the ports, `ghidra-serve` copies, `ghidra-apply` (the one writer of the owner's project), `ghidra-sync`, the snapshot; read it before anything opens `Azurik Ghidra.gpr` |
 | `.claude/agents/` | the seats' roles (D951's `azurik-*` names): `azurik-builder` (Opus: build, fix, gate, sitting), `azurik-reader` (Opus, read-only: RE, reads, reviews, skeptics), `azurik-scout` (Sonnet, read-only: locate and cite), `azurik-mechanic` (Haiku: a command list handed over); `tests/test_agent_files.py` pins each one's model, effort and denied tools |
 | `$EV`, the private evidence folder beside the main checkout | the brief (`$EV/tools/BRIEF.md`), the decisions, the ledger, plans, evidence and the tools the seats run (D951, D952); never copied into the repo |
-| Modkit (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout) | the reference, frozen: its docs not ported yet (every skill is here since Step 4.16a2) |
+| Modkit's history (`Azurik-Testing/Azurik_Modkit`, a private archived repository, D1030) | the proof of concept AzurKit replaced, read-only: its commits, closed issues and retired docs (D955); the port is done and its checkout deleted (D1171), so nothing here reads it (Porting from Modkit) |
 
 Tracked files name the private folder as `$EV`, never by a home path, and
 cite nothing in it but its tools (`$EV/tools/`): a comment, a data file's
@@ -270,70 +270,39 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 ## Porting from Modkit
 
-- **The cut:** the randomizer (its database, planner, writer, physics,
-  movement, layer and tracker, Live's game reads and link, and the maps'
-  and icons' drawing) was ported from Modkit at oracle-rando-6, Modkit
-  `8bfef0ca6` (Step 4.12b, the last sync), and is AzurKit's own since:
-  edit it here, held to `tests/goldens/` and `tests/test_contracts.py`.
-  Modkit's later randomizer results (R2.16g's tiers and skips, a fix) come
-  by hand, in these steps; the orchestrator runs the first at each AzurKit
-  randomizer step.
-  1. **The to-do:** Modkit's commits on the ported paths since the cut
-     (`planner/dbcache.py` is AzurKit's own `tools/randomizer/dbcache.py`;
-     the reach engine, the derive and the authoring are devkit's, cut at the
-     freeze below; the engine's results arrive through `data/`):
-     ```bash
-     git -C "$MODKIT" log --oneline 8bfef0ca6..origin/main -- azurik_mod/randomizer/{data,planner} \
-       azurik_mod/randomizer/{writer,physics,movement,layer,tracker,live,live_link,levels}.py \
-       azurik_mod/randomizer/draft/{__init__,envelope,geometry,floors,wiring}.py azurik_mod/randomizer/draft/tiers.toml \
-       azurik_mod/sim/{pages,recipes}.py azurik_mod/xbr/{nodes.py,node_types.json,tern.py,collision.py,render.py,draw.py} \
-       scripts/render_{level_maps,model_icons}.py gui/assets/{maps,icons} tests/goldens/{rando_plans,pipelines,europe/pipelines}.json
-     ```
-  2. **Data** (`data/**`, `draft/tiers.toml`): copy each file as Modkit has
-     it (`git -C "$MODKIT" show <ref>:<path>`), new and removed files too.
-  3. **Code:** apply Modkit's diff of the file (`git -C "$MODKIT" diff
-     8bfef0ca6..<ref> -- <file>`) by hand to AzurKit's module, with
-     AzurKit's imports: `azurik_mod.randomizer.X` is
-     `azurkit.tools.randomizer.X`; `live` and `live_link` are `live.game`
-     and `live.link` (`LiveError`: `live.errors`); `sim.pages` and
-     `sim.recipes` are `live.pages` and `live.recipes`; `assets.vanilla`'s
-     regions are `live.regions`; `xbr.nodes` and `xbr.toc_scan` are
-     `azurkit.core.xbr.nodes`; the other `xbr` modules and the two render
-     scripts are `tools/randomizer/art/` (`maps.py`, `icons.py`);
-     `draft.reach`'s `Reach` is `art/reach.py` (its first stage);
-     `xbe_layout`, `resolve_va_to_file`, `listed` and `XisoReader` are
-     `tools/randomizer/ports.py`; `planner.dbcache` is
-     `tools/randomizer/dbcache.py`. Leave out what AzurKit dropped: the
-     seed roll's pool (`fill.roll_seed`), layer's build objects
-     (`check_args`, `write_layer`, `check_movement`, `movement_reasons`,
-     `judge`, `outputs`, `write_outputs`), physics' `SOURCE_SHA256`,
-     movement's slider ranges, the tracker's file reads (`placements`,
-     `plan_doc`), live's `connect`, the L2 flights (`envelope.l2_*`), the
-     levels extractor (`extract`, `write_generated`), `nodes.scan_types` (devkit's `re node-types`),
-     and the drawing's command lines and PNG writers. A Modkit import with
-     no AzurKit home is ported into an AzurKit module first
-     (`tests/test_contracts.py` holds the layers: no threads and no libm in
-     byte paths).
-  4. **Check:** `azurkit plan --seed 2` (the database loads), then
-     `tests/test_randomizer.py`, `tests/test_art.py` and
-     `tests/test_site.py`'s tracker tests.
-  5. **Record:** `scripts/record_goldens.py rando_plans.json pipelines.json
-     europe/pipelines.json tracker.json`, and `art` when `ART_VERSION`
-     moved (`data/generated`, `draft/`, `art/` or `levels.py` changed: a
-     new `web/art/<version>/`). The commit names each golden and why.
-  6. **Cross-check** (evidence, not a test): the re-recorded
-     `rando_plans.json` rows (attempt, sha256, the default plan file) and
-     G3's seed rows equal Modkit's at `<ref>` (`git -C "$MODKIT" show
-     <ref>:tests/goldens/...`; AZ-009's files aside). A difference is a
-     port bug until it is named.
-  7. **What a player sees**, on both hosts: the guide's Randomizer lines
-     (`docs/GUIDE.md`: the skips, tiers, levels and locations), the Randomizer tab's lists where
-     the database doesn't give them, and old `AZR-` share strings, each
-     still decoding or refused by name.
-  8. The perf gate times the randomizer and tracker groups: a ceiling
-     crossed is the port's to fix (D835). It owes an xemu sitting only when
-     the writer's or the layer's bytes change.
-  9. Move the cut above to `<ref>`.
+- **The port is done** (D1168, D1171): every Modkit capability AzurKit
+  keeps is AzurKit's own, in `src/azurkit` (the player's) or `devkit/`
+  (the developer's), held to AzurKit's tests and goldens, and Modkit's
+  checkout is deleted. Its history (commits, the closed issue ledger,
+  the retired docs, D955) is the private archived repository
+  `Azurik-Testing/Azurik_Modkit` (D1030), read-only; no AzurKit file,
+  test or tool reads it, and a fix is made here. The cuts below record
+  where each part came from.
+- **The randomizer's cut** (Step 4.12b): its database, planner, writer,
+  physics, movement, layer and tracker, Live's game reads and link, and
+  the maps' and icons' drawing, ported at oracle-rando-6, Modkit
+  `8bfef0ca6` (the last sync), and AzurKit's own since, held to
+  `tests/goldens/` and `tests/test_contracts.py`; Modkit's later
+  randomizer commits to its freeze came by hand. Modkit's modules map to
+  AzurKit's: `azurik_mod.randomizer.X` is `azurkit.tools.randomizer.X`;
+  `live` and `live_link` are `live.game` and `live.link` (`LiveError`:
+  `live.errors`); `sim.pages` and `sim.recipes` are `live.pages` and
+  `live.recipes`; `assets.vanilla`'s regions are `live.regions`;
+  `xbr.nodes` and `xbr.toc_scan` are `azurkit.core.xbr.nodes`; the other
+  `xbr` modules and the two render scripts are `tools/randomizer/art/`
+  (`maps.py`, `icons.py`); `draft.reach`'s `Reach` is `art/reach.py` (its
+  first stage); `xbe_layout`, `resolve_va_to_file`, `listed` and
+  `XisoReader` are `tools/randomizer/ports.py`; `planner.dbcache` is
+  `tools/randomizer/dbcache.py`. Left out: the seed roll's pool
+  (`fill.roll_seed`), layer's build objects (`check_args`, `write_layer`,
+  `check_movement`, `movement_reasons`, `judge`, `outputs`,
+  `write_outputs`), physics' `SOURCE_SHA256`, movement's slider ranges,
+  the tracker's file reads (`placements`, `plan_doc`), live's `connect`,
+  the L2 flights (`envelope.l2_*`, devkit's since Step 4.13a), the levels
+  extractor (`extract`, `write_generated`, devkit's since Step 4.13b),
+  `nodes.scan_types` (devkit's `re node-types`), and the drawing's command lines and PNG writers.
+  The perf gate times the randomizer and tracker groups, and a change to
+  the writer's or the layer's bytes owes an xemu sitting.
 - **The simulator's cut (Step 4.13a):** `devkit/sim` is Modkit's
   `azurik_mod/sim` (L0-L3, the search, the trick explorer and `l3_hold`) and
   the envelope's L2 flights at Modkit `f482ea041` (the folder's last commit
@@ -383,9 +352,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   beside the store's reach models. `tests/test_reach_model.py` and `tests/test_simulator.py` hold
   them, and the sitting kit's selftest the chain's rate and the pilot's
   pipe.
-- **Coverage:** Modkit's planner tests don't guard AzurKit's copy. A step
-  that edits a module from the cut ports the Modkit tests that pin what it
-  changes, or names the golden that pins it.
+- **Coverage:** each cut ported Modkit's tests lean, merged into AzurKit's
+  behaviour-area files (D10, D37); a later change to a ported module is
+  held to those tests or names the golden that pins it.
 - AzurKit never imports Modkit.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
   sha256, its sections, every patch site's size and vanilla sha256, the
