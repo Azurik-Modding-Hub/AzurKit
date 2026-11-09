@@ -32,7 +32,10 @@ import pytest
 import shimkit
 from azurkit import cli, sdk
 from azurkit.core import coff, facts, filelist, gate, iso, progress
-from azurkit.core.xbr.append import PAGE, NewResource, append_resources, appended
+from azurkit.core.xbr import Document
+from azurkit.core.xbr.append import PAGE, NewResource, append_resources, appended, relocations
+from azurkit.core.xbr.clone import refs_in
+from azurkit.core.xbr.graph import Graph, Schema, bind_name
 from azurkit.core.xbr.nodes import named_resources, parse_toc, runs
 from azurkit.edits import manifest as edits_manifest
 from azurkit.edits import preset
@@ -40,7 +43,7 @@ from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
 from azurkit.tools.characters import _player_kit, _player_variants, content, parts, picker, pool, ports, retarget
-from azurkit.tools.characters import shipped
+from azurkit.tools.characters import fx_edit, fx_templates, render, shipped, textures
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
 from scripts import record_goldens, record_shipped
@@ -2616,3 +2619,246 @@ def test_a_graded_swapped_body_leaves_a_plan_verified_for_its_movement_and_a_sho
              "logic's proofs and its 1.5 m standing reach assume (D356)")
     assert [characters.reasons("garret4", SimpleNamespace(**vars(fit) | {"size": s})) for s in (0.5, 1.0, 2.0)] == [
         [touch], [], []]
+
+
+# --- Step 4.28g: Modkit's fx clone and texture edges (test_xbr_clone, test_textures) ---------------------------------
+
+BOSS = "characters/balthazar_airship/fx/fx_default"
+"""Beamlord's base graph, the airship boss's default fx (TOC 115)."""
+
+
+def _stored(path, *names: str) -> list[bytes]:
+    """Each of ``names`` (``default.xbe`` or a gamedata file) as the image at ``path`` holds it."""
+    with iso.Reader(path) as r:
+        return [r.read(n if n == "default.xbe" else f"gamedata/{n}") for n in names]
+
+
+def _key(data, key: str) -> int:
+    return next(i for i, n in named_resources(data).items() if n.casefold() == key)
+
+
+def _f32(value: float) -> float:
+    return struct.unpack("<f", struct.pack("<f", value))[0]
+
+
+@pytest.mark.parametrize("template", list(fx_templates.TEMPLATES))
+def test_a_template_s_sets_grafted_into_a_graph_clone_read_as_their_donor_records_with_their_own_copies(template,
+                                                                                                         usa_iso):
+    """D446, D538 (Modkit's Steps 2.157, 2.167a): an effects template's sets,
+    grafted into the boss's graph clone as its compile will graft them (a
+    bound one's under the holder [64], itself under [5] effectOrigin, bound
+    to m_root by an ``anchor`` edit and renamed so; a thrown one's under
+    [5]), add their donor records at the end in order, each reading as its
+    donor (type, name, attributes, links remapped into its set, its roots
+    under the holder or [5], the others under their grafted parents, a
+    pSystem's renderer and components and a pBurstEmitter's targets
+    remapped into its set), the template's fixed edits landing
+    (attributes, inherit modes) and each texture its colour recolours
+    building (no other mesh shares its material row), a platform's class
+    strings (+0x28/+0x30: 'all', 'player') and every self-relative field
+    (its whole node payload rides along) intact, and every resource its
+    records draw copied with its rows (the shield's shader and its
+    platform's mesh naming one material copy, also after a material edit
+    and its recolours); the boss's own records
+    stay; its first plan counts the bytes the build appends.  Every
+    attribute the template writes (params, colour, show, edits) is its
+    record's type's, and a thrown template's body (and clip), impact graph
+    and hit record are the game's. The goldens wear 6 of the 9: barrier,
+    stream and bolts only here."""
+    characters, fx, xbe, config = _stored(usa_iso, "characters.xbr", "fx.xbr", "default.xbe", "config.xbr")
+    schema, toc = Schema(xbe), parse_toc(characters)
+    t = fx_templates.TEMPLATES[template]
+    sets = ((fx_templates.HOLDER,) if t.engine == "bound" else ()) + t.sets
+    index, grafts = {}, []   # (graft, donor record) -> the clone's record; the grafts in order
+    for g in sets:
+        grafts.append({"template": g, "parent": 64 if t.engine == "bound" and g != fx_templates.HOLDER else 5})
+        for r, _, _ in fx_templates.GRAFTS[g].records:
+            index[(g, r)] = 64 + len(index)
+    names = fx_templates.scope(t, fx_templates.GRAFTS)
+    at = {name: (index[g[:2]], g[2]) for name, g in names.items() if g is not None}
+    edits = [{"record": at[e["record"]][0], "name": e["record"], "type": at[e["record"]][1],
+              **{k: v for k, v in e.items() if k != "record"}} for e in t.edits]
+    if t.engine == "bound":
+        edits.insert(0, {"record": 64, "name": fx_templates.GRAFTS["holder"].records[0][1], "type": "transform",
+                         "anchor": "m_root"})
+    for rc in (t.colour or {}).get("recolor", []):   # each texture its colour recolours, by stage if it names one
+        stage = {k: v for k, v in rc.items() if k != "record"}
+        edits.append({"record": at[rc["record"]][0], "name": rc["record"], "type": at[rc["record"]][1],
+                      "texture": {**stage, "recolor": {"ramp": [[0, 0, 0], [1, 0.5, 0.1]]}}})
+    platform = next((n for n, kind in at.values() if kind == "platform"), None)
+    if platform is not None:
+        edits.append({"record": platform, "name": next(k for k, v in at.items() if v[0] == platform),
+                      "type": "platform", "material": {"opacity": 0.3}})
+    clone = fx_edit.Clone(characters, BOSS, xbe, fx_xbr=fx)
+    clone.apply(edits, grafts)
+    planned = clone.plan()["bytes"]
+    new = clone.build(fx_edit.clone_key("balthazar_airship"))
+    assert planned == sum(len(r.payload) for r in new)
+    out = append_resources(characters, new)
+    built = parse_toc(out)
+    node = _key(out, fx_edit.clone_key("balthazar_airship"))
+    got = Graph(out, built, built[node], schema)
+    source = Graph(characters, toc, toc[_key(characters, BOSS)], schema)
+    assert len(got.recs) == 64 + len(index) and got.names[:64] == source.names
+    changed: dict[int, dict] = {}   # the clone's record -> its edits' fields, merged
+    for e in edits:
+        changed.setdefault(e["record"], {"set": {}})["set"].update(e.get("set", {}))
+        changed[e["record"]].update({k: v for k, v in e.items() if k != "set"})
+    for spec in grafts:
+        g = fx_templates.GRAFTS[spec["template"]]
+        data = fx if g.archive == "fx" else characters
+        dtoc = parse_toc(data)
+        donor = Graph(data, dtoc, dtoc[_key(data, g.key)], schema)
+        remap = {r: index[(spec["template"], r)] for r, _, _ in g.records}
+        for d, n in remap.items():
+            attrs = list(donor.attrs(d))
+            for attr, v in changed.get(n, {"set": {}})["set"].items():
+                attrs[schema.types[donor.types[d]].attrs.index(attr)] = _f32(v)
+            name = changed[n]["anchor"] if "anchor" in changed.get(n, {}) else donor.names[d]
+            assert (got.types[n], got.names[n], list(got.attrs(n))) == (donor.types[d], name, attrs)
+            assert [(lk.dst, lk.dst_plug, lk.weight, lk.curve, lk.factor) for lk in got.links(n)] == [
+                (remap[lk.dst], lk.dst_plug, lk.weight, lk.curve, lk.factor) for lk in donor.links(d)]
+            assert [(role, struct.unpack_from("<I", got.s, f)[0]) for f, role in
+                    fx_edit.index_fields(got.s, got.types[n], got.recs[n])] == [
+                (role, remap[struct.unpack_from("<I", donor.s, f)[0]]) for f, role in
+                fx_edit.index_fields(donor.s, donor.types[d], donor.recs[d])]
+            if got.is_dag(n):
+                assert got.parent(n) == remap.get(donor.parent(d), spec["parent"])
+            if donor.types[d] == "transform":
+                want = {**donor.xform_fields(d), "t": tuple(attrs[1:4]), "r": tuple(attrs[4:7]), "s": tuple(attrs[7:10])}
+                want["mode"] = changed.get(n, {}).get("inherit", want["mode"])
+                assert got.xform_fields(n) == want
+            if donor.types[d] == "platform":   # the class strings 0x6A920 reads, their self-relative refs in the clone
+                assert (got.pstr(got.recs[n], 0x28), got.pstr(got.recs[n], 0x30)) == ("all", "player")
+    if t.engine == "bound":
+        assert (bind_name(got.s, got.recs[64]), struct.unpack_from("<I", got.s, got.recs[64] + 0x1C)[0]) == ("m_root", 1)
+    if platform is not None:
+        refs = dict(refs_in(out, built, node))
+        mesh = refs[fx_edit.lod_fields(got.s, got.recs[platform])[0][0]]
+        gshd = dict(refs_in(out, built, mesh))[4]
+        assert (mesh >= len(toc), built[mesh].tag, built[gshd].tag) == (True, "rdms", "gshd")
+        assert [refs[got.recs[n] + 0x18] for n, kind in at.values() if kind == "shader"] == (
+            [gshd] if "electric_shield" in t.sets else [])
+        row = struct.unpack_from("<I", out, built[mesh].file_offset + 8)[0]
+        assert render.material(out, built, gshd, row)["opacity"] == pytest.approx(0.3)
+    ftoc = parse_toc(fx)
+    assert all((built[j].tag, built[j].size) == (ftoc[i].tag, ftoc[i].size)
+               for i, j in (clone.copiers["fx"].copies.items() if "fx" in clone.copiers else ()))
+
+    writes = [(w["record"], w["attr"]) for p in t.params.values() for w in p["writes"] if "record" in w]
+    writes += [(w["record"], a) for w in (t.colour or {}).get("writes", []) for a in w["attrs"]]
+    writes += [(s["record"], s["attr"]) for s in t.show]
+    writes += [(e["record"], a) for e in t.edits for a in e.get("set", {})]
+    assert [w for w in writes if w[1] not in schema.types[at[w[0]][1]].attrs] == []
+    if t.engine == "throw":
+        tags = {n.casefold(): toc[i].tag for i, n in named_resources(characters).items()}
+        if "key" in t.body:
+            assert tags[t.body["key"]] == "body"
+            assert "clip" not in t.body or tags[f"{t.body['key']}/{t.body['clip']}"] == "banm"
+        if t.impact is not None:
+            data = fx if t.impact["archive"] == "fx" else characters
+            assert parse_toc(data)[_key(data, t.impact["key"])].tag == "node"
+        if t.hit is not None:   # a damage record past norm_1-norm_4 (X32 serves its row, Modkit's Step 2.180)
+            assert t.hit in Document(config).tables["damage"].cols[4:]
+
+
+def test_a_graft_leaving_out_what_its_set_names_is_refused_and_a_recolour_repoints_one_field(usa_iso):
+    """Modkit's Steps 2.157 and 2.167a: a texture recolour on [35] the bolts'
+    renderer repoints its +0x18 alone, at a new texture the size and
+    format of surf 111; a graft whose record links out of its set, names a
+    renderer, component or target outside it, or is of an unread type, a
+    parent edit naming a record after it and an anchor on a record that
+    isn't a transform are refused by name."""
+    characters, fx, xbe = _stored(usa_iso, "characters.xbr", "fx.xbr", "default.xbe")
+    toc = parse_toc(characters)
+    bolts = fx_edit.Clone(characters, BOSS, xbe)
+    before = dict(bolts.refs)
+    bolts.apply([{"record": 35, "name": "pRendererB2", "type": "pRendererB",
+                  "texture": {"recolor": {"ramp": [[0, 0, 0], [0.1, 0.2, 0.6], [0.8, 0.9, 1.0]]}}}])
+    field = bolts.source.recs[35] + 0x18
+    assert {off: t for off, t in bolts.refs.items() if before[off] != t}.keys() == {field} and before[field] == 111
+    assert len(bolts.batch[bolts.refs[field]].payload) == toc[111].size
+
+    shield = "fx/magic/fx_shield_electric1"
+    sets = [r for r, _, _ in fx_templates.GRAFTS["airship_bolts"].records]
+
+    def bolts_but(*gone):
+        return [{"from": {"archive": "characters", "key": BOSS, "records": [r for r in sets if r not in gone]},
+                 "parent": 5}]
+    for grafts, edits, why in (
+            ([{"from": {"archive": "fx", "key": shield, "records": [4]}, "parent": 5}], [],
+             r"\[4\] StaticField_s_texture2Rotation_randomNumber's link 0 goes to \[5\] StaticField_s, outside "
+             r"the graft"),
+            (bolts_but(59), [], r"\[24\] pBurstEmitterShape1's target \[59\] locatorShape1 is outside the graft"),
+            (bolts_but(35), [], r"\[37\] b_blast_zap_systemShape's renderer \[35\] pRendererB2 is outside the graft"),
+            (bolts_but(38, 39), [], r"\[37\] b_blast_zap_systemShape's component \[39\] pSinkShape2 is outside"),
+            ([{"from": {"archive": "fx", "key": shield, "records": [0]}, "parent": 5}], [],
+             r"\[0\] is a gameState, and a graft takes only transform, platform, shader, randomNumber"),
+            ([], [{"record": 24, "name": "pBurstEmitterShape1", "type": "pBurstEmitter", "parent": 30}],
+             r"fx\[0\]\.parent: record 30 isn't a DAG record before 24"),
+            ([], [{"record": 24, "name": "pBurstEmitterShape1", "type": "pBurstEmitter", "anchor": "m_root"}],
+             r"fx\[0\]\.anchor: a pBurstEmitter isn't a transform")):
+        with pytest.raises(ValueError, match=why):
+            fx_edit.Clone(characters, BOSS, xbe, fx_xbr=fx).apply(edits, grafts)
+
+
+def test_an_fx_edit_points_an_effect_at_another_graph(usa_iso):
+    """Modkit's Step 2.159b: a ``graph`` edit on the boulder's default fx clone
+    points [3] breakEffectShape (an effect, the graph its m_alpha link
+    loads) at another key, written over its own string with its length,
+    so the clone is its source's size and every other record and string
+    reads as the source's; a key longer than the old one, and a record
+    that isn't an effect, are refused by name."""
+    characters, xbe = _stored(usa_iso, "characters.xbr", "default.xbe")
+    key, schema = "characters/bosses/boulder/fx/fx_default", Schema(xbe)
+    toc = parse_toc(characters)
+    source = Graph(characters, toc, toc[_key(characters, key)], schema)
+    clone = fx_edit.Clone(characters, key, xbe)
+    clone.apply([{"record": 3, "name": "breakEffectShape", "type": "effect", "graph": "characters/debug/fx/fx_break"}])
+    new = clone.build("characters/debug/fx/fx_default")
+    out = append_resources(characters, new)
+    built = parse_toc(out)
+    got = Graph(out, built, built[_key(out, "characters/debug/fx/fx_default")], schema)
+    assert len(got.s) == len(source.s) and got.names == source.names
+    assert [got.pstr(got.recs[r], 0x1C) for r in range(4)] == [
+        "characters/debug/fx/fx_break" if r == 3 else source.pstr(source.recs[r], 0x1C) for r in range(4)]
+    assert [got.attrs(r) for r in range(4)] == [source.attrs(r) for r in range(4)]
+    for edit, why in (({"record": 3, "name": "breakEffectShape", "type": "effect", "graph": "x" * 46},
+                       r"is 46 characters, and breakEffectShape's key holds 45"),
+                      ({"record": 0, "name": "effectOrigin", "type": "transform", "graph": "fx/a"},
+                       r"a transform isn't an effect")):
+        with pytest.raises(ValueError, match=why):
+            fx_edit.Clone(characters, key, xbe).apply([edit])
+
+
+def test_every_vanilla_texture_header_size_and_list_rebuilds_and_a_recolour_keeps_its_shape(usa_iso):
+    """D362 (Modkit's Step 2.157): every square texture (1,467) and every animated list (77) of
+    characters.xbr and fx.xbr rebuilds from its numbers alone (the header
+    from format, width and height, the TOC size from the chain rule; a
+    list's payload and relocated fields from its frames); and the bolts'
+    texture (surf 111) recoloured blue keeps its format, size and chain
+    while its decoded mean turns blue."""
+    rebuilt = 0
+    for arch, data in zip(("characters.xbr", "fx.xbr"), _stored(usa_iso, "characters.xbr", "fx.xbr")):
+        toc, rows = parse_toc(data), sorted(relocations(data))
+        for e in (e for e in toc if e.tag == "surf"):
+            payload = bytes(data[e.file_offset:e.file_offset + e.size])
+            i = textures.info(payload)
+            if "list" in i:
+                body, relocs = textures.list_surf(i["list"])
+                assert (body, relocs) == (payload, tuple(off for off, _ in refs_in(data, toc, e.index, rows))), e.index
+            else:
+                if i["width"] != i["height"]:
+                    continue
+                assert payload[:128] == textures.header(i["format"], i["width"], i["height"]), (arch, e.index)
+                assert e.size == textures.surf_size(i["format"], i["width"], i["height"]), (arch, e.index)
+            rebuilt += 1
+        if arch == "characters.xbr":
+            e = toc[111]
+            bolts = bytes(data[e.file_offset:e.file_offset + e.size])
+    assert rebuilt == 1467 + 77
+    base = textures.levels(bolts)[0]
+    blue = textures.surf(textures.recolor(base, [[0, 0, 0], [0.1, 0.2, 0.6], [0.8, 0.9, 1.0]], gamma=1.6), 0x20)
+    assert (len(blue), textures.info(blue)) == (len(bolts), textures.info(bolts))
+    mean = textures.levels(blue)[0][..., :3].reshape(-1, 3).mean(0)
+    assert mean[2] > 1.3 * mean[0] and mean[2] > mean[1]
