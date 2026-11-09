@@ -1197,6 +1197,25 @@ def test_a_recipe_on_garret4_binds_its_own_sounds_over_his(usa_iso, tmp_path):
     assert made and all(n.startswith("fx/sound/v/g4x/whoosh") for n in made)
 
 
+def test_a_recipe_on_garret4_retunes_his_fx_clone_and_plays_its_effects_rows(usa_iso, tmp_path):
+    """D813 (Modkit's Step 2.206): a recipe's fx edit on garret4's own body is made on his clone of
+    characters/garret4/fx/fx_default, which X40 binds, and its effects rows play on his build: a fireball thrown
+    from his hand on basic1 (X42, X21's radius) and a bubble on basic2 (its graph under characters/garret4/v/fx/,
+    X38's bound key)."""
+    from azurkit.tools.characters import fx_edit
+    from azurkit.tools.characters._player_character import FX_DEFAULT_HOOK, FX_RING_HOOKS, SEARCH_HOOK, THROW_HOOK
+
+    _, files = _g4(usa_iso, tmp_path, {"fx": [{"record": 4, "name": "flash", "type": "transform",
+                                               "set": {"scaleX": 2.0}}],
+                                       "effects": [{"template": "fireball", "columns": ["basic1"]},
+                                                   {"template": "bubble", "columns": ["basic2"]}]})
+    names = {n.casefold() for n in named_resources(files[CHARACTERS]).values()}
+    assert {fx_edit.clone_key("garret4"), "characters/garret4/v/fx/fx_bubble_0"} <= names
+    with _building(usa_iso):
+        assert [ports.verify_trampoline_patch(files[characters.XBE], h) for h in (
+            FX_DEFAULT_HOOK, THROW_HOOK, SEARCH_HOOK, *FX_RING_HOOKS)] == ["applied"] * (3 + len(FX_RING_HOOKS))
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
