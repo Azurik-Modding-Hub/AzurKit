@@ -2344,10 +2344,12 @@ def test_a_reshape_takes_its_parents_shipped_places_where_they_stand_on_what_the
     """R3-CP1 (X11): a reshape's ``_variant_body`` places its jiggle bones where the row of its parent's build says,
     bit for bit and working out nothing, where the row stands on the release, the parent's specs, the content they read
     and the staged ``characters.xbr``; a pack's edit to that file, another spec (a zero's sign), body or installed entry
-    and ``shipped.OFF`` each miss, and the build works them out (``SEEN`` hears the row it would have)."""
+    and ``shipped.OFF`` each miss, and the build works them out (``SEEN`` hears the row it would have). Its body's
+    parts are keyed alike either way (Step 4.6r: the recorder dresses fresh, so a Check that takes the row takes the
+    parts it shipped)."""
     swap, stored, parent, variant, rigged = _places_rig(monkeypatch, tmp_path)
     worked = {"a": ((0.5, -0.0, 1e-30), 0.25)}
-    worked_out = []
+    worked_out, keys = [], []
     monkeypatch.setattr(swap, "_parent_places", lambda shared, _=None: worked_out.append(shared) or worked)
     monkeypatch.setattr(shipped, "OFF", False)
     monkeypatch.setattr(shipped, "table", lambda: {})
@@ -2356,14 +2358,14 @@ def test_a_reshape_takes_its_parents_shipped_places_where_they_stand_on_what_the
     def built(current: bytes = stored) -> tuple:
         parts.clear()
         worked_out.clear()
-        swap._variant_body(current, stored, "body", variant)
+        keys.append(swap._variant_body(current, stored, "body", variant)[4])
         return len(worked_out), repr(rigged[-1])
 
     assert built() == (1, repr(worked))
     row = shipped.SEEN[0]["places"]
     assert row["reads"] == {CHARACTERS: _sha256(stored)} and row["release"] == "a release"
     monkeypatch.setattr(shipped, "table", lambda: {"places": [row]})
-    assert built() == (0, repr(worked))
+    assert built() == (0, repr(worked)) and keys[1] == keys[0]
     assert built(b"a pack's edit") == (1, repr(worked))   # a staged file another than the row's
     other = SimpleNamespace(**vars(parent) | {"mesh": ("plain", -0.0)})
     assert shipped.places(stored, stored, "body", other) is None

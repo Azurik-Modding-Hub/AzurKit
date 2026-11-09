@@ -8907,8 +8907,7 @@ class _Dressed:
     """The keys (:mod:`.parts`) of :attr:`dressed` and of what W24-W30 left, the rig's (``None``: none worked out)."""
 
 
-def _body_keys(current: bytes, stored: bytes, body: str, variant, folder, parent=None, at=None
-               ) -> tuple[str, str, str]:
+def _body_keys(current: bytes, stored: bytes, body: str, variant, folder, parent=None) -> tuple[str, str, str]:
     """The keys of a variant body's three parts (:mod:`.parts`, Step 4.6n;
     W24, W29 and W30 were half of booblord v4's build, Step 2.176), each on
     the one before: what each stage reads, its specs by ``repr``, not
@@ -8916,7 +8915,10 @@ def _body_keys(current: bytes, stored: bytes, body: str, variant, folder, parent
     ``mesh_edit._ray``'s memo refuses), both files by their sha256 and the
     glTFs it reads in ``folder`` by their bytes, never the name or the
     folder; ``parent``: the recipe whose jiggle places it takes
-    (:func:`_parent_places`), and ``at`` the shipped places taken for it."""
+    (:func:`_parent_places`), its specs standing for those places, a shipped
+    row's or worked out alike (Step 4.6r: the row is a fresh dress's, the
+    goldens' pin holds it so, and the recorder dresses fresh, so a Check that
+    takes the row takes the parts it shipped)."""
     from azurkit.tools.characters import parts
 
     held = parts.digest(stored)
@@ -8926,7 +8928,7 @@ def _body_keys(current: bytes, stored: bytes, body: str, variant, folder, parent
     mesh = parts.key("W24", staged, held, body, repr(variant.mesh), variant.jiggle is not None,
                      parts.stamps(folder, files))
     rig = parts.key("W29", mesh, repr(variant.jiggle),
-                    repr((parent.mesh, parent.jiggle)) if parent is not None else None, repr(at))
+                    repr((parent.mesh, parent.jiggle)) if parent is not None else None)
     return mesh, rig, parts.key("W30", rig, repr((variant.textures, variant.texture_scale)))
 
 
@@ -8979,7 +8981,7 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     folder = Path(variant.source).parent if variant.source != "built-in" else None
     parent = variants.placing(variant)
     at = shipped.places(current, stored, body, parent) if parent is not None else None   # her defaults' (R3-CP1)
-    keys = _body_keys(current, stored, body, variant, folder, parent, at)
+    keys = _body_keys(current, stored, body, variant, folder, parent)
     mesh, rig, paint_ = (parts.get(k, stage) for k, stage in zip(keys, ("W24", "W29", "W30")))
     rig = None if mesh is None else rig   # each on the one before
     paint_ = None if rig is None else paint_

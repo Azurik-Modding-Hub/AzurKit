@@ -1143,7 +1143,11 @@ are the Characters section's.
       process, and the goldens' pin builds each own copy too
       (`test_characters.py`'s `_own_copies`), so every part row is a fresh
       dress's part under its key until `scripts/record_shipped.py`
-      re-records (`--check` names a row no Check works out).
+      re-records (`--check` names a row no Check works out). A reshape's
+      body parts are keyed on its parent's specs, never on where its
+      places came from (Step 4.6r): the recorder dresses fresh and a Check
+      takes the places row, the same places by the pin, so the Check
+      takes the parts it shipped.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload
