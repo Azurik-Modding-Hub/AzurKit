@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 import re
+import struct
 from pathlib import Path
 
 import pytest
@@ -572,3 +574,294 @@ def test_a_shape_at_one_keeps_a_recipes_mesh_and_sha_and_another_value_sizes_onl
     per = written["shapes"]["butt"]["turns"][0]["deg"]
     assert (turns[1.0], turns[0.8], turns[1.3], turn.deg) == (
         [], [], [("", "loincloth_back_1", (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))], pytest.approx(per * 0.3))
+
+
+def _vanilla_characters(usa_iso) -> bytes:
+    with iso.Reader(usa_iso) as r:
+        return r.read(CHARACTERS)
+
+
+def test_a_pose_turns_its_bone_over_its_window_only(usa_iso):
+    """D438 (Modkit's Step 2.154; a recipe's ``poses``): ``turned_over``
+    turns one bone about a model-frame axis by its angle inside its window,
+    eased in and out over ``ease`` (female_2's front sash in her walk, -25
+    degrees about x over 30-60 %): within the window its rotation is the
+    turn times the clip's, outside the eased margins the clip's own, every
+    other track kept, its key times rising from 0 in float32. An ease of 0
+    turns it at the window's edges with no margin."""
+    from azurkit.tools.characters.retarget import Rig, evaluate, named_clip, qangle, turned_over
+
+    data, body = _vanilla_characters(usa_iso), "townspeople/female_2"
+    walk, rig = named_clip(data, body, "walk"), Rig.read(data, body)
+    k = next(j for j, b in enumerate(rig.bones) if b.name == "loincloth_front_1")
+    out = turned_over(rig, walk, k, (1.0, 0.0, 0.0), -25.0, (0.3, 0.6, 0.1))
+
+    def rotation(clip, t):
+        keyed = {tr.comp - 3: tr.keys for tr in clip.bones if tr.target == k and 3 <= tr.comp <= 6}
+        return tuple(evaluate(keyed[c], t) if c in keyed else rig.bones[k].q[c] for c in range(4))
+    for j in range(41):
+        angle = qangle(rotation(out, walk.length * j / 40), rotation(walk, walk.length * j / 40))
+        if 0.3 <= j / 40 <= 0.6:
+            assert abs(angle - 25.0) < 0.5, j
+        elif j / 40 < 0.2 or j / 40 > 0.7:
+            assert angle < 1e-3, j
+    assert [tr for tr in out.bones if tr.target != k] == [tr for tr in walk.bones if tr.target != k]
+    assert out.markers == walk.markers and out.length == walk.length
+    for tr in out.bones:
+        times = [struct.unpack("<f", struct.pack("<f", key[0]))[0] for key in tr.keys]
+        assert times[0] == 0.0 and all(b > a for a, b in zip(times, times[1:]))
+    hard = turned_over(rig, walk, k, (1.0, 0.0, 0.0), -25.0, (0.3, 0.6, 0.0))
+    for j in (4, 10, 20, 30):
+        t = walk.length * j / 40
+        assert abs(qangle(rotation(hard, t), rotation(walk, t)) - (25.0 if j == 20 else 0.0)) < 0.5, j
+
+
+def test_booblords_sash_hangs_at_each_spins_ends_and_swings_out_mid_spin(usa_iso):
+    """D371 (Modkit's Steps 2.134a, 2.134b; AZ-619, AZ-636): each loincloth
+    bone her idle keys starts and ends booblord's spin, twirl, stomp and
+    hand spin on her idle's t 0 rotation, its hang, and each chain's first
+    bone swings out from it: 66.5 degrees off the hang mid-spin, mid-twirl
+    and mid-hand-spin, a 25-degree lift in the stomp's fall (0.525)."""
+    from azurkit.tools.characters._player_variants import hand_spin, t_spin
+    from azurkit.tools.characters.characters import read_body
+    from azurkit.tools.characters.retarget import Rig, evaluate, named_clip, qangle
+
+    data, variant = _vanilla_characters(usa_iso), builtins()["booblord"]
+    body = read_body(data, "townspeople/female_2")
+    markers = {m: i for i, m in enumerate([*body.markers, "m_damage"])}
+    idle, rig = named_clip(data, body.name, "idle"), Rig.read(data, body.name)
+    names = {k: b.name for k, b in enumerate(rig.bones)}
+    keyed = {(tr.target, tr.comp): tr.keys for tr in idle.bones if 3 <= tr.comp <= 6}
+    sash = sorted({k for k, _ in keyed if names[k].startswith("loincloth_")})
+    assert [names[k] for k in sash] == [f"loincloth_{s}_{n}" for s in ("front", "back") for n in range(1, 5)]
+    hang = {k: tuple(evaluate(keyed[k, 3 + r], 0.0) if (k, 3 + r) in keyed else rig.bones[k].q[r] for r in range(4))
+            for k in sash}
+    for name, (mid, off) in {"spin": (0.5, 66.5), "twirl": (0.5, 66.5), "stomp": (0.525, 25.0),
+                             "hspin": (0.5, 66.5)}.items():
+        made = (hand_spin if name == "hspin" else t_spin)(data, body, variant.clips[name], markers)
+        tracks = {(tr.target, tr.comp): tr.keys for tr in made.bones}
+
+        def turned(k: int, t: float) -> float:
+            return qangle(tuple(evaluate(tracks[k, 3 + r], t) for r in range(4)), hang[k])
+        assert max(turned(k, t) for k in sash for t in (0.0, made.length)) < 1e-3, name
+        assert {names[k]: round(turned(k, mid * made.length), 1) for k in sash if names[k].endswith("_1")} == {
+            "loincloth_front_1": pytest.approx(off, abs=1.0), "loincloth_back_1": pytest.approx(off, abs=1.0)}, name
+
+
+def test_booblords_b_spins_chain_planted_and_she_rises_only_when_the_chain_ends(usa_iso):
+    """D701 (Modkit's Step 2.180, W37): for a hand spin both B columns play
+    that rests on its hand after its turns (booblord's hspin, booblord_high's;
+    not beamlord's, nor one with no ``hold``), W37 chains both at the rest's
+    start (0.67 of her clip), starts sweep2 one turn before it (0.335) and
+    ends it at the clip's end; row 33 (B near a cliff) becomes sweep2's B ->
+    sweep2 and row 27 (B from a run) plays sweep1; no other byte of
+    config.xbr changes. Every pose the chain plays (sweep2 through one turn,
+    and the cut's crossfade into the next) keeps her root within 2.5 cm of
+    the planted pose's and her hand under 7 cm; every pose of her rest is
+    the pose sweep2 starts at; she stands only at the clip's ends."""
+    from azurkit.tools.characters._player_character import planted_chain
+    from azurkit.tools.characters._player_variants import hand_spin
+    from azurkit.tools.characters.characters import read_body
+    from azurkit.tools.characters.retarget import Rig, origins, pose, qangle
+
+    variant = builtins()["booblord"]
+    p = variant.loop()
+    assert p is variant.clips["hspin"] and builtins()["booblord_high"].loop() == p
+    assert builtins()["beamlord"].loop() is None
+    assert dataclasses.replace(variant, clips={**variant.clips, "hspin": {k: v for k, v in p.items() if k != "hold"}}
+                               ).loop() is None
+    cells = ("Move start", "Move end1", "Move end2")
+    s, e = 0.335, 0.67
+    with iso.Reader(usa_iso) as r:
+        config, data = r.read(CONFIG), r.read(CHARACTERS)
+    doc = ports.XbrDocument.from_bytes(bytearray(config))
+    anims, rows = doc.keyed_section("attacks_anims"), doc.keyed_section("attacks_transitions")
+    names, cols = anims.col_names(), rows.col_names()
+    one, two = names.index("sweep1"), names.index("sweep2")
+    ports.set_keyed_double(anims, "sweep1", "Move end1", 19.3048, col=one)   # W19's 0.2952 of its clip
+    before = bytes(doc.raw)
+
+    def table(section) -> list[dict]:
+        return [{r: (c.string_value if c.type_code == 2 else c.double_value) for r in section.row_names()
+                 if (c := section.find_cell(name, r, i)) is not None and c.type_code}
+                for i, name in enumerate(section.col_names())]
+    was = (table(anims), table(rows))
+    got = planted_chain(anims, rows, tuple(p["plant"]), float(p["turns"]), float(p["hold"]))
+    assert (round(got[0], 4), round(got[1], 4), got[2]) == (s, e, True)
+    now = (table(anims), table(rows))
+    assert now[0][two] == was[0][two] | dict(zip(cells, (pytest.approx(s, abs=1e-4), pytest.approx(e, abs=1e-4), 1.0)))
+    assert now[0][one]["Move end1"] == pytest.approx(1 + e * 62, abs=1e-3)
+    assert {i for i in range(len(names)) if now[0][i] != was[0][i]} == {one, two}
+    assert {i: now[1][i] for i in range(len(cols)) if now[1][i] != was[1][i]} == {
+        27: was[1][27] | {"next move": "sweep1"},
+        33: {"search order": "a", "last move": "sweep2", "button": 2.0, "next move": "sweep2"}}
+    touched = [c.file_offset for i, col in ((one, "sweep1"), (two, "sweep2"))
+               for c in (anims.find_cell(col, r, i) for r in cells)] + [
+        rows.find_cell(cols[c], r, c).file_offset for c, r in ((27, "next move"), (33, "last move"),
+                                                              (33, "next move"), (33, "near cliff"))]
+    assert all(any(at <= k < at + 16 for at in touched) for k, (x, y) in enumerate(zip(before, doc.raw)) if x != y)
+    body = read_body(data, "townspeople/female_2")
+    clip = hand_spin(data, body, p, {m: i for i, m in enumerate([*body.markers, "m_damage"])})
+    rig = Rig.read(data, body.name)
+    bones = [b.name for b in rig.bones]
+    root, hand = bones.index("root_joint"), bones.index("right_hand_endnode")
+    rate, rest, length = was[0][two]["Rate"], p["plant"][1], clip.length
+
+    def at(f: float) -> tuple:
+        o, q = origins(rig, clip, f * length), pose(rig, clip, f * length)
+        return o[root], o[hand], q[root]
+    low = at(0.5)[0][2]
+    tick = rate / 30 / length
+    for k in range(61):   # sweep2 from s through one turn, then the cut's 3-tick crossfade into the next
+        r, h, _ = at(s + (e - s) * k / 60)
+        assert abs(r[2] - low) < 0.025 and h[2] < 0.07, k
+    for j in range(4):
+        (ro, ho, _), (rn, hn, _) = at(e + j * tick), at(s + j * tick)
+        w = j / 3
+        assert abs((1 - w) * ro[2] + w * rn[2] - low) < 0.025 and (1 - w) * ho[2] + w * hn[2] < 0.07, j
+    r0, h0, q0 = at(s)
+    for k in range(21):   # her rest: the pose sweep2 starts at, whichever tick a press chains her on
+        r1, h1, q1 = at(e + (rest - e) * k / 20)
+        assert math.dist(r0, r1) < 1e-3 and math.dist(h0, h1) < 1e-3 and qangle(q0, q1) < 0.1, k
+    assert at(1.0)[0][2] - low > 0.3 and at(0.0)[0][2] - low > 0.3
+
+
+def test_booblords_ponytail_swings_live_walled_off_her_back_from_a_root_that_rides_her():
+    """D734, D737 (Modkit's Step 2.169c): her ponytail swings on X41 as well
+    as its bake: five spring rows on ponytail_1-5, each chained to the one
+    above, walled 3 mm toward her back, no gravity of their own, the swing
+    faded in from the root (its travel the least) as it softens (frequency
+    falling, damping rising root to tip), its drive capped at 1.2 m/s^2 and
+    smoothed over 0.08 s; the links stay baked bones, ``jiggle.clear``
+    keeping their hang out of her skin and forearms (and at a ladder's edges
+    her skin alone), and booblord_high's jiggle is hers."""
+    v = builtins()["booblord"]
+    rows = [b for b in v.jiggle.springs if b.bone.startswith("ponytail")]
+    assert [(b.role, b.bone, b.parent) for b in rows] == [
+        (f"pony{k}", f"ponytail_{k}", "head" if k == 1 else f"ponytail_{k - 1}") for k in range(1, 6)]
+    assert all((b.spring.wall, b.spring.gravity, b.spring.rot_share, b.spring.pivot) == ((0.0, 1.0, 0.0, 0.003), 0.0,
+                                                                                         1.0, "origin") for b in rows)
+    assert {(b.spring.accel, b.spring.give) for b in rows} == {(1.2, 0.08)}
+    swing = [math.hypot(*b.spring.travel[:2]) for b in rows]
+    assert swing.index(min(swing)) == 0 and swing[0] < 0.5 * max(swing)
+    assert [b.spring.freq for b in rows] == sorted((b.spring.freq for b in rows), reverse=True)
+    assert [b.spring.damping for b in rows] == sorted(b.spring.damping for b in rows)
+    baked = [b for b in v.jiggle.bones if b.bone.startswith("ponytail")]
+    assert [b.bone for b in baked] == [f"ponytail_{k}" for k in range(1, 6)] and all(b.spring is None for b in baked)
+    assert (v.jiggle.clear.links, v.jiggle.clear.groups, v.jiggle.clear.clips) == (
+        tuple(b.bone for b in baked), (1, 2), (("climb_up_edge", (1,)), ("climb_down_edge", (1,))))
+    assert builtins()["booblord_high"].jiggle == v.jiggle
+
+
+def test_a_kept_body_is_not_reused_for_specs_that_differ_only_in_a_zeros_sign():
+    """Modkit's Step 2.176 review (4): 0.0 == -0.0 while a zero's sign
+    reaches the bytes, so a variant body's kept parts are keyed by the specs'
+    ``repr``: a mesh that moves a vertex by -0.0 is dressed again, never
+    handed the +0.0 one's body."""
+    from types import SimpleNamespace
+
+    from azurkit.tools.characters._player_character import _body_keys
+
+    plus, minus = (SimpleNamespace(mesh=("move", z), jiggle=None, textures=None, texture_scale=1) for z in (0.0, -0.0))
+    assert plus.mesh == minus.mesh
+    keys = [_body_keys(b"x", b"x", "townspeople/female_2", v, None) for v in (plus, minus, plus)]
+    assert keys[0] != keys[1] and keys[0] == keys[2]
+
+
+def test_booblord_high_is_booblord_with_finer_forms_and_each_texture_at_twice_its_size(usa_iso):
+    """D593, D680, D691, D698, D721, D724 (Modkit's Step 2.177 on):
+    booblord_high is ``from`` booblord with ``texture_scale`` 2 and her
+    ``mesh_ops`` (her bust, glutes and thighs subdivided once more, each
+    feathered; her sash thickened, tapered at its top), her ponytail's rings
+    laid over booblord's tube and her face's sharpen and shade after her
+    skin row's paint ops; every other field a build reads is booblord's and
+    her sha her own; she reads booblord's sounds and clips and swings the
+    Axion staff with booblord's arm fit, which a field laid over her drops;
+    her rows bake at twice their size, a size past 4,096 failing by name."""
+    from azurkit.tools.characters import _player_weapons as pw
+    from azurkit.tools.characters import paint
+    from azurkit.tools.characters.characters import read_body
+
+    high, boob = builtins()["booblord_high"], builtins()["booblord"]
+    own = ("name", "title", "notes", "sha", "texture_scale", "files", "mesh", "textures")
+    assert [f.name for f in dataclasses.fields(high) if f.name not in own
+            and getattr(high, f.name) != getattr(boob, f.name)] == []
+    n = len(boob.mesh.ops)
+    added, laid = high.mesh.ops[n:], [k for k in range(n) if high.mesh.ops[k] != boob.mesh.ops[k]]
+    assert [(boob.mesh.ops[k].name, boob.mesh.ops[k].sides, boob.mesh.ops[k].rings, high.mesh.ops[k].rings)
+            for k in laid] == [("ponytail", 32, 72, 144)]
+    assert dataclasses.replace(high.mesh.ops[laid[0]], rings=72) == boob.mesh.ops[laid[0]]
+    assert dataclasses.replace(high.mesh, ops=boob.mesh.ops) == boob.mesh
+    assert [(op.name, op.edge, op.apart is not None, op.normals) for op in added[:-1]] == [
+        ("bust high", 0.0065, True, "nearer"), ("bust high feather", 0.0092, True, "nearer"),
+        ("glutes high", 0.0055, False, "area"), ("glutes high feather", 0.0078, False, "area"),
+        ("thighs high", 0.011, False, "area"), ("thighs high feather", 0.0156, False, "area")]
+    assert (added[-1].name, added[-1].depth, added[-1].only, added[-1].taper) == (
+        "sash thick", 0.006, ("loincloth_front_1", "loincloth_back_1"), 0.03)
+    assert [dataclasses.replace(t, ops=t.ops[:len(b.ops)]) for t, b in zip(high.textures, boob.textures)] == list(
+        boob.textures) and len(high.textures) == len(boob.textures)
+    assert [[op.op for op in t.ops[len(b.ops):]] for t, b in zip(high.textures, boob.textures)] == [
+        ["sharpen", "shade"], []]
+    assert (high.texture_scale, high.files, high.sha != boob.sha) == (2, "booblord", True)
+    assert [f(high) for f in (_player_variants.sound_folder, _player_variants.clip_folder)] == [
+        f(boob) for f in (_player_variants.sound_folder, _player_variants.clip_folder)]
+    staff, body = pw.weapons()["axion_staff"], "townspeople/female_2"
+    assert pw.fit_turns(body, high, staff) == pw.fit_turns(body, boob, staff) != {}
+    assert pw.fit_turns(body, _player_variants.laid_over(high, {"arms": None}), staff) == {}
+    data = _vanilla_characters(usa_iso)
+    assert pw.default_weapon(data, read_body(data, body), high).name == "booblord_spin"
+    assert pw.attack_recipe(high, "booblord_spin", "booblord_spin") is high
+    assert [(s.row, s.size, s.format, len(s.ops)) for s in paint.scaled(data, body, high.textures, 2)] == [
+        (1, 1024, "dxt1", 6), (0, 512, "dxt1", 4), (2, 256, "dxt1", 0), (3, 128, "dxt1", 0)]
+    with pytest.raises(ValueError, match="row 1 at 32768x32768 is past the 4096"):
+        paint.scaled(data, body, boob.textures, 64)
+
+
+def test_a_recipe_file_may_be_from_a_built_in_with_effects_rows_laid_over(usa_iso, tmp_path):
+    """D687 (Modkit's Step X.73): a user's recipe may be ``from`` a built-in
+    and lay ``effects`` over it: every field a build reads is booblord's but
+    its rows; it reads her sounds, clips and fx, takes her W29 places and
+    wears her spins as its default weapon."""
+    from azurkit.tools.characters import _player_weapons as pw
+    from azurkit.tools.characters.characters import read_body
+
+    rows = [{"template": "bubble", "columns": ["basic1"]}, {"template": "laser", "columns": ["finish", "finish2"]}]
+    (tmp_path / "e3.json").write_text(json.dumps({"e3": {"from": "booblord", "title": "E3", "effects": rows}}),
+                                      encoding="utf-8")
+    e3, boob = _player_variants.resolve("e3", tmp_path / "e3.json"), builtins()["booblord"]
+    own = ("name", "source", "title", "notes", "sha", "effects", "files")
+    assert [f.name for f in dataclasses.fields(e3) if f.name not in own
+            and getattr(e3, f.name) != getattr(boob, f.name)] == []
+    assert (e3.files, [(e.template.name, e.columns) for e in e3.effects], e3.sha != boob.sha) == (
+        "booblord", [("bubble", ("basic1",)), ("laser", ("finish", "finish2"))], True)
+    folders = (_player_variants.sound_folder, _player_variants.clip_folder, _player_variants.fx_folder)
+    assert [f(e3) for f in folders] == [f(boob) for f in folders]
+    assert _player_variants.parent_of(e3) is boob
+    data, body = _vanilla_characters(usa_iso), "townspeople/female_2"
+    assert pw.default_weapon(data, read_body(data, body), e3).name == "booblord_spin"
+    assert pw.attack_recipe(e3, "booblord_spin", "booblord_spin") is e3
+
+
+def test_a_plain_balthazar_build_draws_beamlords_bolts():
+    """D427, D442, D452 (Modkit's Steps 2.146, 2.153b, 2.197b): plain
+    Balthazar's own build (his overlay, no variant worn) edits his fx clone
+    at beamlord's bolt records ([24] the burst emitter, [35] its renderer,
+    [39] its sink) and drain box [45], his stream's renderer [11] bright
+    for 1 s and pool [14] at 30 Hz, and his bolts' targets [58], [60], [62]
+    at inherit mode 7; the bytes his build writes are G3's
+    (``randomize-full:player-character=balthazar``)."""
+    bolts = _player_variants.overlay("balthazar").fx
+    assert bolts[:4] == tuple(e for e in builtins()["beamlord"].fx if e["record"] in (24, 35, 39, 45))
+    stream = {e["record"]: e["set"] for e in bolts[4:6]}
+    assert [(e["record"], e["inherit"]) for e in bolts[6:]] == [(58, 7), (60, 7), (62, 7)]
+    assert len(bolts) == 9 and stream[14] == {"updateRate": 30.0} and (
+        stream[11]["colorAge2"], stream[11]["alphaAge2"], stream[11]["sizeAge2"], stream[11]["size2"]) == (
+        1.0, 1.0, 1.0, 0.24)
+
+
+def test_the_variants_pages_own_sounds_are_the_roles_its_build_binds_with_w3s_picks(usa_iso):
+    """Modkit's Step 2.164d: the Variants editor greys a recipe's voice and
+    WAVs on a base whose own sounds its build binds, read as the build reads
+    them (W3's picks), not the vanilla Anim cells: boulder's roll binds its
+    own roll sound."""
+    assert sdk.own_sounds({"iso": str(usa_iso), "species": "boulder"})["roles"] == ["death", "footstep", "roll"]
