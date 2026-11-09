@@ -1859,3 +1859,286 @@ def test_an_empty_seed_is_refused_by_name_by_a_plan_or_build_and_a_link_holding_
     link = sdk.preset_encode({"iso": iso_path, "packs": {"fps_unlock": {}}, "randomizer": {"seed": ""}})
     assert sdk.read_mods(link) == {"packs": {"fps_unlock": {}}, "randomizer": {"seed": ""}}
     assert [la["recipe"] for la in sdk.preset_decode(link)["layers"] if la["tool"] == generator.TOOL] == [{"seed": ""}]
+
+
+# --- Step 4.28f: Modkit's unpinned settings, tracker and writer rules, ported ------------------------------------
+
+TOYDB = Path(__file__).resolve().parent.parent / "devkit" / "rando" / "data" / "toydb"   # devkit's toy database
+
+
+def test_settings_refuse_a_toggle_that_turns_on_a_held_or_manual_skip(tmp_path):
+    """D144: a toggle wins over the ceiling, but never turns on a held or a
+    manual skip, in a settings file or a share string; a string's toggles
+    count only against the skip registry it was made for (§7.3)."""
+    import shutil
+
+    from azurkit.tools.randomizer.planner.settings import SettingsError, skips_on
+
+    root = tmp_path / "db"
+    shutil.copytree(TOYDB, root)
+    (root / "settings" / "mine.toml").write_text(
+        'format = "azurik-rando-settings/1"\nskip_ceiling = 4\nmovement_tier = "safe"\ndark_fire = 1\n\n'
+        '[skip_override]\n"t1.wall_skip" = false\n"t1.held_skip" = true\n"t1.manual_skip" = true\n',
+        encoding="utf-8")
+    assert [(i.code, i.where) for i in loader.check_database(root).issues] == [
+        ("settings_enables_held_or_manual_skip", "settings/mine.toml: skip_override.t1.held_skip"),
+        ("settings_enables_held_or_manual_skip", "settings/mine.toml: skip_override.t1.manual_skip")]
+    skips = {sid: s for sid, (_, s) in loader.load_database(TOYDB).skips.items()}
+    for sid, status in (("t1.held_skip", "held"), ("t1.manual_skip", "manual")):
+        text = share_encode(Settings(0, "hard", {sid: True}), skips)
+        with pytest.raises(SettingsError, match=f"skip_override.{sid}: turns on a {status} skip"):
+            share_decode(text, skips)
+    on = Settings(0, "hard", {"t1.wall_skip": True})
+    text = share_encode(on, skips)
+    assert share_decode(f" {text.lower()} ", skips) == on
+    assert skips_on(on, skips) == ["t1.wall_skip"]
+    fewer = {sid: s for sid, s in skips.items() if sid != "t1.held_skip"}
+    for text, why in ((text, "made for another skip registry"), ("AZR-AAIB", "not canonical")):
+        with pytest.raises(SettingsError, match=why):
+            share_decode(text, fewer)
+
+
+def test_a_skip_batch_is_one_pick_and_a_variant_id_in_a_file_string_or_flag_stands_for_its_batch(tmp_path):
+    """D275 (Step R1.31): skips that cross the same thing and differ only in
+    kit are variants of one batch (``batch``, ``batch_name``). A settings
+    file, a share string and its registry name the batch; a toggle on it
+    turns on its in-logic variants, and the ceiling admits each by its own
+    tier. An old per-variant id, in a settings file or a share string made
+    for the per-variant registry, loads as its batch, on when any of its
+    ids is; a variant's id in ``--skip`` or ``--no-skip`` turns its batch
+    over a file's toggle, and both on one batch are refused. A batch whose
+    variants cross other things is refused (``bad_batch``)."""
+    import argparse
+    import shutil
+
+    from azurkit.tools.randomizer.planner.settings import SettingsError, skips_on
+
+    root = tmp_path / "db"
+    shutil.copytree(TOYDB, root)
+    batch = 'batch = "t1.walls"\nbatch_name = "The wall"\n'
+    hard = ('[[skip]]\nid = "t1.wall_skip_hard"\nname = "Wall Skip (hard)"\n{level}tricks = ["jumpy"]\n'
+            'requires = "true"\ndifficulty = 3\nstatus = "in_logic"\nconfirmed = {{ by = "owner", ref = "toy" }}\n'
+            'from = "t1_start"\nto = "t1_vault"\ngates = ["t1.wall"]\n' + batch + "{tricks}\n")
+    for rel, lone, extra in (
+            ("levels/t1.toml", 'gates = ["t1.wall"]\n', hard.format(level="", tricks="")),
+            ("tricks.toml", 'name = "Wall Skip"\n', hard.format(level='level = "t1"\nbypasses = "the wall"\n', tricks=(
+                'difficulty_reason = "toy"\nconfidence = "toy"\nevidence = []\nsource = "toy"\nd145 = "toy"\n')))):
+        text = (root / rel).read_text(encoding="utf-8")
+        (root / rel).write_text(text.replace(lone, lone + batch, 1) + "\n" + extra, encoding="utf-8")
+    db = loader.load_database(root)
+    skips = {sid: s for sid, (_, s) in db.skips.items()}
+    assert picks(skips) == {"t1.held_skip": ["t1.held_skip"], "t1.manual_skip": ["t1.manual_skip"],
+                            "t1.walls": ["t1.wall_skip", "t1.wall_skip_hard"]}
+    walls = Settings(0, "hard", {"t1.walls": True})
+    assert [skips_on(st, skips) for st in (Settings(2, "hard", {}), walls)] == [
+        ["t1.wall_skip"], ["t1.wall_skip", "t1.wall_skip_hard"]]
+    assert share_decode(share_encode(walls, skips), skips) == walls
+    old = share_encode(Settings(0, "hard", {"t1.wall_skip_hard": True}), list(skips))   # its registry: every id
+    path = tmp_path / "old.toml"
+    path.write_text(layer.settings_text(walls).replace('"t1.walls" = true', '"t1.wall_skip" = false\n'
+                                                       '"t1.wall_skip_hard" = true'), encoding="utf-8")
+    assert [share_decode(old, skips), layer.read_settings(path, skips)] == [walls, walls] and old != share_encode(
+        walls, skips)
+    flags = argparse.Namespace(settings=str(path), no_skip=["t1.wall_skip_hard"])
+    assert layer.settings_from_args(flags, db).skip_override == {"t1.walls": False}
+    with pytest.raises(SettingsError, match="skip_override.t1.walls: both --skip and --no-skip"):
+        layer.settings_from_args(argparse.Namespace(**vars(flags), skip=["t1.wall_skip"]), db)
+    (root / "levels/t1.toml").write_text((root / "levels/t1.toml").read_text(encoding="utf-8").replace(
+        'gates = ["t1.wall"]\nbatch', 'gates = []\nbatch', 1), encoding="utf-8")
+    assert [(i.code, i.detail) for i in loader.check_database(root).issues if i.code == "bad_batch"] == [
+        ("bad_batch", "its variants' gates differ")]
+
+
+def test_the_tracker_table_sums_each_kind_collected_and_left_and_names_no_unseen_item_without_the_spoiler():
+    """Step R1.26 (D249, the owner: "a table tab that shows a table of the
+    collectibles, summing up how many we collected and how many are
+    left"): the items tree sums the golden plan's 203 tracked items by kind
+    (the base game's multiset: 20 fragments, 20 powers, 39 keys, 100
+    obsidians, 23 fuel, 1 health) and the levels tree its spots by realm
+    and level, each with All last; a mark moves its kind's and its level's
+    rows by one. With Spoiler off no row says where an item not collected
+    lies: no item row's Now or Where, and a level's rows are its spot
+    classes (what the maps' tips name), not its items' groups. The game's
+    own counts (a live tracker's) fill the item rows they name."""
+    from azurkit.tools.randomizer.tracker import Tracker
+
+    def rows(found):
+        for row in found:
+            yield row
+            yield from rows(row.children)
+
+    lg = kept_logic()
+    plan = load_plan(PLANS["default"]["plan"], lg.db)
+    t = Tracker(lg, plan.settings, plan.placement)
+    items, levels = t.table(spoiler=False)
+    by = lambda found: {r.key: r for r in rows(found)}
+    sums = lambda found, *keys: [(by(found)[k].got, by(found)[k].left, by(found)[k].total) for k in keys]
+    assert [r.key for r in items] == ["frag", "power", "key", "obsidian", "consumable", "all"]
+    assert sums(items, "frag", *(f"frag/{e}" for e in ("air", "water", "fire", "earth", "life")), "power", "key",
+                "obsidian", "consumable/fuel", "consumable/health", "all") == [
+        (0, 20, 20), *[(0, 4, 4)] * 5, (0, 20, 20), (0, 39, 39), (0, 100, 100), (0, 23, 23), (0, 1, 1), (0, 203, 203)]
+    assert [(r.label, r.total) for r in levels] == [("Air", 37), ("Earth", 45), ("Fire", 46), ("Water", 30),
+                                                    ("Death", 14), ("Life", 3), ("Town", 28), ("All", 203)]
+    assert {r.now for r in rows(items)} == {None} and {r.where for r in rows(items)} == {""}
+    assert [r.label for r in by(levels)["a1"].children] == ["Item spots", "Obsidian spots", "Fuel or health spots"]
+
+    water = next(loc for loc in sorted(t.spots) if t.item(loc) == "power_water")
+    t.toggle(water)
+    items, levels = t.table(spoiler=False)
+    level = lg.pool[water]
+    assert sums(items, "power", "power/water", "all") == [(1, 19, 20), (1, 2, 3), (1, 202, 203)]
+    assert by(items)["power/water"].label == "Water (level 1)"
+    assert sums(levels, level, "all") == [(1, by(levels)[level].total - 1, by(levels)[level].total), (1, 202, 203)]
+
+    items, levels = t.table(spoiler=True, held={"obsidian": 7})
+    air = sorted({lg.pool[loc] for loc in t.spots - t.collected if t.item(loc).startswith("frag_air")})
+    assert None not in {r.now for r in rows(items)} and by(items)["all"].now == len(t.reachable)
+    assert by(items)["frag/air"].where == ", ".join(air) and "Powers" in [r.label for r in by(levels)[level].children]
+    assert (by(items)["obsidian"].game, by(items)["key"].game, by(items)["key/lens"].game) == (7, None, None)
+
+
+def test_a_map_tip_names_each_way_a_spot_is_reached_by_not_one_of_them_as_the_need():
+    """AZ-432 (Step 2.85b): what reaching a spot's node from its level's
+    arrivals needs kept whichever counters it failed to drop, in
+    alphabetical order, so it named one way of several as the need: f3's
+    r1002 "needs 3 fire1 keys" though air 3 reaches it with none, and e2's
+    r2955 "needs 2 circuitboard keys + water 1" though the golden plan
+    collects it holding none. It names each way, a lower threshold of the
+    same counter too: f4's r1289 said "needs air 3" though air 2 + water 2
+    reaches it. (Modkit's map tips said it of each spot; AzurKit's say it of
+    each exit and each line between levels.)"""
+    from azurkit.tools.randomizer import needs
+
+    lg = kept_logic()
+
+    def tip(lid):
+        level = lid.split("/")[0]
+        return needs.say(needs.reaching(lg, level, [n for _, n in needs.arrivals()[level]], lg.db.node_of[lid]))
+
+    assert [tip("f3/g0/r1002"), tip("e2/g0/r2955"), tip("f4/g0/r1289")] == [
+        "3 fire1 keys or air 3",
+        "(2 circuitboard keys + water 1) or (fire 1 + water 1) or (air 1 + 2 circuitboard keys)",
+        "air 3 or (air 2 + water 2)"]
+
+
+@pytest.mark.parametrize("walk, tier", ((0.995, "standard"), (0.9, "safe")), ids=("walk-0.995", "walk-0.9"))
+def test_a_run_under_garret4s_plans_the_tier_its_sliders_play_as_never_refused(walk, tier):
+    """AZ-606 (Step 2.133, D35): a run under garret4's 7 m/s (the walk
+    slider under 1, a worn body's size folded into it) once found no plan
+    from about x0.975, and randomize-full raised "no plan" though movement
+    only flags. Since D1066 its sliders pick the tier its seed is filled at
+    (x0.995 Standard's, x0.9 Safe's), its share string recording them, and
+    the build is flagged by D1064's moved sliders, never refused."""
+    from azurkit.tools.randomizer import movement
+
+    sliders = {"player_physics": {"walk_speed_scale": walk}}
+    prepared = generator.prepare({"seed": "2"}, sliders)
+    shared = share_decode(prepared.recipe["share"], kept_logic().skip_tables)
+    assert (shared.sliders, movement.tier_of(shared), prepared.plan.doc["seed"]) == (sliders, tier, "2")
+    assert generator.movement_reasons(sliders, sdk.catalog()["packs"])[0] == (
+        f"you moved sliders (player_physics walk_speed_scale {walk:g}), and {movement.PROMISE}")
+
+
+def test_writer_never_writes_an_exit_or_spot_string(usa_iso):
+    """Exits stay vanilla in v1 (§5.2 item 9): no byte the writer changes
+    lies in a levelSwitch's movie, destination or spot field (+0x18,
+    +0x20, +0x28) or in a playerLocation's name (+0x1C), or in the
+    strings they name; a placement naming an exit or a spot is refused by
+    name. Every byte it changes is a repointed location's name field, a
+    new string in its graph's gap or that graph's TOC size: never a town
+    vault generator's attributes (AZ-280: the old writer set its
+    ``maxGenerated`` to 0.5, so the vault respawned its item). Writing
+    the plan again over the written files is refused too (each target is
+    checked against vanilla first), and changes nothing. The plan swaps
+    across w1 and town (Modkit's sitting's): staff and ammo into two
+    power_life vaults, the vaults' own items moved on, key_life1 into town
+    and a power_life onto w1's keylord slot (one new string in each graph),
+    an obsidian and a sapphire onto each other's spots."""
+    placement = {"town/g1/r15": "power_staff1", "town/g1/r65": "power_ammo", "town/g1/r90": "power_life",
+                 "town/g1/r240": "key_life1", "town/g1/r1611": "sapphire",
+                 "w1/g0/r1717": "power_life", "w1/g0/r1976": "obsidian"}
+    db = kept_logic().db
+
+    def strings(data: bytes, lid: str, fields: tuple[int, ...]) -> list[range]:
+        """The bytes of a record's (length, ref) string fields and of the strings they name."""
+        g, rec = (int(part[1:]) for part in lid.split("/")[1:])
+        e = [t for t in nodes.parse_toc(data) if t.tag == "node"][g]
+        ro = e.file_offset + nodes.record_offsets(memoryview(data)[e.file_offset:e.file_offset + e.size])[rec]
+        out = []
+        for f in fields:
+            n, ref = struct.unpack_from("<Ii", data, ro + f)
+            out += [range(ro + f, ro + f + 8)] + ([range(ro + f + 4 + ref, ro + f + 4 + ref + n + 1)] if n else [])
+        return out
+
+    with iso.Reader(usa_iso) as r:
+        files = {f"{s}.xbr": bytearray(r.read(f"gamedata/{s}.xbr")) for s in ("w1", "town")}
+    vanilla = {name: bytes(buf) for name, buf in files.items()}
+    writer.write_plan(files, placement, db)
+    locs = writer._locations(db)
+    for name, buf in files.items():
+        doc = db.generated[name.removesuffix(".xbr")]
+        guarded = [r for x in doc["exits"] for r in strings(vanilla[name], x["id"], (0x18, 0x20, 0x28))]
+        guarded += [r for x in doc["spots"] for r in strings(vanilla[name], x["id"], (0x1C,))]
+        changed = [k + i for k in range(0, len(buf), 4096) if buf[k:k + 4096] != vanilla[name][k:k + 4096]
+                   for i, (a, b) in enumerate(zip(buf[k:k + 4096], vanilla[name][k:k + 4096])) if a != b]
+        assert guarded and changed and [k for k in changed if any(k in r for r in guarded)] == []
+        allowed = set()
+        for edit in (e for e in writer.layout(placement, db).values() if f"{e.file}.xbr" == name):
+            entry = nodes.parse_toc(vanilla[name])[edit.toc_index]
+            at = entry.file_offset + entry.size + (-(entry.file_offset + entry.size)) % 4
+            row = nodes.TOC_START + nodes.TOC_ROW_SIZE * edit.toc_index
+            allowed |= {*range(at, at + edit.used), *range(row + 4, row + 8)}
+            allowed |= {o for lid in edit.repoint for o in range(locs[lid]["name_ref"]["field"],
+                                                                 locs[lid]["name_ref"]["field"] + 8)}
+        assert set(changed) <= allowed
+    doc = db.generated["w1"]
+    for lid in (doc["exits"][0]["id"], doc["spots"][0]["id"]):
+        with pytest.raises(writer.WriteError, match=f"{lid}: no pool location"):
+            writer.write_plan(files, {lid: "power_air"}, db)
+    written = {name: bytes(buf) for name, buf in files.items()}
+    with pytest.raises(writer.WriteError, match="w1/g0/r1976 is not a vanilla sapphire critterGenerator"):
+        writer.write_plan(files, placement, db)
+    assert {name: bytes(buf) for name, buf in files.items()} == written
+
+
+def test_writer_refuses_a_placement_it_cannot_write():
+    """Each refusal is named, all at once, before any file is read (D35):
+    a location that isn't in the pool, an item ``items.toml`` doesn't
+    define, a guardian slot given another item (D81), and a graph whose
+    distinct new strings cost more than its gap (f3's 280 B, the smallest:
+    the new-string budget, plan §5.2). An item equal to the vanilla one
+    costs nothing."""
+    db = kept_logic().db
+    f3 = [loc for loc in db.generated["f3"]["locations"] if loc["pool"] and loc["id"].startswith("f3/g0/")]
+    present = {loc["template"] for loc in f3}
+    names = sorted((it["name"] for it in db.items["item"] if it["name"] not in present and "base" not in it),
+                   key=lambda n: (-len(n), n))
+    flood = {loc["id"]: name for loc, name in zip(f3, names)}
+    assert sum(map(writer.string_cost, flood.values())) > 280 > writer.string_cost(names[0])
+    placement = {**flood, "e5/g0/r3294": "power_air", "training_room/g2/r230": "obsidian",
+                 "w1/g0/r1976": "no_such_item", "w1/g0/r1978": "sapphire"}
+    with pytest.raises(writer.WriteError) as err:
+        writer.layout(placement, db)
+    assert err.value.problems == [
+        "e5/g0/r3294: a guardian slot keeps its vanilla frag_earth_4 (D81)",
+        "training_room/g2/r230: no pool location (only pool locations are written; never an exit or a spot)",
+        "w1/g0/r1976: items.toml defines no 'no_such_item'",
+        f"f3/g0: {len(flood)} new strings take {sum(map(writer.string_cost, flood.values()))} B, over its 280 B gap "
+        "(the new-string budget, plan §5.2)"]
+    assert writer.layout({"w1/g0/r1978": "sapphire"}, db) == {}
+
+
+def test_obsidian_cost_accepts_a_fractional_cost(tmp_path, monkeypatch):
+    """``--obsidian-cost`` was ``type=int`` in Modkit, so argparse refused
+    2.5 although the lock thresholds are float cells: ``azurkit build``
+    hands 2.5 to the build's randomizer as it is, which takes it (D23)."""
+    seen = []
+
+    def build(made, out, picked=None):   # the recipe the flags made; no image is read
+        seen.append(made)
+        raise ValueError("stopped before the build")
+    monkeypatch.setattr(sdk, "build", build)
+    assert cli.main(["build", "--iso", "x.iso", "--out", str(tmp_path / "out.iso"), "--seed", "2",
+                     "--obsidian-cost", "2.5"]) == 1
+    assert seen[0]["randomizer"] == {"seed": "2", "obsidian_cost": 2.5}
+    assert generator.normalize(seen[0]["randomizer"])["obsidian_cost"] == 2.5

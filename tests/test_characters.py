@@ -2595,3 +2595,24 @@ def test_a_worn_enemy_keeps_its_own_size_and_borrowed_timing_under_enemy_scaling
     target = lambda image, va: va + 5 + struct.unpack_from("<i", image, offset(va) + 1)[0]   # noqa: E731
     assert target(xbe, 0x429DA) == target(plain, 0x429DA) == 0xCAD40
     assert 0xCB080 not in (target(xbe, 0xCAF6B), target(plain, 0xCAF6B))       # X12's bind landed
+
+
+# --- Step 4.28f: Modkit's unpinned writer rule, ported ----------------------------------------------------------
+
+
+def test_a_graded_swapped_body_leaves_a_plan_verified_for_its_movement_and_a_short_one_flags_its_touch():
+    """AZ-393 (Steps 2.65a, 2.65; Step 2.96's sitting): sittings saw the
+    latch, climb, step up, hang, hard landing and hoist on swapped bodies,
+    and every short hoist they found (AZ-489) last garret4's time, so a
+    randomized build wearing a graded body whose attacks stand in for
+    garret4's gives ``characters.reasons`` none for its moves; garret4 is
+    the vanilla player. A body under garret4's height touches pickups
+    closer than the logic assumes (X34, D356): flagged by its size, not at
+    1 or above."""
+    fit = SimpleNamespace(reach=1.0, damage=1.0, speed=1.0, size=1.0)
+    for model in ("flicken", "kingkong", "sleeth_x", "fire_shard", "garret4"):
+        assert characters.reasons(model, fit) == [], model
+    touch = ("the worn body is x0.5 garret4's height, so it touches pickups x0.5 his reach (X34), under the x1 the "
+             "logic's proofs and its 1.5 m standing reach assume (D356)")
+    assert [characters.reasons("garret4", SimpleNamespace(**vars(fit) | {"size": s})) for s in (0.5, 1.0, 2.0)] == [
+        [touch], [], []]
