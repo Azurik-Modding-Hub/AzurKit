@@ -1183,6 +1183,20 @@ def test_a_recipe_on_garret4_fills_his_idle_jump_and_victory_slots(usa_iso, tmp_
                                                                                   CANCEL_HOOK)] == ["applied"] * 3
 
 
+def test_a_recipe_on_garret4_binds_its_own_sounds_over_his(usa_iso, tmp_path):
+    """D813 (Modkit's Step 2.206): a recipe's sounds on garret4's own body (his are Garret's, so none of his own
+    stand in the way): voice silent and an sfx on basic1 bind through X14 from fx/sound/v/<name>/ (its whoosh's
+    takes appended to fx.xbr), and W9 empties his columns' shouts."""
+    from azurkit.tools.characters._player_sounds import SOUND_HOOKS
+
+    _, files = _g4(usa_iso, tmp_path, {"voice": "silent", "sfx": {"whoosh": {
+        "generator": "whoosh", "length": 0.4, "swells": 4, "seed": 1, "columns": ["basic1"]}}})
+    with _building(usa_iso):
+        assert all(ports.verify_trampoline_patch(files[characters.XBE], h) == "applied" for h in SOUND_HOOKS)
+    made = sorted(n for n in named_resources(files[FX]).values() if isinstance(n, str) and n.startswith("fx/sound/v/"))
+    assert made and all(n.startswith("fx/sound/v/g4x/whoosh") for n in made)
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
