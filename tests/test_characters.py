@@ -553,6 +553,51 @@ def test_the_speed_toggle_flips_a_worn_bodys_walk_and_roll_to_the_bodys_own(usa_
     assert abs(r * r - 1.0988) < 1e-4 and struct.pack("<I2f", 1, 14 * r, 7 * r) in xbe
 
 
+def test_the_shim_data_a_build_declares_is_the_marker_x3_writes_each_tick(usa_iso, monkeypatch):
+    """AZ-300 (Modkit's test, Step 4.24c): X3 rewrites its damage marker in
+    SHIMS every tick, and the xemu harness's boot-build compared every SHIMS
+    byte with the build's, so it refused every flicken build. The build's
+    shim data, as the harness reads it (``devkit/xemu/shim_ranges.py``'s
+    ``player_model``: ``_player_character.shim_data``, the player-model
+    shims' landed ``.data`` and ``.bss``, found from each hook's CALL and
+    its shim's relocations, never a fixed address), holds the 0x34-byte marker
+    X3 points critter+0x218 at and every SHIMS byte a tick of X3 writes, in
+    the attack window and out of it, the marker's centre and window among
+    them; the vanilla XBE has none."""
+    from unicorn import UC_HOOK_MEM_WRITE
+
+    from azurkit.core import xbe
+    from azurkit.tools.characters._player_damage_marker import DAMAGE_MARKER
+    from devkit.sim.l2 import Sim
+    from devkit.xemu import shim_ranges
+
+    monkeypatch.setenv(gate.USA.env, str(usa_iso))
+
+    _, base, layers, _, _ = sdk._plan({"iso": str(usa_iso), "character": {"species": "flicken"}})
+    built = bytes(compose(base, layers)[0][characters.XBE])
+    shims = next(s for s in xbe.sections(built) if s.name == xbe.SHIMS)
+    data = shim_ranges.player_model(built)
+    covered = {va for start, end in data for va in range(start, end)}
+    hook = xbe.resolve_va_to_file(built, DAMAGE_MARKER.va)
+    entry = DAMAGE_MARKER.va + 5 + struct.unpack_from("<i", built, hook + 1)[0]
+    for done in (0.35, 0.6):   # one tick of X3 at 0x8C3B0: attack column 0, `done` of the way through its move
+        sim, pc, critter = Sim(built), 0x20000000, 0x20001000
+        sim.uc.mem_map(pc, 0x10000)
+        for at, fmt, value in ((pc + 0x20, "<I", critter), (pc + 0x94, "<I", 0x100), (pc + 0xF8, "<f", 0.1),
+                               (pc + 0x100, "<f", 0.9), (pc + 0x134, "<i", 0), (pc + 0x178, "<f", 0.1 + 0.8 * done),
+                               (critter + 0x188, "<f", 1.0), (critter + 0x200, "<i", 0x52)):
+            sim.uc.mem_write(at, struct.pack(fmt, value))
+        written: set[int] = set()
+        sim.uc.hook_add(UC_HOOK_MEM_WRITE, lambda uc, access, va, size, value, _: written.update(range(va, va + size)))
+        sim.call(entry, args=(pc,), until=0x8C8A0)
+        marker = sim.u32(critter + 0x218)
+        assert (marker, marker + 0x34) in data
+        assert {va for va in written if shims.va <= va < shims.va + shims.vsize} <= covered
+        assert set(range(marker + 4, marker + 0x10)) | set(range(marker + 0x2C, marker + 0x34)) <= written
+    with iso.Reader(usa_iso) as r:
+        assert shim_ranges.player_model(r.read(characters.XBE)) == []
+
+
 @pytest.mark.parametrize("release", RELEASES)
 def test_a_character_builds_recipe_rebuilds_its_image(release, request):
     """keylord over the packs on by default: the build's recipe (``sdk.open_build``, then ``sdk.read_mods``: Load
