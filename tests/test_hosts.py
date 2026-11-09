@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import collections
 import contextlib
+import dataclasses
 import hashlib
 import http.client
 import importlib.metadata
@@ -24,6 +25,7 @@ import os
 import platform
 import plistlib
 import socket
+import socketserver
 import re
 import shlex
 import signal
@@ -5017,3 +5019,789 @@ def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_
             page.close()
         finally:
             server.close()
+
+
+
+# ---------------------------------------------------------------- Step 4.28d: Modkit's unpinned page, app and Live tests
+# (the test census's lanes D and L5): Live's links, reads and follower rules (Modkit's test_randomizer_live.py: a
+# synthetic guest RAM whose every byte is the test's own, served by fakes of the fork's shared RAM and QMP on
+# 127.0.0.1:0, never 4444), a Live feed its update ends and the app's engine ended with its app (Modkit's GUI tests).
+
+class _LiveRam(_GuestRam):
+    """:class:`_GuestRam` as Modkit's Live tests write it: a 4 MiB page, an unmapped page, a page's pieces at once
+    and packed values."""
+
+    def map(self, va: int) -> int:
+        pde = struct.unpack_from("<I", self.ram, self.pages.CR3 + 4 * (va >> 22))[0]
+        return (pde & 0xFFC00000) | (va & 0x3FF000) if pde & 0x80 else super().map(va)
+
+    def big(self, va: int, pa: int) -> None:
+        """A 4 MiB page at ``va`` (4 MiB aligned) on physical ``pa``."""
+        self.u32_at(self.pages.CR3 + 4 * (va >> 22), pa | 0x81)
+
+    def unmap(self, va: int) -> None:
+        pde = struct.unpack_from("<I", self.ram, self.pages.CR3 + 4 * (va >> 22))[0]
+        self.u32_at((pde & 0xFFFFF000) + 4 * ((va >> 12) & 0x3FF), 0)
+
+    def write(self, va: int, data: bytes) -> None:
+        from azurkit.tools.randomizer.live import link
+
+        for a, k in link._pieces(va, len(data)):
+            pa = self.map(a) + (a & 0xFFF)
+            self.ram[pa:pa + k] = data[a - va:a - va + k]
+
+    def put(self, va: int, fmt: str, *values) -> None:
+        self.write(va, struct.pack("<" + fmt, *values))
+
+
+def _live_image() -> _LiveRam:
+    """Pages for the link tests: two neighbours on far-apart frames, a 4 MiB page, an unmapped one."""
+    ram = _LiveRam()
+    ram.write(0x10FF0, bytes(range(0x40)))
+    ram.write(0x11000, bytes(range(0x40, 0x80)))
+    ram.big(0x00800000, 0x02000000)
+    ram.ram[0x02000000:0x02000100] = bytes(range(256))
+    ram.map(0x30000)
+    ram.unmap(0x30000)
+    return ram
+
+
+class _FakeXemu(socketserver.ThreadingTCPServer):
+    """A fake on 127.0.0.1:0 (never 4444), each request it hears in ``log``."""
+
+    daemon_threads = allow_reuse_address = True
+
+    def __init__(self, handler, **state):
+        super().__init__(("127.0.0.1", 0), handler)
+        self.log: list = []
+        self.__dict__.update(state)
+        threading.Thread(target=self.serve_forever, daemon=True).start()
+
+    @property
+    def port(self) -> int:
+        return self.server_address[1]
+
+    def stop(self) -> None:
+        self.shutdown()
+        self.server_close()
+
+
+class _FakeQmp(socketserver.StreamRequestHandler):
+    """QMP as xemu's: the greeting, then each command's return (an event first, as QMP may send one), and HMP ``x``
+    in QEMU's own format ("Cannot access memory" at an unmapped line)."""
+
+    def handle(self) -> None:
+        s = self.server
+        self.wfile.write(b'{"QMP": {"version": {"qemu": {"major": 9}}, "capabilities": []}}\r\n')
+        for line in self.rfile:
+            msg = json.loads(line)
+            s.log.append(msg)
+            self.wfile.write(b'{"event": "RTC_CHANGE", "data": {}}\r\n')
+            cmd, args = msg["execute"], msg.get("arguments", {})
+            if cmd == "query-name":
+                reply = {"return": {"name": s.name} if s.name else {}}
+            elif cmd == "query-xemu-status" and not s.fork:
+                reply = {"error": {"class": "CommandNotFound", "desc": "The command query-xemu-status has not "
+                                                                         "been found"}}
+            elif cmd == "human-monitor-command":
+                _, n, start = args["command-line"].split()
+                reply = {"return": _hmp_x(s.ram, int(start, 16), int(n[1:-2]))}
+            else:
+                reply = {"return": {}}
+            self.wfile.write(json.dumps(reply).encode() + b"\r\n")
+
+
+def _hmp_x(ram: _LiveRam, start: int, words: int) -> str:
+    out = ""
+    for line in range(start, start + 4 * words, 16):
+        out += f"{line:08x}:"
+        try:
+            data = ram.read(line, min(16, start + 4 * words - line))
+        except OSError:
+            return out + " Cannot access memory\r\n"
+        out += "".join(f" 0x{w:08x}" for w in struct.unpack(f"<{len(data) // 4}I", data)) + "\r\n"
+    return out
+
+
+class _FakeMonitor(socketserver.BaseRequestHandler):
+    """An HMP ``-monitor`` on a telnet port (QEMU's usual ``-monitor telnet:…``): the telnet options QEMU sends first
+    (IAC WILL ECHO, SGA, BINARY; DO BINARY), its banner, then the prompt."""
+
+    def handle(self) -> None:
+        self.request.sendall(b"\xff\xfb\x01\xff\xfb\x03\xff\xfb\x00\xff\xfd\x00"
+                             b"QEMU 9.2.0 monitor - type 'help' for more information\r\n(qemu) ")
+        while self.request.recv(4096):
+            pass
+
+
+class _FakeOther(socketserver.BaseRequestHandler):
+    """Something that isn't xemu: a line of its own on connect."""
+
+    def handle(self) -> None:
+        self.request.sendall(b"SSH-2.0-OpenSSH_9.9\r\n")
+        while self.request.recv(4096):
+            pass
+
+
+def _closed_port() -> int:
+    """A port nothing listens on: bound, then closed."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _live_shm(ram: _LiveRam):
+    """The image as the fork's XEMU_RAM_SHM, under a test-only name (unlinked by the caller)."""
+    import secrets
+    from multiprocessing import shared_memory
+
+    shm = shared_memory.SharedMemory(f"azt{os.getpid()}{secrets.token_hex(4)}", create=True, size=len(ram.ram))
+    shm.buf[:len(ram.ram)] = ram.ram
+    return shm
+
+
+def _no_writes(log) -> bool:
+    """Only the probe's QMP commands and HMP ``x``."""
+    from azurkit.tools.randomizer.live import link
+
+    return all(m["execute"] in link.QmpLink.ALLOWED and
+               m.get("arguments", {"command-line": "x /"})["command-line"].startswith("x /") for m in log)
+
+
+def test_every_live_link_reads_the_same_guest_memory_through_shared_ram_and_qmp_and_never_writes_it():
+    """Modkit's Step R1.26 (D249): Live reads a running xemu, the fork's or
+    upstream's, never writing it: the fork's shared guest RAM through the
+    guest's own page tables and QMP's HMP ``x`` read the same bytes, across a
+    page boundary and out of a 4 MiB page, and an unmapped page fails as
+    ``OSError``; each link sends only reads and its probe, refusing any other
+    command, and a closed one is a lost link."""
+    from azurkit.tools.randomizer.live import link
+
+    ram = _live_image()
+    wants = [(0x10FF0, 0x20), (0x00800010, 0x80), (0x11030, 0x10)]
+    expect = [ram.read(va, n) for va, n in wants]
+    shm = _live_shm(ram)
+    servers = [_FakeXemu(_FakeQmp, ram=ram, fork=True, name=""), _FakeXemu(_FakeQmp, ram=ram, fork=False, name="")]
+    links = []
+    try:
+        links += [link.SharedRamLink(link.Endpoint("shm", shm.name, True))] + [
+            link.open_first([link.Endpoint("qmp", ("127.0.0.1", s.port), True)]) for s in servers]
+        assert [each.label() for each in links] == [
+            "xemu fork, shared RAM", f"xemu fork, QMP :{servers[0].port}", f"xemu, QMP :{servers[1].port}"]
+        for each in links:
+            assert [each.read(va, n) for va, n in wants] == expect, each.label()
+            assert each.read_many([*wants, (0x30000, 4)]) == [*expect, None], each.label()
+            with pytest.raises(OSError):
+                each.read(0x30FFC, 8)
+        with pytest.raises(RuntimeError, match="not a read Live may send"):
+            links[1]._cmd("query-status")                                # QMP: the probe's and x only
+        for each in links:
+            each.close()
+        assert all(_no_writes(s.log) for s in servers)
+        assert [m["execute"] for m in servers[1].log[:3]] == ["qmp_capabilities", "query-name", "query-xemu-status"]
+        with pytest.raises(link.LinkLost):
+            links[0].read(0x10FF0, 4)
+    finally:
+        for each in links:
+            each.close()
+        for s in servers:
+            s.stop()
+        shm.close()
+        shm.unlink()
+
+
+# The scene chain's own blocks in a :class:`_LiveRam` (``_live_game``), and the level's node vector and nodes
+_SCENE, _DEV, _PD, _CRIT, _GRAPH, _INV, _ENT = (0x400000 + 0x1000 * k for k in range(7))
+_VEC, _NODES = 0x500000, 0x600000
+
+
+def _live_game(ram: _LiveRam, region, lv, items=None, path="levels/water/w2", slot="u:\\0123456789AB\\") -> None:
+    """The scene chain from the recipes' offsets, a player (their body at (1, 2, 3 + the lift): the feet at (1, 2,
+    3)), an inventory of the test's own and ``lv``'s main graph with a generator node at each tracked record, its
+    species the plan's item as the writer names it (``items`` overrides)."""
+    from azurkit.tools.randomizer.live import game, recipes
+
+    va = region.va
+    header = bytearray(game.HEADER_SIZE)
+    header[:4] = b"XBEH"
+    struct.pack_into("<I", header, 0x158, region.thunk_va)   # as the kernel leaves it: decoded in place
+    ram.write(game.HEADER, bytes(header))
+    ram.put(va(game.ADDRESSES["scene"]), "I", _SCENE)
+    ram.put(_SCENE + game.SCENE_DEVICE, "II", _DEV, _PD)
+    ram.put(_DEV, "I", va(game.ADDRESSES["device"]))
+    ram.write(_DEV + game.DEVICE_PATH, slot.encode() + b"\0")
+    ram.write(_PD, path.encode().ljust(0x50, b"\0"))
+    ram.put(_PD + recipes.PD_PLAYER, "I", _CRIT)
+    ram.put(_PD + game.PD_GRAPH, "II", _GRAPH, _INV)
+    inv = bytearray(game.INV_READ)
+    struct.pack_into("<f", inv, 0, 0.5)
+    struct.pack_into("<I", inv, game.INV_PD, _PD)
+    ram.write(_INV, bytes(inv))
+    ram.put(_CRIT + game.CR_ENTITY, "I", _ENT)
+    ram.put(_CRIT + recipes.CR_QUAT, "4f", 0.0, 0.0, 0.0, 1.0)
+    ram.put(_CRIT + recipes.CR_HP, "ii", 200, 200)
+    ram.put(_CRIT + recipes.CR_BODY, "3f", 1.0, 2.0, 3.0 + recipes.LIFT)
+    ram.put(_ENT + game.ENT_CLOCK, "dI", 10.0, _CRIT)
+    ram.write(_VEC, bytes(4 * lv.records))
+    ram.put(_GRAPH + game.GRAPH_VEC, "II", _VEC, _VEC + 4 * lv.records)
+    for k, s in enumerate(lv.spots):
+        node, attrs, species = _NODES + 0x100 * k, _NODES + 0x8000 + 0x40 * k, _NODES + 0x10000 + 0x40 * k
+        ram.put(_VEC + 4 * s.record, "I", node)
+        ram.put(node, "I", va(game.ADDRESSES["generator"]))
+        ram.put(node + game.NODE_ATTRS, "I", attrs)
+        ram.put(node + game.NODE_OWNER, "II", va(game.ADDRESSES["owner"]), 0)
+        ram.put(node + game.NODE_SPECIES, "I", species)
+        ram.put(species, "I", species + 0x10)
+        ram.write(species + 0x10, (items or {}).get(s.loc, s.species or s.item).encode() + b"\0")
+        ram.put(attrs + game.ATTR_COUNTS, "3f", 1.0, 1.0, 0.0)
+
+
+def _live_tick(ram: _LiveRam, dt: float = 1 / 30) -> None:
+    from azurkit.tools.randomizer.live import game
+
+    ram.put(_ENT + game.ENT_CLOCK, "d", struct.unpack("<d", ram.read(_ENT + game.ENT_CLOCK, 8))[0] + dt)
+
+
+def test_the_forks_shared_ram_waits_through_a_boot_finds_its_page_directory_anywhere_and_follows_a_new_xemu_under_its_name(
+        monkeypatch):
+    """Modkit's Step R1.26: the fork's shared guest RAM of an xemu still
+    booting has no page directory: its reads fail (Live reads "waiting"), and
+    it is looked for again every 2 s, not on every read, found wherever the
+    kernel put it (not at 0xF000 here). While the game doesn't run for 5 s the
+    name is opened anew every 2 s: a crashed xemu's frozen object is replaced
+    by the next xemu's under the same name, which Live then reads, and a name
+    gone is a lost link."""
+    import secrets
+    from multiprocessing import shared_memory
+
+    from azurkit.tools.randomizer.live import game, link, pages
+
+    usa, size = game.REGIONS[0], 64 << 20
+    ram = _live_image()
+    moved = bytearray(ram.ram)                          # the page directory in frame 0x20000, not 0xF000
+    moved[0x20000:0x21000] = moved[pages.CR3:pages.CR3 + pages.PAGE]
+    moved[pages.CR3:pages.CR3 + pages.PAGE] = bytes(pages.PAGE)
+    struct.pack_into("<I", moved, 0x20000 + 4 * (pages.PDE_BASE >> 22), 0x20000 | 1)
+    name = f"azt{os.getpid()}{secrets.token_hex(4)}"
+    shm = shared_memory.SharedMemory(name, create=True, size=size)    # booting: all zero
+    session = None
+    try:
+        shared = link.SharedRamLink(link.Endpoint("shm", name, True))
+        with pytest.raises(OSError):
+            shared.read(0x10FF0, 4)
+        shm.buf[:size] = moved
+        with pytest.raises(OSError):                    # not looked for again yet
+            shared.read(0x10FF0, 4)
+        shared._scanned -= link.SCAN_EVERY_S
+        assert shared.read(0x10FF0, 0x20) == ram.read(0x10FF0, 0x20)
+
+        monkeypatch.setattr(game, "PAUSED_S", 0.0)
+        monkeypatch.setattr(game, "WAITING_S", 0.0)
+        session = game.Session(shared, game.SpotTable({}, ()))
+        assert session.poll().reading.state == "waiting"            # no XBE header: not Azurik
+        shm.close()
+        shm.unlink()                                    # xemu quit; the next one makes the name anew
+        played = _LiveRam()
+        _live_game(played, usa, game.LevelSpots("w2", 0, 4, ()))
+        shm = shared_memory.SharedMemory(name, create=True, size=size)
+        shm.buf[:size] = played.ram
+        session.poll()                                  # read through the old mapping, then the name reopened
+        assert session.poll().reading.region is usa
+        shm.close()
+        shm.unlink()
+        shm = None
+        with pytest.raises(link.LinkLost):
+            session.poll()
+    finally:
+        if session is not None:
+            session.close()
+        if shm is not None:
+            shm.close()
+            shm.unlink()
+
+
+@pytest.mark.xdist_group("ghidra_sockets")
+def test_live_connect_tries_shared_ram_then_qmp_skips_automated_xemus_refuses_a_gdbstub_and_names_one_fix_when_none_answers():
+    """Modkit's Step R1.26: Live probes the endpoints in order (the fork's
+    shared RAM, then QMP) and takes the first that answers as xemu. By
+    discovery it never reads the fork's automated xemus (``-name
+    xemu-fork-auto``, D248, by QMP's name); an endpoint the user names is read
+    whatever its name. When none answers it names the one fix: nothing there,
+    xemu started with QMP; a port that isn't xemu, another port; a busy one,
+    detaching its client; an HMP ``-monitor``, on telnet too, -qmp instead.
+    ``AZURIK_XEMU_LIVE`` names the endpoints, else the list the tracker saved,
+    else the defaults: shared RAM, then QMP. Step 2.91b (D257): Live reads no
+    gdbstub, which pauses the game, and a ``gdb:`` endpoint (``gdb:off`` too)
+    is refused by name, pointing to QMP. An xemu that answers but runs no
+    Azurik yet connects, waiting; the release is the XBE header's in guest
+    RAM (the app's feed opens a session on the first endpoint that answers:
+    Modkit's ``live.connect``)."""
+    from azurkit.tools.randomizer.live import game, link
+
+    europe = game.REGIONS[1]
+    ram = _live_image()
+    shm = _live_shm(ram)
+    qmp = _FakeXemu(_FakeQmp, ram=ram, fork=True, name="")
+    auto = _FakeXemu(_FakeQmp, ram=ram, fork=True, name=link.AUTOMATED)
+    banner, other = _FakeXemu(_FakeMonitor), _FakeXemu(_FakeOther)
+    busy = socket.socket()
+    busy.bind(("127.0.0.1", 0))
+    busy.listen(1)                     # a QMP with a client already: a second waits in the backlog
+    servers = [qmp, auto, banner, other]
+    found = lambda *eps: link.open_first(list(eps))   # noqa: E731
+    at = lambda port, explicit=False: link.Endpoint("qmp", ("127.0.0.1", port), explicit)   # noqa: E731
+    nobody = _closed_port()
+    try:
+        order = [link.Endpoint("shm", shm.name), at(qmp.port)]
+        for k, kind in enumerate(("shm", "qmp")):
+            opened = found(link.Endpoint("shm", "aztnone" + os.urandom(4).hex()), at(nobody), *order[k:])
+            assert opened.kind == kind
+            opened.close()
+        with pytest.raises(link.LiveError) as e:
+            found(at(auto.port), at(nobody))
+        assert str(e.value) == link.ONLY_AUTOMATED
+        opened = found(at(auto.port, explicit=True))
+        assert opened.name == link.AUTOMATED and opened.fork
+        opened.close()
+        texts = {}
+        for name, eps in (("none", [at(nobody), at(_closed_port())]), ("other", [at(other.port)]),
+                          ("banner", [at(banner.port)]), ("busy", [at(busy.getsockname()[1]), at(nobody)])):
+            with pytest.raises(link.LiveError) as e:
+                found(*eps)
+            texts[name] = str(e.value)
+        assert link.no_xemu("linux") == ("No xemu answers. Start xemu with QMP: click to copy its launch "
+                                          "line (hover for how).")
+        assert link.ATTACH in link.no_xemu("darwin")       # macOS: the admin attach first (D257)
+        assert texts == {
+            "none": link.NO_XEMU,
+            "other": link.not_xemu(f"127.0.0.1:{other.port}"),
+            "banner": f"127.0.0.1:{banner.port} is xemu's -monitor, not -qmp: start xemu with -qmp instead "
+                      f"(right-click copies the line).",
+            "busy": f"xemu's QMP at :{busy.getsockname()[1]} is in use by another client: detach it."}
+        assert all(_no_writes(s.log) for s in (qmp, auto))
+
+        defaults = link.endpoints({})
+        assert [str(e) for e in defaults] == ["shm:azurik-live", "qmp:127.0.0.1:4444"]
+        assert not any(e.explicit for e in defaults)
+        named = link.endpoints({link.ENV: "qmp:unix:/tmp/q.sock, shm:azx.1, qmp:localhost:5555"})
+        assert [(str(e), e.explicit) for e in named] == [("qmp:unix:/tmp/q.sock", True), ("shm:azx.1", True),
+                                                          ("qmp:localhost:5555", True)]
+        saved = "qmp:127.0.0.1:4445"
+        assert [str(e) for e in link.endpoints({}, saved=saved)] == ["qmp:127.0.0.1:4445"]
+        assert [str(e) for e in link.endpoints({link.ENV: "shm:mine"}, saved=saved)] == ["shm:mine"]
+        with pytest.raises(link.LiveError, match="AZURIK_XEMU_LIVE: 'qmp:4444' is none of"):
+            link.endpoints({link.ENV: "qmp:4444"})
+        refused = {}
+        for item in ("gdb:127.0.0.1:1234", "gdb:off"):
+            with pytest.raises(link.LiveError) as e:
+                link.endpoints({link.ENV: f"shm:mine,{item}"})
+            refused[item] = str(e.value)
+        assert refused == {item: f"AZURIK_XEMU_LIVE: {item!r}: Live reads no gdbstub (it pauses the game, D257): "
+                                 f"name xemu's QMP, qmp:<host>:<port>" for item in refused}
+
+        none = game.SpotTable({}, ())       # an xemu at its dashboard (no XBE header): connected, waiting
+        session = game.Session(link.open_first([at(qmp.port)]), none)
+        assert session.poll().reading.state == "waiting" and session.period == game.WAITING_S
+        session.close()
+        played = _LiveRam()
+        _live_game(played, europe, game.LevelSpots("w2", 0, 4, ()))
+        servers.append(_FakeXemu(_FakeQmp, ram=played, fork=False, name=""))
+        session = game.Session(link.open_first([at(servers[-1].port)]), none)
+        assert session.poll().reading.region is europe and session.describe() == f"xemu, QMP :{servers[-1].port}"
+        session.close()
+    finally:
+        for s in servers:
+            s.stop()
+        busy.close()
+        shm.close()
+        shm.unlink()
+
+
+class _LiveMem:
+    """A link over a :class:`_LiveRam` (``link.Link``'s reads)."""
+
+    kind, period = "shm", 0.25
+
+    def __init__(self, ram: _LiveRam):
+        self.ram = ram
+
+    def read(self, va: int, n: int) -> bytes:
+        return self.ram.read(va, n)
+
+    def read_many(self, wants: list) -> list:
+        from azurkit.tools.randomizer.live import link
+
+        return link.Link.read_many(self, wants)
+
+
+def test_live_reads_a_levels_spots_only_once_its_load_has_settled_and_says_when_the_game_is_another_seed():
+    """Modkit's Step R1.26: Live reads which of the player's level's tracked
+    spots the game holds taken from each spot's critterGenerator node in the
+    level's main graph, found by the spot's record, and trusts it only once
+    the load has settled: the graph pointer unchanged for 2 polls, its node
+    vector as long as the level's records, a player, a running poll, every
+    spot's node a generator. No player is "menus"; a frozen event clock is a
+    hold, still settled; a clock jumping back is settled anew; a species that
+    isn't the plan's item as the writer names it says the game runs another
+    seed (an obsidian left at a5's obsidian_move spot keeps that name: not
+    another seed; a name across a page's end is read whole). Every address is
+    the running release's: Europe's under Europe's kernel-thunk word (decoded
+    in RAM, as the kernel leaves the header), and a guest reboot into another
+    release (the scene gone, a header that isn't Azurik's, Europe's) reads
+    menus, waiting, then Europe's level, with no error. AzurKit places the
+    player at their body (its feet a lift below it), where Modkit read the
+    entity's last contact point."""
+    from azurkit.tools.randomizer.live import game, recipes
+
+    usa, europe = game.REGIONS
+    table = game.spot_table(tracking.tracker_of(_profile("default")))
+    w2 = table.levels["w2"]
+    ram = _LiveRam()
+    _live_game(ram, usa, w2)
+    live = game.Game(_LiveMem(ram), table)
+
+    def poll(n: int = 1, dt: float = 1 / 30) -> game.Reading:
+        for _ in range(n):
+            _live_tick(ram, dt)
+            r = live.read()
+        return r
+
+    ram.put(_GRAPH + game.GRAPH_VEC + 4, "I", _VEC + 4 * (w2.records - 1))   # still being built
+    assert poll(3).state == "loading"
+    ram.put(_GRAPH + game.GRAPH_VEC + 4, "I", _VEC + 4 * w2.records)
+    r = poll()
+    assert (r.state, r.region, r.level, r.slot, r.settle) == ("running", usa, "w2", "u:\\0123456789AB\\", 1)
+    assert r.dead == {s.loc: 0.0 for s in w2.spots} and not r.mismatch and (r.at, r.hp) == ((1.0, 2.0, 3.0), 200)
+    ram.put(_CRIT + recipes.CR_BODY, "3f", float("nan"), 2.0, 4.0)    # no place the maps can't draw
+    assert poll(dt=0).state == "hold" and live.read().settle == 1 and live.read().at is None
+    ram.put(_CRIT + recipes.CR_BODY, "3f", 1.0, 2.0, 4.0)
+    ram.put(_PD + recipes.PD_PLAYER, "I", 0)
+    assert live.read().state == "menus"
+    ram.put(_PD + recipes.PD_PLAYER, "I", _CRIT)
+    assert [poll().state for _ in range(2)] == ["loading", "running"] and live.read().settle == 2
+    assert poll(dt=-3).state == "loading" and poll().settle == 3     # the clock went back (a loadvm): anew
+
+    k = next(k for k, s in enumerate(w2.spots) if s.item == "obsidian")
+    ram.write(_NODES + 0x10010 + 0x40 * k, b"power_fire\0")   # another seed's item at a spot
+    assert poll(dt=10).state == "loading"            # (a jump on: settled anew, its species read again)
+    r = poll(2)
+    assert r.settled and r.mismatch
+    ram.write(_NODES + 0x10010 + 0x40 * k, w2.spots[k].item.encode() + b"\0")
+    ram.put(_NODES, "I", 0x1234)                       # a node not yet a generator: not settled
+    assert poll(dt=10).state == "loading" and {poll().state for _ in range(3)} == {"loading"}
+    ram.put(_NODES, "I", game.ADDRESSES["generator"])
+    r = poll()
+    assert r.state == "running" and not r.mismatch
+
+    ram.put(usa.va(game.ADDRESSES["scene"]), "I", 0)  # a guest reboot: the scene gone, then another title
+    assert live.read().state == "menus"
+    ram.write(game.HEADER, b"\0" * 4)
+    assert live.read().state == "waiting" and live.region is None
+    _live_game(ram, europe, w2)
+    r = poll(3)
+    assert (r.state, r.region, r.level) == ("running", europe, "w2") and not r.mismatch
+    assert r.dead == {s.loc: 0.0 for s in w2.spots}
+    assert europe.va(game.ADDRESSES["scene"]) != game.ADDRESSES["scene"]
+
+    a5 = table.levels["a5"]                          # an obsidian left at an obsidian_move spot keeps that name
+    assert any(s.item == "obsidian" and s.species == "obsidian_move" for s in a5.spots)
+    ram = _LiveRam()
+    _live_game(ram, usa, a5, path="levels/air/a5")
+    k = next(k for k, s in enumerate(a5.spots) if s.species == "obsidian_move")
+    ram.put(_NODES + 0x10000 + 0x40 * k, "I", 0x61FFFA)        # its name across a page's end, read whole
+    ram.write(0x61FFFA, b"obsidian_move\0")
+    live = game.Game(_LiveMem(ram), table)
+    r = poll(3)
+    assert (r.state, r.level) == ("running", "a5") and not r.mismatch
+
+
+def _live_spots():
+    """Spots of the test's own: w2's two saved obsidians, a saved fragment and power, an unsaved health and fuel;
+    w1's obsidian; a characters-graph fragment of a6's."""
+    from azurkit.tools.randomizer.live import game
+
+    w2 = (game.Spot("w2/g0/r1", "w2", 0, 1, "obsidian", "S"), game.Spot("w2/g0/r2", "w2", 0, 2, "obsidian", "S"),
+          game.Spot("w2/g0/r3", "w2", 0, 3, "all_health", "U"),
+          game.Spot("w2/g0/r4", "w2", 0, 4, "frag_air_2", "S", "fga2"),
+          game.Spot("w2/g0/r5", "w2", 0, 5, "all_fuel", "U"), game.Spot("w2/g0/r6", "w2", 0, 6, "power_air", "S"))
+    w1 = (game.Spot("w1/g0/r1", "w1", 0, 1, "obsidian", "S"),)
+    a6 = (game.Spot("characters/g16/r102", "a6", None, None, "frag_air_4", "C", "fga4"),)
+    levels = {"w2": game.LevelSpots("w2", 0, 10, w2), "w1": game.LevelSpots("w1", 0, 10, w1),
+              "a6": game.LevelSpots("a6", 0, 10, a6)}
+    return game.SpotTable(levels, w2 + w1 + a6)
+
+
+def _new_game() -> dict:
+    """A New Game's first settle as Modkit's sitting r1.26 read it (X4): the training room, the day clock near 0,
+    every element at level 1, each fuel 50, HP 200, no saved slot yet."""
+    from azurkit.tools.randomizer.live import game
+
+    return {"level": "training_room", "clock": 0.004, "slot": "", "dead": {},
+            "inv": dict(game.inventory(bytes(game.INV_READ)), **{f"level.{e}": 1 for e in ("earth", "air", "fire", "water")},
+                        ef=50, af=50, ff=50, wf=50, hlth=200)}
+
+
+class _LivePlay:
+    """Scripted readings for a :class:`game.Follower`: each :meth:`poll` moves the event clock by ``dt`` (0: a hold)
+    and the day clock with it, and returns the events."""
+
+    def __init__(self, journal=None):
+        from azurkit.tools.randomizer.live import game
+
+        self.f = game.Follower(_live_spots(), journal)
+        self.r = game.Reading("running", level="w2", settle=1, clock=0.5, event=100.0, slot="u:\\A\\",
+                              inv=dict(game.inventory(bytes(game.INV_READ))), hp=200, maxhp=200,
+                              dead={f"w2/g0/r{k}": 0.0 for k in range(1, 7)})
+
+    def poll(self, dt: float = 0.1, **change) -> list:
+        inv = {**self.r.inv, **change.pop("inv", {})}
+        dead = {**self.r.dead, **change.pop("dead", {})}
+        self.r = dataclasses.replace(self.r, state="running" if dt else "hold", event=self.r.event + dt,
+                                     clock=change.pop("clock", self.r.clock + dt / 600), inv=inv, dead=dead, **change)
+        return self.f.step(self.r)
+
+
+def test_live_marks_a_spot_only_when_its_generator_dies_with_the_items_own_inventory_change_and_sees_a_reload_by_the_clock():
+    """Modkit's Step R1.26: a spot is taken when its generator's numDead rises
+    and, by the next running poll, the inventory changed the way the plan's
+    item there should, at the rise's running poll or the next (two obsidians,
+    obsi +2), each change spent once, on its own rise, never on an older rise
+    that had none; all_health at full HP needs nothing; a characters-graph
+    fragment its count alone. A popup or pause holds a rise, never expiring
+    it, and the take keeps the rise's day clock, ahead of a settle's marks; a
+    rise just before a level exit pairs at the next level's first running
+    poll. A rise with no change is unpaired after 2 s of event clock, a rise
+    seen once is nothing, and a refused pickup (no rise) is nothing. Each
+    settle gives the level's spots and the one-copy items held (a fragment not
+    held: absent). The day clock falling is a reload; one landing on another
+    saved slot, or a new game (its training room on no saved slot, every
+    element at 1; on a saved slot, a save made there, it isn't one), a new
+    timeline; a first save or a save into another slot is neither. After a new
+    game, a load onto a saved slot is its own timeline only by a fall to after
+    its start (a death's Continue onto its first save), else a new one; a
+    session's first settle on a new game is one too. R1.41: a new game entered
+    from a saved slot is told as it leaves its training room (on to a level, a
+    save, a load of another slot)."""
+    from azurkit.tools.randomizer.live import game
+
+    replace, NEW_GAME = dataclasses.replace, _new_game()
+    Took, Level, Held, Reload, Unpaired = game.Took, game.Level, game.Held, game.Reload, game.Unpaired
+    p = _LivePlay({"slot": "u:\\A\\"})
+    w2 = {f"r{k}": f"w2/g0/r{k}" for k in range(1, 7)}
+    assert p.f.step(p.r) == [Level("w2", untaken=frozenset({w2["r1"], w2["r2"], w2["r4"], w2["r6"]}),
+                                   unsaved_untaken=frozenset({w2["r3"], w2["r5"]}), clock=0.5),
+                             Held(frozenset(), frozenset({w2["r4"], "characters/g16/r102"}))]
+    rise = p.r.clock
+    assert p.poll(dead={w2["r1"]: 1.0}) == []                              # seen
+    assert [p.poll(0) for _ in range(5)] == [[]] * 5                       # a popup: held, not expired
+    assert p.poll(0, inv={"obsi": 1}) == []
+    assert p.poll() == [Took(w2["r1"], rise + 0.1 / 600)]                  # confirmed, paired: the rise's clock
+    p.poll(dead={w2["r2"]: 1.0, w2["r3"]: 1.0})                            # an obsidian and health at full HP
+    assert set(p.poll()) == {Took(w2["r3"], p.r.clock - 0.1 / 600)}        # health alone; the obsidian waits
+    assert p.poll(inv={"obsi": 2}) == [Took(w2["r2"], p.r.clock - 0.2 / 600)]
+    p.poll(dead={w2["r6"]: 1.0})                                           # no change of its item
+    assert p.poll(1.0) == [] and p.poll(1.5) == [Unpaired(w2["r6"])] and p.f.unpaired == 1
+    assert p.poll(dead={w2["r5"]: 1.0}) == [] and p.poll(dead={w2["r5"]: 0.0}) == []   # a torn read: nothing
+    assert p.poll(inv={"ef": 10}) == [] and p.poll() == []                 # a refused pickup changes no numDead
+    assert p.poll(inv={"fga4": 1}) == [Took("characters/g16/r102", p.r.clock)]
+
+    q = _LivePlay()
+    q.f.step(q.r)
+    q.poll(dead={w2["r1"]: 1.0, w2["r2"]: 1.0})
+    assert sorted(e.loc for e in q.poll(inv={"obsi": 2})) == [w2["r1"], w2["r2"]]
+
+    o = _LivePlay()                                                        # staggered: one obsidian, two rises
+    o.f.step(o.r)
+    o.poll(dead={w2["r1"]: 1.0})                                           # a rise with no change of its own
+    assert o.poll() == [] and o.poll() == []
+    assert o.poll(dead={w2["r2"]: 1.0}, inv={"obsi": 1}) == []             # the next one's, with its change
+    assert o.poll() == [Took(w2["r2"], o.r.clock - 0.1 / 600)]
+    assert o.poll(2.0) == [Unpaired(w2["r1"])]
+
+    u = _LivePlay()                                                        # a fuel taken as its level re-settles
+    u.f.step(u.r)
+    u.poll(dead={w2["r5"]: 1.0})
+    rise = u.r.clock
+    events = u.poll(settle=2, inv={"ef": 10})                              # (a stall past 5 s, a cutscene)
+    assert events[:2] == [Took(w2["r5"], rise), Level("w2", untaken=frozenset({w2["r1"], w2["r2"], w2["r4"], w2["r6"]}),
+                                                      unsaved_taken=frozenset({w2["r5"]}),
+                                                      unsaved_untaken=frozenset({w2["r3"]}), clock=u.r.clock)]
+    q.poll(dead={w2["r4"]: 1.0})                                           # taken just before a level exit
+    rise = q.r.clock
+    assert q.f.step(replace(q.r, state="loading", dead={})) == []
+    q.r = replace(q.r, level="w1", settle=2, dead={"w1/g0/r1": 0.0})
+    events = q.poll(inv={"fga2": 1})
+    assert Took(w2["r4"], rise) in events and Level("w1", untaken=frozenset({"w1/g0/r1"}), clock=q.r.clock) in events
+    assert q.poll(dt=-3.0, settle=3, clock=q.r.clock) == [Level("w1", untaken=frozenset({"w1/g0/r1"}),
+                                                                clock=q.r.clock),
+                                                          Held(frozenset({w2["r4"]}), frozenset({"characters/g16/r102"}))]
+
+    r = _LivePlay({"slot": "u:\\A\\"})
+    r.f.step(r.r)
+    assert r.poll(slot="") == [] and r.poll(slot="u:\\B\\") == []          # a first save, a save elsewhere
+    assert r.poll(slot="u:\\C\\") == [] and r.f.slot == "u:\\C\\"
+    back = r.r.clock - 0.1
+    events = r.poll(clock=back, settle=2)
+    assert events[:1] == [Reload(back, False)] and isinstance(events[1], Held)
+    events = r.poll(clock=back - 0.05, settle=3, slot="u:\\D\\")           # a Load Game of another slot
+    assert events[0] == Reload(back - 0.05, True)
+    r.f.step(replace(r.r, state="loading", dead={}))                       # a new game: told as it leaves
+    r.r = replace(r.r, settle=4, **NEW_GAME)                               # its training room (R1.41)
+    assert r.f.step(r.r) == []
+    events = r.poll(settle=5, level="w2", inv=dict(game.inventory(bytes(game.INV_READ))),
+                    dead={f"w2/g0/r{k}": 0.0 for k in range(1, 7)})
+    assert events[0] == Reload(r.r.clock, True) and events[2] == Level(
+        "w2", untaken=frozenset({w2["r1"], w2["r2"], w2["r4"], w2["r6"]}),
+        unsaved_untaken=frozenset({w2["r3"], w2["r5"]}), clock=r.r.clock)
+    r.poll(clock=0.3, inv={"obsi": 1})                                     # its first save, into E, shown by a
+    assert r.poll(clock=0.27, settle=6, slot="u:\\E\\")[0] == Reload(0.27, False)   # death's Continue: its own
+    r.f.step(replace(r.r, state="loading", dead={}))                       # a new game again,
+    r.r = replace(r.r, settle=7, **NEW_GAME)
+    assert r.f.step(r.r) == []
+    r.f.step(replace(r.r, state="loading", dead={}))                       # then Load Game of another slot
+    assert r.poll(clock=2.0, settle=8, level="w2", slot="u:\\G\\")[0] == Reload(2.0, True)
+    n = _LivePlay({"slot": "u:\\A\\"})                                     # a session opened on a new game,
+    n.r = replace(n.r, **NEW_GAME)
+    assert n.f.step(n.r) == []                                             # its journal no fresh mark
+    assert n.poll(clock=0.02, slot="u:\\F\\")[0] == Reload(0.02, True)     # its first save, in the training room
+    n.poll(clock=0.03)                                                     # (the sitting's save_anywhere), then a
+    n.f.step(replace(n.r, state="loading", dead={}))                       # death's Continue onto it: a saved
+    assert n.poll(clock=0.0205, settle=2)[0] == Reload(0.0205, False)      # slot, so the same timeline
+
+
+def test_live_takes_a_level_warp_into_the_training_room_before_the_first_save_as_the_same_game_and_a_death_there_as_a_new_one():
+    """Modkit's Step R1.26, AZ-481: on no saved slot the training room starts
+    a new game only when the day clock fell to it (a New Game from the title,
+    told as it goes on to a level, R1.41; a death there before the first
+    save, which loads the room again at day 0) or at a session's first settle
+    there; a level request into it (the debug menu's Change level..., an R7
+    hop), its clock running on, is the same game: no reload, so the marks
+    taken since the New Game stay."""
+    from azurkit.tools.randomizer.live import game
+
+    replace, NEW_GAME = dataclasses.replace, _new_game()
+    p = _LivePlay({"slot": "u:\\A\\"})
+    p.f.step(p.r)
+    p.f.step(replace(p.r, state="loading", dead={}))                       # a New Game
+    p.r = replace(p.r, settle=2, **NEW_GAME)
+    assert p.f.step(p.r) == []
+    p.f.step(replace(p.r, state="loading", dead={}))                       # on to w2, not yet saved
+    p.r = replace(p.r, settle=3, level="w2", dead={f"w2/g0/r{k}": 0.0 for k in range(1, 7)})
+    assert p.poll(clock=0.03)[0] == game.Reload(0.03, True)
+    p.poll(dead={"w2/g0/r1": 1.0})
+    rise = p.r.clock
+    assert p.poll(inv={"obsi": 1}) == [game.Took("w2/g0/r1", rise)]
+    p.f.step(replace(p.r, state="loading", dead={}))                       # a level warp back into the room
+    p.r = replace(p.r, settle=4, level="training_room", dead={})
+    assert p.poll() == [game.Held(frozenset(), frozenset({"w2/g0/r4", "characters/g16/r102"}))]
+    p.f.step(replace(p.r, state="loading", dead={}))                       # a death there before any save
+    p.r = replace(p.r, settle=5, clock=0.0004, inv=NEW_GAME["inv"])
+    assert p.f.step(p.r)[0] == game.Reload(0.0004, True)
+
+
+def test_a_stored_power_trip_through_a_new_games_training_room_back_to_its_saved_slot_is_the_same_timeline():
+    """Modkit's R1.41 (the owner after X.92's demo: "The tracker shows
+    multiple things as not doable right now that are, or vice versa"): a
+    stored-power skip's trip (New Game, its training room at every element 1,
+    store, quit, Load Game of the saved slot) was a new timeline twice over,
+    so every live mark went, and the spots they gave read not doable. A new
+    game entered from a saved slot now gives nothing while in its training
+    room (its Held would unmark every fragment: its inventory isn't the
+    player's), and a load back onto that slot is the same timeline: a Reload
+    to the save's day clock, which drops only the takes since the save. Any
+    other way out (on to a level, a save, a load of another slot) is the new
+    game's timeline."""
+    from azurkit.tools.randomizer.live import game
+
+    replace, NEW_GAME = dataclasses.replace, _new_game()
+    p = _LivePlay({"slot": "u:\\A\\"})
+    p.f.step(p.r)
+    for k, (way, slot, level) in enumerate((("back", "u:\\a\\", "w2"), ("another slot", "u:\\B\\", "w1"))):
+        p.f.step(replace(p.r, state="loading", dead={}))                   # New Game from the title
+        p.r = replace(p.r, settle=2 * k + 2, **NEW_GAME)
+        assert [p.f.step(p.r), p.poll(), p.poll(0)] == [[], [], []], way
+        p.f.step(replace(p.r, state="loading", dead={}))                   # quit, Load Game
+        p.r = replace(p.r, settle=2 * k + 3, level=level, slot=slot, clock=0.45,
+                      inv=dict(game.inventory(bytes(game.INV_READ))), dead={})
+        events = p.f.step(p.r)
+        assert events[0] == game.Reload(0.45, way != "back") and isinstance(events[1], game.Held), way
+
+
+def test_a_live_feed_whose_update_fails_ends_saying_why_and_closes_its_link(monkeypatch):
+    """Modkit's Step R1.26 (its tracker window's ``run_feed``): an exception
+    the feed's update of a reading raises (a place the maps can't draw) ends
+    the app's Live feed as an error: its thread returns and closes its link,
+    rather than polling with no one reading, and the page reads "stopped"
+    with why."""
+    from azurkit.tools.randomizer.live import link
+
+    closed = threading.Event()
+
+    class Xemu(link.Link):
+        kind, period = "shm", 0.01
+
+        def label(self) -> str:
+            return "xemu, scripted"
+
+        def read(self, va: int, n: int) -> bytes:
+            raise OSError("not mapped")   # no XBE header: each poll reads "waiting"
+
+        def close(self) -> None:
+            closed.set()
+
+    def fails(update) -> None:
+        raise ValueError("cannot convert float NaN to integer")
+
+    monkeypatch.setattr(link, "open_first", lambda eps: Xemu(link.Endpoint("shm", "scripted")))
+    feed = app.live.Feed(_profile("default"), None)
+    monkeypatch.setattr(feed, "_update", fails)
+    feed.start()
+    feed.thread.join(60)
+    assert (feed.thread.is_alive(), closed.is_set(), feed.take()[1]["status"], feed.text) == (
+        False, True, "stopped", "Live stopped: cannot convert float NaN to integer")
+
+
+def _running(pid: int) -> bool:
+    """Whether process ``pid`` exists, on each OS (Windows' ``os.kill`` with 0 would send Ctrl-C)."""
+    if os.name == "nt":
+        return bool(subprocess.run(["powershell", "-NoProfile", "-Command",
+                                    f"Get-Process -Id {pid} -ErrorAction SilentlyContinue"],
+                                   capture_output=True, text=True).stdout.strip())
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def test_the_apps_engine_process_ends_once_the_app_that_started_it_is_killed(tmp_path):
+    """Modkit's AZ-801 (Step 2.164e; a 3.2 GB dress child outlived a crashed
+    app): the app's engine process (``engine.Spawned``'s, whose ``orphaned``
+    watches its parent) ends within seconds once the app that started it is
+    killed, which runs no ``finally`` (a crash, Cmd-Q), and is alive until
+    then (the review's F2: a child that died at once passed it)."""
+    script = ("import os, time\n"
+              "from azurkit.app import engine\n"
+              "spawned = engine.Spawned()\n"
+              "try:\n"
+              "    spawned.call('spoiler', {})\n"   # refused in the engine's process: its watch runs
+              "except ValueError:\n"
+              "    pass\n"
+              "print(os.getpid(), spawned.pid, spawned._child.process.is_alive(), flush=True)\n"
+              "time.sleep(120)\n")
+    with subprocess.Popen([sys.executable, "-c", script], stdout=subprocess.PIPE, text=True, cwd=tmp_path) as started:
+        engine_pid = None
+        try:
+            app_pid, engine_pid, running = started.stdout.readline().split()
+            engine_pid = int(engine_pid)
+            os.kill(int(app_pid), getattr(signal, "SIGKILL", signal.SIGTERM))   # the app itself (Windows: not
+            started.wait(60)                                                      # the venv's redirector)
+            end, alive = time.monotonic() + 15, True
+            while alive and time.monotonic() < end:
+                alive = _running(engine_pid)
+                time.sleep(0.2)
+            assert (running, alive) == ("True", False)
+        finally:
+            started.kill()
+            if engine_pid is not None and _running(engine_pid):
+                os.kill(engine_pid, getattr(signal, "SIGKILL", signal.SIGTERM))
