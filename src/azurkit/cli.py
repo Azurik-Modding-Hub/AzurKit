@@ -117,7 +117,7 @@ from azurkit import __version__, sdk
 from azurkit.core import gate
 from azurkit.core.xbr import Document
 from azurkit.edits import files as replaced
-from azurkit.tools.mods import settle
+from azurkit.tools.mods import settle, unknown
 
 
 def _verify(args: argparse.Namespace) -> int:
@@ -159,8 +159,8 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
     ``PACK.SLIDER=NUMBER`` of a pack the build applies (the sdk names a slider
     or value it refuses). Prints what the flags and the mods file moved."""
     catalog = {p["name"]: p for p in sdk.catalog()["packs"]}
-    if unknown := sorted({*packs, *no_packs} - catalog.keys()):
-        raise ValueError(f"no pack {', '.join(map(repr, unknown))} (the packs: {', '.join(catalog)})")
+    if lost := sorted({*packs, *no_packs} - catalog.keys()):
+        raise ValueError(unknown(lost))
     if both := sorted(set(packs) & set(no_packs)):
         raise ValueError(f"packs both added and taken away: {', '.join(both)}")
     given = (mods or {}).get("packs")

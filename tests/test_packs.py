@@ -485,3 +485,22 @@ def test_a_flag_typed_short_is_refused_and_nothing_starts(monkeypatch, capsys):
             cli.main(argv)
         assert exc.value.code == 2 and f"unrecognized arguments: {argv[-1]}\n" in capsys.readouterr().err, argv
     assert ran == []
+
+
+def test_a_retired_pack_name_is_refused_saying_what_replaced_it(tmp_path, capsys):
+    """Modkit's D43 (test_legacy_pack_migration): a retired pack name
+    (qol_skip_save_signature, the randomizer's old rand_* packs) is refused
+    by name, saying what replaced it, by ``mods.normalize`` (every host's
+    check of a recipe, a mods file's or a link's packs) and by ``azurkit
+    build --pack``, before the image is read; an unknown name is refused as
+    before."""
+    with pytest.raises(ValueError, match=re.escape(
+            "recipe: no pack 'qol_skip_save_signature' (retired: azurkit save edit signs an edited save again "
+            f"with your own BIOS files), 'zz' (the packs: {', '.join(mods.PACKS)})")):
+        mods.normalize({"zz": {}, "qol_skip_save_signature": {}})
+    out = tmp_path / "out.iso"
+    assert cli.main(["build", "--iso", str(tmp_path / "none.iso"), "--out", str(out), "--pack", "rand_keys"]) == 1
+    assert capsys.readouterr().err == (
+        "azurkit: no pack 'rand_keys' (retired: the randomizer's settings choose what is shuffled (keys stay "
+        f"vanilla)) (the packs: {', '.join(mods.PACKS)})\n")
+    assert not out.exists()

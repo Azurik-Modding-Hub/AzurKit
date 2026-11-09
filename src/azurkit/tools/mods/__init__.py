@@ -26,6 +26,22 @@ PACKS: dict[str, Pack] = {pack.name: pack for pack in (
     qol_memory.UPPER64_GPU_PACK, qol_memory.UPPER256_PACK, qol_alloc_race.PACK)}
 
 
+#: Modkit's retired pack names (D43): each refused by name, saying what replaced it (:func:`unknown`).
+RETIRED = {"qol_skip_save_signature": "azurkit save edit signs an edited save again with your own BIOS files",
+           **{f"rand_{pool}": f"the randomizer's settings choose what is shuffled ({how})" for pool, how in (
+               ("major", "a settings file's excluded categories keep fragments and powers vanilla"),
+               ("keys", "keys stay vanilla"),
+               ("gems", "a settings file's excluded categories keep gems and obsidians vanilla"),
+               ("barriers", "barriers stay vanilla"), ("connections", "exits stay vanilla"))}}
+
+
+def unknown(names: Iterable[str]) -> str:
+    """Why no pack has any of ``names``: each named, a retired one with what
+    replaced it (:data:`RETIRED`), then the packs."""
+    named = [f"{name!r} (retired: {RETIRED[name]})" if name in RETIRED else repr(name) for name in names]
+    return f"no pack {', '.join(named)} (the packs: {', '.join(PACKS)})"
+
+
 def normalize(packs: object) -> dict[str, dict[str, float | int]]:
     """``packs`` (``{pack: {slider: value}}``) as a build takes it: the
     packs in their canonical order, each value as its slider takes it (any
@@ -37,8 +53,8 @@ def normalize(packs: object) -> dict[str, dict[str, float | int]]:
     if not isinstance(packs, Mapping) or not all(isinstance(v, Mapping) for v in packs.values()):
         raise ValueError("recipe: packs is {pack: {parameter: value}}")
     out, failed = {}, []
-    if unknown := sorted(set(packs) - set(PACKS), key=str):
-        failed.append(f"recipe: no pack {', '.join(map(repr, unknown))} (the packs: {', '.join(PACKS)})")
+    if lost := sorted(set(packs) - set(PACKS), key=str):
+        failed.append(f"recipe: {unknown(lost)}")
     for name, pack in PACKS.items():
         if name in packs:
             try:
