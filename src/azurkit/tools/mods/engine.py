@@ -27,7 +27,9 @@ it; its placements are the layer's claims (one group with the hook). Each
 hook lands its own copy of the object. A shim's calls of the game's
 functions go to their addresses in the facts, a kernel function's to a
 6-byte stub that jumps through the game's thunk slot for it (one a pack),
-and a kernel variable is read through its slot; its parameters
+or, for one the game doesn't import, to a stub that asks the shared
+kernel-export resolver for it once (:func:`resolving_stub`), and a kernel
+variable is read through its slot; its parameters
 (:class:`FloatParam`, :class:`BytesParam`) are written into its landed
 ``.rdata``.
 
@@ -171,6 +173,25 @@ def jump(mode: str, va: int, target: int, size: int) -> bytes:
     if size < 5:
         raise ValueError(f"the site is {size} B, too small for a rel32 {mode}")
     return bytes([0xE8 if mode == "call" else 0xE9]) + struct.pack("<i", target - (va + 5)) + b"\x90" * (size - 5)
+
+
+RESOLVER = ("xboxkrnl_resolver", "_xboxkrnl_resolve_by_ordinal")   # the shared kernel-export resolver's shim, entry
+RESOLVING_STUB = 0x25   # bytes: 0x21 of code, then the 4-byte cache it keeps the export's address in
+
+
+def resolving_stub(at: int, ordinal: int, resolver: int) -> bytes:
+    """The :data:`RESOLVING_STUB` bytes at ``at`` that call the kernel
+    export ``ordinal``, which the game doesn't import (Modkit's D1-extend):
+    while its cache (its last 4 bytes) is 0 it asks the resolver at
+    ``resolver`` (cdecl) for the export's address, ECX and EDX kept for a
+    fastcall's arguments (AZ-041), and keeps it there; it then jumps to it.
+    It writes its cache, so it lands writable (AZ-281)."""
+    cache = struct.pack("<I", at + 0x21)
+    return (b"\xA1" + cache + b"\x85\xC0\x75\x16"   # mov eax, [cache]; test eax, eax; jnz +0x16 (the jmp)
+            + b"\x51\x52\x68" + struct.pack("<I", ordinal)   # push ecx; push edx; push ordinal
+            + b"\xE8" + struct.pack("<i", resolver - (at + 0x15))   # call the resolver
+            + b"\x83\xC4\x04\x5A\x59\xA3" + cache   # add esp, 4; pop edx; pop ecx; mov [cache], eax
+            + b"\xFF\xE0" + bytes(4))   # jmp eax; the cache
 
 
 @functools.cache
@@ -398,7 +419,7 @@ class Xbe:
         self._facts, self._vanilla, self._pack = facts, vanilla, pack
         self._occupied = [(c.offset, c.size) for c in occupied if c.file == XBE]
         self._carver: xbe_.Carver | None = None
-        self._stubs: dict[str, int] = {}   # a kernel import's mangled name -> its stub (or slot), one a pack
+        self._stubs: dict[str, int] = {}   # a kernel import's mangled name -> its stub, one a pack (the resolver's too)
         self._kernel = {k.mangled: k for k in facts.kernel.values()}
         self.changes: list[Change] = []
         self.claims: list[Claim] = []
@@ -470,20 +491,33 @@ class Xbe:
         self.patch(PatchSpec(label=label, va=usa_va, patch=data))
 
     def _extern(self, landed: list[Change]) -> coff.Extern:
-        """A shim's kernel imports: a variable's slot, or a function's stub
-        (``jmp [slot]``), one a pack, its change added to ``landed``."""
+        """A shim's kernel imports: a variable's slot, or a function's stub,
+        one a pack, its changes added to ``landed``: ``jmp [slot]``, or for
+        a function the game doesn't import (no slot) a :func:`resolving_stub`,
+        with the shared resolver landed once a pack. A variable with no slot
+        is refused by name: only a function can be resolved at run time."""
         def resolve(name: str) -> int | None:
             if (k := self._kernel.get(name)) is None:
                 return None
             if name not in self._stubs:
-                if k.slot is None:
-                    raise LookupError(f"the shim's kernel import {k.name!r} has no slot in the "
-                                      f"{self._facts.release.label} XBE's thunk table")
                 if k.convention == "data":
+                    if k.slot is None:
+                        raise LookupError(f"the shim's kernel variable {k.name!r} has no slot in the "
+                                          f"{self._facts.release.label} XBE's thunk table (only a function is "
+                                          f"resolved at run time)")
                     return k.slot
-                offset, address = self._place(6, 1, False)
-                landed.append(Change(XBE, offset, hashlib.sha256(bytes(6)).hexdigest(),
-                                     b"\xFF\x25" + struct.pack("<I", k.slot), ""))
+                if k.slot is None:
+                    if RESOLVER[1] not in self._stubs:
+                        placed, entry = coff.layout(shim(RESOLVER[0]), RESOLVER[1], self._place, {})
+                        landed.extend(Change(XBE, p.offset, hashlib.sha256(bytes(len(p.data))).hexdigest(), p.data,
+                                             "") for p in placed)
+                        self._stubs[RESOLVER[1]] = entry
+                    offset, address = self._place(RESOLVING_STUB, 1, True)
+                    data = resolving_stub(address, k.ordinal, self._stubs[RESOLVER[1]])
+                else:
+                    offset, address = self._place(6, 1, False)
+                    data = b"\xFF\x25" + struct.pack("<I", k.slot)
+                landed.append(Change(XBE, offset, hashlib.sha256(bytes(len(data))).hexdigest(), data, ""))
                 self._stubs[name] = address
             return self._stubs[name]
         return resolve

@@ -47,7 +47,8 @@ ABOUT = ("The XBE half (the xbe's sha256, size, base and thunk table, the sectio
          "Hashes, sizes, names and addresses only.")
 # The kernel exports AzurKit's shims use: name -> (ordinal, convention, argument bytes), or (ordinal, "data") for
 # a variable (read through its slot). Xbox kernel ordinals are the kernel's own export numbers; a shim reaches
-# one only through the game's thunk table, slot by slot, which ends at a zero word.
+# one through the game's thunk table, slot by slot, which ends at a zero word, or, a function the game doesn't
+# import (no slot), through a stub that asks the kernel for it once (engine.resolving_stub).
 KERNEL = {"KeTickCount": (156, "data", 0), "MmFreeContiguousMemory": (171, "stdcall", 4)}
 _hex = "0x{:08X}".format
 

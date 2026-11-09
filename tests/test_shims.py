@@ -18,6 +18,7 @@ import dataclasses
 import re
 import struct
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -269,3 +270,85 @@ def test_a_shim_lands_past_every_claim_before_it_and_its_claims_derive_the_heade
     with pytest.raises(mods.PackError, match=re.escape(
             "the logo movie's call at 0x0005F6E5: its shim 'qol_skip_logo': the shim has no symbol '_c_nope'")):
         engine.plan(lacking, gate.USA, {"default.xbe": vanilla})
+
+
+KERNEL_BASE = 0x80010000   # where the retail loader maps xboxkrnl.exe, whose exports the resolver walks
+
+
+def test_a_shims_call_of_a_kernel_function_the_game_doesnt_import_resolves_it_once_and_keeps_ecx_and_edx(
+        usa_iso, tmp_path, monkeypatch):
+    """Modkit's D1-extend (Step 4.24c): a shim may call a kernel function
+    the USA XBE doesn't import (no thunk slot; the facts name its ordinal).
+    Each such import lands a 37-byte stub of its own, writable for the
+    cache it keeps (AZ-281), and the shared resolver lands once a pack. Run
+    on the build, a shim calling two (fastcall IofCallDriver and
+    ObfReferenceObject) reaches each kernel function through the resolver's
+    walk of xboxkrnl's export table on its first call and through the cache
+    on its second, ECX and EDX its arguments both times (AZ-041). A kernel
+    variable with no slot is refused by name: it has no code to stub. Each
+    facts kernel export is named as the kernel's catalogue
+    (``devkit/sim/data/kernel.toml``) names its ordinal (AZ-114)."""
+    from unicorn import UC_ARCH_X86, UC_MODE_32, Uc
+    from unicorn.x86_const import UC_X86_REG_ESP
+
+    with iso.Reader(usa_iso) as r:
+        vanilla = r.read("default.xbe")
+    known, real_of, real_shim = facts.of(gate.USA), facts.of, engine.shim
+    extra = {"IofCallDriver": facts.Kernel("IofCallDriver", 86, "fastcall", 8, None),
+             "ObfReferenceObject": facts.Kernel("ObfReferenceObject", 251, "fastcall", 4, None),
+             "KeSystemTime": facts.Kernel("KeSystemTime", 154, "data", 0, None)}
+    names = tomllib.loads((shimkit.ROOT / "devkit" / "sim" / "data" / "kernel.toml").read_text(encoding="utf-8"))["names"]
+    assert [k.name for k in (*known.kernel.values(), *extra.values())] == [   # AZ-114: each its ordinal's
+        names[str(k.ordinal)] for k in (*known.kernel.values(), *extra.values())]
+    monkeypatch.setattr(facts, "of", lambda release: dataclasses.replace(known, kernel={**known.kernel, **extra})
+                        if release is gate.USA else real_of(release))
+    probes = {}
+    for name, body in (("calls", "IofCallDriver(a, b); return ObfReferenceObject(a ^ b);"),
+                       ("reads", "return KeSystemTime + a + b;")):
+        source = tmp_path / f"{name}.c"
+        source.write_text("__attribute__((fastcall)) unsigned int IofCallDriver(unsigned int, unsigned int);\n"
+                          "__attribute__((fastcall)) unsigned int ObfReferenceObject(unsigned int);\n"
+                          "__declspec(dllimport) extern unsigned int KeSystemTime;\n"
+                          f"unsigned int c_entry(unsigned int a, unsigned int b) {{ {body} }}\n", encoding="utf-8")
+        probes[name] = coff.parse(shimkit.compile(source))
+    monkeypatch.setattr(engine, "shim", lambda name: probes.get(name) or real_shim(name))
+    pack = mods.PACKS["qol_skip_logo"]
+
+    def probe(name: str) -> mods.Pack:
+        return dataclasses.replace(pack, sites=(dataclasses.replace(pack.sites[0], shim=name, symbol="_c_entry"),))
+    layer = engine.plan(probe("calls"), gate.USA, {"default.xbe": vanilla})
+    assert sorted(c.writable for c in layer.claims) == [False, False, True, True]   # the shim, the resolver, 2 stubs
+    built = bytes(compose({"default.xbe": vanilla}, [layer])[0]["default.xbe"])
+    hook = known.offset(0x5F6E5, 5)
+    entry = 0x5F6E5 + 5 + struct.unpack_from("<i", built, hook + 1)[0]
+
+    uc = Uc(UC_ARCH_X86, UC_MODE_32)
+    table, base = xbe.sections(built), struct.unpack_from("<I", built, 0x104)[0]
+    uc.mem_map(base, -(-(max(s.va + s.vsize for s in table) - base) // 0x1000) * 0x1000)
+    for s in table:
+        uc.mem_write(s.va, built[s.raw:s.raw + min(s.raw_size, s.vsize)])
+    kernel = bytearray(0x2000)   # a PE whose exports 86 and 251 each keep their ECX and EDX
+    struct.pack_into("<I", kernel, 0x3C, 0x80)
+    struct.pack_into("<I", kernel, 0x80 + 24 + 0x60, 0x200)              # the export directory
+    struct.pack_into("<3I", kernel, 0x200 + 0x10, 1, 400, 0)            # first ordinal, functions, (names)
+    struct.pack_into("<I", kernel, 0x200 + 0x1C, 0x300)                 # the functions' table
+    for ordinal, at in ((86, 0x1000), (251, 0x1100)):
+        struct.pack_into("<I", kernel, 0x300 + 4 * (ordinal - 1), at)
+        kernel[at:at + 13] = (b"\x89\x0D" + struct.pack("<I", KERNEL_BASE + at + 0x80)
+                              + b"\x89\x15" + struct.pack("<I", KERNEL_BASE + at + 0x84) + b"\xC3")
+    uc.mem_map(KERNEL_BASE, 0x2000)
+    uc.mem_write(KERNEL_BASE, bytes(kernel))
+    stack, back = 0x00F00000, 0x0DEAD000
+    uc.mem_map(stack, 0x10000)
+    uc.mem_map(back, 0x1000)
+    seen = []
+    for a, b in ((0xAABBCCDD, 0x13572468), (0x55667788, 0x24681357)):   # the first resolves, the second is cached
+        sp = stack + 0xF000
+        uc.mem_write(sp, struct.pack("<3I", back, a, b))
+        uc.reg_write(UC_X86_REG_ESP, sp)
+        uc.emu_start(entry, back, count=10_000)
+        seen.append([struct.unpack("<2I", uc.mem_read(KERNEL_BASE + at + 0x80, 8)) for at in (0x1000, 0x1100)])
+    assert [(calls[0], calls[1][0]) for calls in seen] == [((0xAABBCCDD, 0x13572468), 0xAABBCCDD ^ 0x13572468),
+                                                           ((0x55667788, 0x24681357), 0x55667788 ^ 0x24681357)]
+    with pytest.raises(mods.PackError, match="kernel variable 'KeSystemTime' has no slot in the USA XBE's thunk"):
+        engine.plan(probe("reads"), gate.USA, {"default.xbe": vanilla})

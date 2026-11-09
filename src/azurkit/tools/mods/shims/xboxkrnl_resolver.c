@@ -4,8 +4,8 @@
  *
  * A shim may call a kernel function the game doesn't import (so the XBE's
  * thunk table has no slot for it): its stub asks this resolver once and
- * keeps the answer (no ported shim calls one yet:
- * AzurKit refuses such a call by name until one does). It walks the PE export
+ * keeps the answer (``engine.resolving_stub``, which the pack engine lands
+ * with this resolver once a pack). It walks the PE export
  * table of xboxkrnl.exe, which the retail loader maps at 0x80010000 before
  * the game starts. It uses no kernel import, no game function and no
  * globals, and reads each 4-byte field a byte at a time, so it assumes no

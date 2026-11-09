@@ -552,9 +552,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     never written by a layer.
   - A shim's kernel function lands as a 6-byte stub that jumps through the
     game's thunk slot for it (one a pack), a kernel variable is read
-    through its slot; one the game doesn't import (no slot) is refused by
-    name: no ported shim calls one, so the resolving stubs that would call
-    the committed `xboxkrnl_resolver` aren't ported yet.
+    through its slot. A function the game doesn't import (no slot: add it
+    to `scripts/gen_facts.py`'s `KERNEL` with its ordinal, convention and
+    argument bytes, then run it) lands a 37-byte stub of its own, writable
+    for the cache it keeps, that asks the committed `xboxkrnl_resolver`
+    (landed once a pack) for its address on the first call (Modkit's
+    D1-extend, `engine.resolving_stub`, Step 4.24c); a variable with no
+    slot is refused by name.
   - Each hook lands its own copy of its shim. A `TrampolinePatch`'s
     `floats` (`FloatParam`: a slider's value) and `tables` (`BytesParam`:
     bytes the pack makes) are written into that copy's `.rdata` at their
