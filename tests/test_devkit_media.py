@@ -200,12 +200,13 @@ def test_the_media_verbs_read_the_games_movies_and_sound_banks(usa_iso, tmp_path
 
 def test_the_dump_scores_entropy_refuses_an_implausible_header_and_previews_each_raw_blob_once(tmp_path):
     """Modkit's EntropyHeuristics, WaveHeaderParser and RawPreviewWav rows:
-    a blob's entropy is 0 for zeros and for nothing, 1 for a uniform one; a
-    header whose rate isn't a standard one (0xDEADBEEF) or whose count
-    passes 10 minutes is no audio; a raw preview takes the rate it is
-    given and pads an odd payload by one byte to whole 16-bit samples; and
-    a blob that duplicates an earlier one gets no preview of its own."""
-    assert (dump.entropy_ratio(bytes(256)), dump.entropy_ratio(b"")) == (0.0, 0.0)
+    a blob's entropy is 0.0 for zeros and for nothing (Modkit's; the port's
+    manifest said -0.0), 1 for a uniform one; a header whose rate isn't a
+    standard one (0xDEADBEEF) or whose count passes 10 minutes is no audio;
+    a raw preview takes the rate it is given and pads an odd payload by one
+    byte to whole 16-bit samples; and a blob that duplicates an earlier one
+    gets no preview of its own."""
+    assert repr((dump.entropy_ratio(bytes(256)), dump.entropy_ratio(b""))) == "(0.0, 0.0)"   # Modkit's, not -0.0
     assert dump.entropy_ratio(bytes(range(256)) * 4) == pytest.approx(1.0)
     for rate, count in ((0xDEADBEEF, 1000), (22050, 22050 * 601)):
         assert dump.parse_wave_header(struct.pack("<III", rate, count, 0x01000401) + bytes(8)) is None, rate

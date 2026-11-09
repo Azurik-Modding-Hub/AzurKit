@@ -135,7 +135,7 @@ def entropy_ratio(data: bytes) -> float:
     counts = [0] * 256
     for b in data:
         counts[b] += 1
-    return -sum(c / len(data) * math.log2(c / len(data)) for c in counts if c) / 8.0
+    return -sum(c / len(data) * math.log2(c / len(data)) for c in counts if c) / 8.0 + 0.0   # 0.0, never -0.0
 
 
 def parse_wave_header(payload: bytes) -> WaveHeader | None:
