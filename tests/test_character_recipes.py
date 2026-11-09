@@ -8,6 +8,7 @@ log, logic or plans)."""
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import math
 import re
@@ -1668,3 +1669,195 @@ def test_a_recipe_from_another_with_finer_triangles_keeps_that_ones_jiggle_bones
         monkeypatch.setattr(_player_variants, "parent_of", lambda variant: None)
         own = _variant_body(vanilla, vanilla, body, got["high"])[2].bones
     assert math.dist(own[0].origin, low[0].origin) > 0.01
+
+
+def test_a_subdivided_variant_builds_with_its_jiggle_on_new_bones_new_geometry_and_its_textures(usa_iso, tmp_path,
+                                                                                                booblord):
+    """D438, D443, D444, D456, D482, D485, D582 (Modkit's Step 2.154):
+    booblord v3 with a mirrored ``subdivide`` over her bust first, a ``tube``
+    tail of two segments from her head, a pendant ``tube`` riding her top
+    (``follow``, ``reach``), its jiggle bones two new bones and a chain of two
+    more on the tail's segments, and a texture (row 1 at 256) builds: the body
+    grows by over 3,000 vertices, written whole (every group within 31 bones
+    and vanilla's largest push buffer), its four new bones last under
+    spine_2, root_joint, head and the first link, every weight summing to 1,
+    the bust bone weighing more vertices than v3's 303, its log counting the
+    palette entries it added and naming W30's texture, the material row's
+    stage naming a new 256 x 256 ``surf``, and the export's checks pass on
+    the built file. The pendant swings with the bust, the tail none of it."""
+    from azurkit.core.xbr.nodes import parse_toc
+    from azurkit.tools.characters import body_codec, paint, render
+    from azurkit.tools.characters.gltf import export_body
+
+    variant = booblord_v3()
+    fine = mesh_edit.SubdivideOp("spine_2", (0.13, 0.17, 0.16), 0.02, (0.0719, 0.09, 0.02), True, groups=(1, 4),
+                                 name="bust fine")
+    tail = mesh_edit.TubeOp("head", ((0.0, -0.1, 0.08), (0.0, -0.2, 0.0), (0.0, -0.22, -0.2)), (0.02, 0.03, 0.01),
+                            0, (0.02, 0.01, 0.28, 0.14), sides=8, rings=12, segments=2, name="tail")
+    pendant = mesh_edit.TubeOp("spine_2", ((0.0719, 0.27, 0.07), (0.0719, 0.275, 0.05)), (0.005, 0.005), 0,
+                               (0.02, 0.3, 0.05, 0.32), sides=8, rings=4, follow=(1, 4), reach=0.04, name="pendant")
+    renamed = {"bust": "jiggle_bust", "glutes": "jiggle_glutes"}
+    bones = tuple(dataclasses.replace(jb, bone=renamed[jb.role]) for jb in variant.jiggle.bones)
+    links = tuple(dataclasses.replace(bones[0], role=f"tail_{n}", bone=f"tail_{n}", parent=parent, shape=(f"tail {n}",),
+                                      groups=(0,), takes=("head",), weight=1.0)
+                  for n, parent in ((1, "head"), (2, "tail_1")))
+    skin = paint.PaintOp("skin", paint.Region(groups=(1,)), {"hue": (250.0, 30.0), "sat": 0.1, "value": 0.04},
+                         paint.Region("spine_2", (0.3, 0.12, 0.1), (0.0, -0.02, 0.17)))
+    blender = {k for k, c in variant.clips.items() if c["generator"] == "gltf"}
+    worn = dataclasses.replace(   # her Blender idles and moves key her own rig's bones: not this one's
+        variant, mesh=dataclasses.replace(variant.mesh, ops=(fine, *variant.mesh.ops, tail, pendant)),
+        jiggle=dataclasses.replace(variant.jiggle, frees=(), bones=(*bones, *links), loops=()),
+        textures=(paint.TextureSpec(1, 256, ops=(skin,)),), idles={}, slots={},
+        clips={k: c for k, c in variant.clips.items() if k not in blender},
+        columns={col: c for col, c in variant.columns.items() if c not in blender})
+    staging, lines = _dress(usa_iso, worn)
+    log = "\n".join(lines)
+    assert re.search(r"; 0 palette entries freed, [1-9]\d* added, ", log)
+    assert "its textures (W30): row 1 (3 groups): a 256x256 dxt1 texture, 1 paint ops" in log
+    body, data = "townspeople/female_2", bytes(staging["characters.xbr"])
+    asset = body_codec.read_asset(data, body)
+    groups = asset.lods[0].groups
+    assert sum(len(g.vertices) for g in groups) > 3427 + 3000 and len(groups) > 6
+    assert all(len(g.palette) <= body_codec.PALETTE_MAX and len(g.stored[1]) <= body_codec.PUSH_MAX for g in groups)
+    names = asset.bone_names
+    assert names[-4:] == ["jiggle_bust", "jiggle_glutes", "tail_1", "tail_2"] and len(names) == 97
+    assert [names[asset.bones[k].parent] for k in (93, 94, 95, 96)] == ["spine_2", "root_joint", "head", "tail_1"]
+    assert all(abs(sum(v.weights) - 1.0) < 1e-6 for g in groups for v in g.vertices)
+    bust = sum(1 for g in groups for v in g.vertices
+               if any(w > 0 and g.palette[body_codec.code_entry(b)] == 93 for w, b in zip(v.weights, v.slots)))
+    assert bust > 303
+    vanilla = _vanilla_characters(usa_iso)
+    own = body_codec.read_asset(vanilla, body).lods[0].groups[0]
+    riders = [v.position for g in groups if g.material == own.material for v in g.vertices
+              if any(w > 0 and g.palette[body_codec.code_entry(b)] == 93 for w, b in zip(v.weights, v.slots))]
+    assert len(riders) >= 8 * 4 and all(p[1] > 0.1 for p in riders)
+    toc = parse_toc(data)
+    stage = render.material(data, toc, 2955, 1)["textures"][0]
+    assert stage >= len(parse_toc(vanilla))
+    assert render.surf_image(data, toc, stage).shape == (256, 256, 4)
+    export = export_body(data, body, tmp_path / "out", ["walk"], source_vanilla=False)
+    assert export.bones == 97 and export.checks.rest_m < 1e-5 and export.checks.clip_matrix < 1e-5
+
+
+def _x14(xbe: bytes) -> tuple[str, dict[int, str]]:
+    """X14's table in the built ``xbe``: its dir and each slot it names (a miss left out; inside :func:`_building`)."""
+    from azurkit.tools.characters._player_sounds import SOUND_HOOKS, SOUNDS_TABLE, TABLE_SIZE
+
+    at = _at(xbe, SOUND_HOOKS[0], SOUNDS_TABLE.symbol)
+    table = bytes(xbe[at:at + TABLE_SIZE])
+    dir_at, count = struct.unpack_from("<HH", table)
+
+    def name(off: int) -> str:
+        return table[off:table.index(b"\0", off)].decode()
+    return name(dir_at), {slot: name(off) for slot, off in enumerate(struct.unpack_from(f"<{count}H", table, 4)) if off}
+
+
+def _loads(xbe: bytes, site) -> str | bytes:
+    """What an X15 site loads in ``xbe`` (either release): the path its imm32 points at, or its bytes when it holds
+    its vanilla ones (inside :func:`_building`)."""
+    _, off, vanilla = ports.xbe_site(xbe, site.va, site.original)
+    if bytes(xbe[off:off + 5]) == vanilla:
+        return vanilla
+    at = ports.resolve_va_to_file(xbe, struct.unpack_from("<I", xbe, off + 1)[0])
+    return bytes(xbe[at:xbe.index(b"\0", at)]).decode()
+
+
+OWNERS = {"hurt": "hit.wav", "hurt_a": "attack1.wav", "roll": "roll.wav", "jump": "hup.wav", "fall": "fall.wav",
+          "climb": "grunt.wav"}
+"""Booblord's waves that are the owner's WAVs (leaf -> file)."""
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_booblords_attacks_only_whoosh_and_her_other_sounds_are_the_owners_wavs(release, request, booblord):
+    """D386, D405-D408, D418, D699 (Modkit's Steps 2.141, 2.144, 2.180):
+    booblord's sounds are the owner's WAVs and her whooshes. X14's table
+    names her dir fx/sound/v/booblord and binds "hurt" (two takes) in the 6
+    hurt slots and "climb" in hoist and climb_up_edge, "" in the other voice
+    slots, and leaves Garret's 9 effect slots to his dir; every attack
+    column binds one of her whooshes (her finishers "twirl", the roll
+    "roll", her hand spin's columns "hspin", her casts the whip's, every
+    other the spin's or stomp's), no column a shout; X15 points a jump at
+    .../jump, a long fall's landing at .../fall and the falling scream at
+    .../death, a name no index.xbr record has (silent), and leaves the step
+    and landing paths Garret's. fx.xbr gains her 17 waves (the 11 whooshes as
+    made, the 6 WAVs as read), each named, with its index.xbr record; every
+    other entry is her build's without her sounds. The log names each WAV's
+    sha256. On USA a rebuild is identical and L1 is clean. X41 hooks her
+    pose on both releases; her shipped recipe's sha is her graded one. A
+    variant with no fall WAV plays its hurt at the ouch."""
+    from azurkit.tools.characters._player_character import JIGGLE_HOOK
+    from azurkit.tools.characters._player_slots import BASE_CLIPS
+    from azurkit.tools.characters._player_sounds import (ATTACK_SLOT, ROLE_SLOTS, SHOUT_ROWS, VOICE_SLOTS,
+                                                         XBE_SOUND_SITES, variant_roles)
+    from azurkit.tools.characters._player_variants import SOUNDS, UNGRADED, sound_dir, waves
+    from azurkit.tools.characters.index_xbr import parse_index_xbr
+    from azurkit.tools.characters.xbox_adpcm import read_wav, wave_entry
+    from azurkit.core.xbr.nodes import parse_toc
+    from devkit.sim import l1
+
+    image = request.getfixturevalue(f"{release.name}_iso")
+    variant = booblord_v3()
+    game, log = _dress(image, variant)
+    recipe = booblord_v3_recipe()
+    unvoiced, _ = _dress(image, load_variants(json.dumps(   # her clip file beside it
+        {"booblord": {k: v for k, v in recipe.items() if k not in UNGRADED}}),
+        str(_player_variants.CLIPS / "booblord" / "unvoiced.json"))["booblord"])
+    with iso.Reader(image) as r:
+        vanilla_xbe, config = r.read(XBE), r.read(CONFIG)
+    xbe = bytes(game["default.xbe"])
+    with _building(image):
+        folder, binds = _x14(xbe)
+        assert ports.verify_trampoline_patch(xbe, JIGGLE_HOOK) == "applied"   # X41 at USA 0xCB5CB, Europe 0xCB74B
+    columns = ports.XbrDocument.from_bytes(config).keyed_section("attacks_anims").col_names()
+    effects = ("touchdown", "step_up", "step_down", "slide", "climb_down_edge", "climb_up", "climb_down",
+               "climb_left", "climb_right")
+    heard = {BASE_CLIPS.index(slot): "hurt" for slot in ROLE_SLOTS["hurt"]} | {
+        BASE_CLIPS.index(slot): "climb" for slot in ("hoist", "climb_up_edge")}
+    sfx = {col: name for name, p in variant.sfx.items() for col in p["columns"]} | {"roll forward": "roll"}
+    assert folder == sound_dir(variant) == "fx/sound/v/booblord" and len(VOICE_SLOTS) == 30
+    assert {slot: binds.get(slot) for slot in VOICE_SLOTS} == dict.fromkeys(VOICE_SLOTS, "") | heard
+    assert not {BASE_CLIPS.index(clip) for clip in effects} & set(binds)
+    assert {col: binds.get(ATTACK_SLOT + k) for k, col in enumerate(columns)} == sfx and len(sfx) == 24
+    assert {col: sfx[col] for col in ("finish", "finish2", "finish3", "sweep1", "sweep2", "sweep ledge", "basic3",
+                                      "down", "elemental1", "hose_attack_3")} == {
+        "finish": "twirl", "finish2": "twirl", "finish3": "twirl", "sweep1": "hspin", "sweep2": "hspin",
+        "sweep ledge": "hspin", "basic3": "spin", "down": "stomp", "elemental1": "whip", "hose_attack_3": "spin"}
+    anims = ports.XbrDocument.from_bytes(bytes(game["config.xbr"])).keyed_section("attacks_anims")
+    assert not any(anims.find_cell(col, row, c).type_code for c, col in enumerate(columns) for row in SHOUT_ROWS)
+    index, old = parse_index_xbr(bytes(game["index.xbr"])), parse_index_xbr(bytes(unvoiced["index.xbr"]))
+    keys = {r.key for r in index.records}
+    loaded = {"ouch": "fall", "fallingdeath": "death", "jump": "jump"}
+    with _building(image):
+        sites = {site: _loads(xbe, site) for site in XBE_SOUND_SITES}
+    for site, loads in sites.items():
+        if site.sound in loaded:
+            assert loads == f"{folder}/{loaded[site.sound]}" and (loads in keys) == (site.sound != "fallingdeath"), (
+                hex(site.va))
+        else:   # the wing flap, the steps and the landings
+            assert isinstance(loads, bytes), hex(site.va)
+    made = {f"{folder}/{leaf}": wave_entry(samples) for leaf, samples in waves(variant).items()} | {
+        f"{folder}/{leaf}": wave_entry(read_wav(SOUNDS / "booblord" / file)[0]) for leaf, file in OWNERS.items()}
+    fx, plain = bytes(game["fx.xbr"]), bytes(unvoiced["fx.xbr"])
+    toc, before = parse_toc(fx), parse_toc(plain)
+    named = {key: i for i, key in named_resources(fx).items()}
+    assert len(made) == 17 and len(toc) == len(before) + 17
+    assert {p["generator"] for p in variant.sfx.values()} == {"whoosh"} and set(sfx.values()) - set(variant.sfx) == {
+        "roll"}
+    assert {leaf: len(s) for leaf, s in waves(variant).items() if leaf.startswith("hspin")} == {
+        "hspin": 30870, "hspin_a": 30870}   # 1.4 s at 22050 Hz
+    assert {key: (toc[named[key]].tag, fx[toc[named[key]].file_offset:][:toc[named[key]].size]) for key in made} == {
+        key: ("wave", entry) for key, entry in made.items()}
+    assert all(fx[e.file_offset:e.file_offset + e.size] == plain[o.file_offset:o.file_offset + o.size]
+               and (e.tag, e.size) == (o.tag, o.size) for e, o in zip(toc, before))
+    assert {(r.key, r.archive, r.fourcc) for r in set(index.records) - set(old.records)} == {
+        (key, "fx.xbr", "wave") for key in made} and len(index.records) == len(old.records) + 17
+    for leaf, file in OWNERS.items():
+        sha = hashlib.sha256((SOUNDS / "booblord" / file).read_bytes()).hexdigest()[:12]
+        assert any(f"recipe {file}: {leaf} (sha256 {sha})" in line for line in log), file
+    assert [variant_roles("t", "d", ["basic1", "roll forward"], {}, True, frozenset(r)).xbe["ouch"]
+            for r in ((), {"hurt"}, {"hurt", "fall"})] == ["d/hurt", "d/hurt", "d/fall"]
+    if release is gate.USA:   # the simulator runs USA's
+        again, _ = _dress(image, variant)
+        assert {k: bytes(v) for k, v in again.changed().items()} == {k: bytes(v) for k, v in game.changed().items()}
+        assert l1.check(vanilla_xbe, xbe) == []
+    assert builtins()["booblord"].sha == "481c4cfffa90"   # Modkit's last 1d7ad4bcbc8d, her vase dropped (Step 4.3)
