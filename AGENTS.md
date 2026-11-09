@@ -2087,7 +2087,15 @@ are the Characters section's.
   `scripts/sdk_api.py`), `tests/skip_allowlist.toml`, `tests/conftest.py`,
   `tests/_*.py` (the leak guard among them), the drift guards' tables
   (`PROLOGUE_FIRST_BYTES`), `pyproject.toml`, `uv.lock`, `bootstrap.py`,
-  `CLAUDE.md` and `.claude/`.
+  `CLAUDE.md` and `.claude/`. Modkit's policy workflow (a pull request
+  that changed one waited for a maintainer's `reviewed` label) has no twin:
+  stacks land through the queue after their review (D288), and each file a
+  command writes is held to it by a test: the goldens by their families'
+  (`tests/test_packs.py`, `test_characters.py`, `test_randomizer.py`,
+  `test_builds.py`), the facts by `test_packs.py`'s gen_facts test, the
+  manifests by `test_gate.py`'s, the shim objects by `test_shims.py`'s G2,
+  the native libraries by `test_native.py`'s and `sdk_api.txt` by
+  `test_contracts.py`'s (Step 4.24c).
 - **Ids:** an AZ, D or Q id comes from the private ledger: `$EV/tools/ledger
   take AZ "slug: one line"` (`ledger next` prints the next free ones). Never
   write an id or the ledger's pointer by hand. A lane whose prompt says not

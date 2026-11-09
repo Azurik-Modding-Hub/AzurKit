@@ -1,0 +1,56 @@
+# The tools.toml pins (Modkit's pins.yml, Step 4.24c): on a pull request that changes devkit/re/tools.toml or
+# bootstrap.py (its checker), every tools.toml asset the change adds or alters is downloaded again and hashed; a wrong
+# sha256 fails it (`bootstrap.py --verify-pins`, stdlib only, so nothing is synced or installed). Any other change
+# starts no run. A newer push to a pull request cancels its older run.
+# No secret, no pull_request_target; actions pinned by commit sha, their release beside it.
+name: pins
+
+on:
+  pull_request:
+    paths: [devkit/re/tools.toml, bootstrap.py]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+  # Every setup-uv step's manifest-file, inline so setup-uv fetches no manifest (tests.yml's env says why).
+  SETUP_UV_MANIFEST: >-
+    data:application/x-ndjson,{"version": "0.12.24", "artifacts": [
+    {"platform": "aarch64-apple-darwin", "archive_format": "tar.gz", "sha256":
+    "0c4346de7abdb49495b393b9ec809fe387aa43e586be20fecb972216c1e71732",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-aarch64-apple-darwin.tar.gz"},
+    {"platform": "x86_64-apple-darwin", "archive_format": "tar.gz", "sha256":
+    "4fa82e37cb94767661f532b001e470b67a186c7260e305bd84ddb78fd545c0b6",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-apple-darwin.tar.gz"},
+    {"platform": "x86_64-pc-windows-msvc", "archive_format": "zip", "sha256":
+    "7c38608c8a18ee137d748a1773053b07ec8f3a30fab49aebaa6f4e4efeceb019",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-pc-windows-msvc.zip"},
+    {"platform": "x86_64-unknown-linux-gnu", "archive_format": "tar.gz", "sha256":
+    "b4dfaef47d491a7296981f8374a4595f55dbf84e8937c8ecd2983574d8bb3da6",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-unknown-linux-gnu.tar.gz"}]}
+
+jobs:
+  pins:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0   # the base commit's tools.toml
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+          manifest-file: ${{ env.SETUP_UV_MANIFEST }}
+          enable-cache: false   # nothing to cache: a stdlib script
+      - name: Hash again every tools.toml asset this change adds or alters
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git show "$BASE:devkit/re/tools.toml" > "$RUNNER_TEMP/base-tools.toml" 2>/dev/null || : > "$RUNNER_TEMP/base-tools.toml"
+          uv run --no-project --python 3.14 python -I bootstrap.py --verify-pins "$RUNNER_TEMP/base-tools.toml"

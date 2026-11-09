@@ -3,6 +3,7 @@ and Pyodide, Chromium, WebKit and Firefox for the site and the ``web`` tests;
 with ``--with re``, devkit's Ghidra side too.
 
     uv run bootstrap.py [--no-hooks] [--no-web] [--with re [--allow-scripts]]
+    uv run --no-project bootstrap.py --verify-pins BASE_TOOLS_TOML   # CI's pins workflow
 
 The hook (in the repository's common git dir, so every worktree shares it)
 runs ``tests/_leak_guard.py --pre-push`` over every file the pushed commits
@@ -18,7 +19,10 @@ GhydraMCP plugin and bridge and the Xbox SDK headers; dev only, about
 ``.tools/``, each download checked against its sha256 before it is
 unpacked, and prints, never runs, the ``claude mcp add`` line for the
 bridge. A re-run fetches only what changed; delete the folders to uninstall
-(Modkit's ``--with re``, ported in Step 4.11d2).
+(Modkit's ``--with re``, ported in Step 4.11d2). ``--verify-pins`` installs
+nothing: it downloads every asset of ``devkit/re/tools.toml`` that a base
+copy doesn't pin alike and checks its sha256 (``.github/workflows/pins.yml``
+runs it on a pull request that changes either file; Modkit's, Step 4.24c).
 """
 
 from __future__ import annotations
@@ -74,14 +78,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-web", action="store_true",
                     help="leave Pyodide and the browsers out (then run pytest -m \"not web\")")
     ap.add_argument("--with", dest="extra", choices=["re"],
-                    help="re: Ghidra, its JDK, the ghidra-xbe loader and the stock GhydraMCP plugin and bridge, "
-                         "each sha256-checked against devkit/re/tools.toml, into .tools/")
+                    help="re: Ghidra, its JDK, the ghidra-xbe loader, the stock GhydraMCP plugin and bridge and the "
+                         "Xbox SDK headers, each sha256-checked against devkit/re/tools.toml, into .tools/")
     ap.add_argument("--allow-scripts", action="store_true",
                     help="with --with re: let GhydraMCP's scripts_run execute Java (arbitrary code; turn it off "
                          "again after RE work)")
+    ap.add_argument("--verify-pins", type=Path, metavar="BASE_TOOLS_TOML",
+                    help="only download every devkit/re/tools.toml asset that differs from BASE_TOOLS_TOML (an "
+                         "empty file: every asset) and check its sha256; exit 1 on a mismatch. Installs nothing")
     args = ap.parse_args(argv)
     if args.allow_scripts and args.extra != "re":
         ap.error("--allow-scripts needs --with re")
+    if args.verify_pins:
+        problems = verify_pins((ROOT / "devkit" / "re" / "tools.toml").read_text(encoding="utf-8"),
+                               args.verify_pins.read_text(encoding="utf-8"))
+        for problem in problems:
+            print(f"pins: {problem}", file=sys.stderr)
+        return 1 if problems else 0
     subprocess.run(["uv", "sync", "--locked"], cwd=ROOT, check=True)
     if not args.no_hooks:
         print(f"pre-push hook: {install_hook()}")
@@ -141,6 +154,34 @@ def install_re(root: Path, allow_scripts: bool) -> str:
     # The bridge's own default host is `localhost`, which tries ::1 first (AZ-153's twin).
     return (f"claude mcp add --scope local ghidra -e GHIDRA_HYDRA_HOST=127.0.0.1 -- uv run --locked --script "
             f"{(root / 'devkit' / 're' / 'ghidra_bridge.py').as_posix()} {bridge.as_posix()}")
+
+
+def verify_pins(toml: str, base: str) -> list[str]:
+    """Download every asset ``toml`` pins that ``base`` doesn't pin alike
+    (the same tool, platform, url and sha256) and check its sha256: one line
+    per problem, a missing or malformed hash or a failed download included.
+    Nothing is installed or kept."""
+    old = tomllib.loads(base).get("tools", {})
+    problems = []
+    for name, tool in tomllib.loads(toml)["tools"].items():
+        for host, asset in tool["assets"].items():
+            if old.get(name, {}).get("assets", {}).get(host) == asset:
+                continue
+            if not asset.get("url") or len(asset.get("sha256", "")) != 64:
+                problems.append(f"{name} {host}: no url or no sha256")
+                continue
+            print(f"re-hashing {name} {tool['version']} {host} ...", flush=True)
+            try:
+                with urllib.request.urlopen(asset["url"], timeout=60) as r:
+                    got = _sha256(r)
+            except OSError as exc:
+                problems.append(f"{name} {host}: {asset['url']} can't be fetched: {exc}")
+                continue
+            if got != asset["sha256"]:
+                problems.append(f"{name} {host}: the download's sha256 is {got}, tools.toml pins {asset['sha256']}")
+    if not problems:
+        print("pins: every changed tools.toml asset matches its sha256")
+    return problems
 
 
 def host_platform() -> str:

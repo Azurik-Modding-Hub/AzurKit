@@ -1,0 +1,12 @@
+# Dependabot (Modkit's, Step 4.24c) opens a pull request for each newer release of an action the workflows pin by
+# commit sha, keeping the release beside the pin, once the release is a week old. Its pull requests run what any
+# pull request runs (the pure tier and the checks: no secret, no game data); a maintainer reads the bump and lands
+# it as any change lands. uv.lock, the setup-uv manifests' uv and tools.toml are bumped by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

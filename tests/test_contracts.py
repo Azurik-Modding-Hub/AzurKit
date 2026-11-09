@@ -310,7 +310,7 @@ def test_every_workflows_uv_sync_builds_nothing_and_runs_through_the_bounded_ret
             runs = [at for at, line in enumerate(code) if "uv run" in line and "uv run --no-project" not in line]
             assert not runs or (syncs and syncs[0] < runs[0]), f"{path.name}: {code[runs[0]]}"
             synced[path.name] = synced.get(path.name, 0) + len(syncs)
-    assert synced == {"apps.yml": 1, "checks.yml": 2, "release.yml": 3, "tests.yml": 2}
+    assert synced == {"apps.yml": 1, "checks.yml": 2, "pins.yml": 0, "release.yml": 3, "tests.yml": 2}
 
 
 WEB_CACHE = """          key: ${{ steps.web-tools.outputs.key }}

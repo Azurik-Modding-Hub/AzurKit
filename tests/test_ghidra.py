@@ -1195,6 +1195,33 @@ def test_bootstrap_with_re_installs_each_verified_tool_binds_ghidra_to_loopback_
         bootstrap.install_re(root, allow_scripts=False)
 
 
+def test_the_pins_workflow_hashes_again_only_the_tools_toml_assets_a_pull_request_alters_and_fails_a_wrong_hash(
+        tmp_path, monkeypatch, capsys):
+    """Modkit's pins workflow (Step 4.24c): ``.github/workflows/pins.yml``
+    runs only on a pull request that changes ``devkit/re/tools.toml`` or
+    ``bootstrap.py``, and runs ``bootstrap.py --verify-pins`` against the
+    base commit's tools.toml with no project synced; that downloads only the
+    assets the change adds or alters (an unchanged one isn't fetched) and
+    names each whose sha256 isn't the download's, exit 1."""
+    pins = (ROOT / ".github" / "workflows" / "pins.yml").read_text(encoding="utf-8")
+    assert re.search(r"(?m)^on:\n  pull_request:\n    paths: \[devkit/re/tools.toml, bootstrap.py\]\n\n", pins)
+    assert ('uv run --no-project --python 3.14 python -I bootstrap.py --verify-pins "$RUNNER_TEMP/base-tools.toml"'
+            in pins)
+    src, root = fake_re_checkout(tmp_path)
+    good = (root / "devkit" / "re" / "tools.toml").read_text(encoding="utf-8")
+    jdk = hashlib.sha256((src / "jdk.tar.gz").read_bytes()).hexdigest()
+    for unchanged in ("ghidra.zip", "ghydra.zip", "bridge_mcp_hydra.py"):
+        (src / unchanged).unlink()   # fetching one would fail the run
+    base = tmp_path / "base.toml"
+    base.write_text(good, encoding="utf-8")
+    assert bootstrap.verify_pins(good, good) == []
+    monkeypatch.setattr(bootstrap, "ROOT", root)
+    (root / "devkit" / "re" / "tools.toml").write_text(good.replace(jdk, "0" * 64), encoding="utf-8")
+    assert bootstrap.main(["--verify-pins", str(base)]) == 1
+    assert capsys.readouterr().err == (f"pins: jdk {bootstrap.host_platform()}: the download's sha256 is {jdk}, "
+                                       f"tools.toml pins {'0' * 64}\n")
+
+
 def test_sdk_headers_writes_the_fetched_xbox_headers_copy_ghidra_imports_and_with_none_fetched_is_one_line(
         tmp_path, monkeypatch, capsys):
     """Modkit's ``vendor/xbox-includes`` (GPL-2) isn't in the repository:
