@@ -21,8 +21,8 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
-    azurkit save inspect FOLDER|HDD [--json]
-                                          a save slot's files, or an xemu HDD image's slots, decoded
+    azurkit save inspect FOLDER|FILE.sav|HDD [--json]
+                                          a save slot's files, one save file or an xemu HDD image's slots, decoded
     azurkit save edit FOLDER|HDD --out DIR --flash PATH --iso PATH [--mcpx PATH] [--slot ID]
                       [--plan FILE] [--set FILE:LINE=VALUE ...] [--json]
                                           a slot's text saves edited, signed again for your console, saved new

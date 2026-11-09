@@ -8,7 +8,7 @@
 > `shared.sav`, and level saves remain future work.
 >
 > **Python module**: [`azurkit.tools.saves`](../src/azurkit/tools/saves/)
-> **CLI**: `azurkit save inspect FOLDER|HDD` and `azurkit save edit` (§ 6, § 7)
+> **CLI**: `azurkit save inspect FOLDER|FILE.sav|HDD` and `azurkit save edit` (§ 6, § 7)
 >
 > Ported from Azurik_Modkit's `docs/`, where the format was decoded; its
 > code is AzurKit's `src/azurkit/tools/saves/` (§ 8).

@@ -486,7 +486,7 @@ def test_save_with_no_verb_exits_2_naming_what_it_needs(capsys):
     with pytest.raises(SystemExit) as exc:
         cli.main(["save"])
     assert exc.value.code == 2
-    assert "the following arguments are required: action, FOLDER|HDD" in capsys.readouterr().err
+    assert "the following arguments are required: action, FOLDER|FILE.sav|HDD" in capsys.readouterr().err
 
 
 def test_the_commands_output_replaces_what_the_consoles_code_page_cant_encode(tmp_path):
