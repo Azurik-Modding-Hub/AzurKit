@@ -6,7 +6,7 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit build --iso PATH --out PATH [--mods FILE ...] [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
                   [--pack-param PACK.SLIDER=VALUE ...]
                   [--seed SEED [--settings FILE | --share STRING] | --plan FILE] [--obsidian-cost N]
-                  [--character JSON]
+                  [--spoiler FILE] [--save-settings FILE] [--character JSON]
     azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
     azurkit files IMAGE [--extract PATH --out FILE]
                                           an image's files (each size and path), or one of them written to FILE
@@ -42,6 +42,11 @@ written, and the build prints whether its logic still holds (and why not);
 ``--plan FILE`` builds that plan file (``plan``'s) exactly, in the seed's
 place: it carries its own seed and settings, and one from another database,
 edited, or not beatable under its settings is refused by name.
+``--spoiler FILE`` and ``--save-settings FILE`` write a randomized build's
+spoiler and its settings as a settings file (the app's Save spoiler and Save
+settings; Modkit's ``randomize-full``'s), each checked before the build (not
+the output, an input or a vanilla image) and written after it, or the image
+isn't kept either (D35).
 ``--obsidian-cost`` sets the obsidian locks' cost (vanilla 10). ``--character``
 dresses the player in a species' body (a recipe's character as JSON,
 ``{"species": "keylord"}`` and any of its options: ``tools.characters``;
@@ -241,6 +246,65 @@ def _replacing(flags: list[str], listed: list[dict]) -> tuple[list[dict], dict[s
     return [*listed, *(replaced.entry(path, data) for path, data in picked.items() if path not in known)], picked
 
 
+def _outputs(args: argparse.Namespace, made: dict) -> dict[str, Path]:
+    """``--spoiler`` and ``--save-settings``' files (Modkit's ``randomize-full``'s),
+    checked before the build: a randomized build's (``--seed``, ``--plan`` or
+    a mods file's randomizer), each in a folder that is there, not a folder,
+    the output, an input, a vanilla image or the other's file; ``ValueError``
+    names every refusal (D35, D36)."""
+    asked = {flag: Path(value) for flag, value in (("--spoiler", args.spoiler), ("--save-settings", args.save_settings))
+             if value is not None}
+    if not asked:
+        return {}
+    if "randomizer" not in made:
+        raise ValueError(f"{' and '.join(asked)}: a randomized build's files: give --seed or --plan")
+    inputs = [("the image it writes (--out)", args.out), ("the image it reads (--iso)", args.iso),
+              ("the plan file it reads (--plan)", args.plan), ("the settings file it reads (--settings)", args.settings),
+              *(("a mods file it reads (--mods)", path) for path in args.mods),
+              *(("a file it reads (--file)", flag.partition("=")[2]) for flag in args.file),
+              *((f"the vanilla {r.label} image", found) for r in gate.RELEASES if (found := gate.find(r)))]
+
+    def same(a: Path, b: Path) -> bool:
+        return a.resolve() == b.resolve() or (a.exists() and b.exists() and a.samefile(b))
+    failed = []
+    for flag, path in asked.items():
+        if path.is_dir():
+            failed.append(f"{flag} {path}: a folder, not a file")
+        elif not path.resolve().parent.is_dir():
+            failed.append(f"{flag} {path}: no folder {path.resolve().parent}")
+        failed += [f"{flag} {path}: it is {what}" for what, given in inputs if given and same(path, Path(given))]
+    if len(asked) == 2 and same(*asked.values()):
+        failed.append(f"--spoiler and --save-settings name the same file ({args.spoiler})")
+    if failed:
+        raise ValueError("; ".join(failed))
+    return asked
+
+
+def _write_outputs(outputs: dict[str, Path], built: dict) -> None:
+    """The build's spoiler and its settings file (the app's ``spoiler`` and
+    ``settings_file``: ``tools.randomizer.settings_file``) to ``outputs``,
+    each a part file renamed into place, all or none."""
+    from azurkit.tools import randomizer
+
+    texts = {flag: built["spoiler"] if flag == "--spoiler" else randomizer.settings_file(built["randomizer"]["settings"])
+             for flag in outputs}
+    parts, placed = [], []
+    try:
+        for flag, path in outputs.items():
+            parts.append(part := path.with_name(f"{path.name}.part"))
+            part.write_bytes(texts[flag].encode("utf-8"))
+        for part, path in zip(parts, outputs.values()):
+            part.replace(path)
+            placed.append(path)
+    except BaseException:
+        for path in placed:
+            path.unlink(missing_ok=True)
+        raise
+    finally:
+        for part in parts:
+            part.unlink(missing_ok=True)
+
+
 def _build(args: argparse.Namespace) -> int:
     try:
         files = []
@@ -259,8 +323,14 @@ def _build(args: argparse.Namespace) -> int:
         made = recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given,
                       _randomizer(args), args.community)
         entries, picked = _replacing(args.file, (given or {}).get("files", []))
+        outputs = _outputs(args, made)
         built = sdk.build(made | ({"character": json.loads(args.character)} if args.character else {})
                           | ({"files": entries} if entries else {}), args.out, picked=picked)
+        try:
+            _write_outputs(outputs, built)
+        except (OSError, ValueError):
+            Path(built["out"]).unlink(missing_ok=True)   # D35: a spoiler or settings file not written keeps no image
+            raise
     except (OSError, ValueError) as exc:    # tomllib.TOMLDecodeError is a ValueError
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
@@ -274,6 +344,8 @@ def _build(args: argparse.Namespace) -> int:
         for line in plan["conflicts"] + plan["why_not"]:
             print(f"  {line}")
     print(f"{Path(built['out'])}: {built['label']}, {built['size']:,} B, sha256 {built['sha256']}")
+    for flag, path in outputs.items():
+        print(f"{'spoiler' if flag == '--spoiler' else 'settings file'}: {path}")
     return 0
 
 
@@ -554,6 +626,10 @@ def main(argv: list[str] | None = None) -> int:
     settled.add_argument("--share", metavar="STRING", help="the randomizer's settings as a share string (AZR-...)")
     build.add_argument("--plan", metavar="FILE", help="randomize the build with this plan file (azurkit plan's), "
                        "exactly: it carries its own seed and settings")
+    build.add_argument("--spoiler", metavar="FILE", help="write the randomized build's spoiler here: its settings, "
+                       "spheres and each progression item's paths")
+    build.add_argument("--save-settings", metavar="FILE", help="write the randomized build's settings here, as a "
+                       "settings file (--settings loads it back)")
     build.add_argument("--obsidian-cost", type=float, metavar="N",
                        help="the obsidian each lock costs (vanilla 10; any number, never clamped)")
     build.add_argument("--character", metavar="JSON", help='dress the player in a species\' body: a recipe\'s '

@@ -718,6 +718,48 @@ def test_a_plan_reads_back_into_its_spoiler_and_what_the_randomizer_cant_take_is
         assert capsys.readouterr().err.startswith(f"azurkit: {said}")
 
 
+def test_a_randomized_builds_spoiler_and_settings_file_are_written_beside_it_or_refused_by_name(tmp_path, capsys,
+                                                                                                monkeypatch):
+    """Step 4.24a (Modkit's ``randomize-full --spoiler`` and ``--save-settings``): ``azurkit build`` writes the
+    build's spoiler (its report's) and its settings as the app's Save settings writes them
+    (``randomizer.settings_file``), which load back to its settings; each is refused by name before the build when
+    the build isn't randomized, or the file is the output, an input or the other's file; one not written keeps no
+    image (D35)."""
+    plan, out = PLANS["default"]["plan"], tmp_path / "out.iso"
+    built = {"layers": [], "conflicts": [], "out": str(out), "label": "USA", "size": 1, "sha256": "0" * 64,
+             "spoiler": "the spoiler\n", "randomizer": {"seed": "2", "share": plan["share"], "plan": plan["sha256"],
+                                                        "settings": plan["settings"], "logic_verified": True,
+                                                        "conflicts": [], "why_not": []}}
+
+    def build(made, target, picked=None):
+        Path(target).write_bytes(b"image")
+        return built
+    monkeypatch.setattr(sdk, "build", build)
+    spoiler, settings, iso_ = tmp_path / "spoiler.txt", tmp_path / "settings.toml", str(tmp_path / "in.iso")
+    base = ["build", "--iso", iso_, "--out", str(out), "--seed", "2"]
+    assert cli.main([*base, "--spoiler", str(spoiler), "--save-settings", str(settings)]) == 0
+    assert capsys.readouterr().out.splitlines()[-2:] == [f"spoiler: {spoiler}", f"settings file: {settings}"]
+    text = settings.read_text(encoding="utf-8")
+    assert spoiler.read_text(encoding="utf-8") == "the spoiler\n" and text == randomizer.settings_file(plan["settings"])
+    assert layer.settings_doc(randomizer.settings_from_table(tomllib.loads(text), randomizer._skips(), "x")) == \
+           layer.settings_doc(randomizer.settings_from_table(plan["settings"], randomizer._skips(), "x"))
+    for flags, why in (
+            (["--iso", iso_, "--out", str(out), "--spoiler", str(spoiler)],
+             "--spoiler: a randomized build's files: give --seed or --plan"),
+            ([*base[1:], "--spoiler", str(out), "--save-settings", iso_],
+             f"--spoiler {out}: it is the image it writes (--out); --save-settings {iso_}: it is the image it reads "
+             "(--iso)"),
+            ([*base[1:], "--spoiler", str(spoiler), "--save-settings", str(spoiler)],
+             f"--spoiler and --save-settings name the same file ({spoiler})")):
+        out.unlink(missing_ok=True)
+        assert cli.main(["build", *flags]) == 1 and not out.exists()
+        assert capsys.readouterr().err == f"azurkit: {why}\n"
+    monkeypatch.setattr(randomizer, "settings_file", lambda table: (_ for _ in ()).throw(ValueError("no settings")))
+    spoiler.unlink()
+    assert cli.main([*base, "--spoiler", str(spoiler), "--save-settings", str(settings)]) == 1
+    assert capsys.readouterr().err == "azurkit: no settings\n" and not out.exists() and not spoiler.exists()
+
+
 def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_unverified_and_a_link_carries_it(
         monkeypatch):
     """Step 4.2c1: the Randomizer tab starts at D144's defaults (the
