@@ -2547,15 +2547,19 @@ def test_the_index_reader_refuses_a_file_that_isnt_one_or_a_record_outside_its_p
 def test_each_grade_table_holds_one_grade_a_line_and_refuses_a_key_graded_twice(tmp_path):
     """Modkit's Step X.85 (D838, D853): the weapon, variant and mode grades
     are their files' lines, one a line, each after the first starting with a
-    comma (two lanes' new lines merge by union), every key once; the
-    union's copy of a line both lanes changed is a key held twice, which
-    ``load_grades`` refuses by name."""
+    comma (two lanes' new lines merge by union, ``.gitattributes``), every
+    key once; the union's copy of a line both lanes changed is a key held
+    twice, which ``load_grades`` refuses by name."""
     from azurkit.tools.characters import _player_character as pc
     from azurkit.tools.characters import _player_weapons as pw
     from azurkit.tools.characters.grades import load_grades
 
     modes = {(mode, size, species): graded for (mode, size), grades in pc.MODE_GRADES.items()
              for species, graded in grades.items()}
+    names = ("weapon_grades.json", "variant_grades.json", "mode_grades.json")
+    merged = subprocess.run(["git", "check-attr", "merge", "--", *names], cwd=pw.WEAPONS_FILE.parent,
+                            capture_output=True, text=True, check=True, timeout=60).stdout
+    assert merged == "".join(f"{name}: merge: union\n" for name in names)
     for name, key, table in (("weapon_grades.json", ("name", "mode", "weapon", "sha"), pw.WEAPON_GRADES),
                              ("variant_grades.json", ("variant", "sha"), _player_variants.VARIANT_GRADES),
                              ("mode_grades.json", ("mode", "size", "species"), modes)):

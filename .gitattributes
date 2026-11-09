@@ -2,3 +2,8 @@
 # sides' lines, so those merges never conflict (Step 4.4dx1). scripts/devlog.py names the stale copy union keeps of a
 # bullet a lane edited after adding it; the lint set and scripts/land.py refuse it.
 docs/DEVLOG.md merge=union
+# The weapon, variant and mode grades are one grade a line, each after the first starting with a comma, so two
+# lanes' new grades both land. A line both lanes changed is kept twice, a key the loader refuses by name
+# (src/azurkit/tools/characters/grades.py): keep one. A line one lane deleted comes back, with no conflict and no
+# error, when the other lane adds a line beside it: after a rebase, check that a grade you deleted is still gone.
+src/azurkit/tools/characters/*_grades.json merge=union
