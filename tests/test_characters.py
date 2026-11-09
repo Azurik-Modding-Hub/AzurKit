@@ -239,6 +239,10 @@ def _bodies(kit: bool = False) -> dict[str, dict]:
 
 PINNED = "shipped: "
 """A :func:`_missed` case named so is no golden's: a shipped plan no case builds, built for its answer alone."""
+REFUSED = {f"{PINNED}booblord_high's own copy": "idles.glb: animation 'bust_bounce': bone glute_right"}
+"""The :data:`PINNED` cases known to refuse, each by its refusal's words, held by the shipped rows their dress stood
+on before it: booblord_high's own copy (New from this) dresses with no ``from``, so no parent places her springs and
+her idles' bust_bounce sits off the file's pose (a known gap, Step 4.6p). One that no longer refuses is named."""
 
 
 def _missed(cases: dict[str, dict], image_path, release=gate.USA, workers: int = 1,
@@ -273,9 +277,11 @@ def _miss(job: tuple) -> tuple[str, tuple | None, list[str]]:
     shipped.SEEN = []
     try:
         stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": image_path})
-    except ValueError:   # a pinned case's refusal: the shipped rows its dress stood on before it still held
-        if not case.startswith(PINNED):
+    except ValueError as exc:   # a known refusal (REFUSED): the shipped rows its dress stood on before it still held
+        if case not in REFUSED or REFUSED[case] not in str(exc):
             raise
+    else:
+        assert case not in REFUSED, f"{case} no longer refuses: take it out of REFUSED"
     finally:
         seen, shipped.SEEN = shipped.SEEN, None
     held = [shipped.held(s) for s in seen]
@@ -1634,10 +1640,12 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
 def _own_copies(folder: Path, monkeypatch) -> dict[str, dict]:
     """``{case: its recipe}``: each built-in variant's own copy (New from this, ``library.copy_as``), made in a library
     in ``folder`` and built as the editor's Check dresses it, the packs on by default, a :data:`PINNED` case (the
-    shipped parts' pin; one that refuses, as booblord_high's does, is held by the parts it worked out first)."""
+    shipped parts' pin; one that refuses, :data:`REFUSED`, is held by the parts it worked out first)."""
     from azurkit.tools.characters import library
 
     monkeypatch.setattr(library, "ROOT", folder / "library")
+    for where in ("CLIPS", "SOUNDS"):   # the content folder booblords installed into (read at import: the default)
+        monkeypatch.setattr(_player_variants, where, content.ROOT / where.lower())
     out = {}
     for name in _player_variants.builtins():
         made = library.copy_as(f"{name}_own", dict(sdk.variant_open({"name": name})["recipe"]))
