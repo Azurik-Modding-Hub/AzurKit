@@ -47,7 +47,7 @@ from azurkit.core import iso, native, progress
 from azurkit.core.xbr import nodes
 from azurkit.edits import manifest as edits
 from azurkit.tools import mods, randomizer
-from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
+from azurkit.tools.randomizer import dbcache, generator, layer, needs, tracking, writer
 from azurkit.tools.randomizer.planner import difficulty, fill, loader, solver
 from azurkit.tools.randomizer.planner.grammar import ParseError, parse
 from azurkit.tools.randomizer.planner.loader import kept_logic
@@ -1777,3 +1777,65 @@ def test_the_recorder_writes_the_trackers_golden_from_azurkits_own_tracker_and_m
     ``web/mapview.mjs`` draws of it, under Node (the test is ``web``)."""
     made = record_goldens.record(record_goldens.TRACKER, record_goldens.Images())
     assert record_goldens.text(made) == (record_goldens.GOLDENS / record_goldens.TRACKER).read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- Step 4.28d: Modkit's unpinned Randomizer-page tests
+# (the test census's lane D): what the maps say each way needs.
+
+@pytest.mark.parametrize("src, dest, kind, words, per_exit, dashed", [
+    ("w1", "w2", "nothing", "needs nothing", {"W1_W2": "needs air 1"}, (False, False)),
+    ("w1", "town", "water", "needs water 1", {"W1_Town_Waterfall": "needs air 1 + fire 1 + key life1",
+                                              "water_disk_loc": "needs 4 water fragments"}, (False, False)),
+    ("f3", "w4", "powers", "needs (earth 1 + water 1) or air 3", {}, (False, False)),
+    ("e5", "f2", "key battery", "needs 6 battery keys", {}, (False, False)),
+    ("town", "life", "fragments", "needs 3 life fragments", {}, (False, False)),
+    ("e2", "e6", "event", "needs earth keylock3 + earth keylock4 + earth keylock5", {}, (False, False)),
+    ("a6", "a1", "unreachable", "unreachable", {}, (False, True)),
+    ("a1", "a6", "keys", "needs air 3 + earth 2 + fire 3 + key air1 + key air2 + key air3 + water 3 + seal", {},
+     (True, True)), ("w1", "airship", "event", "needs guard water killed + guard earth killed", {}, (True, True))])
+def test_a_connection_is_coloured_by_what_it_needs_dashed_when_one_way_and_named_on_hover(
+        src, dest, kind, words, per_exit, dashed):
+    """Modkit's Step 2.33 (M9, M11) and AZ-341: what an exit needs comes
+    from the randomizer's level files: its own requirement and what reaching
+    its switch from the level's arrivals needs (w1's exit beside town, past
+    FireWall_01: water 1; its dark cave's: a life key, the torpedo's water
+    keylock, behind the station's electric arch, air 1 + fire 1; its disc
+    teleport's: 4 water fragments), and a connection needs the least of its
+    exits'. An exit no arrival reaches (a6's A6_A1, out of logic) is
+    "unreachable", not "needs false" (R1.14). A need with alternatives names
+    each (AZ-432: f3's exit to w4 takes acid or air 3). On its level's map
+    (``tracking.world``'s maps, which the page draws) each exit is in its own
+    need's colour, on the world map the connection; an exit dashed when no
+    exit the logic can use leads back (M9, Step 2.85b: a1 → a6, whose way
+    back is out of logic, too), a line when either way is one way, and each
+    tip names its levels and need."""
+    maps = tracking.world()["maps"]
+    need = needs.needs(src, dest)
+    assert (needs.need_kind(need), needs.need_words(need)) == (kind, words)
+    exits = [e for e in maps["levels"][src]["exits"] if e["to"] == dest]
+    assert [(e["tip"].startswith(f"{e['spot']} → {dest}: {per_exit.get(e['spot'], words)}"), e["dashed"],
+             e["colour"] == needs.colour(e["kind"])) for e in exits] == [(True, dashed[0], True)] * len(exits) != []
+    assert needs.colour(kind) in {e["colour"] for e in exits}
+    [line] = [w for w in maps["lines"] if {w["a"], w["b"]} == {src, dest}]
+    assert f"{src} → {dest}: {words}" in line["tip"] and line["dashed"] == dashed[1]
+
+
+def test_a_needs_colour_goes_by_key_or_by_the_barrier_its_spell_breaks_and_an_exit_with_no_place_keeps_its_need():
+    """Modkit's AZ-462: a need's colour goes by key (each its own, "keys"
+    for several) or by the barrier type its powers' spell breaks, not by the
+    power combination, every key's shade apart. The airship's flight to a3
+    (W1_A3) has no place on its map: it keeps its need's colour, its dash
+    and its tip, which the page draws at the map's right edge (test_site's)."""
+    kinds = {req: needs.need_kind(req) for req in (
+        "key.battery>=6", "key.red>=1 & water>=1", "key.air1>=1 & key.air2>=1", "fire>=1 & water>=1",
+        "earth>=2 & water>=1", "air>=1 & earth>=1 & fire>=1", "air>=1 & fire>=1 & water>=1", "air>=3 & water>=1")}
+    assert kinds == {"key.battery>=6": "key battery", "key.red>=1 & water>=1": "key red",
+                     "key.air1>=1 & key.air2>=1": "keys", "fire>=1 & water>=1": "ice block",
+                     "earth>=2 & water>=1": "acid block", "air>=1 & earth>=1 & fire>=1": "smash wall",
+                     "air>=1 & fire>=1 & water>=1": "crystal", "air>=3 & water>=1": "powers"}
+    shades = [needs.colour(k) for k in [*needs.NEEDS, *(f"key {n}" for n in needs.key_names())]]
+    assert len(set(shades)) == len(shades) == len(needs.NEEDS) + 16
+    [flight] = [e for e in tracking.world()["maps"]["levels"]["airship"]["exits"] if e["spot"] == "W1_A3"]
+    assert (flight["colour"], flight["dashed"], flight["tip"]) == (
+        needs.colour("event"), True, "W1_A3 → a3: needs balthazar killed; one way")
+
