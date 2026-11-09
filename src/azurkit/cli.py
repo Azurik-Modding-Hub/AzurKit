@@ -10,12 +10,14 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
     azurkit files IMAGE [--extract PATH --out FILE]
                                           an image's files (each size and path), or one of them written to FILE
-    azurkit data [--iso PATH [--files | --file FILE]] [TABLE [ENTITY]]
+    azurkit data [--iso PATH [--files | --file FILE] | --input FILE] [TABLE [ENTITY]]
                                           config.xbr's tables (or FILE's), a table's entities, or an entity's cells
-    azurkit diff MODS [MODS ...]          each edit of mods files (Modkit's too), as a build makes it of config.xbr
+    azurkit diff MODS [MODS ...] [--input FILE | --iso PATH]
+                                          each edit of mods files (Modkit's too), as a build makes it of config.xbr
     azurkit mod-template TABLE [TABLE ...] [--entity NAME] [--name NAME] [--out FILE]
                                           a mods file of config.xbr's vanilla values, to edit (JSON)
-    azurkit entity diff A B [--all] [--json]  two config.xbr entities side by side, table by table
+    azurkit entity diff A B [--all] [--json] [--config FILE | --iso PATH]
+                                          two config.xbr entities side by side, table by table
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
@@ -64,9 +66,13 @@ and ``--extract`` writes one of them to ``--out`` (never over the image or a
 vanilla image, D36). ``data`` reads config.xbr as the Data tab does (the vanilla file AzurKit
 ships; no image): its tables by category, a table's entities, or each cell
 of an entity by its property's name (a repeated entity, each column).
-``--files`` lists every .xbr of the image at ``--iso`` with how many keyed
-tables it holds, and ``--file FILE`` reads that file's tables from it (only
-config.xbr holds any in a vanilla image).
+``--iso`` reads any image's config.xbr instead (a build's too, read-only and
+never gated; Modkit's ``list`` and ``dump --iso``), ``--files`` lists every
+.xbr of it with how many keyed tables each holds, and ``--file FILE`` reads
+that file's tables from it (only config.xbr holds any in a vanilla image);
+``--input FILE`` reads a loose .xbr (Modkit's ``--input``). ``diff --input
+FILE`` or ``--iso PATH`` and ``entity diff --config FILE`` or ``--iso PATH``
+read that config.xbr in the vanilla one's place.
 ``diff`` previews mods files before a build (Modkit's ``diff``): each edit
 numbered, ``~`` a cell or bytes it changes (its vanilla value -> its new
 one), ``=`` one that changes nothing, ``?`` a byte edit of a file only a
@@ -98,6 +104,7 @@ from pathlib import Path
 
 from azurkit import __version__, sdk
 from azurkit.core import gate
+from azurkit.core.xbr import Document
 from azurkit.edits import files as replaced
 from azurkit.tools.mods import settle
 
@@ -259,7 +266,8 @@ def _outputs(args: argparse.Namespace, made: dict) -> dict[str, Path]:
     if "randomizer" not in made:
         raise ValueError(f"{' and '.join(asked)}: a randomized build's files: give --seed or --plan")
     inputs = [("the image it writes (--out)", args.out), ("the image it reads (--iso)", args.iso),
-              ("the plan file it reads (--plan)", args.plan), ("the settings file it reads (--settings)", args.settings),
+              ("the plan file it reads (--plan)", args.plan),
+              ("the settings file it reads (--settings)", args.settings),
               *(("a mods file it reads (--mods)", path) for path in args.mods),
               *(("a file it reads (--file)", flag.partition("=")[2]) for flag in args.file),
               *((f"the vanilla {r.label} image", found) for r in gate.RELEASES if (found := gate.find(r)))]
@@ -286,8 +294,8 @@ def _write_outputs(outputs: dict[str, Path], built: dict) -> None:
     each a part file renamed into place, all or none."""
     from azurkit.tools import randomizer
 
-    texts = {flag: built["spoiler"] if flag == "--spoiler" else randomizer.settings_file(built["randomizer"]["settings"])
-             for flag in outputs}
+    settings = built["randomizer"]["settings"]
+    texts = {flag: built["spoiler"] if flag == "--spoiler" else randomizer.settings_file(settings) for flag in outputs}
     parts, placed = [], []
     try:
         for flag, path in outputs.items():
@@ -376,29 +384,76 @@ def _files(args: argparse.Namespace) -> int:
     return 0
 
 
+def _xbr_file(path: str, flag: str) -> bytes:
+    """The .xbr file ``flag`` names, read whole; ``ValueError`` names one that isn't an XBR."""
+    data = Path(replaced.source(path)).read_bytes()
+    if data[:4] != b"xobx":
+        raise ValueError(f"{flag} {path}: not an XBR file (no xobx header)")
+    return data
+
+
+def _config(given: str | None, image: str | None, flag: str) -> bytes | None:
+    """The config.xbr ``diff`` and ``entity diff`` read in place of the vanilla
+    one AzurKit ships (Modkit's ``--input``, ``--config`` and ``--iso``): the
+    file ``flag`` names, else ``image``'s, any image's (a build's too),
+    read-only; ``None`` with neither."""
+    from azurkit.tools import data as datatool
+
+    if given is not None:
+        return _xbr_file(given, flag)
+    if image is None:
+        return None
+    if (data := datatool.image_file(replaced.source(image), datatool.FILE)) is None:
+        raise ValueError(f"{image}: its {datatool.FILE} holds no keyed table")
+    return data
+
+
 def _data(args: argparse.Namespace) -> int:
-    image = {"iso": args.iso} if args.iso else {}
+    from azurkit.tools import data as datatool
+
     try:
+        if args.input is not None and (args.iso or args.files or args.file):
+            raise ValueError("data: --input reads one .xbr file: give no --iso, --files or --file")
         if args.files:
             if args.file or args.table:
                 raise ValueError("data: --files lists the image's files: give no --file or TABLE")
-            for f in sdk.data({"what": "files"} | image)["files"]:
-                n = len(sdk.data({"what": "tables", "file": f["file"]} | image)["tables"])
+            if args.iso is None:
+                raise ValueError("data: --files lists an image's files: give --iso")
+            for f in datatool.image_files(replaced.source(args.iso)):
+                n = len(f["tables"])
                 print(f"{n:>3} keyed table{' ' if n == 1 else 's'}  {f['file']}")
             return 0
-        file = {"file": args.file} if args.file else {}
-        if args.table is None and file:
-            listed = sdk.data({"what": "tables"} | file | image)["tables"]
-            print("\n".join(f"{t['name']:<26} {t['cols']:>4} x {t['rows']}" for t in listed) or "(no keyed tables)")
-            return 0
-        if args.table is None:
-            for t in sdk.data({"what": "index"})["tables"]:
-                print(f"{t['category']:<9} {t['name']:<26} {t['cols']:>4} x {t['rows']:<4} {t['label']}")
-            return 0
-        grid = sdk.data({"what": "table", "table": args.table} | file | image)
+        file = args.file or datatool.FILE
+        if args.input is not None or args.iso is not None:   # a file's, or any image's: read-only, never gated
+            where = args.input if args.input is not None else file
+            data = (_xbr_file(args.input, "--input") if args.input is not None
+                    else datatool.image_file(replaced.source(args.iso), file))
+            tables = Document(data).tables if data is not None else {}
+            if args.table is None:
+                print("\n".join(f"{name:<26} {len(t.cols):>4} x {len(t.rows)}" for name, t in tables.items())
+                      or "(no keyed tables)")
+                return 0
+            if args.table not in tables:
+                raise ValueError(f"{where} has no keyed table {args.table!r}")
+            t = tables[args.table]
+            grid = {"cols": list(t.cols), "rows": list(t.rows),
+                    "cells": [[t.cell(c, r).value for r in range(len(t.rows))] for c in range(len(t.cols))]}
+        else:   # the vanilla config.xbr AzurKit ships
+            if file != datatool.FILE:
+                raise ValueError(f"data: --file {file} is an image's: give --iso")
+            where = "config"
+            if args.table is None and args.file:
+                listed = sdk.data({"what": "tables"})["tables"]
+                print("\n".join(f"{t['name']:<26} {t['cols']:>4} x {t['rows']}" for t in listed))
+                return 0
+            if args.table is None:
+                for t in sdk.data({"what": "index"})["tables"]:
+                    print(f"{t['category']:<9} {t['name']:<26} {t['cols']:>4} x {t['rows']:<4} {t['label']}")
+                return 0
+            grid = sdk.data({"what": "table", "table": args.table})
         cols = [c for c, name in enumerate(grid["cols"]) if args.entity in (None, name)]
         if args.entity is not None and not cols:
-            raise ValueError(f"{'config' if not file else args.file} table {args.table} has no entity {args.entity!r}")
+            raise ValueError(f"{where} table {args.table} has no entity {args.entity!r}")
     except (OSError, ValueError) as exc:
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
@@ -416,9 +471,15 @@ def _data(args: argparse.Namespace) -> int:
 
 def _diff(args: argparse.Namespace) -> int:
     tally, n = {"changed": 0, "errors": 0, "unchanged": 0}, 0
+    try:
+        config = _config(args.input, args.iso, "--input")
+    except (OSError, ValueError) as exc:
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
     for path in args.mods:
         try:
-            found = sdk.mods_diff({"text": Path(path).read_text(encoding="utf-8")})
+            found = sdk.mods_diff({"text": Path(path).read_text(encoding="utf-8")}
+                                  | ({"config": config} if config is not None else {}))
         except (OSError, ValueError) as exc:     # json.JSONDecodeError is a ValueError
             print(f"azurkit: {path}: {exc}", file=sys.stderr)
             return 1
@@ -464,8 +525,10 @@ def _template(args: argparse.Namespace) -> int:
 
 def _entity(args: argparse.Namespace) -> int:
     try:
-        found = sdk.entity_diff({"a": args.a, "b": args.b, "all": args.all})
-    except ValueError as exc:
+        config = _config(args.config, args.iso, "--config")
+        found = sdk.entity_diff({"a": args.a, "b": args.b, "all": args.all}
+                                | ({"config": config} if config is not None else {}))
+    except (OSError, ValueError) as exc:
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
     if args.json:
@@ -657,22 +720,32 @@ def main(argv: list[str] | None = None) -> int:
     read = verbs.add_parser("data", help="read config.xbr's tables (or any .xbr's), as the Data tab shows them",
                             description="List config.xbr's tables by category (each entities x properties), "
                                         "TABLE's entities, or each cell of ENTITY in TABLE by its property's name. "
-                                        "It reads the vanilla config.xbr AzurKit ships (both releases hold it); "
-                                        "--files lists every .xbr of the image with its keyed tables, and --file "
-                                        "reads one's from the image (All files).")
+                                        "It reads the vanilla config.xbr AzurKit ships (both releases hold it), or "
+                                        "read-only the config.xbr of the image at --iso (any image: a build's too) "
+                                        "or the .xbr file at --input; --files lists every .xbr of the image with its "
+                                        "keyed tables, and --file reads one's from the image (All files).")
     read.add_argument("table", nargs="?", metavar="TABLE", help="a table (azurkit data lists them)")
     read.add_argument("entity", nargs="?", metavar="ENTITY", help="an entity of TABLE (a column)")
-    read.add_argument("--iso", metavar="PATH", help="the vanilla image --files and --file read")
+    source = read.add_mutually_exclusive_group()
+    source.add_argument("--iso", metavar="PATH", help="an image (vanilla, a build or another) whose config.xbr (or "
+                        "--file) to read, read-only")
+    source.add_argument("--input", metavar="FILE", help="an .xbr file to read (a config.xbr of any image, or "
+                        "another), read-only")
     read.add_argument("--files", action="store_true", help="every .xbr of the image and how many keyed tables each holds")
     read.add_argument("--file", metavar="FILE", help="an .xbr of the image, as --files names it (default config.xbr)")
     read.set_defaults(run=_data)
     diffed = verbs.add_parser("diff", help="preview what mods files change, before a build",
                               description="Read each mods file (a preset, a build's mods file, a share link or one "
                                           "of Modkit's mod files) and print each of its edits as a build makes it of "
-                                          "the vanilla config.xbr: ~ changed (vanilla -> new), = unchanged, ? a byte "
+                                          "the vanilla config.xbr (or --input's, or --iso's image's): ~ changed (its "
+                                          "value -> new), = unchanged, ? a byte "
                                           "edit of a file only a build reads, ERROR one a build refuses; exit 1 "
                                           "if any would fail the build.")
     diffed.add_argument("mods", nargs="+", metavar="MODS", help="a mods file")
+    against = diffed.add_mutually_exclusive_group()
+    against.add_argument("--input", metavar="FILE", help="a config.xbr file to diff against, in vanilla's place")
+    against.add_argument("--iso", metavar="PATH", help="an image (a build or another) whose config.xbr to diff "
+                         "against, in vanilla's place")
     diffed.set_defaults(run=_diff)
     templated = verbs.add_parser("mod-template", help="write a mods file of config.xbr's vanilla values to edit",
                                  description="Write (or print) a mods file holding the vanilla value of every number "
@@ -690,11 +763,15 @@ def main(argv: list[str] | None = None) -> int:
         "diff", help="two entities side by side", description="Set two entities' cells side by side in each table "
                                                               "that holds either: what they hold differently, what "
                                                               "only one holds, and the tables only one is in. It "
-                                                              "reads the config.xbr AzurKit ships.")
+                                                              "reads the config.xbr AzurKit ships, or --config's or "
+                                                              "--iso's image's.")
     compared.add_argument("a", metavar="A", help="an entity (azurkit data TABLE lists a table's)")
     compared.add_argument("b", metavar="B", help="another entity")
     compared.add_argument("--all", action="store_true", help="the properties they hold alike too")
     compared.add_argument("--json", action="store_true", help="the rows as JSON")
+    held = compared.add_mutually_exclusive_group()
+    held.add_argument("--config", metavar="FILE", help="a config.xbr file to read, in the shipped one's place")
+    held.add_argument("--iso", metavar="PATH", help="an image (a build or another) whose config.xbr to read")
     compared.set_defaults(run=_entity)
     planned = verbs.add_parser("plan", help="fill the randomizer for a seed and print (or write) the plan file",
                                description="Fill the randomizer's authored levels for --seed under the default "

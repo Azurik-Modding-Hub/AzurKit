@@ -585,8 +585,10 @@ of its edits as a build makes it of the vanilla config.xbr
 (``tools.data.preview``: a cell's table/entity/prop and its vanilla and
 new values, a byte edit's span, one of another file left to the build,
 or why a build refuses it), as ``{"edits"}``, with a Modkit mod's
-``name`` and ``description``. What refuses the whole file is refused
-by name.
+``name`` and ``description``; with ``config``, another config.xbr's
+bytes (the command line's ``--input`` or ``--iso``: a build's, a loose
+file), of that one, its values in ``vanilla``'s place. What refuses the
+whole file is refused by name.
 
 
 def mod_template(given: 'Mapping') -> 'dict':
@@ -608,8 +610,9 @@ Two config.xbr entities side by side (Modkit's ``entity diff``):
 ``{"a", "b", "all"?}`` gives each table that holds either, every
 property they hold differently or only one holds (with ``all``, alike
 too), and the tables only one is in (``tools.data.compare``), from the
-config.xbr AzurKit ships. An entity no table holds is refused by
-name.
+config.xbr AzurKit ships, or ``config``, another one's bytes (the
+command line's ``--config`` or ``--iso``). An entity no table holds is
+refused by name.
 
 
 def image_info(path: 'str') -> 'dict':

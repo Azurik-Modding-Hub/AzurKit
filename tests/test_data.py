@@ -367,6 +367,54 @@ def test_all_files_lists_every_xbr_of_the_image_and_only_config_xbr_holds_keyed_
     assert capsys.readouterr().out == "(no keyed tables)\n"
 
 
+def test_data_diff_and_entity_diff_read_any_images_config_xbr_or_a_loose_file_read_only(tmp_path, capsys):
+    """Step 4.24a (Modkit's ``list`` and ``dump --input`` or ``--iso`` on a built image, ``diff --input`` and
+    ``entity diff --config``): ``azurkit data`` reads a cell as a built image's config.xbr (``--iso``, never gated)
+    or a loose file (``--input``) holds it, ``--files`` lists that image's .xbr files; ``diff`` previews a mods
+    file against it (an edit it already holds changes nothing) and ``entity diff`` compares its entities; none of
+    them writes the image. A file that isn't an XBR and flags that don't go together are refused by name."""
+    from azurkit.core.xbr import document as xbrdoc
+    from tests._xiso import image
+
+    op = {"op": "set", "file": data.FILE, "table": "damage", "entity": "octo", "prop": "Damage", "value": 12}
+    built, loose, odd = data._state([op]).data, tmp_path / "config.xbr", tmp_path / "odd.xbr"
+    made = tmp_path / "built.iso"
+    made.write_bytes(image({data.FILE: built, "gamedata/index/index.xbr": xbrdoc.HEADER.pack(b"xobx", *[0] * 14),
+                            "default.xbe": b"x"}))
+    loose.write_bytes(built)
+    odd.write_bytes(b"not an archive")
+    held = hashlib.sha256(made.read_bytes()).hexdigest()
+    assert cli.main(["data", "damage", "octo"]) == 0
+    vanilla = capsys.readouterr().out.splitlines()
+    for source in (["--iso", str(made)], ["--input", str(loose)]):
+        assert cli.main(["data", "damage", "octo", *source]) == 0
+        assert capsys.readouterr().out.splitlines() == ["Damage: 12.0" if line.startswith("Damage: ") else line
+                                                        for line in vanilla] != vanilla
+    assert cli.main(["data", "--files", "--iso", str(made)]) == 0
+    assert capsys.readouterr().out.splitlines() == [f" 18 keyed tables  {data.FILE}",
+                                                    "  0 keyed tables  gamedata/index/index.xbr"]
+    mod = tmp_path / "mod.json"
+    mod.write_text(json.dumps({"_keyed_patches": {"damage": {"octo": {"Damage": 12}}}}), encoding="utf-8")
+    for source, tally in (([], "1 changed"), (["--iso", str(made)], "0 changed"), (["--input", str(loose)], "0 changed")):
+        assert cli.main(["diff", str(mod), *source]) == 0
+        assert capsys.readouterr().out.splitlines()[-1].startswith(f"{tally}, 0 errors")
+    for source in (["--config", str(loose)], ["--iso", str(made)]):
+        assert cli.main(["entity", "diff", "octo", "catalisk", "--json", *source]) == 0
+        [damage] = [r for r in json.loads(capsys.readouterr().out)["rows"] if (r["table"], r["property"]) == (
+            "damage", "Damage")]
+        assert damage["a_value"] == 12
+    assert hashlib.sha256(made.read_bytes()).hexdigest() == held
+    for argv, why in ((["data", "--input", str(odd)], f"--input {odd}: not an XBR file (no xobx header)"),
+                      (["entity", "diff", "octo", "catalisk", "--config", str(odd)],
+                       f"--config {odd}: not an XBR file (no xobx header)"),
+                      (["data", "--input", str(loose), "--file", "gamedata/a1.xbr"],
+                       "data: --input reads one .xbr file: give no --iso, --files or --file"),
+                      (["data", "--file", "gamedata/a1.xbr"], "data: --file gamedata/a1.xbr is an image's: give --iso"),
+                      (["data", "--iso", str(made), "--file", "gamedata/a1.xbr"], f"{made} has no gamedata/a1.xbr")):
+        assert cli.main(argv) == 1
+        assert capsys.readouterr().err == f"azurkit: {why}\n"
+
+
 def test_another_files_keyed_table_reads_and_edits_as_config_xbrs_without_its_notes_rules_or_marks():
     """A keyed table of any file (Step 4.6h; config.xbr's bytes stand in
     for another file's, as no other vanilla file holds one) shows as a grid

@@ -202,6 +202,8 @@ before you pick your image: AzurKit ships the game's original config.xbr, the sa
   with a search box; All tables, each as a grid you can sort, or show only what you changed.
 - **All files:** with your image picked, every .xbr file of it and each one's tables (only config.xbr has any on the
   original disc); greyed until you pick it. On the command line, `azurkit data --iso PATH --files` or `--file FILE`.
+- **Read a build:** on the command line, `azurkit data --iso PATH` reads any image's tables, a build's too, and
+  `--input FILE` a loose .xbr file; `azurkit diff` and `entity diff` take one too. They never write it.
 - **Edit any cell:** any number, never clamped; only a value the game can't store is refused, saying why. Each cell
   has a note on what it does.
 - **Marks:** ● on what you changed, with the original value; ⚠ where a ticked pack also writes it (your edit wins,
@@ -312,9 +314,9 @@ azurkit build --iso PATH --out PATH [--mods FILE ...] [--pack NAME ...] [--no-pa
 azurkit open BUILD                       # a build's recipe, as a mods file for build --mods
 azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]   # a plan; needs no game
 azurkit spoiler PLAN                     # that plan's spoiler
-azurkit diff MODS ...                    # what mods files (Modkit's too) change, before a build
+azurkit diff MODS ... [--input FILE | --iso PATH]   # what mods files (Modkit's too) change, before a build
 azurkit mod-template TABLE ... [--entity NAME] [--out FILE]   # their original values, as a mods file to edit
-azurkit entity diff A B [--all] [--json] # two entities' numbers side by side, table by table
+azurkit entity diff A B [--all] [--json] [--config FILE | --iso PATH]   # two entities side by side, by table
 azurkit files | data | save              # an image's files, config.xbr's tables, a save slot (each --help)
 azurkit content [install ID | update ID] [--source URL|DIR]   # Azurik-Custom-Content's entries
 ```

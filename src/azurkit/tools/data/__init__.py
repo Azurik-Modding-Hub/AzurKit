@@ -11,7 +11,11 @@ All files (Modkit's "All files…", Step 4.6h): :func:`files` lists every
 config.xbr). :func:`table` and :func:`check` take any file's table: another
 file's vanilla bytes (``base``, which the host reads from the image) and its
 ``release``, with no schema notes, labels or int32 rules (config.xbr's) and no
-pack marks (the packs' spans are config.xbr's).
+pack marks (the packs' spans are config.xbr's). The command line reads any
+image's, a build's too, read-only and never gated: :func:`image_files` every
+``.xbr`` of it with its keyed tables, :func:`image_file` one of them
+(:func:`keyed` reads no further than a file's TOC when it holds none), and
+:func:`preview` and :func:`compare` take another config.xbr's bytes.
 
 - :func:`index`: the tables by category and the pickers' lists (critters
   by realm, pickups by kind, armor families, the staff spells), each entry
@@ -42,13 +46,15 @@ import functools
 import hashlib
 import json
 import math
+import os
 import struct
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from azurkit.core import gate
+from azurkit.core import gate, iso
 from azurkit.core.xbr import Document
+from azurkit.core.xbr import document as xbrdoc
 from azurkit.core.xbr.keyed import EMPTY, NUMBER, STRING, Table
 from azurkit.edits import xbr
 from azurkit.tools.data import views
@@ -321,6 +327,39 @@ def files(listing: Mapping[str, object]) -> list[dict]:
     return [{"file": p, "size": listing[p][0]} for p in sorted(paths, key=lambda p: (p != FILE, p.lower()))]
 
 
+def keyed(r: iso.Reader, entry: iso.Entry) -> bytes | None:
+    """The bytes of the image's file ``entry`` (``r``'s) when its TOC holds a
+    keyed table (a ``tabl`` entry), else ``None``, read no further than its
+    TOC; ``ValueError`` names a file that isn't an XBR."""
+    try:
+        need = min(entry.size, xbrdoc.toc_size(r.range(entry, 0, min(entry.size, xbrdoc.HEADER.size))))
+        held = xbrdoc.tags(r.range(entry, 0, need))
+    except ValueError as exc:
+        raise ValueError(f"{entry.path}: {exc}") from None
+    return r.read(entry) if "tabl" in held else None
+
+
+def image_files(path: str | os.PathLike) -> list[dict]:
+    """Every ``.xbr`` of the image at ``path`` (any image, read-only: a build's
+    too), as :func:`files` orders them, each ``{"file", "size", "tables"}``,
+    the names of its keyed tables."""
+    with iso.Reader(path) as r:
+        held = {e.path: e for e in r.entries() if not e.is_dir}
+        listed = files({p: [e.size] for p, e in held.items()})
+        return [f | {"tables": list(Document(data).tables) if (data := keyed(r, held[f["file"]])) else []}
+                for f in listed]
+
+
+def image_file(path: str | os.PathLike, file: str) -> bytes | None:
+    """``file`` of the image at ``path`` (any image, read-only), its bytes
+    when it holds a keyed table, else ``None`` (:func:`keyed`);
+    ``ValueError`` names a file the image hasn't."""
+    with iso.Reader(path) as r:
+        if (entry := r.lookup(file)) is None or entry.is_dir:
+            raise ValueError(f"{path} has no {file}")
+        return keyed(r, entry)
+
+
 def tables(ops: object = (), file: str = FILE, base: bytes | None = None, release: gate.Release = gate.USA) -> dict:
     """``file``'s keyed tables in its TOC's order, each its name, size and
     whether ``ops`` change it: config.xbr's by its own names, another
@@ -374,16 +413,18 @@ def table(name: str, ops: object = (), written: Iterable[Sequence[int]] = (), fi
             "cols_meta": cols_meta}
 
 
-def preview(made: Sequence[tuple[str, Mapping | None, str | None]]) -> list[dict]:
+def preview(made: Sequence[tuple[str, Mapping | None, str | None]], config: bytes | None = None) -> list[dict]:
     """Each edit of a mods file (its label, its ``xbr`` operation, ``None``
     when it has nothing to do, and why it is refused: ``edits.modkit.edits``,
     or a preset's operations), as a build makes it of the vanilla
-    config.xbr: ``{edit, what, vanilla, value, changed}`` for a cell
+    config.xbr (or of ``config``, another one's bytes, whose value is then
+    ``vanilla``'s): ``{edit, what, vanilla, value, changed}`` for a cell
     (``what`` its table/entity/prop by the file's names), ``{edit, what,
     size, changed}`` for a byte edit, ``checked`` false for one of another
     file (only a build reads it), ``{edit, refused}`` for one a build
     refuses, and ``{edit, changed: false}`` for one with nothing to do."""
-    base, documents, tables, rows = {FILE: vanilla()}, {}, _vanilla_tables(), []
+    base, documents, rows = {FILE: vanilla() if config is None else bytes(config)}, {}, []
+    tables = _vanilla_tables() if config is None else Document(base[FILE]).tables
     for label, op, why in made:
         row: dict = {"edit": label}
         if why or op is None:
@@ -409,17 +450,18 @@ def preview(made: Sequence[tuple[str, Mapping | None, str | None]]) -> list[dict
     return rows
 
 
-def compare(a: str, b: str, equal: bool = False) -> dict:
+def compare(a: str, b: str, equal: bool = False, config: bytes | None = None) -> dict:
     """Two entities' cells side by side (Modkit's ``entity diff``): each
     table that holds either (its column of that exact name, the last when
     repeated), its properties joined by name, sorted: a row ``{table,
     property, kind, a_type, a_value, b_type, b_value}`` for each the two
     hold differently (``different``: another type or value), one alone
     holds (``a_only``, ``b_only``: an empty cell is none) and, with
-    ``equal``, each they hold alike; and the tables only one of them is in.
+    ``equal``, each they hold alike; and the tables only one of them is in,
+    of the vanilla config.xbr or of ``config``, another one's bytes.
     ``ValueError`` names an entity no table holds (AZ-145)."""
     rows, only_a, only_b, found = [], [], [], {a: 0, b: 0}
-    for name, t in _vanilla_tables().items():
+    for name, t in (_vanilla_tables() if config is None else Document(config).tables).items():
         has = {e: e in t.cols for e in (a, b)}
         if not any(has.values()):
             continue

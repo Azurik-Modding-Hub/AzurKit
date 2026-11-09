@@ -125,7 +125,6 @@ from azurkit import __version__
 from azurkit.core import gate, iso, native
 from azurkit.core.progress import Steps, noting
 from azurkit.core.xbr import Document
-from azurkit.core.xbr import document as xbrdoc
 from azurkit.edits import manifest as edits
 from azurkit.edits import files as replaced
 from azurkit.edits import modkit, preset, xbr
@@ -1966,18 +1965,22 @@ def mods_diff(given: Mapping) -> dict:
     (``tools.data.preview``: a cell's table/entity/prop and its vanilla and
     new values, a byte edit's span, one of another file left to the build,
     or why a build refuses it), as ``{"edits"}``, with a Modkit mod's
-    ``name`` and ``description``. What refuses the whole file is refused
-    by name."""
-    if not (isinstance(given, Mapping) and set(given) == {"text"} and isinstance(given["text"], str)):
-        raise ValueError("mods_diff: {text}, a mods file's text")
+    ``name`` and ``description``; with ``config``, another config.xbr's
+    bytes (the command line's ``--input`` or ``--iso``: a build's, a loose
+    file), of that one, its values in ``vanilla``'s place. What refuses the
+    whole file is refused by name."""
+    if not (isinstance(given, Mapping) and {"text"} <= set(given) <= {"text", "config"}
+            and isinstance(given["text"], str) and isinstance(given.get("config", b""), (bytes, bytearray))):
+        raise ValueError("mods_diff: {text, config?}: a mods file's text, and a config.xbr's bytes")
+    config = given.get("config")
     found = preset.parse(given["text"], modkit.is_mod)
     if modkit.is_mod(found):
-        made = modkit.edits(found, datatool.vanilla())
+        made = modkit.edits(found, datatool.vanilla() if config is None else bytes(config))
         about = {key: found[key] for key in ("name", "description") if isinstance(found.get(key), str)}
     else:
         made = [(f"xbr op {k}", op, None) for k, op in enumerate(read_mods(found).get("xbr", []), 1)]
         about = {}
-    return about | {"edits": datatool.preview(made)}
+    return about | {"edits": datatool.preview(made, config)}
 
 
 def entity_diff(given: Mapping) -> dict:
@@ -1985,12 +1988,14 @@ def entity_diff(given: Mapping) -> dict:
     ``{"a", "b", "all"?}`` gives each table that holds either, every
     property they hold differently or only one holds (with ``all``, alike
     too), and the tables only one is in (``tools.data.compare``), from the
-    config.xbr AzurKit ships. An entity no table holds is refused by
-    name."""
-    if not (isinstance(given, Mapping) and set(given) <= {"a", "b", "all"} and isinstance(given.get("a"), str)
-            and isinstance(given.get("b"), str) and isinstance(given.get("all", False), bool)):
-        raise ValueError("entity_diff: {a, b, all?}: two entities' names")
-    return datatool.compare(given["a"], given["b"], given.get("all", False))
+    config.xbr AzurKit ships, or ``config``, another one's bytes (the
+    command line's ``--config`` or ``--iso``). An entity no table holds is
+    refused by name."""
+    if not (isinstance(given, Mapping) and set(given) <= {"a", "b", "all", "config"} and isinstance(given.get("a"), str)
+            and isinstance(given.get("b"), str) and isinstance(given.get("all", False), bool)
+            and isinstance(given.get("config", b""), (bytes, bytearray))):
+        raise ValueError("entity_diff: {a, b, all?, config?}: two entities' names, and a config.xbr's bytes")
+    return datatool.compare(given["a"], given["b"], given.get("all", False), given.get("config"))
 
 
 def mod_template(given: Mapping) -> dict:
@@ -2086,10 +2091,7 @@ def _keyed_file(given: Mapping, file: object) -> tuple[gate.Release, bytes | Non
         entry = r.lookup(file)
         if entry is None or entry.is_dir:
             raise ValueError(f"data: the image has no {file}")
-        need = min(entry.size, xbrdoc.toc_size(r.range(entry, 0, min(entry.size, xbrdoc.HEADER.size))))
-        if "tabl" not in xbrdoc.tags(r.range(entry, 0, need)):
-            return stamp.release, None
-        return stamp.release, r.read(entry)
+        return stamp.release, datatool.keyed(r, entry)
 
 
 @functools.cache
