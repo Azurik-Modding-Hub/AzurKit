@@ -263,7 +263,8 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
         heard[visit, name] = {stage: counts.get("stored", 0) for stage, counts in parts.HEARD.items()}
     taken = dict.fromkeys(("size", "W24", "W29", "W30", "kit clips", "bake", "W28 arms", "W28 springs", "W39",
                            "wave"), 0)
-    assert missed[1, "second"] == missed[2, "second"] == taken and heard[2, "second"] == dict.fromkeys(taken, 1)
+    assert missed[1, "second"] == missed[2, "second"] == taken and heard[2, "second"] == dict.fromkeys(
+        taken, 1) | {"bake": 2}   # its two bakes (Step 4.6q): its own clips, then its style's
     assert answers[2, "second"] == answers[1, "second"]
     assert missed[1, "third"]["W24"] == 0 < missed[1, "third"]["W29"] and answers[1, "third"][0]["refusal"] is None
     answers = {name: answers[1, name] for name in copies}
@@ -303,16 +304,17 @@ def _exact(a, b) -> bool:
     return a == b
 
 
-def test_a_part_kept_across_visits_reads_back_as_it_was_and_a_spoiled_stale_or_foreign_one_is_refused_by_name():
+def test_a_part_kept_across_visits_reads_back_as_it_was_and_a_spoiled_stale_or_foreign_one_is_refused_by_name(
+        tmp_path):
     """Step 4.6o (the Check design's L2 and R4): a dress's part as a later visit's host keeps it (``part_codec``'s
     bytes, no pickle) reads back as the values it held, each of its type, a float's bits (a zero's sign, a NaN) and
     the lists and dicts it held in two places one again, the objects it pickled (LODs, a mesh plan's runs of rows and
     dicts) too; bytes that aren't one, cut short, inflating past what they list or past the most a part may hold, or
     a class whose fields changed since (a stale part) or no part holds are refused by name, and a value no part holds
-    isn't kept."""
+    isn't kept. A WAV's part (Step 4.6q) is one it keeps."""
     from compression import zstd
 
-    from azurkit.tools.characters import body_codec, part_codec
+    from azurkit.tools.characters import body_codec, part_codec, xbox_adpcm
 
     shared, skin = [0, 3], {7: 0.5, 2: 0.25}
     vertices = [body_codec.Vertex((1.0, -0.0, k), (0.75, 0.25, 0.0, 0.0), (0.0, 0.0, 1.0), (0.5, 0.25), slots=(1, 2, 0,
@@ -349,6 +351,13 @@ def test_a_part_kept_across_visits_reads_back_as_it_was_and_a_spoiled_stale_or_f
             part_codec.decode(spoiled)
     with pytest.raises(ValueError, match="no codec for a builtins.object"):
         part_codec.encode((1, object()))
+    sound = tmp_path / "a.wav"
+    with wave.open(str(sound), "wb") as w:
+        w.setnchannels(1), w.setsampwidth(2), w.setframerate(xbox_adpcm.RATE), w.writeframes(b"\x01\x00" * 64)
+    parts.clear()
+    read = xbox_adpcm.read_wav(sound)
+    kept = parts.get(parts.key("wav", hashlib.sha256(sound.read_bytes()).hexdigest()))
+    assert part_codec.decode(part_codec.encode(kept)) == kept and xbox_adpcm.read_wav(sound) == read
 
 
 def test_two_dresses_on_two_threads_take_and_keep_parts_at_once_and_hold_only_the_parts_kept(monkeypatch):

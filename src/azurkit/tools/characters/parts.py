@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import io
 import pickle
 from collections import OrderedDict
 from pathlib import Path
@@ -115,8 +116,15 @@ def since(ref: bytes, ref_key: str | None, out: bytes) -> str:
 
 
 def pickled(obj: object) -> str:
-    """The sha256 of ``obj``'s pickle: an object a stage reads, by its content."""
-    return hashlib.sha256(pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)).hexdigest()
+    """The sha256 of ``obj``'s pickle: an object a stage reads, by its
+    content. Pickled with no memo, so a value held in two places is written
+    each time: an object read back from :data:`STORE` (:mod:`.part_codec`
+    makes a tuple or a string held twice two) names as the one kept."""
+    out = io.BytesIO()
+    pickler = pickle.Pickler(out, pickle.HIGHEST_PROTOCOL)
+    pickler.fast = True
+    pickler.dump(obj)
+    return hashlib.sha256(out.getbuffer()).hexdigest()
 
 
 def stamps(folder: Path | None, files) -> tuple:

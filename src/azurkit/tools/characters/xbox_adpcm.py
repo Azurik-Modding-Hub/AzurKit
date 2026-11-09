@@ -208,9 +208,10 @@ def read_wav(path: str | Path) -> tuple[list[int], WavInfo]:
     data = Path(path).read_bytes()
     named = parts.key("wav", hashlib.sha256(data).hexdigest())
     if (kept := parts.get(named)) is not None:
-        return list(kept[0]), kept[1]
+        return list(kept[0]), WavInfo(*kept[1])
     samples, info = _read_wav(path, data)
-    parts.put(named, (tuple(samples), info), 36 * len(samples))   # an int object and its slot each
+    parts.put(named, (tuple(samples), tuple(info)), 36 * len(samples))   # an int object and its slot each; its
+    # info as a tuple, which a later visit's store keeps (part_codec)
     return samples, info
 
 
