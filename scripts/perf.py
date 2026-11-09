@@ -549,6 +549,7 @@ def main(argv: list[str] | None = None) -> int:
         scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site.", dir=None if os.name == "nt" else "/tmp"))
         built: dict[str, Path | str] = {}
         natives: dict[str, list] = {}
+        held: dict[str, dict] = {}   # each run's record so far: a re-run's samples join its first ones (measure)
 
         def made(what: str) -> Path | str:   # each made once, the first time a run needs it: one wheel for both hosts
             if what not in built:
@@ -563,7 +564,8 @@ def main(argv: list[str] | None = None) -> int:
                 if run == "firefox" or run == "webkit" and "capped" in profiles:
                     spec = dataclasses.replace(spec, memory=True)
                 kept = args.keep / f"{run}.json" if args.keep else None
-                old = json.loads(kept.read_text(encoding="utf-8")) if kept and kept.is_file() else {"samples": {}}
+                old = held.get(run) or (json.loads(kept.read_text(encoding="utf-8")) if kept and kept.is_file()
+                                        else {"samples": {}})
                 have = {op: [s for s in got if not s.get("error")] for op, got in old["samples"].items()}
                 todo = {op: n - taken(have.get(op, [])) for op, n in targets.items() if n > taken(have.get(op, []))}
                 got = (_perf.drive(wt, spec, todo, iso, content, made("site") if spec.host == "site" else None,
@@ -576,12 +578,11 @@ def main(argv: list[str] | None = None) -> int:
                 seen += [r for r in old.get("native", []) + got.get("native", []) if r not in seen]
                 peak = max(filter(None, (old.get("memory_peak"), got.get("memory_peak"))), default=None)
                 shared = bool(old.get("memory_shared") or got.get("memory_shared"))
+                held[run] = {"samples": have, "native": list(seen), "memory_peak": peak, "memory_shared": shared,
+                             "log": old.get("log", []) + got.get("log", [])}
                 if kept:
                     kept.parent.mkdir(parents=True, exist_ok=True)
-                    kept.write_text(json.dumps({"samples": have, "native": seen, "memory_peak": peak,
-                                                "memory_shared": shared,
-                                                "log": old.get("log", []) + got.get("log", [])}, indent=1),
-                                    encoding="utf-8")
+                    kept.write_text(json.dumps(held[run], indent=1), encoding="utf-8")
                 return {"samples": {op: have.get(op, []) for op in targets}, "memory_peak": peak,
                         "memory_shared": shared}
 

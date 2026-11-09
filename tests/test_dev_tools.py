@@ -1362,6 +1362,45 @@ def test_the_perf_gate_logs_firefoxs_tree_peak_and_no_verdict_or_list_reads_it(t
     assert perf.listed((repo / perf.CEILINGS).read_text(encoding="utf-8")) == on_main
 
 
+def test_the_perf_gates_rerun_of_a_slower_op_adds_its_samples_to_the_first_and_judges_them_all(tmp_path, monkeypatch):
+    """D1170's rerun, as the gate runs perf.py (no ``--keep``): an op slower
+    than the release's takes R more samples (one past 30 s), each run asked
+    only for those, and its verdict reads every sample, the first ones too."""
+    from azurkit.core import gate
+    from scripts import web_tools
+
+    monkeypatch.setattr(perf.signal, "signal", lambda *_: None)
+    monkeypatch.setattr(perf, "R", perf.R)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    repo = tmp_path / "repo"
+    (repo / "tests").mkdir(parents=True)
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    (repo / perf.CEILINGS).write_text(perf.render(perf.listed(None)), encoding="utf-8")
+    _git(repo, "add", perf.CEILINGS)
+    _git(repo, "commit", "-q", "-m", "main")
+    image = types.SimpleNamespace(stat=lambda: types.SimpleNamespace(st_size=gate.USA.iso_size))
+    monkeypatch.setattr(gate, "find", lambda release: image)
+    monkeypatch.setattr(web_tools, "wheel", lambda *a, **k: tmp_path / "wheel")
+    monkeypatch.setattr(_perf, "venv", lambda *a, **k: "python")
+    monkeypatch.setattr(perf, "native_failures", lambda *_: [])
+    long, asked = iter([200.0, 100.0]), []
+
+    def drive(wt, spec, todo, *_):   # as _perf.Driver: an op stops at its first sample past 30 s
+        asked.append(dict(todo))
+        return {"samples": {op: [{"s": next(long), "bar": 2, "progress": True}] if op == "A31" else
+                            [{"s": 4.0, "bar": 2, "progress": True}] * n for op, n in todo.items()}, "log": []}
+    monkeypatch.setattr(_perf, "drive", drive)
+    release = tmp_path / "suite-release.meta"
+    release.write_text(json.dumps({"head": "f" * 40, "perf": {"cases": {
+        "A31/app": {"median": 60.0}, "A21/app": {"median": 3.0}}}}), encoding="utf-8")
+    assert perf.main([str(repo), "--select", "app:build", "--ops", "A31,A21", "--profiles", "app",
+                      "--reference", str(release), "--json", str(tmp_path / "perf.json")]) == 1
+    cases = json.loads((tmp_path / "perf.json").read_text(encoding="utf-8"))["cases"]
+    assert asked == [{"A31": 3, "A21": 3}, {"A31": 1, "A21": 3}]
+    assert {k: (r["samples"], r["median"], r["slower"]) for k, r in cases.items()} == {
+        "A31/app": ([200.0, 100.0], 150.0, True), "A21/app": ([4.0] * 6, 4.0, True)}
+
+
 def test_the_perf_gates_scratch_is_out_of_reach_of_macoss_temp_sweep(tmp_path, monkeypatch):
     """macOS empties $TMPDIR daily of what looks 3 days old, and the app's venv in this scratch keeps uv's cache's times,
     so a run crossing 03:35 would lose its dependencies; Windows, which has no /tmp, takes its temp folder."""
