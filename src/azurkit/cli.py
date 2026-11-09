@@ -100,7 +100,9 @@ content folder holds of each; ``install`` and ``update`` copy one in, every
 file's sha256 checked first (a build reads a variant's files from there);
 ``check`` checks a clone's ``manifest.json`` and every file it lists, and
 ``--write`` first fills in each listed file's sha256 and size.
-A refusal or failure is one ``azurkit: ...`` line on stderr and exit 1.
+A refusal or failure is one ``azurkit: ...`` line on stderr and exit 1. A flag
+is taken only as spelled: one typed short (``--no-def``) is refused, exit 2,
+never read as the flag it starts (Q100).
 """
 
 from __future__ import annotations
@@ -858,6 +860,8 @@ def main(argv: list[str] | None = None) -> int:
     contented.add_argument("--source", metavar="URL|DIR", help="where Azurik-Custom-Content is read from")
     contented.add_argument("--write", action="store_true", help="check: fill in each listed file's sha256 and size")
     contented.set_defaults(run=_content)
+    for each in (parser, *verbs.choices.values(), compared):
+        each.allow_abbrev = False   # Q100: --no-def is refused, never read as --no-defaults
     args = parser.parse_args(argv)
     if args.verb is None:
         parser.print_help()

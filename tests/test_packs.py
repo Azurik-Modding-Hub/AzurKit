@@ -466,3 +466,22 @@ def test_a_remembered_setup_keeps_what_still_normalizes_and_names_each_part_it_d
                     "config.xbr value 3 (no table, entity, prop, value)"]}
     unread = {"ticked": [], "values": {}, "xbr": [], "dropped": ["your last setup (not one AzurKit reads)"]}
     assert [sdk.restore(given) for given in ("{", None, {"ticked": [], "iso": "a.iso"})] == [unread] * 3
+
+
+# --- Step 4.28a: Modkit's pack and CLI tests no test above pinned (test_categories and test_gui_pages' Patches
+# page, test_legacy_pack_migration, test_cli_dispatch, test_goldens' golden write), ported leanly.
+
+
+def test_a_flag_typed_short_is_refused_and_nothing_starts(monkeypatch, capsys):
+    """Modkit's Q100 (test_cli_dispatch): argparse took any unique prefix of
+    a flag, so ``--no-def`` meant ``--no-defaults``. ``azurkit`` and each of
+    its verbs, an action's too, take a flag only as spelled: exit 2 naming
+    it, and the build never starts."""
+    ran = []
+    monkeypatch.setattr(sdk, "build", lambda *args, **kwargs: ran.append(args))
+    for argv in (["--vers"], ["build", "--iso", "in.iso", "--out", "o.iso", "--no-def"],
+                 ["entity", "diff", "golem", "octo", "--al"]):
+        with pytest.raises(SystemExit) as exc:
+            cli.main(argv)
+        assert exc.value.code == 2 and f"unrecognized arguments: {argv[-1]}\n" in capsys.readouterr().err, argv
+    assert ran == []

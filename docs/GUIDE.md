@@ -329,6 +329,8 @@ azurkit files | data | save              # an image's files, config.xbr's tables
 azurkit content [install ID | update ID] [--source URL|DIR]   # Azurik-Custom-Content's entries
 ```
 
+A flag is read only as spelled: `--no-def` is refused, never taken for `--no-defaults`.
+
 ## Download and check it
 
 These hold from the first release:
