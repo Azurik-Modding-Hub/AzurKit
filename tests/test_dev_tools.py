@@ -1815,3 +1815,38 @@ def test_restack_runs_its_batch_work_at_nice_15_or_lower_priority_and_only_in_a_
         monkeypatch.setattr(restack.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, dirs, ""))
         assert (restack.main([]), ran) == want, start
         assert niceness[0] == (want[1] or [start])[0]
+
+
+# --- Step 4.28f: Modkit's unpinned dev-tool behaviours, ported -------------------------------------------------
+
+
+def test_devlog_release_joins_each_entry_once_in_order_and_deletes_its_files(tmp_path):
+    """A release (``scripts/devlog.py --release TITLE --remove``, Modkit's
+    Step 2.212) writes the entries into DEVLOG.md as one section above the
+    newest release, Keep a Changelog's sections in order and each one's
+    files by name with numbers compared as numbers, and deletes the files;
+    an entry written again after it, or the old way, is refused."""
+    log, folder = tmp_path / "docs" / "DEVLOG.md", tmp_path / "docs" / "devlog"
+    entries = {"fixed/2.10-later.md": "- **B** (Step 2.10): b.\n",
+               "fixed/2.9-first.md": "- **A** (Step 2.9): a\n  wrapped.\n",
+               "added/x.1-new.md": "- **C** (Step X.1): c.\n"}
+    for rel, text in entries.items():
+        (folder / rel).parent.mkdir(parents=True, exist_ok=True)
+        (folder / rel).write_text(text, encoding="utf-8")
+    log.write_text("# Developer log\n\n## [Unreleased]\n\nSee devlog/.\n\n## [v1]\n\n### Fixed\n- old.\n",
+                   encoding="utf-8")
+    assert devlog.release(tmp_path, "v2", remove=True).endswith("deleted their 3 files")
+    assert log.read_text(encoding="utf-8") == (
+        "# Developer log\n\n## [Unreleased]\n\nSee devlog/.\n\n## [v2]\n\n### Added\n- **C** (Step X.1): c.\n\n"
+        "### Fixed\n- **A** (Step 2.9): a\n  wrapped.\n- **B** (Step 2.10): b.\n\n## [v1]\n\n### Fixed\n- old.\n")
+    assert not (folder / "fixed").exists() and devlog.problems(tmp_path) == []
+    (folder / "fixed").mkdir()
+    (folder / "fixed" / "2.9-again.md").write_text(entries["fixed/2.9-first.md"], encoding="utf-8")
+    log.write_text(log.read_text(encoding="utf-8").replace("devlog/.\n", "devlog/.\n- **D** (Step 3.1): d.\n"),
+                   encoding="utf-8")
+    old_way, again = devlog.problems(tmp_path)
+    assert old_way.startswith("docs/DEVLOG.md:6: an entry under [Unreleased], the old way: each entry is its own "
+                              "file, docs/devlog/<added|changed|removed|fixed>/<step>-<slug>.md")
+    assert again == "docs/devlog/fixed/2.9-again.md: the same entry as docs/DEVLOG.md:14, released; keep one"
+    with pytest.raises(devlog.Refused, match="docs/devlog/fixed/2.9-again.md: the same entry"):
+        devlog.release(tmp_path, "v3")

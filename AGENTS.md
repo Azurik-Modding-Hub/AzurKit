@@ -2090,7 +2090,10 @@ are the Characters section's.
   git config changes.
 - **Change notes:** each change adds one Markdown bullet in a file of its
   own, `docs/devlog/<added|changed|removed|fixed>/<step>-<slug>.md` (ids
-  welcome there), which a release joins; a change a player would notice
+  welcome there: one bullet, its further lines indented two spaces, held
+  once; the lint set checks each), which a release joins into
+  `docs/DEVLOG.md` and deletes (`uv run --locked python scripts/devlog.py
+  --release TITLE --remove`; with no option it prints the join); a change a player would notice
   also updates the guide's features (above), in plain words. `docs/DEVLOG.md`
   merges with git's union driver (`.gitattributes`), so lanes' bullets at a
   section's end never conflict; the lint set and `scripts/land.py` refuse a

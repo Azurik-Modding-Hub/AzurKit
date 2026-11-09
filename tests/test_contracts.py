@@ -790,3 +790,15 @@ def test_every_text_read_and_write_names_its_encoding():
                for p in sorted((ROOT / top).rglob("*.py"))] + sorted(ROOT.glob("*.py"))
     assert [f"{p.relative_to(ROOT).as_posix()}:{line}" for p in sources
             for line in text_io_without_encoding(p.read_text(encoding="utf-8"))] == []
+
+
+# --- Step 4.28f: Modkit's unpinned lint, ported -----------------------------------------------------------------
+
+
+def test_devlog_entries_are_well_formed_and_each_appears_once():
+    """Each developer-log entry is its own file, ``docs/devlog/<section>/<step>-<slug>.md``
+    (Modkit's Step 2.212, D970): one well-formed bullet, held once (not in two files, nor
+    released in DEVLOG.md already), and none under DEVLOG.md's [Unreleased] the old way
+    (``scripts/devlog.py``'s ``problems``, which a release's join refuses on too)."""
+    found = devlog.problems()
+    assert not found, "the developer log's entries:\n" + "\n".join(found)
