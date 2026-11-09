@@ -10,7 +10,9 @@ and sha256 a release's (``gate.Release.iso_size`` and ``iso_sha256``, which
 no manifest gives); another is refused by name and nothing is written. With
 no ``--iso`` it writes each release's image the resolver finds
 (``AZURKIT_ISO``, ``AZURKIT_ISO_EUROPE``, else the user data folder's), noting
-one it doesn't; ``--out`` writes one image's elsewhere. The file is Modkit's
+one it doesn't; ``--out`` writes one image's elsewhere, never over the
+image or a release's vanilla image the resolver finds (D36, as a build's
+output). The file is Modkit's
 layout, byte for byte, written whole (a part file renamed into place); it
 prints counts and paths, never a byte. A refusal is one ``write-manifest:``
 line on stderr and exit 1. A manifest is a protected path: the commit that
@@ -66,8 +68,9 @@ def write(image: Path, out: Path | None = None) -> tuple[gate.Release, Path, int
     release's own by default): the release, where, and how many entries."""
     release = release_of(image)
     out = out or release.manifest
-    if out.exists() and out.samefile(image):
-        raise ValueError(f"{out}: the image itself")
+    kept = [("the image itself", image)] + [(f"the vanilla {r.label} image", gate.find(r)) for r in gate.RELEASES]
+    if name := next((name for name, path in kept if path and out.exists() and out.samefile(path)), None):
+        raise ValueError(f"{out}: {name}, which write-manifest never writes over")
     text, n = manifest(image)
     part = out.with_name(f"{out.name}.part")
     try:

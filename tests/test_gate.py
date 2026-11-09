@@ -187,7 +187,8 @@ def test_a_manifest_is_written_from_the_exact_vanilla_image_alone_and_the_gate_r
     """Step 4.24a (Modkit's ``iso-verify --write-manifest``): ``python -m devkit builds write-manifest`` writes a
     release's manifest from the image whose whole size and sha256 are that release's, in Modkit's layout (each
     folder, sorted, then each file's size and sha256 by path), and the gate passes the image against it; an image
-    of another sha256 or size is refused by name, and nothing is written."""
+    of another sha256 or size is refused by name, and nothing is written, as is an ``--out`` naming a vanilla image
+    the resolver finds (D36: the other release's, say), which stays as it was."""
     from devkit.builds import write_manifest
 
     data = image(VANILLA)
@@ -209,6 +210,13 @@ def test_a_manifest_is_written_from_the_exact_vanilla_image_alone_and_the_gate_r
         assert write_manifest.main(["--iso", str(given), "--out", str(out)]) == 1
         assert capsys.readouterr().err.startswith(f"write-manifest: {given} is no release's vanilla image: {why}")
         assert not out.exists()
+    found = tmp_path / "found.iso"
+    found.write_bytes(data)
+    monkeypatch.setenv(test.env, str(found))
+    assert write_manifest.main(["--iso", str(src), "--out", str(found)]) == 1
+    assert capsys.readouterr().err == (
+        f"write-manifest: {found}: the vanilla Test image, which write-manifest never writes over\n")
+    assert found.read_bytes() == data
 
 
 @pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),

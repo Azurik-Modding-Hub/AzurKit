@@ -51,6 +51,7 @@ uv run --locked python -m devkit builds write-manifest                 # each re
 uv run --locked python -m devkit builds write-manifest --iso usa.iso --out /tmp/x/usa.json   # elsewhere
 ```
 
-A refusal is one `write-manifest:` line on stderr and exit 1. The two images
+`--out` never names the image or a release's vanilla image the resolver
+finds (D36). A refusal is one `write-manifest:` line on stderr and exit 1. The two images
 never change (D146), so a rewrite gives the files AzurKit ships;
 `tests/test_gate.py` pins the writer on a synthetic image.
