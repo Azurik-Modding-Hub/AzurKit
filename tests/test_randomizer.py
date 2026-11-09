@@ -1840,15 +1840,22 @@ def test_a_needs_colour_goes_by_key_or_by_the_barrier_its_spell_breaks_and_an_ex
         needs.colour("event"), True, "W1_A3 → a3: needs balthazar killed; one way")
 
 
-def test_an_empty_seed_is_refused_by_name_never_planned_as_a_default(tmp_path):
+def test_an_empty_seed_is_refused_by_name_by_a_plan_or_build_and_a_link_holding_one_still_loads(tmp_path):
     """Modkit's N9 (Q74): a seed the build couldn't use once silently became
     42. Any text is a seed; one with none (empty, or spaces) is refused by
     name, by a plan (``azurkit plan`` and Track this seed's) and by a build
-    on either host (Build sends the Randomizer tab's seed), before an image
-    is read."""
+    (``sdk.image``, a worn body's too, and ``azurkit build --seed``), before
+    an image is read. A share link or mods file holding one (v1.0.0's Share
+    made them) still loads, its packs with it; its build refuses the seed."""
     said = "the seed is empty: type any text, or draw one (New)"
+    iso_path = str(tmp_path / "none.iso")
     for call in (lambda: sdk.plan({"seed": ""}),
-                 lambda: sdk.image({"iso": str(tmp_path / "none.iso"), "packs": {}, "randomizer": {"seed": "  "}})):
+                 lambda: sdk.image({"iso": iso_path, "packs": {}, "randomizer": {"seed": "  "}}),
+                 lambda: sdk.image({"iso": iso_path, "packs": {}, "character": {"species": "beamlord"},
+                                    "randomizer": {"seed": ""}})):
         with pytest.raises(ValueError, match=f": {re.escape(said)}$"):
             call()
     assert cli.main(["plan", "--seed", " "]) == 1
+    link = sdk.preset_encode({"iso": iso_path, "packs": {"fps_unlock": {}}, "randomizer": {"seed": ""}})
+    assert sdk.read_mods(link) == {"packs": {"fps_unlock": {}}, "randomizer": {"seed": ""}}
+    assert [la["recipe"] for la in sdk.preset_decode(link)["layers"] if la["tool"] == generator.TOOL] == [{"seed": ""}]

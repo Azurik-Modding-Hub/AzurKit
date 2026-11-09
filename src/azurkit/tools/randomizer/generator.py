@@ -89,7 +89,7 @@ def _skips(db) -> dict:
 
 
 def normalize(recipe: object) -> dict:
-    """``recipe`` checked: its keys, the seed a string with some text, at most one of
+    """``recipe`` checked: its keys, the seed a string, at most one of
     ``settings`` (a settings file's table) and ``share`` (a share string),
     or in their place ``plan`` (a plan file's object, which carries its own
     seed and settings), and ``obsidian_cost`` any number whose thresholds (x1
@@ -106,8 +106,6 @@ def normalize(recipe: object) -> dict:
             raise ValueError("randomizer: plan is a plan file's object (azurkit plan's)")
     elif not isinstance(recipe.get("seed"), str):
         raise ValueError("randomizer: seed is a string (any string; the same seed and settings give the same plan)")
-    elif not recipe["seed"].strip():
-        raise ValueError(f"randomizer: {EMPTY_SEED}")
     if "settings" in recipe and "share" in recipe:
         raise ValueError("randomizer: settings and share both give the settings: give one")
     if "settings" in recipe and not isinstance(recipe["settings"], Mapping):
@@ -142,6 +140,16 @@ def check(recipe: object) -> dict:
     return recipe
 
 
+def seeded(recipe: Mapping) -> Mapping:
+    """:func:`normalize`'s ``recipe``, refused by name if a build would plan
+    its seed and it has no text (empty, or spaces: Modkit's N9, Q74), never
+    planned as a default. A link or mods file holding one still loads (its
+    build refuses it), as v1.0.0's did."""
+    if "plan" not in recipe and not recipe["seed"].strip():
+        raise ValueError(f"randomizer: {EMPTY_SEED}")
+    return recipe
+
+
 def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepared:
     """The plan :func:`normalize`'s ``recipe`` makes under the build's
     ``packs`` (``{pack: {slider: value}}``, normalized), at the tier their
@@ -151,8 +159,8 @@ def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepar
     again. A build that applies :data:`WARP_PACK` plans with the save-point
     warp counted (D1154); settings (a plan file's too) that count it in a
     build without the pack are refused. ``ValueError`` names a setting or
-    plan refused or the items no attempt found a safe spot for (D35)."""
-    recipe = normalize(recipe)
+    plan refused, a seed with no text (:func:`seeded`) or the items no attempt found a safe spot for (D35)."""
+    recipe = seeded(normalize(recipe))
     logic = kept_logic()
     db = logic.db
     share = recipe.get("share")

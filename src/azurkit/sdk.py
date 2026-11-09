@@ -408,7 +408,7 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, byte
             noted("plan")
             prepared = generator.prepare(recipe["randomizer"], packs)
     elif "randomizer" in recipe:   # checked now; planned below, on the walk and roll the body's size folds
-        generator.check(recipe["randomizer"])
+        generator.seeded(generator.check(recipe["randomizer"]))
     stamp = _stamp(recipe["iso"], steps)
     folded = vanilla = None
     inputs: dict[str, dict[str, float]] = {}
