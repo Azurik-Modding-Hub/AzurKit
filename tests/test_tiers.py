@@ -576,12 +576,11 @@ def test_no_test_finds_an_image_itself_but_through_the_fixtures():
         if path.name in ("conftest.py", "test_gate.py"):
             continue
         for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"), str(path))):
-            text = ast.unparse(n) if isinstance(n, (ast.Call, ast.Subscript)) else ""
-            if (text.startswith("gate.find(")
-                    or text.startswith(("os.environ.get(", "os.getenv(")) and n.args
+            called = ast.unparse(n.func) if isinstance(n, ast.Call) else ""
+            if (called == "gate.find" or called in ("os.environ.get", "os.getenv") and n.args
                     and getattr(n.args[0], "value", None) in variables
-                    or text.startswith("os.environ[") and isinstance(n.ctx, ast.Load)
-                    and getattr(n.slice, "value", None) in variables
+                    or isinstance(n, ast.Subscript) and ast.unparse(n.value) == "os.environ"
+                    and isinstance(n.ctx, ast.Load) and getattr(n.slice, "value", None) in variables
                     or isinstance(n, ast.Constant) and isinstance(n.value, str) and tree_name in n.value):
                 found.append(f"{path.name}:{n.lineno}")
     assert found == []
