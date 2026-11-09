@@ -29,6 +29,10 @@ META = (b"\xff\xfe" + "Name=Hero".encode("utf-16-le") + CRLF16
         + "TitleName=Azurik: Rise of Perathia".encode("utf-16-le") + CRLF16 + b"\x00\x00" + b"\x01\x02")
 MAGIC = b"fileversion=1\n1.000000\n1.000000\n3\n5\n0.750000\n" + bytes(40)
 LOC = b"fileversion=1\nlevels/water/w1\n\x00\x07\x00"
+UNICODE_META = (b"\xff\xfe" + "Name=Savé Gâme".encode("utf-16-le") + CRLF16 + "TitleName=Azurik".encode("utf-16-le")
+                + CRLF16)
+NO_FINAL_NEWLINE = b"fileversion=1\nlevels/water/w1\n\xcd\xcc\x8c?\x00\x01"   # loc.sav's spawn bytes end it (AZ-339)
+HIGH = b"fileversion=1\n\xff\xe9\n"                                            # 8-bit text, latin-1 (H9)
 
 
 def _files() -> dict[str, bytes]:
@@ -70,12 +74,16 @@ def _console(seed: int):
 
 def test_a_save_slot_decodes_edits_and_re_signs(tmp_path):
     """Step 4.7e (Modkit's save_format): a slot read from its folder keeps
-    every file and folder (an empty one too); each file decodes by kind;
-    an edit changes a text save's line and keeps the rest of its bytes, and a
+    every file and folder (an empty one too); each file decodes by kind (a
+    .sav under 8 B is a file, a signature.sav not of 20 B no signature) and
+    round-trips (a non-ASCII name, a text part ending in loc.sav's binary
+    tail with no newline (AZ-339), 8-bit text (H9), all Modkit's edges);
+    an edit changes a text save's line (to latin-1 text too) and keeps the rest of its bytes, and a
     set of edits with any bad one makes none and names each; the console key
     is the HMAC of the XBE's title key under the kernel's certificate key,
     found by its fingerprint in the flash image's RC4 loader (a synthetic
-    key: the real one is never in the repo), and a wrong BIOS is refused;
+    key: the real one is never in the repo), and a wrong BIOS or a key not
+    of 16 B is refused;
     the signature is the game's walk; the slot is written as a new folder
     and as the same zip on every call, its entries named only by the slot's
     checked names, and a name a save can't hold is refused (SEC-12)."""
@@ -101,10 +109,16 @@ def test_a_save_slot_decodes_edits_and_re_signs(tmp_path):
     assert (shown["inv.sav"]["clock"], shown["levels/water/w1.sav"]["records"], "records" in shown["shared.sav"]) == (
         12.5, 153, False)
     for data in (META, MAGIC, LOC, b"0.333333\r\n0.333333\r\n0\r\n", b"fileversion=01\nx\n",
-                 b"fileversion=" + b"1" * 5000 + b"\n"):
-        parsed = saves.Meta.from_bytes(data) if data is META else saves.Text.from_bytes(data)
+                 b"fileversion=" + b"1" * 5000 + b"\n", UNICODE_META, NO_FINAL_NEWLINE, HIGH):
+        parsed = saves.Meta.from_bytes(data) if data[:2] == b"\xff\xfe" else saves.Text.from_bytes(data)
         assert parsed.to_bytes() == data
     assert saves.Text.from_bytes(b"0.333333\r\n0\r\n").version is None
+    assert (saves.Meta.from_bytes(UNICODE_META).get("Name"), saves.Text.from_bytes(NO_FINAL_NEWLINE).lines) == (
+        "Savé Gâme", ["levels/water/w1", "\xcd\xcc\x8c?"])
+    odd = saves.Slot(ID, {"a.sav": b"\x00\x01\x02", "signature.sav": bytes(19), "levels/signature.sav": bytes(21)})
+    assert [d["kind"] for d in saves.decode(odd)] == ["file", "binary", "binary"]   # a short file; no 20 B signature
+    assert saves.edit(saves.Slot(ID, {"h.sav": HIGH}), [{"file": "h.sav", "line": 0, "value": "café"}])[0].files == {
+        "h.sav": b"fileversion=1\ncaf\xe9\n"}
 
     edited, done = saves.edit(slot, [{"file": "magic.sav", "line": 4, "value": "0.500000"},
                                      {"file": "loc.sav", "line": 0, "value": "levels/fire/f1"}])
@@ -137,6 +151,9 @@ def test_a_save_slot_decodes_edits_and_re_signs(tmp_path):
             saves.title_key(wrong)
     key = saves.signature_key(saves.cert_key(flash, mcpx, fingerprint=fp), saves.title_key(xbe))
     assert key == hmac.new(cert, title, hashlib.sha1).digest()[:16]
+    for wrong in (key[:15], key + b"\x00"):
+        with pytest.raises(ValueError, match=f"a signature key is 16 bytes, not {len(wrong)}"):
+            saves.resign(edited, wrong)
     assert not saves.signed(edited, key)
     resigned = saves.resign(edited, key)
     assert resigned.files["signature.sav"] == hmac.new(key, _walked(resigned.files), hashlib.sha1).digest()
@@ -494,3 +511,58 @@ def test_the_commands_output_replaces_what_the_consoles_code_page_cant_encode(tm
                               env={**os.environ, "PYTHONIOENCODING": "cp1252"}, timeout=120)
         assert (done.returncode, done.stderr) == (0, b""), argv[0]
         assert shown in done.stdout, argv[0]
+
+
+# --- Step 4.28g: Modkit's save CLI edges (test_save_format, test_save_signature) -------------------------------------
+
+
+def test_save_reads_a_lone_save_file_signs_a_slot_with_no_edit_and_refuses_bad_input_in_one_line_writing_nothing(
+        tmp_path, monkeypatch, capsys):
+    """Modkit's ``save`` edges: ``azurkit save inspect`` reads one .sav file as a slot's (a text save's lines, a
+    signature); ``save edit`` with the BIOS files and no ``--set`` signs the slot as it is (Step 2.84), a folder
+    named like a save kept a folder (L25); and each bad input (AZ-141: the output a file or inside the slot it
+    reads, the input a file or one save file, a malformed ``--set``, ``--mcpx`` without ``--flash``) is one
+    ``azurkit:`` line, exit 1, nothing written."""
+    cert, fp, flash, mcpx, _, xbe = _console(7)
+    monkeypatch.setattr(saves, "key", lambda f, m, x: saves.signature_key(saves.cert_key(f, m, fingerprint=fp),
+                                                                         saves.title_key(x)))
+    reader = type("R", (), {"__init__": lambda s, path: None, "__enter__": lambda s: s, "__exit__": lambda s, *a: None,
+                            "read": lambda s, name: xbe})
+    monkeypatch.setattr(sdk.iso, "Reader", reader)
+    slot = tmp_path / ID
+    (slot / "old.sav").mkdir(parents=True)
+    for name, data in (("magic.sav", MAGIC), ("inv.sav", bytes(16)), ("signature.sav", bytes(20))):
+        (slot / name).write_bytes(data)
+    for name, data in (("image.iso", b"not read"), ("flash.bin", flash), ("mcpx.bin", mcpx), ("taken.txt", b"x"),
+                       ("sample.sav", b"fileversion=1\nhello\nworld\n"), ("signature.sav", bytes(range(20)))):
+        (tmp_path / name).write_bytes(data)
+    assert cli.main(["save", "inspect", str(tmp_path / "sample.sav")]) == 0
+    assert capsys.readouterr().out == "sample.sav: text, 26 B\n    0 hello\n    1 world\n"
+    assert cli.main(["save", "inspect", str(tmp_path / "signature.sav")]) == 0
+    assert capsys.readouterr().out == "signature.sav: signature, 20 B\n"
+
+    keys = ["--flash", str(tmp_path / "flash.bin"), "--mcpx", str(tmp_path / "mcpx.bin"), "--iso",
+            str(tmp_path / "image.iso")]
+
+    def tree() -> dict:
+        return {p.relative_to(tmp_path).as_posix(): p.read_bytes() if p.is_file() else None
+                for p in sorted(tmp_path.rglob("*"))}
+
+    before = tree()
+    for case, argv in {"output is a file": [slot, *keys, "--out", tmp_path / "taken.txt"],
+                       "output inside the input": [slot, *keys, "--out", slot / "out"],
+                       "input is a file": [tmp_path / "taken.txt", *keys, "--out", tmp_path / "out"],
+                       "input is one save file": [slot / "magic.sav", *keys, "--out", tmp_path / "out"],
+                       "malformed --set": [slot, *keys, "--out", tmp_path / "out", "--set", "bogus"],
+                       "a --set line that isn't a number": [slot, *keys, "--out", tmp_path / "out", "--set",
+                                                            "magic.sav:zzz=9"],
+                       "--mcpx without --flash": [slot, *keys[2:], "--out", tmp_path / "out"]}.items():
+        assert cli.main(["save", "edit", *map(str, argv)]) == 1, case
+        err = capsys.readouterr().err
+        assert len(err.splitlines()) == 1 and err.startswith("azurkit: ") and tree() == before, (case, err)
+
+    assert cli.main(["save", "edit", str(slot), *keys, "--out", str(tmp_path / "done")]) == 0
+    done = saves.Slot.read(tmp_path / "done", ID)
+    assert saves.signed(done, saves.key(flash, mcpx, xbe)) and done.folders == {"old.sav"}
+    assert {p: d for p, d in done.files.items() if p != "signature.sav"} == {"inv.sav": bytes(16), "magic.sav": MAGIC}
+    assert cert.hex() not in capsys.readouterr().out

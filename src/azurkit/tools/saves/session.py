@@ -5,7 +5,7 @@ open (:data:`SLOTS`, in memory until the next open; nothing is kept).
     open   {folder} | {image} | {id, files, folders}   the slot(s) as a host shows them
     edit   {id, edits}                                  text saves' lines changed, all or none
     sign   {id, iso, flash[, mcpx]}                     its signature made again with the player's own BIOS files
-    save   {id, out}                                    a new folder (the app's, the CLI's)
+    save   {id, out}                                    a new folder (the app's, the CLI's), never in its own
     zip    {id}                                         a zip's bytes (the site's)
 
 The BIOS files and the key derived from them live for one call, in memory:
@@ -17,11 +17,13 @@ so they are neither hashed nor saved."""
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from pathlib import Path
 
 from azurkit.tools import saves
 from azurkit.tools.saves.container import Slot
 
 SLOTS: dict[str, Slot] = {}
+FOLDERS: dict[str, Path] = {}   # the folder each open slot was read from, which a save never writes into (D36)
 MAX_BIOS = 16 << 20    # a flash image's or MCPX ROM's most bytes (a scan with no MCPX is slower: MAX_SCAN)
 MAX_SCAN = 4 << 20     # the most a flash image with no boot ROM is scanned (cert_key's whole-file walk, 0.4 s a MiB)
 
@@ -79,6 +81,8 @@ def ask(given: object, xbe: Callable[[str], bytes]) -> dict:
         slots = _opened(given)
         SLOTS.clear()
         SLOTS.update({slot.id: slot for slot in slots})
+        FOLDERS.clear()
+        FOLDERS.update({slot.id: Path(given["folder"]).resolve() for slot in slots if "folder" in given})
         return {"slots": [view(slot) for slot in slots]}
     if do == "edit":
         slot, changes = saves.edit(_slot(given), given.get("edits") or [])
@@ -87,6 +91,9 @@ def ask(given: object, xbe: Callable[[str], bytes]) -> dict:
     if do == "sign":
         return _signed(given, xbe)
     if do == "save":
-        return {"out": str(_slot(given).write(given["out"]))}
+        slot, out = _slot(given), Path(given["out"])
+        if (folder := FOLDERS.get(slot.id)) and out.resolve().is_relative_to(folder):
+            raise ValueError(f"saves: {out} is inside {folder}, the slot's own folder, which a save never writes into")
+        return {"out": str(slot.write(out))}
     slot = _slot(given)
     return {"name": f"{slot.id}.zip", "data": slot.zip()}

@@ -623,9 +623,22 @@ def _plan_edits(path: str) -> list[dict]:
 
 
 def _save(args: argparse.Namespace) -> int:
+    from azurkit.tools.saves import container
+
+    def shown(file: dict) -> str:
+        return (f"{file['path']}: {file['kind']}, {file['size']:,} B"
+                + "".join(f"\n    {n} {line}" for n, line in enumerate(file.get("lines", []))))
+
     try:
-        target = replaced.source(args.target)
-        slots = sdk.saves({"do": "open", "folder" if Path(target).is_dir() else "image": target})["slots"]
+        target = Path(replaced.source(args.target))
+        if target.is_file() and target.suffix.lower() == ".sav":    # one save file, read as a slot's would be
+            if args.action == "edit":
+                raise ValueError(f"save edit: {target} is one save file: give its slot's folder, which its "
+                                 "signature covers whole")
+            file = container.decode(target.name, target.read_bytes())
+            print(json.dumps(file, indent=1) if args.json else shown(file))
+            return 0
+        slots = sdk.saves({"do": "open", "folder" if target.is_dir() else "image": str(target)})["slots"]
         if args.action == "inspect":
             if args.json:
                 print(json.dumps({"slots": slots}, indent=1))
@@ -635,8 +648,7 @@ def _save(args: argparse.Namespace) -> int:
             for slot in slots:
                 print(f"{slot['id']}: {len(slot['files'])} files, {slot['folders']} folders")
                 for file in slot["files"]:
-                    print(f"  {file['path']}: {file['kind']}, {file['size']:,} B"
-                          + "".join(f"\n    {n} {line}" for n, line in enumerate(file.get("lines", []))))
+                    print(f"  {shown(file)}")
             return 0
         if not args.out or not args.flash or not args.iso:
             raise ValueError("save edit: give --out, --flash and --iso: an edited save is signed again for your console")
@@ -838,7 +850,8 @@ def main(argv: list[str] | None = None) -> int:
     spoiled.add_argument("plan", metavar="PLAN", help="a plan file (azurkit plan --out)")
     spoiled.set_defaults(run=_spoiler)
     saved = verbs.add_parser("save", help="read an Azurik save slot, or edit one and sign it again",
-                             description="inspect: what a slot's folder or an xemu HDD image's slots hold (read-only). "
+                             description="inspect: what a slot's folder, one .sav file or an xemu HDD image's slots "
+                                         "hold (read-only). "
                                          "edit: change a text save's lines (--plan's, then --set's, all or none), sign "
                                          "the slot again with your own BIOS files (read in memory, never kept) and write "
                                          "it to --out, a new folder. --json prints either's result as JSON.")
