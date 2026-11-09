@@ -1,8 +1,8 @@
 // The shared gallery picker (D262; Step 4.7a): a search box over a list of entries in groups, each a button (role
-// option) with its picture where one ships (the Characters tab's species, Step 4.3f) or its text alone (armor, staffs,
-// critters, pickups), the chosen one marked. The Data tab's pickers use it, and the Characters tab's species list (its
-// grade colours and marks through decorate, in its own search box, list and count) and its community variants' rows
-// (option). Text only (textContent), no eval: the page's CSP.
+// option) with its picture where one ships (the Characters tab's species, Step 4.3f; the Data tab's critters and pickups,
+// their bodies') or its text alone (armor, staffs), the chosen one marked. The Data tab's pickers use it, and the
+// Characters tab's species list (its grade colours and marks through decorate, in its own search box, list and count)
+// and its community variants' rows (option). Text only (textContent), no eval: the page's CSP.
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children);

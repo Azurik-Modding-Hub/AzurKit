@@ -3040,6 +3040,39 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
         served.close()
 
 
+def test_the_data_tabs_critters_and_items_show_each_ones_body_in_the_picture_the_characters_tab_ships(browser, site):
+    """D1171's census row G34 (Modkit's Game Data pickers: a critter's and
+    a pickup's picture is its body's): before an image, the Critters and
+    Items pickers show each one's body (the engine's index) in the picture
+    the Characters tab ships of it (characters/index.json's species files,
+    the body's path with / as --): every pickup and each critter whose body
+    the game holds, 104 of 110; the rest, armor and the staffs list as
+    text. The pictures load. No CSP violation, no request but GETs of the
+    site's files."""
+    shipped = set(json.loads((_page.WEB / "characters" / "index.json").read_text(encoding="utf-8"))["species"].values())
+    pickers = data.index()["pickers"]
+    want = {kind: [[e["name"], f"characters/{file}.front.png" if (file := e.get("body", "").replace("/", "--")) in shipped
+                    else None] for e in pickers[kind]] for kind in pickers}
+    assert [sum(src is not None for _, src in want[kind]) for kind in pickers] == [104, 73, 0, 0]
+    listed = """() => [...document.querySelectorAll("#data .picker-list .picker-entry")].map((b) =>
+        [b.dataset.name, b.querySelector("img")?.getAttribute("src") ?? null])"""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-data")
+        _page.until(page, "() => azurkit.data.state.index")
+        for label, kind in (("Critters", "critter"), ("Items", "item"), ("Armor", "armor"), ("Weapons", "weapon")):
+            page.evaluate(DATA_VIEW, label)
+            assert _page.until(page, f"() => azurkit.data.state.view === '{kind}' && ({listed})()") == want[kind], kind
+            if kind in ("critter", "item"):
+                _page.until(page, """() => { const shown = document.querySelector("#data .picker-list img");
+                    return shown.complete && shown.naturalWidth > 0; }""")
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 def test_a_modkit_mod_file_loads_in_the_tools_tab_and_the_data_tabs_changes_list_what_it_changes(browser, site,
                                                                                                   tmp_path):
     """Step 4.6i (P19b, P23): the Tools tab's Load reads Modkit's mod file

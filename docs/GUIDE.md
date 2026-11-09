@@ -202,6 +202,7 @@ before you pick your image: AzurKit ships the game's original config.xbr, the sa
 
 - **Views:** the Player, Critters, Items, Armor and Weapons, each entity's numbers from every table that holds them,
   with a search box; All tables, each as a grid you can sort, or show only what you changed.
+- **Pictures:** the Critters and Items lists show each one's body, before you pick your image too.
 - **All files:** with your image picked, every .xbr file of it and each one's tables (only config.xbr has any on the
   original disc); greyed until you pick it. On the command line, `azurkit data --iso PATH --files` or `--file FILE`.
 - **Read a build:** on the command line, `azurkit data --iso PATH` reads any image's tables, a build's too, and

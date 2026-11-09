@@ -248,7 +248,9 @@ def index(ops: object = ()) -> dict:
     """The tables by category (each its label, size and whether ``ops``
     change it) and the pickers' lists: each critter with its group (realm,
     else body folder), each pickup with its kind, each armor family and
-    each staff spell, with the info rows the picker shows."""
+    each staff spell, with the info rows the picker shows; a critter and a
+    pickup with its body (critters_engine's, which the page's picture of it
+    shows), where it has one."""
     state = _state(ops)
     v = state.views
     changed = {t for t in state.now if _differs(state.now[t], state.was[t], state.data, state.base)}
@@ -256,11 +258,16 @@ def index(ops: object = ()) -> dict:
                "cols": len(state.was[name].cols), "changed": name in changed}
               for category, named in CATEGORIES.items() for name, label in named.items() if name in state.was]
     pickers = {
-        "critter": [{"name": n, "group": g, "info": v.critter_info(n)} for n, g in v.critter_groups().items()],
-        "item": [{"name": n, "group": g, "info": v.item_info(n)} for n, g in v.items().items()],
+        "critter": [{"name": n, "group": g, "info": v.critter_info(n)} | _body(v, n)
+                    for n, g in v.critter_groups().items()],
+        "item": [{"name": n, "group": g, "info": v.item_info(n)} | _body(v, n) for n, g in v.items().items()],
         "armor": [{"name": f, "info": v.armor_info(f)} for f in v.armor_families()],
         "weapon": [{"name": s, "label": label, "info": v.weapon_info(s)} for s, label in v.weapons().items()]}
     return {"file": FILE, "tables": tables, "pickers": pickers, "edits": len(state.ops)}
+
+
+def _body(v: Views, name: str) -> dict:
+    return {"body": body} if (body := v.text("critters_engine", name, "body")) else {}
 
 
 def view(kind: str, name: str | None = None, ops: object = (), written: Iterable[Sequence[int]] = ()) -> dict:

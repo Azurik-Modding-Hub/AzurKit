@@ -15,8 +15,10 @@
 // the picked image, config.xbr first, each opening to its keyed tables read from the image (only config.xbr holds any
 // in a vanilla image), the search box narrowing them too; a table there shows and edits as any other (another file's
 // asks carry the image). It waits for the image, greyed with its line (D979). The engine decides everything shown
-// (sdk.data, sdk.data_edit): this page sends the tab's choices and draws what comes back. Text only (textContent), no
-// eval.
+// (sdk.data, sdk.data_edit): this page sends the tab's choices and draws what comes back. The Critters and Items pickers
+// show each one's body (the index's body) in the picture the Characters tab ships of it (characters/index.json names
+// each species' file: its body's path, / as --), before an image too, as Modkit's pickers drew them from the image; a
+// body none ships (none the game holds) lists as text. Text only (textContent), no eval.
 import { option, picker } from "./picker.mjs";
 
 const VIEWS = [["player", "Player"], ["critter", "Critters"], ["item", "Items"], ["armor", "Armor"],
@@ -26,6 +28,7 @@ const WRITTEN = "A ticked pack's slider also writes this cell; your edit wins, a
 const BUILDS = "Your edits join each build, after the packs";
 const CONFIG = "gamedata/config.xbr";
 const FILES_WAIT = "Pick your image (1.) to list its files.";
+const SHIPPED = "characters/index.json";   // the Characters tab's shipped answer: each species' picture file
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children);
@@ -42,7 +45,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 export function dataTab({ call, root, say, packs, changed, image, app = false }) {
   const d = { ops: [], undo: [], redo: [], index: null, view: "player", chosen: {}, table: null, file: null,
               answer: null, ticket: 0, changedOnly: false, sort: null, opened: false,
-              files: null, listing: 0, tablesOf: {}, reading: {}, openFiles: new Set() };
+              files: null, listing: 0, tablesOf: {}, reading: {}, openFiles: new Set(), pictured: null };
   const tabs = VIEWS.map(([id, label]) => {
     const button = el("button", { type: "button", textContent: label });
     button.setAttribute("role", "tab");
@@ -105,11 +108,20 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
     return true;
   };
 
-  // The index (the tables and the pickers' lists), then the view shown.
+  // The pictures the page ships (a set of their files; none when they can't be read: the pickers list text), and a
+  // body's, if one ships.
+  const shipped = () => fetch(SHIPPED).then((reply) => reply.ok ? reply.json() : null).catch(() => null)
+    .then((found) => (d.pictured = new Set(Object.values(found?.species ?? {}))));
+  const picture = (body) => {
+    const file = body?.replaceAll("/", "--");
+    return file && d.pictured?.has(file) ? { picture: `characters/${file}.front.png` } : {};
+  };
+
+  // The index (the tables and the pickers' lists) and the shipped pictures, then the view shown.
   const open = async () => {
     d.opened = true;
     say("Reading the game data…");
-    const reply = await ask("index");
+    const [reply] = await Promise.all([ask("index"), shipped()]);
     if (refused(reply)) return;
     d.index = reply;
     say("");
@@ -125,7 +137,7 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
       ? d.index.tables.map((t) => ({ name: t.name, label: `${t.label} (${t.name})`, group: t.category,
                                      title: `${t.cols} entities, ${t.rows} properties` }))
       : view === "player" || view === "changes" ? [] : d.index.pickers[view].map((e) => ({
-        name: e.name, label: e.label ?? e.name, group: e.group,
+        name: e.name, label: e.label ?? e.name, group: e.group, ...picture(e.body),
         title: e.info.map(([label, text]) => `${label}: ${text}`).join("\n") }));
     const first = view === "tables" ? d.table ?? entries[0]?.name : d.chosen[view] ?? entries[0]?.name;
     pick.set(entries, view === "tables" && d.file ? null : first);

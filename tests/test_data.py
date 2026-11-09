@@ -38,7 +38,8 @@ def _cells(view: dict) -> list[dict]:
 
 def test_the_data_tabs_views_show_modkits_cells_by_config_xbrs_own_names():
     """The index lists the 18 tables by Modkit's categories and labels and
-    the pickers' entries with their groups and info rows; each view's
+    the pickers' entries with their groups and info rows (a critter's and a
+    pickup's with its body, which its picture shows); each view's
     sections are Modkit's (Settings first, a critter's Attack after its
     stats, an armor family's levels as columns), each cell a ref into its
     table with its schema note, int32 rule and editor; an operation shows
@@ -52,6 +53,9 @@ def test_the_data_tabs_views_show_modkits_cells_by_config_xbrs_own_names():
     assert ix["pickers"]["armor"][0]["name"] == "no_armor" and {e["group"] for e in ix["pickers"]["item"]} == {
         "gems", "fragments", "keys", "fuels", "health", "powers"}
     assert dict(next(e for e in ix["pickers"]["weapon"] if e["name"] == "none")["info"])["Elements"] == "none"
+    bodies = {e["name"]: e.get("body") for kind in ("critter", "item") for e in ix["pickers"][kind]}   # their pictures'
+    assert (bodies["boulder"], bodies["small_health"], bodies["jellyfish"]) == ("bosses/boulder", "large_health", None)
+    assert sum(b is not None for b in bodies.values()) == 106 + 73
 
     player = data.view("player")
     assert [s["title"] for s in player["sections"][:6]] == [
