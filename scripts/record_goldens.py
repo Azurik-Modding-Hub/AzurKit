@@ -84,6 +84,7 @@ import functools
 import hashlib
 import json
 import multiprocessing
+import os
 import re
 import subprocess
 import sys
@@ -933,6 +934,18 @@ def text(rows: Mapping) -> str:
     return json.dumps(rows, indent=1, sort_keys=True) + "\n"
 
 
+def write(path: Path, data: str) -> None:
+    """``data`` written to ``path`` whole, then renamed into place: a
+    re-record that stops partway leaves the old golden, and a test reading
+    the goldens meanwhile never reads half of one (Modkit's Step X.81e)."""
+    part = path.with_name(f".{path.name}.{os.getpid()}.part")
+    try:
+        part.write_text(data, encoding="utf-8")
+        os.replace(part, path)
+    finally:
+        part.unlink(missing_ok=True)
+
+
 def main(argv: list[str] | None = None, images: Images | None = None) -> int:
     names = [*GOLDENS_BUILT, "shims.json", RESOURCES, CLOSE, PROBES, MATCHES, PLANS, TRACKER, *SHIPPED]
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -960,7 +973,7 @@ def main(argv: list[str] | None = None, images: Images | None = None) -> int:
         drift += [f"{golden}: {case}" for case in sorted(new.keys() | old.keys()) if new.get(case) != old.get(case)]
         if not args.check and text(made) != (path.read_text(encoding="utf-8") if path.exists() else None):
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text(made), encoding="utf-8")
+            write(path, text(made))
             print(f"wrote: {golden}")
     for line in drift:
         print(f"{'differs' if args.check else 'changed'}: {line}")

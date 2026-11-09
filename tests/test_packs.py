@@ -504,3 +504,24 @@ def test_a_retired_pack_name_is_refused_saying_what_replaced_it(tmp_path, capsys
         "azurkit: no pack 'rand_keys' (retired: the randomizer's settings choose what is shuffled (keys stay "
         f"vanilla)) (the packs: {', '.join(mods.PACKS)})\n")
     assert not out.exists()
+
+
+def test_a_golden_whose_re_record_stops_midway_is_still_the_old_one(tmp_path, monkeypatch):
+    """Modkit's Step X.81e (test_goldens): ``scripts/record_goldens.py``
+    writes a golden whole, then renames it into place, so a re-record that
+    stops partway (a full disk) leaves the old golden and no part file."""
+    from pathlib import Path
+
+    golden = tmp_path / "packs.json"
+    record_goldens.write(golden, record_goldens.text({"a": {"default.xbe": "1" * 64}}))
+    write_text = Path.write_text
+
+    def half_then_fail(self, data, *args, **kwargs):
+        write_text(self, data[:len(data) // 2], *args, **kwargs)
+        raise OSError("disk full")
+    monkeypatch.setattr(Path, "write_text", half_then_fail)
+    with pytest.raises(OSError, match="disk full"):
+        record_goldens.write(golden, record_goldens.text({"b": {"default.xbe": "2" * 64}}))
+    monkeypatch.undo()
+    assert json.loads(golden.read_text(encoding="utf-8")) == {"a": {"default.xbe": "1" * 64}}
+    assert [p.name for p in tmp_path.iterdir()] == ["packs.json"]
