@@ -386,7 +386,7 @@ def _peak() -> int:
 
         return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     try:
-        with open("/proc/self/status") as status:
+        with open("/proc/self/status", encoding="utf-8") as status:
             return next(int(line.split()[1]) * 1024 for line in status if line.startswith("VmHWM:"))
     except (OSError, StopIteration):
         return 0

@@ -315,7 +315,7 @@ def kept(kind: str, key: str, out: Path, build) -> Path:
         return build(out)
     shelf = Path(folder) / f"{kind}-{key}"
     shelf.mkdir(parents=True, exist_ok=True)
-    with open(shelf / ".lock", "a") as lock:
+    with open(shelf / ".lock", "a", encoding="utf-8") as lock:
         if os.name == "posix":   # elsewhere two first calls both build: the copy's replace is atomic
             import fcntl
             fcntl.flock(lock, fcntl.LOCK_EX)

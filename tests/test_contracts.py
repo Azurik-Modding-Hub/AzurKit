@@ -601,3 +601,37 @@ def test_every_locked_package_but_the_project_has_a_wheel_and_proxy_tools_is_the
                                          "proxy_tools/__init__.py"]
         assert hashlib.sha256(zf.read("proxy_tools/__init__.py")).hexdigest() == PROXY_TOOLS_MODULE
         assert "\nLicense: MIT\n" in zf.read(f"{meta}METADATA").decode()
+
+
+# Step 4.28b: Modkit's suite guards (its test census, lane C6) and the encoding rule, ported lean.
+
+def text_io_without_encoding(source: str) -> list[int]:
+    """The lines of ``source`` that read or write text in the locale's
+    encoding: ``read_text`` or ``write_text``, or ``open`` in a text mode,
+    with no ``encoding`` given by keyword or by position."""
+    lines = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call) or any(k.arg == "encoding" for k in node.keywords):
+            continue
+        func, given = node.func, len(node.args)
+        if isinstance(func, ast.Attribute) and func.attr in ("read_text", "write_text"):
+            if given < (1 if func.attr == "read_text" else 2):
+                lines.append(node.lineno)
+        elif isinstance(func, ast.Name) and func.id == "open" and given < 4:
+            mode = node.args[1] if given > 1 else next((k.value for k in node.keywords if k.arg == "mode"), None)
+            if not (isinstance(mode, ast.Constant) and "b" in str(mode.value)):
+                lines.append(node.lineno)
+    return lines
+
+
+def test_every_text_read_and_write_names_its_encoding():
+    """Modkit's AZ-191: a text read or write in the locale's encoding reads
+    a UTF-8 file holding ``→`` as cp1252 on Windows (UnicodeDecodeError on
+    byte 0x8f) and writes one in it. Every one in the code (the package,
+    devkit, shimkit, nativekit, the scripts, the icon's renderer and
+    bootstrap.py) names its encoding; CI's Windows runs catch only what the
+    tests read."""
+    sources = [p for top in ("src", "devkit", "shimkit", "nativekit", "scripts", "assets")
+               for p in sorted((ROOT / top).rglob("*.py"))] + sorted(ROOT.glob("*.py"))
+    assert [f"{p.relative_to(ROOT).as_posix()}:{line}" for p in sources
+            for line in text_io_without_encoding(p.read_text(encoding="utf-8"))] == []

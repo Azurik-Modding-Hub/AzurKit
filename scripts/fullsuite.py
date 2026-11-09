@@ -869,7 +869,7 @@ def runner(meta: Path) -> int:
         if time.time() > deadline:
             return 1
         time.sleep(0.05)
-    with open(meta.parent / "lock", "w") as lock:
+    with open(meta.parent / "lock", "w", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         run(meta, m)
     return 0
