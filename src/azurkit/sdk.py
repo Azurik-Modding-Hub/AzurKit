@@ -1701,8 +1701,9 @@ def image_checks(made: iso.Image, report: Mapping) -> dict[str, list[list]]:
 def save(made: iso.Image, out: str, *, progress: Callable[[dict], object] | None = None,
          sha256: Callable[[], str] | None = None) -> dict:
     """Write ``made``, an image :func:`image` returned, to ``out`` (never its
-    input or a vanilla image, D36) as :func:`build` writes its recipe's,
-    without planning it again: ``{"out", "size", "sha256"}``. An input that
+    input or a vanilla image, nor beside one, D36: ``gate.require_new_output``)
+    as :func:`build` writes its recipe's, without planning it again:
+    ``{"out", "size", "sha256"}``. An input that
     changed since the build read it is refused by name (D27), with nothing
     written. ``progress(record)`` follows the write (``core.progress``'s
     ``write``, in bytes); an exception it raises cancels it, and nothing is
@@ -1710,7 +1711,7 @@ def save(made: iso.Image, out: str, *, progress: Callable[[dict], object] | None
     it (``iso.digest``, from Build on), called once the bytes are written;
     else it is hashed as they are."""
     target = Path(out)
-    _never_vanilla(target)
+    gate.require_new_output(target, *([made.source] if getattr(made, "source", None) else []))
     sha = iso.pack(made, target, Steps(progress).counter("write"), sha256=sha256)
     return {"out": str(target), "size": target.stat().st_size, "sha256": sha}
 
@@ -1724,13 +1725,14 @@ def _never_vanilla(target: Path) -> None:
 def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] | None = None,
           picked: Mapping[str, bytes] | None = None) -> dict:
     """Write the image ``recipe`` builds to ``out`` (never its input or a
-    vanilla image, D36); :func:`image`'s report with the output's path,
+    vanilla image, nor beside one, D36: ``gate.require_new_output``, checked
+    before anything is read); :func:`image`'s report with the output's path,
     size and sha256. ``progress(done, total)`` follows the write; an
     exception it raises cancels it, and nothing is written. ``picked`` as
     :func:`image`'s."""
-    stamp, base, layers, judge, prepared = _plan(recipe, picked=picked)
     target = Path(out)
-    _never_vanilla(target)
+    gate.require_new_output(target, *([recipe["iso"]] if isinstance(recipe.get("iso"), str) else []))
+    stamp, base, layers, judge, prepared = _plan(recipe, picked=picked)
     sha256, manifest = edits.build(stamp, layers, target, base=base, progress=progress, judge=judge, map=_map)
     return _report(manifest, prepared) | {"out": str(target), "size": target.stat().st_size, "sha256": sha256}
 

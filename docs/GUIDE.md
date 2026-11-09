@@ -331,6 +331,7 @@ azurkit content [install ID | update ID] [--source URL|DIR]   # Azurik-Custom-Co
 
 A flag is read only as spelled: `--no-def` is refused, never taken for `--no-defaults`.
 A mods file a build can't read is named in the error, with the line where it goes wrong.
+A build never writes beside a vanilla image, nor anywhere in an `iso` folder that holds one.
 
 ## Download and check it
 

@@ -812,3 +812,56 @@ def test_a_mods_file_that_isnt_json_is_refused_naming_the_file_and_its_line_and_
         sdk.read_mods(bad.read_bytes())
     assert cli.main(["build", "--iso", str(tmp_path / "none.iso"), "--out", str(out), "--mods", str(bad)]) == 1
     assert capsys.readouterr().err == f"azurkit: {why} (in {bad})\n" and not out.exists()
+
+
+def test_a_build_never_writes_beside_a_vanilla_image_nor_inside_an_iso_folder_holding_one(tmp_path, monkeypatch,
+                                                                                          capsys):
+    """Modkit's D36 folder rules (test_iso_identity: §6a.5, MCP-1 bug 4,
+    AZ-178, X.50), the check of where a build or a save writes
+    (``gate.require_new_output``, before anything is read): no output
+    directly in the folder of a vanilla image found (``AZURKIT_ISO``, the
+    user data folder's) or of an input named ``usa.iso`` or ``europe.iso``
+    (any case), nor in the folder either's link leads to; nothing inside
+    such a folder named ``iso``, its subfolders and an output link sitting
+    in it too, however the path is spelled (``..`` past a missing folder, a
+    dangling link). A general folder's subfolders and an ``out/`` elsewhere
+    are allowed. ``azurkit build`` exits 1 naming why and writes nothing."""
+    check = gate.require_new_output
+
+    def refused(out, *inputs):
+        with pytest.raises(ValueError, match="inside"):
+            check(out, *inputs)
+    for release in gate.RELEASES:
+        monkeypatch.delenv(release.env, raising=False)
+    monkeypatch.setattr(gate, "data_path", lambda release: tmp_path / "data" / f"{release.name}.iso")
+    (tmp_path / "data").mkdir()
+    isos, main_iso, picked = tmp_path / "isos", tmp_path / "main" / "iso", tmp_path / "picked"
+    for folder in (isos, main_iso, picked, tmp_path / "in"):
+        folder.mkdir(parents=True)
+    (isos / "usa.iso").write_bytes(b"")
+    (main_iso / "usa.iso").write_bytes(b"")
+    (tmp_path / "in" / "Usa.ISO").write_bytes(b"")
+    (main_iso / "away.iso").symlink_to(tmp_path / "out" / "away.iso")
+    (tmp_path / "dangling.iso").symlink_to(main_iso / "new.iso")
+    (picked / "Azurik.iso").symlink_to(main_iso / "usa.iso")
+    allowed = tmp_path / "out" / "x.iso"
+    monkeypatch.setenv(gate.USA.env, str(isos / "usa.iso"))   # a general folder: only what sits right in it
+    refused(isos / "x.iso")
+    check(isos / "repo" / "out" / "x.iso")
+    check(allowed)
+    monkeypatch.delenv(gate.USA.env)
+    refused(tmp_path / "in" / "x.iso", tmp_path / "in" / "Usa.ISO")
+    check(allowed, tmp_path / "in" / "Usa.ISO")
+    inside = (main_iso / "x.iso", main_iso / "sub" / "x.iso", main_iso / "away.iso", tmp_path / "dangling.iso",
+              tmp_path / "main" / "gone" / ".." / "iso" / "y.iso")
+    (tmp_path / "data" / "usa.iso").symlink_to(main_iso / "usa.iso")   # the user data folder's link to it
+    for out in inside:
+        refused(out)
+    check(main_iso / ".." / "out" / "x.iso")
+    (tmp_path / "data" / "usa.iso").unlink()
+    for out in inside:
+        refused(out, picked / "Azurik.iso")   # an input whose link leads to usa.iso
+    check(allowed, picked / "Azurik.iso")
+    assert cli.main(["build", "--iso", str(main_iso / "usa.iso"), "--out", str(main_iso / "x.iso")]) == 1
+    assert capsys.readouterr().err == f"azurkit: output {main_iso / 'x.iso'} is inside {main_iso}, which holds only the vanilla image\n"
+    assert sorted(p.name for p in main_iso.iterdir()) == ["away.iso", "usa.iso"]
