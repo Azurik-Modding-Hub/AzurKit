@@ -2088,8 +2088,9 @@ are the Characters section's.
   `tests/_*.py` (the leak guard among them), the drift guards' tables
   (`PROLOGUE_FIRST_BYTES`), `pyproject.toml`, `uv.lock`, `bootstrap.py`,
   `CLAUDE.md` and `.claude/`. Modkit's policy workflow (a pull request
-  that changed one waited for a maintainer's `reviewed` label) has no twin:
-  stacks land through the queue after their review (D288), and each file a
+  that changed one waited for a maintainer's `reviewed` label) has no twin
+  (D1179, under D1171): it ran on `pull_request_target`, which no workflow
+  here uses, stacks land through the queue after their review (D288), and each file a
   command writes is held to it by a test: the goldens by their families'
   (`tests/test_packs.py`, `test_characters.py`, `test_randomizer.py`,
   `test_builds.py`), the facts by `test_packs.py`'s gen_facts test, the
