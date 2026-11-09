@@ -854,3 +854,18 @@ def test_every_module_level_function_is_named_somewhere_besides_its_own_def():
             _named(ast.parse(text), used)
     dead = sorted(f"{rel}:{line} {name}" for rel, line, name in defs if not used[name] and name not in ENTRY_POINTS)
     assert dead == [], "module-level functions nothing names:\n" + "\n".join(dead)
+
+
+def test_every_locked_package_with_a_mac_wheel_has_one_an_intel_mac_installs():
+    """D1081 keeps the Intel Mac app, and every CI sync is ``--no-build``: a locked package whose Mac wheels are
+    arm64 only can't install on the Intel runner (1.0.2's dry run: cryptography 50.0.2 failed the macos-x86_64
+    freeze), so each package with a Mac wheel also has an x86_64 or universal2 one, or a pure ``none-any`` wheel."""
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    arm_only = []
+    for package in lock["package"]:
+        names = [(w.get("url") or w.get("path") or "").rsplit("/", 1)[-1] for w in package.get("wheels", [])]
+        mac = [n for n in names if "macosx" in n]
+        if mac and not any("x86_64" in n or "universal2" in n for n in mac) and not any(
+                n.endswith("-none-any.whl") for n in names):
+            arm_only.append(f"{package['name']} {package['version']}")
+    assert arm_only == [], f"locked packages with no Intel Mac wheel: {arm_only}"
