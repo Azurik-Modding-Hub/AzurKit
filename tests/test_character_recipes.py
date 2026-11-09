@@ -1331,3 +1331,340 @@ def test_beamlords_beams_turn_to_their_target_in_the_cone_at_the_attacks_start(u
         pytest.approx(1.2 - math.radians(10)), (critter, pytest.approx(0.3 + math.radians(10)), 14.0))
     assert (enter(beam, 0.3, off=math.radians(50)), enter(beam, 0.3, count=0), len(log)) == (yaw, yaw, 4)
     assert (enter(beam, 0.3, playing=False), enter(nova, 0.3), len(log)) == (yaw, yaw, 4)
+
+
+def test_booblords_own_landing_keeps_her_feet_over_x48s_hold_line_and_her_sash_off_the_floor_into_her_idle(
+        usa_iso, booblord):
+    """AZ-752, AZ-728, AZ-770, AZ-772, AZ-825 (Modkit's Steps 2.193 on):
+    slot 11 plays booblord's own landing (``v/touchdown``, garret4's 13
+    ticks), and from every phase of her fall a hard landing comes from, of
+    her jumps and of her long fall, in the game's crossfade, her
+    weight-bearing lowest point stays over X48's hold line through the
+    landing and over her idle's own (less 2 cm) into her idle; her sash's
+    lowest bone stays over the floor; each foot is planted (its ball moves at
+    most 5 cm while its lowest joint is within 3 cm of the floor); every soft
+    landing into her idle, walk or run and every takeoff from them keeps her
+    over the line; her right ankle flexes at most 25 degrees in her fall and
+    jumps. A recipe's touchdown that doesn't last 13 ticks fails by name."""
+    import numpy as np
+
+    from azurkit.tools.characters import _player_crossfade as cf
+    from azurkit.tools.characters._player_character import FADE_HOOK, FADE_LOW, FADE_SOLE, loose_bones, move_checks
+    from azurkit.tools.characters._player_slots import TOUCHDOWN_TICKS
+    from azurkit.tools.characters._player_variants import VARIANT_DIR
+    from azurkit.tools.characters.characters import read_body
+    from azurkit.tools.characters.retarget import Rig, _turn, named_clip, qmul
+
+    variant, body = builtins()["booblord"], "townspeople/female_2"
+    built = _worn(usa_iso, {"species": "booblord"})
+    xbe, data = built[XBE], built[CHARACTERS]
+    with _building(usa_iso):
+        assert _slots(xbe, (11,))[0] == ["v/touchdown"]
+        low, sole = (struct.unpack_from("<f", xbe, _at(xbe, FADE_HOOK, p.symbol))[0] for p in (FADE_LOW, FADE_SOLE))
+    rig = Rig.read(data, body)
+    skip = loose_bones(rig)
+    sash = frozenset(range(len(rig.bones))) - {k for k, b in enumerate(rig.bones) if b.name.startswith("loincloth")}
+    td, idle = named_clip(data, body, "v/touchdown"), named_clip(data, body, "v/hip_idle")
+    assert round(td.length * 30.0) == TOUCHDOWN_TICKS == 13
+    rest = float(cf.lowest(rig, cf.sample(rig, idle, np.arange(0.0, idle.length, 1 / 30)), skip=skip).min())
+    ks = np.arange(TOUCHDOWN_TICKS + 13)
+    feet_ = {side: [next(k for k, b in enumerate(rig.bones) if b.name == n) for n in names]
+             for side, names in (("right", ("right_ankle", "right_foot_2", "joint10")),
+                                 ("left", ("left_ankle", "left_foot_2", "joint19")))}
+
+    def at(pose, bone):   # a bone's model position per time (its chain's turns and offsets)
+        q, t = pose
+        q = q / np.linalg.norm(q, axis=-1, keepdims=True)
+        chain = [bone]
+        while rig.bones[chain[-1]].parent >= 0:
+            chain.append(rig.bones[chain[-1]].parent)
+        turn, here = None, None
+        for k in reversed(chain):
+            b = rig.bones[k]
+            local = cf._qmul(cf._qmul(np.asarray(b.jo), q[k]), np.asarray(b.ra))
+            here = t[k] if turn is None else here + cf._turn(turn, t[k])
+            turn = local if turn is None else cf._qmul(turn, local)
+        return here
+
+    for name, first in (("g4/fall", 0.77), ("g4/fall_big", 0.0), ("g4/jump", 0.77), ("g4/jump_standing", 0.77)):
+        src = named_clip(data, body, name)
+        for p in np.arange(first, src.length, 1 / 30):
+            t = p + ks / 30
+            pose = cf.sample(rig, src, t % src.length if name == "g4/fall_big" else np.minimum(t, src.length))
+            w = np.array([cf.fade_weight(k) for k in ks])[None, :, None]
+            pose = cf.blend(pose, cf.sample(rig, td, np.minimum(ks / 30, td.length)), w)
+            j = np.maximum(ks - TOUCHDOWN_TICKS, 0)
+            w = np.array([cf.fade_weight(x) if k >= TOUCHDOWN_TICKS else 0.0 for k, x in zip(ks, j)])[None, :, None]
+            pose = cf.blend(pose, cf.sample(rig, idle, j / 30), w)
+            feet = cf.lowest(rig, pose, skip=skip)
+            assert (feet[:TOUCHDOWN_TICKS] * 1.15 - sole).min() >= low, (name, p)
+            assert feet[TOUCHDOWN_TICKS:].min() >= rest - 0.02 / 1.15, (name, p)
+            assert cf.lowest(rig, pose, skip=sash).min() > 0.0, (name, p)
+            for side, foot in feet_.items():
+                ankle_, ball, tip = (at(pose, k) * 1.15 for k in foot)
+                down = np.minimum(np.minimum(ankle_[:, 2], ball[:, 2]), tip[:, 2]) < 0.03
+                step = np.r_[0.0, np.linalg.norm(np.diff(ball[:, :2], axis=0), axis=1)]
+                assert (step * down).sum() <= 0.05, (name, p, side)
+    air, ground = ("g4/fall", "g4/fall_big", "g4/jump", "g4/jump_standing"), ("v/hip_idle", "v/sway_walk", "v/sway_run")
+    for name, into in [*((a, g) for a in air for g in ground), *((g, a) for g in ground for a in air)]:
+        src, new = named_clip(data, body, name), named_clip(data, body, into)
+        phases = np.arange(0.0, src.length, 1 / 30)
+        for k in range(12):
+            t = phases + k / 30
+            was = cf.sample(rig, src, t % src.length if name not in air or name == "g4/fall_big" else
+                            np.minimum(t, src.length))
+            on = cf.sample(rig, new, [min(k / 30, new.length)])
+            pose = cf.blend(was, on, cf.fade_weight(k)) if k < cf.FADE_TICKS else on
+            assert (cf.lowest(rig, pose, skip=skip) * 1.15 - sole).min() >= low, (name, into, k)
+    ankle = next(k for k, b in enumerate(rig.bones) if b.name == "right_ankle")
+    jx, jy, jz, jw = qmul(rig.world[rig.bones[ankle].parent], rig.bones[ankle].jo)
+    axis = np.array(_turn((-jx, -jy, -jz, jw), (1.0, 0.0, 0.0)))
+    bx, by, bz, bw = rig.bones[ankle].q
+    for name in ("g4/fall", "g4/jump", "g4/jump_standing"):
+        clip = named_clip(data, body, name)
+        for q in cf.sample(rig, clip, np.arange(0.0, clip.length, 1 / 30))[0][ankle]:
+            d = np.array(qmul(tuple(q / np.linalg.norm(q)), (-bx, -by, -bz, bw)))
+            d = -d if d[3] < 0 else d
+            assert math.degrees(2.0 * math.atan2(d[:3] @ axis / np.linalg.norm(axis), d[3])) <= 25.0, name
+    long = dataclasses.replace(variant, slots={**variant.slots, "touchdown": "hip_idle"})
+    with pytest.raises(ValueError, match=r"slots\.touchdown: v/hip_idle lasts 4\.000 s, not garret4's 13 ticks"):
+        move_checks(data, read_body(data, body, dirs=(VARIANT_DIR,)), long, "booblord")
+
+
+# --- booblord v3 (Modkit's tests/_variant_fixtures.py): her shipped recipe with v3's shape, arms and jiggle --------
+BOOBLORD_V3 = {
+    "mesh": {
+        "keep": ["loincloth_front_1", "loincloth_back_1", "vase_joint"],
+        "ops": [
+            {"op": "push", "name": "bust", "bone": "spine_2", "offset": [0.0719, 0.1257, 0.0575],
+             "dir": [0.048, 1.0, -0.209], "height": 0.1378,
+             "radius": {"in": 0.092, "out": 0.0675, "up": 0.1383, "down": 0.0917}, "depth": 0.157,
+             "fold": 0.062, "groups": [4], "mirror": True},
+            {"op": "push", "name": "bust", "bone": "spine_2", "offset": [0.0719, 0.0564, 0.0575],
+             "dir": [0.048, 1.0, -0.209], "height": 0.1047,
+             "radius": {"in": 0.0659, "out": 0.075, "up": 0.1286, "down": 0.1013}, "depth": 0.0462,
+             "fold": 0.131, "groups": [1], "mirror": True},
+            {"op": "push", "name": "bust low", "bone": "spine_2", "offset": [0.0719, 0.1257, -0.0416],
+             "dir": [0.048, 1.0, -0.08], "height": 0.0752,
+             "radius": {"in": 0.0815, "out": 0.0617, "up": 0.0653, "down": 0.0511}, "depth": 0.1596,
+             "fold": 0.0, "groups": [4], "mirror": True},
+            {"op": "push", "name": "bust low", "bone": "spine_2", "offset": [0.0719, 0.0564, -0.0416],
+             "dir": [0.048, 1.0, -0.08], "height": 0.0344,
+             "radius": {"in": 0.0664, "out": 0.0606, "up": 0.0658, "down": 0.0499}, "depth": 0.0462,
+             "fold": 0.0, "groups": [1], "mirror": True},
+            {"op": "push", "name": "bust fill", "bone": "spine_2", "offset": [0.0928, 0.0233, -0.0439],
+             "dir": [0.048, 1.0, -0.09], "height": 0.0274,
+             "radius": {"in": 0.0519, "out": 0.0709, "up": 0.0335, "down": 0.0421}, "depth": 0.064,
+             "fold": 0.0, "groups": [1], "mirror": True},
+            {"op": "push", "name": "glutes", "bone": "root_joint", "offset": [0.071, -0.105, -0.09],
+             "dir": [0.04, -1.0, 0.0], "height": 0.115,
+             "radius": {"in": 0.075, "out": 0.077, "up": 0.13, "down": 0.118}, "depth": 0.1, "fold": 0.48,
+             "mirror": True},
+            {"op": "scale", "name": "pelvis", "profile": "smooth", "bone": "root_joint",
+             "offset": [0.0, -0.0331, -0.09], "radius": [0.4624, 0.1534, 0.17],
+             "factors": [1.1578, 1.0, 1.0]},
+            {"op": "push", "name": "hips", "bone": "root_joint", "offset": [0.1505, -0.021, -0.1195],
+             "dir": [1.0, -0.433, 0.0], "height": 0.0155,
+             "radius": {"in": 0.1132, "out": 0.1278, "up": 0.1223, "down": 0.0417}, "depth": 0.08,
+             "fold": 0.0, "mirror": True},
+            {"op": "taper", "name": "waist", "bone": "root_joint", "offset": [0.0, 0.015, 0.11],
+             "factors": [0.86, 0.92], "plateau": 0.05, "half": 0.09, "reach": [0.2, 0.3]},
+            {"op": "scale", "name": "thighs", "profile": "smooth", "bone": "left_leg_1",
+             "offset": [0.0, -0.014, -0.1515], "radius": [0.112, 0.125, 0.169],
+             "factors": [1.02, 1.2195, 1.0], "mirror": True},
+            {"op": "push", "name": "hamstring", "bone": "left_leg_1", "offset": [0.0, -0.1, -0.17],
+             "dir": [0.0, -1.0, 0.0], "height": 0.026,
+             "radius": {"in": 0.07, "out": 0.08, "up": 0.09, "down": 0.1}, "depth": 0.08, "fold": 0.0,
+             "mirror": True},
+            {"op": "push", "name": "drape", "bone": "loincloth_back_1", "offset": [0.0, -0.2, -0.03],
+             "dir": [0.0, -0.05, 1.0], "height": 0.11,
+             "radius": {"in": 0.15, "out": 0.15, "up": 0.188, "down": 0.9}, "depth": 0.05, "fold": 1.0,
+             "only": ["loincloth_back_1"]},
+            {"op": "tuck", "name": "tuck", "groups": [1], "under": [4],
+             "skip": ["loincloth_front_1", "loincloth_back_1"], "dir": [0.0, 1.0, 0.0], "margin": 0.003,
+             "strict": True, "band": [1.225, 1.28], "faces": True},
+            {"op": "tuck", "name": "tuck", "groups": [1], "under": [4],
+             "skip": ["loincloth_front_1", "loincloth_back_1"], "dir": [0.0, 1.0, 0.0], "margin": 0.0066,
+             "band": [1.28, 9.0], "strict": True, "faces": True}
+        ]
+    },
+    "arms": {"out_deg": 4.0},
+    "jiggle": {
+        "frees": [
+            {"group": 1, "bone": "joint19", "into": "left_foot_2"},
+            {"group": 1, "bone": "joint10", "into": "right_foot_2"},
+            {"group": 4, "bone": "left_hand", "drop": True}
+        ],
+        "bones": [
+            {"role": "bust", "bone": "joint32", "parent": "spine_2", "shape": ["bust", "bust low", "bust fill"],
+             "groups": [1, 4], "takes": ["spine_1", "spine_2", "spine_3", "spine_endnode"], "weight": 0.9,
+             "spring": {"freq": 2.6, "damping": 0.1, "mass": 2.4, "travel": [0.05, 0.06, 0.3],
+                        "weights": [0.65, 0.42, 1.0], "gain": 3.6, "give": 0.04, "accel": 3.5,
+                        "gravity": 0.4, "turn": 0.3, "rot_share": 0.65, "sides": "auto",
+                        "centre": "auto", "pivot": [0.0, -0.07, 0.0], "swim": [0.15, 3.0],
+                        "pace": 3.0, "squash": [0.0, -0.1, 0.35], "kick": 0.5, "kick_hold": 2.0,
+                        "kick_time": 1.5, "impact": 0.125}},
+            {"role": "glutes", "bone": "joint39", "parent": "root_joint", "shape": ["glutes"], "groups": [1],
+             "takes": ["root_joint", "left_hip", "right_hip"], "weight": 0.75,
+             "spring": {"freq": 3.1, "damping": 0.15, "mass": 3.0, "travel": [0.03, 0.045, 0.12],
+                        "weights": [0.15, 0.4, 1.0], "gain": 4.3, "give": 0.05, "accel": 3.0,
+                        "gravity": 0.4, "turn": 0.25, "rot_share": 0.5, "sides": "auto",
+                        "centre": "auto", "pivot": [0.0, 0.06, 0.0], "swim": [0.15, 3.0],
+                        "pace": 2.0, "squash": [0.0, -0.08, 0.17], "kick": 0.3, "kick_hold": 2.0,
+                        "kick_time": 1.5, "impact": 0.1}}
+        ],
+        "springs": [
+            {"role": "hair1", "bone": "hair_1", "parent": "head",
+             "spring": {"freq": 2.0, "damping": 0.2, "travel": 0.06, "gain": 1.0, "gravity": 0.0, "accel": 3.0,
+                        "give": 0.04, "rot_share": 1.0, "pivot": "origin", "pace": 2.0}},
+            {"role": "hair2", "bone": "hair_2", "parent": "hair_1",
+             "spring": {"freq": 2.0, "damping": 0.2, "travel": 0.06, "gain": 1.0, "gravity": 0.0, "accel": 3.0,
+                        "give": 0.04, "rot_share": 1.0, "pivot": "origin", "pace": 2.0}},
+            {"role": "hair3", "bone": "hair_3", "parent": "hair_2",
+             "spring": {"freq": 2.0, "damping": 0.2, "travel": 0.06, "gain": 1.0, "gravity": 0.0, "accel": 3.0,
+                        "give": 0.04, "rot_share": 1.0, "pivot": "origin", "pace": 2.0,
+                        "centre": [0.0, -0.3169, 1.6447]}}
+        ]
+    }
+}
+"""v3's ``mesh``, ``arms`` and ``jiggle`` (``variants.json`` at Step 2.174's bdaf620c: her landing's impact)."""
+V3_SHA = "12ee3e6638f4"
+
+
+def booblord_v3_recipe(sash: bool = False) -> dict:
+    """Her shipped recipe with v3's shape, arms and jiggle (a build of a minute, her shipped one's many), and no
+    poses, textures, moves, idles, victory_cancel, lods or weapon; with ``sash`` her shipped ``jiggle.springs`` (her
+    hair chain and her sash's two chains; not her ponytail's: v3 has no ponytail bones) in place of v3's."""
+    from azurkit.tools.characters._player_variants import BUILTIN
+
+    recipe = json.loads(BUILTIN.read_text(encoding="utf-8"))["booblord"]
+    springs = recipe["jiggle"]["springs"]
+    for key in ("poses", "textures", "slots", "victory_cancel", "lods", "weapon", "idles"):
+        recipe.pop(key, None)
+    moves = {k for k, clip in recipe["clips"].items() if clip.get("file") in ("moves.glb", "idles.glb")}
+    recipe["clips"] = {k: clip for k, clip in recipe["clips"].items() if k not in moves}
+    recipe["columns"] = {c: clip for c, clip in recipe["columns"].items() if clip not in moves}
+    recipe["carry"] = [c for c in recipe["carry"] if c in recipe["columns"]]
+    recipe |= json.loads(json.dumps(BOOBLORD_V3))
+    if sash:
+        recipe["jiggle"]["springs"] = [r for r in springs if not r["bone"].startswith("ponytail")]
+    return recipe
+
+
+def booblord_v3(sash: bool = False):
+    """:func:`booblord_v3_recipe` as the built-in ``booblord`` (without ``sash`` its sha :data:`V3_SHA`)."""
+    variant = _player_variants._variant("booblord", booblord_v3_recipe(sash), "built-in")
+    assert sash or variant.sha == V3_SHA, variant.sha
+    return variant
+
+
+def _dress(image, worn, **heard) -> tuple[object, list[str]]:
+    """``worn`` (a ``Variant``) dressed on ``image``'s vanilla files as a build dresses it (``characters.dressed``,
+    the model tools' path, at the variant's own options; ``heard``: ``logic``, ``springs_out``, ``plans``): the
+    staging it wrote and the swap's log lines."""
+    stamp = gate.verify(str(image), whole=False)
+    vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
+    staging, _, _, lines = characters.dressed({"species": worn.name}, vanilla, (),
+                                              characters.packs_view(stamp.release, mods.PACKS), worn=worn, **heard)
+    return staging, lines
+
+
+def _clips(data: bytes, body: str) -> dict:
+    """Every ``banm`` under ``body`` in ``data``: key -> (its bytes, the clip)."""
+    from azurkit.core.xbr.nodes import parse_toc
+    from azurkit.tools.characters.retarget import read_clip
+
+    toc, prefix = parse_toc(data), f"characters/{body}/".casefold()
+    return {k: (data[toc[i].file_offset:toc[i].file_offset + toc[i].size], read_clip(data, toc[i].file_offset))
+            for i, name in named_resources(data).items()
+            if (k := name.casefold()).startswith(prefix) and toc[i].tag == "banm"}
+
+
+def test_a_variants_arms_hang_wider_in_every_clip_but_its_own(usa_iso, booblord):
+    """D428 (Modkit's Step 2.143): a variant's ``arms`` turns each
+    ``*_arm_1`` out by ``out_deg`` about the body's forward axis in every
+    clip the build gives its body, her own clips in place, the bakes and
+    copies alike, each once (q = r x q of the same build without it, at every
+    time) but its recipe's own ``v/`` clips, which pose the arms themselves
+    (byte for byte); every other track stays, and her hands hang farther from
+    her sides in her idle and walk."""
+    from azurkit.tools.characters._player_variants import VARIANT_DIR
+    from azurkit.tools.characters.retarget import Rig, evaluate, origins, qangle, qmul
+
+    variant, body = booblord_v3(), "townspeople/female_2"
+    built, plain = (_dress(usa_iso, v)[0] for v in (variant, dataclasses.replace(variant, arms=0.0)))
+    mine, theirs = (_clips(bytes(g["characters.xbr"]), body) for g in (built, plain))
+    rig = Rig.read(bytes(built["characters.xbr"]), body)
+    turns = _player_variants.arm_turns(rig, variant.arms)
+    assert variant.arms == 4.0 and len(turns) == 2 and set(mine) == set(theirs)
+
+    def rotation(clip, k, t):
+        keyed = {tr.comp - 3: tr.keys for tr in clip.bones if tr.target == k and 3 <= tr.comp <= 6}
+        return tuple(evaluate(keyed[c], t) if c in keyed else rig.bones[k].q[c] for c in range(4))
+    turned = 0
+    for key, (data, clip) in mine.items():
+        if key.startswith(f"characters/{body}/{VARIANT_DIR}"):
+            assert data == theirs[key][0], key
+            continue
+        other = theirs[key][1]
+        assert [tr for tr in clip.bones if not (tr.target in turns and 3 <= tr.comp <= 6)] == [
+            tr for tr in other.bones if not (tr.target in turns and 3 <= tr.comp <= 6)] and clip.markers == other.markers
+        for k, r in turns.items():
+            for j in range(9):
+                t = clip.length * j / 8
+                assert qangle(rotation(clip, k, t), qmul(r, rotation(other, k, t))) < 1e-3, (key, j)
+        turned += 1
+    assert turned == 54   # v3's 54: the kit's one shove, no run slots' copy of her walk
+    for clip in ("idle", "walk"):
+        hands = [next(k for k, b in enumerate(rig.bones) if b.name == f"{side}_hand") for side in ("left", "right")]
+        for j in range(4):
+            t = mine[f"characters/{body}/{clip}"][1].length * j / 4
+            wide, narrow = (origins(rig, c[f"characters/{body}/{clip}"][1], t) for c in (mine, theirs))
+            assert all(abs(wide[h][0]) > abs(narrow[h][0]) + 0.02 for h in hands), (clip, j)
+
+
+def test_a_variant_with_a_ring_the_balance_and_its_own_sounds_builds(usa_iso, tmp_path, booblord):
+    """AZ-635 (Modkit's Step 2.145): a user's variant with X10's ring
+    (rotate), the attack balance and sounds of its own (booblord v3's recipe,
+    her WAVs and clips beside the file) builds: its log names the ring, the
+    balance and her sounds, and the build writes default.xbe, fx.xbr,
+    index.xbr, config.xbr and characters.xbr."""
+    import shutil
+
+    recipe = booblord_v3_recipe()
+    recipe |= {"rotate": True, "attacks": {**recipe["attacks"], "balance": True}}
+    for file in (*(_player_variants.SOUNDS / "booblord").glob("*.wav"),
+                 *(_player_variants.CLIPS / "booblord").glob("*.glb")):
+        shutil.copy(file, tmp_path)
+    path = tmp_path / "ringlord.json"
+    path.write_text(json.dumps({"ringlord": recipe}), encoding="utf-8")
+    staging, log = _dress(usa_iso, load_variants(path.read_text(encoding="utf-8"), str(path))["ringlord"])
+    assert any("(X10)" in line and "the attack balance (W14)" in line for line in log)
+    assert any(line.startswith("    sounds: 17 waves") for line in log)
+    assert sorted(staging.changed()) == [XBE, CHARACTERS, CONFIG, "gamedata/fx.xbr", "gamedata/index/index.xbr"]
+
+
+def test_a_recipe_from_another_with_finer_triangles_keeps_that_ones_jiggle_bones(usa_iso, tmp_path, monkeypatch,
+                                                                                 booblord):
+    """Modkit's Step 2.177b (its judge's F2): W29 places a jiggle bone at the
+    centroid of the vertices it takes, so a recipe ``from`` another whose
+    ``mesh_ops`` subdivide her bust would move its bone: booblord v3 in a
+    recipe file and one from it with a finer bust take v3's very origins and
+    sides, though its bust bone takes some 30 times the vertices; placed by
+    its own centroid the bone sits over 10 mm off."""
+    from azurkit.tools.characters._player_character import _variant_body
+
+    op = {"op": "subdivide", "name": "bust finer", "bone": "spine_2", "offset": [0.07, 0.09, 0.0],
+          "radius": [0.1, 0.12, 0.14], "edge": 0.012, "groups": [1, 4], "mirror": True}
+    path = tmp_path / "variants.json"
+    path.write_text(json.dumps({"low": booblord_v3_recipe(), "high": {"from": "low", "mesh_ops": [op]}}),
+                    encoding="utf-8")
+    got = load_variants(path.read_text(encoding="utf-8"), str(path))
+    vanilla, body = _vanilla_characters(usa_iso), "townspeople/female_2"
+    with _building(usa_iso):
+        low, high = (_variant_body(vanilla, vanilla, body, got[name])[2].bones for name in ("low", "high"))
+        assert [(b.bone.role, b.origin, b.sides) for b in high] == [(b.bone.role, b.origin, b.sides) for b in low]
+        assert sum(high[0].reach.values()) > 20 * sum(low[0].reach.values())
+        monkeypatch.setattr(_player_variants, "parent_of", lambda variant: None)
+        own = _variant_body(vanilla, vanilla, body, got["high"])[2].bones
+    assert math.dist(own[0].origin, low[0].origin) > 0.01
