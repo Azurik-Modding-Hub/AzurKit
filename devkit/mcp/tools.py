@@ -339,9 +339,12 @@ def pack_build_iso(iso: str, out: str, enable: list | None = None, params: dict 
     output_size_bytes, conflicts (each overwrite a later layer won, D28),
     notes, settled}}, and randomizer (rando_build_iso's) when the mods file
     holds a seed. A refusal names the pack, slider or edit, and nothing is
-    written (D35).
+    written (D35); with no pack left and no config_mod there is nothing to
+    build, and the call fails.
     """
     made, settled = _recipe(iso, enable, disable, params, config_mod)
+    if not made["packs"] and config_mod is None:
+        raise ValueError("nothing to build: no pack is enabled and there is no config_mod")
     return _built(made, out, settled)[1]
 
 

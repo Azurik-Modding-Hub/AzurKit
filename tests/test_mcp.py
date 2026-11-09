@@ -151,3 +151,59 @@ def test_a_refusal_names_what_it_refuses_and_writes_nothing(tmp_path):
         assert not reply["success"] and needle in reply["error"], (needle, reply)
     assert sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*") if p.is_file()) == [
         "colon.iso", "full/mine.txt", "in.iso", "tree/gamedata/new.xbr", "x.xbr"]
+
+
+# --- Step 4.28f: Modkit's unpinned MCP behaviours, ported -------------------------------------------------------
+
+
+def test_pack_list_gives_each_pack_its_sliders_with_advisory_ranges_and_an_xbr_sliders_cell():
+    """pack_list absorbed pack_sliders and pack_detail's XBR target cells
+    (Modkit's Step MCP-1): every pack carries its category and sliders,
+    whose ranges are advisory metadata (min and max, D23), an XBR slider
+    names the cell it writes, and each pack names its releases."""
+    packs = ok(tools.pack_list())
+    sliders = [s for p in packs for s in p["sliders"]]
+    assert sliders and all({"min", "max"} <= set(s) for s in sliders) and all("category" in p for p in packs)
+    [hp] = ok(tools.pack_list(pack="player_max_hp"))
+    assert [(s["name"], s["xbr"]) for s in hp["sliders"]] == [
+        (name, {"file": "gamedata/config.xbr", "table": "settings_foo", "entity": entity, "prop": "Value"})
+        for name, entity in (("starting_hp", "initial hp"), ("health_bar_full_scale", "max hp"))]
+    assert hp["releases"] == ["usa", "europe"]
+
+
+def test_xbr_edit_takes_the_mods_files_wire_format_and_an_unmet_expected_or_a_bool_writes_nothing(tmp_path):
+    """Modkit's Step MCP-1 bug 8: xbr_edit spoke its own op dialect. It takes
+    the mods file's xbr operations (``azurkit.edits.xbr``): a replace whose
+    bytes hold what it ``expected`` applies, while an unmet ``expected`` or
+    a bool value fails the call with nothing written."""
+    src, out = tmp_path / "config.xbr", tmp_path / "out.xbr"
+    src.write_bytes(b"xobx" + bytes(60))
+    replaced = tools.xbr_edit(str(src), str(out), [{"op": "replace_bytes", "offset": 4, "value": "0102",
+                                                    "expected": "0000"}])
+    assert ok(replaced)["ops_applied"] == 1 and out.read_bytes() == b"xobx\x01\x02" + bytes(58)
+    out.unlink()
+    refused = [tools.xbr_edit(str(src), str(out), [op]) for op in (
+        {"op": "replace_bytes", "offset": 0, "value": "00", "expected": "ff"},
+        {"op": "set", "table": "armor_properties", "entity": "no_armor_1", "prop": "Level", "value": True})]
+    assert [(r["success"], r["error"].split(": ", 1)[0]) for r in refused] == [
+        (False, "xbr op 1 (replace_bytes)"), (False, "xbr op 1 (set)")]
+    assert not out.exists() and src.read_bytes() == b"xobx" + bytes(60)
+
+
+def test_pack_build_iso_builds_a_config_mod_alone_and_with_neither_has_nothing_to_build(usa_iso, tmp_path):
+    """Modkit's Step MCP-1 bug 14: an empty ``enable`` was refused, so a
+    build with only a ``config_mod`` was impossible over MCP. It builds,
+    changing config.xbr alone (and filelist.txt, which lists each file's
+    md5, as every build does); with neither, and the packs on by default
+    left out (D528), there is nothing to build and the call fails, nothing
+    written."""
+    off = [p["name"] for p in ok(tools.pack_list()) if p["default_on"]]
+    mod = json.dumps({"_keyed_patches": {"settings_foo": {"initial fuel": {"Value": 75.0}}}})   # Modkit's format
+    built = ok(tools.pack_build_iso(str(usa_iso), str(tmp_path / "mod.iso"), [], config_mod=mod, disable=off))
+    assert (built["summary"]["packs_applied"], built["summary"]["files_changed"]) == (
+        [], ["filelist.txt", "gamedata/config.xbr"])
+    Path(built["output_path"]).unlink()
+    empty = tools.pack_build_iso(str(usa_iso), str(tmp_path / "none.iso"), [], disable=off)
+    assert (empty["success"], empty["error"]) == (False, "nothing to build: no pack is enabled and there is no "
+                                                         "config_mod")
+    assert list(tmp_path.iterdir()) == []
