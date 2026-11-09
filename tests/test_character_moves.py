@@ -2790,3 +2790,663 @@ def test_the_drain_streams_pull_rides_the_players_drawn_chest_and_its_sink_spans
     assert [placed(up, sim=sim, now=t)[1][:2] for up, t in ((2.0, 10.0), (0.0, 10.5), (0.0, 11.4))] == [
         (2.4759, 4.2), (2.4759, 4.2), (1.4759, 2.2)]
     assert placed(0.0, sim=sim, now=11.5)[0][0] == 1.4759   # the pull at the chest
+
+
+@pytest.mark.parametrize("region", REGIONS)
+def test_a_tiny_player_body_is_drawn_with_the_level_camera_within_a_metre_of_its_centre(region):
+    """AZ-541 (Step 2.116, X27): the critter draw 0x3EA00 skips a critter
+    whose box centre is under 1.0 m from the render eye (0x3EA69, 0x3EC6B)
+    and fades it to 1.5 m (0x3ECA7) while "movie mode" ([[cvar]+4]) is
+    off; the player's centre is +0x15C, 1.0 m over its drawn feet at any
+    size, so at X25's 0.1 floor the eye sat 0.70-0.91 m from it and only
+    its shadow and armor were drawn (sitting 2.107 B). X27 (L2, town_male_6
+    at garret4's height x0.4) at the two 9-byte loads of the flag (0x3EA57
+    into EAX, 0x3EC58 into ECX): the flag as the game loads it, through
+    the cvar the build read from its own vanilla load (USA 0x380E04,
+    Europe 0x382DA4), or 1 for the player by the game's own test
+    ([[critter+0x154]+0xC0] == critter), so the draw takes the movie-mode
+    branch past both exits and the fade; another critter, or one with no
+    world, gets the flag; site 1 keeps ECX and leaves EDX the cvar record,
+    as vanilla; site 2 keeps EAX and EDX; EBX, ESI, EDI and EBP kept, a
+    plain RET. Installed only under a rig scale of 0.5: x0.55 and x1 keep
+    the game's loads."""
+    europe = region == "europe"
+    built = bytes(_swap("town_male_6", sounds="garret4", size="garret4",
+                        model_scale=0.4)["default.xbe"])
+    cvar = 0x382DA4 if europe else 0x380E04
+    for hook in NEAR_HOOKS:
+        assert verify_trampoline_patch(built, hook) == "applied"
+        assert struct.unpack_from("<I", built, resolve_va_to_file(built, trampoline_symbol_va(
+            built, hook, "_player_model_movie_cvar", shim_source=NEAR_SHIM.source_path())))[0] == cvar
+    if europe:
+        return
+    assert l1.check(_xbe(), built) == []
+    base = 0x20000000
+    critter, world, record, other = (base + 0x100 * k for k in range(4))
+
+    def load(site: int, *, player: bool = True, movie: int = 0, placed: bool = True) -> int:
+        sim = Sim(built)
+        sim.uc.mem_map(base, 0x1000)
+        for at, value in ((cvar, record), (record + 4, movie), (critter + 0x154, world if placed else 0),
+                          (world + 0xC0, critter if player else other)):
+            sim.uc.mem_write(at, struct.pack("<I", value))
+        hook = NEAR_HOOKS[site]
+        kept = {"ebx": 0, "esi": critter, "edi": 0x33, "ebp": 0x44, "ecx" if site == 0 else "eax": 0x1234}
+        if site:
+            kept["edx"] = 0x5678
+        got = sim.call(hook.va + 5 + struct.unpack_from("<i", built, va_to_file(hook.va) + 1)[0],
+                       regs=kept, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100   # a plain RET
+        assert {r: sim.reg(r) for r in kept} == kept
+        if site == 0:
+            assert sim.reg("edx") == record              # [cvar], as vanilla leaves it
+            return got
+        return sim.reg("ecx")
+
+    for site in (0, 1):
+        assert load(site) == 1, site                                       # the player: drawn
+        assert [load(site, player=False, movie=m) for m in (0, 1)] == [0, 1], site
+        assert load(site, placed=False) == 0, site
+        assert load(site, movie=1) == 1, site
+    for scale in (0.55, 1.0):
+        xbe = bytes(_swap("town_male_6", sounds="garret4", size="garret4", model_scale=scale)["default.xbe"])
+        assert [verify_trampoline_patch(xbe, hook) for hook in NEAR_HOOKS] == ["original"] * 2, scale
+
+
+@pytest.mark.parametrize("region", REGIONS)
+def test_a_tiny_bodys_camera_pushed_by_the_water_never_ends_under_its_point(region):
+    """AZ-556's resting side (Step 2.116b, X29): the level camera's water
+    push 0x81E10 moves a camera within 0.4 m of the surface (0x60BD0's
+    depth a0 at its probe point, the camera less 0.4 m in z, in (0, 0.8))
+    to its first candidate, the other side (surface -/+ 0.5 m), when the
+    sweep there is clear, else its own side (surface +/- 0.4 m), and
+    0x820E0 latches the pitch and distance from there. A body drawn under
+    about 0.37 of garret4's size has its camera within the push's 0.9 m
+    of its point, so the far side put it under the point and it rested
+    looking up (+14 to +78 degrees, x0.37, flicken, boulder, x0.1), where
+    garret4's pushes leave him over his point. X29 (L2, 0x81E10 run on
+    town_male_6 at garret4's height x0.37's build with 0x60BD0 and
+    0x60870 stubbed) at the first candidate's CALL of camera_reach
+    (0x81DB0, 0x81FEB): for the player, when the far side is under the
+    point and its own side at or over it, the two swap (counted), so the
+    camera 0.2 m over the surface with the point 0.3 m under it ends 0.4
+    m over the surface (vanilla: 0.5 m under), and one already under its
+    point too (the point 0.1 m over it); the point 1 m under the camera
+    (the far side over it), a camera under the water with the point over
+    both and another critter's camera keep the game's push; the own
+    side's sweep blocked, the game's fallback, the far side. R2 (Step
+    2.116d, AZ-556 item 1): in the hoist out of the water (the 0x100 bit,
+    anim 0x41 hoist or 0x42 hoist_waist) the game's order, so the camera
+    goes under the body there and looks up at it, as main's; another
+    aligned move or anim 0x41 outside one still swaps. Installed with X27
+    (a rig scale under 0.5): x0.55 and x1 keep the CALL."""
+    europe = region == "europe"
+    built = bytes(_swap("town_male_6", sounds="garret4", size="garret4",
+                        model_scale=0.37)["default.xbe"])
+    assert verify_trampoline_patch(built, PUSH_HOOK) == "applied"
+    if europe:
+        return
+    assert l1.check(_xbe(), built) == []
+    base, surface = 0x20000000, 10.0
+    camera, target, species, world, point, control = (base + 0x400 * k for k in range(6))
+    swaps = trampoline_symbol_va(built, PUSH_HOOK, "_player_model_push_swaps", shim_source=PUSH_SHIM.source_path())
+
+    def push(xbe: bytes, cam: float, at: float, *, player: bool = True, hits: tuple[bool, ...] = (),
+             state: int = 0, anim: int = 0) -> tuple[float | None, int]:
+        """Run 0x81E10 on a camera ``cam`` m and its point ``at`` m over
+        the surface (2.5 m behind it), the player in move ``state``
+        playing ``anim``: the z over the surface it commits (None: none),
+        and X29's swap count."""
+        sim = Sim(xbe)
+        sim.uc.mem_map(base, 0x2000)
+        for at_, fmt, value in ((camera + 0x15C, "<3f", (0.0, -2.5, surface + cam)), (camera + 0x154, "<I", world),
+                                (camera + 0x190, "<I", target), (target + 0x178, "<I", species),
+                                (target + 0x180, "<I", control), (control + 0x94, "<i", state),
+                                (target + 0x200, "<i", anim),
+                                (species + 0x64, "<I", 0x24 if player else 0x04), (point, "<3f", (0.0, 0.0, surface + at))):
+            sim.uc.mem_write(at_, struct.pack(fmt, *value) if isinstance(value, tuple) else struct.pack(fmt, value))
+        answers, got = list(hits), []
+
+        def depth(uc, addr, size, _):   # 0x60BD0: __stdcall(24), the depth at the probe point into its 5th argument
+            esp = sim.reg("esp")
+            ret, *args = struct.unpack("<7I", uc.mem_read(esp, 28))
+            probe = struct.unpack("<3f", uc.mem_read(args[1], 12))[2]
+            uc.mem_write(args[4], struct.pack("<f", surface - probe))
+            uc.reg_write(UC_X86_REG_EIP, ret)
+            uc.reg_write(UC_X86_REG_ESP, esp + 28)
+
+        def sweep(uc, addr, size, _):   # collision_sweep: __stdcall(36), RET 0x24
+            esp = sim.reg("esp")
+            ret = struct.unpack("<I", uc.mem_read(esp, 4))[0]
+            uc.reg_write(UC_X86_REG_EAX, int(answers.pop(0)) if answers else 0)
+            uc.reg_write(UC_X86_REG_EIP, ret)
+            uc.reg_write(UC_X86_REG_ESP, esp + 40)
+
+        def commit(uc, addr, size, _):   # the place committed (+0x170); the room and the re-aim skipped
+            got.append(struct.unpack("<3f", uc.mem_read(camera + 0x170, 12))[2] - surface)
+            uc.reg_write(UC_X86_REG_EIP, 0x820D0)
+
+        for va, fn in ((0x60BD0, depth), (0x60870, sweep), (0x820A7, commit)):
+            sim.uc.hook_add(UC_HOOK_CODE, fn, begin=va, end=va)
+        kept = {"ebx": 0x11, "esi": 0x22, "edi": 0x33, "ebp": 0x44}
+        sim.call(0x81E10, regs={"eax": point, **kept}, args=(camera,))   # RET 4, the stack checked
+        assert {r: sim.reg(r) for r in kept} == kept
+        assert sim.uc.reg_read(UC_X86_REG_FPSW) >> 11 & 7 == 0          # the x87 stack empty
+        return (round(got[0], 4) if got else None), (sim.u32(swaps) if xbe is built else 0)
+
+    vanilla = _xbe()
+    assert push(vanilla, 0.2, -0.3) == (-0.5, 0)                    # vanilla: under the surface, under its point
+    assert push(built, 0.2, -0.3) == (0.4, 1)                       # X29: its own side, over its point
+    assert push(built, 0.2, 0.3) == (0.4, 1)                        # already under its point: over it
+    assert push(built, 0.2, -0.8) == (-0.5, 0)                      # the far side over its point: the game's
+    assert push(built, -0.2, 0.8) == (0.5, 0)                       # under the water, the point over both
+    assert push(built, 0.2, -0.3, player=False) == (-0.5, 0)        # another critter's camera
+    assert push(built, 0.2, -0.3, hits=(True,)) == (-0.5, 1)        # its own side blocked: the far side
+    for anim in (0x41, 0x42):                                       # the hoist out of the water (R2): the game's
+        assert push(built, 0.2, -0.3, state=0x100, anim=anim) == (-0.5, 0), anim
+    assert push(built, 0.2, -0.3, state=0x100, anim=0x3F) == (0.4, 1)   # another aligned move (climb_up_edge)
+    assert push(built, 0.2, -0.3, anim=0x41) == (0.4, 1)                 # not in an aligned move
+    for scale in (0.55, 1.0):
+        xbe = bytes(_swap("town_male_6", sounds="garret4", size="garret4", model_scale=scale)["default.xbe"])
+        assert [verify_trampoline_patch(xbe, hook) for hook in (PUSH_HOOK, LATCH_HOOK, EASE_HOOK)
+                ] == ["original"] * 3, scale
+
+
+@pytest.mark.parametrize("region", REGIONS)
+def test_a_tiny_bodys_camera_pushed_by_the_water_eases_back_to_its_rest_pitch_where_the_water_leaves_it(region):
+    """AZ-556's latch (Step 2.116e, R1): 0x820E0's re-aim writes a push's
+    pitch and distance into the wanted ones (+0x1A0, +0x1A4) and the
+    update eases the pitch toward the wanted one only by the sticks' sum,
+    so a tiny body's camera kept a push's -20 to -23 degrees at the placed
+    rest, -43 to -48 after a plunge and x0.1's level beach (2.116b's
+    sitting), where garret4's rests at -30. X29's latch entry (L2, on
+    town_male_6 at garret4's height x0.37's build with 0x81E10 stubbed to
+    re-aim at chosen values, RET 4, and the volume query 0x60BD0 stubbed to
+    answer a chosen depth, RET 0x18) at the push's CALL 0x81BEA: at rest
+    (6 swimming, 0 the ground) the wanted values go back to what another
+    writer last asked for (the reset's -30 deg / 1.8 m here), on every
+    push in a row (2.116d's dwell guard tripped on the 10th), asked of the
+    game's own band at the place the camera would rest at (the tree, that
+    place less 0.4 m, the camera as the asker, touch 0): inside it
+    (0 < depth < 0.8) the game's latch stays, and out of it the base comes
+    back, never a latch (2.116d's owed the latch after a trip); in the air
+    (2) and the hoist (0x100, anim 0x41) the push's latch stays. A hoist
+    push arms the snap: the ease entry at 0x81891 (the block
+    0x8185F-0x818E6 run, no stick) sets the pitch at once on every rest
+    ease that finds it off the base, through 0.5 s of rest calls that
+    weren't held off (a held-off stand doesn't use them), else eases at the
+    game's 30 deg/s, 1 degree a tick, where vanilla's stays. Another
+    writer's value is the new base when the camera showed its base (the
+    stick, a zoom), but a stick touched while a push's line shows (easing
+    back, or the hoist's latch) is a nudge: the base and the snap stay.
+    Another critter's camera keeps the push's values; EBX, ESI, EDI, EBP,
+    RET 4 and an empty x87 stack kept, ECX and EDX through the ease. The
+    ease landing reads the latch landing's hold through its bytes param;
+    the latch landing's CALLs reach each release's push and query.
+    Installed with X27 (a rig scale under 0.5): x0.55 and x1 keep all
+    three sites (the X29 test)."""
+    europe = region == "europe"
+    built = bytes(_swap("town_male_6", sounds="garret4", size="garret4",
+                        model_scale=0.37)["default.xbe"])
+    assert [verify_trampoline_patch(built, hook) for hook in (LATCH_HOOK, EASE_HOOK)] == ["applied"] * 2
+    hold = trampoline_symbol_va(built, LATCH_HOOK, "_player_model_push_hold", shim_source=PUSH_SHIM.source_path())
+    assert struct.unpack_from("<I", built, resolve_va_to_file(built, trampoline_symbol_va(
+        built, EASE_HOOK, "_player_model_push_hold_at", shim_source=PUSH_SHIM.source_path())))[0] == hold
+    obj, text, text_va, landed = ports._landed_text(built, LATCH_HOOK)
+    calls = {obj.symbols[r.symbol].name: text_va + r.offset + 4 + struct.unpack_from("<i", landed, r.offset)[0]
+             for r in text.relocations if r.type == coff.REL32}
+    assert (calls["_camera_water_push@4"], calls["_volume_query@24"]) == (
+        (0x81DC0, 0x60B80) if europe else (0x81E10, 0x60BD0))
+    if europe:
+        return
+    assert l1.check(_xbe(), built) == []
+    base, tree = 0x20000000, 0x5EED0000
+    camera, target, species, control, point, world = (base + 0x400 * k for k in range(6))
+    latch = LATCH_HOOK.va + 5 + struct.unpack_from("<i", built, va_to_file(LATCH_HOOK.va) + 1)[0]
+
+    def sim_for(xbe: bytes) -> Sim:
+        sim = Sim(xbe)
+        sim.uc.mem_map(base, 0x2000)
+        for at, fmt, value in ((camera + 0x190, "<I", target), (target + 0x178, "<I", species),
+                               (target + 0x180, "<I", control), (species + 0x64, "<I", 0x24),
+                               (camera + 0x154, "<I", world), (world + 0xAC, "<I", tree),
+                               (camera + 0x15C, "<3f", (0.0, -2.0, 11.0)), (point, "<3f", (0.0, 0.0, 10.0)),
+                               (camera + 0x198, "<2f", (math.radians(-30.0), 1.8)),     # committed
+                               (camera + 0x1A0, "<2f", (math.radians(-30.0), 1.8))):    # the reset's
+            sim.uc.mem_write(at, struct.pack(fmt, *value) if isinstance(value, tuple) else struct.pack(fmt, value))
+        return sim
+
+    sim, pushes, asked, water = sim_for(built), [], [], [2.0]
+
+    def push(uc, addr, size, _):   # 0x81E10 stubbed: [ESP+4] the camera, EAX the point, RET 4
+        esp = sim.reg("esp")
+        ret, cam = struct.unpack("<2I", uc.mem_read(esp, 8))
+        assert (cam, sim.reg("eax")) == (camera, point)
+        latched = pushes.pop(0)
+        if latched:   # the re-aim: the pitch and distance and the wanted ones
+            for at in (0x198, 0x1A0):
+                uc.mem_write(cam + at, struct.pack("<2f", math.radians(latched[0]), latched[1]))
+        uc.reg_write(UC_X86_REG_EIP, ret)
+        uc.reg_write(UC_X86_REG_ESP, esp + 8)
+
+    def query(uc, addr, size, _):   # 0x60BD0 stubbed: __stdcall(24), the depth into its 5th argument
+        esp = sim.reg("esp")
+        ret, at_tree, at, asker, flags, depth, touch = struct.unpack("<7I", uc.mem_read(esp, 28))
+        asked.append((at_tree, tuple(round(v, 4) for v in struct.unpack("<3f", uc.mem_read(at, 12))), asker, touch))
+        uc.mem_write(depth, struct.pack("<f", water[0]))
+        uc.reg_write(UC_X86_REG_EIP, ret)
+        uc.reg_write(UC_X86_REG_ESP, esp + 28)
+
+    sim.uc.hook_add(UC_HOOK_CODE, push, begin=0x81E10, end=0x81E10)
+    sim.uc.hook_add(UC_HOOK_CODE, query, begin=0x60BD0, end=0x60BD0)
+
+    def tick(state: int, latched: tuple[float, float] | None = None, *, anim: int = 0, player: bool = True,
+             depth: float = 2.0, dt: float = 1 / 30) -> tuple[float, float]:
+        """One call of the latch entry in move ``state`` at the update's ``dt``, the push re-aiming at
+        ``latched`` (pitch in degrees, distance) or not, the water ``depth`` under the rest place's probe:
+        the wanted pitch and distance it leaves."""
+        sim.uc.mem_write(control + 0x94, struct.pack("<i", state))
+        sim.uc.mem_write(target + 0x200, struct.pack("<i", anim))
+        sim.uc.mem_write(species + 0x64, struct.pack("<I", 0x24 if player else 0x04))
+        pushes.append(latched)
+        water[0] = depth
+        kept = {"ebx": 0, "esi": 0x22, "edi": 0x33, "ebp": 0x44}
+        frame = (camera,) + (0,) * 47 + struct.unpack("<I", struct.pack("<f", dt))   # [ESP+4] .. [ESP+0xC4]: dt
+        sim.call(latch, regs={"eax": point, **kept}, args=frame, until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100 - 4 * 48          # RET 4
+        assert {r: sim.reg(r) for r in kept} == kept
+        assert sim.uc.reg_read(UC_X86_REG_FPSW) >> 11 & 7 == 0          # the x87 stack empty
+        return round(math.degrees(sim.f32(camera + 0x1A0)), 3), round(sim.f32(camera + 0x1A4), 3)
+
+    def ease(at: Sim, pitch: float) -> float:
+        """The ease block (0x8185F-0x818E6) in ``at`` with no stick, one 1/30 s tick of a camera at ``pitch``
+        degrees: its new pitch."""
+        at.uc.mem_write(camera + 0x198, struct.pack("<f", math.radians(pitch)))
+        frame = [0] * 48                                                # the block's ESP + 4 ..
+        frame[3] = camera                                               # [ESP + 0x10]: the camera
+        frame[46] = struct.unpack("<I", struct.pack("<f", 1 / 30))[0]   # [ESP + 0xBC]: dt
+        at.call(0x8185F, regs={"ecx": camera, "edx": 0x55}, args=tuple(frame), until=0x818E6)
+        assert at.reg("edx") == 0x55
+        return round(math.degrees(at.f32(camera + 0x198)), 3)
+
+    def stick(pitch: float) -> None:   # 0x81822 / 0x81832: the pitch, then the wanted one := it
+        for at in (0x198, 0x1A0):
+            sim.uc.mem_write(camera + at, struct.pack("<f", math.radians(pitch)))
+
+    def word(offset: int) -> int:
+        return sim.u32(hold + offset)
+
+    probe = (0.0, round(-1.8 * math.cos(math.radians(30.0)), 4), 10.5)   # 1.8 m at -30 deg from the point, - 0.4 m
+    assert tick(6, (-20.0, 1.2)) == (-30.0, 1.8)          # swimming, the rest place out of the band: the base
+    assert (word(0x24), word(0x28), asked) == (1, 1, [(tree, probe, camera, 0)])
+    assert ease(sim, -20.0) == -21.0                      # eased at 30 deg/s
+    assert ease(sim_for(_xbe()), -20.0) == -20.0   # vanilla: the push's pitch stays
+    for _ in range(12):                                   # the placement's sink: pushed every tick
+        assert tick(6, (-20.0, 1.2)) == (-30.0, 1.8)
+    assert (word(0x24), word(0x28)) == (13, 13)
+    assert tick(0, (-42.7, 0.589), depth=0.3) == (-42.7, 0.589)   # the rest place in the band: the game's latch
+    assert tick(0, depth=0.3) == (-42.7, 0.589)
+    assert (word(0x20), word(0x2C)) == (1, 2)
+    assert tick(0, depth=1.2) == (-30.0, 1.8)             # out of it: the base, not the latch
+    assert word(0x20) == 0
+    queried = len(asked)
+    assert tick(2, (-45.0, 2.0)) == (-45.0, 2.0)          # in the air: the game's latch, nothing asked
+    assert len(asked) == queried
+    assert tick(6) == (-30.0, 1.8)
+    for k in range(20):                                   # the shore walk, pushed in the band every tick
+        assert tick(0, (-42.0 - 0.6 * k, 0.6), depth=0.3) == (round(-42.0 - 0.6 * k, 3), 0.6)
+    assert tick(2, (-44.0, 0.7)) == (-44.0, 0.7)
+    assert tick(6) == (-30.0, 1.8)                        # into the water: the base again
+    assert tick(0x100, (46.0, 0.9), anim=0x41) == (46.0, 0.9)   # the hoist out: the game's (R2's view)
+    assert word(0x18) == 1                                # the snap armed
+    for _ in range(20):                                   # the stand before its pop, held off
+        assert tick(0, depth=0.3) == (46.0, 0.9)
+    assert ease(sim, 46.0) == 46.0                        # the game's: no snap off the base
+    assert tick(0) == (-30.0, 1.8)                        # the pop: out of the band
+    assert ease(sim, 46.0) == -30.0                       # the snap, still armed after the held-off ticks
+    assert ease(sim, -86.0) == -30.0                      # the stand's re-derive after it: again
+    assert word(0x30) == 2
+    for _ in range(16):                                   # 0.5 s of rest calls
+        assert tick(0) == (-30.0, 1.8)
+    assert word(0x18) == 0
+    assert ease(sim, -40.0) == -39.0
+    stick(-30.0)                                          # the ease done
+    assert tick(0) == (-30.0, 1.8)
+    stick(-10.0)                                          # the player's stick at rest: an ask
+    assert tick(0) == (-10.0, 1.8)
+    assert (struct.unpack("<f", struct.pack("<I", word(0)))[0], word(0x14) & 1) == (sim.f32(camera + 0x1A0), 0)
+    assert ease(sim, -40.0) == -40.0                      # not held: the game's rate
+    sim.uc.mem_write(camera + 0x1A4, struct.pack("<f", 1.5))   # the zoom: an ask
+    assert tick(6) == (-10.0, 1.5)
+    assert tick(6, (-20.0, 1.2)) == (-10.0, 1.5)          # the base is the player's
+    assert ease(sim, -40.0) == -39.0
+    assert tick(0, (-54.0, 0.6)) == (-10.0, 1.5)
+    stick(-53.0)                                          # the stick while the push's -54 shows: a nudge
+    assert tick(0) == (-10.0, 1.5)
+    assert tick(0x100, (46.0, 0.9), anim=0x41) == (46.0, 0.9)
+    stick(28.5)                                           # a nudge in the hoist
+    assert tick(0x100, anim=0x41) == (28.5, 0.9)
+    assert word(0x18) == 1
+    assert tick(0) == (-10.0, 1.5)
+    assert ease(sim, 28.5) == -10.0                       # the snap after it
+    queried = len(asked)
+    assert tick(6, (-20.0, 1.2), player=False) == (-20.0, 1.2)   # another critter's camera
+    assert len(asked) == queried
+
+
+@pytest.mark.parametrize("species, mode, tall, eye", [
+    ("kingkong", "own", 3.381, 1.9925),       # golem x 5: its mesh's top (its bones' 3.03)
+    ("firefly", "garret4", 0.174, 0.1002),    # its wings lie flat: their 17 cm span
+    ("firefly", "own", 0.174, 0.1002),        # and X3's box at its chest, not 8 m up
+    ("balthazar", "own", 2.119, None),        # balthazar_airship's own m_head
+])
+def test_a_body_sized_to_garret4_stands_his_height_with_the_camera_at_his_eye(species, mode, tall, eye):
+    """Q304, 2.60 REPORT §4.1 (2)-(3), Step 2.68: a swapped body renders
+    at its model's size times its scale (kingkong's golem x 5 filled the
+    screen, a firefly is a speck; xemu sitting p8). ``size="garret4"``,
+    in any mode, writes garret4's height over the body's as garret4's
+    scale cell (in place of the species' scale; in garret4's exact, which
+    writes none), so its mesh's top stands at garret4's 2.002 m (a mesh
+    that lies flat, the firefly's, the tentacles': its longest side
+    there). X8 aims the camera at garret4's eye height (his m_head,
+    1.9925 m: a point the game scales by the critter's scale) on an
+    upright body without an m_head, and on a flat one at garret4's share
+    of its drawn top (Step 2.107: the firefly's wings, 0.10 m up, even
+    though its bind pose has no top); a body with its own m_head keeps
+    the game's lookup. A body with neither a
+    hand nor a damage marker has its action point, X3's box and W6's
+    particles, at 0.7 x its height, so at 0.7 x garret4's (the firefly's
+    bones have no top: it was 1 model unit, 8 m up once sized).
+    ``size="own"`` is the default build."""
+    characters = _read("gamedata/characters.xbr")
+    vanilla = _read("gamedata/config.xbr")
+    garret4 = 2.002
+    game = _swap(species, mode=mode, size="garret4")
+    engine = XbrDocument.from_bytes(game["config.xbr"]).keyed_section("critters_engine")
+    scale = engine.find_cell("garret4", "scale", None).double_value
+
+    assert height(characters, read_body(characters, "garret4")) == pytest.approx(garret4, abs=5e-4)
+    assert scale * tall == pytest.approx(garret4, abs=0.001)
+    assert engine.find_cell(species, "scale", None).double_value == XbrDocument.from_bytes(
+        vanilla).keyed_section("critters_engine").find_cell(species, "scale", None).double_value
+    built = bytes(game["default.xbe"])
+    if eye:
+        (x, y, z), returned = _camera_point(built, 0x24)
+        assert (x, y, returned) == (0.0, 0.0, True) and z * scale == pytest.approx(eye, abs=1e-4)
+    else:
+        assert built[va_to_file(0x41F67):va_to_file(0x41F67) + 5] == _xbe()[
+            va_to_file(0x41F67):va_to_file(0x41F67) + 5]
+    if mode == "own" and species == "firefly":
+        assert _x3_tick(built, 0, 0.35, scale=scale)[3][2] * scale == pytest.approx(0.7 * garret4, abs=1e-3)
+
+
+@pytest.mark.parametrize("species, mode, size, k, bound, reach, want", [
+    ("keylord", "own", "own", 2.0, 3.0, 2.0, None),          # its 2.0 x 2, bumped as at x1 (AZ-567); bound 1.5 x 2
+    ("keylord", "garret4", "own", 0.5, 1.5, 1.0, None),      # 1.0 x 0.5; garret4's own boxes (X3) keep his reach
+    ("kingkong", "own", "garret4", 2.5, None, 2.5, None),    # garret4's height x 2.5: its boxes x 2.5 (AZ-559)
+    ("garret4", "own", "own", 2.0, 3.0, 2.0, 6.059),         # his own body (Step 2.123): his 1.5 x 2, his boxes x 2,
+])                                                           # sweep2's 2 x 4.130 less its m_feet's 2.2 past basic1
+def test_the_model_scale_draws_the_body_that_many_times_its_size_and_what_the_size_moves_follows(
+        species, mode, size, k, bound, reach, want):
+    """Step 2.98 (D279; the owner: "for models, I would like an option to
+    scale model size, similar to how attack reach and others get
+    options"): ``model_scale`` (``--player-character-scale``) multiplies
+    the scale W2 writes for the mode and size (keylord's own 2.0;
+    garret4's exact none, so 1.0; garret4's height), any finite number
+    (D23), and every check the size feeds follows: the bounds (the
+    body's at the new scale, at least garret4's times it), the reach the
+    logic reads (keylord's own boxes twice as far; garret4's boxes in his
+    exact unmoved; kingkong's x2.5, with the 4 m melee line: AZ-559;
+    garret4's own twice as far, his own body drawn x2, Step 2.123) and
+    the camera point, in model units, which the game scales with it (the
+    log naming garret4's eye height x k at his height; how the camera
+    frames it at k, the swim margins too, is :func:`camera_plan`'s,
+    ``test_the_camera_frames_a_body_drawn_at_any_size_as_garret4_does_at_x1``).  No sitting has
+    graded a scaled swapped build, so its status is unseen (D242), as
+    ``player-models --scale`` lists it, whose ``--attacks`` measure the
+    boxes at that scale; garret4's own x2 has sitting 2.123's grade.
+    Since Step 2.197b (AZ-766) the logic and the listing read each box from
+    the body, back by its clip's ``m_feet``, which the drawn origin keeps
+    unscaled (``docs/RE_XBE.md``), so a lunge's box doesn't scale with
+    the body: the listing's first swing does (no lunge), and garret4's
+    sweep2 x2 reaches past his basic1."""
+    config = _read("gamedata/config.xbr")
+    characters = _read("gamedata/characters.xbr")
+    one, scaled = AttackLogic(), AttackLogic()
+    logs: list[list[str]] = [[], []]
+    built = [_swap(species, lines=log, mode=mode, size=size, model_scale=s, logic=logic)
+             for log, s, logic in zip(logs, (1.0, k), (one, scaled))]
+    engines = [XbrDocument.from_bytes(g["config.xbr"]).keyed_section("critters_engine") for g in built]
+    s1, sk = (e.find_cell("garret4", "scale", None) for e in engines)
+    theirs = engines[0].find_cell(species, "boundRadius", None).double_value
+
+    assert sk.double_value == pytest.approx((s1.double_value if s1.type_code == 1 else 1.0) * k)
+    assert engines[1].find_cell("garret4", "boundRadius", None).double_value == pytest.approx(
+        bound or theirs * sk.double_value)
+    assert scaled.reach == (None if reach is None else pytest.approx(want or one.reach * reach, abs=2e-3))
+    assert _camera_point(bytes(built[1]["default.xbe"]), 0x24) == _camera_point(bytes(built[0]["default.xbe"]), 0x24)
+    graded = GARRET4_SIZES[k][0] if species == "garret4" else "unseen"
+    assert logs[1][-1].startswith(f"  Player model status: {graded}") and not logs[0][-1].startswith(
+        "  Player model status: unseen")
+    assert (f"garret4's eye height x{k:g}" in "".join(logs[1])) is (size == "garret4")
+    assert {m.species: m.status for m in player_models(config, characters, mode, size, k)}[species] == graded
+    listed = [max(w.reach for r in attacks(config, characters, species, mode, size, s) if r.column == "basic1"
+                  for w in r.windows) for s in (1.0, k)]
+    assert listed[1] == pytest.approx(listed[0] * k, abs=0.01)   # keylord's attack_1 lunges 0.009 m
+
+
+def test_the_logics_melee_line_is_drawn_at_the_model_size_and_a_staff_cast_never_counts():
+    """AZ-559 (Step 2.123 C1; D237, D279): the randomizer's logic reads a
+    build's farthest melee box (:func:`melee_reach`), melee by Step 2.61's
+    4 m line, and a model scale draws every box that many times as far, so
+    the line is drawn at the scale too and an attack's class is its x1
+    one. On garret4's own table his basic2 (3.79 m) is the farthest at
+    every size: x2.5 reads it x2.5, not the last box still under an
+    absolute 4 m (right2's, 3.97 m; from x2.73 none), and x0.5 half of
+    it, under D237's 2.77 m swing, not his elemental2 sphere's 3.52 m.
+    The staff's casts (elemental1-3) are magic, never the basic swing D237
+    asks for: a melee sweep (3.67 m) played in them leaves basic1's."""
+    characters = _read("gamedata/characters.xbr")
+    anims = XbrDocument.from_bytes(_read("gamedata/config.xbr")).keyed_section("attacks_anims")
+    columns = anims.col_names()
+    clips = [anims.find_cell(col, "Anim", i).string_value for i, col in enumerate(columns)]
+    garret4 = read_body(characters, "garret4")
+
+    def far(column: str) -> float:
+        return max(w.reach for w in damage_windows(characters, "garret4", clips[columns.index(column)]))
+
+    def reach(picks: list[str], k: float) -> float | None:
+        return melee_reach(characters, garret4, columns, picks, k, 0, GARRET4_REACH, model_scale=k)
+    assert [reach(clips, k) for k in (1.0, 2.5, 0.5)] == pytest.approx([far("basic2") * k for k in (1.0, 2.5, 0.5)])
+    assert reach(clips, 0.5) < GARRET4_REACH < far("elemental2") * 0.5 < MELEE_REACH   # a half-size cast no longer passes
+    cast = [clips[columns.index("sweep1")] if col in CASTS else clips[0] for col in columns]
+    assert far("basic1") < far("sweep1") < MELEE_REACH and reach(cast, 1.0) == pytest.approx(far("basic1"))
+
+
+def test_the_reach_bump_and_a_recipes_chain_search_judge_a_box_at_model_size_1():
+    """AZ-567 (Step 2.175a; AZ-559's rule, D237): the balance's reach bump
+    (a melee box under 0.75 of garret4's basic1 reach, 2.08 m: D345) and
+    X21's search over a recipe's melee boxes (``search_reach`` with
+    ``melee``) draw their lines at the Model size, as the logic's melee
+    line does, so a box's class is its x1 one: keylord own bumps the same
+    columns drawn x0.5, x1 and x2 (its basic1 among them; at x2 it was
+    left out), and garret4's basics drawn x2.5 (2.77-3.79 m at x1, none
+    still under an absolute 4 m) search out to basic2's, not X21's 3 m."""
+    masks = {k: int(_param(bytes(_swap("keylord", model_scale=k)["default.xbe"]), ATTACK_BOX_HOOK, ATTACK_BOX_SHIM,
+                           "_player_attack_bump_mask")) for k in (0.5, 1.0, 2.0)}
+    assert masks[1.0] & 1 and masks[0.5] == masks[1.0] == masks[2.0], masks
+    characters = _read("gamedata/characters.xbr")
+    anims = XbrDocument.from_bytes(_read("gamedata/config.xbr")).keyed_section("attacks_anims")
+    columns = anims.col_names()
+    clips = [anims.find_cell(col, "Anim", i).string_value for i, col in enumerate(columns)]
+    far = max(w.reach for w in damage_windows(characters, "garret4", clips[columns.index("basic2")]))
+    assert search_reach(characters, read_body(characters, "garret4"), columns, clips, 2.5, 0, GARRET4_REACH,
+                        melee=True, model_scale=2.5) == pytest.approx(far * 2.5)
+
+
+def test_an_own_box_that_never_meets_the_pressed_targets_near_face_gives_its_column_to_x3():
+    """AZ-613 (Step 2.175a; Step 2.69's reach test, D296): W19's pressed
+    target stands PLAYER_RADIUS x max(drawn, 1) ahead of the feet and X13's
+    fill keeps a box's far faces, so an own box that clears the 0.6 m reach
+    test but whose far face stops short of that target never meets it:
+    such a column, on a clip garret4 doesn't own, now takes X3 (fire_shard
+    own x2, every attack column, its boxes 0.70 m ahead against 1.0 m;
+    water_tentacle1 at garret4's height, its seven attack_l2/attack_r2 side
+    swipes), while garret4's own left1, back1 and back2, which swing to the
+    side and behind by design, keep passing at any size."""
+    cases = (("fire_shard", "own", 2.0, ("basic1", "finish3", "jump attack", "back2", "down")),
+             ("water_tentacle1", "garret4", 1.0, ("basic2", "finish3", "sweep ledge", "hose_attack_3", "right2",
+                                                  "back2", "down")))
+    anims = XbrDocument.from_bytes(_read("gamedata/config.xbr")).keyed_section("attacks_anims")
+    columns = anims.col_names()
+    for species, size, k, moved in cases:
+        x3 = _x3_param(bytes(_swap(species, size=size, model_scale=k)["default.xbe"]), "columns")
+        assert all(x3 >> columns.index(col) & 1 for col in moved), (species, hex(x3))
+    assert x3 != (1 << len(columns)) - 1 - (1 << columns.index("roll forward"))   # the tentacle's others its own
+    characters = _read("gamedata/characters.xbr")
+    clips = [anims.find_cell(col, "Anim", i).string_value for i, col in enumerate(columns)]
+    assert [reach_misses(characters, read_body(characters, "garret4"), columns, clips, s) for s in (1.0, 2.0)] == [0, 0]
+
+
+def test_x3s_box_on_a_hand_keeps_its_sideways_place_when_the_model_is_scaled_up():
+    """AZ-521 (xemu 2.98: town_male_6 own at --player-character-scale 2
+    hit a blaze sentinel to 3.625 m where garret4 and x0.5-x1.5 hit to
+    3.75, its box's centre 0.78-0.82 m to the side of the facing line
+    against x1's 0.39-0.41): X3 puts garret4's narrow box (half width
+    0.12 m) at the hand bone's runtime origin, in model units the game
+    scales by the critter's +0x188, so the scale carried its sideways
+    place (x) out with the hand, off a small target dead ahead. Since
+    the fix (L2, X3's tick on each build) the hand's sideways place is
+    multiplied by 1 over a model scale above 1, so in metres it stays
+    x1's; at x1 and x0.5 the box is as before, and forward (garret4's
+    1.2341 m ahead, over the scale) and up it follows the hand. (Since
+    Step 2.134a town_male_6 swings garret4's attacks with his own boxes in
+    Balanced, so Balthazar own's hand, left_w, carries the box here.)"""
+    hand = (0.35, 0.10, 1.11)
+    places, scales = {}, {}
+    for k in (1.0, 2.0, 0.5):
+        built = _swap("balthazar", model_scale=k, sounds="garret4")   # his fall voices (X15) touch an L2 blind spot
+        xbe = bytes(built["default.xbe"])
+        cell = XbrDocument.from_bytes(built["config.xbr"]).keyed_section("critters_engine").find_cell(
+            "garret4", "scale", None)
+        scale = cell.double_value if cell is not None and cell.type_code == 1 else 1.0   # x1: his cell stays empty
+        bone, columns = _x3_param(xbe, "bone"), _x3_param(xbe, "columns")
+        assert bone >= 0, k                                     # X3 rides the hand
+        column = next(c for c in range(24) if columns >> c & 1)
+        centre = _x3_tick(xbe, column, 0.35, scale=scale, bones={bone: hand})[3]
+        assert centre[1:] == pytest.approx((hand[1] + 1.2341 / scale, hand[2])), k
+        places[k], scales[k] = centre[0] * scale, scale         # metres beside the facing line
+    assert places[2.0] == pytest.approx(places[1.0]) and places[1.0] == pytest.approx(hand[0] * scales[1.0])
+    assert places[0.5] == pytest.approx(places[1.0] / 2)
+
+
+_MARKER = (0.25, 1.5, 1.2, math.sqrt(0.5), 0.0, 0.0, math.sqrt(0.5), 0.2, 0.4, 0.6, 0.5, 1.0)
+"""A synthetic damage marker (position, quaternion, extents, length, active):
+90 degrees about x, so the box's y axis points up and its z axis back."""
+
+
+def _attack_box(built: bytes, flags: int, column: int | None,
+                marker: tuple[float, ...] = _MARKER) -> tuple[tuple, tuple, bool]:
+    """Run ``built``'s CALL at 0x43B47 (the damage pass's box build,
+    X13's hook) under Unicorn on the damage ``marker``'s 12 values for a
+    critter of a species with ``flags`` (S+0x64) whose PlayerControl
+    (critter+0x180) plays ``attacks_anims`` column ``column`` (+0x134;
+    None: no controller), EBX the critter's damage task (critter+0xD8) as
+    in 0x43A80: the box's matrix (16 floats) and min/max (6), and whether
+    it came back as 0xCA390 does (plain RET, EBX, ESI and EDI kept)."""
+    at = va_to_file(0x43B47)
+    target = 0x43B4C + struct.unpack_from("<i", built, at + 1)[0]
+    sim, base = Sim(built), 0x20000000
+    critter, species, control, box_marker, matrix, box = (base + k * 0x400 for k in range(6))
+    sim.uc.mem_map(base, 0x2000)
+    sim.uc.mem_write(critter + 0x178, struct.pack("<I", species))
+    sim.uc.mem_write(species + 0x64, struct.pack("<I", flags))
+    if column is not None:
+        sim.uc.mem_write(critter + 0x180, struct.pack("<I", control))
+        sim.uc.mem_write(control + 0x134, struct.pack("<i", column))
+    sim.uc.mem_write(box_marker + 4, struct.pack("<12f", *marker))
+    sim.call(target, regs={"ecx": matrix, "eax": box, "edx": box_marker, "ebx": critter + 0xD8,
+                           "esi": 0x1234, "edi": 0x5678}, until=l2._RETURN)
+    kept = (sim.reg("esp"), sim.reg("ebx"), sim.reg("esi"), sim.reg("edi")) == (
+        l2._STACK_TOP - 0x100, critter + 0xD8, 0x1234, 0x5678)
+    return (struct.unpack("<16f", sim.uc.mem_read(matrix, 64)),
+            struct.unpack("<6f", sim.uc.mem_read(box, 24)), kept)
+
+
+def _bounds(m: tuple, b: tuple, k: float = 1.0) -> tuple[list[float], list[float]]:
+    """A box's model-space bounds (min, max per axis) from its matrix and
+    min/max, its reach ``k`` times as X13 grows it (the centre's x and y
+    and the min/max times k)."""
+    centre = (m[12] * k, m[13] * k, m[14])
+    lo = [centre[i] + sum(min(m[4 * j + i] * b[j], m[4 * j + i] * b[3 + j]) * k for j in range(3))
+          for i in range(3)]
+    hi = [centre[i] + sum(max(m[4 * j + i] * b[j], m[4 * j + i] * b[3 + j]) * k for j in range(3))
+          for i in range(3)]
+    return lo, hi
+
+
+def test_x13_scales_the_players_hit_box_reach_and_fills_a_box_to_the_feet_the_line_and_the_floor():
+    """D222 amended, D223 (Step 2.70): a swapped body's hit box is its own
+    marker's (keylord's from 1.11 m up, Balthazar's from 1.23 m), which
+    passes over a sleeth or a flicken (Step 2.61). With a reach other than
+    1.0 or reach-to-ground the build hooks the damage pass's CALL 0xCA390
+    at 0x43B47 (ECX the matrix, EAX the min/max, EDX the marker, EBX the
+    critter's +0xD8 task); for the player's species the box's centre
+    moves reach times as far ahead (its height stays) and its min/max
+    grow reach times. AZ-605 (Step 2.132, D347, D341: guard_air's boxes
+    stayed 1.27 m ahead or overhead, blaze_sentinel's X3 box 1.19-1.47 m
+    right of the facing line, a big body's near face s times as far out):
+    in every attack column but the roll the box becomes its model-space
+    bounds (rows 0-2 the identity), and, unless it is wholly behind the
+    feet, its near face comes back to them and it widens to the facing
+    line, then a bottom above the feet comes down to them, its far faces
+    and top kept: a pitched box ahead and high, one beside the line, one
+    behind (lowered only). The roll, no controller and another critter
+    keep the game's box (the reach aside); a build with neither option
+    installs nothing. Balthazar own's default fills every column but the
+    roll, his basic1 bumped x1.25 (D223) and his basic3 beam not; garret4
+    drawn x2 fills his (D347: "including for big models"), x1 installs
+    nothing. A reach takes any finite number (D23); randomize-full
+    refuses NaN and inf before any work, as for the attack damage and
+    speed options and the model scale (Step 2.98): ``characters.normalize``,
+    which the sdk's and the CLI's builds read a character through."""
+    vanilla = _xbe()
+    built = bytes(_swap("keylord", attack_reach=1.25, attack_ground=True, attack_balance=False)["default.xbe"])
+    assert l1.check(vanilla, built) == []
+    pitch = (math.sin(math.radians(15)), 0.0, 0.0, math.cos(math.radians(15)))
+    ahead = (0.0, 2.2, 2.2, *pitch, 0.47, 0.6, 1.0, 1.0, 1.0)                 # 1.2-3.2 m ahead, 1.0-3.4 m up
+    beside = (1.33, 0.155, 1.07, 0.0, 0.0, 0.0, 1.0, 0.14, 1.525, 1.07, 1.0, 1.0)  # x 1.19-1.47, z 0-2.14
+    behind = (0.3, -1.5, 1.0, 0.0, 0.0, math.sin(math.radians(20)), math.cos(math.radians(20)),
+              0.3, 0.4, 0.5, 1.0, 1.0)
+    for marker, column, fill in ((ahead, 0, "ahead"), (beside, 0, "beside"), (behind, 0, "behind"),
+                                 (ahead, 20, None), (ahead, None, None)):
+        m0, b0, _ = _attack_box(vanilla, 0x24, 0, marker)             # the game's own box
+        lo0, hi0 = _bounds(m0, b0, 1.25)
+        m, b, kept = _attack_box(built, 0x24, column, marker)
+        lo, hi = _bounds(m, b)
+        assert kept, (fill, column)
+        if fill is None:                                              # reach alone, the game's axes
+            assert m[:12] == m0[:12] and (lo, hi) == (pytest.approx(lo0, abs=1e-5), pytest.approx(hi0, abs=1e-5))
+            continue
+        assert m[:12] == (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0), fill
+        want = {"ahead": ([lo0[0], 0.0, 0.0], hi0),                    # back to the feet, down to the floor
+                "beside": ([0.0, lo0[1], lo0[2]], hi0),                # across to the facing line
+                "behind": ([lo0[0], lo0[1], 0.0], hi0)}[fill]          # lowered only
+        assert {"ahead": lo0[0] < 0.0 < lo0[1] and lo0[2] > 0.0, "beside": lo0[0] > 0.0 >= lo0[2],
+                "behind": hi0[1] < 0.0 < lo0[2]}[fill], fill                # where the game's box is
+        assert (lo, hi) == (pytest.approx(want[0], abs=1e-5), pytest.approx(want[1], abs=1e-5)), fill
+    assert _attack_box(built, 0x04, 0, ahead)[:2] == _attack_box(vanilla, 0x04, 0, ahead)[:2]   # not the player
+    assert verify_trampoline_patch(bytes(_swap("keylord", attack_ground=False, attack_balance=False)[
+        "default.xbe"]), ATTACK_BOX_HOOK) == "original"
+    for species, kw, mask, bumped in (("balthazar", {}, 0xEFFFFF, True), ("garret4", {"model_scale": 2.0}, 0xEFFFFF,
+                                                                         False)):
+        xbe = bytes(_swap(species, **kw)["default.xbe"])
+        params = [_param(xbe, ATTACK_BOX_HOOK, ATTACK_BOX_SHIM, f"_player_attack_{k}")
+                  for k in ("reach", "ground_mask", "bump_mask")]
+        assert params[:2] == [1.0, mask] and (int(params[2]) & 1, int(params[2]) >> 2 & 1) == (bumped, 0), species
+    assert verify_trampoline_patch(bytes(_swap("garret4", attack_damage=2.0)["default.xbe"]),
+                                   ATTACK_BOX_HOOK) == "original"
+    for field, bad in (("attack_reach", math.nan), ("attack_reach", -math.inf), ("attack_damage", math.inf),
+                       ("attack_speed", math.nan), ("scale", math.inf)):
+        with pytest.raises(ValueError, match=f"^character: {field} {bad!r} is not a finite number"):
+            characters.normalize({"species": "keylord", field: bad})
