@@ -7,7 +7,8 @@ randomizer's since Step 4.12b, each first recorded at Modkit's last cut. A
 later Modkit result reaches AzurKit as a hand port (Porting from Modkit).
 [`README.md`](README.md) says what AzurKit is, [`docs/GUIDE.md`](docs/GUIDE.md)
 every feature in detail and [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) how
-to build and test it. These rules bind.
+to build and test it; [`docs/Future/PENDING.md`](docs/Future/PENDING.md) lists
+the work still pending. These rules bind.
 
 **The guide's features:** a change a player would notice adds or updates its
 line in `docs/GUIDE.md`, in the same commit, and README's short Features
