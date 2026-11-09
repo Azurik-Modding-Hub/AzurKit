@@ -148,11 +148,11 @@ def test_impact_ranking_orders_spots_by_fill_gain_and_edges_by_what_their_remova
     """``impact`` on ``impactdb``, where four powers compete for three proven spots, so no seed fills. Proven alone,
     the grotto's spot (open from the start) or the ledge's (behind air) lets every seed fill, as fill() itself
     agrees, and the tower's (behind all four powers) none: fill() gets past its preflight (four spots for four
-    powers) and fails after its 20 attempts, naming the stuck powers and the four spots. The grotto's ranks first
-    (in more stuck reaches, and a first-sphere spot) and is the greedy set's one proof. Of the assumed edges,
-    removing town > cave breaks vanilla (the fire), town > ledge cuts the ledge's spot, beach > hill only delays
-    the hill (its proven spot leaves the opening) and the second beach > town changes nothing: they rank in that
-    order."""
+    powers) and fails after its 40 attempts (Normal's 20 and its 20 more past a kept way out, D1160), naming the
+    stuck powers and the four spots. The grotto's ranks first (in more stuck reaches, and a first-sphere spot) and
+    is the greedy set's one proof. Of the assumed edges, removing town > cave breaks vanilla (the fire), town >
+    ledge cuts the ledge's spot, beach > hill only delays the hill (its proven spot leaves the opening) and the
+    second beach > town changes nothing: they rank in that order."""
     seeds = ["0", "1", "2", "3"]
     doc = impact.analyse(DATA / "impactdb", seeds, jobs=1, singles=5, width=5, edge_fills=5, rounds=3)
     assert doc["baseline"]["fills"] == 0
@@ -171,7 +171,7 @@ def test_impact_ranking_orders_spots_by_fill_gain_and_edges_by_what_their_remova
     assert all(fill(proven, seed).placement for seed in seeds)
     level.write_text(toml + '\n[[location]]\nid = "i1/g0/r6"\nproven = { by = "data", ref = "toy" }\n',
                      encoding="utf-8")
-    with pytest.raises(FillError, match=r"20 attempts failed; the last: attempt 19: no safe proven spot") as failed:
+    with pytest.raises(FillError, match=r"40 attempts failed; the last: attempt 39: no safe proven spot") as failed:
         fill(Logic(load_database(root)), "0")
     assert failed.value.items == ["power_air", "power_earth", "power_fire", "power_water"]
     assert failed.value.proven == ["i1/g0/r1", "i1/g0/r2", "i1/g0/r3", "i1/g0/r6"]
