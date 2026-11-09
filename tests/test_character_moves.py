@@ -10,8 +10,8 @@ those bytes do and the builds no golden makes."""
 
 from __future__ import annotations
 
-import contextlib
 import functools
+import hashlib
 import json
 import math
 import re
@@ -36,7 +36,7 @@ from azurkit.tools.characters import ports
 from azurkit.tools.characters._player_character import (
     ATTACK_BOX_HOOK, ATTACK_BOX_SHIM, BALANCE_CAP, BALANCE_FLOOR, BLAST_HOLD_HOOK, BLAST_HOOK, BLAST_HOOKS,
     BLAST_LAND_HOOKS, BLAST_SHIM, CARRY_HOOK, CARRY_SHIM, CASTS, CENTRED_DIR, CHAIN_AFTER_HIT, CHAIN_GATES, CHAINED,
-    DIRECTION_EDITS, DRAIN_HOOKS, DRAIN_SHIM, DRAIN_STATE, EASE_HOOK, EYE_HOOK, FINISH_RANGE, FINISH_RANGE_HOOK,
+    DIRECTION_EDITS, DRAIN_HOOKS, DRAIN_SHIM, DRAIN_STATE, EASE_HOOK, FINISH_RANGE, FINISH_RANGE_HOOK,
     FINISH_ROW, FINISHERS, FX_DEFAULT_HOOK, FX_DRAIN_AT, FX_RING_HOOKS, FX_RING_SHIM, FX_RING_STATE, FX_RING_TABLE,
     FX_ROTATION_AT, GARRET4_SIZES, HIT_DELAY_HOOK, HIT_FX_HOOK, HIT_FX_SHIM, HIT_NEAR, LATCH_HOOK, LIGHT,
     LIGHT_HIT_HOOK, LIGHT_HIT_SHIM, MODE_ANIMS, MODE_GRADES, MODE_SHARES, MODES, MULTIPLIER, NEAR_HOOKS, NEAR_SHIM,
@@ -44,7 +44,8 @@ from azurkit.tools.characters._player_character import (
     SEARCH_RADIUS_SYMBOL, SEARCH_SHIM, SEARCH_SITES, SETS_HOOKS, SETS_SHIM, SETS_STATE, SHIM_HOOKS, SLOW_BONUS,
     SLOW_RATIO, STAFF_WALLS, STAFF_X1, STUN_LAG, SUPPORT, THUD_HOOK, THUD_SHIM, TOUCH_HOOK, WINGS_POSE, WINGS_SHIM,
     AttackLogic, _armor_frames, aim_records, anim_strings, attack_sets, attacks, bakes, body_height, combo_rate,
-    contact, install_air_blast_shim, install_attack_carry_shim, melee_reach, mode_status, move_window, place_anims,
+    contact, install_air_blast_shim, install_attack_carry_shim, melee_reach, mode_status, model_sounds, move_window,
+    place_anims,
     player_models, reach_misses, search_reach, set_lines, shim_data, source_clip, substitutes, weigh_attacks, windup,
     write_anims)
 from azurkit.tools.characters._player_damage_marker import (
@@ -4594,3 +4595,466 @@ def test_every_attack_plays_one_of_the_bodys_attack_clips_and_the_combo_its_firs
     assert plays["keylord"]["jump attack"] == "attack_2"
     assert set(plays["bosses/fire_guardian"].values()) - {"walk"} == {"attack_1", "attack_2"}
     assert set(plays["flicken"].values()) == {"ouch_1", "run"}
+
+
+def test_w3_builds_each_usable_bodys_picks_in_every_mode():
+    """AZ-412 (Step 2.87): W3 makes each attacks_anims column play its
+    pick (substitutes): written into a string in place, else pointed at
+    the string its holder held after the writes (place_anims,
+    write_anims; Step 2.73a's review found balthazar's right1, left2 and
+    up1 reading attack_1 where the pick said attack_2, pointed through a
+    holder that had moved on). For every usable body but garret4's (whose
+    build writes nothing), in every mode, on config.xbr alone, each
+    column's built Anim is its pick, but where an attack clip of the body
+    no column's string could hold takes the string of a column whose clip
+    another column plays too (spideyzar's whirlwind: hose_attack_3's
+    string is shared), so spideyzar plays each of its body's ten attack
+    clips. In garret4's exact on a body the bake serves, each attack
+    column plays garret4's own clip baked onto it while a string can hold
+    every name (B: a g4/ name is 3 longer than its column's own string,
+    so it takes one no pick plays): Balthazar's basic1-basic3, finish,
+    finish2, finish3, sweep2 and sweep ledge, and his roll g4/roll_forward
+    in every mode."""
+    config = _read("gamedata/config.xbr")
+    characters = _read("gamedata/characters.xbr")
+    anims = XbrDocument.from_bytes(config).keyed_section("attacks_anims")
+    columns, strings = anims.col_names(), anim_strings(anims)
+    built: dict[tuple[str, ...], list[str]] = {}
+    moved, plays = {}, {}
+    for name in sorted({m.body for m in player_models(config, characters) if m.status != "refused"} - {"garret4"}):
+        body = read_body(characters, name)
+        for mode in MODES if body.clips else ():
+            baked = bakes(body, MODE_ANIMS[mode])
+            picks = substitutes(columns, body, baked, strings if baked and mode == "garret4" else None)
+            if tuple(picks) not in built:
+                played = list(picks)
+                section = XbrDocument.from_bytes(config).keyed_section("attacks_anims")
+                write_anims(section, place_anims(columns, strings, played))
+                assert [section.find_cell(col, "Anim", i).string_value
+                        for i, col in enumerate(columns)] == played, (name, mode)
+                built[tuple(picks)] = played
+            played = built[tuple(picks)]
+            plays[name, mode] = dict(zip(columns, played))
+            moved |= {(name, mode, col): (pick, now) for col, pick, now in zip(columns, picks, played) if pick != now}
+
+    assert moved == {("balthazar_spider", mode, "finish"): ("attack_1", "whirlwind") for mode in MODES}
+    assert set(plays["balthazar_spider", "own"].values()) - {"walk"} == set(
+        attack_clips(read_body(characters, "balthazar_spider")))
+    assert {col for col, pick in plays["balthazar_airship", "garret4"].items() if pick.startswith("g4/")} == {
+        "basic1", "basic2", "basic3", "finish", "finish2", "finish3", "sweep2", "sweep ledge", "roll forward"}
+    assert [plays["balthazar_airship", mode]["roll forward"] for mode in MODES] == ["g4/roll_forward"] * len(MODES)
+
+
+def test_x3_gives_a_hit_box_at_the_action_point_only_to_the_attacks_whose_clip_has_none():
+    """D219 (Step 2.64, 2.24f's design 5a): X3 serves only the
+    attacks_anims columns whose clip has no damage window (a 24-bit
+    mask), and for every other column points critter+0x218 back at the
+    body's own m_damage, as critter_init cached it, so Balthazar's
+    attack_1 (basic1) and attack_3 (basic3) keep their own boxes while
+    his attack_2 (basic2, the life-drain cast) gets X3's. Its box is
+    centred garret4's box's 1.2341 m ahead of the action point (in
+    garret4's units, so over the critter's scale): his right hand's
+    runtime matrix (bone 70, read as 0xCCDF0 reads it for the fx bind),
+    flicken's chest point. Its m_damage2 (critter+0x21C) stays the
+    body's. garret4's exact: the test below."""
+    hand, own, slots = (0.42, 0.24, 1.05), 0x20003000, {}
+    balthazar = bytes(_swap("balthazar", sounds="garret4")["default.xbe"])   # his fall voices: an L2 blind spot
+    (length, on), marker, _, centre = _x3_tick(balthazar, 1, 0.35, own=own, bones={70: hand},
+                                               own2=own + 0x100, slots=slots)
+
+    assert (marker != own, length, on, slots["m_damage2"][0]) == (True, 0.5, 1.0, own + 0x100)
+    assert centre == pytest.approx((0.42, 0.24 + 1.2341, 1.05))
+    assert _x3_tick(balthazar, 1, 0.35, own=own, bones={70: hand}, scale=2.0)[3] == pytest.approx(
+        (0.42, 0.24 + 1.2341 / 2, 1.05))
+    assert [_x3_tick(balthazar, col, 0.35, own=own, bones={70: hand})[1] for col in (0, 2)] == [own] * 2
+    assert _x3_tick(bytes(_swap("flicken")["default.xbe"]), 0, 0.35)[3] == pytest.approx(
+        (0.0, 0.1344 + 1.2341, 0.4725), abs=1e-3)
+
+
+def test_a_giants_hit_box_comes_within_garret4s_swing_of_its_feet():
+    """Step 2.70b (sitting 2.75a row 118: guard_earth's ground swings never
+    touched an e7 enemy): a box must come within garret4's basic swing
+    (HIT_NEAR, 2.77 m) of the feet to hit a target in front of the
+    player. guard_earth's clips switch no damage marker on, so X3 serves
+    every column, at its right hand (bone 10), which passes 6.5-8.5 m
+    ahead of its 12.4 m body's feet through X3's window: its box came no
+    nearer than 5.4 m (X13 lowering it to the ground there). X3's box
+    goes where garret4 holds his instead, in own mode, and on
+    guard_water, whose attack_1 hand stays 3.6 m off; sized to garret4's
+    height guard_earth's hand comes near and keeps it, as guard_fire1's
+    and Balthazar's do. A body's own box was judged alike (the reach
+    test) until X13's fill (Step 2.132, AZ-605) brought every box ahead
+    back to the feet: kingkong's attack (golem's, x5), 6.9 m off, keeps
+    its own now, as sized and on golem (x1.25, 1.7 m off)."""
+    config = _read("gamedata/config.xbr")
+    characters = _read("gamedata/characters.xbr")
+    for (species, mode, size), x3 in {
+            ("guard_earth", "own", "own"): (23, True),
+            ("guard_earth", "own", "garret4"): (23, False), ("guard_water", "own", "own"): (23, True),
+            ("guard_fire1", "own", "own"): (23, False), ("balthazar", "own", "own"): (7, False),
+            ("kingkong", "own", "own"): (0, False), ("kingkong", "own", "garret4"): (0, False),
+            ("golem", "own", "own"): (0, False)}.items():
+        rows = attacks(config, characters, species, mode, size)
+        assert (sum(r.x3 for r in rows), any(r.x3_feet for r in rows)) == x3, (species, mode, size)
+    assert [round(min(w.near for w in damage_windows(characters, "golem", "attack", scale)), 2)
+            for scale in (1.25, 5.0)] == [1.73, 6.93] and HIT_NEAR == pytest.approx(2.77, abs=0.005)
+
+    hand = (0.83, 8.44, 2.75)   # guard_earth's right hand 30% into attack_1, in its model
+    assert _x3_tick(bytes(_swap("guard_earth")["default.xbe"]), 0, 0.35, bones={10: hand})[3] == pytest.approx(
+        GARRET4_BOX)
+    sized = _swap("guard_earth", size="garret4")
+    scale = XbrDocument.from_bytes(sized["config.xbr"]).keyed_section("critters_engine").find_cell(
+        "garret4", "scale", None).double_value
+    assert _x3_tick(bytes(sized["default.xbe"]), 0, 0.35, bones={10: hand}, scale=scale)[3] == pytest.approx(
+        (hand[0], hand[1] + 1.2341 / scale, hand[2]), rel=1e-5)
+
+
+EXACT = [(0, "attack_1"), (1, "attack_9"), (7, "360_sweep"), (9, "elemental_attack"), (13, "attack_2"),
+         (16, "attack_14"), (21, "attack_12"), (20, None)]
+"""Columns of garret4's exact build and the clip each plays in vanilla:
+the combo's first two, a sweep, an element, the jump attack, left1, up1
+and the roll."""
+
+
+def test_garret4s_exact_hits_each_column_with_garret4s_own_box_in_his_own_window():
+    """2.60 REPORT §4.1 (1), Step 2.68: garret4's exact gave every
+    attacks_anims column X3's attack_1 box, on from 20% to 50% of the
+    move, while garret4's 23 attack columns play 23 clips, each with its
+    own box and window (left1's attack_14 hits at 0.15-0.23 of its clip,
+    the elemental_attack box is 8 m wide). X3 now gives each column
+    garret4's own: on while the clip's time over its length (+0x178; W5
+    plays the move in garret4's time, so the fraction is garret4's) is in
+    the window where that clip, in vanilla, switches garret4's m_damage
+    on (Step 2.61's evaluator), the box bounding garret4's boxes over it,
+    centred from the feet, its extents x the marker's 0.5 its half
+    extents, both over the critter's scale; the roll never. A body's
+    action point plays no part (Balthazar's hand), and neither does its
+    m_damage2: +0x21C points at a marker that is never on (the water
+    tentacles' attack clips switch theirs on), and stays NULL on a body
+    without one. Own body's X3 stays 20-50% at the action point (the
+    test above). With reach-to-ground on, X13 fills every column's box
+    but the roll's (Step 2.132)."""
+    characters = _read("gamedata/characters.xbr")
+    garret4 = read_body(characters, "garret4")
+    hand, own = (0.42, 0.24, 1.05), 0x20003000
+    built = bytes(_swap("balthazar", mode="garret4", attack_ground=True, sounds="garret4")["default.xbe"])   # (X15)
+    assert l1.check(_xbe(), built) == []
+    game = _attack_box(_xbe(), 0x24, 0)[:2]     # 0xCA390's box, which X13 keeps
+    assert [c for c in range(24) if _attack_box(built, 0x24, c)[:2] == game] == [20]
+
+    def tick(column: int, fraction: float, **kw):
+        (length, on), marker, _, box = _x3_tick(built, column, (fraction - 0.1) / 0.8, own=own,
+                                                bones={70: hand}, extents=True, **kw)
+        assert marker != own
+        return length, on, box
+    for column, clip in EXACT:
+        if clip is None:
+            assert {tick(column, f)[1] for f in (0.2, 0.5, 0.8)} == {0.0}
+            continue
+        windows = damage_windows(characters, "garret4", clip)
+        start, end = windows[0].on / garret4.length(clip), windows[-1].off / garret4.length(clip)
+        low = [min(w.low[i] for w in windows) for i in range(3)]
+        high = [max(w.high[i] for w in windows) for i in range(3)]
+        assert [tick(column, f)[1] for f in (start - 0.02, start + 0.005, end - 0.005, end + 0.02)] == [
+            0.0, 1.0, 1.0, 0.0], clip
+        length, _, box = tick(column, (start + end) / 2)
+        assert box == pytest.approx([(a + b) / 2 for a, b in zip(low, high)]
+                                    + [(b - a) / (2 * length) for a, b in zip(low, high)], abs=1e-4), clip
+        length, _, box = tick(column, (start + end) / 2, scale=2.0)
+        assert (length, box[:3]) == (0.25, pytest.approx([(a + b) / 4 for a, b in zip(low, high)], abs=1e-4))
+    assert tick(16, 0.19)[1] == 1.0 and tick(0, 0.19)[1] == 0.0      # left1 opens early, basic1 late
+    slots = {}
+    tick(0, 0.4, own2=own + 0x100, slots=slots)
+    assert slots["m_damage2"][0] not in (0, own + 0x100) and slots["m_damage2"][1] == (0.0, 0.0)
+    tick(0, 0.4, slots=slots)
+    assert slots["m_damage2"] == (0, None)
+
+
+def test_a_clipless_body_takes_garret4s_hit_windows_in_every_mode():
+    """AZ-473 (Step 2.75e): a body with no clips (gargoylestone) plays
+    garret4's clips, baked as timers (B, X12), in every gameplay mode, so
+    X3 gives each column garret4's own box and window in every mode, as
+    garret4's exact does (Step 2.68, the test above). In own body it
+    gave Step 2.67's window, attack_1's box on from 20%
+    to 50% of every move, so each swing hit early (sitting 2.75d: basic1
+    on swing tick 2 where garret4 hits on 4, finish3 on 3 against 11).
+    Its default.xbe is garret4's exact's in every mode but for own
+    body's X13 fill (Step 2.132: every column but the roll) and its
+    touch at its size (X34, Step 2.133), and the randomizer's logic
+    reads that build's reach. basic1's box is on in
+    attack_1's own window, 0.375-0.49 of the clip (L2)."""
+    characters = _read("gamedata/characters.xbr")
+    length = read_body(characters, "garret4").length("attack_1")
+    windows = damage_windows(characters, "garret4", "attack_1")
+    start, end = windows[0].on / length, windows[-1].off / length
+    builds = {}
+    for mode in MODES:
+        logic = AttackLogic()
+        builds[mode] = (bytes(_swap("gargoylestone", mode=mode, logic=logic)["default.xbe"]), logic.reach)
+
+    assert builds["own"][1] == builds["garret4"][1]   # own body touches at its size (X34), Skin only at his (Step 2.133)
+    assert _moved(builds["own"][0]) - _moved(builds["garret4"][0]) == {ATTACK_BOX_HOOK.va, TOUCH_HOOK.va}
+    assert _param(builds["own"][0], ATTACK_BOX_HOOK, ATTACK_BOX_SHIM, "_player_attack_ground_mask") == 0xEFFFFF
+    assert [_x3_marker(builds["own"][0], 0, (f - 0.1) / 0.8)[1]
+            for f in (start - 0.02, start + 0.005, end - 0.005, end + 0.02)] == [0.0, 1.0, 1.0, 0.0]
+
+
+def test_a_body_with_more_attack_clips_than_the_combo_swings_the_next_one_each_time():
+    """D219 amended (Step 2.64, 2.24f's design 5b): spideyzar's body has
+    ten attack clips and the player reaches a few columns. X10 takes
+    player_attack_enter's CALL of anim_change (0x42910) at 0x889A6 (L1
+    well formed): for the player's species (flag 0x20, S+0x64) each swing
+    of an attack column but the roll and the jump attack plays the clip
+    of the next column of its ring (the first column holding each clip,
+    in turn and round again: rotation, deterministic, over a random
+    pick), from that column's slot (0x52 + it), and puts the slot back,
+    so the index anim_change records stays the game's. Another species,
+    the roll and the jump attack play their own slot. The ring's place
+    persists (D227): a combo's end, an idle or the next enemy doesn't
+    reset it, only a boot. The ring is the build's, written into the
+    shim's .data (a count, the next entry, the columns that rotate,
+    whether entries carry numbers and a struct per entry), which the guest
+    then writes: own body (Step 2.69's reach test) rotates the clips
+    whose own box can hit a target on the ground, all ten of spideyzar's
+    since X13's fill brings every box ahead to the feet and the floor
+    (Step 2.132, AZ-605: its six ranged attack_* clips stayed 0.79-1.39 m
+    up and its melee attack_6 0.64 m up, so only deathbeam, jump and
+    whirlwind rotated). A body with no more attack clips
+    than the combo's three (balthazar) gets no X10, and neither does
+    garret4's exact (Step 2.68), even with the balance asked for: each
+    column plays its one clip in garret4's time, X3's windows being
+    fractions of it. Step 2.69 (D223,
+    D228): with the attack balance on (own body's default) each entry
+    carries its clip's Rate (its home column's in the build's
+    attacks_anims) and the Damage multiplier its clip deals in each
+    column: garret4's for that column x the balance of that clip in that
+    column's move, so a swing stays within 0.5-4.0 of garret4's for the
+    column swinging (0.625-5.0 on a slow attacker such as spideyzar, D350) (a finish swing of a weak clip doesn't fall to a
+    basic swing's 0.5 x B), and in its home column it is the table's. A
+    rotating swing writes them into its PlayerControl (critter+0x180) at
+    +0xEC, which each tick hands the damage pass, and +0x104, which
+    player_attack_enter reads into the layer's rate right after the call;
+    any other swing leaves them, and so does every swing without the
+    balance. Step 2.104 (AZ-523, W19): in own body, with the balance or
+    without it, each entry also carries its clip's chain point (the
+    column's Move end1 fraction fits one clip, so a ring basic chained
+    after the stun): a swing in basic1-3 writes into +0xFC its first
+    damage tick plus 0.2 s at the Rate it plays at (+0x104: the entry's,
+    or without the balance the column's), never past the row's Move end2
+    (+0x100), and a swing in any other column leaves it. Step 2.106
+    (AZ-495): so does a swing in a column some entry of which would chain
+    before its move touches the target ahead, by garret4's Move end1
+    (spideyzar's finish2, sweep1, right1, right2 and left1: 0x1C057).
+    Step 2.135 (D325): a body with two attack sets or more (spideyzar's
+    three, the shards', the tentacles') gets no X10, its sets playing
+    each clip from a column of its own (X36), so the ring is pinned on
+    splinter, one set of four clips (attack, eat, eat_2, eat_3; its basics
+    chained, 0x7, and no slow factor)."""
+    game = _swap("splinter")
+    built = bytes(game["default.xbe"])
+    at = va_to_file(0x889A6)
+    target = 0x889AB + struct.unpack_from("<i", built, at + 1)[0]
+    clips = _anims(game["config.xbr"])
+    anims = XbrDocument.from_bytes(game["config.xbr"]).keyed_section("attacks_anims")
+    vanilla = XbrDocument.from_bytes(_read("gamedata/config.xbr")).keyed_section(
+        "attacks_anims")
+    numbers, garret4 = {}, {}
+    for i, col in enumerate(anims.col_names()):
+        cell = vanilla.find_cell(col, MULTIPLIER, i)
+        garret4[i] = cell.double_value if cell is not None and cell.type_code == 1 else 1.0
+        numbers[i] = (_f32(anims.find_cell(col, MULTIPLIER, i).double_value),
+                      _f32(anims.find_cell(col, "Rate", i).double_value)) if col != "roll forward" else None
+    sim, base = Sim(built), 0x20000000
+    critter, species, control = base, base + 0x1000, base + 0x2000
+    sim.uc.mem_map(base, 0x10000)
+    sim.uc.mem_write(critter + 0x178, struct.pack("<I", species))
+    sim.uc.mem_write(critter + 0x180, struct.pack("<I", control))
+    table = [-1] * 0x71
+    table[0x52:0x52 + 24] = range(1000, 1024)                 # each column's slot: its own handle
+    sim.uc.mem_write(species + 0x124, struct.pack(f"<{len(table)}i", *table))
+    seen = []
+
+    def change(uc, addr, size, _):   # anim_change: __stdcall(12), RET 0xC
+        esp = sim.reg("esp")
+        ret, _critter, index, _flags = struct.unpack("<4I", uc.mem_read(esp, 16))
+        seen.append(struct.unpack("<i", uc.mem_read(species + 0x124 + 4 * index, 4))[0] - 1000)
+        uc.reg_write(UC_X86_REG_EIP, ret)
+        uc.reg_write(UC_X86_REG_ESP, esp + 16)
+
+    sim.uc.hook_add(UC_HOOK_CODE, change, begin=0x42910, end=0x42910)
+
+    def swing(column: int, flags: int = 0x24, rate: float = -1.0, end2: float = 1.0) -> str:
+        sim.uc.mem_write(species + 0x64, struct.pack("<I", flags))
+        for field, value in ((0xEC, -1.0), (0xFC, -1.0), (0x100, end2), (0x104, rate)):
+            sim.uc.mem_write(control + field, struct.pack("<f", value))
+        sim.call(target, args=(critter, 0x52 + column, 4), until=l2._RETURN)
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100   # RET 0xC, as 0x42910's
+        took.append((column, seen[-1], sim.f32(control + 0xEC), sim.f32(control + 0x104)))
+        chains.append(sim.f32(control + 0xFC))
+        return clips[seen[-1]]
+
+    took: list[tuple[int, int, float, float]] = []
+    chains: list[float] = []
+    assert built[at] == 0xE8 and l1.check(_xbe(), built) == []
+    count, _, _, carry, ring, chained, chain = _ring(built)
+    assert (count, carry, {clips[c] for c in ring}) == (4, 1, {"attack", "eat", "eat_2", "eat_3"})
+    assert chained == 0x7 and all(0.0 < chain[c][0] < 1.0 and chain[c][1] > 0.0 for c in ring)
+
+    def point(home: int, rate: float) -> float:   # the chain point the shim writes
+        return _f32(chain[home][0] + chain[home][1] * rate)
+    assert [swing(column) for column in ring] == [clips[c] for c in ring]   # each in its home column
+    assert [(m, rate) for _, _, m, rate in took] == [numbers[c] for c in ring]
+    turns = [swing(column) for column in ((0, 3, 5, 21, 22, 1) * count)[:2 * count]]
+    assert turns[count:] == turns[:count] and len(set(turns)) == count
+    for (column, home, m, rate), fc in zip(took, chains):
+        assert rate == numbers[home][1], (column, home)
+        assert BALANCE_FLOOR * (1 - 1e-6) <= m / garret4[column] <= BALANCE_CAP * (1 + 1e-6), (column, home)
+        assert (math.isclose(fc, point(home, rate), rel_tol=1e-6) if chained >> column & 1 else fc == -1.0), \
+            (column, home)
+    assert len({m for _, _, m, _ in took}) > 3
+    assert {swing(13), swing(20), swing(0, flags=0x04)} == {clips[13], clips[20], clips[0]}
+    assert [(m, rate) for _, _, m, rate in took[-3:]] == [(-1.0, -1.0)] * 3
+    assert swing(1) == turns[0]   # D227: nothing but a boot resets the ring, not a combo's end or a new target
+    (ring_va, _), = [span for span in shim_data(built) if span[1] - span[0] == RING_SIZE]
+    sim.uc.mem_write(ring_va + 0xC, struct.pack("<I", 0))   # the balance off: no numbers carried
+    for end2 in (1.0, 0.01):
+        home = ring[struct.unpack("<i", sim.uc.mem_read(ring_va + 4, 4))[0]]
+        swing(0, rate=0.75, end2=end2)
+        assert took[-1][2:] == (-1.0, 0.75) and math.isclose(chains[-1], min(_f32(end2), point(home, 0.75)),
+                                                             rel_tol=1e-6), (home, end2)
+    off = _ring(bytes(_swap("splinter", attack_balance=False)["default.xbe"]))
+    assert (off[3], off[5], off[6]) == (0, 0x7, chain)
+    assert list(struct.unpack(f"<{len(table)}i", sim.uc.mem_read(species + 0x124, 4 * len(table)))) == table
+    assert [bytes(_swap(species, mode=mode, **kw)["default.xbe"])[at:at + 5]
+            for species, mode, kw in (("balthazar", "own", {}), ("spideyzar", "garret4", {"attack_balance": True}),
+                                      ("spideyzar", "own", {}))
+            ] == [_xbe()[at:at + 5]] * 3
+
+
+@pytest.mark.parametrize("species, why", [
+    ("jellyfish", "it has no body"),
+    ("town_elder", "its body 'townspeople/elder' has no model in characters.xbr"),
+    ("garret5", "no such species in config.xbr's critters_engine"),
+])
+def test_a_species_without_a_model_fails_the_build_by_name(image, species, why):
+    """D35, D112: a species with no body cell or with no model (an item
+    body no longer is refused: D260), or a name config.xbr doesn't have,
+    fails the build (``sdk.image``) by name, the species and why, before
+    it plans anything."""
+    from azurkit import sdk
+
+    with pytest.raises(ValueError, match=re.escape(f"--player-character {species!r}: {why}")):
+        sdk.image({"iso": str(image), "packs": {}, "character": {"species": species}})
+
+
+def test_player_models_lists_every_species_with_its_status_or_why_it_is_refused():
+    """D111 refined: every species can dress the player, each shown green,
+    yellow or red; D112 refuses the species without a model by name, and
+    since D260 (Step 2.90b) the 73 items are offered, red "untested":
+    ``player_models`` (Modkit's ``player-models`` list, the Characters
+    tab's) gives each of the 184 ``critters_engine`` species its status
+    or why it is refused. Sittings modelswap, modelswap2 and
+    modelswap3 graded 24 species and sitting p8 the other usable ones
+    (Step 2.40: P8, Q292, no "untested" left; the clipless bodies red,
+    D132; town_male_6 and guard_air regraded, Q281), sitting q281
+    regraded the earlier greens on their current builds (Step 2.45, Q281),
+    each note citing its sitting, and a species whose build was
+    byte-identical to a graded one carries its grade (D117: same files out
+    of the model swap, so the same ISO; with Garret's sounds, the builds
+    the sittings graded: the own sounds of Step 2.72 aren't on the
+    checklist, and 8 of the pairs speak differently). Since Step 2.65 own
+    mode also writes the species' own stride (W7), which five such
+    species don't share with their partner (24hr, guard_fire2 and 3,
+    town_male_6B, lava_shard): their default builds now differ, and since
+    Step 2.132's X32 (D333) so did air_elemental_boss's and sleeth_x's,
+    whose NPCs hit with another damage record than their partners'
+    (since Step 2.180's one flash, D700, sleeth_x's is sleeth_momma's
+    again; air_elemental_boss's differs beyond X32); every
+    other pair's is still the same (statuses per mode: Step 2.74; the
+    list shows a build's grade from a sitting of it where one graded it,
+    Step 2.75, the test of ``--mode`` above; a mode's shares, AZ-492, the
+    test below, which builds those 20 pairs in own mode with Garret's
+    sounds and pins each as the same build: here each is checked to be
+    one of its cases, and only the 6 that differ are built, Step X.55). The
+    list's roles each species' own sounds take as the player's (Step 2.71)
+    are ``model_sounds``', "-" for none."""
+    config, bodies = _read("gamedata/config.xbr"), _read("gamedata/characters.xbr")
+    models = {m.species: m for m in player_models(config, bodies)}
+    graded = {s: SUPPORT[s] for s, m in models.items() if m.status != "refused" and m.note != "untested"}
+    sat = {s: grade for s, grade in graded.items() if s not in SAME_BUILD}
+
+    assert {s: colour for s, (colour, _) in sat.items() if colour != "green"} == {
+        "guard_air": "yellow", "gargoylestone": "red", "tesla_tree": "red", "guard_earth": "yellow",
+        "water_tentacle2": "yellow",
+        "water_tentacle3": "yellow", "magmar": "yellow", "kingkong": "yellow", "guard_water": "yellow",
+        "water_tentacle1": "yellow", "bot": "yellow", "channeler": "red", "firefly": "yellow",
+        "fish_little1": "yellow", "fish_little2": "yellow", "fire_shard": "red", "splinter": "yellow",
+        "town_child_farmer_1": "yellow", "town_child_farmer_2": "yellow", "town_child_farmer_3": "yellow",
+        "town_female_4": "red", "town_girlchild_farmer_1": "yellow", "town_girlchild_farmer_2": "yellow",
+        "shadow_demon": "yellow"}
+    assert sum(colour == "green" for colour, _ in sat.values()) == 55
+    assert all(re.search(r"(modelswap[23]?|p8|q281),", why) for _, why in sat.values())
+    for species, (partner, sha) in SAME_BUILD.items():
+        assert graded[species][0] == sat[partner][0]
+        assert partner in graded[species][1] and sha in graded[species][1]
+    differ = {"24hr", "guard_fire2", "guard_fire3", "town_male_6B", "lava_shard", "air_elemental_boss"}
+    assert {species for species, (partner, _) in SAME_BUILD.items() if species not in differ and (
+        MODE_SHARES["own", "own"].get(species, ("",))[0] != partner or partner not in MODE_GRADES["own", "own"])} == set()
+    assert {species for species in differ
+            if _changed(species, "own", "own", "garret4") != _changed(SAME_BUILD[species][0], "own", "own", "garret4")} == differ
+    assert len(SAME_BUILD) == 26
+    engine = XbrDocument.from_bytes(config).keyed_section("critters_engine")
+    items = {s for s in models if engine.find_cell(s, "ai", None).string_value == "item"}
+    assert {s for s, m in models.items() if m.note == "untested"} == items and len(items) == 73
+    assert sum(m.status == "green" for m in models.values()) == 60   # own body (Step 2.134a's gust, golem; D700's sleeth_x)
+    refused = {s for s, m in models.items() if m.status == "refused"}
+    assert len(refused) == 6 and len(models) - len(refused) == 178 and len(models) == 184
+    # Step 2.71: the roles its own sounds take as the player's, "-" for none (the roll its attack's, D328)
+    files = {"config.xbr": config, "characters.xbr": bodies, "fx.xbr": _read("gamedata/fx.xbr"),
+             "english.xbr": _read("gamedata/english.xbr")}
+    assert {s: "-" if s in refused else ",".join(model_sounds(files, s).own) or "-" for s in (
+        "keylord", "firefly", "town_male_6", "town_elder")} == {
+        "keylord": "attack,hurt,death,idle,roll,hit", "firefly": "ambient,hit",
+        "town_male_6": "attack,hurt,roll", "town_elder": "-"}
+
+
+_CHANGED: dict = {}
+
+
+def _changed(species: str, mode: str, size: str, sounds: str = "own") -> dict:
+    """The files ``species``' build changes in ``mode`` and ``size``, each by its sha256 (kept for the run)."""
+    key = (ports._build().vanilla.release.name, species, mode, size, sounds)
+    if key not in _CHANGED:
+        _CHANGED[key] = {path: hashlib.sha256(data).hexdigest()
+                         for path, data in _swap(species, mode=mode, size=size, sounds=sounds).changed().items()}
+    return _CHANGED[key]
+
+
+@pytest.mark.parametrize("species, mode, size, partner", [
+    *sorted((species, mode, size, partner) for (mode, size), shares in MODE_SHARES.items()
+            for species, (partner, _, _) in shares.items() if partner in MODE_GRADES[mode, size]),
+    ("town_male_6B", "own", "own", "town_male_6")])
+def test_a_species_carries_a_modes_grade_only_from_a_partner_that_builds_its_iso_there_and_says_if_only_sounds_differ(
+        species, mode, size, partner, monkeypatch):
+    """AZ-492 (Step 2.75b, its census B0's finding 1): a mode's grade
+    (``MODE_GRADES``) carries to a species whose build in that mode and
+    size is its partner's (``MODE_SHARES``, B0's census on 71f13956), no
+    longer by ``SAME_BUILD``, the pre-own-mode sittings' pairs:
+    town_male_6B builds town_male_6's ISO in garret4's exact but not in
+    own body (its own stride, W7), so it doesn't carry town_male_6's
+    own-body grade (town_male_6 graded in both since sitting 2.75b S4).
+    Each share whose partner a sitting graded there (a case each, since
+    sitting 2.75b S3 graded most partners) builds the partner's files, with Garret's
+    sounds and, unless only its own sounds differ, by default; a
+    sounds-only share says so (flicken of peril was "byte for byte"
+    though its default build differs)."""
+    monkeypatch.setitem(MODE_GRADES[mode, size], partner, MODE_GRADES[mode, size].get(partner, ("green", "graded")))
+    shares = MODE_SHARES[mode, size].get(species, ("", "", False))
+    shared, sounds_only = shares[0] == partner, shares[2]
+
+    assert (_changed(species, mode, size, "garret4") == _changed(partner, mode, size, "garret4")) is shared
+    if shared:
+        assert (_changed(species, mode, size) == _changed(partner, mode, size)) is not sounds_only
+    assert mode_status(species, mode, size)[1].startswith(
+        f"builds the same ISO as {partner} in this mode, "
+        f"{'but for its own sounds' if sounds_only else 'byte for byte'}") is shared
