@@ -1026,7 +1026,7 @@ Per CLAUDE.md, names, counts, offsets and hashes are fine. Coordinates, transfor
 - **Gate logic is data.** R0 decoded what opens each gate: barriers, geodes, keylocks, obsidian locks, seals, disc chains, song crystals, bosses and the special gates (§2.4–§2.10). It also decoded the cross-level map: 70 live exits, each with its arrival spot under the engine's own rule [verified: `db-draft/check.json`].
   - xemu confirms the rules one family at a time, not barrier by barrier: about 15–25 probes [inferred].
   - Obsidians get nothing from data: none of the 100 has a data gate. Of the 203 non-gem spots, only 21 have exact data requirements, so 182 still need a region.
-- **Collision is decoded.** The `tern` sections are the collision meshes ((private evidence) § "`tern` (collision)").
+- **Collision is decoded.** The `tern` sections are the collision meshes ([`XBR_FORMAT.md`](../XBR_FORMAT.md) § "`tern` (collision)").
   - They match xemu to about 1e-5 m: six standing spots and f6's ledge [verified, `geometry/tern.py s6check`, re-run for Step 2.20j].
   - 96.5 % of the pickup generator points sit on a decoded floor.
   - So these can be computed instead of mapped by hand: each location's node, the walk and drop edges, which edge a barrier blocks (its `destroy_from`), `button.at` and `event.at` from the trigger meshes, and where each exit is.
@@ -1226,7 +1226,7 @@ sections. It fits 1100×700 with no scroll, and GUI tests 1–2 cover it.
   - entrance, enemy and start randomization (§1);
   - the confidence floor (Q260, answered by D122: majors only on proven spots) and ~~the lenient knobs, which stay preset-owned~~ (`dark_fire` is a user option, D144).
 - **Settings files (D144: "Yes, user-saved settings").** Save settings… writes every option to a small file
-  (the settings schema, (the randomizer plan's private evidence) (private evidence) §7.2, which R1.4 freezes; never into `iso/` or over the input, D36).
+  (the settings schema, the randomizer plan's private evidence `db-draft/FORMAT.md` §7.2, which R1.4 freezes; never into `iso/` or over the input, D36).
   Load settings… reads one and refuses it whole, naming the key, when a key is unknown or out of range or a
   toggle names a held, manual or unknown skip (D35). The share string is the same settings as one pasteable
   line. The GUI keeps the last settings in its state file (disposable). Each spoiler and build report records
@@ -1281,7 +1281,7 @@ sections. It fits 1100×700 with no scroll, and GUI tests 1–2 cover it.
 | RZ-E7-DARK / RZ-W1-DARK | at each dark room, with fire 0 and fire 1 | edited saves after I-0 |
 
 **Agents run the xemu sessions (owner, 2026-10-11, D102; D92, D100).** R0.4a, R0.4b and R0.5 are agent xemu sessions on clones of D98's fixtures, never on their files in place, one xemu at a time. The owner made states on 2026-10-11 (the `vanilla-rz-*` and `vanilla-ig-*` tags on D98's drive; skill `azurik-xemu-oracle` lists them): they stand where RZ-NEW, RZ-W1-FW, RZ-W1-ICE, RZ-E2-CART and RZ-E7-DARK/RZ-W1-DARK do, but the 14 randomizer ones carry the owner's all-powers inventory, so most I-items poke the inventory first; RZ-A6-3/4 and RZ-KEYS6 are agent-made [workflow: (private evidence) §2]. D102's rules:
-- **Agent-made states (Q250).** A state an agent makes (RAM-poked, saved in game) stays on a private drive, (a private folder) (outside `/tmp`, `$EV` and the repo), tagged `vanilla-rzp-*`. It never joins D98's drive without the owner's yes.
+- **Agent-made states (Q250).** A state an agent makes (RAM-poked, saved in game) stays on a private drive, (a private folder) (outside `/tmp`, the private evidence and the repo), tagged `vanilla-rzp-*`. It never joins D98's drive without the owner's yes.
 - **Placed evidence (Q251).** Evidence from placement (a RAM teleport, exit hops, RAM pokes) counts as `[verified xemu, placed]` for mechanism questions (opens, persists, teleports, spawns). Routes and reachability stay with the owner (or real play).
 - **R0.5's scope (Q252).** §8.1's R0.5 row: (a), (b1), (b2), (d), (e) and the vault half of (c) now; the gem-spot half of (c), (f) and (g) wait for R2.11 (D77).
 - *R0, done 2026-10-11:* four sittings ran, one xemu at a time: rz-a (R0.4a), rz-b1 (R0.4b-i), rz-b2 (R0.4b-ii) and rz-c (R0.5-i). Every sandbox's baselines were equal before and after.
@@ -1314,7 +1314,7 @@ sections. It fits 1100×700 with no scroll, and GUI tests 1–2 cover it.
 | **I-18** | The owner's experiment: move a red overlord, kill it, and see whether the key unlocks | needs node-section writes, so it waits for R2.5. Until then, xemu with a RAM poke of the keylord's HP while watching `numDead`. | an e7 state | no |
 | **I-19** | **w4's `DayNight_gameState`:** what flips it, and does anything in logic depend on it? | owner, + I-1 | none | **yes**, before w4 is authored |
 
-**Status after R0** (2026-10-11, recorded by Step 2.20j). The paths are under `$EV`: `wiring`, `thresholds` and `AUTO_LOGIC` are in `randomizer-plan-2026-10-10/`, and `rz-*` are the sittings (private evidence). "Placed" means [verified xemu, placed]: it answers mechanism questions only (Q251).
+**Status after R0** (2026-10-11, recorded by Step 2.20j). `wiring`, `thresholds` and `AUTO_LOGIC` are the randomizer plan's private evidence, and `rz-*` are the sittings (private evidence). "Placed" means [verified xemu, placed]: it answers mechanism questions only (Q251).
 
 | Id | Status | What R0 found | Evidence |
 |---|---|---|---|
