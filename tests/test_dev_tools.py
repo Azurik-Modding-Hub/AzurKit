@@ -609,23 +609,26 @@ def _running(pid: int) -> bool:
         "", "Z")
 
 
-def test_the_perf_gate_keeps_an_op_over_budget_as_debt_fails_only_a_clear_regression_and_its_list_only_shrinks(
+def test_the_perf_gate_keeps_misses_as_debt_and_fails_only_a_regression_against_the_last_release_or_a_memory_peak(
         tmp_path):
     """D981-D985 and D1170 on fake timings: an op's verdict says when its
     median is over 3 s (the capped profile's 9 s; ``over``, or ``regressed``
     over a listed ceiling), past 1 s with no progress (D980; not a list's
     debt), or a sample's page froze in a gap: each is a perf-debt row that
-    fails nothing (a Save's with the free disk its run left), and a
+    fails nothing (a Save's with the free disk its run left), and so is an
+    op the last release never measured that errs, with its error; a
     download, whose write the browser's own bar shows, shows progress when
     its page part is within 1 s; an image's first check is within 3 s only
-    with a moving bar (D982). An op fails only as ``slower``: its median
-    over its budget and over main's last passing full run's
-    (fullsuite.main_reference; none for main's own, which re-baselines) by
-    more than 25 % and 0.5 s; it runs R more times first and fails only if the
-    median of all still is (one spike can't fail it), and an error fails.
-    The receipt's debt rows go to the debt ledger; the list may lower and
-    drop but never add or raise against main's; changes reach the ops of
-    their area."""
+    with a moving bar (D982). An op blocks only as a regression against the
+    last release's run (fullsuite.release_reference: the newest tag's
+    receipt with verdicts, a run of every op first, else the release's
+    before; never main's newer runs): ``slower``, its median over its budget
+    and over that run's by more than 25 % and 0.5 s (it runs R more times
+    first and fails only if the median of all still is: one spike can't
+    fail it), or an error on an op that run measured; a memory peak blocks
+    too (perf.blocking). The receipt's debt rows go to the debt ledger; the
+    list may lower and drop but never add or raise against main's; changes
+    reach the ops of their area."""
     def s(seconds, bar=0, progress=True):
         return {"s": seconds, "bar": bar, "progress": progress}
     slow, moving = [s(3.2), s(3.4), s(3.1)], [s(6.8, bar=5)] * 3
@@ -643,11 +646,12 @@ def test_the_perf_gate_keeps_an_op_over_budget_as_debt_fails_only_a_clear_regres
     assert [(r["verdict"], r["debt"], r["ok"]) for r in (
         perf.judge(slow, 3.0), perf.judge([s(1.5, progress=False)] * 3, 3.0), perf.judge([s(2.0)] * 3, 3.0),
         perf.judge([{**s(2.0), "froze": froze}, s(2.1), s(2.2)], 3.0), perf.judge([{**s(2.0), "error": "x"}], 3.0),
+        perf.judge([{**s(2.0), "error": "x"}], 3.0, reference=2.0),
         perf.judge([s(3.6)] * 3, 3.0, reference=2.0), perf.judge([s(2.6)] * 3, 3.0, reference=2.0),
         perf.judge([s(1.4)] * 3, 1.0, reference=1.0), perf.judge([s(4.0)] * 3, 3.0, reference=3.5))] == [
         ("over", True, True), ("no progress", True, True), ("pass", False, True), ("pass", True, True),
-        ("error", False, False), ("over", True, False), ("pass", False, True), ("over", True, True),
-        ("over", True, True)]
+        ("error", True, True), ("error", False, False), ("over", True, False), ("pass", False, True),
+        ("over", True, True), ("over", True, True)]
     assert perf.judge(saved(1.3, 0.01), 3.0, browser_bar=True)["page"] == [0.01] * 3
     empty, bars = {"ceilings": {}, "debts": set()}, [{**s(6.8, bar=5), "page": 0.01}] * 3
     assert {k: v["verdict"] for k, v in perf.verdicts(   # D1053: Firefox's whole Save passes on its bar, no other's
@@ -662,29 +666,43 @@ def test_the_perf_gate_keeps_an_op_over_budget_as_debt_fails_only_a_clear_regres
         return {"samples": {op: [s(t) for batch in times[op][:1 + (n > perf.R)] for t in batch]
                             for op, n in targets.items()}}
     lst = {"ceilings": {"A24/app": 300.0}, "debts": [], "memory": {}, "untimed": {}}
-    receipts = tmp_path / "receipts"
+    receipts, repo, at = tmp_path / "receipts", tmp_path / "repo", {}
     receipts.mkdir()
-    main_run = {"perf_args": ["--all"], "state": "done", "exit_code": 0, "perf": {"passed": True, "cases": {
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    for name in ("v1.0.0", "v1.0.1", "main"):   # v1.0.1's run never got to its perf stage: v1.0.0's is the reference
+        _git(repo, "commit", "-q", "--allow-empty", "-m", name)
+        at[name] = _git(repo, "rev-parse", "HEAD")
+        if name != "main":
+            _git(repo, "tag", name)
+    run = {"perf_args": ["--all"], "state": "done", "exit_code": 0, "perf": {"passed": True, "cases": {
         "A12/app": {"median": 2.0}, "A13/app": {"median": 3.0}}}}
-    for name, m in (("older", main_run | {"finished_at": "1"}), ("red", main_run | {"finished_at": "3", "perf": {
-            "passed": False, "cases": {"A12/app": {"median": 9.0}}}}), ("lane", main_run | {"finished_at": "4",
-                                                                                           "perf_args": ["--select"]})):
+    for name, m in (("release", run | {"head": at["v1.0.0"], "finished_at": "1"}),
+                    ("lane", run | {"head": at["v1.0.0"], "finished_at": "2", "perf_args": ["--select"]}),
+                    ("unrun", run | {"head": at["v1.0.1"], "finished_at": "3", "perf": {"passed": False}}),
+                    ("main", run | {"head": at["main"], "finished_at": "4", "perf": {"passed": True, "cases": {
+                        "A12/app": {"median": 9.0}}}})):
         (receipts / f"suite-{name}.meta").write_text(json.dumps(m), encoding="utf-8")
-    reference = fullsuite.main_reference(receipts, ["--select", "A12"])
-    assert reference.name == "suite-older.meta" and fullsuite.main_reference(receipts, ["--all"]) is None
+    reference = fullsuite.release_reference(receipts, repo)
+    assert reference.name == "suite-release.meta"
     medians = {k: r["median"] for k, r in json.loads(reference.read_text())["perf"]["cases"].items()}
     got, _, _ = perf.measure([("A12", "app"), ("A13", "app"), ("A15", "app"), ("A24", "app")], drive, lst,
                              reference=medians)
     assert {k: (r["verdict"], r["ok"]) for k, r in got.items()} == {
         "A12/app": ("pass", True), "A13/app": ("over", False), "A15/app": ("over", True), "A24/app": ("listed", True)}
     assert asked == [("app", {"A12": 3, "A13": 3, "A15": 3, "A24": 3}), ("app", {"A12": 6, "A13": 6})]
+    got |= {"A96/app": perf.judge([{**s(600.4), "error": "timed out"}], 3.0),   # new to the release
+            "A95/app": perf.judge([{**s(0.0), "error": "stopped"}], 3.0, reference=1.1)}   # it measured it
+    block = {"cases": got, "memory": {"capped-app": {"peak": 7 * 2**30, "ok": False}}, "native_failures": [], "list": []}
+    assert [line.split(" (")[0] for line in perf.blocking(block)] == [
+        "A13/app: slower than the release's 3.0 s", "A95/app: error", "memory capped-app: 7.00 GiB"]
     rows = perf.debt_rows(got, saves={"A13"}, free={"app": 52 * 2**30})
     assert [(row["op"], row["verdict"], row.get("free_disk_gib")) for row in rows] == [
-        ("A13/app", "over", 52.0), ("A15/app", "over", None), ("A24/app", "listed", None)]
+        ("A13/app", "over", 52.0), ("A15/app", "over", None), ("A24/app", "listed", None), ("A96/app", "error", None)]
+    assert perf.debt_line(rows[-1]) == "A96/app: error (timed out)"
     meta = receipts / "suite-k.meta"
     fullsuite.ledger(meta, {"key": "k", "head": "f" * 40, "perf": {"debt": rows}})
     assert [json.loads(line)["op"] for line in (receipts / fullsuite.DEBT_LEDGER).read_text().splitlines()] == [
-        "A13/app", "A15/app", "A24/app"]
+        "A13/app", "A15/app", "A24/app", "A96/app"]
     main = {"ceilings": {"A15/app": 4.8, "S14/webkit": 21.0, "S03/lag": 29.3}, "debts": ["A15/app"], "memory": {},
             "untimed": {}}
     mine = {**main, "ceilings": {"A15/app": 5.0, "S14/webkit": 21.0, "A06/app": 9.0}, "debts": ["A15/app", "A06/app"]}
@@ -1195,11 +1213,15 @@ def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lan
     assert code == 1 and "doesn't fast-forward from main" in why
 
 
-def test_land_needs_a_passing_perf_block_for_src_or_web_and_a_list_that_only_shrinks(tmp_path, monkeypatch):
-    """D981: a stack changing src/ or web/ lands only on a receipt whose
-    perf block passed; any stack, one changing only tests/perf_ceilings.toml
-    too, is refused when its list adds an op or raises a ceiling against
-    main's. No landing waits for a release (D1170: a release tags a commit on main)."""
+def test_land_needs_a_perf_block_blocking_nothing_for_src_or_web_and_a_list_that_only_shrinks(tmp_path, monkeypatch):
+    """D981 and D1170: a stack changing src/ or web/ lands only on a receipt
+    with a perf block (one whose stage ran) in which nothing blocks, read from
+    its verdicts: a debt row doesn't, an op the last release never measured
+    that errs among them (an older perf.py failed the block on it), while an
+    error on an op the release measured, an op slower than there or a memory
+    peak does; any stack, one changing only tests/perf_ceilings.toml too, is
+    refused when its list adds an op or raises a ceiling against main's. No
+    landing waits for a release (a release tags a commit on main)."""
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     (lane / "src").mkdir()
     (lane / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
@@ -1211,10 +1233,17 @@ def test_land_needs_a_passing_perf_block_for_src_or_web_and_a_list_that_only_shr
     top = _git(lane, "rev-parse", "HEAD")
     _receipt(receipts, top)
     code, why = land.land(repo, "p2/x")
-    assert code == 1 and "and a passing perf block" in why
-    _receipt(receipts, top, perf_args=["--select", "app:build"], perf={"passed": False})
-    assert land.land(repo, "p2/x")[0] == 1
-    _receipt(receipts, top, perf_args=["--select", "app:build"], perf={"passed": True})
+    assert code == 1 and "and a perf block blocking nothing" in why
+    erring = {"verdict": "error", "ok": False, "slower": False, "debt": False, "error": "timed out after 600 s"}
+    new = {"passed": False, "cases": {"A96/app": erring}, "memory": {}, "native_failures": [], "list": [],
+           "failures": ["A96/app: error (timed out after 600 s)"]}
+    for block in ({"passed": False}, new | {"cases": {"A96/app": erring | {"reference": 0.4}}},
+                  new | {"cases": {"A13/app": {"verdict": "over", "slower": True, "reference": 3.0, "median": 4.1,
+                                               "budget": 3.0}}},
+                  new | {"memory": {"capped-app": {"peak": 7 * 2**30, "ok": False}}}):
+        _receipt(receipts, top, perf_args=["--select", "app:build"], perf=block)
+        assert land.land(repo, "p2/x", dry_run=True)[0] == 1, block
+    _receipt(receipts, top, perf_args=["--select", "app:build"], perf=new)
     assert land.land(repo, "p2/x")[0] == 0   # main had no list: the first record
     _git(repo, "switch", "-q", "-c", "p2/y")
     for ceilings, landed in (({"A15/app": 60.0}, False), ({"A15/app": 4.8, "A01/app": 9.0}, False),

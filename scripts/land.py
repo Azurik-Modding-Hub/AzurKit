@@ -10,7 +10,11 @@ either a whole-suite run, or a changed-area run whose base is main's head
 and whose flake stage, when it has one (the tests the stack added or edited,
 run again and again slowed: ``fullsuite.flake_stage``), passed. A
 stack that changes a file under ``src/`` or ``web/`` also needs the
-receipt's passing perf block (D981, ``scripts/perf.py``). Every stack's
+receipt's perf block (D981, ``scripts/perf.py``) with nothing blocking in it
+(D1170, ``perf.blocking``, read from its verdicts whichever perf.py wrote
+it): a clear regression against the last release's run, a memory peak, a
+native failure or a list that grows; its debt rows (an op over its budget,
+or new to the release and erring) block nothing. Every stack's
 ``tests/perf_ceilings.toml`` only shrinks: it refuses one that adds an op, a
 debt, a memory peak or an untimed op, or raises a ceiling, against main's
 (``perf.check_list``; main without the file takes any, the first record, and
@@ -44,12 +48,12 @@ import devlog  # noqa: E402
 import fullsuite as fs  # noqa: E402
 import perf  # noqa: E402
 
-PERF_PATHS = ("src/", "web/")   # a stack touching these lands only with a passing perf block (D981)
+PERF_PATHS = ("src/", "web/")   # a stack touching these lands only with a perf block blocking nothing (D981, D1170)
 
 
 def receipt_for(folder: Path, head: str, main: str | None, perf_block: bool = False) -> dict | None:
     """The newest passing receipt that lets ``head`` land on ``main`` (with
-    ``perf_block``, one whose perf block passed)."""
+    ``perf_block``, one with a perf block that blocks nothing, D1170)."""
     found = []
     for meta in folder.glob("suite-*.meta"):
         m = json.loads(meta.read_text(encoding="utf-8"))
@@ -57,7 +61,7 @@ def receipt_for(folder: Path, head: str, main: str | None, perf_block: bool = Fa
                 and (m.get("vanilla_run") or 0) >= 1 and (m.get("europe_run") or 0) >= 1
                 and (m["mode"] == "full" or (main is not None and m["base"] == main))
                 and fs.flake_passed(m)   # a changed run's flake stage (the tests the stack added or edited, slowed)
-                and (not perf_block or (m.get("perf") or {}).get("passed") is True)):
+                and (not perf_block or not perf.blocking(m.get("perf")))):
             found.append(m)
     return max(found, key=lambda m: m.get("finished_at") or "", default=None)
 
@@ -99,8 +103,8 @@ def land(repo: Path, branch: str, dry_run: bool = False) -> tuple[int, str]:
     timed = any(rel.startswith(PERF_PATHS) for rel in paths.split())
     if (m := receipt_for(folder, top, main, timed)) is None:
         return 1, (f"land: no passing clean receipt with vanilla and europe tests run"
-                   f"{' and a passing perf block (it changes src/ or web/: D981)' if timed else ''} for {branch} "
-                   f"({top[:12]}): run scripts/fullsuite.py on its worktree (receipts in {folder})")
+                   f"{' and a perf block blocking nothing (it changes src/ or web/: D981, D1170)' if timed else ''} "
+                   f"for {branch} ({top[:12]}): run scripts/fullsuite.py on its worktree (receipts in {folder})")
     did = f"main {main[:12] if main else '(unborn)'} -> {top[:12]} ({branch}; receipt {m['key']}, {m['mode']})"
     if dry_run:
         return 0, f"land --dry-run: would move {did}"

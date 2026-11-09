@@ -2199,14 +2199,16 @@ are the Characters section's.
   `tests/perf_ceilings.toml`), past 1 s with no progress, or whose page froze
   in a gap is a perf-debt row (the block's `debt`, printed and appended to
   `perf-debt.jsonl` beside the receipts; a Save's row carries the free disk),
-  a lane, not a block. The block fails only on a clear regression, an op's
-  median over its budget and over main's last passing full run's for the
-  same op and context (`fullsuite.main_reference`, `perf.py --reference`;
-  main's own full run takes none, so each that passes re-baselines) by more
-  than 25 % and 0.5 s (`perf.REGRESSION`, `REGRESSION_S`), taken three more
-  times first,
-  and on a memory peak, an error, a native failure or a list that grows,
-  as before. An image's first check and the site's first engine load may pass
+  a lane, not a block, and so is an op the last release never measured that
+  errs, its error the row's reason. The block fails only on a clear
+  regression against the last release (`perf.blocking`): an op's median over
+  its budget and over the last release's run's for the same op and context
+  (`fullsuite.release_reference`: the newest receipt with verdicts on the
+  newest `v*` tag's commit the stack holds, a run of every op first, else
+  the release's before; `perf.py --reference`) by more than 25 % and 0.5 s
+  (`perf.REGRESSION`, `REGRESSION_S`), taken three more times first, or an op
+  that run measured that errs; and on a memory peak, a native failure or a
+  list that grows, as before. An image's first check and the site's first engine load may pass
   3 s only with a moving bar (D982), and so may a character's first build
   in a browser (`S14`, D1067; the same build at a later visit, over its
   kept dress, `S64`, may not); past 1 s an op shows progress unless the
@@ -2239,7 +2241,9 @@ are the Characters section's.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that
-  changes `src/` or `web/`, a passing perf block; it refuses any stack whose
+  changes `src/` or `web/`, a perf block in which nothing blocks
+  (`perf.blocking`, read from its verdicts, as the receipt's status is: its
+  debt rows never do); it refuses any stack whose
   perf list grows main's (one that changes only the list too). Landing never
   waits for a release (D1170): a release is a tag on a commit that is on
   `main` (`release.yml` checks that), cut from main whenever its tests pass.

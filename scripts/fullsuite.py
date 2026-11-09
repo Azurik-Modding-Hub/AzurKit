@@ -50,13 +50,14 @@ op in every profile and browser; at nice 10, started once the
 normal-priority load is under :data:`perf.LOAD_LINE` (it waits, and the
 receipt's ``perf`` block says how long). A run whose changes reach no op
 has no perf stage. Its timings are advisory (D1170): an op over its budget,
-past 1 s with no progress or whose page froze is a perf-debt row (the block's
-``debt``, printed and appended to ``perf-debt.jsonl`` beside the receipts,
-:func:`ledger`), and the block fails only on a clear regression, an op over
-its budget and against the last passing main full run's receipt
-(:func:`main_reference`, ``perf.py --reference``; main's own full run is
-judged against none, so each that passes re-baselines), a memory peak, an
-error or a list that grows.
+past 1 s with no progress, whose page froze or that the last release never
+measured and errs is a perf-debt row (the block's ``debt``, printed and
+appended to ``perf-debt.jsonl`` beside the receipts, :func:`ledger`), and the
+block fails only on a clear regression against the last release's run
+(:func:`release_reference`, ``perf.py --reference``: an op over its budget
+and slower than there, or one it measured that errs), a memory peak, a
+native failure or a list that grows (``perf.blocking``, which the receipt's
+status and ``scripts/land.py`` read).
 
 Every pytest run (the gate's and the flake stage's) reruns a failed test
 once (``tests/_rerun.py``, D1170): one that passes its rerun is flaky, kept
@@ -637,7 +638,7 @@ def status_code(m: dict | None) -> int:
     st = state(m)
     if st in ("queued", "running", "flake", "perf"):
         return 3
-    perf_ok = not m.get("perf_args") or (m.get("perf") or {}).get("passed") is True
+    perf_ok = not m.get("perf_args") or not perf.blocking(m.get("perf"))   # D1170: debt rows fail nothing
     return 0 if st == "done" and m["exit_code"] == 0 and flake_passed(m) and perf_ok else 1
 
 
@@ -668,9 +669,9 @@ def describe(m: dict, meta: Path) -> str:
     if m.get("perf_args"):
         p = m.get("perf") or {}
         line += (f"\n  perf {' '.join(m['perf_args'])}: " + ("not run" if not p else
-                 f"{'passed' if p.get('passed') else 'failed'}, {len(p.get('cases', {}))} cases in {p.get('wall_s')} s "
+                 f"{'failed' if perf.blocking(p) else 'passed'}, {len(p.get('cases', {}))} cases in {p.get('wall_s')} s "
                  f"after {p.get('load_wait_s')} s waiting for the load")
-                 + "".join(f"\n    {f}" for f in p.get("failures", [])[:12]))
+                 + "".join(f"\n    {f}" for f in (perf.blocking(p) if p else [])[:12]))
         if p.get("debt"):
             line += f"\n  perf debt: {len(p['debt'])} rows, failing nothing (in {DEBT_LEDGER}, D1170)"
             line += "".join(f"\n    {perf.debt_line(row)}" for row in p["debt"][:12])
@@ -927,22 +928,25 @@ def ledger(meta: Path, m: dict) -> dict:
     return m
 
 
-def main_reference(folder: Path, perf_args=()) -> Path | None:
-    """The newest receipt of a passing main full run with a perf block (its
-    ``perf.py --all``), against which a perf stage of ``perf_args`` judges a
-    regression (D1170), or None: always for main's own full run (``--all``),
-    judged against none, so each that passes is the next reference."""
-    if list(perf_args) == ["--all"]:
-        return None
-    found = []
+def release_reference(folder: Path, wt: Path) -> Path | None:
+    """The receipt a perf stage on ``wt`` judges a regression against (D1170:
+    the previous release's): of the newest ``v*`` tag ``wt``'s HEAD holds,
+    the newest receipt on its commit whose perf block has verdicts (a run of
+    every op in every profile, ``--all``, first), else the release's before;
+    None when no release has one (every op new: nothing on time blocks)."""
+    runs = []
     for meta in folder.glob("suite-*.meta"):
         try:
             m = json.loads(meta.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if m.get("perf_args") == ["--all"] and status_code(m) == 0 and (m.get("perf") or {}).get("cases"):
-            found.append((m.get("finished_at") or "", meta))
-    return max(found)[1] if found else None
+        if (m.get("perf") or {}).get("cases"):
+            runs.append((m.get("head"), m.get("perf_args") == ["--all"], m.get("finished_at") or "", meta))
+    for tag in git(wt, "tag", "--merged", "HEAD", "--list", "v*", "--sort=-v:refname", check=False).split():
+        commit = git(wt, "rev-parse", "--verify", "-q", f"{tag}^{{commit}}", check=False).strip()
+        if found := [run[1:] for run in runs if run[0] == commit]:
+            return max(found)[2]
+    return None
 
 
 def stages(meta: Path, m: dict) -> dict:
@@ -1078,7 +1082,7 @@ def perf_stage(meta: Path, m: dict) -> dict:
         time.sleep(30)
     waited, out = round(time.time() - t0, 1), meta.with_suffix(".perf.json")
     out.unlink(missing_ok=True)
-    against = main_reference(meta.parent, m["perf_args"])   # D1170: a regression against main's last passing full run
+    against = release_reference(meta.parent, Path(m["worktree"]))   # D1170: a regression against the last release's
     with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
         log.write(f"\n==== perf {' '.join(m['perf_args'])} (normal-priority load {load5}, waited {waited} s) ====\n")
         log.flush()
