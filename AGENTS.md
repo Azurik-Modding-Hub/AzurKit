@@ -1154,6 +1154,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   weapon, and the effects case, a recipe file's fireball row made of the
   effects templates) is its golden's the same way, and the effects case on
   Europe too: 34 of G3's 34 USA model cases.
+- **Authoring:** the model verbs and the how-to (Blender, budgets, LODs,
+  `weapon-fit`) are `devkit/models/README.md`; a recipe's fields are
+  `docs/VARIANTS.md`.
 
 ## The engine's contracts
 

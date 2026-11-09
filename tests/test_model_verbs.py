@@ -12,7 +12,9 @@ chains and the spring rows X41 builds of them (Step 4.15a2: ``check``,
 ``import``, ``clips`` and ``export --variant`` are pinned beside the engine
 they run, in ``tests/test_model_authoring.py``). ``python -m devkit models
 fx LEAF`` (Modkit's ``azurik-mod fx``) reads, plans and clones the fx
-graphs. Each reads the USA image."""
+graphs. ``python -m devkit models weapon-fit`` (Modkit's
+``scripts/weapon_fit.py``) picks each clip's arm turn and writes
+``weapons.json``'s ``fits``. Each reads the USA image but weapon-fit's test."""
 
 from __future__ import annotations
 
@@ -525,3 +527,55 @@ def test_fx_verbs_read_plan_and_clone_graphs_printing_names_numbers_and_hashes_o
     assert (code, refused.exists()) == (1, False) and out.startswith("fx clone: --out ") and "an image's folder" in out
     assert _fx(capsys, "closure", *iso) == (1, "fx closure: a KEY or --toc N\n")
 
+
+
+def test_weapon_fit_turns_each_clip_to_its_fewest_excess_ticks_above_the_floor_and_writes_only_fitted_rows(tmp_path):
+    """``python -m devkit models weapon-fit`` (Modkit's ``scripts/weapon_fit.py``,
+    W35's rows): each clip takes the turn with the fewest ticks a prop lies in
+    the chest past garret4's own in that clip, the worse prop's, among the
+    turns that keep every prop above his floor (min(his lowest, 0) - 1 cm;
+    every turn when none does), ties to the smaller turn, and no row when
+    unturned is best. ``--write`` puts a fitted row into ``fits``, one line
+    each in name order (a variant's with its sha), drops a target's row when
+    no clip turns, leaves a target it couldn't dress as it was and writes
+    nothing that wouldn't load. Its measure dresses a body for minutes, so it
+    was run by hand instead: on townspeople/male_6 it gives the shipped row."""
+    from azurkit.tools.characters import _player_weapons as pw
+    from devkit.__main__ import main as devkit
+    from devkit.models import weapon_fit
+
+    staff = {"a": {(0, 0): (9, 0.0), (10, 0): (3, 0.0), (0, 15): (1, 0.0), (20, 0): (0, -0.5)},
+             "b": {(0, 0): (0, 0.0), (10, 0): (0, 0.0)},
+             "c": {(0, 0): (5, -1.0), (0, 15): (1, -1.0)}}
+    hoe = {"a": {(0, 0): (9, 0.0), (10, 0): (6, 0.0), (0, 15): (6, 0.0), (20, 0): (0, 0.0)},
+           "b": {(0, 0): (3, 0.0), (10, 0): (3, 0.0)},
+           "c": {(0, 0): (5, -1.0), (0, 15): (2, -1.0)}}
+    his = {"axion_staff": {"a": (1, 0.0), "b": (3, 0.0), "c": (0, 0.0)},
+           "farmers_hoe": {"a": (2, -0.05), "b": (0, 0.0), "c": (0, 0.0)}}
+    clips, lines = weapon_fit.choose("t", {"farmers_hoe": hoe, "axion_staff": staff}, his)
+    assert clips == {"a": [10, 0], "c": [0, 15]}
+    assert lines[0] == ("  t a: excess 8 unturned, 4 at out 10 fwd 0; garret4's own axion_staff 1 (floor -0.010), "
+                        "farmers_hoe 2 (floor -0.060)")
+    assert lines[2].count("(under the floor)") == 2 and lines[3] == (
+        "  t: excess ticks 16 unturned, 9 fitted; 2 clips turned")
+
+    path = tmp_path / "weapons.json"
+    path.write_bytes(pw.WEAPONS_FILE.read_bytes())
+    before = json.loads(path.read_text(encoding="utf-8"))["fits"]
+    weapon_fit.write([{"body": "townspeople/male_6", "sha": None, "clips": {"attack_9": [10, 15]}},
+                      {"body": "booblord", "sha": "0123456789ab", "clips": clips},
+                      {"body": "keylord", "sha": None, "clips": {}},
+                      {"body": "balthazar_airship", "sha": None, "clips": {}, "error": True}], path)
+    text = path.read_text(encoding="utf-8")
+    fits = json.loads(text)["fits"]
+    assert fits == {**{k: v for k, v in before.items() if k != "keylord"},
+                    "townspeople/male_6": {"clips": {"attack_9": [10, 15]}},
+                    "booblord": {"sha": "0123456789ab", "clips": clips}}
+    assert [line.split('"')[1] for line in text.split('"fits": {\n')[1].splitlines()[:-2]] == sorted(fits)
+    pw.load_weapons(text)
+    with pytest.raises(ValueError, match=r"fits\.Bad"):
+        weapon_fit.write([{"body": "Bad", "sha": None, "clips": clips}], path)
+    assert path.read_text(encoding="utf-8") == text
+    with pytest.raises(SystemExit) as usage:
+        devkit(["models", "weapon-fit"])
+    assert usage.value.code == 2

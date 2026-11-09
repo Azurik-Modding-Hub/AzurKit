@@ -5,9 +5,16 @@ Modkit's `azurik-mod model`, ported leaf by leaf: `dress`, `inspect`,
 `export`, `check`, `import`, `clips`, `chains`, `jiggle`, `pose`, `rest` and
 `preview` and `edit`, with the Blender batch and `blender-check` (Blender,
 below). Beside it, `fx` (Modkit's
-`azurik-mod fx`, whole) reads, plans and clones the fx graphs. What they
-call is the shipped engine's (`src/azurkit/tools/characters/`); none of it
-ships.
+`azurik-mod fx`, whole) reads, plans and clones the fx graphs, and
+`weapon-fit` (Modkit's `scripts/weapon_fit.py`) measures the arm turns that
+keep a held prop out of a body's chest. What they call is the shipped
+engine's (`src/azurkit/tools/characters/`); none of it ships.
+
+This page is the authors' how-to as well: a variant made in Blender
+(`model edit`, below), how big a body may be, and its LODs. A variant's
+recipe fields are [docs/VARIANTS.md](../../docs/VARIANTS.md); making one
+with no Blender, in the Variants view, is the guide's
+([docs/GUIDE.md](../../docs/GUIDE.md), Characters).
 
 ## `model`: a character body's leafs
 
@@ -48,6 +55,236 @@ error exits 2.
 own, which the plan calls and G3's goldens pin), over the default packs'
 layers, so a sculpt round's candidate is dressed as the build that wears it
 would dress it. `export` and `inspect` read its files with `--characters`.
+
+## `model edit`: a variant made in Blender, pass by pass
+
+```bash
+uv run --locked python -m devkit models model edit town_female_2 --work DIR --variant mylord [--build OUT.iso]
+uv run --locked python -m devkit models model edit town_female_2 --work DIR --variant-file seed.json --headless --script make_jab.py
+```
+
+BODY is a species (`town_female_2`) or a body with `--base SPECIES`.
+`--work` is a new folder outside this checkout and the images' folders, or
+one an earlier `edit` made for the same body, image and variant, to carry on.
+It exports the vanilla body into `--work/export/` (with the clips
+`--clips idle,walk` names, as a start for your own actions; none by
+default, since Blender keys every frame of every clip it saves), opens it in
+your Blender as `--work/edit.blend` (`devkit/models/blender/edit_session.py`
+runs inside it) and reads every save (Ctrl+S) back in a pass:
+
+- the save (`edit.glb`: what is seen, modifiers applied, every action)
+  imported onto the vanilla body as the recipe's `mesh.gltf` (`import`
+  `topology`, or with `--weights` only the painted skin weights), the
+  recipe's `ops` after it, as a build makes it, into
+  `--work/pass-<k>/characters.xbr` and `index.xbr`;
+- each action as a clip (`clips`: thinned, its keys, size and how far its
+  root moves); an action of one of the body's own clips under its own name
+  that no recipe column plays is named and left out (a build stores a
+  recipe's clip as `v/<name>`, which only a column plays: rename the action
+  to make it a clip of your own);
+- `inspect`'s budgets and problems, its own runs counting what a build
+  bakes onto the body, on the body as the build leaves its LODs (a row a
+  LOD), against the lines of `--ram`'s machine (128 MiB by default);
+- `preview`'s pictures in `--work/previews/<k>/` (not with `--no-preview`);
+- a row in `--work/log.jsonl` (sha256, counts, budgets, problems, or the
+  refusal), and `--work/recipe.json` updated: its `mesh.gltf` the save and a
+  `gltf` clip row per action, every other key as you wrote it (it is read
+  again at each pass, so you can edit it while Blender is open).
+
+```
+pass 1: 3427 vertices, 5151 triangles, 6 groups, 93 bones, own runs 2.418 MiB as built (2.047 of it
+what the build bakes); vertices 2884 kept, 543 changed, 0 added, 0 removed, clips jab; recipe
+recipe.json written
+```
+
+A save the import refuses (a material that isn't the body's, a new vertex
+with no weight, a budget past its error) is logged and named, and the
+session goes on: fix it and save again. Closing Blender ends the session.
+The edit is always of the vanilla body with the recipe's ops after it. The
+recipe starts from `--variant-file` (read, never written; the files it
+names copied into `--work` from beside it), `--from BUILTIN` (a built-in's,
+its WAVs and clip files copied in; a weapon over its moves left out, so a
+copy of booblord swings her own spins) or `{"base": SPECIES, "mode":
+"own"}`; `--variant NAME` names it (a built-in's name is refused). An
+action's name is the clip's: lower-case letters, digits and `_` (`jab`, not
+`Jab` or `Action.001`).
+
+Interactive, Blender opens with your own preferences, and `edit` refuses to
+start under `$CLAUDECODE` or `$PYTEST_CURRENT_TEST`. Agents and tests run
+`--headless --script my_edit.py`: Blender in the background (`--background
+--factory-startup`, once one of the machine's Blender slots is free), the
+bpy script after the import, one save, then it quits; a script that raises,
+or a run that saves nothing, exits 1 with no pass and no build. `--build
+OUT.iso` (a new file outside this checkout and the images' folders) builds
+the variant when Blender closes, if the last pass passed, from the same
+release's vanilla image (`--iso` Europe's builds Europe), as
+
+```bash
+azurkit build --iso VANILLA.iso --out OUT.iso --character '{"species": "mylord", "variant_file": "DIR/recipe.json"}'
+```
+
+does: the recipe's other files (WAVs, PNGs) are read beside it. Exit 1
+names a refusal before Blender opens, or the build's. To keep the variant in
+your library instead, make the session there (`--work
+"<data folder>/variants/mylord" --variant mylord`, the data folder AzurKit's
+user data folder, or `$AZURKIT_VARIANTS`): once a pass has written its
+`recipe.json`, the app's Characters tab lists mylord under Yours, the
+Variants view edits it and a build reads that file.
+
+### An action as an attack
+
+A Blender action plays in an attack column through the recipe. In
+`--work/recipe.json`, beside the row the pass wrote:
+
+```json
+{"mylord": {"base": "town_female_2", "mode": "own", "markers": ["m_damage"],
+  "clips": {"jab": {"generator": "gltf", "file": "edit.glb", "sha256": "<the pass's>", "animation": "jab",
+                    "active": [0.30, 0.45], "box": {"centre": [0.0, 0.5, 1.1], "half": [0.35, 0.35, 0.35]},
+                    "rate": 1.25}},
+  "columns": {"basic1": "jab"}}}
+```
+
+- `active` is the hit window in **clip seconds, not frames** (Blender's 24
+  frames a second: frame 7 is 0.29 s); `box` the hit box's centre and half
+  size in model units (the body's frame: x right, y forward, z up; `inspect`
+  prints the mesh's extent). They come together; a body without `m_damage`
+  needs `"markers": ["m_damage"]`. Without them the clip keeps the hit box
+  of the body's clip of the action's name (an edited `attack_1` keeps
+  attack_1's); a new action with neither can't be an attack, and the build
+  says so.
+- `rate` is the column's playback rate (1.0 plays the clip in its own time;
+  the attack-speed multiplier multiplies it).
+- `columns` names the attack columns that play it (`basic1`, `basic2`,
+  `basic3`, `finish`, `sweep1` ...; never the roll).
+- Keep the body in place: the game moves a body by its `m_feet` marker,
+  which a new clip lacks, so a root bone that travels more than 10 % of the
+  body's height is refused.
+- A clip poses only the bones it keys: every other bone rests at the bind
+  pose (arms straight out), so key each bone the move should hold;
+  `preview --clip` shows the pose first. A bone's length runs along its
+  local X, so turning a limb about X twists it in place: swing it about its
+  local Y or Z.
+- A recipe's attack columns are its moveset: a weapon picked for it plays
+  its own moves in every column (your mesh, jiggle and sounds kept), so a
+  recipe that names its own `weapon` names no `clips`, `columns`, `carry` or
+  `held` unless they are a moveset weapon's.
+
+The same row works in any recipe file: `clips BODY FILE` prints it for each
+animation of a `.glb`. A column that plays the base's own life drain takes
+life from the one critter it picks, or with `"drain": {"targets": "all"}`
+from every critter its box touches.
+
+### Hair that swings
+
+A body `src/azurkit/tools/characters/chains.json` lists swings its hair on
+the game's live springs (X41) whenever the player wears it with no `jiggle`
+of its own: the girls' ponytails (`townspeople/girlchild_1` and `_2` and
+both farmer girls), the townswomen's tails (`townspeople/female_1` to `_4`)
+and Balthazar's five locks (`balthazar_airship`), and so every species and
+variant that wears those bodies. A recipe with a `jiggle` takes none of
+them: copy its body's rows into `jiggle.springs` (`chains BODY` prints a
+starting set) and tune them with `jiggle --set`. A character's
+`"jiggle_strength": 0` keeps the hair as the moves pose it.
+
+## How big a body may be
+
+The game reads every archive in load runs (a page-aligned entry and the
+entries that start in its page, as one block) into one load budget, 40 MiB
+in vanilla, shared by the level, the characters, the effects and the
+interface, and the player's body runs stay loaded in every level. Measured
+in xemu at nine saves on a 128 MiB machine (a few fresh loads on a retail
+64 MiB one too, alike), at the 40 MiB budget, a1's save the tightest; the
+inventory screen loads its textures while it is open:
+
+| A player build's own runs | What the game does |
+|---|---|
+| up to 10 MiB | every save loads at full detail, and a1's, w1's and e2's inventories draw whole |
+| 10-12 MiB | on a load, a1's save fills the budget and drops some of the level's cache, still at full detail with its inventory whole |
+| 12.67 MiB | the largest measured whose a1 inventory stays whole in play |
+| by 15.79 MiB | played from a1's save, the inventory screen loses pieces, silently; a fresh load there is still at full detail, and w1's and e2's inventories stay whole |
+| by about 17.7 MiB | loaded from a1's save, the tree has lost its leaves' textures, silently |
+| by about 20.9 MiB | loaded from w1's or e2's save, the save platform has lost its grille |
+| past about 23.1 MiB | the change to e2 by the debug warp hangs on "Loading..." |
+
+A build's own runs hold the clips it bakes onto the body (Garret's moves on
+its rig: up to 3.8 MiB by species and mode), the player's projectile
+(`characters/debug` and all under it, which his throws load: about 0.1-0.6
+MiB) and each shield or beam row's own graph; `inspect` of a file no build
+made says what it lacks. The pack `qol_memory_budget`, on by default,
+raises the budget to 42 MiB, and the build reads the budget from the
+`default.xbe` it built: at 40 MiB it refuses a body past 12 MiB and warns
+past 10, at 42 or more past 14 and 12 (a lower budget lowers them). Past 42
+the game's own memory check cuts the budget back at the tight level
+changes, so the lines don't follow it there.
+
+Every build is one for a 128 MiB machine by default (xemu at `mem_limit`
+128): with `qol_memory_upper64` and `qol_memory_upper64_gpu` (both on by
+default) the level's and the body's load runs go above 64 MiB, and the
+build refuses a body past 49.5 MiB, or one whose largest single run (its
+mesh, as a rule) passes 42.34 MiB, and warns past 38 (at the 42 MiB budget;
+a lower one lowers all three). Without either pack, or for a 64 MiB machine
+(a character's `"ram": 64`, `--ram 64` here), the 64 MiB lines hold. The
+bytes are the same either way, so **a body past 14 MiB plays right only at
+128 MiB**: on 64 the packs do nothing, and it loses pieces and textures,
+and a larger one hangs loading (real 64 MiB hardware unmeasured). Measured
+in xemu with both packs, played at a1, w1 and e2:
+
+| Own runs at 128 MiB | What the game did |
+|---|---|
+| 15.88-38.79 MiB | played, the body's mesh run above 64 MiB |
+| past 38 MiB | the build warns |
+| 48.49-49.49 MiB, a mesh run of 41.45-42.34 | played every level whole (USA and Europe), its frame rate held in real time |
+| past 49.5 MiB, or one run past 42.34 | the build refuses the body |
+| 50.34-61.13 MiB, a mesh run of 43.11-52.85 | never finished loading the save: the run fits no span above 64 MiB |
+
+A build with the pack `qol_memory_upper256` too (off by default; xemu only,
+at `mem_limit` 256; `--ram 256` here) is one for a 256 MiB machine: it maps
+the RAM from 128 to 256 MiB as a third tier, where a mesh run too large for
+the room below 128 MiB goes, so, unlike 64 and 128, it changes the bytes.
+It refuses a body past 127 MiB, or one whose largest single run passes
+113.53 MiB, and warns past 48 MiB, where the frame rate was last seen whole.
+Measured: 49.25-105.37 MiB played (mesh runs of 42.34-92.91), 128.21 MiB
+played but ran w1 at 19.6 fps against vanilla's 30, and 145.27 MiB never
+finished loading (its run fits no tier).
+
+`inspect`, `edit`'s passes, `jiggle` and a build weigh a body against the
+same lines, 128 MiB's by default. A run's own size is no limit, and the
+writer splits a group at the format's limits by itself (31 bones, 65,536
+vertices, 22,392 B of push buffer: vanilla's largest), so the budget is a
+total no split shrinks. Europe has the same budget and files. xemu doesn't
+model the graphics chip's time: the heaviest body measured (1,320,358 LOD-0
+triangles, 47.00 MiB of own runs) drew 22 times vanilla's heaviest frame's
+triangles at a1 and real-time xemu still held vanilla's 30 fps there. A
+frame past vanilla's heaviest is a warning in its sitting, never a refusal.
+
+### LODs
+
+`inspect` lists each of a body's LODs: its triangles and their share of
+LOD 0's, its push bytes, its `bmsh`'s bytes and its own runs, and for each
+species that wears the body where it switches. The game aims for LOD k
+past the k-th of the species' `lodThreshold1`-`4`, culls past its
+`farClip`, never draws LOD 5 and on, and fades the last LOD of a switch
+over half a second, drawing two at once (`tools/characters/lods.py`). A
+species with a `shadowSize` and no `shadowTextureName` casts a realtime
+shadow drawn from the body's LOD 1 (LOD 0 if it has one); a LOD no wearer's
+distances reach and no shadow draws is never drawn, a warning. garret4,
+the player's species, switches at 1000 m, his `farClip`, so any body the
+player wears stays at LOD 0 on screen, and his realtime shadow draws its
+LOD 1. The game loads every LOD of a body, drawn or not.
+
+- A one-LOD body the player wears past 20,000 triangles builds with a
+  shadow LOD: a LOD 1 cut coarse from LOD 0 (within 2 cm) that only his
+  shadow draws, so the body is drawn once a frame at full detail, not
+  twice (a recipe's `"lods": {"shadow": false}` keeps it off).
+- A recipe's `"lods": {"ratio": [...], "at": [...], "error_px": p}` cuts
+  the body's LODs past LOD 0 anew from its final LOD 0 (its seams, UVs and
+  palettes kept) and sets garret4's switch distances to `at`, so the
+  player draws them as the camera pulls out; his shadow draws the same LOD
+  1. `"ratio": []` drops a body's LODs past LOD 0. A `mesh` may edit a body
+  with LODs of its own (catalisk, the golem): with no `lods` the build cuts
+  them anew from its edited LOD 0 at their vanilla shares of its triangles.
+- `preview --lod K` draws LOD K alone in LOD 0's frame (the same camera and
+  light): a vanilla one, or one a build wrote (`--characters`).
 
 ## `fx`: the fx graphs' leafs
 
@@ -150,3 +387,50 @@ written (with ffmpeg), then prints each stage's seconds; `--out` keeps the
 frames' sheet (PNG) and the MP4. Exit 1 names a failed check. Run it after a
 Blender update or a change to `batch.py` or `batch_inside.py`;
 `--vertices 45000` times a v4-size body.
+
+## `weapon-fit`: the arm turns that keep a prop out of the chest
+
+```bash
+uv run --locked python -m devkit models weapon-fit booblord townspeople/male_6 [--write] [-j N] [--iso PATH]
+uv run --locked python -m devkit models weapon-fit --all --write -j 8
+```
+
+For a body the bake maps (`townspeople/male_6`), or a built-in variant with
+a mesh or arms of its own (booblord), swinging Garret's staff moves: the
+turn of both `*_arm_1` in each of his attack clips that keeps the held prop
+out of its chest, as a row of `src/azurkit/tools/characters/weapons.json`'s
+`fits` (`{"clips": {clip: [out, forward]}}`, a variant's with its recipe's
+`sha`), which a build turns those arms by (W35). Per target it dresses the
+body in Balanced with the Axion staff and with the hoe and, for each of his
+clips baked onto it and each turn of out 0, 10, 20, 30 by forward 0, 15
+degrees, counts the ticks (30 Hz) on which a prop vertex lies more than 1
+cm inside its torso (a townswoman's bust too: `_player_weapons.Chest`), the
+worse prop's. Each clip takes the turn with the fewest ticks beyond
+garret4's own holding the same prop (his staff reaches into his chest in
+attack_3), whose prop dips no lower than min(his lowest, 0) - 1 cm with
+either (his staff and the hoe on his chain go under the floor in his
+elemental, smash and ledge moves); ties go to the smaller turn, and a clip
+no turn improves keeps none. It prints one line a clip and the row, names
+and numbers only. On `townspeople/male_6` it gives the shipped row (22
+excess ticks unturned, 0 fitted, 3 clips turned) in about 3 minutes.
+
+`--write` puts each row into `weapons.json` (a target with no clip to turn
+loses its row, one it couldn't dress keeps its own; nothing is written
+unless the file loads after). That file ships and every build reads it, so
+a write changes the fitted bodies' builds: re-record the goldens after it
+(`scripts/record_goldens.py`). Run it after a change to a mapped body's
+mesh, a built-in variant's recipe (its row's `sha` goes stale, and a stale
+row turns nothing) or Garret's staff moves. garret4's own reference holds
+the hoe as his build does, on its carriers; Modkit's last script copied it
+without them and stopped at "garret4 has no bone 'wpn_tip'".
+
+## Sculpt rounds (ModelKit)
+
+The owner's private ModelKit repository runs sculpt rounds of candidates
+(built, measured, put on a sheet, judged, picked) over these verbs: its
+Azurik adapter builds a candidate with `dress`, reads it with `export
+--characters`, poses its springs with `pose` and sizes its shape sliders
+with `rest`, all in this checkout's own environment, and its Blender jobs
+share the batch's slots (above). This repository never imports ModelKit,
+and ModelKit holds none of the game's files. How to run a round: its
+`modelkit` skill.
