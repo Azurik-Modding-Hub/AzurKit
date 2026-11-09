@@ -19,6 +19,7 @@ import statistics
 import struct
 from collections import Counter
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from unicorn import UC_HOOK_CODE, UC_HOOK_MEM_WRITE
@@ -245,6 +246,18 @@ def _x3_tick(xbe: bytes, attack: int, done: float, *, scale: float = 1.0, state:
     return (struct.unpack("<2f", sim.uc.mem_read(marker + 0x2C, 8)), marker, written,
             struct.unpack("<3f", sim.uc.mem_read(marker + 4, 12))
             + (struct.unpack("<3f", sim.uc.mem_read(marker + 0x20, 12)) if extents else ()))
+
+
+def _effects(folder) -> dict:
+    """G3's effects recipe file (Modkit's ``tests/fixtures/effects.json``,
+    the firelord case's ``variant_file``, which ``tests/goldens/cases.json``
+    holds) written in ``folder``: its recipes, as a build reads them."""
+    fixture = "tests/fixtures/effects.json"
+    cases = json.loads((Path(__file__).with_name("goldens") / "cases.json").read_text(encoding="utf-8"))
+    text = json.dumps(next(case["files"][fixture] for case in cases["pipelines.json"].values()
+                           if fixture in case.get("files", {})))
+    (folder / "effects.json").write_text(text, encoding="utf-8")
+    return load_variants(text, str(folder / "effects.json"))
 
 
 def _x3_marker(xbe: bytes, attack: int, done: float, **kw) -> tuple[float, float]:
@@ -740,3 +753,922 @@ def test_a_flagged_attack_column_carries_the_stick_and_turns_the_body():
         built = bytes(_swap(species, sounds="garret4", **kw)["default.xbe"])
         assert (verify_trampoline_patch(built, CARRY_HOOK) == "applied") is (mask is not None), species
         assert mask is None or _param(built, CARRY_HOOK, CARRY_SHIM, "_player_model_carry_columns") == mask
+
+
+def test_a_carried_bodys_held_button_jump_and_landing_keep_it_attacking():
+    """D377, D380, D381, D383 (Step 2.140, X33's entries; the owner, of
+    booblord: holding attack should chain, a jump should come at once,
+    and an air attack had "a long delay" on landing): presses are latched
+    edges, so a held button was one press; state 0x100 never calls
+    player_jump_init; and the landing classifier 0x85920 turns an air
+    attack's 0x102 into 0x100, so its clip played on frozen. L2 on the
+    real code at each site (Sim.call to the next callee or the site's
+    return; 0x85920, 0x88E70, 0x89060, 0xA30D0 run for real), mask
+    0xEFFFFF against the jump attack's column 13 unmasked, column 0
+    unmasked and vanilla:
+    (a) the attack state's stamps (0x8D3D5-0x8D43C): a held A (B) in a
+        carried root-motion swing is stamped 0.25 s back (Step 2.145,
+        AZ-633: fresh for the chain's 0.3 s that tick and the next, so a
+        tap's tail doesn't chain a second swing), never over a newer stamp,
+        its latch kept; else none;
+    (b) the airborne state's CALL 0x88E70 (0x8D387): a held A starts the
+        air attack (its stamp consumed at 0x88F4D, button 0 at the search
+        0x7EF10); unmasked, no press: AL 0, +0x134 := -1;
+    (c) the attack state's CALL 0x8C7D0 (0x8D46E): a jump press jumps
+        (state 2, v0, the jump's latch) and goes on as the air attack;
+        column 13 unmasked, the jump stands with both stamps consumed, so
+        the next tick's air start takes none (the critique's C1); an
+        uncarried column, and a carried one in the air (PC+0x30 0: the
+        attack tick never lands a swing carried off a ledge), ticks
+        0x8C7D0 as before;
+    (d) the airborne tick's CALL 0x85920 (0x89972-0x89987): a soft landing
+        of a carried air attack is state 0 with a held A stamped (0.25 s
+        back); else 0x100;
+    (e) the air attack's entry tick (0x88990 into 0x102): its desired
+        velocity is the root motion plus the jump's, not root alone;
+    (a') a column of the held mask alone (Step 2.145, D414: W23's gust,
+        sweep1, column 6): a held B is stamped 0.25 s back as in (a); its
+        swing's desired velocity is the game's (never carried);
+    (f) state 0's CALL 0x89060 (0x8D156-0x8D15F; Step 2.145, D413,
+        AZ-630), where a swing carried off a ledge ends (0x8CF8C drops
+        0x100 to 0 and dispatches state 0 that tick): a jump press with no
+        contact (PC+0x30 0 or 0x150) is AL 0, no jump (state 0, vz and the
+        jump's latch as they were); with one, the game's jump (state 2, v0,
+        the latch taken); vanilla jumps with none (the bug)."""
+    vanilla = _xbe()
+
+    def carrying(mask: int, held: int = 0) -> bytes:
+        xbe = bytearray(vanilla)
+        install_attack_carry_shim(xbe, mask, held)
+        return bytes(xbe)
+    every = 0xEFFFFF
+    jumpless, columnless = carrying(every & ~(1 << 13)), carrying(every & ~1)
+    carried = carrying(every)
+    assert l1.check(vanilla, carried) == []
+    now, none, held_a = 12.5, (-1.0, -1.0, -1.0), {"attack_buttons": (1.0, 0.0), "attack_latches": (1, 0)}
+    swing = replace(BASIC1, state=0x100, move_flags=8, clock=now)
+    air = replace(BASIC1, attack=13, attack_anim=0x5F, anim_slot=0x5F, state=0x102, move_flags=8, clock=now)
+
+    def run(xbe: bytes, player, va: int, until: int, args: tuple = (), stubs=None, tick: bool = False) -> PlayerSim:
+        """From ``va`` to ``until`` in the state machine 0x8CCC0 (EBP the
+        PlayerControl, EDI the input) or, ``tick``, the airborne tick
+        0x89480 (the other way round, the hard landing's speed
+        sqrt(2 g 2.9) at 0x38B0C4 as 0xFBAC0 sets it at boot)."""
+        sim = PlayerSim(xbe, player)
+        if tick:
+            sim.uc.mem_write(0x38B0C4, struct.pack("<f", math.sqrt(2 * 9.8 * 2.9)))
+        pc, inp = sim.at["entity"], sim.at["input"]
+        sim.call(va, regs={"ebp": inp, "edi": pc} if tick else {"ebp": pc, "edi": inp}, args=args, until=until,
+                 stubs=stubs)
+        return sim
+
+    def stamps(sim: PlayerSim) -> tuple:
+        return struct.unpack("<3d", sim.uc.mem_read(sim.at["entity"] + 0xA0, 24))
+
+    def latches(sim: PlayerSim) -> bytes:
+        return bytes(sim.uc.mem_read(sim.at["controller"] + 0x48, 4))
+    # (a) held A and B read as presses
+    held = now - 0.25
+    for buttons, latch, stamped in (((1.0, 0.0), (1, 0), (held, -1.0, -1.0)), ((0.0, 1.0), (0, 1), (-1.0, held, -1.0))):
+        player = replace(swing, attack_buttons=buttons, attack_latches=latch)
+        sim = run(carried, player, 0x8D3D5, 0x8D43C)
+        assert (stamps(sim), latches(sim)[:2]) == (stamped, bytes(latch)), buttons
+        newer = tuple(now - 0.1 if s == held else s for s in stamped)
+        assert stamps(run(carried, replace(player, stamps=newer), 0x8D3D5, 0x8D43C)) == newer
+        for xbe, other in ((vanilla, player), (columnless, player), (carried, replace(player, anim_slot=37)),
+                           (carried, replace(player, move_flags=0))):
+            assert stamps(run(xbe, other, 0x8D3D5, 0x8D43C)) == none, buttons
+    # (a') a held-only column (the gust's sweep1): stamped, never carried
+    gust = replace(swing, attack=6, attack_anim=0x58, anim_slot=0x58, attack_buttons=(0.0, 1.0),
+                   attack_latches=(0, 1))
+    gusting = carrying(every & ~0x1C0, 0x1C0)
+    assert stamps(run(gusting, gust, 0x8D3D5, 0x8D43C)) == (-1.0, held, -1.0)
+    assert stamps(run(carrying(every & ~0x1C0), gust, 0x8D3D5, 0x8D43C)) == none
+    sweep1 = replace(BASIC1, attack=6, attack_anim=0x58, anim_slot=0x58)
+    assert PlayerSim(gusting, sweep1).roll() == PlayerSim(vanilla, sweep1).roll()
+    # (b) a held button in the air
+    rising = replace(swing, state=2, **held_a)
+    sim = run(carried, rising, 0x8D387, 0x7EF10)
+    assert (stamps(sim)[0], sim.reg("esi"), sim.u32(sim.at["entity"] + 0x94)) == (-1.0, 0, 2)
+    for xbe in (jumpless, vanilla):
+        sim = run(xbe, rising, 0x8D387, 0x8D38F)
+        assert (sim.reg("eax") & 0xFF, sim.u32(sim.at["entity"] + 0x134)) == (0, 0xFFFFFFFF)
+    # (c) a jump press in a swing
+    jumping = replace(swing, stamps=(now - 1 / 30, now - 1 / 30, -1.0))
+    v0 = math.sqrt(2 * 9.8 * 1.1)
+    sim = run(carried, jumping, 0x8D46E, 0x7EF10, stubs=l2.JUMP_STUBS)
+    assert (sim.u32(sim.at["entity"] + 0x94), stamps(sim)[0], sim.reg("esi"), latches(sim)[3]) == (2, -1.0, 0, 1)
+    assert sim.f32(sim.at["entity"] + 0x2C) == pytest.approx(v0, rel=1e-6)
+    sim = run(jumpless, jumping, 0x8D46E, 0x8D474, stubs=l2.JUMP_STUBS)
+    assert (sim.u32(sim.at["entity"] + 0x94), stamps(sim)) == (2, none)
+    for xbe, player in ((columnless, jumping), (vanilla, jumping), (carried, replace(jumping, object_ptr=0))):
+        sim = run(xbe, player, 0x8D46E, 0x8C7D0)
+        esp = sim.reg("esp")
+        assert (sim.u32(esp), sim.u32(esp + 4), sim.u32(sim.at["entity"] + 0x94), latches(sim)[3]) == (
+            0x8D474, sim.at["entity"], 0x100, 0)
+    # (d) a carried air attack's soft landing: the classifier's query on the airborne tick's stack
+    frame = [0] * 70
+    frame[28] = struct.unpack("<I", struct.pack("<f", -4.0))[0]   # the result's vz (S+0x74), S = ESP at 0x89972
+    frame[66] = 1                                                 # the query's +0x38 (S+0x10C): a contact
+    landing = replace(air, **held_a)
+    for xbe, state, stamped in ((carried, 0, held), (jumpless, 0x100, -1.0), (vanilla, 0x100, -1.0)):
+        sim = run(xbe, landing, 0x89972, 0x89987, args=tuple(frame), tick=True)
+        assert (sim.u32(sim.at["entity"] + 0x94), stamps(sim)[0]) == (state, stamped)
+    # (e) the air entry keeps the jump's velocity
+    flying = replace(air, state=2, velocity=(3.0, 0.0, v0))
+    root = PlayerSim(vanilla, flying).enter(0x102)
+    assert PlayerSim(carried, flying).enter(0x102) == pytest.approx(
+        tuple(r + v for r, v in zip(root, flying.velocity)), rel=1e-6)
+    assert PlayerSim(jumpless, flying).enter(0x102) == root
+    # (f) no jump from state 0 without a contact
+    for xbe, contact, jumped in ((carried, 0, False), (carried, 0x150, False), (carried, swing.object_ptr, True),
+                                 (vanilla, 0, True)):
+        sim = run(xbe, replace(swing, state=0, object_ptr=contact), 0x8D156, 0x8D15F, stubs=l2.JUMP_STUBS)
+        e = sim.at["entity"]
+        assert (sim.reg("eax") & 0xFF, sim.u32(e + 0x94), latches(sim)[3]) == ((1, 2, 1) if jumped else (0, 0, 0))
+        assert sim.f32(e + 0x2C) == (pytest.approx(v0, rel=1e-6) if jumped else 0.0), (contact, jumped)
+
+
+def _ring_table(xbe: bytes) -> dict:
+    """X38's table in a built ``xbe`` (``fx_ring.c``'s ``Table``, decoded)."""
+    at = resolve_va_to_file(xbe, trampoline_symbol_va(xbe, FX_RING_HOOKS[0], FX_RING_TABLE.symbol,
+                                                      shim_source=FX_RING_SHIM.source_path()))
+    t = bytes(xbe[at:at + fx_ring.TABLE_SIZE])
+    n_keys, n_clips, n_ops, n_wins = struct.unpack_from("<BBHH", t)
+    o = 8 + fx_ring.ROWS
+    keys = [struct.unpack_from("<BBBBHHHH", t, o + 12 * k) for k in range(n_keys)]
+    o += 12 * fx_ring.KEYS
+    clips = [[struct.unpack_from("<HHf", t, o + 8 * (fx_ring.KEYS * c + k)) for k in range(n_keys)]
+             for c in range(n_clips)]
+    o += 8 * fx_ring.KEYS * fx_ring.CLIPS
+    names = [t[o + fx_ring.KEY_SIZE * k:o + fx_ring.KEY_SIZE * (k + 1)].split(b"\0")[0].decode() for k in range(n_keys)]
+    o += fx_ring.KEY_SIZE * fx_ring.KEYS
+    ops = [struct.unpack_from("<HBBf", t, o + 8 * i) for i in range(n_ops)]
+    o += 8 * fx_ring.OPS
+    wins = [struct.unpack_from("<HHBBHf", t, o + 12 * i) for i in range(n_wins)]
+    lists = "spawn", "delay", "arm", "own", "hold", "detach", "show"
+    drain_at = [struct.unpack_from("<I", xbe, resolve_va_to_file(xbe, trampoline_symbol_va(
+        xbe, hook, FX_DRAIN_AT.symbol, shim_source=FX_RING_SHIM.source_path())))[0] for hook in FX_RING_HOOKS]
+    return {"rows": {r: c for r, c in enumerate(t[8:8 + fx_ring.ROWS]) if c != 0xFF},
+            "keys": [{"name": name, "mode": "EPSB"[mode], "slots": slots, "delay": delay, "records": records,
+                      "hold_ms": hold,
+                      "ops": {(lists[op[2]], op[0], op[1]): round(op[3], 4) for op in ops[first:first + n]}}
+                     for name, (mode, slots, delay, _, records, first, n, hold) in zip(names, keys)],
+            "firsts": [[f for f, _, _ in per] for per in clips],
+            "windows": [[{(w[0], w[1], w[2]): (bool(w[3] & fx_ring.WIN_RIG), round(w[5], 4))
+                          + ((w[4],) if w[3] & fx_ring.WIN_SWITCH else ()) for w in wins[f:f + n]}
+                         for f, n, _ in per] for per in clips],
+            "tails": [[round(tail, 2) for _, _, tail in per] for per in clips], "drain_at": drain_at}
+
+
+@pytest.mark.parametrize("species, kw", [
+    ("air_elemental", {}), ("spideyzar", {}), ("beamlord", {}), ("blaze_sentinel", {}), ("guard_fire1", {}),
+    ("garret4", {}), ("air_elemental", {"mode": "garret4"}), ("fire_elemental", {}),
+    ("air_elemental", {"fx_ring": False})])
+def test_a_ranged_bodys_attack_effects_get_their_own_ring(species, kw, monkeypatch):
+    """D429, D430 (Step 2.149, X38): a build whose attack clips turn an
+    emitter of the body's fx_default on (a switch's link) or carry one
+    away (2 model units or more from its rest) hooks player_attack_enter's
+    CALL 0x4FF10 at 0x88A5E, the anim step's CALL 0xCBC80 at 0x43A62 and
+    the hit handler's CALL 0x44640 at 0x8D6AF (AZ-650, Step 2.155) and
+    writes the ring's table: per row (a column, or an X10 entry) its
+    clip, per clip each window (the emitter, the record and attribute
+    that close it, rig, its end in clip seconds) and the tail (the
+    longest sink maxAge + 0.33 s), the key's slots and writes. The air
+    elemental's own graph is a P key (its puff [7], on at rest, rides the
+    gust's m_turbulence: off 0.95 at the arrival, its sink 5 s), muted on
+    the own instance for good, armed at 117 a second (fx_ring.arm,
+    AZ-651) and kept in 11 copies (a 10-record graph's 12, capped at the
+    ring's 16 less the stand key's 5: her recipe names no slots), and spideyzar's
+    graph a STAND key (D434, Step 2.155; since Step 2.155b, D501, the
+    player's clone of it, characters/air_elemental/v/fx/fx_stand: 5 copies, dark but for the
+    platform rule (since Step 2.155e its funnel mesh [84], which its trigger alone shows, keeps its
+    lodVisibility; since Step 2.155g a delay op draws it at gameVisible 1/1024 once the crossfade is
+    over, AZ-690), its trigger [34] held 2.0 s (1.5 before Step 2.155e), tail 1.73 s, its carrier
+    m_projectile leaving at 0.367 s, no windows); spideyzar's columns
+    are his clips' rows (his attack sets keep X10 off, Step 2.135), his
+    234-record graph 4 copies, his
+    linked iceball [25] and dome [84] hidden on a copy by lodVisibility
+    and his attack_3 steam [57] closing through its system [172];
+    beamlord's bolts [24] (the player's clone of his graph, X40) close
+    at 0.65 by their rate (the enable is linked; the nova's at 0.88, on
+    through its shield's fade: AZ-658, Step 2.153b) and the grafted electric
+    shield's platform [67] (v4's nova), whose gameVisible a link drives,
+    is hidden by its lodVisibility at the spawn, and the air blast's
+    grafted floor dome [69] (Step 2.153b) by its gameVisible, whose bolts
+    close at its impact, 1.78 (the draw skips gameVisible x
+    lodVisibility <= 0, 0xC3128); blaze's waist blast [38], [46] closes on
+    the rig and its ambient fires and thrust plates are muted on the copy.
+    Balthazar's attack_2 switches his drain's damage [46], so it gets no
+    row (the reason logged), and guard_fire's attack_2 its shards' critter
+    generator, but since Step 2.175 (AZ-611) guard_fire1's 12 attack_2
+    columns play ``q/0``, the clip without that switch, an E key of its
+    graph (4 copies; its fire emitters closing at 3.08 and 3.15 s), and a copy spawned in
+    the drain's crossfade (Balthazar's beam) has the drain stream's pool
+    [2] shut at the spawn (AZ-653, Step 2.155); but with X37 installed
+    (AZ-653, Step 2.153c: Balthazar's and beamlord's builds, whose X38
+    landings each carry X37's state) the drain, its box [46] under the
+    mode-7 'onPlayer', is a row: its stream [44] closes by its switch [42]
+    at 2.05 (through [2] on another clip's copy), [46]'s damage goes 0
+    at the detach (list DETACH), the own instance's pool [2] is off while
+    a copy shows it, and no spawn close is left; garret4's own build,
+    the air elemental's Skin build (no gust), the fire elemental (no attack
+    keys an fx marker) and a recipe's ``fx_ring: false`` keep vanilla's
+    CALLs at the three sites."""
+    vanilla = _xbe()
+    if kw.get("fx_ring") is False:   # the overlay's knob off
+        monkeypatch.setitem(variants.OVERLAYS, species, {**variants.OVERLAYS[species], "fx_ring": False})
+        game = _swap(species, fresh=True)
+    else:
+        game = _swap(species, **kw)
+    xbe = bytes(game["default.xbe"])
+    hooked = [verify_trampoline_patch(xbe, hook) for hook in FX_RING_HOOKS]
+    sites = [xbe[va_to_file(hook.va):va_to_file(hook.va) + 5] for hook in FX_RING_HOOKS]
+    if species in ("garret4", "fire_elemental") or kw:
+        assert hooked == ["original"] * 3 and sites == [vanilla[va_to_file(h.va):va_to_file(h.va) + 5]
+                                                        for h in FX_RING_HOOKS], (species, kw)
+        if species == "garret4":   # Balthazar's drain: left out, logged
+            bodies = game.stored("characters.xbr")
+            plan = fx_ring.ring_plan(bodies, game.stored("default.xbe"), read_body(bodies, "balthazar_airship"),
+                                     {0: "attack_2"})
+            assert (plan.rows, plan.left_out) == ({}, [
+                "attack_2 (it switches characters/balthazar_airship/fx/fx_default [46] damageBoxShape damage, which "
+                "a copy would run twice or hit with)"])
+            plan = fx_ring.ring_plan(bodies, game.stored("default.xbe"), read_body(bodies, "balthazar_airship"),
+                                     {0: "attack_2", 2: "attack_3"})   # AZ-653: the beam copy's drain pool shut
+            assert fx_ring.Op(2, 4, 0.0, fx_ring.SPAWN) in plan.keys[0].ops
+            plan = fx_ring.ring_plan(bodies, game.stored("default.xbe"), read_body(bodies, "balthazar_airship"),
+                                     {0: "attack_2", 2: "attack_3"}, drains=True)   # AZ-653 (2.153c): X37's row
+            assert (plan.rows, plan.clips, plan.left_out, plan.windows[0]) == (
+                {0: 0, 2: 1}, ["attack_2", "attack_3"], [], [((fx_ring.Window(44, 2, 4, False, 2.05, 42),), 2.33)])
+            ops = set(plan.keys[0].ops)
+            assert {fx_ring.Op(46, 17, 0.0, fx_ring.DETACH), fx_ring.Op(2, 4, 1.0, fx_ring.OWN)} <= ops and not {
+                op for op in ops if (op.record, op.list) == (2, fx_ring.SPAWN)}
+        return
+    assert hooked == ["applied"] * 3 and l1.check(vanilla, xbe) == []
+    table = _ring_table(xbe)
+    keys, rows = table["keys"], table["rows"]
+    clip = rows[6] if species == "air_elemental" else None
+    if species == "air_elemental":
+        assert ([(k["name"], k["mode"], k["slots"], k["records"], k["delay"], k["hold_ms"]) for k in keys] == [
+            ("characters/air_elemental/fx/fx_default", "P", 11, 10, 1, 0),   # no slots in her recipe: her 12 capped
+            ("characters/air_elemental/v/fx/fx_stand", "S", 5, 234, 1, 2000)])   # at 16 less his 5 (D434, D501)
+        assert set(rows) == {6, 7, 8} and len(set(rows.values())) == 1 and table["drain_at"] == [0] * 3   # no X37
+        assert keys[0]["ops"] == {("delay", 7, 4): 1.0, ("arm", 7, 5): 117.0, ("own", 7, 4): 1.0}
+        assert keys[1]["ops"] == {("spawn", 25, 0): 0.0, ("spawn", 149, 17): 0.0, ("delay", 84, 10): 0.001,
+                                  **{("spawn", r, 10): 0.0 for r in (68, 70, 72)}, ("hold", 34, 3): 1.0}
+        assert (table["windows"][clip], table["tails"][clip], table["firsts"][clip][1]) == (
+            [{(7, 7, 4): (False, 0.95)}, {}], [5.33, 1.73], 367)   # the stand copy: its carrier leaves at 0.367 s
+    elif species == "spideyzar":
+        assert max(rows) < fx_ring.COLUMNS and keys[0]["mode"] == "E" and keys[0]["slots"] == 4   # no X10 rows
+        whirl = table["windows"][rows[3]][0]   # finish: whirlwind
+        assert whirl == {(e, e, 4): (True, 1.9333) for e in (37, 41, 45, 47, 49, 51, 53)}   # its funnel, cut at 0.34
+        assert {k for k in keys[0]["ops"] if k[1] in (25, 84)} == {("spawn", 25, 0), ("spawn", 84, 0)}
+        assert (57, 172, 4) in table["windows"][rows[2]][0]   # basic3: attack_3's steam, through [172]
+    elif species == "guard_fire1":   # AZ-611: its attack_2 columns' q/0, no shards' generator switched
+        assert [(k["name"], k["mode"], k["slots"]) for k in keys] == [
+            ("characters/bosses/fire_guardian/fx/fx_default", "E", 4)]
+        assert set(rows) == {1, 3, 5, 7, 9, 11, 13, 14, 16, 18, 21, 23} and set(rows.values()) == {0}
+        assert {e: end for (e, _, _), (_, end) in table["windows"][0][0].items()} == {
+            **dict.fromkeys((113, 115, 117), 3.0833), **dict.fromkeys((126, 128, 130, 132), 3.15)}
+    elif species == "beamlord":   # his key is the player's clone (X40, Step 2.157), which his own instance plays;
+        # Step 2.153: the air blast carries his bolts down (delayed), on to its impact (Step 2.153b: no bolts in the
+        # blast, its floor dome hidden on a copy)
+        assert keys[0]["name"] == "characters/balthazar_airship/v/fx/fx_default"
+        assert keys[0]["ops"] == {("spawn", 46, 17): 0.0, ("spawn", 67, 0): 0.0,
+                                  ("spawn", 69, 10): 0.0,   # the blast's floor dome (Step 2.153b): hidden on a copy
+                                  ("detach", 46, 17): 0.0,   # AZ-653 (Step 2.153c): the drain row's box at the detach
+                                  ("delay", 24, 5): 80.0,
+                                  ("own", 24, 5): 80.0, ("own", 2, 4): 1.0}   # v4's rate; the drain's pool
+        assert {w for per in table["windows"] for w in per[0].items()} == {
+            ((24, 24, 5), (False, 1.65)), ((24, 24, 5), (False, 0.65)), ((24, 24, 5), (False, 1.7833)),
+            ((24, 24, 5), (False, 0.8833)),   # Step 2.153b: the blast's bolt to its impact, the nova's on through its
+            ((44, 2, 4), (False, 2.05, 42))}  # shield's fade (AZ-658); AZ-653: elemental2's drain, closed by its switch
+        assert table["rows"][10] == 0 and table["drain_at"] == [trampoline_symbol_va(
+            xbe, DRAIN_HOOKS[0], DRAIN_STATE, shim_source=DRAIN_SHIM.source_path())] * 3   # X37's state, in each
+    else:   # blaze_sentinel
+        assert table["windows"] == [[{(38, 38, 4): (True, 3.85), (46, 46, 4): (True, 3.85)}]]
+        muted = {(r, a) for (kind, r, a) in keys[0]["ops"] if kind == "spawn"}
+        assert muted == {(r, 10) for r in (9, 14, 20, 22)} | {
+            (r, 4) for r in (3, 6, 12, 17, 28, 57, 59, 61, 63, 65, 67, 69, 71)}
+        assert {k for k in keys[0]["ops"] if k[0] == "own"} == {("own", 38, 4), ("own", 46, 4)}
+
+
+def test_bound_keys_follow_the_own_and_stand_keys_each_row_its_own_clip_entry(monkeypatch):
+    """Step 2.167c (D538's E3; pure): X38's plan puts a build's BOUND keys
+    after its own graph's and a stand's: a row whose clip has the own
+    key's windows and plays a bound key gets a clip entry of its own (those
+    windows and the stand's leave kept), a column only a bound row names
+    gets one too, and so does X10's entry row once a listed column is one
+    X10 turns; each bound key's first is 1 on the entries that play it;
+    the own and stand keys keep their 16 handles (17 refused by name), a
+    bound key takes 1 of the ring's 20, and a fade the u16 ms can't hold is
+    refused by name."""
+    win = fx_ring.Window(7, 7, 4, False, 0.95)
+    base = fx_ring.Plan([fx_ring.Key("own", fx_ring.P, 11, 10, 1, ()),
+                         fx_ring.Key("stand", fx_ring.STAND, 5, 234, 1, (), 2000)],
+                        {6: 0, 7: 0, 24: 0}, ["sweep1"], [[((win,), 5.33), ((), 1.73)]], [], {(0, 1): 367})
+    monkeypatch.setattr(fx_ring, "own_plan", lambda *a, **k: base)
+    bubble = fx_ring.Bound("v/fx/fx_bubble_0", 5, (6, 2), ((4, 10, 1.0),), 0.3, 0.0)
+    plan = fx_ring.ring_plan(b"", b"", None, {2: "attack_3", 6: "sweep1", 7: "sweep1"}, ["sweep1"],
+                             bound=(bubble,), turns=1 << 6)
+    assert (plan.rows, plan.clips) == ({2: 0, 6: 1, 7: 2, 24: 1},
+                                       ["attack_3 +fx_bubble_0", "sweep1 +fx_bubble_0", "sweep1"])
+    assert plan.windows == [[((), 0.0), ((), 0.0), ((), 0.0)], [((win,), 5.33), ((), 1.73), ((), 0.0)],
+                            [((win,), 5.33), ((), 1.73), ((), 0.0)]]
+    assert plan.leaves == {(0, 2): 1, (1, 1): 367, (1, 2): 1, (2, 1): 367, (2, 2): 0}
+    assert plan.keys[2] == fx_ring.Key("v/fx/fx_bubble_0", fx_ring.BOUND, 1, 5, 0,
+                                       (fx_ring.Op(4, 10, 1.0, fx_ring.SHOW),), 300)
+    assert len(plan.pack()) == fx_ring.TABLE_SIZE
+    base.keys[0] = replace(base.keys[0], slots=12)
+    with pytest.raises(ValueError, match="the fx ring holds 16 copies of the body's own and stand keys"):
+        fx_ring.ring_plan(b"", b"", None, {6: "sweep1"}, bound=(bubble,)).pack()
+    with pytest.raises(ValueError, match="fx_bubble_0's fade 70 s is not from 0 to 65.535 s"):
+        fx_ring.ring_plan(b"", b"", None, {6: "sweep1"}, bound=(replace(bubble, fade=70.0),))
+
+
+
+
+def test_the_fx_ring_shows_a_bound_effects_rows_copy_while_its_column_plays_then_fades_it(tmp_path):
+    """D538's E3 (Step 2.167c; L2, :class:`_RingSim`): a shield or beam
+    ``effects`` row is a BOUND key of X38's table, its own graph in one
+    handle (shieldlord's build, G3's effects recipe file, :func:`_effects`: keylord,
+    whose own graph gets no key, so its bubble, dome and laser are keys 0-2,
+    the own instance never written), each row's column its clip entry, its
+    show write its key's one op, its fade its hold_ms.  At rest nothing
+    spawns; basic1's entry spawns the bubble's graph bound (the bind
+    interface critter+0x170) with its show [4].gameVisible at 1 (dirty
+    0x400), and the attack's own change lets nothing go; the idle's change
+    lets it go on the body (no detach): 1 there, 0.5 at 0.15 s; basic1
+    again while it fades re-arms it (no spawn, back at 1); an unlisted
+    column's entry lets it go and spawns nothing, and it is 0 and dead
+    0.3 s on (its tail 0); once the engine has deleted it the finish's
+    entry spawns the dome; basic2's lets the dome go and spawns the laser
+    (its burst's enable [2] 1), which a hit lets go (0.5 at 0.15 s); at
+    HP 0 basic1 spawns nothing, and once HP is back it spawns the bubble
+    again.  ESP, EBX, ESI, EDI and EBP as the CALLs left them, the x87
+    stack empty; L1 clean."""
+    variant = _effects(tmp_path)["shieldlord"]
+    built = bytes(_swap(variant.base, variant=variant)["default.xbe"])
+    assert l1.check(_xbe(), built) == []
+    columns = XbrDocument.from_bytes(_read("gamedata/config.xbr")).keyed_section("attacks_anims").col_names()
+    b1, b2, fin, other = (columns.index(c) for c in ("basic1", "basic2", "finish", "basic3"))
+    table = _ring_table(built)
+    bubble, dome, laser = (fx_ring.bound_key("keylord", t, k) for k, t in enumerate(("bubble", "dome", "laser")))
+    assert [(k["name"], k["mode"], k["slots"], k["records"], k["hold_ms"], k["ops"]) for k in table["keys"]] == [
+        (bubble, "B", 1, 6, 300, {("show", 5, 10): 1.0}), (dome, "B", 1, 6, 300, {("show", 5, 10): 1.0}),
+        (laser, "B", 1, 15, 300, {("show", 3, 4): 1.0})]
+    order = sorted((b1, fin, b2))
+    assert table["rows"] == {c: order.index(c) for c in order}   # a clip entry per row: each plays its own key
+    assert [table["firsts"][table["rows"][c]] for c in (b1, fin, b2)] == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    assert table["tails"][table["rows"][b2]][2] == 0.38 and table["windows"] == [[{}, {}, {}]] * 3
+    r = _RingSim(built, ("characters/keylord/fx/fx_default", 1, {}), {bubble: (6, {}), dome: (6, {}), laser: (15, {})})
+    tick, enter, attr, dirty = r.tick, r.enter, r.attr, r.dirty
+    r.layers(0, c0=(r.IDLE, 0.5))
+    assert tick(10.0) == []                                               # at rest: nothing
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    ((_, name, wd, _, flags, bind, shield, handle),) = enter(b1, 11.0)
+    assert (name, wd, flags, bind) == (bubble, r.world, 0, r.critter + 0x170)
+    assert (attr(shield, 5, 10), dirty(shield, 5) & 0x400) == (1.0, 0x400)
+    assert tick(11.05) == [] and attr(shield, 5, 10) == 1.0              # the attack's own change
+    r.layers(0, 0.25, c0=(r.IDLE, 0.0))
+    assert tick(11.5) == [] and attr(shield, 5, 10) == 1.0                # let go on the body: no detach
+    tick(11.65)
+    assert attr(shield, 5, 10) == pytest.approx(0.5, abs=1e-5)
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    assert enter(b1, 11.7) == [] and attr(shield, 5, 10) == 1.0           # re-armed while it fades
+    r.layers(2, 0.1, c2=(r.SWING, 0.0))
+    assert enter(other, 12.0) == [] and attr(shield, 5, 10) == 1.0        # an unlisted column: let go
+    tick(12.15)
+    assert (attr(shield, 5, 10), r.dead(shield)) == (pytest.approx(0.5, abs=1e-5), 0)
+    tick(12.31)
+    assert (attr(shield, 5, 10), r.dead(shield)) == (0.0, 1)              # its fade and its 0 s tail over
+    r.w(handle, struct.pack("<I", 0))                                    # the engine deletes it, zeroing the handle
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    assert [c[1] for c in enter(fin, 13.0)] == [dome]
+    r.layers(2, 0.1, c2=(r.SWING, 0.0))
+    ((_, name, *_, beam, _),) = enter(b2, 13.2)
+    assert name == laser and attr(beam, 3, 4) == 1.0
+    r.layers(0, 0.25, c0=(r.OUCH, 0.0), c2=(r.SWING, 0.2))               # X7's reaction, then the hit
+    assert r.hit(13.4, 90) == []                                          # lets the laser go
+    tick(13.55)
+    assert attr(beam, 3, 4) == pytest.approx(0.5, abs=1e-5)
+    r.w(r.critter + 0x210, struct.pack("<i", 0))                          # HP 0: nothing spawns
+    tick(13.9)
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    assert enter(b1, 14.0) == []
+    r.w(r.critter + 0x210, struct.pack("<i", 100))
+    tick(14.1)
+    r.layers(2, 0.1, c2=(r.ATTACK, 0.0))
+    assert [c[1] for c in enter(b1, 14.2)] == [bubble]
+
+
+class _RingSim:
+    """X38's three landings of a built ``xbe`` under L2, the engine's five calls emulated (quat_from_euler
+    0x4FF10, the sampler 0xCBC80, fx_instantiate 0x649E0, fx_instance_detach 0x634B0, apply_damage 0x44640:
+    its HP written) and the critter, world, anim, instances and records fake: ``looks`` is the key's (resource,
+    records, authored values per record and attribute), every instance's nodes 40 attributes, the own one
+    (critter+0x230) loaded with them too, a node with a damage value a platform (its world object at node+0x20,
+    its level byte +0x27E that damage); ``links`` the key's links (source -> (target, attribute), factor 1, at
+    node+0xC); ``more`` another key's (resource -> records, values: a stand key's)."""
+
+    NODE, ATTRS = 0xC8, 0x28
+
+    def __init__(self, built: bytes, looks: tuple, more: dict | None = None, links: dict | None = None):
+        self.built, self.key, self.records, self.values = built, *looks
+        self.more, self.links = more or {}, links or {}
+        self.sim = sim = Sim(built)
+        base = 0x20000000
+        sim.uc.mem_map(base, 0x800000)
+        (self.critter, self.other, self.world, cellobj, self.anim, self.clock, self.pc, self.out,
+         self.ring10) = (base + 0x1000 * k for k in range(9))
+        self.own, self.objects, self.heap = base + 0x10000, base + 0x20000, base + 0x30000
+        self.IDLE, self.ATTACK, self.SWING, self.OUCH = (base + 0x9000 + 0x100 * k for k in range(4))
+        w = self.w = sim.uc.mem_write
+        w(self.critter + 0x154, struct.pack("<2I", self.world, base + 0x4000 + 4 * 0xB4))
+        w(self.critter + 0x17C, struct.pack("<I", self.anim))
+        w(self.critter + 0x210, struct.pack("<i", 100))
+        w(self.critter + 0x230, struct.pack("<I", self.own + 0x20))
+        w(self.other + 0x154, struct.pack("<I", self.world))
+        w(self.world + 0xBC, struct.pack("<I", self.critter))
+        w(self.world + 0xD4, struct.pack("<I", cellobj))
+        w(cellobj + 0x28, struct.pack("<I", base + 0x4000))
+        w(self.anim + 4, struct.pack("<I", self.clock))
+        w(self.pc + 0x20, struct.pack("<I", self.critter))
+        self.instance(self.own)
+        self.calls: list = []
+        for va, hook in ((0x4FF10, self._quat), (0xCBC80, self._sample), (0x649E0, self._spawn),
+                         (0x634B0, self._detach), (0x44640, self._damage)):
+            sim.uc.hook_add(UC_HOOK_CODE, hook, begin=va, end=va)
+        self.ring = trampoline_symbol_va(built, FX_RING_HOOKS[0], FX_RING_STATE, shim_source=FX_RING_SHIM.source_path())
+
+    def instance(self, at: int, key: str | None = None) -> int:
+        w = self.w
+        records, values = self.more.get(key, (self.records, self.values))
+        w(at + 0x24, struct.pack("<2I", at + 0x200, at + 0x200 + 4 * records))
+        w(at + 0xA0, struct.pack("<I", 2))
+        w(at + 0x1C0 + 0xC, struct.pack("<I", 40))
+        nodes = at + 0x200 + 4 * records
+        for j in range(records):
+            node = nodes + self.NODE * j
+            w(at + 0x200 + 4 * j, struct.pack("<I", node))
+            w(node + 8, struct.pack("<I", node + self.ATTRS))
+            w(node + 0x14, struct.pack("<I", at + 0x1C0))
+            for a, v in values.get(j, {}).items():
+                w(node + self.ATTRS + 4 * a, struct.pack("<f", v))
+            if 17 in values.get(j, {}):                                   # a platform: its object at its level
+                w(node + 0x20, struct.pack("<I", self.objects))
+                w(self.objects + 0x27E, bytes([int(values[j][17])]))
+                self.objects += 0x300
+        for src, outs in (self.links if key in (None, self.key) else {}).items():
+            for dst, a in outs:                                           # {next, plug, target, weight, curve, factor}
+                w(self.objects, struct.pack("<IHHIfIf", self.sim.u32(nodes + self.NODE * src + 0xC), 0, a,
+                                            nodes + self.NODE * dst, 1.0, 0, 1.0))
+                w(nodes + self.NODE * src + 0xC, struct.pack("<I", self.objects))
+                self.objects += 0x18
+        return at
+
+    def node(self, inst: int, rec: int) -> int:
+        return self.sim.u32(inst + 0x200 + 4 * rec)
+
+    def attr(self, inst: int, rec: int, a: int) -> float:
+        return self.sim.f32(self.node(inst, rec) + self.ATTRS + 4 * a)
+
+    def put(self, inst: int, rec: int, a: int, v: float) -> None:
+        self.w(self.node(inst, rec) + self.ATTRS + 4 * a, struct.pack("<f", v))
+
+    def level(self, inst: int, rec: int) -> int:
+        """A platform's level byte (its world object's +0x27E: what a touch tests)."""
+        return self.sim.uc.mem_read(self.sim.u32(self.node(inst, rec) + 0x20) + 0x27E, 1)[0]
+
+    def factors(self, inst: int, src: int) -> dict:
+        """Each link of record ``src``: (its target record, attribute) -> its factor."""
+        out, lk, nodes = {}, self.sim.u32(self.node(inst, src) + 0xC), self.node(inst, 0)
+        while lk:
+            nxt, _, a, dst = struct.unpack("<IHHI", self.sim.uc.mem_read(lk, 12))
+            out[((dst - nodes) // self.NODE, a)] = self.sim.f32(lk + 0x14)
+            lk = nxt
+        return out
+
+    def dirty(self, inst: int, rec: int) -> int:
+        return self.sim.u32(self.node(inst, rec) + 0x10)
+
+    def dead(self, inst: int) -> int:
+        return self.sim.u32(inst + 0x2C) & 1
+
+    def _back(self, uc, pop: int) -> None:
+        esp = self.sim.reg("esp")
+        uc.reg_write(UC_X86_REG_EIP, self.sim.u32(esp))
+        uc.reg_write(UC_X86_REG_ESP, esp + 4 + pop)
+
+    def _quat(self, uc, addr, size, _):
+        self.calls.append(("quat", self.sim.reg("esi")))
+        self._back(uc, 12)
+
+    def _sample(self, uc, addr, size, _):
+        self.calls.append(("sample", *struct.unpack("<2I", uc.mem_read(self.sim.reg("esp") + 4, 8))))
+        self._back(uc, 8)
+
+    def _spawn(self, uc, addr, size, _):
+        handle, key, wd, cell, flags, bind, *zeros = struct.unpack("<9I", uc.mem_read(self.sim.reg("esp") + 4, 36))
+        inst = self.instance(self.heap, self.sim.cstr(key))
+        self.heap += 0x40000
+        self.w(handle, struct.pack("<I", inst + 0x20))
+        self.calls.append(("spawn", self.sim.cstr(key), wd, cell & 0xFFFF, flags, bind, inst, handle))
+        self._back(uc, 36)
+
+    def _detach(self, uc, addr, size, _):
+        self.calls.append(("detach", self.sim.reg("esi")))
+        self._back(uc, 0)
+
+    def _damage(self, uc, addr, size, _):
+        critter, hp, flag = struct.unpack("<IiI", uc.mem_read(self.sim.reg("esp") + 4, 12))
+        self.w(critter + 0x210, struct.pack("<i", hp))
+        self.calls.append(("damage", critter, hp, flag))
+        self._back(uc, 12)
+
+    def layers(self, live: int, fade: float = 0.25, **clips) -> None:
+        self.w(self.anim + 0x10, struct.pack("<if", live, fade))
+        for i, (clip, t) in clips.items():
+            layer = self.anim + 0x40 + 0x40 * int(i[1])
+            self.w(layer + 4, struct.pack("<I", clip))
+            self.w(layer + 0x18, struct.pack("<f", t))
+            self.w(layer + 0x20, struct.pack("<f", 1.0))
+
+    def _run(self, hook, now: float, regs: dict, args: tuple, first) -> list:
+        kept = {"ebx": 0x11, "ebp": 0x22}
+        self.w(self.clock + 0x10, struct.pack("<d", now))
+        del self.calls[:]
+        self.sim.call(hook.va + 5 + struct.unpack_from("<i", self.built, va_to_file(hook.va) + 1)[0],
+                      regs={**regs, **kept}, args=args, until=l2._RETURN)
+        sim = self.sim
+        assert sim.reg("esp") == l2._STACK_TOP - 0x100 and {r: sim.reg(r) for r in (*regs, *kept)} == {**regs, **kept}
+        assert sim.uc.reg_read(UC_X86_REG_FPSW) >> 11 & 7 == 0 and self.calls[0] == first
+        return self.calls[1:]
+
+    def tick(self, now: float, who: int | None = None) -> list:
+        return self._run(FX_RING_HOOKS[1], now, {"esi": who or self.critter}, (self.anim, 0x1AA800),
+                         ("sample", self.anim, 0x1AA800))
+
+    def enter(self, column: int, now: float) -> list:
+        self.w(self.pc + 0x134, struct.pack("<i", column))
+        return self._run(FX_RING_HOOKS[0], now, {"edi": self.pc, "esi": self.out}, (0, 0, 0), ("quat", self.out))
+
+    def hit(self, now: float, hp: int) -> list:
+        """The hit handler's CALL of apply_damage (ESI the PlayerControl) leaving the player at ``hp``."""
+        return self._run(FX_RING_HOOKS[2], now, {"esi": self.pc, "edi": 0x33}, (self.critter, hp, 0),
+                         ("damage", self.critter, hp, 0))
+
+    def rotation(self, at: int) -> None:
+        """Every landing's bytes param ``player_model_fx_rotation_at`` := ``at``."""
+        for hook in FX_RING_HOOKS:
+            self.w(trampoline_symbol_va(self.built, hook, FX_ROTATION_AT.symbol,
+                                        shim_source=FX_RING_SHIM.source_path()), struct.pack("<I", at))
+
+
+def test_the_fx_ring_spawns_arms_detaches_and_ends_an_attacks_copy(monkeypatch):
+    """D429, D430 (Step 2.149, X38; L2, :class:`_RingSim`). The air
+    elemental's own build (her graph a P key): the anim step's landing
+    calls the sampler with its two arguments for every critter and returns
+    at once for one that isn't the world's player; the player's first tick
+    writes the own instance's puff enable 0 (dirty 0x10, once: a second
+    run that tick writes nothing) and spawns the resting copy (the key, the
+    world, the cell's index, flags 0, the bind interface critter+0x170, a
+    handle in the ring), its puff off until the crossfade (anim+0x14) and
+    a tick are over, then back on. A gust's entry (sweep1) arms it (rate
+    117, dirty 0x20: AZ-651) and spawns nothing; the next tick sees no change. The
+    held re-throw at the arrival detaches it (its puff, a window, left on)
+    before it spawns and arms the next; the detached copy's puff fades its
+    rate over 10 ticks from its 0.95 end and closes (enable 0), and the copy
+    is dead (instance+0x2C bit 0) past its 5.33 s tail; a copy that isn't
+    loaded (state 1) gets no write and counts as guarded; a clip change the
+    tick sees (the live layer another) detaches the armed copy and spawns a
+    resting one, which the next gust arms; a melee swing's entry (basic1, no
+    row) detaches it and arms nothing; at HP 0 every bound copy is detached,
+    a resting one's pending delay with it (its puff stays off), and none
+    spawned until HP is back; a column X10 rotates takes its entry's row
+    (none here: nothing armed); (l) a hit mid-gust (AZ-650, Step 2.155:
+    the hit handler's CALL of apply_damage, X7's reaction already the
+    live layer) writes the HP, detaches the armed copy in the call and
+    spawns nothing, the next tick sees no change and spawns a resting
+    one; a lethal hit detaches it the same and no resting copy follows.
+    (m) D434 (Step 2.155), her build with the stand key held 1.5 s
+    ((a)-(l) run without it): at rest her own copy alone; a gust's entry also spawns
+    spideyzar's graph (the player's clone of it, Step 2.155b: bound, its platforms hidden, its damage 0;
+    AZ-690, Step 2.155g: its funnel mesh [84], which its trigger alone shows, at gameVisible 0 until the
+    crossfade and a tick are over, then 1/1024, so the game loads its mesh's and textures' runs while
+    it is bound and its first presents at the let-go are textured, not black); a
+    re-throw 1.55 s on detaches both and spawns both again; the detached
+    stand copy's trigger [34].translateZ follows his own curve (0.75 at
+    0.4 s, 1.0 at 1.0 s), holds 1.0 (no write), falls over 1.2 s, 0.5 at
+    2.1 s and 0 by 2.7 s (dirty 0x8 on each change), and the copy is dead
+    past 1.5 + 1.2 + its 1.73 s tail; (n) one detached at clip 0.2 s (before its
+    carrier left at 0.367 s) is dead at once, its trigger never written;
+    (o) every gust spawns its copy (AZ-671); in a held chain (AZ-664) one
+    let go by the next gust's entry under 1.5 s after the last standing
+    one was let go is dead at once, one let go 1.6 s after stands (a dead
+    one counts for none), and a chain's last gust, let go by the idle,
+    stands; AZ-689: one while five of his stand, the oldest's trigger back
+    at 0 (faded), ends that one and takes its handle; AZ-661: one while
+    five stand with every funnel still up spawns none, and once the oldest
+    has ended the next gust takes its handle; a gust let go by a melee
+    swing's entry (column 0, no row) 0.8 s after the last standing one was
+    let go stands: only a gust chains it. (q) AZ-689 on the ring's own
+    2.0 s hold: TAPN's taps, one every 1.2 s, each gust let go by the idle
+    1.1 s in, stand every gust's funnel, the sixth's entry ending the
+    first (faded since 3.2 s, its trigger 0) a tick before its own end.
+    Spideyzar's own build (E, X10 off):
+    attack_3's entry (column 2) spawns its copy, its linked iceball [25]
+    and dome [84] hidden by lodVisibility (dirty 1, gameVisible left to the
+    switch), its drain damage [149] 0, another clip's window (the
+    whirlwind's [37]) closed by its enable at the arm and its own [8] left
+    as authored (AZ-652, Step 2.155), and the own instance's attack_3
+    emitters ([8], [10], the steam's system [172]) off while it is bound;
+    a hit's clip change at 0.5 s detaches it, the own ones stay off for the
+    crossfade and a tick (the slide home) and come back; the copy's rig
+    windows fade from 0.33 s past the detach, [8] closes by its enable and
+    the steam [57] by its rate alone (its system's enable stays 1: its
+    particles age out), and the copy is dead past its 1.33 s tail.
+    (p) AZ-653 (Step 2.153c), Balthazar's own build (X37's state in the
+    landings): basic2's drain spawns its copy, its pool [2] on (no spawn
+    close), the own pool off while it shows it; basic3 at the drain's
+    1.5 clip s detaches it, its box [46]'s damage the link left goes 0
+    (dirty), {the copy, X37's target} goes into X37's held list, and the
+    beam's copy has the drain's pool [2] off (others_off) and (AZ-683,
+    Step 2.175d) none of the box's damage: the switch's link into it at
+    factor 0 (its link into the stream, the drain's copy's and the own
+    instance's as they were), and each copy's box object at level 0 from
+    its load (the own one at its authored 2); a held entry no
+    slot plays out is pruned at the tick; the drain's window ends at 2.05
+    clip s (0.55 s on): its switch [42].translateZ := 0 (dirty 0x8; the
+    rate and the pool's enable untouched: its particles age out) and the
+    copy leaves the list; dead past its 2.33 s tail; (AZ-684, Step
+    2.153d) a second drain's held copy whose entry X37 left with no
+    target (dead or deleted) has its switch 0 at the next tick, 0.45 s
+    before its window's end, and leaves the list, dead past the same
+    tail; a third, detached while X37 holds no target, is listed without
+    one and closed at the next tick the same; (D567, Step 2.153e) inside
+    a fourth, bound: X37's target left from an earlier window counts for
+    nothing until X37 evaluates the drain (its seen stamp moves), a drain
+    that never held one plays on (no detach, the switch untouched), and
+    once it held one and holds none (dead, none in reach) the next tick
+    detaches the copy, its box's damage 0, its switch 0 at once (dirty
+    0x8) and its held entry left; the own pool stays off while the clip
+    plays on, past the detach's crossfade, and for the idle's crossfade
+    and a tick, then back on. ESP,
+    EBX, ESI, EDI and EBP as the CALLs left them, the x87 stack empty; L1
+    clean (no SSE2, the callees' RET N kept)."""
+    taps = bytes(_swap("air_elemental")["default.xbe"])                    # (q): the ring's own stand, held 2.0 s
+    ring = variants.OVERLAYS["air_elemental"]["fx_ring"]                  # (m)-(o) on a stand held 1.5 s (2.0 since
+    monkeypatch.setitem(variants.OVERLAYS, "air_elemental", {**variants.OVERLAYS["air_elemental"], "fx_ring": {
+        **ring, "stand": {**ring["stand"], "hold": 1.5}}})                 # Step 2.155e: the timing's the ring's)
+    stood = bytes(_swap("air_elemental", fresh=True)["default.xbe"])                   # D434's stand key, for (m) and (n)
+    ring = variants.OVERLAYS["air_elemental"]["fx_ring"]
+    monkeypatch.setitem(variants.OVERLAYS, "air_elemental", {**variants.OVERLAYS["air_elemental"], "fx_ring": {
+        k: v for k, v in ring.items() if k != "stand"}})                  # (a)-(l): her own key alone
+    built = bytes(_swap("air_elemental", fresh=True)["default.xbe"])
+    assert l1.check(_xbe(), built) == [] and l1.check(_xbe(), stood) == []
+    r = _RingSim(built, ("characters/air_elemental/fx/fx_default", 10, {7: {4: 1.0, 5: 15.0}}))
+    tick, enter, attr, dirty, own = r.tick, r.enter, r.attr, r.dirty, r.own
+    r.layers(0, c0=(r.IDLE, 0.5))
+    assert tick(10.0, r.other) == [] and r.sim.u32(r.ring + 4) == 0       # (d) another critter: the sampler alone
+    (made,) = tick(10.0)                                                  # (e) the player's first tick
+    _, name, wd, cell, flags, bind, rest, handle = made
+    assert (name, wd, cell, flags, bind) == (r.key, r.world, 4, 0, r.critter + 0x170)
+    assert r.ring <= handle < r.ring + 0x800 and r.sim.u32(handle) == rest + 0x20
+    assert (attr(own, 7, 4), dirty(own, 7), attr(rest, 7, 4)) == (0.0, 0x10, 0.0)
+    r.w(r.node(own, 7) + 0x10, struct.pack("<I", 0))
+    assert tick(10.0) == [] and dirty(own, 7) == 0                        # once, by value
+    tick(10.27)
+    assert attr(rest, 7, 4) == 0.0
+    tick(10.3)                                                            # (f) after 0.25 s and a tick
+    assert attr(rest, 7, 4) == 1.0
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))                                  # (a) sweep1's gust arms it
+    assert enter(6, 11.0) == [] and (attr(rest, 7, 5), dirty(rest, 7) & 0x20) == (117.0, 0x20)
+    assert tick(11.05) == []                                              # the attack's own change: none
+    r.layers(2, 0.1, c1=(r.ATTACK, 0.95), c2=(r.ATTACK, 0.0))             # (b) the held re-throw
+    got = enter(7, 11.95)
+    assert [c[:2] for c in got] == [("detach", rest), ("spawn", r.key)]
+    rest2 = got[1][6]
+    assert (attr(rest, 7, 4), attr(rest2, 7, 4), attr(rest2, 7, 5)) == (1.0, 0.0, 117.0)
+    tick(12.0)                                                            # (h) the window fades, then closes
+    assert attr(rest, 7, 5) == pytest.approx(117.0 * (1 - 0.05 * 3), rel=1e-5)
+    tick(12.3)
+    assert (attr(rest, 7, 5), attr(rest, 7, 4), attr(rest2, 7, 4)) == (0.0, 0.0, 1.0)
+    tick(17.6)                                                            # (i) past its 5.33 s tail
+    assert r.dead(rest) == 0
+    tick(17.7)
+    assert r.dead(rest) == 1
+    r.w(rest2 + 0xA0, struct.pack("<I", 1))                               # (j) not loaded: no write
+    before, was = r.sim.u32(r.ring + 8), dirty(rest2, 7)
+    tick(17.8)
+    assert r.sim.u32(r.ring + 8) == before + 1 and dirty(rest2, 7) == was
+    r.w(rest2 + 0xA0, struct.pack("<I", 2))
+    r.layers(0, 0.25, c0=(r.IDLE, 0.0))                                   # (g) the idle after the throw
+    got = tick(18.0)
+    assert [c[:2] for c in got] == [("detach", rest2), ("spawn", r.key)]
+    rest3 = got[1][6]
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    assert enter(6, 18.5) == [] and attr(rest3, 7, 5) == 117.0
+    r.layers(2, 0.1, c2=(r.SWING, 0.0))                                   # (c) a melee swing: no row
+    assert enter(0, 19.0) == [("detach", rest3)]
+    rest4 = tick(19.1)[0][6]                                              # its change noted: a resting copy
+    r.w(r.critter + 0x210, struct.pack("<i", 0))                          # (k) HP 0, the copy's delay pending
+    assert tick(19.2) == [("detach", rest4)] and tick(19.6) == [] and enter(6, 19.6) == []
+    assert attr(rest4, 7, 4) == 0.0
+    r.w(r.critter + 0x210, struct.pack("<i", 100))
+    rest5 = tick(19.7)[0][6]
+    r.rotation(r.ring10)                                                  # X10's ring rotating sweep1
+    r.w(r.ring10, struct.pack("<3I", 3, 1, 1 << 6))                       # its entry's row (24) has no copy
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    assert enter(6, 20.0) == [] and attr(rest5, 7, 5) == 15.0
+    r.w(r.ring10, struct.pack("<3I", 0, 0, 0))                            # (l) a hit mid-gust (AZ-650)
+    assert enter(6, 20.5) == [] and attr(rest5, 7, 5) == 117.0
+    r.layers(2, 0.25, c1=(r.ATTACK, 0.3), c2=(r.OUCH, 0.0))               # X7's reaction, before any re-sample
+    assert r.hit(20.8, 90) == [("detach", rest5)] and r.sim.u32(r.critter + 0x210) == 90
+    (made,) = tick(20.85)                                                 # the change noted: a resting copy
+    rest6 = made[6]
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    assert enter(6, 21.0) == [] and attr(rest6, 7, 5) == 117.0
+    r.layers(0, 0.25, c0=(r.OUCH, 0.0), c1=(r.ATTACK, 0.2))
+    assert r.hit(21.2, 0) == [("detach", rest6)]                          # lethal: out where it was
+    assert tick(21.25) == [] and tick(21.3) == []                         # no resting copy at HP 0
+
+    spider = "characters/air_elemental/v/fx/fx_stand"                      # (m) D434: his tornado (D501's clone) stands
+    r = _RingSim(stood, (r.key, 10, {7: {4: 1.0, 5: 15.0}}), {spider: (234, {25: {0: 1.0, 10: 1.0}, 149: {17: 2.0}})})
+    tick, enter, attr, dirty = r.tick, r.enter, r.attr, r.dirty
+    r.layers(0, c0=(r.IDLE, 0.5))
+    rest = tick(10.0)[0][6]                                               # at rest her own copy alone
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    ((_, name, *_, funnel, _),) = enter(6, 11.0)                          # the gust: his graph, bound and dark
+    assert name == spider and (attr(funnel, 25, 0), attr(funnel, 149, 17), attr(funnel, 84, 10)) == (0.0, 0.0, 0.0)
+    tick(11.1)                                                            # AZ-690: its funnel mesh [84] dark for the
+    assert attr(funnel, 84, 10) == 0.0                                    # crossfade (0.1 s) and a tick, then drawn
+    tick(11.14)                                                           # at 1/1024, too faint to show, so its runs
+    assert (attr(funnel, 84, 10), dirty(funnel, 84) & 0x400) == (1 / 1024, 0x400)   # load before the let-go
+    r.layers(2, 0.1, c1=(r.ATTACK, 0.95), c2=(r.ATTACK, 0.0))             # a re-throw 1.55 s on (AZ-664)
+    got = enter(7, 12.55)
+    assert [c[:2] for c in got] == [("detach", rest), ("detach", funnel), ("spawn", r.key), ("spawn", spider)]
+    rest2, funnel2 = got[2][6], got[3][6]
+    for now, z, wrote in ((12.95, 0.75, 0x8), (13.55, 1.0, 0x8), (13.9, 1.0, 0), (14.65, 0.5, 0x8),
+                          (15.35, 0.0, 0x8), (15.5, 0.0, 0)):              # his rise, the hold, the fall
+        r.w(r.node(funnel, 34) + 0x10, struct.pack("<I", 0))
+        tick(now)
+        assert (attr(funnel, 34, 3), dirty(funnel, 34)) == (pytest.approx(z, abs=1e-3), wrote), now
+    tick(16.9)
+    assert r.dead(funnel) == 0
+    tick(17.0)                                                            # past 1.5 + 1.2 + its 1.73 s tail
+    assert r.dead(funnel) == 1
+    r.layers(0, 0.25, c0=(r.IDLE, 0.0), c2=(r.ATTACK, 0.2))               # (n) cut before its carrier left
+    assert [c[:2] for c in tick(17.9)][:2] == [("detach", rest2), ("detach", funnel2)]
+    assert (r.dead(funnel2), attr(funnel2, 34, 3), dirty(funnel2, 34)) == (1, 0.0, 0)
+    stands, gust = [], [0]                                                # (o) AZ-671, AZ-664, AZ-661
+
+    def throw(now):
+        live, done = (1, 2) if gust[0] % 2 == 0 else (2, 1)
+        r.layers(live, 0.1, **{f"c{live}": (r.ATTACK, 0.0), f"c{done}": (r.ATTACK, 0.95)})
+        got = [c[6] for c in enter(6 + gust[0] % 2, now) if c[:2] == ("spawn", spider)]
+        gust[0] += 1
+        stands.extend(got)
+        return len(got)
+
+    def idle(now):                                                        # the last gust's clip left for the idle
+        r.layers(0, 0.25, c0=(r.IDLE, 0.0), **{f"c{2 - gust[0] % 2}": (r.ATTACK, 0.95)})
+        tick(now)
+    assert [throw(now) for now in (18.0, 18.8, 19.6, 20.4)] == [1] * 4    # every gust spawns its copy
+    assert [r.dead(f) for f in stands] == [0, 1, 0, 0]                    # let go 0.8 s after the first: dead;
+    idle(21.35)                                                           # 1.6 s: stands; the last, 0.95 s: stands
+    throw(21.5), idle(22.0), throw(22.1), idle(22.6)                      # two taps: each stands
+    assert [r.dead(f) for f in stands] == [0, 1, 0, 0, 0, 0] and throw(22.7) == 1   # five stand, the oldest
+    assert r.dead(stands[0]) == 1 and attr(stands[0], 34, 3) == 0.0       # faded: it ends, its handle the gust's
+    idle(22.75)
+    assert throw(22.8) == 0                                               # five, every funnel up: none (AZ-661)
+    tick(24.9)                                                            # the third has ended: its handle
+    assert throw(25.0) == 1 and r.dead(stands[-2]) == 0
+    r.layers(2, 0.1, c1=(r.ATTACK, 0.8), c2=(r.SWING, 0.0))               # a swing 0.8 s on lets the gust go
+    assert [c[:2] for c in enter(0, 25.8)][-1] == ("detach", stands[-1])
+    assert [r.dead(f) for f in stands[-2:]] == [0, 0]                     # not chained: it stands
+    r = _RingSim(taps, (r.key, 10, {7: {4: 1.0, 5: 15.0}}), {spider: (234, {25: {0: 1.0, 10: 1.0}, 149: {17: 2.0}})})
+    tick, enter, attr = r.tick, r.enter, r.attr                           # (q) AZ-689 on the ring's own 2.0 s hold
+    r.layers(0, c0=(r.IDLE, 0.5))
+    tick(30.0)
+    stands[:] = []
+    for i in range(6):                                                    # TAPN: a tap every 1.2 s, each gust let
+        assert throw(31.0 + 1.2 * i) == 1                                 # go by the idle 1.1 s in; the sixth's
+        idle(32.1 + 1.2 * i)                                              # entry ends the first, faded since 3.2 s
+    assert [r.dead(f) for f in stands] == [1, 0, 0, 0, 0, 0] and attr(stands[0], 34, 3) == 0.0
+
+    built = bytes(_swap("spideyzar")["default.xbe"])                      # E: spideyzar's attack_3
+    r = _RingSim(built, ("characters/balthazar_spider/fx/fx_default", 234, {
+        8: {4: 1.0, 5: 20.0}, 10: {4: 1.0, 5: 20.0}, 57: {4: 1.0, 5: 30.0}, 172: {4: 1.0},
+        25: {0: 1.0, 10: 1.0}, 84: {0: 1.0, 10: 1.0}, 149: {17: 2.0}, 37: {4: 1.0}}))
+    tick, enter, attr, dirty, own = r.tick, r.enter, r.attr, r.dirty, r.own
+    r.rotation(0)
+    r.layers(0, c0=(r.IDLE, 0.5))
+    assert tick(10.0) == [] and dirty(own, 172) == 0                      # no copy at rest, the own as authored
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    ((_, name, *_, copy, _),) = enter(2, 11.0)
+    assert name == r.key
+    assert [(attr(copy, p, 0), dirty(copy, p), attr(copy, p, 10)) for p in (25, 84)] == [(0.0, 1, 1.0)] * 2
+    assert attr(copy, 149, 17) == 0.0
+    assert (attr(copy, 37, 4), dirty(copy, 37), attr(copy, 8, 4)) == (0.0, 0x10, 1.0)   # AZ-652: whirlwind's shut
+    tick(11.05)
+    assert [attr(own, rec, 4) for rec in (8, 10, 172)] == [0.0] * 3
+    r.layers(0, 0.25, c0=(r.IDLE, 0.0), c1=(r.ATTACK, 0.5))               # a hit cuts it at 0.5 s
+    assert tick(11.5) == [("detach", copy)]
+    tick(11.75)
+    assert attr(own, 172, 4) == 0.0                                       # its markers still sliding home
+    tick(11.8)
+    assert [attr(own, rec, 4) for rec in (8, 10, 172)] == [1.0] * 3
+    tick(11.9)                                                            # the rig windows: from 0.33 s past
+    assert attr(copy, 57, 5) == pytest.approx(30.0 * (1 - 0.07 * 3), rel=1e-4)
+    tick(12.2)
+    assert (attr(copy, 57, 5), attr(copy, 172, 4), attr(copy, 8, 5), attr(copy, 8, 4)) == (0.0, 1.0, 0.0, 0.0)
+    tick(13.45)
+    assert r.dead(copy) == 0
+    tick(13.55)
+    assert r.dead(copy) == 1
+
+    built = bytes(_swap("balthazar", sounds="garret4")["default.xbe"])     # (p) AZ-653: his drain row (X37)
+    held = trampoline_symbol_va(built, DRAIN_HOOKS[0], DRAIN_STATE, shim_source=DRAIN_SHIM.source_path()) + 64
+    r = _RingSim(built, ("characters/balthazar_airship/v/fx/fx_default", 64, {
+        42: {3: 1.0}, 44: {4: 100.0, 5: 30.0}, 2: {4: 1.0}, 46: {17: 2.0}, 17: {4: 1.0}, 24: {5: 80.0}}),
+        links={42: [(44, 4), (46, 17)]})                                  # the switch's: the stream and the box
+    tick, enter, attr, dirty, own = r.tick, r.enter, r.attr, r.dirty, r.own
+    linked = {(44, 4): 1.0, (46, 17): 1.0}
+    r.layers(0, c0=(r.IDLE, 0.5))
+    assert tick(10.0) == []
+    target = (r.other, 0x19FC08, 0x12345)                                 # X37's target, with its identity (AZ-682)
+    r.w(held - 60, struct.pack("<3I", *target))                           # the drained critter
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))                                  # basic2: the drain
+    ((_, name, *_, drain, _),) = enter(1, 11.0)
+    assert (name, attr(drain, 2, 4), attr(drain, 46, 17)) == (r.key, 1.0, 0.0)   # its pool on; damage the link's
+    assert (r.level(drain, 46), r.factors(drain, 42)) == (0, linked)      # AZ-683: the box's authored level off
+    tick(11.05)
+    assert attr(own, 2, 4) == 0.0                                          # the own drain's pool off: the copy shows it
+    r.put(drain, 46, 17, 2.0)                                       # the switch's link, bound
+    r.layers(2, 0.1, c1=(r.ATTACK, 1.5), c2=(r.SWING, 0.0))               # basic3 at drain clip 1.5 s: the beam
+    got = enter(2, 11.6)
+    assert [c[:2] for c in got] == [("detach", drain), ("spawn", r.key)]
+    beam = got[1][6]
+    assert (attr(drain, 46, 17), dirty(drain, 46) & 1 << 17, attr(drain, 42, 3)) == (0.0, 1 << 17, 1.0)   # DETACH
+    assert struct.unpack("<8I", r.sim.uc.mem_read(held, 32)) == (drain, *target, 0, 0, 0, 0)   # on X37's target
+    assert (attr(beam, 2, 4), dirty(beam, 2) & 0x10, attr(beam, 44, 4)) == (0.0, 0x10, 100.0)   # its drain's shut
+    assert (r.level(beam, 46), r.factors(beam, 42)) == (0, {(44, 4): 1.0, (46, 17): 0.0})   # AZ-683: no damage
+    assert r.factors(drain, 42) == r.factors(own, 42) == linked and r.level(own, 46) == 2   # from the switch
+    r.w(held + 16, struct.pack("<4I", 0x12345, *target))                  # a copy no slot plays out
+    tick(12.1)                                                            # its window to 2.05 clip s: 12.15
+    assert (attr(drain, 42, 3), attr(drain, 44, 5), r.sim.u32(held), r.sim.u32(held + 16)) == (1.0, 30.0, drain, 0)
+    r.w(r.node(drain, 42) + 0x10, struct.pack("<I", 0))
+    tick(12.2)                                                            # the switch 0 (its links: [44], [46])
+    assert (attr(drain, 42, 3), dirty(drain, 42), attr(drain, 2, 4), attr(drain, 44, 5)) == (0.0, 0x8, 1.0, 30.0)
+    assert struct.unpack("<2I", r.sim.uc.mem_read(held, 8)) == (0, 0)     # off the target
+    tick(14.45)
+    assert r.dead(drain) == 0
+    tick(14.5)                                                            # past its 2.33 s tail
+    assert r.dead(drain) == 1
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))                                  # AZ-684: a second drain
+    (drain2,) = [c[6] for c in enter(1, 15.0) if c[:2] == ("spawn", r.key)]
+    r.layers(2, 0.1, c1=(r.ATTACK, 1.5), c2=(r.SWING, 0.0))
+    assert [c[:2] for c in enter(2, 15.6)][0] == ("detach", drain2)        # held on X37's target to 16.15
+    assert struct.unpack("<4I", r.sim.uc.mem_read(held, 16)) == (drain2, *target)
+    r.w(held + 4, struct.pack("<I", 0))                                   # X37 dropped it: dead or deleted
+    r.w(r.node(drain2, 42) + 0x10, struct.pack("<I", 0))
+    tick(15.7)                                                            # the switch 0 at once, the entry left
+    assert (attr(drain2, 42, 3), dirty(drain2, 42), r.sim.u32(held)) == (0.0, 0x8, 0)
+    tick(18.45)
+    assert r.dead(drain2) == 0                                            # it lives to the window's end and its tail
+    tick(18.5)
+    assert r.dead(drain2) == 1
+    r.w(held - 60, struct.pack("<3I", 0, 0, 0))                           # a drain X37 holds no target for
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))
+    (drain3,) = [c[6] for c in enter(1, 19.0) if c[:2] == ("spawn", r.key)]
+    r.layers(2, 0.1, c1=(r.ATTACK, 1.5), c2=(r.SWING, 0.0))
+    assert [c[:2] for c in enter(2, 19.6)][0] == ("detach", drain3)
+    tick(19.7)                                                            # listed with none: closed at once
+    assert (attr(drain3, 42, 3), r.sim.u32(held)) == (0.0, 0)
+    seen = held - 40                                                      # D567: X37's last evaluation's clock
+    r.w(held - 60, struct.pack("<3I", *target))                           # a target left from an earlier window
+    r.w(seen, struct.pack("<d", 20.0))
+    r.layers(1, 0.1, c1=(r.ATTACK, 0.0))                                  # a fourth drain, bound
+    (drain4,) = [c[6] for c in enter(1, 21.0) if c[:2] == ("spawn", r.key)]
+    tick(21.05)                                                           # X37 hasn't evaluated it yet
+    r.w(held - 60, struct.pack("<I", 0))
+    r.w(seen, struct.pack("<d", 21.06))                                   # its window: none in reach
+    assert (tick(21.1), attr(drain4, 42, 3)) == ([], 1.0)                 # never held one: it plays on
+    r.w(held - 60, struct.pack("<I", target[0]))
+    r.w(seen, struct.pack("<d", 21.13))                                   # an enemy picked
+    assert tick(21.15) == []
+    r.w(held - 60, struct.pack("<I", 0))                                  # dead, none in reach: dropped
+    r.put(drain4, 46, 17, 2.0)                                     # the switch's link, bound
+    r.w(r.node(drain4, 42) + 0x10, struct.pack("<I", 0))
+    assert tick(21.2) == [("detach", drain4)]                             # let go at once, held with none
+    assert (attr(drain4, 46, 17), attr(drain4, 42, 3), dirty(drain4, 42), r.sim.u32(held)) == (0.0, 0.0, 0x8, 0)
+    tick(21.7)                                                            # the clip plays on: the own pool off
+    assert attr(own, 2, 4) == 0.0
+    r.layers(0, 0.2, c0=(r.IDLE, 0.0))                                    # the idle: its crossfade and a tick
+    tick(22.0)
+    tick(22.2)
+    assert attr(own, 2, 4) == 0.0
+    tick(22.25)
+    assert attr(own, 2, 4) == 1.0
