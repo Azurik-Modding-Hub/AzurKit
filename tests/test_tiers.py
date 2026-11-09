@@ -486,3 +486,189 @@ def test_ci_runs_the_pure_tier_once_on_each_runner_and_a_push_asks_for_at_most_5
                               "image parts usa.iso")), (folded, at)
     table = json.loads(ci_shards.TABLE.read_text(encoding="utf-8"))
     assert {label for label, measured in table.items() if measured.get("head", 0) > 0} == ci_matrix.FOLDED
+
+
+# Step 4.28b: Modkit's suite guards (its test census, lanes B and C6), ported lean.
+
+
+def test_a_europe_mark_without_vanilla_stops_the_run_and_the_europe_fixture_marks_both(pytester, monkeypatch):
+    """Modkit's Step RG.3 (D26 a release): a Europe test is a vanilla one
+    too, so ``-m "not vanilla"`` leaves it out: a run that collects a test
+    marked ``europe`` alone stops before any test, naming it, and one taking
+    ``europe_iso`` is left out by ``-m "not vanilla"`` and by ``-m "not
+    europe"`` alike."""
+    pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
+    pytester.makepyfile(test_e="""
+        import pytest
+
+        @pytest.mark.europe
+        def test_alone():
+            pass
+    """)
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    stopped = pytester.runpytest_subprocess("-p", "no:cacheprovider")
+    assert stopped.ret == 4
+    assert ("test_e.py::test_alone: a europe test is vanilla too (use the europe_iso fixture)"
+            in stopped.stdout.str() + stopped.stderr.str())
+    pytester.makepyfile(test_e="def test_reads_europe(europe_iso):\n    pass\n")
+    for opt_out in ("not vanilla", "not europe"):
+        pytester.runpytest_subprocess("-p", "no:cacheprovider", "-m", opt_out).assert_outcomes(deselected=1)
+
+
+def test_the_tests_that_start_a_ghidra_server_share_one_xdist_worker():
+    """Modkit's AZ-312: a full run under ``-n 8`` hit an XNU TCP deadlock (a
+    worker's mock-server thread in ``close()``) that cut the Mac's network
+    until a reboot. A test that starts a Ghidra server (a
+    ``MockGhidraServer`` or ``ghidra_serve.start``), itself or through its
+    module's helpers and fixtures, carries ``xdist_group("ghidra_sockets")``
+    (by its module's ``pytestmark`` or a mark of its own, a module constant
+    such as ``SOCKETS`` too) and no other group: xdist joins every group a
+    test carries into one name, a group of its own. So ``--dist loadgroup``
+    runs them on one worker, one after another. (The site's servers are
+    processes of their own, ``tests/_page.py``, and aren't grouped.)"""
+    import ast
+
+    starts = {"MockGhidraServer", "ghidra_serve.start"}
+
+    def names(node: ast.AST) -> set:
+        found = set()
+        for n in ast.walk(node):
+            found.add(getattr(n, "id", None) or getattr(n, "attr", None) or getattr(n, "arg", None))
+            if getattr(n, "attr", "") == "start" and getattr(getattr(n, "value", None), "id", "") == "ghidra_serve":
+                found.add("ghidra_serve.start")
+        return found
+
+    def groups(marks: list) -> set:
+        return {a.value for mark in marks for n in ast.walk(mark) if getattr(getattr(n, "func", None), "attr", "")
+                == "xdist_group" for a in [*n.args[:1], *(k.value for k in n.keywords if k.arg == "name")]
+                if isinstance(a, ast.Constant)}
+
+    tests, ungrouped = [], []
+    for path in sorted((ROOT / "tests").glob("test_*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        consts = {t.id: s.value for s in tree.body if isinstance(s, ast.Assign) for t in s.targets
+                  if isinstance(t, ast.Name)}
+        defs = {d.name: d for d in tree.body if isinstance(d, (ast.FunctionDef, ast.ClassDef))}
+        starting: set[str] = set()
+        while more := {name for name, d in defs.items() if name not in starting and names(d) & (starts | starting)}:
+            starting |= more   # and each helper or fixture that starts one, and so on
+        for name in sorted(n for n in starting if n.startswith(("test_", "Test"))):
+            tests.append(f"{path.name}::{name}")
+            carried = [*([consts["pytestmark"]] if "pytestmark" in consts else []),
+                       *(consts.get(getattr(mark, "id", None), mark) for mark in defs[name].decorator_list)]
+            if groups(carried) != {"ghidra_sockets"}:
+                ungrouped.append(tests[-1])
+    assert tests and ungrouped == []
+
+
+def test_no_test_finds_an_image_itself_but_through_the_fixtures():
+    """Modkit's AZ-057 and AZ-086: a test that found an image itself (the
+    sibling ``(USA).xiso`` tree) bypassed the fixtures and skipped quietly
+    in another checkout. Only conftest's ``usa_iso`` and ``europe_iso``
+    (the D26 gate) and the resolver's own tests (``test_gate.py``) find
+    one: no other test module calls ``gate.find``, reads ``AZURKIT_ISO`` or
+    ``AZURKIT_ISO_EUROPE`` from the environment or names Modkit's tree."""
+    import ast
+
+    variables, tree_name = {"AZURKIT_ISO", "AZURKIT_ISO_EUROPE"}, "Rise of Perathia " + "(USA).xiso"
+    found = []
+    for path in sorted((ROOT / "tests").glob("*.py")):
+        if path.name in ("conftest.py", "test_gate.py"):
+            continue
+        for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"), str(path))):
+            text = ast.unparse(n) if isinstance(n, (ast.Call, ast.Subscript)) else ""
+            if (text.startswith("gate.find(")
+                    or text.startswith(("os.environ.get(", "os.getenv(")) and n.args
+                    and getattr(n.args[0], "value", None) in variables
+                    or text.startswith("os.environ[") and isinstance(n.ctx, ast.Load)
+                    and getattr(n.slice, "value", None) in variables
+                    or isinstance(n, ast.Constant) and isinstance(n.value, str) and tree_name in n.value):
+                found.append(f"{path.name}:{n.lineno}")
+    assert found == []
+
+
+def _read_only(root: Path, writable: bool) -> None:
+    for p in (root, *root.rglob("*")):
+        p.chmod(p.stat().st_mode | 0o200 if writable else p.stat().st_mode & ~0o222)
+
+
+def test_the_shim_tests_write_only_their_own_temp_folders(tmp_path):
+    """Modkit's AZ-082: the shim tests wrote into the checkout (a scaffold's
+    pack, built objects) and the user's cache (zig's). Run in a read-only
+    copy of the checkout's tracked files, with every per-user folder at one
+    empty folder, the shim tests (``test_shims.py``, ``test_re_shims.py``:
+    a shim compiled against the facts, the planner, the inspector,
+    test-for-va) pass and that folder stays empty. Their vanilla tests are
+    left out, so it needs no image and runs on every CI system."""
+    import os
+    import subprocess
+    import sys
+
+    copy, home = tmp_path / "copy", tmp_path / "home"
+    listed = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True, timeout=60).stdout
+    copied = [rel for rel in listed.decode().split("\0") if rel and (ROOT / rel).is_file()]
+    for rel in copied:
+        (copy / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / rel, copy / rel)
+    for git in (["init", "-q"], ["add", "-f", "--pathspec-from-file=-", "--pathspec-file-nul"]):   # its index
+        subprocess.run(["git", "-C", str(copy), *git], input="\0".join(copied).encode(), capture_output=True,
+                       check=True, timeout=120)
+    home.mkdir()
+    users = ("HOME", "USERPROFILE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME",
+             "LOCALAPPDATA", "APPDATA", "WIN_PD_OVERRIDE_LOCAL_APPDATA", "WIN_PD_OVERRIDE_APPDATA")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PYTEST_")} | dict.fromkeys(users, str(home)) | {
+        "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": str(copy / "src")}   # the copy's package, not the checkout's
+    _read_only(copy, False)
+    try:
+        done = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-m", "not vanilla",
+                               "tests/test_shims.py", "tests/test_re_shims.py"], cwd=copy, env=env,
+                              capture_output=True, text=True, timeout=280)
+    finally:
+        _read_only(copy, True)
+    written = sorted(p.relative_to(home).as_posix() for p in home.rglob("*"))
+    assert (done.returncode, written) == (0, []), done.stdout[-4000:] + done.stderr[-2000:]
+    assert " passed" in done.stdout and "vanilla: 0 run" in done.stdout
+
+
+def test_git_in_a_test_writes_its_own_repo_never_the_one_an_exported_git_dir_names(pytester, monkeypatch, tmp_path):
+    """Modkit's AZ-542: ``git rebase -x`` exports GIT_DIR to its command, so
+    under a per-commit restack a test's ``git init``, commits and
+    ``update-ref`` in its tmp_path wrote the lane's repository. With each
+    variable that points git at a repository (``git rev-parse
+    --local-env-vars`` and GIT_NAMESPACE) naming a scratch bare one, a test
+    that makes and commits to its own repository passes, sees none of them,
+    and the bare one is untouched (``tests/conftest.py`` drops them)."""
+    import subprocess
+
+    bare = tmp_path / "bare.git"
+    subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True, timeout=60)
+
+    def files() -> dict[str, bytes]:
+        return {p.relative_to(bare).as_posix(): p.read_bytes() for p in bare.rglob("*") if p.is_file()}
+
+    before = files()
+    variables = [*subprocess.run(["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True,
+                                 check=True, timeout=60).stdout.split(), "GIT_NAMESPACE"]
+    pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
+    pytester.makepyfile(test_git=f"""
+        import os
+        import subprocess
+
+        def test_makes_and_commits_to_its_own_repo(tmp_path):
+            def git(*args):
+                subprocess.run(["git", "-C", str(tmp_path), *args], check=True, timeout=60)
+            git("init", "-q")
+            git("config", "user.name", "t")
+            git("config", "user.email", "t@example.invalid")
+            (tmp_path / "f").write_text("f", encoding="utf-8")
+            git("add", "f")
+            git("commit", "-qm", "f")
+            git("update-ref", "refs/remotes/origin/main", "HEAD")
+            assert (tmp_path / ".git" / "refs" / "remotes" / "origin" / "main").is_file()
+            assert not set({variables!r}) & os.environ.keys()
+    """)
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    for name in variables:
+        monkeypatch.setenv(name, str(bare))
+    pytester.runpytest_subprocess("-p", "no:cacheprovider").assert_outcomes(passed=1)
+    assert files() == before

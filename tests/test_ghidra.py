@@ -1067,6 +1067,7 @@ def test_status_and_stop_never_take_a_process_that_reused_an_ended_serves_pid(tm
             other.kill()
 
 
+@SOCKETS
 @pytest.mark.parametrize("at", ["launch", "wait"])
 def test_an_interrupted_start_leaves_nothing_running(tmp_path, monkeypatch, at):
     """D35: a start interrupted (Ctrl-C, or a test's timeout) as soon as the

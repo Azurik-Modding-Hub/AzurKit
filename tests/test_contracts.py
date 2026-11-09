@@ -605,6 +605,148 @@ def test_every_locked_package_but_the_project_has_a_wheel_and_proxy_tools_is_the
 
 # Step 4.28b: Modkit's suite guards (its test census, lane C6) and the encoding rule, ported lean.
 
+
+def _called(node: ast.AST) -> str:
+    """``f`` for a call ``f(...)`` or ``x.f(...)``; "" for anything else."""
+    func = getattr(node, "func", None)
+    return getattr(func, "attr", getattr(func, "id", "")) if isinstance(node, ast.Call) else ""
+
+
+def _source_text(node: ast.AST, names: set[str]) -> bool:
+    """Whether ``node`` holds ``inspect.getsource``'s text (or a name in
+    ``names``, bound to it): its call, or a method of its text, not another
+    call's answer that only took the text as an argument."""
+    if _called(node) == "getsource" or isinstance(node, ast.Name) and node.id in names:
+        return True
+    if isinstance(node, ast.Call):
+        return _source_text(node.func, names)
+    return any(_source_text(child, names) for child in ast.iter_child_nodes(node))
+
+
+def suite_lint(trees: dict[str, ast.Module]) -> list[str]:
+    """``"<file>:<line> <test>: <why>"`` for each test of ``trees`` (a file
+    name's AST; ``tests/_*.py``'s helpers among them) that passes whatever
+    the code it checks does: one asserting nothing, only ``len(x) >= 0``,
+    only under an ``if`` or only a non-zero exit (AZ-073), one asserting on
+    ``inspect.getsource`` text (AZ-066), and a skip on a constant condition
+    (AZ-065). An assertion is an ``assert``, a raise but SkipTest's, an
+    ``assert*`` or ``fail*`` call, ``pytest.raises`` or ``warns``, or a call
+    of a helper (a function of ``trees``) that makes one; a nested ``def``
+    asserts only when called, a lambda only as a call's argument."""
+    funcs = [n for tree in trees.values() for n in ast.walk(tree)
+             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and not n.name.startswith("test")]
+    helpers: set[str] = set()
+
+    def asserts(node: ast.AST, by_helper: bool = True) -> bool:
+        if isinstance(node, ast.Raise):
+            return node.exc is None or "SkipTest" not in ast.unparse(node.exc)
+        name = _called(node)
+        return isinstance(node, ast.Assert) or bool(name) and (
+            name.startswith(("assert", "fail")) or name in {"raises", "warns", "deprecated_call"}
+            or by_helper and name in helpers)
+
+    while (found := {f.name for f in funcs if any(map(asserts, ast.walk(f)))}) - helpers:
+        helpers |= found
+    hits = []
+    for file, tree in trees.items():
+        if not file.startswith("test_"):
+            continue
+        hits += [f"{file}:{n.lineno} {_called(n)}({ast.unparse(n.args[0])}): a skip on a constant condition"
+                 for n in ast.walk(tree) if _called(n) in {"skipIf", "skipUnless", "skipif"} and n.args
+                 and isinstance(n.args[0], ast.Constant)]
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) or not fn.name.startswith("test"):
+                continue
+            made: list[tuple[ast.AST, bool]] = []   # each assertion, and whether it is under an if
+
+            def visit(node: ast.AST, under_if: bool, parent: ast.AST | None) -> None:
+                if asserts(node):
+                    made.append((node, under_if))
+                if (node is not fn and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                        or isinstance(node, ast.Lambda) and not isinstance(parent, (ast.Call, ast.keyword))):
+                    return
+                branch = isinstance(node, ast.If) and not all(   # an if/else asserting in both arms asserts
+                    any(map(asserts, ast.walk(ast.Module(arm, [])))) for arm in (node.body, node.orelse))
+                for child in ast.iter_child_nodes(node):
+                    visit(child, under_if or (branch and child is not node.test), node)
+
+            visit(fn, False, None)
+            sourced: set[str] = set()
+            for _ in range(2):   # and a name bound to a method of its text
+                sourced |= {t.id for n in ast.walk(fn) if isinstance(n, ast.Assign) and _source_text(n.value, sourced)
+                            for t in n.targets if isinstance(t, ast.Name)}
+            calls = [n for n, _ in made if isinstance(n, ast.Call)]
+            if any(_source_text(part, sourced) for n, _ in made if asserts(n, by_helper=False)
+                   for part in ([n.test] if isinstance(n, ast.Assert) else [*getattr(n, "args", ()),
+                                *(k.value for k in getattr(n, "keywords", ()))])):
+                why = "asserts on inspect.getsource text"
+            elif not made:
+                why = "asserts nothing"
+            elif any(_called(c) == "assertGreaterEqual" and len(c.args) == 2 and _called(c.args[0]) == "len"
+                     and isinstance(c.args[1], ast.Constant) and c.args[1].value == 0 for c in calls):
+                why = "asserts len(...) >= 0"
+            elif all(under for _, under in made) and not any(
+                    isinstance(n, ast.Raise) or _called(n).startswith("fail") for n, _ in made):
+                why = "asserts only under an if"   # `if bad: pytest.fail()` checks; `if ok: assert` doesn't
+            elif any(_called(c) == "assertNotEqual" and "returncode" in ast.unparse(c) for c in calls) and not any(
+                    isinstance(n, ast.Attribute) and n.attr in ("stdout", "stderr") for n in ast.walk(fn)):
+                why = "checks only for a non-zero exit code"
+            else:
+                continue
+            hits.append(f"{file}:{fn.lineno} {fn.name}: {why}")
+    return hits
+
+
+def test_no_test_passes_whatever_the_code_it_checks_does():
+    """Modkit's AZ-065, AZ-066 and AZ-073: ``skipif(False)`` never skips (and
+    ``True`` always does), a test asserting on ``inspect.getsource`` text
+    passes once the code it guards is gone but a comment names it, and a
+    test that asserts nothing, only ``len(x) >= 0``, only under an ``if`` or
+    only a non-zero exit (any crash makes one) passes whatever the code
+    does. No test does any of these (:func:`suite_lint`); the probe holds
+    the lint's own edges."""
+    probe = ("def test_raises():\n"
+             "    with pytest.raises(ValueError): int('x')\n"
+             "def test_if_else():\n"
+             "    if win: assert a == 1\n"
+             "    else: assert a == 2\n"
+             "def test_by_a_callback():\n"
+             "    run(lambda: checked(1))\n"
+             "def checked(x):\n"
+             "    assert x\n"
+             "def test_skip_raise(self):\n"
+             "    if not ok: raise unittest.SkipTest('x')\n"
+             "def test_uncalled_stub():\n"
+             "    def stub(): assert False\n"
+             "def test_only_if_ok():\n"
+             "    if ok: assert x\n"
+             "def test_source():\n"
+             "    text = inspect.getsource(f).strip()\n"
+             "    assert 'x' in text\n"
+             "def test_runs_the_source():\n"
+             "    assert run(python=inspect.getsource(f)) == 0\n"
+             "@pytest.mark.skipif(False, reason='never')\n"
+             "def test_never_skipped():\n"
+             "    assert f()\n")
+    assert suite_lint({"test_probe.py": ast.parse(probe)}) == [
+        "test_probe.py:21 skipif(False): a skip on a constant condition",
+        "test_probe.py:10 test_skip_raise: asserts nothing",
+        "test_probe.py:12 test_uncalled_stub: asserts nothing",
+        "test_probe.py:14 test_only_if_ok: asserts only under an if",
+        "test_probe.py:16 test_source: asserts on inspect.getsource text"]
+    trees = {p.name: ast.parse(p.read_text(encoding="utf-8"), str(p)) for p in sorted((ROOT / "tests").glob("*.py"))}
+    assert suite_lint(trees) == []
+
+
+def test_no_test_module_is_named_after_the_pass_that_wrote_it():
+    """Modkit's AZ-106 (D37): a test lives in the file of the behaviour area
+    it pins, never in one named after a delivery wave, a tier, a bug-hunt
+    batch or a pins pass; an id stays in its docstring."""
+    wave = re.compile(r"test_(tier\d|next_wave|deep_pass|optimizations|audit_regressions|bughunt_|(last_)?pins\b|"
+                      r"pins_|step_?\d|wave)")
+    assert [p.name for p in sorted((ROOT / "tests").glob("test_*.py")) if wave.match(p.name)] == []
+
+
 def text_io_without_encoding(source: str) -> list[int]:
     """The lines of ``source`` that read or write text in the locale's
     encoding: ``read_text`` or ``write_text``, or ``open`` in a text mode,

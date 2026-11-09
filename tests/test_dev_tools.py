@@ -1786,3 +1786,32 @@ time.sleep(300)
         time.sleep(0.2)
     else:
         raise AssertionError(f"pytest's controller {controller} or its worker {worker} still runs")
+
+
+# Step 4.28b: Modkit's unpinned dev tool behaviour (its test census, lane C6), ported lean.
+
+
+def test_restack_runs_its_batch_work_at_nice_15_or_lower_priority_and_only_in_a_lane(monkeypatch):
+    """Modkit's Step X.81a: a restack's batch work took every CPU at nice 0
+    beside the gate's pytest at nice 10. ``devkit rando restack`` renices
+    itself to 15 before any step (each process it starts inherits it), from
+    0 or the gate's 10, and leaves a lower priority as it is; in the main
+    checkout it refuses, exit 2, before renicing or any step."""
+    from devkit.rando import restack
+
+    niceness, ran = [0], []
+
+    def nice(by: int) -> int:
+        niceness[0] = min(19, niceness[0] + by)
+        return niceness[0]
+
+    monkeypatch.setattr(restack.os, "nice", nice)
+    monkeypatch.setattr(restack, "restack", lambda *args: ran.append(niceness[0]))
+    for start, dirs, want in ((0, "/lane/.git/worktrees/x\n/lane/.git\n", (0, [15])),
+                              (10, "/lane/.git/worktrees/x\n/lane/.git\n", (0, [15])),
+                              (19, "/lane/.git/worktrees/x\n/lane/.git\n", (0, [19])),
+                              (0, "/main/.git\n/main/.git\n", (2, []))):
+        niceness[0], ran[:] = start, []
+        monkeypatch.setattr(restack.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, dirs, ""))
+        assert (restack.main([]), ran) == want, start
+        assert niceness[0] == (want[1] or [start])[0]
