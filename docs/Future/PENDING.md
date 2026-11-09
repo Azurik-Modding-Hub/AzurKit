@@ -491,6 +491,9 @@ memory peaks stay strict. The gate writes both kinds of row to
     - 4.21's LEGEND comment; a search typed before the list answers opens
       no fold.
     - The effect colour uses the browser's picker, not Modkit's wheel.
+    - Live's tab, not the editor's: at 1100 px, 4.6k's Attach… button
+      wraps Live's bar onto a second line (39 px). With 4.20's 16 px
+      difficulty line it leaves the map room about 35 px shorter (4.25).
 31. 4.6c's leftovers:
     - Undo is missing, and closing the app's window doesn't ask about
       unsaved edits.
