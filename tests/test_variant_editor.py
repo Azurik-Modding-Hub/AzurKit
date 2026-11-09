@@ -205,6 +205,20 @@ def test_a_check_of_a_dress_that_leaves_characters_xbr_vanilla_reads_the_images_
     assert found["bones"] == sdk.base_bones({"iso": str(usa_iso), "species": "flicken"})["bones"]
 
 
+def test_a_check_of_a_look_on_garret4_hands_the_colours_views_his_body_before_its_colours(usa_iso, tmp_path):
+    """A recipe on garret4's own body whose build changes his body (a mesh op) and recolours his own rows in place
+    (hue +120): Check with game data hands the Colours views his body before its colours, each part's texture his
+    vanilla one (``colour_preview.uncoloured``), as for any other body, so they recolour it once (Modkit's Step
+    2.206, its rebase review's D2; the Export half is ``test_model_authoring``'s)."""
+    op = {"op": "scale", "bone": "spine_2", "radius": [0.2, 0.2, 0.2], "factors": [1.2, 1.2, 1.2]}
+    found = sdk.variant_check(_given(usa_iso, tmp_path, {"base": "garret4", "mesh": {"ops": [op]},
+                                                         "colours": [{"ops": [{"op": "hsv", "hue": 120}]}]}))
+    assert found["refusal"] is None, found["refusal"]
+    kept, plain = sdk._kept_base(sdk._CHECKED["last"]), colour_preview.vanilla(*_game(usa_iso), "garret4")
+    assert kept.dressed and [(q.row, q.raw.tobytes()) for q in kept.parts] == [
+        (q.row, q.raw.tobytes()) for q in plain.parts] != []
+
+
 def test_a_check_of_content_checked_before_answers_from_what_it_kept(usa_iso, tmp_path, monkeypatch):
     """Check with game data keeps by content (D1015): the same edit checked again answers at once, and in a process
     that kept its dress (another thread's call: another hidden recipe file) takes it by what the file dresses, its
