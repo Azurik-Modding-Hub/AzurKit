@@ -187,7 +187,7 @@ import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 
-from azurkit import __version__, commit, sdk
+from azurkit import __version__, commit, platform, sdk
 from azurkit.core import gate
 from azurkit.core.progress import record
 from azurkit.edits import files as replaced
@@ -679,7 +679,8 @@ class Server(http.server.ThreadingHTTPServer):
 
     def host_info(self) -> dict:
         kept = _kept()
-        return {"engine": "app", "version": __version__, "commit": commit(), "catalog": sdk.catalog(), "iso": _start_image(kept),
+        return {"engine": "app", "version": __version__, "commit": commit(), "platform": platform(),
+                "catalog": sdk.catalog(), "iso": _start_image(kept),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(kept),
                 "remember": kept.get("remember") is True, "setup": _setup(kept), "tracker": kept.get("tracker"),
                 "content_source": kept.get("content_source"), "show_objects": kept.get("show_objects") is True,

@@ -299,6 +299,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **A private app:** its page is served only to itself, with a fresh key each launch.
 - **The command line:** `azurkit verify`, `packs`, `build`, `open`, `plan` and `spoiler`; the app doubles as it.
 - **Dark or light:** your pick is remembered, and both are easy to read.
+- **Platform:** About names where AzurKit runs: the app its system and processor, the web page Pyodide in your
+  browser.
 
 ## The command line
 

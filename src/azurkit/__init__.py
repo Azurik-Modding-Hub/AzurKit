@@ -17,6 +17,17 @@ commit its build was made from (``scripts/web_tools.py``'s ``wheel``,
 ``scripts/freeze.py``); a source tree has none."""
 
 
+def platform() -> str:
+    """Where this engine runs, which About names (Modkit's Settings page's
+    Platform line): the system and the processor (``Darwin arm64``,
+    ``Windows AMD64``), or in a browser Pyodide's version and WebAssembly."""
+    if sys.platform == "emscripten":
+        import pyodide
+        return f"Pyodide {pyodide.__version__}, WebAssembly"
+    import platform as host
+    return f"{host.system()} {host.machine()}"
+
+
 def head(root: Path) -> str | None:
     """The commit checked out at ``root`` when ``root`` is the top of a git
     work tree and this computer's git answers (asked here, nothing fetched),

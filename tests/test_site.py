@@ -790,7 +790,8 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
     collects nothing and that the image never leaves the computer (and
     nothing anywhere in it about a host's logs, D883), its licence (the
     checkout's LICENSE), its credits (NOTICE.md's), its version and the
-    commit its wheel was built from (this checkout's HEAD). No CSP
+    commit its wheel was built from (this checkout's HEAD), and where its
+    engine runs (Modkit's Platform line: Pyodide's pinned version). No CSP
     violation, no request but GETs of the site's files."""
     from azurkit import __version__
     served = Site(browser, site, color_scheme="light", viewport={"width": 1280, "height": 600})
@@ -849,10 +850,11 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
 
         _page.click(page, "tab-about")
         shown = page.evaluate("""() => [document.getElementById("patches").hidden, document.getElementById("about").hidden,
-            ...["privacy", "licence", "credits", "about-version", "about"].map((id) => document.getElementById(id).textContent)]""")
+            ...["privacy", "licence", "credits", "about-version", "about-platform", "about"].map(
+                (id) => document.getElementById(id).textContent)]""")
         assert shown[:2] == [True, False]
         assert not re.search(r"\bIP\b|visitor", shown.pop(), re.IGNORECASE)
-        privacy, licence, credits, version = (" ".join(text.split()) for text in shown[2:])
+        privacy, licence, credits, version, platform = (" ".join(text.split()) for text in shown[2:])
         assert privacy == ("AzurKit collects nothing: it adds no logging, analytics or tracking. Your image never "
                            "leaves your computer: AzurKit reads it and builds right here.")
         assert licence == " ".join((_page.WEB.parent / "LICENSE").read_text(encoding="utf-8").split())
@@ -862,6 +864,7 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         head = subprocess.run(["git", "-C", str(_page.WEB.parent), "rev-parse", "HEAD"], capture_output=True, text=True,
                               check=True).stdout.strip()
         assert version == f"This is AzurKit {__version__}, built from commit {head[:12]}."
+        assert platform == f"Platform: Pyodide {web_tools.VERSION}, WebAssembly, in your browser."
         for each in served.context.pages:
             _page.check_csp(each)
         assert served.stray() == []

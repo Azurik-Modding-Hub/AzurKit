@@ -396,7 +396,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     ready: (data) => {
       answered(starting);
       starting = null;
-      engine = [data.catalog, data.version, data.commit];
+      engine = [data.catalog, data.version, data.commit, data.platform];
       state.workers = (state.workers ?? 0) + 1;   // the workers that took F's place, for the tests
       ready(...engine);
     },
@@ -585,7 +585,7 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
       if (mine === ticket) failed(`The app's engine didn't answer (${error.message}): restart AzurKit`);
     }
   };
-  setTimeout(() => ready(host.catalog, host.version, host.commit));
+  setTimeout(() => ready(host.catalog, host.version, host.commit, host.platform));
   const ask = (path, body, done) => post(path, body)
     .then((reply) => "refused" in reply ? failed(reply.refused) : done(reply))
     .catch((error) => failed(`The app's engine didn't answer (${error.message}): restart AzurKit`));
@@ -1129,7 +1129,7 @@ function unopen() {
 // The engine is ready (the site's again after each build). The first time, the page draws the catalog and asks for the
 // remembered setup back (only Remember settings keeps one, D1156), unless a link brought a recipe (D915: the link
 // wins); it is ready once that is back.
-function ready(catalog, version, commit) {
+function ready(catalog, version, commit, platform) {
   if (!state.packs) {
     if (!state.app && "serviceWorker" in navigator) registered();
     state.packs = catalog;
@@ -1187,6 +1187,7 @@ function ready(catalog, version, commit) {
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}, ${commit ? `built from commit ${commit.slice(0, 12)}`
       : "its commit is unknown (built or run without git)"}.`;   // the engine's azurkit.commit()
+    $("about-platform").textContent = `Platform: ${platform}${state.app ? "" : ", in your browser"}.`;   // azurkit.platform()
     launched(2);
     if (!state.pending && state.remembered != null) {
       state.restoring = true;   // a remembered community pack is read from what the site hands its engine first

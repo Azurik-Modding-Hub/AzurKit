@@ -1392,7 +1392,9 @@ are the Characters section's.
     version line names the commit AzurKit was built from, never fetched
     (`azurkit.commit`: what the wheel's or the frozen app's build wrote,
     `azurkit.STAMP`, else a git checkout's HEAD; a build or checkout
-    without git says it can't name one).
+    without git says it can't name one); its platform line names where the
+    engine runs (`azurkit.platform`: the system and processor, or Pyodide's
+    version in a browser), as Modkit's Settings page did.
   - **The Randomizer tab** (Step 4.2c1, RANDOMIZER_PLAN §5.5): Randomize
     (off by default, the tab's one switch, which unlocks its settings,
     D907), the seed (any text; New draws 0-999999), Movement, the skip

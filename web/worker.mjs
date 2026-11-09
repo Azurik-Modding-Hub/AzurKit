@@ -32,7 +32,7 @@
 //      this browser keeps of your variants, written as the engine's library, ./variants, whole). A
 //      message with a File (file) has the image checked first, once a File (prime).
 // Out: {type: "native", kernel?, twin?} (the reach calls each path answered since the last, before the answer they
-//      went into), {type: "ready", catalog, version, commit, start, cold?} (start: "snapshot" or "cold", load()'s;
+//      went into), {type: "ready", catalog, version, commit, platform, start, cold?} (start: "snapshot" or "cold", load()'s;
 //      cold: why a kept snapshot wasn't started from), {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages; the worker's own: its start before ready, the kept image's
 //      walk), {type: "at", where} (the await the job is in: awaiting()), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
@@ -373,7 +373,8 @@ def engine(request):
         return to_js(handed(value), dict_converter=Object.fromEntries, create_pyproxies=False)
 
     if request.type == "catalog":
-        return js({"catalog": sdk.catalog(), "version": azurkit.__version__, "commit": azurkit.commit()})
+        return js({"catalog": sdk.catalog(), "version": azurkit.__version__, "commit": azurkit.commit(),
+                   "platform": azurkit.platform()})
     if request.type == "warm":   # numpy's loaded: what a dress imports, so a body's build starts at its first step
         from azurkit.tools.characters import _player_character  # noqa: F401
         characters._code()   # a kept answer's key's first part, worked out once a worker

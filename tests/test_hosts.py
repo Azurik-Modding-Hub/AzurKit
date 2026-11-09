@@ -21,6 +21,7 @@ import json
 import multiprocessing
 import operator
 import os
+import platform
 import plistlib
 import socket
 import re
@@ -1692,8 +1693,10 @@ def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(brow
         server.close()
 
 
-def test_the_apps_about_names_its_version_and_commit_or_says_no_git_can_name_it(browser, tmp_path, monkeypatch):
-    """About shows the version and the commit AzurKit was built from (D992's release check, item 7), from what the
+def test_the_apps_about_names_its_version_commit_and_platform_or_says_no_git_can_name_it(browser, tmp_path,
+                                                                                         monkeypatch):
+    """About shows the version and the commit AzurKit was built from (D992's release check, item 7), and the system
+    and processor its engine runs on (Modkit's Platform line), from what the
     host knows, never a fetch: the app run from this checkout names its HEAD (``host.json``'s ``commit``:
     ``azurkit.commit`` asks this computer's git), About its first 12 digits; reloaded where no git runs, ``host.json``
     names none and About says plainly that its commit is unknown, true of any build or checkout without git."""
@@ -1701,6 +1704,7 @@ def test_the_apps_about_names_its_version_and_commit_or_says_no_git_can_name_it(
     head, version = _head(), azurkit.__version__
     about = """async () => [(await (await fetch("host.json")).json()).commit,
         document.getElementById("about-version").textContent]"""
+    where = "() => document.getElementById('about-platform').textContent"
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
@@ -1708,6 +1712,7 @@ def test_the_apps_about_names_its_version_and_commit_or_says_no_git_can_name_it(
         page.goto(server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         assert page.evaluate(about) == [head, f"This is AzurKit {version}, built from commit {head[:12]}."]
+        assert page.evaluate(where) == f"Platform: {platform.system()} {platform.machine()}."
         monkeypatch.setenv("PATH", str(tmp_path / "no-git"))   # a folder that isn't there: no git to run
         azurkit.commit.cache_clear()
         page.reload()
