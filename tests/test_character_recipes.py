@@ -605,7 +605,7 @@ def test_a_pose_turns_its_bone_over_its_window_only(usa_iso):
     turn times the clip's, outside the eased margins the clip's own, every
     other track kept, its key times rising from 0 in float32. An ease of 0
     turns it at the window's edges with no margin."""
-    from azurkit.tools.characters.retarget import Rig, evaluate, named_clip, qangle, turned_over
+    from azurkit.tools.characters.retarget import qangle, turned_over
 
     data, body = _vanilla_characters(usa_iso), "townspeople/female_2"
     walk, rig = named_clip(data, body, "walk"), Rig.read(data, body)
@@ -639,8 +639,7 @@ def test_booblords_sash_hangs_at_each_spins_ends_and_swings_out_mid_spin(usa_iso
     bone swings out from it: 66.5 degrees off the hang mid-spin, mid-twirl
     and mid-hand-spin, a 25-degree lift in the stomp's fall (0.525)."""
     from azurkit.tools.characters._player_variants import hand_spin, t_spin
-    from azurkit.tools.characters.characters import read_body
-    from azurkit.tools.characters.retarget import Rig, evaluate, named_clip, qangle
+    from azurkit.tools.characters.retarget import qangle
 
     data, variant = _vanilla_characters(usa_iso), builtins()["booblord"]
     body = read_body(data, "townspeople/female_2")
@@ -677,8 +676,7 @@ def test_booblords_b_spins_chain_planted_and_she_rises_only_when_the_chain_ends(
     the pose sweep2 starts at; she stands only at the clip's ends."""
     from azurkit.tools.characters._player_character import planted_chain
     from azurkit.tools.characters._player_variants import hand_spin
-    from azurkit.tools.characters.characters import read_body
-    from azurkit.tools.characters.retarget import Rig, origins, pose, qangle
+    from azurkit.tools.characters.retarget import qangle
 
     variant = builtins()["booblord"]
     p = variant.loop()
@@ -796,7 +794,6 @@ def test_booblord_high_is_booblord_with_finer_forms_and_each_texture_at_twice_it
     her rows bake at twice their size, a size past 4,096 failing by name."""
     from azurkit.tools.characters import _player_weapons as pw
     from azurkit.tools.characters import paint
-    from azurkit.tools.characters.characters import read_body
 
     high, boob = builtins()["booblord_high"], builtins()["booblord"]
     own = ("name", "title", "notes", "sha", "texture_scale", "files", "mesh", "textures")
@@ -839,7 +836,6 @@ def test_a_recipe_file_may_be_from_a_built_in_with_effects_rows_laid_over(usa_is
     its rows; it reads her sounds, clips and fx, takes her W29 places and
     wears her spins as its default weapon."""
     from azurkit.tools.characters import _player_weapons as pw
-    from azurkit.tools.characters.characters import read_body
 
     rows = [{"template": "bubble", "columns": ["basic1"]}, {"template": "laser", "columns": ["finish", "finish2"]}]
     (tmp_path / "e3.json").write_text(json.dumps({"e3": {"from": "booblord", "title": "E3", "effects": rows}}),
@@ -982,9 +978,7 @@ def test_a_recipe_clip_from_gltf_plays_in_its_columns_at_its_rate_with_its_box(u
     box on over its ``active`` seconds, and W19's chain point the one for
     that Rate; a wrong sha256 fails by name (by its first 12 digits, AzurKit's)."""
     from azurkit.tools.characters._player_character import chain_point, contact, move_window
-    from azurkit.tools.characters.characters import damage_windows
     from azurkit.tools.characters.gltf import export_body
-    from azurkit.tools.characters.retarget import named_clip
 
     body = "townspeople/female_2"
     gltf = export_body(_vanilla_characters(usa_iso), body, tmp_path / "export", ["idle"]).gltf
@@ -1096,7 +1090,6 @@ def test_a_recipes_slots_play_its_gait_and_victories_untimed_and_a_wrong_one_is_
     twin's speed is refused by name (the other slot refusals are
     :data:`_LOAD_REFUSALS`' and :data:`_BUILD_REFUSALS`')."""
     from azurkit.tools.characters._player_character import planted
-    from azurkit.tools.characters.retarget import named_clip
 
     vanilla, body = _vanilla_characters(usa_iso), "townspeople/female_2"
     (tmp_path / "back.glb").write_bytes(_clip_only(vanilla, body, [("walk_back", _played_back(
@@ -1193,7 +1186,7 @@ def test_a_recipe_clip_baked_from_another_humanoid_body_plays_in_its_slots_the_j
     own). garret4's jump lent so is the clip B bakes of it, and each lent
     clip keeps its lender's length."""
     from azurkit.tools.characters.clip_import import read_clips
-    from azurkit.tools.characters.retarget import Retarget, bake_clip, named_clip, read_clip, write_clip
+    from azurkit.tools.characters.retarget import Retarget, bake_clip, write_clip
 
     built = _files(usa_iso, tmp_path, LENT, "lent")
     xbe, data = built[XBE], built[CHARACTERS]
@@ -1301,8 +1294,8 @@ def test_beamlords_beams_turn_to_their_target_in_the_cone_at_the_attacks_start(u
     from unicorn import UC_HOOK_CODE
     from unicorn.x86_const import UC_X86_REG_EIP, UC_X86_REG_ESP
 
-    from azurkit.tools.characters._player_character import (SEARCH_HOOK, SEARCH_RADIUS_SYMBOL, SEEK_HOOK,
-                                                             install_search_shim, install_seek_shim)
+    from azurkit.tools.characters._player_character import (SEARCH_RADIUS_SYMBOL, SEEK_HOOK, install_search_shim,
+                                                             install_seek_shim)
     from devkit.sim import l2
 
     variant = builtins()["beamlord"]
@@ -1380,9 +1373,6 @@ def test_booblords_own_landing_keeps_her_feet_over_x48s_hold_line_and_her_sash_o
     from azurkit.tools.characters import _player_crossfade as cf
     from azurkit.tools.characters._player_character import FADE_HOOK, FADE_LOW, FADE_SOLE, loose_bones, move_checks
     from azurkit.tools.characters._player_slots import TOUCHDOWN_TICKS
-    from azurkit.tools.characters._player_variants import VARIANT_DIR
-    from azurkit.tools.characters.characters import read_body
-    from azurkit.tools.characters.retarget import Rig, _turn, named_clip, qmul
 
     variant, body = builtins()["booblord"], "townspeople/female_2"
     built = _worn(usa_iso, {"species": "booblord"})
@@ -1600,9 +1590,6 @@ def _dress(image, worn, **heard) -> tuple[object, list[str]]:
 
 def _clips(data: bytes, body: str) -> dict:
     """Every ``banm`` under ``body`` in ``data``: key -> (its bytes, the clip)."""
-    from azurkit.core.xbr.nodes import parse_toc
-    from azurkit.tools.characters.retarget import read_clip
-
     toc, prefix = parse_toc(data), f"characters/{body}/".casefold()
     return {k: (data[toc[i].file_offset:toc[i].file_offset + toc[i].size], read_clip(data, toc[i].file_offset))
             for i, name in named_resources(data).items()
@@ -1617,8 +1604,7 @@ def test_a_variants_arms_hang_wider_in_every_clip_but_its_own(usa_iso, booblord)
     time) but its recipe's own ``v/`` clips, which pose the arms themselves
     (byte for byte); every other track stays, and her hands hang farther from
     her sides in her idle and walk."""
-    from azurkit.tools.characters._player_variants import VARIANT_DIR
-    from azurkit.tools.characters.retarget import Rig, evaluate, origins, qangle, qmul
+    from azurkit.tools.characters.retarget import qangle
 
     variant, body = booblord_v3(), "townspeople/female_2"
     built, plain = (_dress(usa_iso, v)[0] for v in (variant, dataclasses.replace(variant, arms=0.0)))
@@ -1713,8 +1699,7 @@ def test_a_subdivided_variant_builds_with_its_jiggle_on_new_bones_new_geometry_a
     palette entries it added and naming W30's texture, the material row's
     stage naming a new 256 x 256 ``surf``, and the export's checks pass on
     the built file. The pendant swings with the bust, the tail none of it."""
-    from azurkit.core.xbr.nodes import parse_toc
-    from azurkit.tools.characters import body_codec, paint, render
+    from azurkit.tools.characters import body_codec, paint
     from azurkit.tools.characters.gltf import export_body
 
     variant = booblord_v3()
@@ -1813,14 +1798,12 @@ def test_booblords_attacks_only_whoosh_and_her_other_sounds_are_the_owners_wavs(
     sha256. On USA a rebuild is identical and L1 is clean. X41 hooks her
     pose on both releases; her shipped recipe's sha is her graded one. A
     variant with no fall WAV plays its hurt at the ouch."""
-    from azurkit.tools.characters._player_character import JIGGLE_HOOK
     from azurkit.tools.characters._player_slots import BASE_CLIPS
     from azurkit.tools.characters._player_sounds import (ATTACK_SLOT, ROLE_SLOTS, SHOUT_ROWS, VOICE_SLOTS,
                                                          XBE_SOUND_SITES, variant_roles)
     from azurkit.tools.characters._player_variants import SOUNDS, UNGRADED, sound_dir, waves
     from azurkit.tools.characters.index_xbr import parse_index_xbr
     from azurkit.tools.characters.xbox_adpcm import read_wav, wave_entry
-    from azurkit.core.xbr.nodes import parse_toc
     from devkit.sim import l1
 
     image = request.getfixturevalue(f"{release.name}_iso")
