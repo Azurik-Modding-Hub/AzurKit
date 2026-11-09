@@ -12,12 +12,14 @@ import json
 import math
 import re
 import struct
+import sys
 from pathlib import Path
 
 import pytest
 
 from azurkit import sdk
 from azurkit.core import gate, iso
+from azurkit.core.xbr.nodes import named_resources
 from azurkit.tools import characters, mods
 from azurkit.tools.characters import _player_variants, mesh_edit, ports
 from azurkit.tools.characters._player_variants import builtins, load_variants, recipe_sha
@@ -865,3 +867,370 @@ def test_the_variants_pages_own_sounds_are_the_roles_its_build_binds_with_w3s_pi
     them (W3's picks), not the vanilla Anim cells: boulder's roll binds its
     own roll sound."""
     assert sdk.own_sounds({"iso": str(usa_iso), "species": "boulder"})["roles"] == ["death", "footstep", "roll"]
+
+
+# --- a build of a recipe, read back -----------------------------------------------------------------------------------
+RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
+            pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
+XBE = "default.xbe"
+
+
+def _files(image, folder: Path, recipe: dict, name: str = "tspin", **given) -> dict[str, bytes]:
+    """``recipe`` as ``name`` in a recipe file in ``folder`` (its files beside it), worn (``given``: the character's
+    other fields) in a build of ``image`` through ``sdk.image``, no pack on: each file the build changed (but
+    filelist.txt) and its bytes."""
+    file = folder / f"{name}.json"
+    file.write_text(json.dumps({name: recipe}), encoding="utf-8")
+    made, report = sdk.image({"iso": str(image), "packs": {},
+                              "character": {"species": name, "variant_file": str(file), **given}})
+    with iso.Reader(made) as r:
+        return {f: r.read(f) for f in report["result"] if f != "filelist.txt"}
+
+
+def _building(image):
+    """The context the swap's hook and shim readers run in (``ports.building``): ``image``'s vanilla files."""
+    stamp = gate.verify(str(image), whole=False)
+    return ports.building(ports.Build(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), taken=[],
+                                      packs=characters.packs_view(stamp.release, mods.PACKS)))
+
+
+def _at(xbe: bytes, hook, symbol: str) -> int:
+    """The file offset in ``xbe`` of ``symbol`` of ``hook``'s shim (inside :func:`_building`)."""
+    return ports.resolve_va_to_file(xbe, ports.trampoline_symbol_va(xbe, hook, symbol))
+
+
+def _slots(xbe: bytes, slots) -> tuple[list[str], list[float]]:
+    """X11's table in the built ``xbe``: the clip each of ``slots`` plays and its timed length."""
+    from azurkit.tools.characters._player_slots import HOOK
+
+    table = _at(xbe, HOOK, "_player_model_slots")
+    offsets, lengths = struct.unpack_from("<82H", xbe, table), struct.unpack_from("<82f", xbe, table + 82 * 2)
+    names = table + 82 * 6
+    return ([xbe[names + offsets[k] - 1:xbe.index(b"\0", names + offsets[k] - 1)].decode() for k in slots],
+            [lengths[k] for k in slots])
+
+
+def _clip_only(data: bytes, body: str, clips) -> bytes:
+    """``clips`` ((name, clip) pairs) of ``body`` as a ``.glb`` of its bone nodes and those animations alone, as
+    ``model export`` writes them (Modkit's ``townsfolk_kit.clip_only``, a retired authoring script's, D955)."""
+    from azurkit.tools.characters import gltf
+
+    doc, blob, _, _ = gltf._document(data, gltf._read(data, body), list(clips), True)
+    used = sorted({s[k] for a in doc["animations"] for s in a["samplers"] for k in ("input", "output")})
+    out, accessors, views = bytearray(), [], []
+    for i in used:
+        acc = dict(doc["accessors"][i])
+        view = doc["bufferViews"][acc["bufferView"]]
+        out += bytes(-len(out) % 4)
+        views.append({"buffer": 0, "byteOffset": len(out), "byteLength": view["byteLength"]})
+        out += blob[view.get("byteOffset", 0):view.get("byteOffset", 0) + view["byteLength"]]
+        acc["bufferView"] = len(views) - 1
+        accessors.append(acc)
+    remap = {old: new for new, old in enumerate(used)}
+    for a in doc["animations"]:
+        for s in a["samplers"]:
+            s["input"], s["output"] = remap[s["input"]], remap[s["output"]]
+    lean = {"asset": doc["asset"], "scene": 0, "scenes": [{"name": doc["scenes"][0]["name"],
+                                                           "nodes": [len(doc["nodes"]) - 2]}],
+            "nodes": doc["nodes"][:-1], "animations": doc["animations"], "accessors": accessors,
+            "bufferViews": views, "buffers": [{"byteLength": len(out)}]}
+    text = json.dumps(lean, separators=(",", ":"), allow_nan=False).encode()
+    text += b" " * (-len(text) % 4)
+    out += bytes(-len(out) % 4)
+    return (struct.pack("<III", 0x46546C67, 2, 12 + 8 + len(text) + 8 + len(out))
+            + struct.pack("<II", len(text), 0x4E4F534A) + text + struct.pack("<II", len(out), 0x004E4942) + out)
+
+
+def _played_back(clip):
+    """``clip`` run back in time: each key at the length less its time, its tangents swapped and negated."""
+    from azurkit.tools.characters.retarget import Clip, Track
+
+    return Clip(clip.length, tuple(Track(tr.target, tr.comp, tuple((clip.length - t, v, -o, -i)
+                                                                   for (t, v, i, o) in reversed(tr.keys)),
+                                         (tr.modes[1], tr.modes[0])) for tr in clip.bones), ())
+
+
+def test_a_recipe_clip_from_gltf_plays_in_its_columns_at_its_rate_with_its_box(usa_iso, tmp_path):
+    """D465, D491 (Modkit's Step 2.158): a user recipe's ``gltf`` clip
+    (female_2's exported idle renamed ``jab``) plays in its column as
+    ``v/jab`` at the recipe's rate times the speed slider, its ``m_damage``
+    box on over its ``active`` seconds, and W19's chain point the one for
+    that Rate; a wrong sha256 fails by name (by its first 12 digits, AzurKit's)."""
+    from azurkit.tools.characters._player_character import chain_point, contact, move_window
+    from azurkit.tools.characters.characters import damage_windows
+    from azurkit.tools.characters.gltf import export_body
+    from azurkit.tools.characters.retarget import named_clip
+
+    body = "townspeople/female_2"
+    gltf = export_body(_vanilla_characters(usa_iso), body, tmp_path / "export", ["idle"]).gltf
+    doc = json.loads(gltf.read_text(encoding="utf-8"))
+    doc["animations"][0]["name"] = "jab"
+    gltf.write_text(json.dumps(doc), encoding="utf-8")
+    jab = {"generator": "gltf", "file": f"export/{gltf.name}", "sha256": mesh_edit.file_sha256(gltf),
+           "animation": "jab", "active": [0.30, 0.45], "box": {"centre": [0.0, 0.5, 1.1], "half": [0.35, 0.35, 0.35]},
+           "rate": 1.25}
+    recipe = {"base": "town_female_2", "attacks": {"balance": False, "speed": 1.2}, "markers": ["m_damage"],
+              "clips": {"jab": jab}, "columns": {"basic1": "jab"}}
+    built = _files(usa_iso, tmp_path, recipe, "jabber")
+    data = built[CHARACTERS]
+    anims = ports.XbrDocument.from_bytes(built[CONFIG]).keyed_section("attacks_anims")
+    i = anims.col_names().index("basic1")
+    assert anims.find_cell("basic1", "Anim", i).string_value == "v/jab"
+    assert anims.find_cell("basic1", "Rate", i).double_value == pytest.approx(1.25 * 1.2)
+    (w,) = damage_windows(data, body, "v/jab", 1.15)
+    assert (w.on, w.off) == pytest.approx((0.30, 0.45), abs=0.02)
+    length = named_clip(data, body, "v/jab").length
+    met = contact(data, body, "v/jab", 1.15, length, move_window(anims, i))
+    assert chain_point(anims, i, length, (w,), met) is None
+    with pytest.raises(ValueError, match="its sha256 is [0-9a-f]{12}, not the recipe's 0{12} "):
+        _files(usa_iso, tmp_path, {**recipe, "clips": {"jab": {**jab, "sha256": "0" * 64}}}, "jabber")
+
+
+FIDGETY = {"base": "town_female_2", "idles": {"idle": "idle", "idle_1": "idle", "idle_2": "listen", "idle_3": "talk",
+                                              "idle_4": "sit", "wait": [21, 30]}}
+"""A recipe of town_female_2's own clips as idles: her idle the base (slots 1 and 2), listen, talk and sit the
+fidgets (slots 3-5)."""
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_a_recipes_idles_fill_the_idle_slots_and_play_a_fidget_after_its_wait_never_twice(release, request, tmp_path):
+    """D553, D331 (Modkit's Step 2.168): a recipe's ``idles`` name the
+    clips X11 plays in the idle slots, and X45 takes the standing picker's
+    CALL of the fidget pick at 0x85CD7 with its table: the fidget slots 3-5,
+    the wait [21, 30] and the standing timer's address read from the image
+    (USA 0x38DC50, Europe 0x38FBF8). L2 (USA, from 0x85C60): under the
+    drawn wait it returns 1, past it a fidget the species fills, never the
+    one before, the next wait drawn; a slot the species lacks is never
+    picked; ESI, EDI, EBX and EBP are kept and the x87 stack left empty.
+    Idles that name no wait, and booblord's, wait [10, 10] (Step 2.190)."""
+    from unicorn.x86_const import UC_X86_REG_FPSW
+
+    from azurkit.tools.characters._player_slots import BASE_CLIPS, IDLE_HOOK, IDLE_TABLE, idle_table
+    from devkit.sim import l2
+
+    image, europe = request.getfixturevalue(f"{release.name}_iso"), release is gate.EUROPE
+    xbe = _files(image, tmp_path, FIDGETY, "fidgety")[XBE]
+    with _building(image):
+        assert ports.verify_trampoline_patch(xbe, IDLE_HOOK) == "applied"
+        at = _at(xbe, IDLE_HOOK, IDLE_TABLE.symbol)
+        assert xbe[at:at + 16] == idle_table(0b111000, (21.0, 30.0), 0x38FBF8 if europe else 0x38DC50)
+        assert _slots(xbe, range(1, 6))[0] == ["idle", "idle", "listen", "talk", "sit"]
+        words = {w: ports.trampoline_symbol_va(xbe, IDLE_HOOK, w)
+                 for w in ("_player_model_idle_wait", "_player_model_idle_last")}
+    assert BASE_CLIPS[1:6] == ("idle", "idle_1", "idle_2", "idle_3", "idle_4")
+    if europe:
+        return
+    calm = {**FIDGETY, "idles": {k: v for k, v in FIDGETY["idles"].items() if k != "wait"}}
+    assert load_variants(json.dumps({"calm": calm}), "test")["calm"].idle_wait == (10.0, 10.0) == builtins()[
+        "booblord"].idle_wait
+    base = 0x20000000
+    control, critter, species, given = (base + 0x400 * k for k in range(4))
+    sim = l2.Sim(xbe)
+    sim.uc.mem_map(base, 0x2000)
+    for at_, value in ((control + 0x20, critter), (critter + 0x200, 1), (critter + 0x178, species),
+                       *((species + 0x124 + 4 * k, k) for k in range(1, 8))):
+        sim.uc.mem_write(at_, struct.pack("<I", value))
+    sim.uc.mem_write(species + 0x124 + 4 * 6, struct.pack("<i", -1))   # slot 6 empty
+    kept = {"ebx": 0x11, "esi": 0x22, "ebp": 0x33}
+
+    def standing(timer: float) -> int:
+        sim.uc.mem_write(0x38DC50, struct.pack("<f", timer - 1 / 30))   # the picker adds the tick first
+        got = sim.call(0x85C60, regs={"edi": control, "ecx": given, **kept})
+        assert {r: sim.reg(r) for r in (*kept, "edi")} == {**kept, "edi": control}
+        assert (sim.uc.reg_read(UC_X86_REG_FPSW) >> 11) & 7 == 0
+        return got
+    assert standing(10.5) == 1
+    wait = sim.f32(words["_player_model_idle_wait"])
+    assert 21.0 <= wait <= 30.0
+    assert standing(wait - 0.01) == 1
+    played = []
+    for _ in range(60):
+        played.append(standing(sim.f32(words["_player_model_idle_wait"]) + 0.01))
+        assert sim.u32(words["_player_model_idle_last"]) == played[-1]
+        assert 21.0 <= sim.f32(words["_player_model_idle_wait"]) <= 30.0
+    assert set(played) == {3, 4, 5} and all(a != b for a, b in zip(played, played[1:]))
+    sim.uc.mem_write(species + 0x124 + 4 * 4, struct.pack("<i", -1))   # talk's slot gone: listen and sit alone
+    rest = [standing(sim.f32(words["_player_model_idle_wait"]) + 0.01) for _ in range(10)]
+    assert set(rest) == {3, 5} and all(a != b for a, b in zip(rest, rest[1:]))
+
+
+GAITED = {"base": "town_female_2", "slots": {"walk": "walk", "run": "walk", "walk_backwards": "walk_back",
+                                             "run_backwards": "walk_back",
+                                             **{f"victory_{v}": "talk" for v in range(1, 7)}}}
+"""town_female_2's clips in its slots: her walk in the forward gait slots, its keys run back in time (``walk_back``,
+a glTF clip the test writes) in the backward ones, her talk in the six victories."""
+
+
+def test_a_recipes_slots_play_its_gait_and_victories_untimed_and_a_wrong_one_is_refused_by_name(usa_iso, tmp_path):
+    """D440, D487, D534, D535 (Modkit's Step 2.171): a recipe's ``slots``
+    name the clips X11 plays in the gait slots 8, 9, 13 and 14 and the
+    victories 75-80 (none timed); W7 writes ``walkAnimSpeed`` and
+    ``runAnimSpeed`` as the planted feet's speed of the walk and run slots'
+    clips, and no baked garret4 victory is left in characters.xbr. A
+    backward twin whose planted feet don't move forward at its forward
+    twin's speed is refused by name (the other slot refusals are
+    :data:`_LOAD_REFUSALS`' and :data:`_BUILD_REFUSALS`')."""
+    from azurkit.tools.characters._player_character import planted
+    from azurkit.tools.characters.retarget import named_clip
+
+    vanilla, body = _vanilla_characters(usa_iso), "townspeople/female_2"
+    (tmp_path / "back.glb").write_bytes(_clip_only(vanilla, body, [("walk_back", _played_back(
+        named_clip(vanilla, body, "walk")))]))
+    recipe = {**GAITED, "clips": {"walk_back": {"generator": "gltf", "file": "back.glb", "animation": "walk_back",
+                                                "sha256": mesh_edit.file_sha256(tmp_path / "back.glb")}}}
+    built = _files(usa_iso, tmp_path, recipe, "gaited")
+    xbe, data = built[XBE], built[CHARACTERS]
+    with _building(usa_iso):
+        assert _slots(xbe, (8, 9, 13, 14, *range(75, 81))) == (["walk"] * 2 + ["v/walk_back"] * 2 + ["talk"] * 6,
+                                                                [0.0] * 10)
+    critters = ports.XbrDocument.from_bytes(built[CONFIG]).keyed_section("critters_critter_data")
+    i = critters.col_names().index("garret4")
+    speed = planted(data, body, "walk")
+    assert speed > 0 and planted(data, body, "v/walk_back") == pytest.approx(-speed, rel=0.05)
+    assert [critters.find_cell("garret4", p, i).double_value for p in ("walkAnimSpeed", "runAnimSpeed")] == \
+        pytest.approx([speed, speed], rel=1e-6)
+    assert not [n for n in named_resources(data).values() if "/g4/victory" in n.casefold()]
+    stills = {"spin": SPIN, "still": {**SPIN, "turns": 0}}
+    for slots, said in (({"walk": "walk", "walk_backwards": "still"},
+                         f"slots.walk_backwards: v/still's planted feet move +0.000 model units a second (+ back), not "
+                         f"{-speed:+.3f} within 5% (slots.walk's walk, run backwards): one cell times both"),
+                        ({"walk": "walk", "walk_backwards": "walk"},
+                         f"slots.walk_backwards: walk's planted feet move {speed:+.3f} model units a second (+ back), "
+                         f"not {-speed:+.3f} within 5%")):
+        with pytest.raises(ValueError) as caught:
+            _planned(usa_iso, tmp_path, _with(clips=stills, slots=slots))
+        assert said in str(caught.value)
+
+
+@pytest.fixture(scope="module")
+def _booblord_installed(tmp_path_factory) -> Path:
+    """A content folder with booblord installed from Azurik-Custom-Content (``sdk.content_install``, every file checked
+    against its manifest), once a module."""
+    from azurkit.tools.characters import content
+    from tests.test_characters import _content_source
+
+    folder = tmp_path_factory.mktemp("content")
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(content, "ROOT", folder)
+        mp.setenv(content.ENV, str(folder))
+        try:
+            sdk.content_install({"id": "booblord", "source": _content_source()})
+        except (OSError, ValueError) as exc:
+            pytest.fail(f"Azurik-Custom-Content's booblord can't be installed from {_content_source()} (set "
+                        f"{sdk.SOURCE_ENV}, or clone it beside the main checkout): {exc}", pytrace=False)
+    return folder
+
+
+@pytest.fixture
+def booblord(_booblord_installed, monkeypatch) -> Path:
+    """Booblord's files where the swap reads them: each name a characters module binds to a folder of
+    ``content.ROOT`` rebound to that folder of :func:`_booblord_installed`'s, and ``AZURKIT_CONTENT`` naming it."""
+    from azurkit.tools.characters import content
+
+    root = content.ROOT
+    monkeypatch.setattr(content, "ROOT", _booblord_installed)
+    monkeypatch.setenv(content.ENV, str(_booblord_installed))
+    for name, module in list(sys.modules.items()):
+        if name == characters.__name__ or name.startswith(f"{characters.__name__}."):
+            for attr, value in list(vars(module).items()):
+                if isinstance(value, Path) and value.is_relative_to(root):
+                    monkeypatch.setattr(module, attr, _booblord_installed / value.relative_to(root))
+    return _booblord_installed
+
+
+LENT = {"base": "town_female_3", "clips": {
+    "g4_jump": {"generator": "bake", "body": "garret4", "clip": "jump"},
+    "male_1_bow": {"generator": "bake", "body": "townspeople/male_1", "clip": "bow"},
+    "booblord_hip_idle": {"generator": "bake", "body": "townspeople/female_2", "variant": "booblord", "clip": "hip_idle"},
+    "g4_kick": {"generator": "bake", "body": "garret4", "clip": "attack_back_kick"}},
+    "idles": {"idle": "booblord_hip_idle"}, "slots": {"jump": "g4_jump", "superjump": "g4_jump", "victory_1": "male_1_bow"},
+    "columns": {"basic1": "g4_kick"}}
+"""A townswoman's recipe of other humanoid bodies' clips through the bake: garret4's jump in her jump and superjump
+and his back kick in basic1, town_male_1's bow in her first victory and booblord's Blender hip_idle as her idle."""
+
+
+def test_a_recipe_clip_baked_from_another_humanoid_body_plays_in_its_slots_the_jump_family_too(usa_iso, tmp_path,
+                                                                                               booblord):
+    """D785, D768 (Modkit's Step 2.164c): a ``bake`` clip is another
+    humanoid body's clip (garret4's, a townsman's, or with ``variant`` a
+    built-in's Blender clip read on that body) retargeted onto the recipe's
+    body, stored under ``v/`` so its idles and slots play it; ``slots``
+    takes the jump family (jump 15, superjump 17) untimed, and a column plays
+    one as ``v/<clip>``, X13's fill taking it as a base clip (no box of its
+    own). garret4's jump lent so is the clip B bakes of it, and each lent
+    clip keeps its lender's length."""
+    from azurkit.tools.characters.clip_import import read_clips
+    from azurkit.tools.characters.retarget import Retarget, bake_clip, named_clip, read_clip, write_clip
+
+    built = _files(usa_iso, tmp_path, LENT, "lent")
+    xbe, data = built[XBE], built[CHARACTERS]
+    with _building(usa_iso):
+        assert _slots(xbe, (1, 15, 17, 75)) == (["v/booblord_hip_idle", "v/g4_jump", "v/g4_jump", "v/male_1_bow"],
+                                                 [0.0] * 4)
+    anims = ports.XbrDocument.from_bytes(built[CONFIG]).keyed_section("attacks_anims")
+    assert anims.find_cell("basic1", "Anim", anims.col_names().index("basic1")).string_value == "v/g4_kick"
+    variant = load_variants(json.dumps({"lent": LENT}), "test")["lent"]
+    assert _player_variants.authored(variant, anims.col_names()) == 0
+    vanilla, body = _vanilla_characters(usa_iso), "townspeople/female_3"
+    jump = named_clip(vanilla, "garret4", "jump")
+    assert named_clip(data, body, "v/g4_jump") == read_clip(write_clip(bake_clip(Retarget(vanilla, body), jump)), 0)
+    hip = read_clips(vanilla, "townspeople/female_2", _player_variants.CLIPS / "booblord" / "idles.glb", ["hip_idle"],
+                     bones_only=True)[0].clip
+    assert [named_clip(data, body, f"v/{c}").length for c in ("g4_jump", "male_1_bow", "booblord_hip_idle")] == \
+        [jump.length, named_clip(vanilla, "townspeople/male_1", "bow").length, hip.length]
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_a_recipes_victory_cancel_ends_a_victory_at_a_push_of_the_stick_after_its_minimum(release, request,
+                                                                                          tmp_path):
+    """D702 (Modkit's Step 2.181): a recipe's ``victory_cancel`` (s)
+    installs X46 at the state machine's end check of a 0x1xx move, 0x8CF84
+    (Europe 0x8CF34), with its minimum. L2 (USA, from 0x8CF50 to the
+    dispatch at 0x8CFA0, on this build and on vanilla): a victory (slot
+    75-80) still playing ends (state 0, its hit timer zeroed) once its own
+    clock reaches 0.5 with the stick past 0.1 and input +0x30 clear, whatever
+    the state timer; under the minimum, at rest, a light touch, a script's
+    hold, an attack or the use it holds, and a layer that ended or stopped
+    end it as vanilla does, ECX, EDX, EBX, EDI and EBP as vanilla's and the
+    x87 stack untouched."""
+    from unicorn.x86_const import UC_X86_REG_FPSW
+
+    from azurkit.tools.characters._player_victory import CANCEL_AFTER, CANCEL_HOOK
+    from devkit.sim import l2
+
+    image = request.getfixturevalue(f"{release.name}_iso")
+    recipe = {"base": "town_female_2", "slots": {f"victory_{v}": "talk" for v in range(1, 7)}, "victory_cancel": 0.5}
+    xbe = _files(image, tmp_path, recipe, "tossy")[XBE]
+    with _building(image):
+        assert ports.verify_trampoline_patch(xbe, CANCEL_HOOK) == "applied"
+        assert struct.unpack_from("<f", xbe, _at(xbe, CANCEL_HOOK, CANCEL_AFTER.symbol))[0] == 0.5
+    if release is gate.EUROPE:
+        return
+    base = 0x20000000
+    control, critter, anim, inp = (base + 0x400 * k for k in range(4))
+
+    def run(data: bytes, slot: int, t: float, st: float, stick: float, held: int, flags: int) -> tuple:
+        sim = l2.Sim(data)
+        sim.uc.mem_map(base, 0x2000)
+        for va, fmt, value in ((control + 0x94, "<I", 0x100), (control + 0x9C, "<f", st), (control + 0x20, "<I", critter),
+                               (critter + 0x17C, "<I", anim), (critter + 0x200, "<i", slot), (critter + 0x1E4, "<f", 4.0),
+                               (critter + 0x1E0, "<f", 4.0 - t), (anim + 0x10, "<i", 0), (anim + 0x48, "<I", flags),
+                               (inp + 0x1C, "<f", stick), (inp + 0x30, "<B", held)):
+            sim.uc.mem_write(va, struct.pack(fmt, value))
+        top = (sim.uc.reg_read(UC_X86_REG_FPSW) >> 11) & 7
+        sim.call(0x8CF50, regs={"ebp": control, "edi": inp, "ebx": critter}, until=0x8CFA0)
+        assert (sim.uc.reg_read(UC_X86_REG_FPSW) >> 11) & 7 == top
+        return (sim.u32(control + 0x94), sim.f32(critter + 0x1E0),
+                tuple(sim.reg(r) for r in ("ecx", "edx", "ebx", "edi", "ebp")))
+    with iso.Reader(image) as r:
+        vanilla = r.read(XBE)
+    for row in ((76, 0.5, 0.0, 1.0, 0, 0x4D, True), (75, 3.9, 3.9, 0.11, 0, 0x4D, True),
+                (80, 0.5, 0.5, 1.0, 0, 0x4D, True), (76, 14 / 30, 2.0, 1.0, 0, 0x4D, False),
+                (76, 0.5, 0.5, 0.0, 0, 0x4D, False), (76, 0.5, 0.5, 0.1, 0, 0x4D, False),
+                (76, 0.5, 0.5, 1.0, 1, 0x4D, False), (20, 2.0, 2.0, 1.0, 0, 0x4D, False),
+                (81, 2.0, 2.0, 1.0, 0, 0x4D, False), (74, 2.0, 2.0, 1.0, 0, 0x4D, False),
+                (76, 0.1, 0.1, 0.0, 0, 0xED, False), (76, 0.1, 0.1, 0.0, 0, 0x4C, False)):
+        got, was = run(xbe, *row[:-1]), run(vanilla, *row[:-1])
+        assert got[2] == was[2], row
+        assert got[:2] == ((0, 0.0) if row[-1] else was[:2]), (row, got, was)
+        assert was[0] == (0 if row[5] != 0x4D else 0x100)
