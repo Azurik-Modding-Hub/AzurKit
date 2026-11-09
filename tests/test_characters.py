@@ -1319,6 +1319,58 @@ def test_a_mesh_edit_draws_a_gltf_in_a_platforms_copies_and_refuses_what_it_cant
                                                                          mesh=spec)])
 
 
+def _templates_with(change) -> dict:
+    from azurkit.tools.characters import fx_templates
+
+    doc = json.loads(fx_templates.PATH.read_text(encoding="utf-8"))
+    change(doc)
+    return doc
+
+
+T = "templates"
+
+
+@pytest.mark.parametrize("change, why", [
+    (lambda d: d[T]["fireball"].update(glow=1), "templates.fireball: unknown key 'glow'"),
+    (lambda d: d[T]["fireball"].pop("body"), "templates.fireball: missing 'body'"),
+    (lambda d: d[T]["bubble"].update(hit="fire_1"), "templates.bubble: a shield has no hit"),
+    (lambda d: d[T]["bubble"].update(group="aura"), "templates.bubble.group: 'aura' is not one of projectile, shield"),
+    (lambda d: d[T]["bubble"].update(engine="throw"), "templates.bubble.engine: 'throw': a shield plays on bound"),
+    (lambda d: d[T]["bubble"].update(sets=["globe"]), "templates.bubble.sets[0]: 'globe' is not a graft"),
+    (lambda d: d[T]["bubble"]["params"]["size"]["writes"][0].update(record="ForceField"),
+     "templates.bubble.params.size.writes[0].record: 'ForceField' is no record of the template's sets"),
+    (lambda d: d["grafts"]["airship_bolts"]["records"][9].__setitem__(1, "locator1"),
+     "templates.bolts.edits[1].record: two records of the template's sets are named 'locator1'"),
+    (lambda d: d[T]["bubble"]["params"]["size"].update(default=5),
+     "templates.bubble.params.size.default: 5 is outside its range [0.5, 3] (D42)"),
+    (lambda d: d[T]["bubble"]["params"]["opacity"].update(default=float("nan")),
+     "templates.bubble.params.opacity.default: nan is not a finite number"),
+    (lambda d: d[T]["bubble"]["params"]["fade"].update(writes=[{"engine": "speed"}]),
+     "templates.bubble.params.fade.writes[0].engine: 'speed' is not one of bound's fade"),
+    (lambda d: d[T]["barrier"]["params"]["ahead"]["writes"][0].update(record="Power_rumble"),
+     "templates.barrier.params.ahead.writes[0].record: Power_rumble.translateY is the holder's, which its anchor's "
+     "marker sets every frame"),
+    (lambda d: d[T]["bubble"]["colour"]["recolor"].append({"record": "StaticFieldBase"}),
+     "templates.bubble.colour.recolor[2]: a transform draws no texture to recolour"),
+    (lambda d: d["grafts"]["electric_shield"]["records"].reverse(),
+     "grafts.electric_shield.records[1]: record 9 comes after 12"),
+    (lambda d: d[T]["bubble"].update(turn=[0, 0, 1]),   # Modkit's Step 2.167c: m_root turns its holder
+     "templates.bubble.turn: only a holder the build places (feet, hand) takes a turn"),
+])
+def test_a_templates_file_that_cant_build_fails_by_name(change, why):
+    """The shipped effects templates' file loads (the module's GRAFTS and TEMPLATES are its), and a template with an
+    unknown or missing key, a group, engine or set it can't have, a write to a record its sets lack or that two of
+    them name or to the holder's translate, rotate or scale (its marker's every frame), a turn of a holder a marker
+    places, a default outside its display range (D42), a value no number holds (D23), an engine field of another
+    engine, a recolour of a record that draws no texture, or a graft whose records leave the donor's order is refused
+    by name (D35; Modkit's Step 2.167a)."""
+    from azurkit.tools.characters import fx_templates
+
+    assert fx_templates.load(_templates_with(lambda d: None)) == (fx_templates.GRAFTS, fx_templates.TEMPLATES)
+    with pytest.raises(ValueError, match=re.escape(why)):
+        fx_templates.load(_templates_with(change))
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 
