@@ -811,6 +811,50 @@ def test_every_body_takes_every_weapon_and_one_with_no_attack_clip_casts_and_aim
         p["colour"] in (None, *picker.STATUS_COLOURS.values())) for p in rows[1:])
 
 
+def test_a_picked_weapons_grade_is_its_sittings_and_only_for_the_build_it_saw(usa, monkeypatch):
+    """Each WEAPON_GRADES key is a pick the build resolves (the species, its mode and the weapon's sha as
+    ``loadout`` makes them), so the build's status line reads that grade; the same pick at another size or scale, a
+    pick no sitting saw and a body's default don't (D242; Modkit's Steps 2.161b, 2.161b2, 2.161e, 2.161g, 2.204,
+    2.209): the status line reads it through ``seen`` (town_child_1's green hoe drawn x2 reads unseen); a variant
+    is the build its sitting saw only built in, at its recipe's scale and attack sliders; a creature's grade is
+    keyed by its grips row too (a grip retuned after its sitting reads unseen) and a W35-fitted pair's by its
+    turns; a pick no sitting saw is coloured by its fit, "not seen in game"; booblord's spins under her default
+    Axion staff are a pick graded as one, keyed by her recipe as AzurKit has it (Step 4.3's vase step changed it,
+    and its carry of her looks' grades left these keys)."""
+    characters_xbr, config = _vanilla(usa, CHARACTERS), _vanilla(usa, CONFIG)
+    species = pc._species(_doc(config).keyed_section("critters_engine"))
+    for (name, mode, weapon, sha), graded in WEAPON_GRADES.items():
+        v = builtins().get(name)
+        lo = loadout(characters_xbr, read_body(characters_xbr, species[v.base if v else name]["body"]), mode, True, v,
+                     weapon)
+        turns = pw.fit_turns(lo.body, v, lo.weapon)
+        assert (lo.name, pick_sha(lo.weapon, lo.body, turns), grade(name, mode, lo)) == (weapon, sha, graded), name
+        unseen = grade(name, mode, lo, built=False)   # by its fit, not seen in game
+        assert unseen[0] == pw.FIT_COLOURS[lo.fit] and unseen[1].startswith(pw.NOT_SEEN), name
+    assert {c for c, _ in WEAPON_GRADES.values()} == {"green", "yellow", "red"}   # red: frag_fire_1's, its model's
+    body = read_body(characters_xbr, species["town_male_6"]["body"])
+    her = read_body(characters_xbr, species["town_female_1"]["body"])
+    assert grade("town_female_1", "own", loadout(characters_xbr, her, "own", True, None, "farmers_hoe"))[0] == "green"
+    assert grade("town_male_6", "own", loadout(characters_xbr, body, "own", True, None, "bare_hands")) is None
+    catalisk = loadout(characters_xbr, read_body(characters_xbr, "catalisk"), "own", True, None, "farmers_hoe")
+    monkeypatch.setitem(WEAPON_GRADES, ("catalisk", "own", "farmers_hoe", pick_sha(catalisk.weapon, "catalisk")),
+                        ("green", "seen"))
+    assert grade("catalisk", "own", catalisk) == ("green", "seen")
+    monkeypatch.setitem(grips(), "catalisk", replace(grips()["catalisk"], offset=(0.0, 0.0, 0.1)))
+    assert grade("catalisk", "own", catalisk)[0] == "yellow"   # look + tip hits
+    monkeypatch.undo()
+    lines = []
+    _swap(usa, "town_child_1", weapon="farmers_hoe", scale=2.0, lines=lines)
+    assert lines[-1] == ("  Player model status: green "
+                         f"({pick_grade('town_child_1', 'own', 'farmers_hoe', False, fit=GOOD)[1]})")
+    beamlord = builtins()["beamlord"]
+    assert [seen("own", 1.0), seen("garret4", 1.0), seen("own", 2.0)] == [True, False, False]
+    assert [seen("own", scale, v, sliders) for v, scale, sliders in (
+        (beamlord, beamlord.scale, None), (beamlord, beamlord.scale, (beamlord.reach, beamlord.damage, beamlord.speed)),
+        (beamlord, 2 * beamlord.scale, None), (beamlord, beamlord.scale, (2.0, beamlord.damage, beamlord.speed)),
+        (replace(beamlord, source="saved/recipe.json"), beamlord.scale, None))] == [True, True, False, False, False]
+
+
 def _attack_lookup(xbe: bytes, body: str, keys: dict[str, int], name: str, flags: int) -> int:
     """The handle the attacks_anims loader's lookup (its CALL at 0x7E3F0, X12's or X44's hook in ``xbe``) gives a
     column naming ``name`` for a species of ``body`` with ``flags`` (0x20: the player's), the asset registry 0xA5CA0
