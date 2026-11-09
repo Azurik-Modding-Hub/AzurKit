@@ -35,8 +35,8 @@ from unittest import mock
 import pytest
 
 from azurkit.core import facts, gate, iso
-from devkit.sim.l2 import (BOOT_TICK, JUMP_INIT, SHIELD_2, STANDING, PlayerSim, ProbeError, Sim, armor_slots,
-                           blind_spots)
+from devkit.sim.l2 import (BOOT_TICK, JUMP_INIT, SHIELD_2, STANDING, Boot, PlayerSim, ProbeError, Sim, armor_slots,
+                           blind_spots, boot_tick)
 from devkit.sim.ports import apply_pack, get_pack, parse_xbe_sections
 
 K = 2.0                    # the slider value each historical patch was tried at
@@ -134,6 +134,17 @@ def test_blind_spot_builds_need_an_xemu_signoff(usa):
     with mock.patch.dict(blind_spots()[1], {Sim.signoff: frozenset({0x47380})}):
         Sim(bytes(fps))
 
+
+def test_the_logo_state_starts_the_logo_movie_and_qol_skip_logo_starts_prophecy_in_its_place(usa):
+    """Modkit's behaviour test 14 (Step 2.10): from the logo state 1 one tick of the boot state machine 0x5F620
+    starts AdreniumLogo.bik and polls it (state 2); a qol_skip_logo build's shim at 0x5F6E5 starts prophecy.bik in
+    the same tick and polls that (state 4), the tick returning with its stack balanced, which a NOP fill or a shim
+    with the wrong ``ret N`` breaks (the NOP patch black-screened the game). play_movie_fn and poll_movie are stubs
+    (a movie always starts and is still playing)."""
+    xbe = bytearray(usa["default.xbe"])
+    assert boot_tick(bytes(xbe), 1) == Boot(("AdreniumLogo.bik",), 2)
+    apply_pack(get_pack("qol_skip_logo"), xbe, {})
+    assert boot_tick(bytes(xbe), 1) == Boot(("prophecy.bik",), 4)
 
 def _slider_ends(s, setting: str) -> float:
     """A slider's value at ``setting``: its default, its track's ends, or a span past each (D23: the ends are

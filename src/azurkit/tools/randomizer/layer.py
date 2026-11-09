@@ -8,7 +8,7 @@ read-back of the final image.
   flag given on the command line (D144's, ``--skip``/``--no-skip`` and
   ``--exclude-category``), checked as a settings file is (§7.2).
 - :func:`plan_for`: the fill of ``--seed`` under those settings with the
-  build's own movement sliders (:func:`build_sliders`), which the
+  build's own movement sliders (:func:`~.generator.sliders`), which the
   settings, so the plan's share string, then hold (AZ-383); moved, they
   pick the tier the seed is filled at (:func:`~.movement.played`, D1066);
   or ``--plan``'s plan file, exactly, once :func:`checked_plan` reads it.
@@ -134,17 +134,6 @@ def settings_text(settings: Settings) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_sliders(enabled, params: Mapping) -> dict[str, dict[str, float]]:
-    """The build's movement sliders (``physics.SLIDERS``) that aren't
-    vanilla's, of its ``enabled`` packs in ``params`` (``{pack: {slider:
-    value}}``; :func:`~.physics.slider_values`): what picks the tier its
-    seed is made at and its share string and placement file record
-    (AZ-383); a name no slider has is :func:`movement_reasons`' to name."""
-    from azurkit.tools.randomizer.physics import slider_values
-
-    return slider_values(params, enabled)
-
-
 SIZE_PACK = "player_physics"
 SIZE_SLIDERS = ("walk_speed_scale", "roll_speed_scale")   # each x sqrt(s): D342's run, D330's roll
 SIZE_FOLD = "size_fold"   # player_physics' sqrt(s), the speed toggle's "off" for those two (Step 2.186)
@@ -157,7 +146,7 @@ def size_params(enabled, params: Mapping, s: float) -> tuple[list[str], dict[str
     one from 1.0) times sqrt(``s``) and the pack enabled, so the body runs
     garret4's speed and rolls his distance x sqrt(s) and the logic, the
     share string and the placement file read the composed numbers
-    (:func:`build_sliders`, AZ-383); ``s`` 1 (garret4's height: the
+    (:func:`~.generator.sliders`, AZ-383); ``s`` 1 (garret4's height: the
     vanilla player, a standardized body) leaves both as they are.  With
     the speed toggle on either (``toggle_<slider>``), :data:`SIZE_FOLD`
     is sqrt(``s``) too, so a left stick click flips it to the body's own
@@ -211,7 +200,7 @@ def plan_for(args, logic, sliders=None):
     :func:`checked_plan` reads it (``why``: :func:`plan_reasons`), else the
     fill of ``--seed`` (default ``"42"``) under
     :func:`settings_from_args` with the build's movement ``sliders``
-    (:func:`build_sliders`; none: vanilla's), on ``logic`` (the logic as
+    (:func:`~.generator.sliders`; none: vanilla's), on ``logic`` (the logic as
     authored); moved, they pick the tier it is filled at, so the seed is that
     tier's (:func:`~.movement.played`, D1066). A ``--share`` made for other
     sliders is refused (:class:`LayerError`): its sliders pick its tier, so
@@ -339,5 +328,5 @@ def spoiler_text(plan, logic, logic_verified: bool, why_not=()) -> str:
 
 
 __all__ = ["CATEGORIES", "LAYER", "LayerError", "LayerReport", "SIZE_FOLD", "SIZE_PACK", "SIZE_SLIDERS",
-           "build_sliders", "checked_plan", "obsidian_reason", "plan_for", "plan_reasons", "roll_reasons", "read_settings", "size_params",
+           "checked_plan", "obsidian_reason", "plan_for", "plan_reasons", "roll_reasons", "read_settings", "size_params",
            "sliders_text", "settings_from_args", "settings_text", "spoiler_text"]

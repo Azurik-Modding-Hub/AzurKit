@@ -4,30 +4,24 @@ from one side, on a transparent ground (Steps 2.52, 2.93).
 :func:`draw` rasterizes :class:`Part` s (a mesh's triangles in one frame
 with its first texture stage, read by :mod:`azurik_mod.xbr.render`) at
 :data:`SS` times the size and box-filters them down, a 1 px rim round them.
-``scripts/render_model_icons.py`` draws the GUI's committed icons with it,
-and :func:`draw_previews` the gallery picker's pictures of character bodies,
-made from the user's own ISO into the user cache, never committed (D260).
+``scripts/render_model_icons.py`` draws the GUI's committed icons with it.
 Authoring only: numpy (a runtime dependency); nothing here prints a game byte.
 """
 
 from __future__ import annotations
 
-import os
 import struct
 import zlib
 from dataclasses import replace
-from pathlib import Path
 
 import numpy as np
 
 from azurkit.tools.characters import render
-from azurkit.core.xbr.nodes import named_resources, parse_toc
 
 SS = 8                          # supersampling
 PITCH = 25.0                    # degrees the camera looks down
 AMBIENT, DIFFUSE = 0.55, 0.7
 OUTLINE = (27, 31, 36)          # a 1 px dark rim, so a light model reads on a light table too
-THUMB_RIM = (128, 128, 128)     # a list row's rim: 4.32:1 on the dark list (#1c1c1c), 3.78:1 on the light (#fafafa)
 PREVIEW_VIEW = (210.0, 15.0)    # a body's yaw and pitch: from its front, a quarter round, a little above
 BOOST = 1.6                     # a lit (MODULATE2X) material's texture drawn this much brighter
 BATCH_BOX = 32                  # draw_batched: a triangle over this many samples across is drawn alone
@@ -278,42 +272,6 @@ def png_rgba(img: np.ndarray, level: int = 9) -> bytes:
             + chunk(b"IDAT", zlib.compress(raw, level)) + chunk(b"IEND", b""))
 
 
-def rimmed(img: np.ndarray, rim: tuple = THUMB_RIM) -> np.ndarray:
-    """An RGBA uint8 picture with an opaque 1 px ``rim`` round its body (its
-    pixels at least half covered): drawn at the picture's own size, it is a
-    whole pixel, so a body in a list row's own colour reads on it (AZ-547)."""
-    body = img[..., 3] >= 128
-    h, w = body.shape
-    pad = np.pad(body, 1)
-    near = np.any([pad[1 + dy:h + 1 + dy, 1 + dx:w + 1 + dx] for dy in (-1, 0, 1) for dx in (-1, 0, 1)], 0)
-    out = img.copy()
-    out[near & ~body] = (*rim, 255)
-    return out
-
-
-def thumbnail(img: np.ndarray, size: int, ss: int = 4) -> np.ndarray:
-    """A list row's ``size`` px picture of ``img`` (RGBA uint8, a body on
-    a transparent ground): the body's box (its pixels at least half
-    covered) zoomed to fit inside a 1 px margin, its proportions kept and
-    its middle the tile's, sampled ``ss`` times a pixel each way and
-    box-filtered, then :func:`rimmed` in the margin. D322: a body drawn
-    smaller than its picture fills its tile by its long side, a thin one
-    (bird, firefly) a band across the middle (D309's stretch replaced)."""
-    ys, xs = np.nonzero(img[..., 3] >= 128)
-    tile = np.zeros((size, size, 4), np.uint8)
-    if len(ys):
-        n, (h, w) = (size - 2) * ss, img.shape[:2]
-        side = max(ys.max() + 1 - ys.min(), xs.max() + 1 - xs.min())
-        at = (np.arange(n) + 0.5) * side / n - side / 2
-        rows = np.floor((ys.max() + 1 + ys.min()) / 2 + at).astype(int)
-        cols = np.floor((xs.max() + 1 + xs.min()) / 2 + at).astype(int)
-        sample = img[rows.clip(0, h - 1)][:, cols.clip(0, w - 1)]
-        sample[(rows < 0) | (rows >= h)] = 0            # past the picture: transparent
-        sample[:, (cols < 0) | (cols >= w)] = 0
-        tile[1:-1, 1:-1] = shrink(sample, ss)
-    return rimmed(tile)
-
-
 def shrink(img: np.ndarray, k: int) -> np.ndarray:
     """An RGBA uint8 picture box-filtered to 1/``k`` of its size, weighted by coverage."""
     h, w = img.shape[0] // k, img.shape[1] // k
@@ -337,16 +295,6 @@ def _apart(part: Part, rest: list[Part]) -> bool:
     return float(np.sqrt(dot(gap, gap))) > 0.5 * float((rhi - rlo).max())
 
 
-def body_preview(data, toc, index: int, size: int) -> np.ndarray:
-    """characters.xbr's body ``index`` seen from its front a quarter round
-    (:data:`PREVIEW_VIEW`): (size, size, 4) RGBA uint8.  Unlike the icons, a
-    lit (MODULATE2X) material isn't alpha-tested [inferred: garret4's skin
-    keeps a mask in its alpha, 89% of it under the reference, and the game
-    draws him whole], and a part lying apart from the rest is left out."""
-    yaw, pitch = PREVIEW_VIEW
-    return draw(body_parts(data, toc, index), yaw, size, pitch, ss=4)
-
-
 def body_parts(data, toc, index: int, leave=(), posed=None) -> list[Part]:
     """characters.xbr's body ``index`` as :func:`body_preview` draws it:
     its parts, a lit material's not alpha-tested, one lying apart left out,
@@ -360,53 +308,3 @@ def body_parts(data, toc, index: int, leave=(), posed=None) -> list[Part]:
         if q.lit:
             q.ref = 0.0
     return [q for i, q in enumerate(parts) if not _apart(q, parts[:i] + parts[i + 1:])]
-
-
-def _write(path: Path, data: bytes) -> None:
-    """``data`` into ``path`` whole or not at all (a reader never sees half
-    a file), through a part of this process's own: the player-model and
-    critter pickers may draw into one folder at once (Step 2.93b)."""
-    part = path.with_name(f"{path.name}.{os.getpid()}.part")
-    part.write_bytes(data)
-    os.replace(part, path)
-
-
-def write_preview(img: np.ndarray, picture: Path, row: Path, thumb: int) -> None:
-    """``img`` (a :func:`body_preview`) as a gallery picker's picture and
-    its list row's ``thumb`` px one (:func:`thumbnail`), the picture
-    written last (the picker takes a picture that exists as drawn)."""
-    picture.parent.mkdir(parents=True, exist_ok=True)
-    _write(row, png_rgba(thumbnail(img, thumb)))
-    _write(picture, png_rgba(img))
-
-
-def draw_previews(iso: Path, jobs: list[tuple[str, Path, Path]], size: int, thumb: int) -> list[str]:
-    """Each body of ``jobs`` (a characters.xbr name such as
-    ``townspeople/male_1``, its picture's file and its list row's) drawn
-    from ``iso``: the picture ``size`` px, the row's ``thumb`` px
-    (:func:`thumbnail`; ``size`` a multiple of it), the picture written
-    last.  A body the game has no
-    model for (town_elder's ``townspeople/elder`` and noship's
-    ``test/cind_e_ship``: no file of the ISO holds either, docs/RE_DATA.md)
-    gets an empty file in its picture's place, its suffix ``.none``
-    (Step 2.99).  Returns why each other that couldn't be drawn wasn't.
-    The GUI's gallery picker runs it in a child process."""
-    from azurkit.tools.characters.ports import read_file
-
-    data = bytes(read_file(iso, "gamedata/characters.xbr"))
-    toc = parse_toc(data)
-    index = {n.casefold(): i for i, n in named_resources(data).items()}
-    failed = []
-    for body, picture, row in jobs:
-        picture.parent.mkdir(parents=True, exist_ok=True)
-        at = index.get(f"characters/{body}".casefold())
-        if at is None:
-            _write(picture.with_suffix(".none"), b"")
-            continue
-        try:
-            img = body_preview(data, toc, at, size)
-        except (KeyError, IndexError, ValueError, struct.error) as exc:
-            failed.append(f"{body}: {type(exc).__name__} {exc}")
-            continue
-        write_preview(img, picture, row, thumb)
-    return failed

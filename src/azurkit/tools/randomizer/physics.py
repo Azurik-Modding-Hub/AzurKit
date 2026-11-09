@@ -64,7 +64,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
-from typing import NamedTuple, Protocol
+from typing import NamedTuple
 
 def f32(x: float) -> float:
     """``x`` rounded to float32, as the game stores it."""
@@ -628,10 +628,6 @@ class Envelope:
             return None
         return self.p.travel(air, self.m.run_speed if run else 0.0, self.kits[rank].air_control)
 
-    def travel_plain(self, rank: int, dh: float, *, run: bool = True, ceiling: float | None = None) -> float | None:
-        """The travel of the rank's jump alone (no flap), as :meth:`travel`."""
-        return self.travel(rank, dh, run=run, ceiling=ceiling, flaps=0)
-
 
 @functools.lru_cache(maxsize=64)
 def envelope(m: Movement = VANILLA, beam: int = 100) -> Envelope:
@@ -640,7 +636,8 @@ def envelope(m: Movement = VANILLA, beam: int = 100) -> Envelope:
 
 
 # --------------------------------------------------------------------------- tiers and certificates
-class Margin(Protocol):
+@dataclass(frozen=True)
+class Margins:
     """A difficulty tier's margins over the envelope (``draft/tiers.toml``)."""
     reach: float            # the share of the distance perfect flaps add to the jump that the tier counts
     takeoff_window: int     # ticks of jump-press window before the edge: a running takeoff loses that much run
@@ -649,38 +646,6 @@ class Margin(Protocol):
     landing_margin: float   # body centre past the far edge, m
     max_drop: float         # the longest drop counted, m
     lift_allowance: float   # how far a plain ledge's lip may stand above the apex for the lip lift, m
-
-
-def tier_gap(env: Envelope, margin: Margin, rank: int, dh: float, run: bool = True,
-             ceiling: float | None = None, flaps: int | None = None) -> float | None:
-    """The widest edge-to-edge gap ``margin``'s tier counts for air rank
-    ``rank`` (its flaps capped at ``flaps``) to a landing ``dh`` (None:
-    none).  At dh + clearance: the rank's jump alone, plus ``reach`` of
-    what its perfect flaps add (none when the jump alone can't reach), less the run a press up to
-    ``takeoff_window`` ticks early loses, times the stick error's cosine,
-    less the landing margin.  Frame-perfect (reach 1, no window, stick,
-    clearance or margin) is the envelope itself."""
-    if dh < -margin.max_drop:
-        return None
-    lv = dh + margin.clearance
-    t = env.travel(rank, lv, run=run, ceiling=ceiling, flaps=flaps)
-    if t is None:
-        return None
-    t0 = env.travel_plain(rank, lv, run=run, ceiling=ceiling) or 0.0
-    loss = margin.takeoff_window * env.m.run_speed * env.p.dt if run else 0.0
-    return math.cos(math.radians(margin.stick_deg)) * (t0 + margin.reach * (t - t0) - loss) - margin.landing_margin
-
-
-@dataclass(frozen=True)
-class Margins:
-    """A tier's margins over the envelope (a :class:`Margin`)."""
-    reach: float
-    takeoff_window: int
-    stick_deg: float
-    clearance: float
-    landing_margin: float
-    max_drop: float
-    lift_allowance: float
 
 
 TIERS_TOML = Path(__file__).resolve().parent / "draft" / "tiers.toml"   # draft/envelope.py checks it
@@ -707,5 +672,5 @@ FREE_CARRY_DROPS = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 16.0)   # the
 LIP_M = 1.2578        # [verified xemu s6 §5] the one measured ledge's lip above its floor
 
 
-__all__ = ["BODY_HEIGHT", "FREE", "Envelope", "Kit", "Margin", "Margins", "Movement", "Physics", "SLIDERS", "VANILLA",
-           "envelope", "f32", "tier_gap", "tier_margins"]
+__all__ = ["BODY_HEIGHT", "FREE", "Envelope", "Kit", "Margins", "Movement", "Physics", "SLIDERS", "VANILLA",
+           "envelope", "f32", "tier_margins"]

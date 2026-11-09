@@ -26,8 +26,6 @@ SS = 8                          # supersampling
 PITCH = 25.0                    # degrees the camera looks down
 AMBIENT, DIFFUSE = 0.55, 0.7
 OUTLINE = (27, 31, 36)          # a 1 px dark rim, so a light model reads on a light table too
-THUMB_RIM = (128, 128, 128)     # a list row's rim: 4.32:1 on the dark list (#1c1c1c), 3.78:1 on the light (#fafafa)
-PREVIEW_VIEW = (210.0, 15.0)    # a body's yaw and pitch: from its front, a quarter round, a little above
 BOOST = 1.6                     # a lit (MODULATE2X) material's texture drawn this much brighter
 BATCH_BOX = 32                  # draw_batched: a triangle over this many samples across is drawn alone
 BATCH_SAMPLES = 1 << 20         # draw_batched: samples tested at once
@@ -264,42 +262,6 @@ def raster(x, y, z, uv, tex, shade, ref, blend, rgb, alpha, depth) -> None:
     region_a[m] = ta[:, 0] + region_a[m] * (1 - ta[:, 0])
 
 
-def rimmed(img: np.ndarray, rim: tuple = THUMB_RIM) -> np.ndarray:
-    """An RGBA uint8 picture with an opaque 1 px ``rim`` round its body (its
-    pixels at least half covered): drawn at the picture's own size, it is a
-    whole pixel, so a body in a list row's own colour reads on it (AZ-547)."""
-    body = img[..., 3] >= 128
-    h, w = body.shape
-    pad = np.pad(body, 1)
-    near = np.any([pad[1 + dy:h + 1 + dy, 1 + dx:w + 1 + dx] for dy in (-1, 0, 1) for dx in (-1, 0, 1)], 0)
-    out = img.copy()
-    out[near & ~body] = (*rim, 255)
-    return out
-
-
-def thumbnail(img: np.ndarray, size: int, ss: int = 4) -> np.ndarray:
-    """A list row's ``size`` px picture of ``img`` (RGBA uint8, a body on
-    a transparent ground): the body's box (its pixels at least half
-    covered) zoomed to fit inside a 1 px margin, its proportions kept and
-    its middle the tile's, sampled ``ss`` times a pixel each way and
-    box-filtered, then :func:`rimmed` in the margin. D322: a body drawn
-    smaller than its picture fills its tile by its long side, a thin one
-    (bird, firefly) a band across the middle (D309's stretch replaced)."""
-    ys, xs = np.nonzero(img[..., 3] >= 128)
-    tile = np.zeros((size, size, 4), np.uint8)
-    if len(ys):
-        n, (h, w) = (size - 2) * ss, img.shape[:2]
-        side = max(ys.max() + 1 - ys.min(), xs.max() + 1 - xs.min())
-        at = (np.arange(n) + 0.5) * side / n - side / 2
-        rows = np.floor((ys.max() + 1 + ys.min()) / 2 + at).astype(int)
-        cols = np.floor((xs.max() + 1 + xs.min()) / 2 + at).astype(int)
-        sample = img[rows.clip(0, h - 1)][:, cols.clip(0, w - 1)]
-        sample[(rows < 0) | (rows >= h)] = 0            # past the picture: transparent
-        sample[:, (cols < 0) | (cols >= w)] = 0
-        tile[1:-1, 1:-1] = shrink(sample, ss)
-    return rimmed(tile)
-
-
 def shrink(img: np.ndarray, k: int) -> np.ndarray:
     """An RGBA uint8 picture box-filtered to 1/``k`` of its size, weighted by coverage."""
     h, w = img.shape[0] // k, img.shape[1] // k
@@ -321,16 +283,6 @@ def _apart(part: Part, rest: list[Part]) -> bool:
     rlo, rhi = pts.min(0), pts.max(0)
     gap = np.maximum(np.maximum(lo - rhi, rlo - hi), 0)
     return float(np.sqrt(dot(gap, gap))) > 0.5 * float((rhi - rlo).max())
-
-
-def body_preview(data, toc, index: int, size: int) -> np.ndarray:
-    """characters.xbr's body ``index`` seen from its front a quarter round
-    (:data:`PREVIEW_VIEW`): (size, size, 4) RGBA uint8.  Unlike the icons, a
-    lit (MODULATE2X) material isn't alpha-tested [inferred: garret4's skin
-    keeps a mask in its alpha, 89% of it under the reference, and the game
-    draws him whole], and a part lying apart from the rest is left out."""
-    yaw, pitch = PREVIEW_VIEW
-    return draw(body_parts(data, toc, index), yaw, size, pitch, ss=4)
 
 
 def body_parts(data, toc, index: int, leave=()) -> list[Part]:

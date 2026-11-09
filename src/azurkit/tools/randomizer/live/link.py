@@ -10,8 +10,7 @@ and only reads guest memory (it never writes it), with no pause, through the fir
    while the game runs.
 
 Live reads no gdbstub (D257, the owner: "i dont want slow mode": it stops the game for each read): a ``gdb:``
-endpoint is refused by name (:data:`NO_GDB`), and a saved list loses its ``gdb:`` items with a note
-(:func:`without_gdb`). The endpoints come from ``AZURIK_XEMU_LIVE`` (:func:`endpoints`: ``shm:<name>``,
+endpoint is refused by name (:data:`NO_GDB`). The endpoints come from ``AZURIK_XEMU_LIVE`` (:func:`endpoints`: ``shm:<name>``,
 ``qmp:<host>:<port>`` and ``qmp:unix:<path>``, comma-separated), else the list the tracker saved, else
 :data:`DEFAULT` (shared RAM, then QMP). Live never binds or listens, and by discovery it reads no automated xemu
 (``-name xemu-fork-auto``, D248): an endpoint the user names is read whatever its name. A link knows nothing of
@@ -80,33 +79,6 @@ def monitor_not_qmp(where: str) -> str:
             f"line).")
 
 
-AUTOMATION = f'[automation]\nram_shm = "{SHM_NAME}"\nqmp = "tcp:127.0.0.1:{QMP_PORT},server=on,wait=off"'
-"""The fork v0.15's ``[automation]`` table, Live's own endpoints (docs/GUIDE.md's Item tracker): set once in xemu's own
-``xemu.toml`` with xemu closed, it opens shared RAM and QMP at every launch, so no launch line is needed."""
-
-
-def automation_line(platform: str = sys.platform) -> str | None:
-    """The tracker's hover line for :data:`AUTOMATION` (Step X.32b): once, not per launch, for the owner's fork from
-    v0.15 on, on the systems it runs (the launch lines stay for every other xemu and older fork builds)."""
-    if platform == "win32":
-        return None
-    where = "~/Library/Application Support/xemu/xemu/xemu.toml" if platform == "darwin" else "its xemu.toml"
-    return f"Or once, for the xemu fork v0.15 and later (then no launch line): with xemu closed, add to {where}:\n" \
-           f"{AUTOMATION}"
-
-
-def setup_lines(platform: str = sys.platform) -> list[tuple[str, str]]:
-    """This OS's one step to a Live that never pauses the game, once per launch: (what to do, the line),
-    the first for any xemu (docs/GUIDE.md's Item tracker)."""
-    if platform == "darwin":
-        return [("quit xemu, then paste this into Terminal", f"open -n -a xemu --args {QMP_ARG}"),
-                ("the fork: quit it, then", f'open -n -a "<the fork\'s xemu.app>" --env XEMU_RAM_SHM={SHM_NAME}')]
-    if platform == "win32":
-        return [("start xemu from a shortcut to xemu.exe with this after its Target's closing quote",
-                 f" {QMP_ARG}")]
-    return [("add this to the line that starts xemu (xemu, flatpak run app.xemu.xemu or the AppImage)", QMP_ARG)]
-
-
 @dataclass(frozen=True)
 class Endpoint:
     """Where Live looks for xemu: ``kind`` "shm" or "qmp"; ``target`` a shared-memory name, a unix
@@ -159,16 +131,6 @@ def parse(text: str, explicit: bool = True) -> list[Endpoint]:
         else:
             raise ValueError(f"{item!r} is none of shm:<name>, qmp:<host>:<port>, qmp:unix:<path>")
     return out
-
-
-def without_gdb(saved: str) -> tuple[str, str]:
-    """A list saved before D257 with its ``gdb:`` items taken out: (the rest, a note naming them; "" when it
-    had none)."""
-    items = _items(saved)
-    gone = [s for s in items if s.partition(":")[0] == "gdb"]
-    if not gone:
-        return saved, ""
-    return ",".join(s for s in items if s not in gone), f"Endpoints… dropped {', '.join(gone)}: {NO_GDB}."
 
 
 def endpoints(env=None, saved: str = "") -> list[Endpoint]:

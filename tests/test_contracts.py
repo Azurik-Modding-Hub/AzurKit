@@ -802,3 +802,55 @@ def test_devlog_entries_are_well_formed_and_each_appears_once():
     (``scripts/devlog.py``'s ``problems``, which a release's join refuses on too)."""
     found = devlog.problems()
     assert not found, "the developer log's entries:\n" + "\n".join(found)
+
+
+# --- Step 4.30: Modkit's dead-code guard (AZ-105), ported ---------------------------------------------------------
+
+CODE = ("src/", "devkit/", "shimkit/", "nativekit/")   # the code the guard holds: the package and the dev side
+ENTRY_POINTS = {"main", "__getattr__", "__dir__"}   # named by pyproject's entry points or the module protocol
+
+
+def _named(tree: ast.Module, used) -> None:
+    """Count in ``used`` each name, attribute, import and string of ``tree`` but its ``__all__``'s."""
+    in_all = {id(n) for node in tree.body if isinstance(node, ast.Assign)
+              and any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets) for n in ast.walk(node.value)}
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Name):
+            used[n.id] += 1
+        elif isinstance(n, ast.Attribute):
+            used[n.attr] += 1
+        elif isinstance(n, ast.alias):
+            used[n.name] += 1
+        elif isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in in_all:
+            used[n.value] += 1
+
+
+def test_every_module_level_function_is_named_somewhere_besides_its_own_def():
+    """Modkit's AZ-105: every undecorated (or only ``@contextmanager``)
+    module-level function of the code (:data:`CODE`) is named somewhere in
+    the tracked tree besides its own ``def`` and an ``__all__`` entry: in a
+    Python file as a name, an attribute, an import or a string, or called
+    in a Markdown file (``name(``: a tool a seat or a reader calls by hand,
+    as the xemu harness's are). Decorator-registered functions are out of
+    scope. One nothing names is dead (D10): delete it. The other Python
+    files are parsed only when they hold a name the code left unnamed."""
+    import collections
+    import subprocess
+
+    files = [f for f in subprocess.run(["git", "-C", str(ROOT), "ls-files", "*.py", "*.md"], capture_output=True,
+                                       text=True, check=True, encoding="utf-8").stdout.split("\n") if f]
+    defs, used = [], collections.Counter()
+    for rel in (f for f in files if f.endswith(".py") and f.startswith(CODE)):
+        tree = ast.parse((ROOT / rel).read_text(encoding="utf-8"))
+        defs += [(rel, node.lineno, node.name) for node in tree.body
+                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and all(isinstance(d, ast.Name) and d.id == "contextmanager" for d in node.decorator_list)]
+        _named(tree, used)
+    for rel in (f for f in files if not f.startswith(CODE) or f.endswith(".md")):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        if rel.endswith(".md"):
+            used.update(re.findall(r"([A-Za-z_]\w*)\(", text))
+        elif any(name in text for _, _, name in defs if not used[name]):
+            _named(ast.parse(text), used)
+    dead = sorted(f"{rel}:{line} {name}" for rel, line, name in defs if not used[name] and name not in ENTRY_POINTS)
+    assert dead == [], "module-level functions nothing names:\n" + "\n".join(dead)

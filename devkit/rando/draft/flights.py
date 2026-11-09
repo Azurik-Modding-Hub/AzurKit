@@ -232,7 +232,7 @@ class Env:
                 fp = np.array([np.nan if a[0] is None else env.p.travel(a[0], v0, kit.air_control) for a in air])
                 jump = np.array([0.0 if a is None else env.p.travel(a, v0, kit.air_control) for a in plain])
                 coarse = np.array(envelope.ZONE_LEVELS)
-                for t in tiers:      # physics.tier_gap on the grid, the travel taken at level + clearance
+                for t in tiers:      # a tier's gap (tiers.toml) on the grid, the travel taken at level + clearance
                     at = self.levels + t.clearance
                     if t.name == "zone":     # the first ZONE_LEVELS level at or above each grid level
                         k = np.searchsorted(coarse, self.levels - 1e-9, "left")

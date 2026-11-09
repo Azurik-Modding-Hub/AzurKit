@@ -5,8 +5,7 @@ leaves to the reach model.
 The laws of flight, the settings they take and the reach envelope they
 give are :mod:`azurkit.tools.randomizer.physics` (Step R1.2b): any movement
 settings, the frame-perfect travel of each air rank to a landing dh.  A
-tier (``tiers.toml``) is a margin over it
-(:func:`azurkit.tools.randomizer.physics.tier_gap`): at dh + ``clearance``,
+tier (``tiers.toml``) is a margin over it: at dh + ``clearance``,
 the jump alone plus ``reach`` of what perfect flaps add, less the run a
 press ``takeoff_window`` ticks early loses, times the cosine of the stick
 error, less ``landing_margin``.  Frame-perfect counts all of it; safe

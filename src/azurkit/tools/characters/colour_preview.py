@@ -270,14 +270,6 @@ def across(parts: list) -> float:
     return out
 
 
-def portrait(size: int, share: float) -> int:
-    """The width, px, of a ``size`` px view cropped about its middle to a
-    body :func:`across` gives ``share``: the body's (``size`` less the
-    view's 1 px margins, times ``share``), its outline and a pixel each
-    side (``size`` at most)."""
-    return min(size, int(np.ceil(share * (size - 2))) + 4)
-
-
 def tile(raw: np.ndarray, size: int = TILE) -> np.ndarray:
     """A row's texture as a ``size`` px square tile (its nearest texels, opaque)."""
     h, w = raw.shape[:2]
@@ -328,5 +320,5 @@ def swatches(base_: Base, colours: tuple, row: int | None) -> tuple[np.ndarray, 
 
 
 __all__ = ["COLOURS", "SIZE", "TEXTURE_MAX", "TILE", "YAWS", "Base", "across", "base", "body_of", "dresses",
-           "ops_by_row", "palette", "pictures", "portrait", "props", "recoloured", "rows", "pngs", "specs", "swatches",
+           "ops_by_row", "palette", "pictures", "props", "recoloured", "rows", "pngs", "specs", "swatches",
            "tile", "uncoloured", "vanilla", "views"]
