@@ -272,6 +272,16 @@ def test_a_shim_lands_past_every_claim_before_it_and_its_claims_derive_the_heade
         engine.plan(lacking, gate.USA, {"default.xbe": vanilla})
 
 
+def test_a_resolving_stub_whose_resolver_lies_past_a_rel32_calls_reach_is_refused_by_name():
+    """Modkit's D1-extend (``test_resolver_too_far_raises``): the stub's call
+    of the shared resolver is a rel32 measured from the stub's +0x15, so a
+    resolver more than 2 GiB past it can't be called; the stub is refused
+    naming both, never packed out of range or wrapped round."""
+    with pytest.raises(ValueError, match=r"^the resolving stub at 0x00000100: its resolver at 0xE0000000 is past "
+                                         r"a rel32 call's reach$"):
+        engine.resolving_stub(0x100, 1, 0xE0000000)
+    assert len(engine.resolving_stub(0x100, 1, 0x80000114)) == engine.RESOLVING_STUB   # the farthest it reaches
+
 KERNEL_BASE = 0x80010000   # where the retail loader maps xboxkrnl.exe, whose exports the resolver walks
 
 

@@ -185,11 +185,15 @@ def resolving_stub(at: int, ordinal: int, resolver: int) -> bytes:
     while its cache (its last 4 bytes) is 0 it asks the resolver at
     ``resolver`` (cdecl) for the export's address, ECX and EDX kept for a
     fastcall's arguments (AZ-041), and keeps it there; it then jumps to it.
-    It writes its cache, so it lands writable (AZ-281)."""
-    cache = struct.pack("<I", at + 0x21)
+    It writes its cache, so it lands writable (AZ-281). A resolver past the
+    call's rel32 reach is a :class:`ValueError` naming both (D35)."""
+    cache, rel = struct.pack("<I", at + 0x21), resolver - (at + 0x15)
+    if not -0x80000000 <= rel <= 0x7FFFFFFF:
+        raise ValueError(f"the resolving stub at 0x{at:08X}: its resolver at 0x{resolver:08X} is past a rel32 "
+                         "call's reach")
     return (b"\xA1" + cache + b"\x85\xC0\x75\x16"   # mov eax, [cache]; test eax, eax; jnz +0x16 (the jmp)
             + b"\x51\x52\x68" + struct.pack("<I", ordinal)   # push ecx; push edx; push ordinal
-            + b"\xE8" + struct.pack("<i", resolver - (at + 0x15))   # call the resolver
+            + b"\xE8" + struct.pack("<i", rel)   # call the resolver
             + b"\x83\xC4\x04\x5A\x59\xA3" + cache   # add esp, 4; pop edx; pop ecx; mov [cache], eax
             + b"\xFF\xE0" + bytes(4))   # jmp eax; the cache
 
