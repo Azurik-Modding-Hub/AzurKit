@@ -858,21 +858,28 @@ def test_a_recipe_file_may_be_from_a_built_in_with_effects_rows_laid_over(usa_is
     assert pw.attack_recipe(e3, "booblord_spin", "booblord_spin") is e3
 
 
-def test_a_plain_balthazar_build_draws_beamlords_bolts():
-    """D427, D442, D452 (Modkit's Steps 2.146, 2.153b, 2.197b): plain
-    Balthazar's own build (his overlay, no variant worn) edits his fx clone
-    at beamlord's bolt records ([24] the burst emitter, [35] its renderer,
-    [39] its sink) and drain box [45], his stream's renderer [11] bright
-    for 1 s and pool [14] at 30 Hz, and his bolts' targets [58], [60], [62]
-    at inherit mode 7; the bytes his build writes are G3's
-    (``randomize-full:player-character=balthazar``)."""
-    bolts = _player_variants.overlay("balthazar").fx
+def test_a_plain_balthazar_build_draws_beamlords_bolts(usa_iso):
+    """D427, D442, D452, D446 (Modkit's Steps 2.146, 2.153b, 2.197b): plain
+    Balthazar's own build (his overlay, no variant worn) draws his attack_3's
+    bolts as beamlord's: the player's clone of his fx_default changed only at
+    beamlord's bolt records ([24] the burst emitter, [35] its renderer and
+    texture, [39] its sink), his drain box [45], his stream's renderer [11]
+    bright for 1 s and pool [14] at 30 Hz, and his bolts' targets [58], [60],
+    [62] at inherit mode 7, the airship boss's graph vanilla's; his
+    garret4-mode build adds no clone."""
+    bolts = overlay("balthazar").fx
     assert bolts[:4] == tuple(e for e in builtins()["beamlord"].fx if e["record"] in (24, 35, 39, 45))
     stream = {e["record"]: e["set"] for e in bolts[4:6]}
     assert [(e["record"], e["inherit"]) for e in bolts[6:]] == [(58, 7), (60, 7), (62, 7)]
     assert len(bolts) == 9 and stream[14] == {"updateRate": 30.0} and (
         stream[11]["colorAge2"], stream[11]["alphaAge2"], stream[11]["sizeAge2"], stream[11]["size2"]) == (
         1.0, 1.0, 1.0, 0.24)
+    vanilla, schema = _vanilla_characters(usa_iso), Schema(_vanilla_file(usa_iso, XBE))
+    own, plain = (bytes(_engine(usa_iso, "balthazar", mode=mode)["characters.xbr"]) for mode in ("own", "garret4"))
+    _cloned_only(schema, vanilla, own, "balthazar_airship", bolts)
+    key = fx_edit.default_key("balthazar_airship")
+    assert _payloads(plain, key) == _payloads(vanilla, key)
+    assert fx_edit.clone_key("balthazar_airship") not in _payloads(plain, "characters/balthazar_airship/v/")
 
 
 def test_the_variants_pages_own_sounds_are_the_roles_its_build_binds_with_w3s_picks(usa_iso):
