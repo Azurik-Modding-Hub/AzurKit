@@ -275,7 +275,7 @@ def test_each_test_helper_picks_the_test_files_its_imports_reach_and_only_what_e
     conftest = (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
     loaded = {f"tests/{n}.py" for n in re.findall(r"^from tests import (\w+)", conftest, re.M)
               + re.findall(r"\"tests\.(\w+)\"", re.search(r"^pytest_plugins = .*$", conftest, re.M)[0])}
-    assert loaded == {"tests/_pyodide.py", "tests/_byte_safe.py"}
+    assert loaded == {"tests/_pyodide.py", "tests/_byte_safe.py", "tests/_rerun.py"}
     for helper in sorted({f"tests/{p.name}" for p in (ROOT / "tests").glob("_*.py")} - {"tests/__init__.py"}):
         want = None if helper in loaded else sorted({*SMOKE, *_users(fullsuite.module_of(helper))})
         assert fullsuite.plan([helper], deps) == want, helper
@@ -609,18 +609,22 @@ def _running(pid: int) -> bool:
         "", "Z")
 
 
-def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_only_shrinks():
-    """D981-D985 on fake timings: an op not in the list fails when its
-    median is over 3 s (the capped profile's 9 s); an image's first check
-    passes over it only with a moving bar (D982), and a listed one with a
-    moving bar leaves the list; past 1 s an op shows progress unless it is
-    a debt (D980), and a download, whose write the browser's own bar shows,
-    does when its page part is within 1 s (the case keeps that part); a
-    listed op fails over its ceiling;
-    an op over runs R more times and fails only if the median of all is
-    still over (one spike can't fail it); the list may lower and drop but
-    never add or raise against main's; changes reach the ops of their
-    area."""
+def test_the_perf_gate_keeps_an_op_over_budget_as_debt_fails_only_a_clear_regression_and_its_list_only_shrinks(
+        tmp_path):
+    """D981-D985 and D1170 on fake timings: an op's verdict says when its
+    median is over 3 s (the capped profile's 9 s; ``over``, or ``regressed``
+    over a listed ceiling), past 1 s with no progress (D980; not a list's
+    debt), or a sample's page froze in a gap: each is a perf-debt row that
+    fails nothing (a Save's with the free disk its run left), and a
+    download, whose write the browser's own bar shows, shows progress when
+    its page part is within 1 s; an image's first check is within 3 s only
+    with a moving bar (D982). An op fails only as ``slower``: its median
+    over main's last passing full run's (fullsuite.main_reference) by more
+    than 25 % and 0.5 s; it runs R more times first and fails only if the
+    median of all still is (one spike can't fail it), and an error fails.
+    The receipt's debt rows go to the debt ledger; the list may lower and
+    drop but never add or raise against main's; changes reach the ops of
+    their area."""
     def s(seconds, bar=0, progress=True):
         return {"s": seconds, "bar": bar, "progress": progress}
     slow, moving = [s(3.2), s(3.4), s(3.1)], [s(6.8, bar=5)] * 3
@@ -634,12 +638,22 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
         (saved(3.3, 0.01), 3.0, None, False, False, True), (saved(1.3, 0.01), 3.0))] == [
         "over", "pass", "listed", "regressed", "bar", "bar", "over", "no progress", "pass", "error",
         "no progress", "pass", "over", "no progress"]
+    froze = "the page froze 400 ms in the head start before A12"
+    assert [(r["verdict"], r["debt"], r["ok"]) for r in (
+        perf.judge(slow, 3.0), perf.judge([s(1.5, progress=False)] * 3, 3.0), perf.judge([s(2.0)] * 3, 3.0),
+        perf.judge([{**s(2.0), "froze": froze}, s(2.1), s(2.2)], 3.0), perf.judge([{**s(2.0), "error": "x"}], 3.0),
+        perf.judge([s(2.6)] * 3, 3.0, reference=2.0), perf.judge([s(2.6)] * 3, 3.0, reference=2.1),
+        perf.judge([s(0.8)] * 3, 3.0, reference=0.4), perf.judge([s(4.0)] * 3, 3.0, reference=3.5))] == [
+        ("over", True, True), ("no progress", True, True), ("pass", False, True), ("pass", True, True),
+        ("error", False, False), ("pass", False, False), ("pass", False, True), ("pass", False, True),
+        ("over", True, True)]
     assert perf.judge(saved(1.3, 0.01), 3.0, browser_bar=True)["page"] == [0.01] * 3
     empty, bars = {"ceilings": {}, "debts": set()}, [{**s(6.8, bar=5), "page": 0.01}] * 3
     assert {k: v["verdict"] for k, v in perf.verdicts(   # D1053: Firefox's whole Save passes on its bar, no other's
         [("S49", "firefox"), ("S49", "webkit")], {("firefox", "S49"): bars, ("webkit", "S49"): bars}, empty,
         browser_bars={"S49"}).items()} == {"S49/firefox": "bar", "S49/webkit": "over"}
-    times = {"A12": [[5.0, 3.2, 2.6], [2.4, 2.5, 2.6]], "A15": [[4.0, 4.1, 4.2], [4.0, 4.0, 4.1]], "A24": [[290.0]]}
+    times = {"A12": [[5.0, 3.2, 2.6], [2.0, 2.1, 2.2]], "A13": [[4.0, 4.1, 4.2], [4.0, 4.0, 4.1]],
+             "A15": [[4.0, 4.1, 4.2]], "A24": [[290.0]]}
     asked = []
 
     def drive(run, targets):
@@ -647,9 +661,29 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
         return {"samples": {op: [s(t) for batch in times[op][:1 + (n > perf.R)] for t in batch]
                             for op, n in targets.items()}}
     lst = {"ceilings": {"A24/app": 300.0}, "debts": [], "memory": {}, "untimed": {}}
-    got, _, _ = perf.measure([("A12", "app"), ("A15", "app"), ("A24", "app")], drive, lst)
-    assert {k: r["verdict"] for k, r in got.items()} == {"A12/app": "pass", "A15/app": "over", "A24/app": "listed"}
-    assert asked == [("app", {"A12": 3, "A15": 3, "A24": 3}), ("app", {"A12": 6, "A15": 6})]
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    main_run = {"perf_args": ["--all"], "state": "done", "exit_code": 0, "perf": {"passed": True, "cases": {
+        "A12/app": {"median": 2.0}, "A13/app": {"median": 3.0}}}}
+    for name, m in (("older", main_run | {"finished_at": "1"}), ("red", main_run | {"finished_at": "3", "perf": {
+            "passed": False, "cases": {"A12/app": {"median": 9.0}}}}), ("lane", main_run | {"finished_at": "4",
+                                                                                           "perf_args": ["--select"]})):
+        (receipts / f"suite-{name}.meta").write_text(json.dumps(m), encoding="utf-8")
+    reference = fullsuite.main_reference(receipts)
+    assert reference.name == "suite-older.meta"
+    medians = {k: r["median"] for k, r in json.loads(reference.read_text())["perf"]["cases"].items()}
+    got, _, _ = perf.measure([("A12", "app"), ("A13", "app"), ("A15", "app"), ("A24", "app")], drive, lst,
+                             reference=medians)
+    assert {k: (r["verdict"], r["ok"]) for k, r in got.items()} == {
+        "A12/app": ("pass", True), "A13/app": ("over", False), "A15/app": ("over", True), "A24/app": ("listed", True)}
+    assert asked == [("app", {"A12": 3, "A13": 3, "A15": 3, "A24": 3}), ("app", {"A12": 6, "A13": 6})]
+    rows = perf.debt_rows(got, saves={"A13"}, free={"app": 52 * 2**30})
+    assert [(row["op"], row["verdict"], row.get("free_disk_gib")) for row in rows] == [
+        ("A13/app", "over", 52.0), ("A15/app", "over", None), ("A24/app", "listed", None)]
+    meta = receipts / "suite-k.meta"
+    fullsuite.ledger(meta, {"key": "k", "head": "f" * 40, "perf": {"debt": rows}})
+    assert [json.loads(line)["op"] for line in (receipts / fullsuite.DEBT_LEDGER).read_text().splitlines()] == [
+        "A13/app", "A15/app", "A24/app"]
     main = {"ceilings": {"A15/app": 4.8, "S14/webkit": 21.0, "S03/lag": 29.3}, "debts": ["A15/app"], "memory": {},
             "untimed": {}}
     mine = {**main, "ceilings": {"A15/app": 5.0, "S14/webkit": 21.0, "A06/app": 9.0}, "debts": ["A15/app", "A06/app"]}
@@ -856,12 +890,12 @@ def test_the_perf_gate_takes_a_starved_sample_once_more_names_it_and_counts_a_ch
     assert {k: v for k, v in got.items() if k != "starved"} == perf.judge(untagged, 3.0)
 
 
-def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_froze_in_a_gap(tmp_path):
+def test_the_perf_gate_clicks_3_s_after_a_change_and_marks_a_sample_whose_page_froze_in_a_gap(tmp_path):
     """D1006 and D1014 over a stub clock: a Track or Build after a change
     (an op with ``head_start``) is clicked 3 s after it and timed from the
     click (at once once the change's own wait passed 3 s; never a Build
     again); a tick of the freeze probe due in a gap (the head start, a
-    dialog's wait) over 250 ms late fails the next sample, a head start's
+    dialog's wait) over 250 ms late marks the next sample (``froze``: a perf-debt row, D1170), a head start's
     timed from the change, and one no sample takes stops the pass; a late
     tick under that, due in an action's own wait or before the gap only
     logs. One click's done-states race, each its own first true poll (the
@@ -886,7 +920,7 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_f
         except RuntimeError as exc:
             return "stops", str(exc)
         s = d.samples[op][0]
-        return p.clicks["build"], s["s"], s.get("error"), s.get("gap_ms"), s["late_ms"]
+        return p.clicks["build"], s["s"], s.get("froze"), s.get("gap_ms"), s["late_ms"]
     froze = "the page froze 400 ms in "
     assert [run(*row) for row in (
         ("A12", 500, 0, []), ("A12", 4000, 0, []), ("A16", 500, 0, []),
@@ -900,7 +934,7 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_f
     p, d = driven({"seed": {"typed": 0}, "track": {"tracked": 5000, "world": 50, "art": 100}}, [(1000, 400)])
     d.act(p, None, "seed", "typed", change=True)
     d.race(p, "S18", "track", {"S19": "world", "S18": "tracked", "S20": "art"}, after={"S20": "S18"})
-    assert p.clicks["track"] == 3000 and {op: (d.samples[op][0]["s"], d.samples[op][0].get("error")) for op in (
+    assert p.clicks["track"] == 3000 and {op: (d.samples[op][0]["s"], d.samples[op][0].get("froze")) for op in (
         "S18", "S19", "S20")} == {"S18": (8.0, froze + "the head start before S18"), "S19": (0.05, None),
                                   "S20": (0.0, None)}
     made = []
@@ -910,7 +944,7 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_f
 
 
 def test_a_gap_whose_page_froze_says_how_much_cpu_the_browser_ran_in_it(tmp_path, monkeypatch):
-    """A frozen gap's error names the CPU the browser's processes (their
+    """A frozen gap's mark (``froze``) names the CPU the browser's processes (their
     whole tree) used across it, read from the run's sampler either side of it
     (one sample taken as it ends): a page late while its browser ran was busy,
     one late while it used none was kept from running. A gap that didn't
@@ -937,7 +971,7 @@ def test_a_gap_whose_page_froze_says_how_much_cpu_the_browser_ran_in_it(tmp_path
         d.watch = types.SimpleNamespace(take=lambda: taken.append(p.t), ran=lambda t0, t1: ran)
         d.act(p, None, "pick", "picked", change=True)
         d.act(p, "A12", "build", "built")
-        return d.samples["A12"][0].get("error"), taken
+        return d.samples["A12"][0].get("froze"), taken
     assert [frozen([(1000, 400)], 0.02), frozen([(1000, 400)], None), frozen([(1000, 200)], 0.02)] == [
         ("the page froze 400 ms in the head start before A12 (the browser ran 20 ms of CPU in its 2.5 s)", [3000]),
         ("the page froze 400 ms in the head start before A12", [3000]), (None, [])]
@@ -1160,12 +1194,11 @@ def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lan
     assert code == 1 and "doesn't fast-forward from main" in why
 
 
-def test_land_needs_a_passing_perf_block_for_src_or_web_a_list_that_only_shrinks_and_an_empty_one_to_release(
-        tmp_path, monkeypatch):
+def test_land_needs_a_passing_perf_block_for_src_or_web_and_a_list_that_only_shrinks(tmp_path, monkeypatch):
     """D981: a stack changing src/ or web/ lands only on a receipt whose
     perf block passed; any stack, one changing only tests/perf_ceilings.toml
     too, is refused when its list adds an op or raises a ceiling against
-    main's; ``--release`` refuses while the list holds an op."""
+    main's. No landing waits for a release (D1170: a release tags a commit on main)."""
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     (lane / "src").mkdir()
     (lane / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
@@ -1181,8 +1214,6 @@ def test_land_needs_a_passing_perf_block_for_src_or_web_a_list_that_only_shrinks
     _receipt(receipts, top, perf_args=["--select", "app:build"], perf={"passed": False})
     assert land.land(repo, "p2/x")[0] == 1
     _receipt(receipts, top, perf_args=["--select", "app:build"], perf={"passed": True})
-    code, why = land.land(repo, "p2/x", dry_run=True, release=True)
-    assert code == 1 and "still lists 1 ops over their budget" in why
     assert land.land(repo, "p2/x")[0] == 0   # main had no list: the first record
     _git(repo, "switch", "-q", "-c", "p2/y")
     for ceilings, landed in (({"A15/app": 60.0}, False), ({"A15/app": 4.8, "A01/app": 9.0}, False),
@@ -1348,7 +1379,7 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
         asked.append((run, dict(targets)))
         return {"samples": {op: [{"s": 5.0, "bar": 0, "progress": False}] * n for op, n in targets.items()}}
     got, _, _ = perf.measure([("S05", "webkit"), ("S05", "firefox")], drive, on_main, fresh={"firefox"})
-    assert asked == [("webkit", {"S05": 3}), ("firefox", {"S05": 3}), ("webkit", {"S05": 6})]
+    assert asked == [("webkit", {"S05": 3}), ("firefox", {"S05": 3})]
     recorded = perf.updated(on_main, got, {}, False, {"firefox"})
     assert recorded == {**on_main, "ceilings": {"S05/webkit": 4.0, "S05/firefox": 5.8}, "debts": ["S05/firefox"]}
     _git(repo, "switch", "-q", "-c", "p2/y")

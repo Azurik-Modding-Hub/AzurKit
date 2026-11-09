@@ -23,6 +23,9 @@
 - A skip or an xfail fails the run unless ``tests/skip_allowlist.toml`` lists
   its test id with a regex its reason matches. The list starts empty (Q277).
 - Failure output is byte-safe (``tests/_byte_safe.py``).
+- A failed test runs once more at once; one that passes it is flaky, named
+  in the summary and recorded, and the run passes; one that fails twice
+  fails it (``tests/_rerun.py``, D1170).
 - ``--shard=LABEL:K/N`` runs the K-th of N parts of the selected tests, cut
   by a runner's measured seconds with each ``xdist_group`` in one part
   (``scripts/ci_shards.py``: CI's vanilla tier, one job a part).
@@ -84,7 +87,8 @@ from azurkit.core import gate  # noqa: E402
 from scripts import web_tools  # noqa: E402
 from tests import _pyodide  # noqa: E402
 
-pytest_plugins = ["tests._byte_safe", "pytester", "scripts.ci_shards"]   # the last: --shard (CI's vanilla tier)
+#: The last: --shard (CI's vanilla tier); tests._rerun: a failed test's one rerun (D1170).
+pytest_plugins = ["tests._byte_safe", "tests._rerun", "pytester", "scripts.ci_shards"]
 
 ALLOWED_SKIPS: dict[str, str] = tomllib.loads((ROOT / "tests" / "skip_allowlist.toml").read_text(encoding="utf-8"))
 _images: dict[str, Path] = {}         # release name -> its verified image

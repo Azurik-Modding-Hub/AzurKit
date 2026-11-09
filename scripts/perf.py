@@ -6,7 +6,7 @@ shrinks.
     uv run --locked python scripts/perf.py WORKTREE [--select HOST:GROUP,..] [--base REF] [--all]
                                            [--profiles P,..] [--browsers B,..] [--ops ID,..]
                                            [--update-ceilings] [--json FILE] [--keep DIR] [--content CLONE]
-                                           [--repeats N]
+                                           [--repeats N] [--reference META]
 
 What it times: ``tests/_perf.py``'s registry (``A01``-``A30`` the app's,
 ``S01``-``S25`` the site's), the ops of the groups the worktree's changes
@@ -25,12 +25,20 @@ size (``tree_peaks``); no verdict reads it.
 
 The verdicts (:func:`judge`): each op runs :data:`R` times (an op with a
 sample over 30 s once), first-time ops each in a fresh state, and its median
-decides. An op over its budget or ceiling runs :data:`R` more times (one more
-past 30 s) and fails only if the median of all of them is still over. An op
-not in the list fails over its budget; D982's first-time ops (an image's
-first identity check, the site's first engine load) may pass it only with a
-moving bar (the progress element seen at 2 or more values). A listed op fails
-over its ceiling. An op whose median passes 1 s must show progress (a bar or a
+decides. Timings are advisory (D1170): an op over its budget (an unlisted
+one, or a listed one over its ceiling), one whose median passes 1 s with no
+progress shown, or one a sample of which froze in a gap (``_perf.FREEZE_MS``)
+is a perf-debt row (the block's ``debt``, :func:`debt_rows`; a Save's with
+the free disk its run left), which fails nothing. A run fails only on a clear
+regression: with ``--reference`` (a receipt of main's last passing full run,
+``scripts/fullsuite.py``'s), an op whose median is over that run's for the same
+op and context by more than both :data:`REGRESSION` of it and
+:data:`REGRESSION_S` runs :data:`R` more times (one more past 30 s) and fails
+(``slower``) if the median of all of them still is; and on an error, a memory
+peak, a native failure or a list that grows, as before. D982's first-time ops
+(an image's first identity check, the site's first engine load) may pass
+their budget only with a moving bar (the progress element seen at 2 or more
+values). An op whose median passes 1 s shows progress (a bar or a
 "k of n" / "N %" line changing at least once, D980) unless it is one of the
 list's progress debts; a download (an op's ``browser_bar``: the browser writes
 the file the page handed it, shown by its own download indicator) shows it
@@ -65,6 +73,7 @@ import json
 import math
 import os
 import re
+import shutil
 import signal
 import statistics
 import subprocess
@@ -82,6 +91,9 @@ MEMORY = 6 * 2**30    # the capped profile's peak resident size
 R = 3                 # samples an op (the median decides)
 LONG = 30.0           # an op past this runs once, and once more on a re-run
 MARGIN = 1.15         # a ceiling is the median times this, rounded up to 0.1 s
+REGRESSION = 0.25     # D1170: a clear regression: the median over main's last full run's by more than this share of it
+REGRESSION_S = 0.5    # and by more than these seconds (both)
+DEBTS = ("listed", "over", "regressed", "no progress")   # D1170: the verdicts that are perf-debt rows, failing nothing
 LOAD_LINE = 40.0      # D926/D975: the gate's perf stage starts under this normal-priority load
 PROFILES = ("app", "site", "lag", "capped")
 BROWSERS = ("webkit", "chromium", "firefox")   # the site's (D994: Firefox)
@@ -131,13 +143,18 @@ def ceil(seconds: float) -> float:
 
 
 def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt: bool = False,
-          bar: bool = False, browser_bar: bool = False) -> dict:
+          bar: bool = False, browser_bar: bool = False, reference: float | None = None) -> dict:
     """One op's verdict in one context from its samples (``{"s", "bar",
-    "progress"[, "page"][, "error"]}``): ``pass``, ``listed`` (over its
-    budget, within its ceiling), ``bar`` (D982: over 3 s with a moving bar), and the
-    failures ``over`` (unlisted, over its budget), ``regressed`` (over its
+    "progress"[, "page"][, "froze"][, "error"]}``): ``pass``, ``listed`` (over its
+    budget, within its ceiling), ``bar`` (D982: over 3 s with a moving bar), ``over``
+    (unlisted, over its budget), ``regressed`` (over its
     ceiling), ``no progress`` (past 1 s with none shown and not a debt) and
-    ``error``. A ``browser_bar`` op's sample (a download) shows progress when
+    ``error``. Its ``debt`` (D1170): a verdict of :data:`DEBTS` or a sample
+    whose page froze in a gap (the case's ``froze``), a perf-debt row that
+    fails nothing; ``ok`` is false only for an error or ``slower``: its
+    median over the ``reference`` median (main's last passing full run's) by
+    more than both :data:`REGRESSION` of it and :data:`REGRESSION_S`.
+    A ``browser_bar`` op's sample (a download) shows progress when
     its page part, ``"page"``, is within 1 s: the browser's own bar shows its
     write; the case keeps the page parts. A sample the driver tagged
     ``starved`` (it waited for a core, ``_perf.starved``) is named in the
@@ -147,9 +164,9 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     if browser_bar:
         out["page"] = [s.get("page") for s in samples]
     if errors := [s["error"] for s in samples if s.get("error")]:
-        return out | {"verdict": "error", "ok": False, "error": errors[-1]}
+        return out | {"verdict": "error", "ok": False, "slower": False, "debt": False, "error": errors[-1]}
     if not samples:
-        return out | {"verdict": "error", "ok": False, "error": "no sample"}
+        return out | {"verdict": "error", "ok": False, "slower": False, "debt": False, "error": "no sample"}
     median = statistics.median(seconds)
     over = [s for s in samples if s["s"] > budget]
     moved = bool(over) and all(s["bar"] >= 2 for s in over)
@@ -167,7 +184,12 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
         verdict = "pass"
     if verdict in ("pass", "listed", "bar") and median > PROGRESS and not shown and not debt:
         verdict = "no progress"
-    return out | {"verdict": verdict, "ok": verdict in ("pass", "listed", "bar")}
+    if froze := [s["froze"] for s in samples if s.get("froze")]:
+        out["froze"] = froze
+    slower = reference is not None and median > reference * (1 + REGRESSION) and median - reference > REGRESSION_S
+    if reference is not None:
+        out["reference"] = reference
+    return out | {"verdict": verdict, "ok": not slower, "slower": slower, "debt": verdict in DEBTS or bool(froze)}
 
 
 def shipped(wt: Path, library: str | None) -> tuple[str | None, str | None]:
@@ -220,7 +242,8 @@ def render(lst: dict) -> str:
              "# (tests/_perf.py's ids; app, webkit, chromium, lag, capped); the ops past 1 s that show no progress",
              "# yet (D980); the capped profile's peak memory over 6 GiB; the ops the gate can't time. It only",
              "# shrinks: `perf.py --update-ceilings` lowers and drops, and the gate fails an added op, debt or a",
-             "# raised ceiling against main's. Empty for a release (scripts/land.py --release).", "", "[ceilings]"]
+             "# raised ceiling against main's. Over its budget, an op is a perf-debt row too (D1170).", "",
+             "[ceilings]"]
     lines += [f'"{k}" = {lst["ceilings"][k]}' for k in sorted(lst["ceilings"], key=order)]
     lines += ["", "[debts]", "keys = ["]
     lines += [f'    "{k}",' for k in sorted(lst["debts"], key=order)]
@@ -229,10 +252,6 @@ def render(lst: dict) -> str:
     lines += ["", "[untimed]"]
     lines += [f'{k} = {json.dumps(v)}' for k, v in sorted(lst["untimed"].items())]
     return "\n".join(lines) + "\n"
-
-
-def count(lst: dict) -> int:
-    return len(lst["ceilings"]) + len(lst["debts"]) + len(lst["memory"]) + len(lst["untimed"])
 
 
 def context_of(k: str) -> str:
@@ -314,27 +333,54 @@ def taken(samples: list[dict]) -> int:
 
 
 def rerun(results: dict, samples: list[dict]) -> int:
-    """How many more samples a failing time verdict takes (a spike can't fail it): :data:`R`, one past 30 s."""
-    if results["verdict"] not in ("over", "regressed"):
+    """How many more samples a failing time verdict (``slower``, D1170) takes (a spike can't fail it): :data:`R`,
+    one past 30 s."""
+    if not results.get("slower"):
         return 0
     return 1 if max(s["s"] for s in samples) > LONG else R
 
 
 def verdicts(cases: list[tuple[str, str]], samples: dict, lst: dict, bars=frozenset(),
-             browser_bars=frozenset()) -> dict:
-    """``{key: verdict}`` for ``cases`` from ``{(run, op): samples}`` against the list ``lst``; Firefox's whole Save
-    passes 3 s on its moving bar (D1053: its download writer alone takes that), never its page part."""
+             browser_bars=frozenset(), reference: dict | None = None) -> dict:
+    """``{key: verdict}`` for ``cases`` from ``{(run, op): samples}`` against the list ``lst`` and the ``reference``
+    medians (``{key: s}``, main's last passing full run's); Firefox's whole Save passes 3 s on its moving bar (D1053:
+    its download writer alone takes that), never its page part."""
     return {key(op, c): judge(samples.get((run_of(op, c), op), []), budget_of(c), lst["ceilings"].get(key(op, c)),
                               key(op, c) in lst["debts"], op in bars or op in browser_bars and c == "firefox",
-                              op in browser_bars) for op, c in cases}
+                              op in browser_bars, (reference or {}).get(key(op, c))) for op, c in cases}
+
+
+def debt_rows(results: dict, saves=frozenset(), free: dict | None = None) -> list[dict]:
+    """The perf-debt rows (D1170) of ``results``: each case whose ``debt`` is set, with its verdict (``froze`` for
+    one within its budget whose page froze), median, budget and first freeze; a Save's (``saves``) with the free disk
+    in GiB its run left (``free``: ``{run: bytes}``)."""
+    rows = []
+    for k, r in results.items():
+        if not r.get("debt"):
+            continue
+        op, _, context = k.partition("/")
+        row = {"op": k, "verdict": r["verdict"] if r["verdict"] in DEBTS else "froze", "median": r.get("median"),
+               "budget": r["budget"]} | ({"froze": r["froze"][0]} if r.get("froze") else {})
+        if op in saves and (free or {}).get(run_of(op, context)) is not None:
+            row["free_disk_gib"] = round(free[run_of(op, context)] / 2**30, 1)
+        rows.append(row)
+    return rows
+
+
+def debt_line(row: dict) -> str:
+    """A perf-debt row as one printed line."""
+    return (f"{row['op']}: {row['verdict']} ({row['median']} s, budget {row['budget']})"
+            + (f"; {row['froze']}" if row.get("froze") else "")
+            + (f"; {row['free_disk_gib']} GiB free" if "free_disk_gib" in row else ""))
 
 
 def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(), bars=frozenset(),
-            fresh=frozenset(), browser_bars=frozenset()) -> tuple[dict, dict, dict]:
+            fresh=frozenset(), browser_bars=frozenset(), reference: dict | None = None) -> tuple[dict, dict, dict]:
     """``({key: verdict}, {run: memory peak}, {(run, op): samples})`` for ``cases`` (``(op,
     context)``): ``drive(run, {op: target})`` returns that run's ``{"samples":
     {op: every sample so far}, "memory_peak"}`` once each op has
-    :func:`taken` its target; a failing time verdict drives its op again
+    :func:`taken` its target; a failing time verdict (``slower`` than its
+    ``reference`` median) drives its op again
     (:func:`rerun`; not in a context of ``fresh``: a first record lists every
     over-budget op as it is) and is judged on all its samples."""
     timed = [(op, c) for op, c in cases if op not in untimed]
@@ -356,7 +402,7 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
         first.setdefault(run_of(op, c), {})[op] = R
     go(first)
     more: dict[str, dict[str, int]] = {}
-    judged = verdicts(timed, samples, lst, bars, browser_bars)
+    judged = verdicts(timed, samples, lst, bars, browser_bars, reference)
     for op, c in timed:
         got = samples.get((run_of(op, c), op), [])
         if c not in fresh and (n := rerun(judged[key(op, c)], got)):
@@ -365,7 +411,7 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
     if more:
         go(more)
     peaks_of = {run: (peak, shared.get(run, False)) for run, peak in peaks.items()}
-    return verdicts(timed, samples, lst, bars, browser_bars), peaks_of, samples
+    return verdicts(timed, samples, lst, bars, browser_bars, reference), peaks_of, samples
 
 
 def normal_load(samples: int = 8, span: float = 4.0) -> float:
@@ -420,6 +466,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--keep", type=Path, help="keep each run's samples here, and reuse them")
     ap.add_argument("--content", type=Path, help="a clone of Azurik-Custom-Content (default: beside the checkout)")
     ap.add_argument("--repeats", type=int, default=R, help=f"samples an op (default {R}; fewer only to try a driver)")
+    ap.add_argument("--reference", type=Path, metavar="META",
+                    help="a receipt of main's last passing full run: an op slower than its there fails (D1170)")
     args = ap.parse_args(argv)
     globals()["R"] = args.repeats
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))   # a stopped run still deletes its scratch
@@ -449,6 +497,11 @@ def main(argv: list[str] | None = None) -> int:
     block = {"profiles": profiles, "browsers": browsers, "pairs": sorted(f"{h}:{g}" for h, g in pairs),
              "cases": {}, "memory": {}, "list": check_list(mine, main_list, new), "untimed": {}, "new": sorted(new),
              "tree_peaks": {}}
+    reference, free = None, {}   # main's last passing full run's medians; the free disk each run left (a Save's debt)
+    if args.reference:
+        against = json.loads(args.reference.read_text(encoding="utf-8"))
+        reference = {k: r["median"] for k, r in against["perf"]["cases"].items() if "median" in r}
+        block["reference"] = {"receipt": args.reference.name, "head": against.get("head", "")[:12]}
     untimed = {op.id for op in ops if op.untimed}
     block["untimed"] = {op.id: op.untimed for op in ops if op.untimed}
     if cases:
@@ -485,6 +538,7 @@ def main(argv: list[str] | None = None) -> int:
                        else {"samples": {}, "log": []})
                 for op, more in got["samples"].items():
                     have.setdefault(op, []).extend(more)
+                free[run] = shutil.disk_usage(scratch).free
                 seen = natives.setdefault(run, [])
                 seen += [r for r in old.get("native", []) + got.get("native", []) if r not in seen]
                 peak = max(filter(None, (old.get("memory_peak"), got.get("memory_peak"))), default=None)
@@ -500,13 +554,12 @@ def main(argv: list[str] | None = None) -> int:
 
             bars, browser_bars = {op.id for op in ops if op.bar}, {op.id for op in ops if op.browser_bar}
             fresh = (set(contexts(profiles, browsers)) if main_list is None else new) if args.update_ceilings else ()
-            block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh, browser_bars)
+            block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh, browser_bars, reference)
             from azurkit.core import native
             block["native"] = natives
             block["native_failures"] = native_failures(natives, {
                 run: shipped(wt, native.target() if _perf.RUNS[run].host == "app" else SIDE_MODULE) for run in natives})
         finally:
-            import shutil
             shutil.rmtree(scratch, ignore_errors=True)
         for run, (peak, others) in peaks.items():
             if "capped" in profiles and run in ("app-capped", "webkit"):
@@ -524,25 +577,30 @@ def main(argv: list[str] | None = None) -> int:
         (wt / CEILINGS).write_text(render(lst), encoding="utf-8")
         block["list"] = check_list(lst, main_list, new)
         if cases:   # judged again against the list it wrote
-            block["cases"] = verdicts([oc for oc in cases if oc[0] not in untimed], samples, lst, bars, browser_bars)
+            block["cases"] = verdicts([oc for oc in cases if oc[0] not in untimed], samples, lst, bars, browser_bars,
+                                      reference)
             for name, mem in block["memory"].items():
                 mem |= {"ceiling": lst["memory"].get(name), "ok": mem["peak"] <= max(MEMORY, lst["memory"].get(name, 0))}
-    failing = [f"{k}: {r['verdict']}" + (f" ({r.get('median')} s, budget {r['budget']}"
-                                         + (f", ceiling {r['ceiling']}" if r["ceiling"] else "") + ")"
-                                         if "median" in r else f" ({r.get('error')})")
+    failing = [f"{k}: slower than main's {r['reference']} s ({r['median']} s, over {REGRESSION:.0%} and "
+               f"{REGRESSION_S} s: D1170)" if r.get("slower") else f"{k}: {r['verdict']} ({r.get('error')})"
                for k, r in block["cases"].items() if not r["ok"]]
     failing += [f"memory {k}: {v['peak'] / 2**30:.2f} GiB" for k, v in block["memory"].items() if not v["ok"]]
     failing += block.get("native_failures", [])
     block |= {"failures": failing + block["list"], "passed": not failing and not block["list"],
+              "debt": debt_rows(block["cases"], {op.id for op in ops if op.title.startswith("Save")}, free),
               "wall_s": round(time.monotonic() - t0, 1)}
     for k, r in block["cases"].items():
         print(f"{k:16} {r['verdict']:12} {r.get('median', '-')!s:>8} s  n {r['n']}  budget {r['budget']}"
               + (f"  ceiling {r['ceiling']}" if r["ceiling"] else "")
+              + (f"  main's {r['reference']}" if r.get("reference") is not None else "")
+              + ("  debt" if r.get("debt") else "") + ("  SLOWER" if r.get("slower") else "")
               + (f"  starved {r['starved']}" if r.get("starved") else ""))
     for run, peak in block["tree_peaks"].items():
         print(f"{run} tree peak {peak / 2**30:.2f} GiB (logged)")
     print(f"perf: {'passed' if block['passed'] else 'failed'}, {len(block['cases'])} cases in {block['wall_s']} s"
-          + "".join(f"\n  {line}" for line in block["failures"]))
+          + "".join(f"\n  {line}" for line in block["failures"])
+          + (f"\nperf debt: {len(block['debt'])} rows, failing nothing (D1170)" if block["debt"] else "")
+          + "".join(f"\n  {debt_line(row)}" for row in block["debt"]))
     if args.json:
         args.json.write_text(json.dumps(block, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     return 0 if block["passed"] else 1

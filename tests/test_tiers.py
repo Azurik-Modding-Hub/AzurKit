@@ -1,4 +1,4 @@
-"""The D26 tiers, the empty skip allow-list and xdist's groups (``tests/conftest.py``)."""
+"""The D26 tiers, the empty skip allow-list, xdist's groups and a failed test's one rerun (``tests/conftest.py``)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import shutil
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -131,6 +132,103 @@ def test_the_ci_vanilla_tiers_printed_summary_names_its_slowest_tests(pytester, 
     printed = lines[next(i for i, line in enumerate(lines) if line.startswith("vanilla: ")):][:200]
     assert any(re.search(r"slowest \d+ durations", line) for line in printed), run.stdout.str()
     assert any(re.match(r"\d+\.\d+s call +test_t\.py::test_takes_a_while$", line) for line in printed), printed
+
+
+def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake_that_fails_nothing(
+        pytester, monkeypatch, tmp_path):
+    """D1170 (``tests/_rerun.py``): a test whose call or fixture setup fails
+    runs once more at once, on xdist's workers too, and a passing one never
+    again. One that passes its rerun is flaky: its run passes, the summary
+    names it with its first try's error after the tier lines (CI's log prints
+    from them on), ``AZURKIT_FLAKES``' file gets a line for it, and the
+    receipt keeps it and appends it to the flake ledger beside the receipts
+    (``fullsuite.ledger``, ``describe``); one that fails twice fails the run."""
+    from scripts import fullsuite
+
+    pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
+    pytester.makepyfile(test_r="""
+        import os
+
+        import pytest
+
+        def tried(name):
+            with open(os.environ["TRIES"], "a") as f:
+                f.write(name + "\\n")
+            with open(os.environ["TRIES"]) as f:
+                return f.read().split().count(name)
+
+        @pytest.fixture(scope="module")
+        def shaky():
+            assert tried("shaky") > 1, "its first setup failed"
+
+        def test_once():
+            assert tried("once") > 1, "the first try failed"
+
+        def test_setup(shaky):
+            tried("setup")
+
+        def test_steady():
+            tried("steady")
+
+        def test_always():
+            assert tried("always") < 0, "every try fails"
+    """)
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    flaky = [["test_r.py::test_once", "call: AssertionError: the first try failed"],
+             ["test_r.py::test_setup", "setup: AssertionError: its first setup failed"]]
+    for args, code, outcomes in ((("-n", "2"), 1, {"passed": 3, "failed": 1, "rerun": 3}),
+                                 (("-k", "not always"), 0, {"passed": 3, "rerun": 2, "deselected": 1})):
+        tries, flakes = tmp_path / f"tries{code}", tmp_path / f"flakes{code}.tsv"
+        monkeypatch.setenv("TRIES", str(tries))
+        monkeypatch.setenv("AZURKIT_FLAKES", str(flakes))
+        run = pytester.runpytest_subprocess("-p", "no:cacheprovider", *args, timeout=300)
+        out = run.stdout.str()
+        assert (run.ret, {k: n for k, n in run.parseoutcomes().items() if k != "warnings"}) == (code, outcomes), out
+        assert Counter(tries.read_text().split()) == {"once": 2, "shaky": 2, "setup": 1, "steady": 1} | (
+            {"always": 2} if code else {}), args
+        assert [line.split("\t") for line in flakes.read_text(encoding="utf-8").splitlines()] == flaky, args
+        assert out.index("vanilla: 0 run") < out.index("flaky: 2 passed on their one rerun") < out.index(
+            "test_r.py::test_setup: setup: AssertionError: its first setup failed"), out
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    meta = receipts / "suite-k.meta"
+    flakes.rename(meta.with_suffix(".flakes"))
+    m = fullsuite.ledger(meta, {"key": "k", "head": "f" * 40, "branch": "p2/x", "mode": "changed", "state": "done",
+                                "exit_code": 0, "subject": "s", "pytest_args": []})
+    assert [[f["test"], f["why"]] for f in m["flakes"]] == flaky and not meta.with_suffix(".flakes").exists()
+    assert [[row["test"], row["why"], row["key"], row["branch"]] for row in map(json.loads, (
+        receipts / fullsuite.FLAKE_LEDGER).read_text(encoding="utf-8").splitlines())] == [
+        [*row, "k", "p2/x"] for row in flaky]
+    assert "flaky: 2 passed on their one rerun" in fullsuite.describe(m, meta) and fullsuite.status_code(m) == 0
+
+
+def test_ci_reruns_a_failed_test_once_and_its_job_summary_lists_each_that_passed_its_rerun():
+    """D1170 on CI: each tier's pytest (the pure job's, a macOS runner's
+    folded pure tier, the vanilla tier, whose Linux run resets its
+    environment and so names the variable) appends each test that passed its
+    one rerun to ``AZURKIT_FLAKES``, one file in the runner's temp folder, and
+    pytest's exit stays 0, so the job is green; each job then writes that
+    file into its summary, whatever came before (``python -m tests._rerun``):
+    a heading with the count, then each test's id and first try's error;
+    nothing when no test was flaky."""
+    from tests import _rerun
+
+    text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    env = "        env:\n          AZURKIT_FLAKES: ${{ runner.temp }}/flakes.tsv   #"
+    summary = ('        if: always()\n        run: if [ -s "$RUNNER_TEMP/flakes.tsv" ]; then uv run --locked python -m '
+               'tests._rerun "$RUNNER_TEMP/flakes.tsv" >> "$GITHUB_STEP_SUMMARY"; fi\n')
+    for kind in ("pure", "vanilla"):
+        steps = re.split(r"(?m)^      - ", _jobs(text)[kind].split("    steps:\n", 1)[1])[1:]
+        tiers = [at for at, step in enumerate(steps) if re.search(r"uv run --locked pytest |-m pytest ", step)]
+        written = [at for at, step in enumerate(steps) if summary in step]
+        assert tiers and all(env in steps[at] for at in tiers), kind
+        assert len(written) == 1 and written[0] > max(tiers), kind
+    assert 'AZURKIT_FLAKES="$AZURKIT_FLAKES" .venv/bin/python -m pytest "$@"' in text
+    rows = "t.py::test_b[x]\tcall: AssertionError: late\nt.py::test_a\tsetup: OSError: busy\n"
+    assert _rerun.summary(rows) == ("### Flaky: 2 passed on their one rerun (D1170: recorded, not a block)\n\n"
+                                    "- `t.py::test_a`: setup: OSError: busy\n"
+                                    "- `t.py::test_b[x]`: call: AssertionError: late\n")
+    assert _rerun.summary("") == ""
 
 
 def test_the_ci_vanilla_tiers_parts_are_disjoint_and_whole_cut_by_measured_seconds_each_xdist_group_in_one(

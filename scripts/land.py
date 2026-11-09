@@ -1,7 +1,7 @@
 """land: fast-forward ``main`` to a lane's branch once a passing receipt
 covers its head (the twin of Modkit's ``land``).
 
-    uv run --locked python scripts/land.py BRANCH [--repo PATH] [--dry-run] [--release]
+    uv run --locked python scripts/land.py BRANCH [--repo PATH] [--dry-run]
 
 It refuses unless BRANCH's head fast-forwards from main (an unborn main takes
 any head) and a passing ``scripts/fullsuite.py`` receipt covers that head's
@@ -18,8 +18,9 @@ a browser the stack's perf.py times and main's doesn't may add its own once,
 its first record: ``perf.new_browsers``, D994). It refuses a head whose
 ``docs/DEVLOG.md`` holds a bullet twice (``scripts/devlog.py``: the stale copy
 a union merge keeps of a bullet its lane edited, Step 4.4dx1).
-``--release`` (the landing a release is cut from) refuses while the list
-holds anything: every op within its budget, showing progress, timed.
+Landing never waits for a release (D1170): a release is a tag on a commit
+that is on main (``release.yml`` checks that), cut whenever its tests pass,
+and the perf list holds no release back (an op over its budget is a debt row).
 
 Then it moves main. In the worktree that has main checked out, that is a
 fast-forward merge; otherwise it updates the ref from its old value. It removes
@@ -79,7 +80,7 @@ def perf_list(repo: Path, rev: str | None) -> dict | None:
     return perf.listed(text) if text else None
 
 
-def land(repo: Path, branch: str, dry_run: bool = False, release: bool = False) -> tuple[int, str]:
+def land(repo: Path, branch: str, dry_run: bool = False) -> tuple[int, str]:
     """(exit code, what it did or why it refused)."""
     top = fs.git(repo, "rev-parse", "--verify", "-q", f"refs/heads/{branch}", check=False).strip()
     if not top:
@@ -100,10 +101,6 @@ def land(repo: Path, branch: str, dry_run: bool = False, release: bool = False) 
         return 1, (f"land: no passing clean receipt with vanilla and europe tests run"
                    f"{' and a passing perf block (it changes src/ or web/: D981)' if timed else ''} for {branch} "
                    f"({top[:12]}): run scripts/fullsuite.py on its worktree (receipts in {folder})")
-    if release and perf.count(left):
-        return 1, (f"land --release: {perf.CEILINGS} still lists {len(left['ceilings'])} ops over their budget, "
-                   f"{len(left['debts'])} progress debts, {len(left['memory'])} memory peaks and "
-                   f"{len(left['untimed'])} untimed ops: a release needs it empty (D981)")
     did = f"main {main[:12] if main else '(unborn)'} -> {top[:12]} ({branch}; receipt {m['key']}, {m['mode']})"
     if dry_run:
         return 0, f"land --dry-run: would move {did}"
@@ -130,9 +127,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("branch")
     ap.add_argument("--repo", type=Path, default=Path.cwd())
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--release", action="store_true", help="refuse while tests/perf_ceilings.toml lists anything")
     args = ap.parse_args(argv)
-    code, text = land(args.repo, args.branch, args.dry_run, args.release)
+    code, text = land(args.repo, args.branch, args.dry_run)
     print(text, file=sys.stderr if code else sys.stdout)
     return code
 

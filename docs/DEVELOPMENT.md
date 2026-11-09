@@ -47,7 +47,9 @@ of these tests without its image stops with one message: no test is quietly
 skipped. The `web` tests run AzurKit under Pyodide on Node, and the page in
 headless Chromium, in WebKit (Safari's engine) and in Firefox; they need Node,
 and the Pyodide, Chromium, WebKit and Firefox that `uv run bootstrap.py` fetches into `.tools/`
-(`-m "not web"` leaves them out).
+(`-m "not web"` leaves them out). A test that fails runs once more at once: if it
+passes then, the summary lists it as flaky and the run passes; if it fails
+again, the run fails.
 
 ## Game data in the repository
 

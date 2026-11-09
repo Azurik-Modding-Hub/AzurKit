@@ -34,8 +34,8 @@ samples.
 The clock is the click's (D1006): a Track or Build that follows a change
 the player makes (a typed seed, the Randomize tick, an image pick, a
 model's pick, a slider) is clicked :data:`HEAD_START` after it (D1014),
-and the init script's freeze probe, a :data:`TICK_MS` timer, fails a
-sample whose page froze over :data:`FREEZE_MS` in a gap between actions
+and the init script's freeze probe, a :data:`TICK_MS` timer, marks a
+sample (``froze``: a perf-debt row, D1170) whose page froze over :data:`FREEZE_MS` in a gap between actions
 (a head start, a dialog's wait, the warm-up's); late ticks inside an
 action's own wait are its work, logged (:class:`Driver`). Not collected
 (no ``test_`` prefix). No game bytes are printed or kept: times, texts of
@@ -73,7 +73,7 @@ SAVE_DIALOG = 3.0    # a player's Save comes this long after the build (the save
 DOWNLOAD_BAR = "its download indicator (Safari's toolbar button, Chrome's download bubble, Firefox's downloads arrow)"
 HEAD_START = 3.0     # D1014: a Track or Build after the player's last change comes this long after it
 TICK_MS = 50         # the freeze probe's timer (timers fire in Chromium's headless shell, rAF doesn't)
-FREEZE_MS = 250      # D1006: a page late this long in a gap between actions froze (the sample fails)
+FREEZE_MS = 250      # D1006: a page late this long in a gap between actions froze (a perf-debt row, D1170)
 LAG_MS = 200         # Safari's read model: each File read this late (Step 4.1g2 measured about 200 ms)
 PORTS = 8900         # the site's server takes the first free port from here
 
@@ -669,9 +669,9 @@ class Driver:
             if self.gap and self.gap[2] is not None:   # a head start whose op takes no sample: a gap as any other
                 self.gap = (*self.gap[:2], None)
             return
-        gap, self.gap = self.gap, None
-        if gap and gap[0] > FREEZE_MS:
-            error = f"the page froze {gap[0]:.0f} ms in {gap[1]}" + (f"; {error}" if error else "")
+        gap, self.gap, froze = self.gap, None, None
+        if gap and gap[0] > FREEZE_MS:   # a perf-debt row, not an error (D1170: perf.judge)
+            froze = f"the page froze {gap[0]:.0f} ms in {gap[1]}"
             if gap[2] is not None:   # in its own head start: no head start (D1006), timed from the change
                 seconds = (t1 - gap[2]) / 1000
         bar, shown = progress_of(events, t0, t1)
@@ -681,11 +681,13 @@ class Driver:
             sample["page"] = round(page, 3)
         if gap:
             sample["gap_ms"] = round(gap[0])
+        if froze:
+            sample["froze"] = froze[:300]
         if error:
             sample["error"] = error[:300]
         if cpu is not None:
             sample["cpu"] = round(cpu, 3)
-            if not error and starved(seconds, cpu):
+            if not error and not froze and starved(seconds, cpu):
                 sample["starved"] = True
         if steady is not None:
             sample["steady"] = steady
@@ -698,7 +700,7 @@ class Driver:
                         f"{' bar ' + str(bar) if bar else ''}{' progress' if shown else ''}"
                         f"{f' steady {steady / 2**30:.2f} GiB' if steady is not None else ''}"
                         f"{f' peak {sample['resident'] / 2**30:.2f} GiB' if 'resident' in sample else ''}"
-                        f"{' ' + error[:120] if error else ''}")
+                        f"{' ' + froze if froze else ''}{' ' + error[:120] if error else ''}")
         print(self.log[-1], flush=True)
         if retake:
             self.retaking[op] = sample
@@ -2614,8 +2616,8 @@ def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
 def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path | None, site: Path | None,
           python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
-    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "error"][, "cpu"][, "starved"][, "retook"]
-    [, "steady", "resident"]}]},
+    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "froze"][, "error"][, "cpu"][, "starved"]
+    [, "retook"][, "steady", "resident"]}]},
     "native" (the engine reports its
     pages gave, :meth:`Driver.engine`), "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh

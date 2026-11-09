@@ -118,6 +118,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
+- **Nothing small blocks (D1170):** every run, the gate's and CI's, reruns a
+  failed test once at once (`tests/_rerun.py`). One that passes its rerun is
+  flaky: the run passes, and the summary, the receipt (`flakes`), the flake
+  ledger beside the receipts and CI's job summary name it with its first
+  error, a lane to fix it; one that fails twice, or a product bug, blocks.
+  A rerun is recorded, never hidden: it is no skip. Perf timings over budget
+  are debt rows, not blocks (the perf gate, below).
 - **When a truth goes red, suspect the code or the address first:** a
   golden, the facts or a drift guard that fails (the prologue
   guard in `tests/test_shims.py`, a site's vanilla sha256) means the port
@@ -2094,8 +2101,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   capped (a case of an xdist group by its collected id, not its worker's
   `<id>@group`); past 20 tests each runs once (the block says so); the receipt's
   `flake` block keeps the tests, runs, each run's wall time and slowing;
-  `land.py` needs it passed. A whole run has none. A run is killed past its
-  cap, 1,800 s, scaled by the host's load per CPU up to twice that, and its log
+  `land.py` needs it passed. A whole run has none. In the run and the stage
+  a failed test gets its one rerun (D1170): one that passes it is kept in the
+  receipt's `flakes` and appended to `flakes.jsonl` beside the receipts. A
+  run is killed past its cap, 1,800 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
   it is still running, so issue the same command again.
 - **The perf gate (D980-D985):** once pytest passes, the same locked run times
@@ -2119,8 +2128,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   slider) is clicked 3 s after it (D1014's head start, `_perf.HEAD_START`), never
   after a Cancel, a launch, a reopen or a tab's open; work done ahead is
   free only while the page never freezes, so the page's freeze probe (a
-  50 ms timer) fails a sample whose page froze over 250 ms in a gap between
-  actions (a head start, a dialog's wait, the warm-up's), its error naming
+  50 ms timer) marks a sample whose page froze over 250 ms in a gap between
+  actions (a head start, a dialog's wait, the warm-up's; `froze`), naming
   the CPU the browser's processes used in that gap (a busy page told from
   one its machine kept from running), and logs the
   lateness inside an action's own wait. The site's samples each take a
@@ -2129,9 +2138,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   opened again on the folder, as WebKit keeps a closed page's process, all it
   held resident, for the site's service worker while a page of the site is
   open (Step 4.4m). An op
-  runs three times (once past 30 s) and its median decides: over 3 s it
-  fails, unless `tests/perf_ceilings.toml` lists it, when it fails over its
-  ceiling; an image's first check and the site's first engine load may pass
+  runs three times (once past 30 s) and its median decides. Timings are
+  advisory (D1170): an op over 3 s (or over its ceiling in
+  `tests/perf_ceilings.toml`), past 1 s with no progress, or whose page froze
+  in a gap is a perf-debt row (the block's `debt`, printed and appended to
+  `perf-debt.jsonl` beside the receipts; a Save's row carries the free disk),
+  a lane, not a block. The block fails only on a clear regression, an op's
+  median over main's last passing full run's for the same op and context
+  (`fullsuite.main_reference`, `perf.py --reference`) by more than 25 % and
+  0.5 s (`perf.REGRESSION`, `REGRESSION_S`), taken three more times first,
+  and on a memory peak, an error, a native failure or a list that grows,
+  as before. An image's first check and the site's first engine load may pass
   3 s only with a moving bar (D982), and so may a character's first build
   in a browser (`S14`, D1067; the same build at a later visit, over its
   kept dress, `S64`, may not); past 1 s an op shows progress unless the
@@ -2153,8 +2170,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   keeps its own) waited for a core: it is taken once more and, starved again
   or past 30 s, stands with its tag (`starved`, `perf.judge` names it and no
   verdict reads it; `retook` keeps the first take's seconds); the lag run,
-  whose reads wait by design, has no CPU figure. An op over
-  runs three more times and fails only if the median of all six is still over. The list only shrinks: `perf.py
+  whose reads wait by design, has no CPU figure. The list only shrinks: `perf.py
   --update-ceilings` lowers a ceiling you earned (in your own commit) and
   drops what is back under, and the gate and `land.py` fail an added op or
   debt or a raised ceiling against main's, but for a browser main's
@@ -2166,8 +2182,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that
   changes `src/` or `web/`, a passing perf block; it refuses any stack whose
-  perf list grows main's (one that changes only the list too); `--release`
-  refuses while the list holds anything (it is empty for 4.4).
+  perf list grows main's (one that changes only the list too). Landing never
+  waits for a release (D1170): a release is a tag on a commit that is on
+  `main` (`release.yml` checks that), cut from main whenever its tests pass.
 - **CI (Step 4.4ci; D1022-D1024):** AzurKit is public in Azurik-Modding-Hub
   before its release so GitHub Actions tests it, and publishing isn't a
   release: only `release.yml`, below, deploys the site (Pages stays off
@@ -2214,6 +2231,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   workers (`--dist=loadgroup`, as the gate does) in a number each runner's
   memory sets, in the matrix: a killed worker ends the run by name
   (`--max-worker-restart=0`), where replacing one under loadgroup hangs it.
+  A failed test gets its one rerun there too (D1170): a job whose failures
+  all passed their rerun is green, and its last step lists them in the
+  job's summary (`AZURKIT_FLAKES`, `python -m tests._rerun`).
   Each runner's vanilla tier runs as parts at once, a job each
   (`--shard=LABEL:K/N`, `scripts/ci_shards.py`, Step 4.4ci35): the tier's
   tests cut in their run order by that runner's seconds in

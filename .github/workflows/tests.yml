@@ -25,6 +25,8 @@
 #   prints the free disk and memory each minute and their lowest (labels and numbers, no path), so a run that is shut
 #   down still names what it ran out of, and stops a tier whose log has stalled or whose job nears its limit, its
 #   log's tail and processes printed first, so a hang names itself.
+# Every tier reruns a failed test once, at once (tests/_rerun.py, D1170): one that passes its rerun fails nothing, and
+# the job's summary lists it with its first try's error (AZURKIT_FLAKES' file); one that fails twice fails the job.
 # Each setup download with no retry of its own runs through one (Step 4.4ci46: run 42255487123's Linux job lost two
 # packages to a mirror that closed the connection): apt under install-deps, the content clone and each of the game data's
 # fetches through scripts/ci_retry.sh's retry, Pyodide's core and wheels through scripts/web_tools.py's; tries spread
@@ -169,6 +171,8 @@ jobs:
         # ends at its cap, unnamed. scripts/ci_resources.py prints the room each minute beside it, on macOS with
         # Playwright's processes' footprint, and at the end what macOS wrote of one that ended (a WebKit page's "Target
         # crashed" on Apple Silicon named nothing of its memory: run 41744982709).
+        env:
+          AZURKIT_FLAKES: ${{ runner.temp }}/flakes.tsv   # tests/_rerun.py: each test that passed its one rerun
         run: |
           stop="$RUNNER_TEMP/resources.stop"
           uv run --locked python -I scripts/ci_resources.py "$stop" "runner=$RUNNER_TEMP" &
@@ -178,6 +182,11 @@ jobs:
           touch "$stop"
           wait "$watcher" || true
           exit "$status"
+      - name: The flaky tests, each passed on its one rerun, in the job's summary (D1170)
+        # tests/_rerun.py: a failed test runs once more at once; one that passes it fails nothing and is
+        # listed here with its first try's error (a fix lane, never a skip); one that fails twice fails the job.
+        if: always()
+        run: if [ -s "$RUNNER_TEMP/flakes.tsv" ]; then uv run --locked python -m tests._rerun "$RUNNER_TEMP/flakes.tsv" >> "$GITHUB_STEP_SUMMARY"; fi
 
   vanilla:
     name: vanilla and europe (${{ matrix.label }}, ${{ matrix.shard }} of ${{ matrix.shards }})
@@ -282,6 +291,8 @@ jobs:
         # are 5, the most GitHub runs here at once: its two macOS rows made 7, and two waited 20-33 min for a slot, on
         # the run's critical path (runs 42198913490, 42222637371, 42313664434). Its tests run behind the block above.
         if: matrix.pure
+        env:
+          AZURKIT_FLAKES: ${{ runner.temp }}/flakes.tsv   # tests/_rerun.py: each test that passed its one rerun
         run: |
           stop="$RUNNER_TEMP/resources.stop"
           uv run --locked python -I scripts/ci_resources.py "$stop" "runner=$RUNNER_TEMP" &
@@ -387,6 +398,8 @@ jobs:
         # the tier's processes and stops them, xdist's workers 2 min before the rest so pytest still writes its summary
         # and failures, so this step ends, prints the rest and fails with time left. Git Bash's process ids are its
         # own: Windows' is in /proc. The next step prints the log's tail whatever cut this one off.
+        env:
+          AZURKIT_FLAKES: ${{ runner.temp }}/flakes.tsv   # tests/_rerun.py: each test that passed its one rerun
         run: |
           iso="$TIER_ROOM/iso" content="$RUNNER_TEMP/content" log="$TIER_ROOM/pytest.log" stop="$TIER_ROOM/resources.stop"
           if [ "$RUNNER_OS" = Linux ]; then
@@ -394,7 +407,7 @@ jobs:
               sudo unshare --net -- sh -c 'ip link set lo up && exec "$@"' offline \
                 setpriv --reuid="$(id -u)" --regid="$(id -g)" --init-groups --reset-env -- \
                 env PATH="$PATH" TMPDIR="$TIER_ROOM/tmp" AZURKIT_ISO="$iso/usa.iso" AZURKIT_ISO_EUROPE="$iso/europe.iso" \
-                AZURKIT_CONTENT_SOURCE="$content" .venv/bin/python -m pytest "$@"
+                AZURKIT_CONTENT_SOURCE="$content" AZURKIT_FLAKES="$AZURKIT_FLAKES" .venv/bin/python -m pytest "$@"
             }
           else
             tier() {
@@ -434,6 +447,11 @@ jobs:
             echo "--- the tier's step never printed its log: its last 200 lines"
             tail -n 200 "$TIER_ROOM/pytest.log" | cut -c 1-240
           fi
+      - name: The flaky tests, each passed on its one rerun, in the job's summary (D1170)
+        # tests/_rerun.py: a failed test runs once more at once; one that passes it fails nothing and is
+        # listed here with its first try's error (a fix lane, never a skip); one that fails twice fails the job.
+        if: always()
+        run: if [ -s "$RUNNER_TEMP/flakes.tsv" ]; then uv run --locked python -m tests._rerun "$RUNNER_TEMP/flakes.tsv" >> "$GITHUB_STEP_SUMMARY"; fi
       - name: Delete the images and any parts left
         if: always()
         run: if [ -n "${TIER_ROOM:-}" ]; then rm -rf "$TIER_ROOM"; fi

@@ -49,7 +49,17 @@ Once pytest (and a flake stage) passes, the perf stage runs inside the same lock
 op in every profile and browser; at nice 10, started once the
 normal-priority load is under :data:`perf.LOAD_LINE` (it waits, and the
 receipt's ``perf`` block says how long). A run whose changes reach no op
-has no perf stage. A failing perf block fails the receipt.
+has no perf stage. Its timings are advisory (D1170): an op over its budget,
+past 1 s with no progress or whose page froze is a perf-debt row (the block's
+``debt``, printed and appended to ``perf-debt.jsonl`` beside the receipts,
+:func:`ledger`), and the block fails only on a clear regression against the
+last passing main full run's receipt (:func:`main_reference`, ``perf.py
+--reference``), a memory peak, an error or a list that grows.
+
+Every pytest run (the gate's and the flake stage's) reruns a failed test
+once (``tests/_rerun.py``, D1170): one that passes its rerun is flaky, kept
+in the receipt's ``flakes`` and appended to ``flakes.jsonl`` beside the
+receipts, and the run passes; one that fails twice fails it.
 
 The key is built from HEAD, a hash of the uncommitted diff and the untracked
 files, the base, the mode, the selection, a changed-area run's browsers and
@@ -95,7 +105,7 @@ PERF_CAP = 4 * 3600    # the perf stage's cap (main's full record times every op
 PERF_WAIT = 3 * 3600   # how long it waits for the load to fall under perf.LOAD_LINE
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
 #: Every run loads them (conftest and its pytest_plugins): what a session runs of them is whole (:func:`graph_of`).
-SESSION = {"tests.conftest", "tests._byte_safe", "scripts.ci_shards"}
+SESSION = {"tests.conftest", "tests._byte_safe", "tests._rerun", "scripts.ci_shards"}
 CONFTEST = "tests.conftest"   # its fixtures run only for the tests that take them: graph()'s "tests.conftest::NAME"
 PY_DIRS = ("src", "scripts", "tests", "devkit", "nativekit", "shimkit", "assets")   # every tracked .py's but the root's
 WHEEL = "tests/test_wheel.py"                      # builds the wheel from every file under src/ and installs it
@@ -120,6 +130,8 @@ CHANGED_BROWSERS = ("chromium",)   # a changed-area run's (D970: a whole run dri
 SUMMARY = re.compile(r"^=+ (\d+ (?:passed|failed|errors?|skipped|deselected).*? in [\d.]+s.*?) =+$", re.M)
 TIER = re.compile(r"^(vanilla|europe): (\d+) run$", re.M)
 PYTEST = ("uv", "run", "--locked", "pytest")   # the worktree's own pytest (uv finds its environment)
+FLAKES = "AZURKIT_FLAKES"   # tests/_rerun.py's: the file a run appends each test that passed its rerun to
+FLAKE_LEDGER, DEBT_LEDGER = "flakes.jsonl", "perf-debt.jsonl"   # kept beside the receipts, a row a flake or debt
 #: The flake stage (Step 4.4dx2): most lost CI rounds were tests a stack had just added or edited that failed only on
 #: CI's slow runners, so a changed-area run runs each such test again and again at their pace.
 FLAKE_RUNS = 5      # one that fails a run in three passes all five 13 % of the time ((2/3)^5); a run is a pytest start
@@ -647,12 +659,18 @@ def describe(m: dict, meta: Path) -> str:
             line += f"\n    {failure['test']} " + (f"capped: no passing run within {f.get('cap_s')} s"
                                                    if failure.get("capped") else f"failed in run {failure['run']}")
         line += "".join(f"\n      {tail}" for tail in (f.get("failures") or [{}])[0].get("tail", [])[-12:])
+    if m.get("flakes"):
+        line += f"\n  flaky: {len(m['flakes'])} passed on their one rerun (recorded in {FLAKE_LEDGER}, D1170)"
+        line += "".join(f"\n    {f['test']}: {f['why']}" for f in m["flakes"][:12])
     if m.get("perf_args"):
         p = m.get("perf") or {}
         line += (f"\n  perf {' '.join(m['perf_args'])}: " + ("not run" if not p else
                  f"{'passed' if p.get('passed') else 'failed'}, {len(p.get('cases', {}))} cases in {p.get('wall_s')} s "
                  f"after {p.get('load_wait_s')} s waiting for the load")
                  + "".join(f"\n    {f}" for f in p.get("failures", [])[:12]))
+        if p.get("debt"):
+            line += f"\n  perf debt: {len(p['debt'])} rows, failing nothing (in {DEBT_LEDGER}, D1170)"
+            line += "".join(f"\n    {perf.debt_line(row)}" for row in p["debt"][:12])
     return line + f"\n  meta {meta}\n  log {meta.with_suffix('.log')}"
 
 
@@ -862,10 +880,11 @@ def run(meta: Path, m: dict) -> dict:
     m |= {"state": "running", "started_at": now(), "load": round(load5, 1), "cap_s": cap(load5)}
     save(meta, m)
     t0, capped, cache = time.time(), False, meta.with_suffix(".cache")
+    (flakes := meta.with_suffix(".flakes")).unlink(missing_ok=True)
     try:
         with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
             proc = subprocess.Popen(command(m), cwd=m["worktree"], stdout=log, stderr=subprocess.STDOUT,
-                                    start_new_session=True, env=_env(cache))
+                                    start_new_session=True, env=_env(cache) | {FLAKES: str(flakes)})
             try:
                 code = proc.wait(timeout=m["cap_s"])
             except subprocess.TimeoutExpired:
@@ -878,11 +897,46 @@ def run(meta: Path, m: dict) -> dict:
               "europe_run": int(tiers["europe"]) if "europe" in tiers else None}
         if code == 0 and not capped:
             m = stages(meta, m)
+        m = ledger(meta, m)
     finally:
         shutil.rmtree(cache, ignore_errors=True)
     m |= {"state": "capped" if capped else "done", "finished_at": now()}
     save(meta, m)
     return m
+
+
+def ledger(meta: Path, m: dict) -> dict:
+    """The receipt with its run's flaky tests (``<meta>.flakes``, written by
+    ``tests/_rerun.py`` in the gate's run and the flake stage's), each of them
+    and each perf-debt row appended to its ledger beside the receipts
+    (:data:`FLAKE_LEDGER`, :data:`DEBT_LEDGER`) with the run's key, head and
+    branch (D1170: a flake or a debt is a lane, never a block)."""
+    found = meta.with_suffix(".flakes")
+    lines = found.read_text(encoding="utf-8").splitlines() if found.is_file() else []
+    found.unlink(missing_ok=True)
+    flakes = {test: why for test, _, why in (line.partition("\t") for line in lines) if test}
+    m = m | {"flakes": [{"test": test, "why": why} for test, why in sorted(flakes.items())]}
+    whose = {"at": now(), "key": m.get("key"), "head": m.get("head"), "branch": m.get("branch"), "mode": m.get("mode")}
+    for name, rows in ((FLAKE_LEDGER, m["flakes"]), (DEBT_LEDGER, (m.get("perf") or {}).get("debt", []))):
+        if rows:
+            with open(meta.parent / name, "a", encoding="utf-8") as out:
+                out.writelines(json.dumps(whose | row, sort_keys=True) + "\n" for row in rows)
+    return m
+
+
+def main_reference(folder: Path) -> Path | None:
+    """The newest receipt of a passing main full run with a perf block (its
+    ``perf.py --all``), against which a perf stage judges a regression
+    (D1170), or None."""
+    found = []
+    for meta in folder.glob("suite-*.meta"):
+        try:
+            m = json.loads(meta.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if m.get("perf_args") == ["--all"] and status_code(m) == 0 and (m.get("perf") or {}).get("cases"):
+            found.append((m.get("finished_at") or "", meta))
+    return max(found)[1] if found else None
 
 
 def stages(meta: Path, m: dict) -> dict:
@@ -918,7 +972,8 @@ def flake_stage(meta: Path, m: dict) -> dict:
     fails it by name, capped."""
     tests, t0 = m["flake_tests"], time.time()
     deadline, out = t0 + FLAKE_CAP, meta.with_suffix(".flake.out")
-    env = _env(meta.with_suffix(".cache")) | {"PYTHONUNBUFFERED": "1"}   # each outcome's line out before an end
+    env = _env(meta.with_suffix(".cache")) | {"PYTHONUNBUFFERED": "1",   # each outcome's line out before an end
+                                              FLAKES: str(meta.with_suffix(".flakes"))}   # its reruns' too (D1170)
     block = {"tests": tests, "runs": 1 if len(tests) > FLAKE_MANY else FLAKE_RUNS, "done": 0, "failures": [],
              "walls": [], "slowed": [], "workers": FLAKE_WORKERS, "cap_s": FLAKE_CAP}
     if block["runs"] < FLAKE_RUNS:
@@ -1017,11 +1072,13 @@ def perf_stage(meta: Path, m: dict) -> dict:
         time.sleep(30)
     waited, out = round(time.time() - t0, 1), meta.with_suffix(".perf.json")
     out.unlink(missing_ok=True)
+    against = main_reference(meta.parent)   # D1170: a regression is judged against main's last passing full run
     with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
         log.write(f"\n==== perf {' '.join(m['perf_args'])} (normal-priority load {load5}, waited {waited} s) ====\n")
         log.flush()
         proc = subprocess.Popen(["nice", "-n", "10", "uv", "run", "--locked", "python", "scripts/perf.py", m["worktree"],
-                                 *m["perf_args"], "--json", str(out)], cwd=m["worktree"], stdout=log,
+                                 *m["perf_args"], *(["--reference", str(against)] if against else []),
+                                 "--json", str(out)], cwd=m["worktree"], stdout=log,
                                 stderr=subprocess.STDOUT, start_new_session=True, env=_env())
         try:
             proc.wait(timeout=PERF_CAP)

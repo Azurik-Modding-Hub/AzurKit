@@ -3,7 +3,7 @@
 # (tests/_perf.py's ids; app, webkit, chromium, lag, capped); the ops past 1 s that show no progress
 # yet (D980); the capped profile's peak memory over 6 GiB; the ops the gate can't time. It only
 # shrinks: `perf.py --update-ceilings` lowers and drops, and the gate fails an added op, debt or a
-# raised ceiling against main's. Empty for a release (scripts/land.py --release).
+# raised ceiling against main's. Over its budget, an op is a perf-debt row too (D1170).
 
 [ceilings]
 
