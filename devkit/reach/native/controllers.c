@@ -14,7 +14,8 @@
  * so a constant can't part from its copy.  The float rule: double arithmetic in Python's order, nothing contracted
  * (the pragma after kernel.c's include: the kernel's own floats keep the build's contraction, as kernel.c alone
  * compiles them), libm's sin, cos, atan2 and pow called through pointers (no sincos merge or pow(x, 2) rewrite: the
- * same libm calls CPython makes), and CPython's own hypot (its vector_norm), round, float
+ * same libm calls CPython makes; on Windows the UCRT's; ``c_libm`` the check), and CPython's own hypot (its
+ * vector_norm), round, float
  * modulo, atan2 special cases and builtin sum ported.  Where Python would raise (a non-finite heading at the stick, a
  * non-finite landing time), p_launches returns -1 and the caller runs the family in Python, which raises as before.
  * Positions never leave the caller. */
@@ -67,8 +68,19 @@ typedef struct {
 } CtRun;
 
 /* -- CPython's maths ------------------------------------------------------------------------------------------- */
+#ifdef _WIN32
+/* Windows: zig cc links its own sin and cos (compiler_rt's, musl's) ahead of the UCRT's, whose atan2 and pow it
+ * imports, and they part from the UCRT's, which CPython calls, in the last bit: the UCRT's, through their import
+ * slots. */
+extern double (*__imp_sin)(double), (*__imp_cos)(double);
+static double ct_ucrt_sin(double x) { return __imp_sin(x); }
+static double ct_ucrt_cos(double x) { return __imp_cos(x); }
+static double (*volatile CT_SIN)(double) = ct_ucrt_sin;
+static double (*volatile CT_COS)(double) = ct_ucrt_cos;
+#else
 static double (*volatile CT_SIN)(double) = sin;
 static double (*volatile CT_COS)(double) = cos;
+#endif
 static double (*volatile CT_ATAN2)(double, double) = atan2;
 static double (*volatile CT_POW)(double, double) = pow;
 static const double CT_PI = 3.141592653589793, CT_RAD2DEG = 180.0 / 3.141592653589793,
@@ -123,6 +135,11 @@ double c_hypot(int n, const double *v) {
         if (x > max) max = x;
     }
     return ct_vector_norm(n, c, max, found_nan);
+}
+
+/* the libm call the controllers make, ``f`` 0 sin, 1 cos, 2 atan2 (y, x), 3 pow: the check that each is CPython's */
+double c_libm(int f, double x, double y) {
+    return f == 0 ? CT_SIN(x) : f == 1 ? CT_COS(x) : f == 2 ? CT_ATAN2(x, y) : CT_POW(x, y);
 }
 
 static double ct_hyp2(double x, double y) { double v[2] = {x, y}; return c_hypot(2, v); }

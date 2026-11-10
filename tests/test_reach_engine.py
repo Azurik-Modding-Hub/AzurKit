@@ -1614,13 +1614,22 @@ def test_the_c_controllers_give_the_python_controllers_records_and_kernel_counts
     can't reach, and ``aim.Aim`` and ``aim.Sched`` at B with and without home, short of it and on the envelope's
     schedule, from a run-up and a standing start. Every outcome (the pads as the witness's segments, ends, landings,
     first touch-downs, takeoffs, flaps) and kernel count is the same; the hypot it ports is CPython's (libm's
-    differs), and the Python sources it copies are as it pins them."""
+    differs), the libm calls it makes are CPython's bit for bit (Step 4.37j: on Windows zig links its own sin and
+    cos ahead of the UCRT's, which CPython calls, so the stick parted in the last bit), and the Python sources it
+    copies are as it pins them."""
     import ctypes
     import random
 
     from devkit.reach import native as N
     from devkit.reach.engine import macros
     from devkit.reach.native import backend as KB
+    lib, rng = N.build(), random.Random(23)
+    for _ in range(5_000):
+        x, y = rng.uniform(-8.0, 8.0), rng.uniform(-8.0, 8.0)
+        for f, (name, want) in enumerate((("sin", math.sin(x)), ("cos", math.cos(x)), ("atan2", math.atan2(x, y)),
+                                          ("pow", math.pow(abs(x), y)))):
+            got = lib.c_libm(f, abs(x) if name == "pow" else x, y)
+            assert got.hex() == want.hex(), f"controllers.c's {name} isn't CPython's at {x!r}, {y!r}: {got!r}"
     stand = _Sim([A, B, C])
     row0 = stand.teleport((0.0, 2.0, 0.0), 0.0)
     b = KB.Base(row0, [stand.step() for _ in range(runner.SETTLE_START)][-1])
@@ -1660,7 +1669,7 @@ def test_the_c_controllers_give_the_python_controllers_records_and_kernel_counts
     assert len(outs) == sum(len(ms) for ms, _, _ in table) and {o["by"] for o in outs} == {"kernel", "l3"}
     assert {"settled", "unsettled", "air cap"} <= {o["end"] for o in outs} and max(o["flaps"] for o in outs) == 5
     assert "roll" in {why for _, cost, _ in got["c"] for why in cost.get("why", {})}
-    lib, rng = N.build(), random.Random(19)
+    rng = random.Random(19)
     for _ in range(20_000):
         v = [rng.uniform(-1.0, 1.0) * 10.0 ** rng.randint(-8, 4) for _ in range(rng.choice((2, 3)))]
         assert lib.c_hypot(len(v), ctypes.byref((ctypes.c_double * 3)(*v))) == math.hypot(*v)

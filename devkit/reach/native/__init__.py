@@ -185,6 +185,8 @@ def build() -> ctypes.CDLL:
                                ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int64)]
     lib.c_hypot.restype = ctypes.c_double
     lib.c_hypot.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_double * 3)]
+    lib.c_libm.restype = ctypes.c_double
+    lib.c_libm.argtypes = [ctypes.c_int, ctypes.c_double, ctypes.c_double]
     return lib
 
 
