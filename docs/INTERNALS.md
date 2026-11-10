@@ -100,7 +100,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   failed test once at once (`tests/_rerun.py`). One that passes its rerun is
   flaky: the run passes, and the summary, the receipt (`flakes`), the flake
   ledger beside the receipts and CI's job summary name it with its first
-  error, a lane to fix it; one that fails twice, or a product bug, blocks.
+  error (the summary with its lines whole), a lane to fix it; one that
+  fails twice, or a product bug, blocks. Each flaky test's line is written
+  as its rerun ends and each failed try's error lines as its report comes
+  (`AZURKIT_FLAKES`' sibling, `.failed.jsonl`), so a run stopped before its
+  end keeps them; a pytest a test runs writes neither file.
   A rerun is recorded, never hidden: it is no skip. Perf timings over budget
   are debt rows, not blocks (the perf gate, below).
 - **When a truth goes red, suspect the code or the address first:** a

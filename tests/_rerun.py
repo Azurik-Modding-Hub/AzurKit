@@ -5,18 +5,24 @@ worker's own), the fixtures whose setup raised made again. The first try's faile
 (``R``, ``RERUN`` with ``-v``; never a failure, never a skip), its passing call too, uncounted (a teardown's rerun
 passes once), and the second try's as any test's: a test that fails
 again fails the run as before, and one that passes is flaky. The summary names each flaky test with its first try's
-error ("flaky: N passed on their one rerun"), and a run with ``AZURKIT_FLAKES`` set appends a line ``<id>\\t<error>``
-for each to that file: ``scripts/fullsuite.py`` keeps them in the receipt (``flakes``) and its flake ledger, and CI
-writes them into its job's summary (``python -m tests._rerun FILE``: :func:`summary`). A rerun is recorded, never
-hidden. ``-p no:tests._rerun`` turns it off, and ``--pdb`` runs without it.
+error ("flaky: N passed on their one rerun") and that error's lines under it (:func:`_lines`), and a run with
+``AZURKIT_FLAKES`` set appends a line ``<id>\\t<error>`` for each to that file as its rerun ends:
+``scripts/fullsuite.py`` keeps them in the receipt (``flakes``) and its flake ledger, and CI writes them into its job's
+summary (``python -m tests._rerun FILE``: :func:`summary`). Each failed try's error lines go to that file's sibling
+(:data:`FAILED`) as its report comes, so a run stopped before its end (a cap, a cancelled job) loses none of them
+(Step 4.37k). The run takes the variable out of its environment, so a pytest a test runs writes neither file. A rerun
+is recorded, never hidden. ``-p no:tests._rerun`` turns it off, and ``--pdb`` runs without it.
 """
 
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import re
 import sys
+import textwrap
+import time
 from pathlib import Path
 
 import pytest
@@ -25,7 +31,10 @@ from _pytest.runner import runtestprotocol
 RERUNS = 1                              # D1170: one rerun, never more
 FLAKES = "AZURKIT_FLAKES"               # the file a run appends its flaky tests to
 GROUP = re.compile(r"@[^@\[\]/:]*$")    # the xdist group a worker's id ends in (tests/conftest.py)
-WHY = 200                               # a flaky test's first error, cut to this many characters
+WHY = 200                               # a flaky test's first error, cut to this many characters on its one line
+LINES = 40                              # a failed try's error lines kept (its sibling file, the summary), at most
+WIDTH = 200                             # characters a kept line takes, the rest on the next (CI's log cuts at 240)
+FAILED = ".failed.jsonl"                # AZURKIT_FLAKES' sibling's suffix: each failed try's error lines, as it came
 
 
 def _why(report) -> str:
@@ -35,6 +44,23 @@ def _why(report) -> str:
     if not crash:
         lines = [line[1:].strip() for line in lines if line.startswith("E ")] or lines[-1:]
     return f"{report.when}: {lines[0] if lines else 'failed'}".replace("\t", " ")[:WHY]
+
+
+def _lines(report, root: Path | None = None) -> list[str]:
+    """A failed report's error as lines: where it failed (its crash's file, under ``root``, and line), then its ``E``
+    lines, dedented, else its crash's message, else its last line; at most :data:`LINES`, each cut into
+    :data:`WIDTH` characters a line, so read joined it is whole."""
+    crash = getattr(report.longrepr, "reprcrash", None)
+    text = report.longreprtext
+    said = [line[1:].rstrip() for line in text.splitlines() if line == "E" or line.startswith("E ")]
+    said = (textwrap.dedent("\n".join(said)).splitlines() if said
+            else getattr(crash, "message", "").splitlines() or text.strip().splitlines()[-1:])
+    if crash is not None and getattr(crash, "path", None):
+        where = Path(crash.path)
+        with contextlib.suppress(ValueError, TypeError):
+            where = where.relative_to(root)
+        said.insert(0, f"at {where.as_posix()}:{crash.lineno}")
+    return [line[at:at + WIDTH] for line in said for at in range(0, max(len(line), 1), WIDTH)][:LINES]
 
 
 def _again(item) -> None:
@@ -52,10 +78,21 @@ def _again(item) -> None:
 class Reruns:
     """The rerun (:func:`pytest_runtest_protocol`) and its record, one a session (a pytester run's its own)."""
 
-    def __init__(self) -> None:
+    def __init__(self, config) -> None:
         self.reran: dict[str, str] = {}   # id -> its first try's error
+        self.first: dict[str, list[str]] = {}   # id -> its first try's error's lines
         self.passed: set[str] = set()
         self.failed: set[str] = set()
+        self.written: set[str] = set()   # the flaky tests written to the flakes file
+        self.root = Path(config.rootpath)
+        # the run's flakes file (not a worker's: the run's own process writes; nor a pytest a test runs: none is left)
+        self.flakes = None if hasattr(config, "workerinput") else os.environ.pop(FLAKES, None)
+
+    def _write(self, suffix: str, text: str) -> None:
+        """``text`` appended at once to the flakes file, or with ``suffix`` to its sibling."""
+        path = Path(self.flakes)
+        with open(path.with_suffix(suffix) if suffix else path, "a", encoding="utf-8") as out:
+            out.write(text)
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_protocol(self, item, nextitem):
@@ -82,14 +119,26 @@ class Reruns:
         return None
 
     def pytest_runtest_logreport(self, report):
-        case = GROUP.sub("", report.nodeid)
-        if report.outcome == "rerun":
+        case, first = GROUP.sub("", report.nodeid), report.outcome == "rerun"
+        if first:
             if report.longrepr is not None:
                 self.reran.setdefault(case, _why(report))
+                self.first.setdefault(case, _lines(report, self.root))
         elif report.failed:
             self.failed.add(case)
         elif report.when == "call" and report.passed:
             self.passed.add(case)
+        if not self.flakes:
+            return
+        if report.longrepr is not None and (first or report.failed):   # a failed try, as it came
+            tried = 1 if first or case not in self.reran else 2
+            self._write(FAILED, json.dumps({"test": case, "when": report.when, "try": tried,
+                                            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                            "lines": _lines(report, self.root)}) + "\n")
+        if (report.when == "teardown" and not first and case in self.reran and case in self.passed
+                and case not in self.failed | self.written):   # its rerun's end: flaky
+            self.written.add(case)
+            self._write("", f"{case}\t{self.reran[case]}\n")
 
     def flaky(self) -> dict[str, str]:
         """``{id: its first try's error}`` of each test that passed its rerun."""
@@ -101,15 +150,17 @@ class Reruns:
             terminalreporter.write_line(f"flaky: {len(flaky)} passed on their one rerun (recorded, D1170)", yellow=True)
             for case, why in flaky.items():
                 terminalreporter.write_line(f"  {case}: {why}")
+                for line in self.first.get(case, []):   # its first try's error whole, past WHY's one line
+                    terminalreporter.write_line(f"    {line}")
 
     def pytest_sessionfinish(self, session):
-        if (path := os.environ.get(FLAKES)) and not hasattr(session.config, "workerinput") and (flaky := self.flaky()):
-            with open(path, "a", encoding="utf-8") as out:
-                out.writelines(f"{case}\t{why}\n" for case, why in flaky.items())
+        if self.flakes and (left := {case: why for case, why in self.flaky().items() if case not in self.written}):
+            self.written |= set(left)   # each its rerun's end didn't write
+            self._write("", "".join(f"{case}\t{why}\n" for case, why in left.items()))
 
 
 def pytest_configure(config):
-    config.pluginmanager.register(Reruns(), "azurkit-reruns")
+    config.pluginmanager.register(Reruns(config), "azurkit-reruns")
 
 
 def summary(text: str) -> str:

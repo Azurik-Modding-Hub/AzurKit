@@ -141,7 +141,8 @@ def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake
     passing one never again; each counts as passed once. One that passes its
     rerun is flaky: its run passes, the summary names it with its first try's
     error after the tier lines (CI's log prints from them on),
-    ``AZURKIT_FLAKES``' file gets a line for it, and the receipt keeps it and
+    ``AZURKIT_FLAKES``' file gets a line for it as its rerun ends (in the order
+    they end), and the receipt keeps it and
     appends it to the flake ledger beside the receipts (``fullsuite.ledger``,
     ``describe``); one that fails twice fails the run."""
     from scripts import fullsuite
@@ -196,7 +197,7 @@ def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake
         assert (run.ret, {k: n for k, n in run.parseoutcomes().items() if k != "warnings"}) == (code, outcomes), out
         assert Counter(tries.read_text().split()) == {"once": 2, "shaky": 2, "setup": 1, "sticky": 2, "steady": 1} | (
             {"always": 2} if code else {}), args
-        assert [line.split("\t") for line in flakes.read_text(encoding="utf-8").splitlines()] == flaky, args
+        assert sorted(line.split("\t") for line in flakes.read_text(encoding="utf-8").splitlines()) == flaky, args
         assert out.index("vanilla: 0 run") < out.index("flaky: 3 passed on their one rerun") < out.index(
             "test_r.py::test_setup: setup: AssertionError: its first setup failed"), out
     receipts = tmp_path / "receipts"
@@ -210,6 +211,64 @@ def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake
         receipts / fullsuite.FLAKE_LEDGER).read_text(encoding="utf-8").splitlines())] == [
         [*row, "k", "p2/x"] for row in flaky]
     assert "flaky: 3 passed on their one rerun" in fullsuite.describe(m, meta) and fullsuite.status_code(m) == 0
+
+
+def test_a_stopped_run_keeps_each_failed_trys_error_lines_and_a_finished_runs_log_prints_a_flakes_whole(
+        pytester, monkeypatch, tmp_path):
+    """Step 4.37k: each failed try's error lines (where it failed, then its
+    ``E`` lines, each cut at ``_rerun.WIDTH``) go to ``AZURKIT_FLAKES``'
+    sibling (``_rerun.FAILED``) as its report comes, and a flaky test's line
+    to that file as its rerun ends, so a run stopped before its end (a cap, a
+    cancelled job: CI's slowed sweep lost its errors so, 4.37f's 8.8) keeps
+    them; a finished run's summary prints a flaky test's first error whole
+    under its line, past the 200 characters its line keeps (4.37f's C.14).
+    The pytest a test runs (this one's) writes neither of its run's files."""
+    from tests import _rerun
+
+    pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
+    pytester.makepyfile(test_r="""
+        import os
+
+        def tried(name):
+            with open(os.environ["TRIES"], "a") as f:
+                f.write(name + "\\n")
+            with open(os.environ["TRIES"]) as f:
+                return f.read().split().count(name)
+
+        def test_always():
+            assert tried("always") < 0, "every try fails\\nand says so on two lines"
+
+        def test_once():
+            assert tried("once") > 1, "the first try failed: " + "x" * 300
+
+        def test_stop():
+            os._exit(3)   # the run stops: no summary, no session's end
+    """)
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    whole = "AssertionError: the first try failed: " + "x" * 300
+    for args, code in ((), 3), (("-k", "not stop"), 1):
+        tries, flakes = tmp_path / f"tries{code}", tmp_path / f"flakes{code}.tsv"
+        monkeypatch.setenv("TRIES", str(tries))
+        monkeypatch.setenv("AZURKIT_FLAKES", str(flakes))
+        run = pytester.runpytest_subprocess("-p", "no:cacheprovider", *args, timeout=300)
+        out = run.stdout.str()
+        assert run.ret == code, out
+        assert [line.split("\t") for line in flakes.read_text(encoding="utf-8").splitlines()] == [
+            ["test_r.py::test_once", f"call: {whole}"[:_rerun.WHY]]], out
+        failed = [json.loads(line) for line in
+                  flakes.with_suffix(_rerun.FAILED).read_text(encoding="utf-8").splitlines()]
+        assert [(row["test"], row["when"], row["try"]) for row in failed] == [
+            ("test_r.py::test_always", "call", 1), ("test_r.py::test_always", "call", 2),
+            ("test_r.py::test_once", "call", 1)], failed
+        assert [row["lines"][:3] for row in failed[:2]] == [
+            ["at test_r.py:10", "AssertionError: every try fails", "  and says so on two lines"]] * 2, failed
+        assert max(len(line) for row in failed for line in row["lines"]) <= _rerun.WIDTH
+        assert "".join(failed[2]["lines"][1:3]) == whole, failed[2]   # whole, on lines of WIDTH
+        assert ("flaky: 1 passed" in out) == (code == 1), out
+    lines = out.splitlines()
+    at = lines.index(f"  test_r.py::test_once: call: {whole}"[:2 + len("test_r.py::test_once: ") + _rerun.WHY])
+    assert lines[at + 1:at + 4] == ["    at test_r.py:13", f"    {whole[:_rerun.WIDTH]}",
+                                    f"    {whole[_rerun.WIDTH:]}"], lines[at:]
 
 
 def test_ci_reruns_a_failed_test_once_and_its_job_summary_lists_each_that_passed_its_rerun():
