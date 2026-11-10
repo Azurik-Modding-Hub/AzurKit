@@ -204,8 +204,6 @@ def _rig_clips(source: str, file: str, sha256: str, characters_xbr: bytes) -> di
     (:mod:`~azurkit.tools.characters.parts`, Step 4.6o), so each body on
     the same rig reads it once, a later visit's too; each call gets clips
     of its own (Step X.65b)."""
-    import pickle
-
     from azurkit.tools.characters import clip_import, mesh_edit, parts
 
     path = KIT / file
@@ -217,7 +215,7 @@ def _rig_clips(source: str, file: str, sha256: str, characters_xbr: bytes) -> di
     read = clip_import.read_key(characters_xbr, source, list(ticks)) or hashlib.sha256(characters_xbr).hexdigest()
     key = parts.key("kit clips", source, sha, read, tuple(ticks.items()))
     if (kept := parts.get(key, "kit clips")) is not None:
-        return pickle.loads(kept)
+        return parts.load(kept)
     out = {}
     for got in clip_import.read_clips(characters_xbr, source, path, list(ticks)):
         if abs(got.clip.length - ticks[got.name] / 30.0) > 1e-6:

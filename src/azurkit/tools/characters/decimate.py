@@ -690,7 +690,7 @@ def _taken(job, shared: tuple, lod: Lod):
     key = _cut_key(pickled)
     ahead, _AHEAD[0] = _AHEAD[0], None
     if (kept := parts.get(key, "cut")) is not None:
-        return pickle.loads(kept)
+        return parts.load(kept)
     got = ahead[1].result()[0] if ahead is not None and ahead[0] == pickled else job(shared, lod)
     kept = parts.dump(got)
     parts.put(key, kept, len(kept))
@@ -741,7 +741,7 @@ def shadow_lod(characters_xbr: bytes, body: str, ratio: float = SHADOW_RATIO,
 
     key = parts.key("W36", known or parts.digest(characters_xbr), body, repr((ratio, max_error)))
     if (kept := parts.get(key, "W36")) is not None:
-        return parts.undelta(characters_xbr, kept[0]), pickle.loads(kept[1])
+        return parts.undelta(characters_xbr, kept[0]), parts.load(kept[1])
     asset = read_asset(characters_xbr, body)
     if len(asset.lods) != 1:
         raise ValueError(f"shadow LOD: {asset.name} has {len(asset.lods)} LODs, and its shadow draws its own LOD 1")
@@ -772,7 +772,7 @@ def screen_lods(characters_xbr: bytes, body: str, ratios: Sequence[float],
     shared = (tuple(ratios), None if max_errors is None else tuple(max_errors))
     key = parts.key("W39", known or parts.digest(characters_xbr), body, repr(shared))
     if (kept := parts.get(key, "W39")) is not None:
-        return parts.undelta(characters_xbr, kept[0]), pickle.loads(kept[1])
+        return parts.undelta(characters_xbr, kept[0]), parts.load(kept[1])
     asset = read_asset(characters_xbr, body)
     cuts = _taken(_chain, shared, by_material(asset.lods[0])) if ratios else []
     asset.lods[1:] = cuts

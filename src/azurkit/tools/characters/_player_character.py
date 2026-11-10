@@ -7411,8 +7411,6 @@ def size_shape(iso: Path, species: str, mode: str = DEFAULT_MODE, size: str = DE
     4.6n): the release, the options and the variant's content
     (:func:`~azurkit.tools.characters._player_variants.content_key`; a
     species', the content installed), never its name."""
-    import pickle
-
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content as kit
     from azurkit.tools.characters import parts
@@ -7429,7 +7427,7 @@ def size_shape(iso: Path, species: str, mode: str = DEFAULT_MODE, size: str = DE
     key = None if release is None or worn is None else parts.key("size", release, species, mode, size, missing_anims,
                                                                  weapon, variant is not None, worn)
     if key is not None and (kept := parts.get(key, "size")) is not None:
-        return pickle.loads(kept)
+        return parts.load(kept)
     d = _dress(scratch, species, mode, missing_anims, size, variant=variant, weapon=weapon)   # at x1: only a clipless body's bake reads the
     sized, scale = body_scale(d.characters, d.body, d.theirs, mode, size)   # scale, and its shape reads no clip
     found = SizeShape(camera_shape(d.characters, d.body, d.fills, d.loadout.carriers), sized,
@@ -8973,8 +8971,6 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     :func:`~azurkit.tools.characters._player_variants.placing`); where a shipped row stands for
     those places (:func:`~azurkit.tools.characters.shipped.places`) none is worked out.
     :class:`ValueError` names the step that fails (that step keeps nothing)."""
-    import pickle
-
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import paint, parts, pool, shipped
 
@@ -8985,14 +8981,14 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     mesh, rig, paint_ = (parts.get(k, stage) for k, stage in zip(keys, ("W24", "W29", "W30")))
     rig = None if mesh is None else rig   # each on the one before
     paint_ = None if rig is None else paint_
-    reshaped = pickle.loads(mesh[1]) if mesh is not None else None
+    reshaped = parts.load(mesh[1]) if mesh is not None else None
     if paint_ is not None:   # all three kept: the file the last one left, the dress's serial stages each a record
         _progress.note("the mesh")   # (and a cancel point) for a call that notes them, as when worked out
         if variant.jiggle is not None:
             _progress.note("the springs")
         if paint_[2]:
             _progress.note("the paint")
-        return parts.undelta(current, paint_[0]), reshaped, pickle.loads(rig[1]), list(paint_[1]), keys[2]
+        return parts.undelta(current, paint_[0]), reshaped, parts.load(rig[1]), list(paint_[1]), keys[2]
     assembled = rigged = None
     placing = None if parent is None or at is not None or rig is not None else pool.later(   # in a child while hers
         pool.each, _parent_places, (current, stored, body, parent.mesh, parent.jiggle, folder), [None], None, 1)
@@ -9028,7 +9024,7 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     if specs or (reshaped is not None and reshaped.repaint):   # W30's bakes, in children while W29 rigs
         baking = pool.later(paint.bakes, stored, body, reshaped, specs)
     if rig is not None:
-        rigged, edited = pickle.loads(rig[1]), bytearray(parts.undelta(current, rig[0]))
+        rigged, edited = parts.load(rig[1]), bytearray(parts.undelta(current, rig[0]))
     elif variant.jiggle is not None:   # W29: the jiggle bones, before any reader
         rigged = jiggles.rig(edited, stored, body, variant.jiggle, variant.mesh, folder, asset=assembled, at=at,
                              late=reshaped.late if reshaped is not None else None)

@@ -21,7 +21,8 @@ refusal (which names the variant) is worked out again.
 A part's file is kept as the pages where it differs from the file the dress
 handed the stage (:func:`delta`), so a kept part holds no second copy of
 the 70 MB ``characters.xbr``; its objects (a mesh plan, a rig, the cuts)
-pickled (:func:`dump`), so each taker gets its own. The parts held are bounded by
+pickled (:func:`dump`), so each taker gets its own (:func:`load`, which
+unpickles nothing else). The parts held are bounded by
 :data:`ROOM`, the least recently taken let go first, under :data:`LOCK`
 (the app's engine dresses on a thread a call, so two dresses may take and
 keep at once). The answer a part gives is the one the stage would work
@@ -110,6 +111,20 @@ class Pickled(bytes):
 def dump(obj: object) -> Pickled:
     """``obj`` as a part holds it: its pickle, so each taker unpickles its own copy."""
     return Pickled(pickle.dumps(obj, pickle.HIGHEST_PROTOCOL))
+
+
+def load(held: object) -> object:
+    """The object :func:`dump` pickled as ``held``: every taker of a held
+    part unpickles here, and only a :class:`Pickled` (this process's own
+    :func:`dump`, or :mod:`.part_codec`'s of the values it read back), any
+    other value refused by its type's name before anything unpickles it."""
+    if type(held) is not Pickled:
+        kind = type(held)
+        raise TypeError(f"parts.load: a held part's object is a {kind.__module__}.{kind.__qualname__}, "
+                        "not a parts.Pickled this process made: not unpickled")
+    return pickle.loads(held)
+
+
 def since(ref: bytes, ref_key: str | None, out: bytes) -> str:
     """``out``'s name by content with no hash of all of it (Step 4.6q, the
     Check design's chained keys): ``ref_key`` (``ref``'s: a part's key, or
@@ -318,4 +333,4 @@ def size_of(part: tuple) -> int:
 
 
 __all__ = ["HEARD", "LOCK", "OFF", "PAGE", "ROOM", "STORE", "Pickled", "clear", "delta", "digest", "dump", "get",
-           "held", "key", "pickled", "put", "since", "size_of", "stamps", "undelta"]
+           "held", "key", "load", "pickled", "put", "since", "size_of", "stamps", "undelta"]

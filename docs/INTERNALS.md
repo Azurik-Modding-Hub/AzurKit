@@ -1103,7 +1103,9 @@ are the Characters section's.
     (`app.swapcache.Parts`), the site's the parts IndexedDB the page offers
     a Check by its recipe's content (the worker's `Parts`, below). Its
     objects stay pickles in the process (`parts.dump`'s `Pickled`), made
-    into the codec's only for the store.
+    into the codec's only for the store, and every taker unpickles one
+    through `parts.load`, which refuses any other value by its type's
+    name first (Step 4.37c).
     - **Shipped parts** (Step 4.6p, the Check design's L3): every part a
       Check of each built-in variant and of its own copy (New from this)
       works out at the page's defaults, on each release, ships: a `part`

@@ -346,6 +346,24 @@ def _exact(a, b) -> bool:
     return a == b
 
 
+def test_a_held_parts_object_is_unpickled_only_as_this_processs_own_dump_and_any_other_value_is_refused_by_name():
+    """Step 4.37c (defence in depth): every taker of a held part's object unpickles it through ``parts.load``, which
+    takes only a ``parts.Pickled`` (``parts.dump``'s, or ``part_codec``'s of the values it read back) and refuses any
+    other value by its type's name before anything unpickles it; no other module of the characters tool unpickles
+    (``pool``'s child its own arguments aside)."""
+    held = {"bones": ("hip", -0.0), "lods": [array.array("q", [1, 2])]}
+    assert _exact(parts.load(parts.dump(held)), held)
+    for value in (pickle.dumps(held), bytearray(parts.dump(held)), memoryview(parts.dump(held)), None):
+        kind = type(value)
+        with pytest.raises(TypeError, match=re.escape(f"a held part's object is a {kind.__module__}."
+                                                      f"{kind.__qualname__}, not a parts.Pickled")):
+            parts.load(value)
+    tool = Path(parts.__file__).parent
+    assert sorted(f.name for f in tool.rglob("*.py") if re.search(r"pickle\.(loads?|Unpickler)\(|from pickle import",
+                                                                    f.read_text(encoding="utf-8"))) == [
+        "parts.py", "pool.py"]
+
+
 def test_a_part_kept_across_visits_reads_back_as_it_was_and_a_spoiled_stale_or_foreign_one_is_refused_by_name(
         tmp_path):
     """Step 4.6o (the Check design's L2 and R4): a dress's part as a later visit's host keeps it (``part_codec``'s

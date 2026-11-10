@@ -1454,8 +1454,6 @@ def gltf_clip(characters: bytes, body: Body, p: dict, markers: dict[str, int], *
     :func:`~azurik_mod.assets.clip_import.read_key`: what it reads of the
     body, not the clips a build adds; Step X.81c), so a recipe's builds
     read each of its clips once, a later visit's too."""
-    import pickle
-
     from azurkit.tools.characters import clip_import, mesh_edit, parts
     from azurkit.tools.characters.characters import height
 
@@ -1474,7 +1472,7 @@ def gltf_clip(characters: bytes, body: Body, p: dict, markers: dict[str, int], *
     read = clip_import.read_key(characters, body.name, [p["animation"]])
     key = parts.key("clip", read, sha, p["animation"], lent) if read is not None else None
     if key is not None and (kept := parts.get(key, "clip")) is not None:
-        got = pickle.loads(kept)
+        got = parts.load(kept)
     else:
         got = clip_import.read_clips(characters, body.name, path, [p["animation"]], bones_only=lent)[0]
         if key is not None:
@@ -4267,8 +4265,6 @@ def restyled(before: bytes, after: bytes, first: int, body: str, variant: Varian
     ``after`` and ``rigged`` where the caller has them), the recipe's arms,
     poses and jiggle, ``rigged``, ``rates``, ``drawn`` and ``arms``, never the
     variant's name."""
-    import pickle
-
     from azurkit.tools.characters import parts
 
     key = parts.key("W28", known[0] or parts.digest(before), known[1] or parts.digest(after), first, body,
@@ -4277,7 +4273,7 @@ def restyled(before: bytes, after: bytes, first: int, body: str, variant: Varian
                     known[2] or (parts.pickled(rigged) if rigged is not None else None),
                     repr(sorted((rates or {}).items())), repr(drawn), arms)
     if (kept := parts.get(key, "W28 arms" if arms else "W28 springs")) is not None:
-        return parts.undelta(after, kept[0]), kept[1], pickle.loads(kept[2])
+        return parts.undelta(after, kept[0]), kept[1], parts.load(kept[2])
     grown, count, peaks = _restyled(before, after, first, body, variant, rigged, rates, drawn, arms)
     kept = (parts.delta(after, grown), count, parts.dump(peaks))
     parts.put(key, kept, parts.size_of(kept[0]) + len(kept[2]))

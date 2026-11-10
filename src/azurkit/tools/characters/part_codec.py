@@ -190,8 +190,10 @@ class _Writer:
             out.append(b"f" if t is frozenset else b"e")
             self.value(tuple(sorted(x, key=_order)), depth + 1)   # one order in every process (a str's hash isn't)
         elif (t.__module__, t.__name__) == _PICKLED:   # an object its process pickled (its own): what it holds
+            from azurkit.tools.characters import parts
+
             out.append(b"P")
-            self.value(pickle.loads(x), depth + 1)
+            self.value(parts.load(x), depth + 1)
         elif t is bytearray:
             if not self.seen(x):
                 out += [b"B", _U64.pack(len(x)), bytes(x)]
