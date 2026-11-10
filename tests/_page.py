@@ -21,7 +21,6 @@ import sys
 import textwrap
 import time
 import urllib.parse
-import warnings
 from pathlib import Path
 
 from azurkit.app import CONTENT_TYPES, content_type
@@ -232,30 +231,6 @@ class Ended(AssertionError):
     def __init__(self, said: str, lines: tuple[str, ...]):
         super().__init__(said)
         self.lines = lines
-
-
-REFUSED = "reason=RequestedByNetworkProcess"
-"""WebKit's log's reason for a page's process it ended at its network process's request, which follows that process's
-refusal of a message from it ("Received an invalid message ... requesting for it to be terminated")."""
-
-
-def past_refusal(run):
-    """``run(0)``'s answer, or, when it failed as WebKit ended a page's process of its browser at its network process's
-    request (:class:`Ended`, :data:`REFUSED`), ``run(1)``'s, said in a warning; any other failure, and a second such
-    end, fails as it came. That end is WebKit's own: on GitHub's Intel Mac runner its network process refused a message
-    from the page's process whose name read as WebKit's first (``IPC::MessageName`` 0, as a header of zeros reads),
-    ``AudioSessionRoutingArbitratorProxy_BeginRoutingArbitrationWithCategory``, which the network process has no
-    receiver of and a page's process sends only to its browser's own process, for a page's sound (the site plays
-    none), and had the page's process ended (run 42461371001; run 42198913490's, unnamed). No page's code sends such a
-    message; a player's Safari reloads the page, whose load then removes its build files (app.mjs's sweep)."""
-    try:
-        return run(0)
-    except Ended as ended:
-        if not any(REFUSED in line for line in ended.lines):
-            raise
-        warnings.warn(f"WebKit ended a page's process at its network process's request, so the test ran again: "
-                      f"{' '.join(ended.lines)}", stacklevel=2)
-    return run(1)
 
 
 async def _watched(call, seconds: float, look):

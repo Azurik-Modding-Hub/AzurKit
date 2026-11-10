@@ -315,9 +315,9 @@ memory peaks stay strict. The gate writes both kinds of row to
 14. Windows: ci34's cause; ci39's load failure.
 15. WebKit: network-process endings (ci41: a RequestedByNetworkProcess
     ending still costs 120 s); why WebKit leaves the page's process (ci18);
-    what triggers the zero-headed message (4.5s: if it recurs, the site's
-    character-seed test could use `_page.past_refusal`); ci31's Characters
-    stall.
+    what triggers the zero-headed message (4.5s: if it recurs, the call
+    fails at once naming it and D1170's rerun records it; 4.37k retired
+    `_page.past_refusal`'s unrecorded redo); ci31's Characters stall.
 16. Others: ci17's three; what held ci27's GIL; ci37's CI ValueError;
     4.5m's second failure; 4.5n's frozen capped A32; S59 under 20 extra
     threads (4.4bf); WebKit's GPU threads on a 4-core runner; ps under

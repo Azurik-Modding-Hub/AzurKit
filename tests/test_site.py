@@ -44,7 +44,6 @@ import threading
 import time
 import types
 import urllib.parse
-import warnings
 import zipfile
 from pathlib import Path
 
@@ -2282,39 +2281,6 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
         assert got[-1] == drivers and len(asked) == read and took < 10, (name, got, asked, took)
         for at in asked:   # from a second before the call began
             assert began - 2 < time.mktime(time.strptime(at, "%Y-%m-%d %H:%M:%S")) < began - 0.9, (name, at, began)
-
-
-def test_a_test_whose_page_webkit_ended_at_its_network_process_request_runs_again_once_saying_so():
-    """Step 4.5s: ``_page.past_refusal`` runs a test's run again once, saying so in a warning, when its page's call
-    failed as WebKit ended the page's process at its network process's request (``_page.Ended`` naming
-    ``_page.REFUSED``: WebKit's own fault, run 42461371001); any other failure, a crash's end among them, fails as it
-    came, and so does a second such end."""
-    refused = _page.Ended("no answer in 18 s: tick", (
-        "08:48:07 Playwright: [pageProxyID=14, webPageID=15, PID=58731] WebPageProxy::processDidTerminate: (pid 58731), "
-        "reason=RequestedByNetworkProcess",))
-    crashed = _page.Ended("no answer in 18 s: tick", (
-        "08:48:07 Playwright: [pageProxyID=14, webPageID=15, PID=58731] WebPageProxy::processDidTerminate: (pid 58731), "
-        "reason=Crash",))
-
-    def runs(*failures):
-        visits = []
-
-        def run(visit):
-            visits.append(visit)
-            if visit < len(failures):
-                raise failures[visit]
-            return "passed"
-        return run, visits
-
-    run, visits = runs(refused)
-    with pytest.warns(UserWarning, match=r"network process's request, so the test ran again: .*58731"):
-        assert _page.past_refusal(run) == "passed"
-    assert visits == [0, 1]
-    for failures in ((crashed,), (AssertionError("a build's bytes differ"),), (refused, refused)):
-        run, visits = runs(*failures)
-        with warnings.catch_warnings(record=True), pytest.raises(type(failures[-1])) as failed:
-            _page.past_refusal(run)
-        assert (failed.value, visits) == (failures[-1], list(range(len(failures)))), visits
 
 
 def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_state(browser):
@@ -5839,18 +5805,16 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
     another tab's load leaves it while this tab holds it. A change forgets the build and removes it; a saved one stays
     past that (its download may still read it, and is whole), and the next load removes it once no page holds it, as
     it does a crashed page's. Where the browser gives no sync handle, only WebKit on Windows, the pieces are Blobs and
-    no file is left. Each call to a page is bounded (``_page.answer``); a page whose process WebKit ended at its
-    network process's request, WebKit's own fault (``_page.past_refusal``; run 42461371001, at the change's tick), runs
-    the test again once in a browser of its own."""
+    no file is left. Each call to a page is bounded (``_page.answer``): a page whose process WebKit ended (at its
+    network process's request on run 42461371001, at the change's tick) fails the call at once naming it."""
     recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
               "character": {"species": "keylord"}}
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
-    _page.past_refusal(lambda visit: _held_build_file(browser, site, usa_iso, tmp_path / f"profile-{visit}", recipe,
-                                                      made, report))
+    _held_build_file(browser, site, usa_iso, tmp_path / "profile", recipe, made, report)
 
 
 def _held_build_file(browser, site, usa_iso, profile: Path, recipe: dict, made: iso.Image, report: dict) -> None:
-    """The last test's run, in a browser of its own (``profile``)."""
+    """The last test's run, in a browser context of its own (``profile``)."""
     served = Site(browser, site, profile)
     try:
         served.context.add_init_script(HEARD)
