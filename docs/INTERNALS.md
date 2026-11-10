@@ -958,9 +958,13 @@ are the Characters section's.
     build's) and keeps that dress
     before its colours for the process (one, as `_DRESSED`; the app's in
     its engine, `engine.JOBS`) with its answer, which holds no picture:
-    `sdk.variant_pictures` draws it after (Step 4.6q, the answer first;
-    the page asks it as the answer lands, of the worker that keeps the
-    dress, and the base body it recolours is drawn then, once a Check).
+    `sdk.variant_pictures` draws it after (Step 4.6q, the answer first,
+    and the base body it recolours is drawn then, once a Check; the app
+    asks it as the answer lands, the site with the Check, an ask that
+    isn't heavy waiting behind it in F's queue, so the worker that
+    dressed it draws it: Step 4.37b; one that keeps no Check, a worker
+    that replaced a grown one, refuses it, and the page asks the Check
+    again with its pictures, once).
     A Check of what it
     checked last, unchanged (`sdk._check_key`, by content), answers at
     once, and a dress kept before (`characters.cache_key`; the site's

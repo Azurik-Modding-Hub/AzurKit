@@ -3485,6 +3485,7 @@ STUB_ENGINES = """(() => {
         postMessage(m) {
             this.got.push(m);
             sent.push(m);
+            if (globalThis.answer?.(this, m)) return;   // a test's own answers first
             if (m.type === "preview" && !m.recipe.character.shapes) {   // a body's own pictures
                 return setTimeout(() => this.say({ type: "reply", call: m.call, reply: drawn, heap: 2 ** 28 }));
             }
@@ -3498,7 +3499,8 @@ STUB_ENGINES = """(() => {
 """The site's engines as stubs that load at once and answer pickers (``view``, with the weapon asked and, asked at a
 mode ``modes`` names, that mode's chosen fields; held until ``release()``) and a body's own pictures (``drawn``):
 ``made`` holds each with what it ``got``, its ``stopped``, ``sent`` what the page posted to any of them, in order;
-the test answers each reshape's preview with ``say``. The worker Firefox's build starts to write its Save's build file
+the test answers each reshape's preview with ``say``, and any message ``answer(worker, message)`` (a test's own
+global) answers, returning true. The worker Firefox's build starts to write its Save's build file
 (``outputs.mjs``'s ``written``, the first page module on the stack at its ``new Worker``) is no engine: a real one, not
 in ``made`` (as a stub it was a third, its ``ready`` taken for a failed write, and stopped).
 Left unanswered, the page's preview of the chosen model (sent whenever its first draw comes before
@@ -6872,6 +6874,86 @@ def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_t
         got = page.evaluate(shown)
         assert (got["shape"], got["rows"], got["ops"][0], got["jiggle"], got["springs"]) == (
             "No shape sliders.", [], "Its mesh's ops: none", "No jiggle: it needs a recipe with a mesh of its own.", 0)
+        _page.check_csp(page)
+    finally:
+        served.close()
+
+
+# The Variants view's engine as stubs (STUB_ENGINES' answer): booblord listed and opened; a Check that grows the other
+# worker's heap past this one's (the pool's next heavy ask runs there), and with ``grow`` its own past workers.GROWN
+# (the pool replaces it); pictures only from a worker that checked.
+CHECK_STUB = """(() => {
+    const { listed, opened, drawn } = %s, ours = /^(variant|move_sources$|kit_throw$|own_sounds$|base_bones$)/;
+    const kept = "variant 'booblord': no Check of it is kept (none yet, or it changed since): "
+        + "Check with game data dresses it";
+    globalThis.grow = false;
+    globalThis.answer = (worker, m) => {
+        if (typeof m.call !== "number" || !ours.test(m.type)) return false;
+        let heap = 2 ** 28, reply = { refused: "not this stub's" };
+        if (m.type === "variants") reply = listed;
+        else if (m.type === "variant_open") reply = opened;
+        else if (m.type === "variant_read") reply = opened.read;
+        else if (m.type === "variant_check") {
+            for (const w of made) if (w !== worker && !w.stopped) w.say({ type: "heap", heap: 2 ** 31 });
+            heap = globalThis.grow ? 2 ** 32 : heap;
+            globalThis.grow = false;
+            worker.checked = true;
+            reply = { refusal: null };
+        } else if (m.type === "variant_pictures") reply = worker.checked ? drawn : { refused: kept };
+        setTimeout(() => worker.say({ type: "reply", call: m.call, reply, heap }));
+        return true;
+    };
+})();"""
+
+
+def test_a_checks_pictures_are_drawn_by_the_worker_that_dressed_it_or_after_a_check_again_and_a_drag_shows_them(
+        browser, site):
+    """Check with game data's pictures on the site wait in F's queue behind the Check, so the worker that dressed it
+    draws them, though the other worker's heap is the bigger (asked after the answer, a heavy ask, the pool ran them
+    there, which keeps no Check: "Not drawn", the Shape tab held no pictures and a drag showed none marked Preview,
+    and the WebKit perf rows S82 and S81 waited 600 s for it). A Check whose worker grew past its line (the pool
+    replaces it) has its pictures refused by the new one, which is asked the Check again with them. A drag of a shape
+    then shows them, marked Preview."""
+    from azurkit.tools.characters import _player_variants, editor, picker
+
+    her = _player_variants.builtins()["booblord"]
+    listed = {"root": "variants", "unsaved": sdk.UNSAVED, "grades": picker.GRADE_WORDS,
+              "colours": picker.STATUS_COLOURS, "editor": editor.lists(), "yours": [], "species": [], "builtins": [
+                  {"name": "booblord", "title": her.title, "base": her.base, "grade": "unseen", "community": None}]}
+    drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
+             for side in ("front", "back")}
+    view = sdk.pickers({"iso": None, "character": {"species": "garret4"}})
+    served = Site(browser, site)
+    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn}))
+    served.context.add_init_script(CHECK_STUB % json.dumps({"listed": listed, "opened": sdk.variant_open(
+        {"name": "booblord"}), "drawn": drawn}))
+    shown = """() => { const v = azurkit.variants.state, $ = (id) => document.getElementById(id);
+        return [v.pictured, $("var-picture-note").textContent,
+                $("var-front").parentElement.hasAttribute("data-preview")]; }"""
+    asked = ("() => [sent.filter((m) => /^variant_(check|pictures)$/.test(m.type)).map((m) => m.type), "
+             "made.map((w) => [Boolean(w.checked), w.stopped])]")
+    built = "From the front and from behind, as it builds."
+    try:
+        page = served.open()
+        page.evaluate("() => { azurkit.file = new File(['x'], 'x.iso'); azurkit.asked = azurkit.file; }")
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view", 60)
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.pictured === 'shipped' && !document.getElementById('var-check')"
+                          ".disabled", 60)   # her shipped pictures drawn first
+        _page.click(page, "var-check")
+        _page.until(page, f"() => ({shown})()[0] === 'checked'", 60)
+        assert page.evaluate(shown) == ["checked", built, False]
+        assert page.evaluate(asked) == [["variant_check", "variant_pictures"], [[True, False], [False, False]]]
+        page.evaluate("() => { globalThis.grow = true; }")   # Check again: its worker grows past its line
+        _page.click(page, "var-check")
+        _page.until(page, f"() => ({asked})()[0].length === 6 && ({shown})()[1] === {json.dumps(built)}", 60)
+        assert page.evaluate(asked) == [["variant_check", "variant_pictures"] * 3,
+                                        [[True, False], [True, True], [False, False]]]
+        page.evaluate("""() => { const track = document.getElementById("var-shape-bust").previousElementSibling;
+            for (const x of [1.1, 1.2]) { track.value = String(x); track.dispatchEvent(new Event("input")); } }""")
+        assert _page.until(page, f"() => {{ const s = ({shown})(); return s[2] && s.slice(1); }}", 60) == [
+            "Preview: the nearest shape drawn. Let go to preview these values.", True]
         _page.check_csp(page)
     finally:
         served.close()

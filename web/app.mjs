@@ -505,15 +505,19 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       else failed(data.message);
     }),
     restore: (setup) => wait("restore", { type: "restore", setup }, {}, (data) => restored(plain(data))),
-    call: (type, body, { once = false } = {}) => new Promise((resolve) => {
-      const id = asking(type);
+    // after: an ask sent before this one, which this one waits behind in F's queue (Check with game data's pictures,
+    // drawn by the worker that dressed it): its line on the bar only once that one is answered, whose records it shows.
+    call: (type, body, { once = false, after = null } = {}) => new Promise((resolve) => {
+      let id = after ? null : asking(type), done = false;
+      after?.then(() => { if (!done) id = asking(type); });
       const aside = ASIDE.has(type) && !body.file;
       pool.ask({ type, call: ++calls, ...body }, {
         once, heavy: once, anywhere: SMALL.has(type) || aside, aside, progress,
         key: type === "plan" ? key({ plan: body.recipe }) : type === "tracker" ? viewKey(body.given) : null,
       }).then((data) => {
         if (data.type !== "reply" || body.file) unchecked();   // one that stood on no image may overtake a check (Step 4.3r4m)
-        answered(id);
+        done = true;
+        if (id !== null) answered(id);
         back();
         resolve(data.type === "reply" ? data.reply
           : { refused: data.type === "cancelled" ? "Cancelled"

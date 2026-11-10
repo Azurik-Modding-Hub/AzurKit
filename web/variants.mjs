@@ -775,13 +775,22 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     ui.pictureNote.textContent = mine.note;
   };
   const mib = (n) => (n / 2 ** 20).toFixed(2);
+  // A Check (a dress: the site's heavy worker's, which keeps it) and, on the site, its pictures asked with it: they wait
+  // in F's queue behind it, an ask that isn't heavy, so the worker that dressed it draws them. Asked after its answer,
+  // a heavy ask, the pool ran them in the bigger heap, or swapped its workers for work ahead between the two
+  // (workers.mjs's one heap), and the other worker keeps no Check. The app's one engine is asked after the answer.
+  const checking = (body) => {
+    const answer = call("variant_check", body, { once: true });
+    return [answer, app ? null : call("variant_pictures", body, { after: answer })];
+  };
   const check = async () => {
     if (!image() || v.checking) return;
     const mine = v.ticket, asked = now(), ticket = {}, body = ctx.asked();
     v.checking = ticket;
     shown(false);
     ui.checkNote.textContent = "";
-    const reply = await call("variant_check", body, { once: true });   // a dress: the site's heavy worker's, which keeps it
+    const [answer, drawing] = checking(body);
+    const reply = await answer;
     if (v.checking === ticket) v.checking = null;
     if (mine !== v.ticket) return;
     if ("refused" in reply) {
@@ -798,7 +807,13 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     shown(false);
     if (!("refused" in reply || reply.refusal)) {   // its pictures, drawn from the dress the engine kept (Step 4.6q)
       ui.pictureNote.textContent = "Drawing it as it builds…";
-      const views = await call("variant_pictures", body, { once: true });
+      let views = await (drawing ?? call("variant_pictures", body));
+      // Drawn by a worker that keeps no Check (the one that dressed it replaced: grown past its line, or stopped): the
+      // Check asked again with its pictures, once, as the Shape tab's preview asks it again.
+      if (/Check with game data dresses it/.test(views.refused ?? "") && mine === v.ticket && v.checked?.[1] === reply) {
+        const [again, redrawn] = checking(body), second = await again;
+        if (!("refused" in second || second.refusal)) views = await (redrawn ?? call("variant_pictures", body));
+      }
       if (mine !== v.ticket || v.checked?.[1] !== reply) return;
       if ("refused" in views) {
         ui.pictureNote.textContent = `Not drawn: ${views.refused}`;
