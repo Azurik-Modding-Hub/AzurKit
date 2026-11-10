@@ -1119,12 +1119,13 @@ are the Characters section's.
       and the site's page start carry none of booblord's 117 MB). A part
       neither the process nor `parts.STORE` holds is read from the content
       folder (a clone's), else fetched from the source its installed entry
-      came from (`shipped.part` through `shipped.FETCH`: the sdk's `_later`
-      on CPython, the site worker's synchronous request, which waits 60 s
-      at most, a timeout failing as any other; a source that can't be
-      reached, with no connection, DNS or answer in time, is let be for
-      `shipped.DOWN`, one that refuses a part, a 404, never), no further
-      than its size and
+      came from, never `$AZURKIT_CONTENT_SOURCE` (SEC-8; the variable picks
+      the source an Install reads and records), through `shipped.FETCH`
+      (the sdk's `_later` on CPython, the site worker's synchronous request,
+      which waits 60 s at most, a timeout failing as any other); a source
+      that can't be reached (no connection, DNS or answer in time) is let
+      be for `shipped.DOWN`, one that refuses a part (a 404) never. A part
+      is read no further than its size and
       held to its sha256; a fetched one is handed to the store as a part
       made there (the app's signed store, the site's IndexedDB under the
       recipe's hint), one a content folder holds never, so a first Check of

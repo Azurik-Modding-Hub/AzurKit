@@ -147,7 +147,8 @@ RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files"
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
 """Where Azurik-Custom-Content is read from by default (D966: the hub's, public at Step 4.4)."""
-SOURCE_ENV = "AZURKIT_CONTENT_SOURCE"   # set, it wins over a host's setting (the tests', a private play's)
+SOURCE_ENV = "AZURKIT_CONTENT_SOURCE"   # set, it wins over a host's setting (the tests', a private play's) where
+# content is listed or installed; a file Install left comes from its entry's own source (_later)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
 TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", True), ("characters", "Characters", True),
@@ -2485,11 +2486,12 @@ def _secure(url: str) -> bool:
     return parts.scheme == "https" or parts.scheme == "http" and parts.hostname in ("localhost", "127.0.0.1", "::1")
 
 
-def _source(given: object = None) -> str:
-    """The content source: ``$AZURKIT_CONTENT_SOURCE``, else ``given`` (a
-    host's setting), else :data:`SOURCE`; an https URL (:func:`_secure`) or
-    a folder's absolute path (``~`` expanded), refused by name otherwise."""
-    source = os.environ.get(SOURCE_ENV) or given or SOURCE
+def _source(given: object = None, *, env: bool = True) -> str:
+    """The content source: ``$AZURKIT_CONTENT_SOURCE`` (with ``env``), else
+    ``given`` (a host's setting), else :data:`SOURCE`; an https URL
+    (:func:`_secure`) or a folder's absolute path (``~`` expanded), refused
+    by name otherwise."""
+    source = (os.environ.get(SOURCE_ENV) if env else None) or given or SOURCE
     if not isinstance(source, str) or not source.strip():
         raise ValueError("content: the source is an https URL or a folder's path")
     source = source.strip()
@@ -2546,11 +2548,12 @@ def _fetch(source: str) -> Callable[..., bytes]:
 def _later(source: str, path: str, size: int) -> bytes:
     """``tools.characters.shipped.FETCH`` on CPython hosts (the app's
     engine, the CLI's): a file Install left for the Check that asks for it
-    (``content.later``), read from ``source`` (its entry's, held to
-    :func:`_source`'s rule; ``ValueError`` an ``OSError`` here) by
+    (``content.later``), read from ``source`` (its installed entry's, held
+    to :func:`_source`'s rule, never ``$AZURKIT_CONTENT_SOURCE``, which
+    chose it at Install: SEC-8; ``ValueError`` an ``OSError`` here) by
     :func:`_fetch`, at most ``size`` bytes."""
     try:
-        return _fetch(_source(source))(path, size)
+        return _fetch(_source(source, env=False))(path, size)
     except ValueError as exc:
         raise OSError(str(exc)) from None
 

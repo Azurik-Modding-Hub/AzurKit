@@ -1548,6 +1548,22 @@ def test_an_update_only_goes_up_from_where_it_was_installed_and_a_url_source_is_
     assert (folder / path).read_bytes() == b"[3]"
 
 
+def test_a_shipped_part_comes_from_its_installed_entrys_source_even_with_the_content_source_variable_set(
+        tmp_path, monkeypatch):
+    """Step 4.37c (SEC-8: an entry's files only from the source it came from): a file Install left for the Check that
+    asks for it (``content.later``) is fetched (``sdk._later``, the CPython hosts' ``shipped.FETCH``) from the source
+    its installed entry records, held to the source's rule, never from ``$AZURKIT_CONTENT_SOURCE``, which wins only
+    where content is listed and installed (so a record made under it keeps it)."""
+    home, other, path = tmp_path / "home", tmp_path / "other", "variants/x/shipped/parts/0.azkp"
+    for where, data in ((home, b"home"), (other, b"else")):
+        (where / path).parent.mkdir(parents=True)
+        (where / path).write_bytes(data)
+    monkeypatch.setenv(sdk.SOURCE_ENV, str(other))
+    assert sdk._later(str(home), path, 4) == b"home" and sdk._source(str(home)) == str(other)
+    with pytest.raises(OSError, match="is plain http"):
+        sdk._later("http://example.test/c/", path, 4)
+
+
 # --- untrusted content (D992's SEC-5, 6, 9, 14, 15 and the allow-list; Step S1) -----------------------------
 
 
