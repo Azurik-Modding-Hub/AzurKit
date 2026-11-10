@@ -358,7 +358,8 @@ TOKEN = re.compile(r"(token=)[^&\s\"'#]+")
 def _firefox_said(context) -> list[str]:
     """The end of each of the newest log files of this process's Firefoxes (``tests/conftest.py``'s ``firefox_logs``)
     where ``context``'s browser is a Firefox that logs: :data:`TAIL` lines of :data:`TAILS` files, each its name, size
-    and age first, each line cut at :data:`WIDTH` with an address's token left out (:data:`TOKEN`); none elsewhere."""
+    and age first, each line after ``| `` (a stall's status lines are indented) and cut at :data:`WIDTH` with an
+    address's token left out (:data:`TOKEN`); none elsewhere."""
     from tests import conftest
     if not conftest.FIREFOX_LOGS or context.browser is None or context.browser.browser_type.name != "firefox":
         return []
@@ -373,7 +374,7 @@ def _firefox_said(context) -> list[str]:
                 lines = log.read().decode("utf-8", "replace").splitlines()[-TAIL:]
             said += [f"Firefox's log {path.name} ({size} bytes, its last line {time.time() - path.stat().st_mtime:.0f}"
                      f" s ago), its last {len(lines)} lines:",
-                     *(f"  {_short(TOKEN.sub(r'\1…', line), WIDTH - 3)}" for line in lines)]
+                     *(f"| {_short(TOKEN.sub(r'\1…', line), WIDTH - 3)}" for line in lines)]
     except OSError as error:
         said.append(f"Firefox's log: unread ({type(error).__name__})")
     return said or ["Firefox's log: none"]

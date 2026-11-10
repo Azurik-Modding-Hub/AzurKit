@@ -2352,13 +2352,13 @@ def test_a_stalled_firefox_load_names_what_firefox_logged(monkeypatch, tmp_path)
         with pytest.raises(AssertionError) as stall:
             _page.load(page, "http://127.0.0.1:9/")
         shown.append(str(stall.value).splitlines())
-    said = [line for line in shown[0] if line.startswith(("Firefox's log ", "  2026-"))]
+    said = [line for line in shown[0] if line.startswith(("Firefox's log ", "| "))]
     heads = [re.sub(r"\(\d+ bytes, its last line \d+ s ago\)", "(…)", line) for line in said if line[0] == "F"]
     assert heads == [f"Firefox's log {name} (…), its last {n} lines:"
                      for name, n in zip(list(logged)[:3], (20, 1, 1))], said
-    assert said[1:21] == [f"  {line.replace(f'token=k{i}', 'token=…')}" for i, line in enumerate(logged[
+    assert said[1:21] == [f"| {line.replace(f'token=k{i}', 'token=…')}" for i, line in enumerate(logged[
         f"{file.name}.moz_log"]) if i >= 10] and max(map(len, said)) <= _page.WIDTH, said
-    assert said[22] == f"  {logged[f'{file.name}.child-1.moz_log'][0][:_page.WIDTH - 3]}…", said
+    assert said[22] == f"| {logged[f'{file.name}.child-1.moz_log'][0][:_page.WIDTH - 3]}…", said
     assert shown[0][0] == "no answer in 1 s: the page's load of http://127.0.0.1:9/" and shown[0][-1] == (
         "its requests unanswered: none") and not any("Firefox" in line for line in shown[1]), shown
 
