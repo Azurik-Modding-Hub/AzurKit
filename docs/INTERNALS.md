@@ -1120,7 +1120,8 @@ are the Characters section's.
       neither the process nor `parts.STORE` holds is read from the content
       folder (a clone's), else fetched from the source its installed entry
       came from (`shipped.part` through `shipped.FETCH`: the sdk's `_later`
-      on CPython, the site worker's synchronous request; a source that
+      on CPython, the site worker's synchronous request, which waits 60 s
+      at most, a timeout failing as any other; a source that
       failed is let be for `shipped.DOWN`), no further than its size and
       held to its sha256; a fetched one is handed to the store as a part
       made there (the app's signed store, the site's IndexedDB under the

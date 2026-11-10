@@ -142,6 +142,7 @@ from azurkit.tools import characters
 from azurkit.tools.characters import parts, pool, shipped
 
 PIECE = "/tmp/azurkit-piece"
+PART_WAIT = 60   # seconds a part's fetch (fetched()) waits for its answer, as the CPython hosts' fetch does
 VARIANTS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import",
             "variant_export", "variant_check", "variant_pictures", "variant_colours", "variant_preview",
             "variant_rows", "export_pngs", "base_bones", "own_sounds", "kit_throw", "move_sources", "add_png",
@@ -218,7 +219,8 @@ def fetched(source, path, size):
     (content.later: a built-in's shipped Check part, held to its row there), fetched from source (its entry's: an
     https address or this site's own, as content.mjs's where() holds a source, a relative one read against the site's
     folder: this worker's location is a blob: URL) by a synchronous request, which a worker may make, so the dress
-    that asks waits on it; OSError where it can't (the part is worked out)."""
+    that asks waits on it, at most PART_WAIT seconds; OSError where it can't (the part is worked out), a timeout as
+    any other."""
     here = browser.azurkitBase
     url = browser.URL.new(path, browser.URL.new(source, here))
     if url.protocol != "https:" and url.origin != browser.URL.new(here).origin:
@@ -226,10 +228,11 @@ def fetched(source, path, size):
     request = browser.XMLHttpRequest.new()
     try:
         request.open("GET", url.href, False)
+        request.timeout = PART_WAIT * 1000   # a worker's synchronous request may time out (a page's may not)
         request.responseType = "arraybuffer"
         request.send()
-    except Exception as exc:   # a JsException: offline, or a source that lets no other site read it
-        raise OSError(f"{path}: no answer ({exc})") from None
+    except Exception as exc:   # a JsException: offline, no answer in PART_WAIT (a TimeoutError), or a source that
+        raise OSError(f"{path}: no answer ({exc})") from None   # lets no other site read it
     if request.status != 200:
         raise OSError(f"{path}: HTTP {request.status}")
     data = browser.Uint8Array.new(request.response).to_bytes()

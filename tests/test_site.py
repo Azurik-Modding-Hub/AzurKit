@@ -6170,8 +6170,9 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
     """Step 4.6p: worker.mjs's engine, its Python run here under CPython (Pyodide's js modules stood in for), is the
     shipped parts' fetch (``shipped.FETCH``): a file Install left for the Check that asks for it (``content.later``)
     comes from its entry's source, read against the site (a relative one is the site's own), by one synchronous
-    request for its bytes; a source neither https nor the site's own is asked nothing, and no answer, an HTTP error or
-    a reply past the row's size is an OSError (the part is worked out)."""
+    request for its bytes, given 60 s to answer (Step 4.37c); a source neither https nor the site's own is asked
+    nothing, and no answer, none in time, an HTTP error or a reply past the row's size is an OSError (the part is
+    worked out)."""
     _site_engine(monkeypatch, tmp_path)
     js, path, asked = sys.modules["js"], "variants/x/shipped/parts/0.azkp", []
     served = {f"https://raw.example.test/c/{path}": b"part", f"http://site.test/content/{path}": b"own"}
@@ -6191,8 +6192,9 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
             asked.append((method, url, wait))
 
         def send(self):
-            if self.url.startswith("https://down."):
-                raise RuntimeError("NetworkError")   # as a JsException comes
+            assert self.timeout == 60_000
+            if self.url.startswith(("https://down.", "https://slow.")):
+                raise RuntimeError("NetworkError" if "down" in self.url else "TimeoutError")   # as a JsException comes
             assert self.responseType == "arraybuffer"
             self.status, self.response = (200, served[self.url]) if self.url in served else (404, None)
 
@@ -6207,11 +6209,12 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
                                                                             False)]
     for source, size, words in (("http://elsewhere.test/c/", 9, "no https address"),
                                 ("https://down.example.test/", 9, "no answer"),
+                                ("https://slow.example.test/", 9, r"no answer \(TimeoutError\)"),
                                 ("https://raw.example.test/gone/", 9, "HTTP 404"),
                                 ("https://raw.example.test/c/", 3, "past the 3 bytes")):
         with pytest.raises(OSError, match=words):
             shipped.FETCH(source, path, size)
-    assert len(asked) == 5   # the plain-http source elsewhere asked nothing
+    assert len(asked) == 6   # the plain-http source elsewhere asked nothing
 
 
 def test_the_site_engines_restore_reads_the_logic_before_the_page_is_ready_when_randomize_comes_back_on(
