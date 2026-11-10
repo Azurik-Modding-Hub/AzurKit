@@ -1756,19 +1756,29 @@ def test_the_apps_server_types_each_file_from_its_table_never_the_systems_guess(
 
 def _post(url: str, call: str, body: dict, replies: list, timeout: float = 120) -> None:
     """POST ``body`` to the engine's ``call`` (``api/save``, say) from the
-    page at ``url`` (its token in the query); its reply goes in ``replies``
-    if it comes in ``timeout`` s in all: the socket's own timeout bounds each
-    read alone, and a call past ``app.KEEP`` sends a space each ``KEEP`` s."""
+    page at ``url`` (its token in the query); its reply goes in ``replies``.
+    A call with no whole answer in ``timeout`` s in all fails naming the call
+    and its seconds (the socket's own timeout bounds each read alone, and a
+    call past ``app.KEEP`` sends a space each ``KEEP`` s); one whose
+    connection the app refused or closed (it quit before it answered) leaves
+    ``replies`` as it was. A timeout is an ``OSError``, so it is told apart:
+    it once left ``replies`` empty, and the test failed later on an
+    ``IndexError`` naming nothing (Step 4.37i)."""
     host, query = urllib.parse.urlsplit(url).netloc, f"?{urllib.parse.urlsplit(url).query}"
     request = urllib.request.Request(f"http://{host}/{call}{query}", json.dumps(body).encode(),
                                      {"Origin": f"http://{host}", "Content-Type": "application/json"})
     end, data = time.monotonic() + timeout, b""
-    with contextlib.suppress(OSError), urllib.request.urlopen(request, timeout=timeout) as reply:
-        while chunk := reply.read1(1 << 16):   # the app may quit before it answers
-            if time.monotonic() > end:
-                raise TimeoutError(f"no answer in {timeout} s: {call}")
-            data += chunk
-        replies.append(json.loads(data))
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as reply:
+            while chunk := reply.read1(1 << 16):
+                if time.monotonic() > end:
+                    raise TimeoutError
+                data += chunk
+    except OSError as exc:
+        if isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError):
+            raise AssertionError(f"no answer in {timeout} s: {call}") from None
+        return   # the app quit before it answered
+    replies.append(json.loads(data))
 
 
 def test_a_long_call_never_leaves_its_connection_quiet_the_5_s_firefox_aborts_one_after_a_network_change(
@@ -1860,10 +1870,13 @@ def test_the_apps_server_holds_a_burst_of_connects_and_answers_a_pages_files_ove
                                         (200, b"{}", False), (403, b"", True)] and len({row[3] for row in got}) == 1, got
 
 
-def test_a_tests_call_ends_at_its_timeout_while_the_app_keeps_its_connection_alive(tmp_path, monkeypatch):
+def test_a_tests_call_past_its_timeout_fails_naming_the_call_while_the_app_keeps_its_connection_alive(
+        tmp_path, monkeypatch):
     """Step 4.4ci36: a call past ``app.KEEP`` s sends a space each ``KEEP`` s until its answer, so the socket's timeout,
-    each read's, never ended a call that never answers: a hung engine call waited for CI's 90 min stall watch where it
-    failed its test by name in ``_post``'s 120 s. ``_post`` reads its answer in its timeout in all."""
+    each read's, never ended a call that never answers: a hung engine call waited for CI's 90 min stall watch. ``_post``
+    reads its answer in its timeout in all, and fails naming the call and its seconds (Step 4.37i: its timeout, an
+    ``OSError``, was taken for the app's quit, so the frozen app's dress on Windows failed on an empty list's
+    ``IndexError`` after 900 s, naming nothing)."""
     _home(monkeypatch, tmp_path / "home")
     release = threading.Event()
 
@@ -1874,7 +1887,8 @@ def test_a_tests_call_ends_at_its_timeout_while_the_app_keeps_its_connection_ali
     server, replies = app.serve(_page.WEB), []
     try:
         t0 = time.monotonic()
-        _post(server.url, "api/verify_all", {"iso": str(tmp_path / "usa.iso")}, replies, timeout=2)
+        with pytest.raises(AssertionError, match=r"^no answer in 2 s: api/verify_all$"):
+            _post(server.url, "api/verify_all", {"iso": str(tmp_path / "usa.iso")}, replies, timeout=2)
         took = time.monotonic() - t0
     finally:
         release.set()
