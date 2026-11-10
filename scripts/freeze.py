@@ -9,7 +9,7 @@ It prints the app's path: ``DIR/AzurKit.app`` on macOS, else the folder
 ``DIR/AzurKit``. PyInstaller writes only under ``--dist`` and ``--work``
 (its cache too, which would otherwise go in the user's Library). The app
 leaves out what never ships (:data:`EXCLUDE`: Tk, Unicorn, capstone, zig,
-cryptography and the standard library's GPL-linked modules). On macOS its icon is
+cryptography, pywin32 and the standard library's GPL-linked modules). On macOS its icon is
 AzurKit's (:data:`ICON`, the mark on an azure tile, D892; ``assets/icon/``
 rebuilds it). It carries the checked randomizer database
 (``web_tools.ship_database``, keyed by the data alone, as the frozen app
@@ -46,7 +46,10 @@ BUNDLE_ID = "io.github.azurik-modding-hub.azurkit"
 MACOS = sys.platform == "darwin"
 ICON = ROOT / "assets" / "icon" / "AzurKit.icns"   # the .app's icon (its Info.plist's CFBundleIconFile)
 EXCLUDE = ("tkinter", "_tkinter", "unicorn", "capstone", "ziglang", "cryptography", "readline", "dbm", "_dbm",
-           "_gdbm")   # cryptography: devkit's mcp brings it, and pywebview imports it when it is installed
+           "_gdbm", "win32pdh", "win32api", "win32con", "win32job", "pywintypes", "pythoncom", "win32com")
+# cryptography: devkit's mcp brings it, and pywebview imports it when it is installed. pywin32's modules: mcp brings
+# pywin32 on Windows, where numpy.testing's memusage imports win32pdh (in a function the app never calls), which put
+# pywin32's win32/ and pywin32_system32/ in the app with a licence its own check can't name.
 
 
 def freeze(dist: Path, work: Path, check: bool = False) -> Path:
