@@ -6170,12 +6170,12 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
     """Step 4.6p: worker.mjs's engine, its Python run here under CPython (Pyodide's js modules stood in for), is the
     shipped parts' fetch (``shipped.FETCH``): a file Install left for the Check that asks for it (``content.later``)
     comes from its entry's source, read against the site (a relative one is the site's own), by one synchronous
-    request for its bytes, given 60 s to answer (Step 4.37c); a source neither https nor the site's own is asked
-    nothing, and no answer, none in time, an HTTP error or a reply past the row's size is an OSError (the part is
-    worked out), only no answer (none in time too) a ConnectionError (Step 4.37c: ``shipped.DOWN``'s, the source
-    let be a while)."""
+    request for its bytes, given 60 s and a second a 50 KB of its size to come whole (Step 4.37c); a source neither
+    https nor the site's own is asked nothing, and no answer, none in time, an HTTP error or a reply past the row's
+    size is an OSError (the part is worked out), only no answer (none in time too) a ConnectionError (Step 4.37c:
+    ``shipped.DOWN``'s, the source let be a while)."""
     _site_engine(monkeypatch, tmp_path)
-    js, path, asked = sys.modules["js"], "variants/x/shipped/parts/0.azkp", []
+    js, path, asked, waits = sys.modules["js"], "variants/x/shipped/parts/0.azkp", [], []
     served = {f"https://raw.example.test/c/{path}": b"part", f"http://site.test/content/{path}": b"own"}
 
     class URL:
@@ -6193,7 +6193,7 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
             asked.append((method, url, wait))
 
         def send(self):
-            assert self.timeout == 60_000
+            waits.append(self.timeout)
             if self.url.startswith(("https://down.", "https://slow.")):
                 raise RuntimeError("NetworkError" if "down" in self.url else "TimeoutError")   # as a JsException comes
             assert self.responseType == "arraybuffer"
@@ -6204,8 +6204,8 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
     monkeypatch.setattr(js, "Uint8Array", types.SimpleNamespace(
         new=lambda data: types.SimpleNamespace(to_bytes=lambda: bytes(data))), raising=False)
     monkeypatch.setattr(js, "azurkitBase", "http://site.test/", raising=False)   # its folder (its location: a blob:)
-    assert (shipped.FETCH("https://raw.example.test/c/", path, 4), shipped.FETCH("content/", path, 3)) == (b"part",
-                                                                                                          b"own")
+    assert (shipped.FETCH("https://raw.example.test/c/", path, 10_000_000), shipped.FETCH("content/", path, 3)) == (
+        b"part", b"own")
     assert asked == [("GET", f"https://raw.example.test/c/{path}", False), ("GET", f"http://site.test/content/{path}",
                                                                             False)]
     for source, size, words in (("http://elsewhere.test/c/", 9, "no https address"),
@@ -6217,6 +6217,7 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
             shipped.FETCH(source, path, size)
         assert isinstance(got.value, ConnectionError) is (words.startswith("no answer")), words
     assert len(asked) == 6   # the plain-http source elsewhere asked nothing
+    assert waits == [260_000] + [60_000] * 5   # the whole request's cap: 60 s, and 200 s for the 10 MB part's coming
 
 
 def test_the_site_engines_restore_reads_the_logic_before_the_page_is_ready_when_randomize_comes_back_on(
