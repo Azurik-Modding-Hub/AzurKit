@@ -927,8 +927,8 @@ def raster(p: int, m: int, size: int, tid: int, bary: int) -> bool:
     ``size`` are ``p`` (m x 3 x 2 doubles) into ``tid`` (size x size
     int64, each -1) and ``bary`` (size x size x 3 doubles, each 0): the
     buffers' addresses; False without the library or where the twin
-    draws (a corner not finite, 2**40 or more from 0, or -0.0), nothing
-    written then."""
+    answers (a corner 2**40 or more from 0 or -0.0, which it draws; one
+    not finite, which it refuses), nothing written then."""
     return (lib := library()) is not None and lib.az_raster(p, m, size, tid, bary) == 0
 
 

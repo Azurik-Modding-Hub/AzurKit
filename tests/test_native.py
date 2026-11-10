@@ -599,7 +599,9 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     and signed distances and the
     character layer's byte runs (``native/dress.c``) equal their twins
     over seeded random inputs, every NaN a NaN (its sign and payload aren't
-    held: the compiler may order an operation's two NaN inputs either way)."""
+    held: the compiler may order an operation's two NaN inputs either way).
+    A NaN UV to raster is refused by name before any cast, by the library's
+    path and the twin's, as each CPU casts a NaN its own way."""
     cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
     for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs", "ray", "rays",
                  "thin", "smooth", "dxt", "atan2", "raster"):
@@ -619,9 +621,16 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
                    "skinned": 1600, "signed": 400, "runs": 400, "ray": asked + left, "rays": 1200, "thin": 1594, "smooth": 1200,
                    "dxt": 1600, "atan2": 400, "raster": 400}   # by the library but case 0's clip's
     assert 0 < sum(r == "ZeroDivisionError" for g in got for r in g[0]) < asked / 10   # some divide by zero
+    from azurkit.tools.characters import paint
+    nan = numpy.array([[[0.25, 0.25], [0.75, 0.25], [0.25, 0.75]], [[0.25, 0.25], [math.nan, 0.5], [0.75, 0.75]]])
+    refused = "^paint: triangle 1 has a UV that isn't finite at 16 texels a side$"
+    with pytest.raises(ValueError, match=refused):
+        paint._raster_corners(nan, 16)
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):   # the twins' numpy on infinities
         assert got == [_dress_answer(case) for case in cases]
+    with pytest.raises(ValueError, match=refused):
+        paint._raster_corners(nan, 16)
 
 
 def _mesh(rng: random.Random):

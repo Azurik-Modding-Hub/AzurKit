@@ -327,7 +327,9 @@ def _raster(uv: np.ndarray, tris: np.ndarray, size: int):
     """Each texel's covering triangle (its index in ``tris``, -1 none) and
     barycentric weights, the triangles drawn in order (a later one over an
     earlier where their UVs overlap), a tiled triangle (UVs past 0..1)
-    drawn where it lands with the texture wrapped."""
+    drawn where it lands with the texture wrapped. A UV that isn't finite
+    (at ``size`` texels a side) is refused by name before any cast, which
+    each CPU makes of a NaN its own way (D1009: the twin's answer is one)."""
     tid = np.full((size, size), -1, int)
     bary = np.zeros((size, size, 3))
     P = uv[tris] * size                     # (m, 3, 2): u right, v down
@@ -335,6 +337,8 @@ def _raster(uv: np.ndarray, tris: np.ndarray, size: int):
         P, got = np.ascontiguousarray(P), np.full((size, size), -1, np.int64)
         if native.raster(P.ctypes.data, len(P), int(size), got.ctypes.data, bary.ctypes.data):
             return got.astype(tid.dtype, copy=False), bary
+    if not (finite := np.isfinite(P).all((1, 2))).all():   # the kernel declines them: here they stop
+        raise ValueError(f"paint: triangle {int(np.argmin(finite))} has a UV that isn't finite at {size} texels a side")
     for t in range(len(tris)):
         tri = P[t] - np.floor(P[t].min(0) / size) * size      # its lowest corner's tile at 0
         reach = np.floor(tri.max(0) / size).astype(int)
