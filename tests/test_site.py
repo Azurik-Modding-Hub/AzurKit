@@ -6474,9 +6474,12 @@ FX_PARAM = f"""([k, name, text]) => {{ const cell = [...{FX_ROW}[k].querySelecto
 
 def _fx_menu(page, selector: str, first: list | None = None) -> list:
     """The Effects tab's menu ``selector`` opened (filled as it opens, and again as a base's read answers), its
-    buttons' words and greying (once its first is ``first``)."""
-    page.evaluate(f"() => {{ const menu = document.querySelector({json.dumps(selector)}); menu.open = false; "
-                  "menu.open = true; }")
+    buttons' words and greying (once its first is ``first``). The opening call ends on the menu's own toggle event,
+    after the page's fill (its listener came first): WebKit may answer the next evaluate before a toggle queued
+    behind the page's work, and a poll then read the list the last opening left (Step 4.37g)."""
+    _page.answer(page, f"""() => new Promise((opened) => {{ const menu = document.querySelector({json.dumps(selector)});
+        menu.addEventListener("toggle", () => opened(true), {{ once: true }});
+        menu.open = false; menu.open = true; }})""")
     return _page.until(page, f"""() => {{ const items = [...document.querySelectorAll({json.dumps(selector + ' button')})]
         .map((b) => [b.textContent, b.disabled]);
         return items.length && ({json.dumps(first)} === null || JSON.stringify(items[0]) === {json.dumps(json.dumps(first, separators=(",", ":"), ensure_ascii=False))})
