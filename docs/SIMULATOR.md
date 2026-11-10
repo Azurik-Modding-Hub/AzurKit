@@ -981,8 +981,9 @@ launches). The answers persist, private, in the level's cache folder
 (`placed/<snapshot meta sha12>-<sha12 of the l3_impl without its kernel
 and the L3 core>/`, one store for the kernel route and plain FastL3;
 a file a worker process, each worker reading the others' new answers
-every 2 s), so every worker, stage and later run on the same code shares
-them. The yaw is part of the key (`fast.YAW_KEYED`): the yaw check placed 10,500 points
+every 2 s, a file's size taken from the file: Windows' folder listing keeps
+the size it had when last closed), so every worker, stage and later run on
+the same code shares them. The yaw is part of the key (`fast.YAW_KEYED`): the yaw check placed 10,500 points
 sampled from the engine's own plans on seven levels (the bench's four and
 e2, e5, w2: aim floor scans, other-start scans, job starts) at 4 yaws each
 on FastL3 and every answer was the same bit for bit (the saved pages
@@ -1123,7 +1124,10 @@ is passed in from its module (`backend._consts`). The float rule: doubles in Pyt
 (a `#pragma STDC FP_CONTRACT OFF` after its `#include "kernel.c"`, so the kernel's own floats keep the build's
 contraction and step a body bit for bit as `kernel.c` built alone does; the pragma is in `kernel_sha12`), libm's
 `sin`, `cos`, `atan2` and `pow` called through pointers (no sincos merge or `pow(x, 2)` rewrite: the calls CPython
-makes, which equal libm's on 300,000 random inputs each), and CPython's own `math.hypot` (its `vector_norm`),
+makes, which equal libm's on 300,000 random inputs each; on Windows the UCRT's, through `__imp_sin` and `__imp_cos`,
+since zig cc links its own `sin` and `cos`, compiler_rt's ported from musl, ahead of them and they part in the last
+bit; `c_libm` exports each call, which the test holds to `math`'s first), and CPython's own `math.hypot` (its
+`vector_norm`),
 `round`, float `%`, `atan2` special cases and `sum` ported: libm's `hypot` differs from `math.hypot` on 16 % of random
 pairs. Where Python would raise (a non-finite heading at the stick, a non-finite landing time) the family runs in
 Python and raises as before. `tests/test_reach_engine.py` runs R0's fan, the aims, the refinement and the scheduled
