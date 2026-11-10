@@ -43,6 +43,8 @@ K = 2.0                    # the slider value each historical patch was tried at
 AIR_CONTROL_IMM32 = (0x84ED3, 0x856D4, 0x890EA, 0x89126, 0x8D322)  # MOV [reg+0x140], 9.0
 FLAP_V1_ADDEND = 0x1A25C0  # f32 8.0: what the v1 flap FADD at 0x896EA adds
 TOC1_GRID = slice(0x5094, 0x6894)  # config.xbr TOC entry 1's 24 x 16 cells (the attacks table)
+PRIVATE = 0o600 if os.name == "posix" else 0o666   # a private file's mode bits: owner-only on POSIX; Windows keeps
+                                                   # no such mode, only the read-only bit (a writable file: 0o666)
 
 
 @pytest.fixture(scope="module")
@@ -2011,7 +2013,7 @@ def test_l3_conformance_corpus_keeps_each_replay_and_reruns_it_against_xemu(tmp_
     assert [{k: v[k] for k in ("passed", "divergence", "ticks")} for v in
             (corpus.record(snap.meta, False, pads, rows, g, store=store) for g in (got, off))] == [
         {"passed": True, "divergence": None, "ticks": 4}, {"passed": False, "divergence": 2, "ticks": 4}]
-    assert corpus.corpus_path(store).stat().st_mode & 0o777 == 0o600
+    assert corpus.corpus_path(store).stat().st_mode & 0o777 == PRIVATE
     res = corpus.rerun({}, store=store)
     assert [(r["passes_now"], r["divergence_now"], r["l3_changed_at"], r["error"]) for r in res] == [
         (True, None, None, None), (False, 2, None, None)]
@@ -2104,7 +2106,8 @@ def test_a_second_explorer_run_never_overwrites_the_first_runs_results_a_taken_n
     ``xemu_demo.py``'s outputs, goes through ``l3.private_out``: a run under a name a file holds already, or under
     one that differs from it only by case (on a case-insensitive disk that is the same file: sitting TD.0's
     ``B-replay.json`` replaced its ``b-replay.json``), writes the first free ``<stem>.<n><suffix>`` (n = 2, 3, ...)
-    and says so on stderr; every earlier file keeps its results, and each is mode 0600."""
+    and says so on stderr; every earlier file keeps its results, and each is private (``PRIVATE``: mode 0600 on
+    POSIX, a writable file on Windows, which keeps no owner-only mode)."""
     import json
 
     from devkit.sim import explore as script
@@ -2120,7 +2123,7 @@ def test_a_second_explorer_run_never_overwrites_the_first_runs_results_a_taken_n
     third = "OUT.3.json" if folds else "OUT.json"
     assert {p.name: json.loads(p.read_text(encoding="utf-8")) for p in tmp_path.iterdir()} == {
         "out.json": [{"run": 0}], "out.2.json": [{"run": 1}], third: {"census": 2}}
-    assert {p.stat().st_mode & 0o777 for p in tmp_path.iterdir()} == {0o600}
+    assert {p.stat().st_mode & 0o777 for p in tmp_path.iterdir()} == {PRIVATE}
     assert f"{out} is there already: wrote {tmp_path / 'out.2.json'}" in capsys.readouterr().err
 
 

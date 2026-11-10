@@ -10,6 +10,7 @@ import functools
 import gzip
 import json
 import math
+import os
 import pickle
 import shutil
 from pathlib import Path
@@ -294,7 +295,8 @@ def test_a_job_key_moves_with_the_l3_core_and_the_start_and_outcomes_remap_witho
     base = cache.folder("t", tmp_path / "cache")
     for r in recs:
         cache.put(base, r["key"], r)
-    assert oct(base.stat().st_mode & 0o777) == "0o700"
+    assert oct(base.stat().st_mode & 0o777) == ("0o700" if os.name == "posix" else "0o777")   # owner-only on POSIX;
+                                                       # Windows keeps no such mode, only the read-only bit (writable)
 
     class _Broken(_Sim):                  # a job whose start raises is that job's error: no record, the batch goes on
         def teleport(self, *a, **k):
@@ -1753,7 +1755,6 @@ def test_two_processes_building_one_c_library_into_an_empty_cache_at_once_both_l
     install over a library a process has loaded (``PermissionError``, WinError 5; stood in here, as is zig cc), so
     the second drops its own build and loads the one installed (the same name: the same source and flags). Both
     load the one file, and no part file stays."""
-    import os
     import subprocess
     import sys
 
