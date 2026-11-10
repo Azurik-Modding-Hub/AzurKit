@@ -2370,9 +2370,9 @@ def test_a_start_chained_on_found_strings_starts_where_they_ended_camera_and_all
                          [dict(s, stick=[0.0, 0.5]) for s in segments(found, rows)])}
     assert len(ids) == 3
 
-    from devkit.reach import l3_certify
+    from devkit.reach import models
     from devkit.sim import explore as script
-    monkeypatch.setattr(l3_certify, "_reach_path", lambda level: tmp_path / "reach.pkl")
+    monkeypatch.setattr(models, "reach_path", lambda level: tmp_path / "reach.pkl")   # the problem's reach model
     first, then = segments(found[:2], rows[:2]), segments(found[2:], rows[2:])
 
     def find(name, string, prefix=(), **kw):
