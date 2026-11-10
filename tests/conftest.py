@@ -44,7 +44,9 @@
   browser, is dropped. The session checks this guard too, and stops when it
   doesn't hold. Every Firefox it launches takes no proxy (:data:`DIRECT`,
   under the launch's own prefs), so a request to a test's host never waits
-  on the system's proxy settings.
+  on the system's proxy settings, and on Windows' CI logs its requests,
+  loads and hangs to a file (:data:`FIREFOX_LOG`), whose end a stalled call
+  prints (``tests/_page.py``'s ``stalled``).
 - Git finds a repository by the cwd alone: the variables that point it at
   one (``GIT_DIR``, which ``git rebase -x`` exports, and the rest of ``git
   rev-parse --local-env-vars``) are dropped, so a test's scratch repo is its
@@ -56,11 +58,13 @@ from __future__ import annotations
 import functools
 import hashlib
 import inspect
+import itertools
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
@@ -176,8 +180,43 @@ def _direct(launch):
     return direct
 
 
+FIREFOX_LOG = "timestamp,sync,nsHttp:3,DocumentChannel:4,ProcessHangMonitor:4"
+"""What each Firefox the tests launch on Windows' CI logs (Firefox's ``MOZ_LOG``), each to files of its own in this
+process's folder (:func:`firefox_logs`), as it happens: its requests, its documents' loads and its hang monitor. On
+GitHub's Windows runner Firefox held a page's first request about 37 s, its host never asked, the cause unshown (runs
+42409729869 and 42494981621: PENDING 8.10); a stalled Firefox call prints the end of each of its newest files
+(``tests/_page.py``'s ``stalled``)."""
+FIREFOX_LOGS = sys.platform == "win32" and bool(os.environ.get("CI"))
+"""Whether the Firefoxes the tests launch log so (:data:`FIREFOX_LOG`): on Windows' CI."""
+
+
+def firefox_logs() -> Path:
+    """The folder this process's Firefoxes log to (:data:`FIREFOX_LOG`), in the run's temporary folder (the runner's
+    on CI)."""
+    return Path(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()) / f"azurkit-firefox-log-{os.getpid()}"
+
+
+_launches = itertools.count(1)
+
+
+def _logged(launch):
+    """Playwright's ``launch``, a Firefox one logging to a file of its own (``MOZ_LOG_FILE``, Firefox's processes'
+    files beside it) where :data:`FIREFOX_LOGS`, under the environment the launch gives, else this process's."""
+    signature = inspect.signature(launch)
+
+    @functools.wraps(launch)
+    def logged(*args, **kwargs):
+        bound = signature.bind(*args, **kwargs)
+        if FIREFOX_LOGS and getattr(bound.arguments["self"], "name", None) == "firefox":
+            (folder := firefox_logs()).mkdir(parents=True, exist_ok=True)
+            bound.arguments["env"] = {**(bound.arguments.get("env") or os.environ), "MOZ_LOG": FIREFOX_LOG,
+                                      "MOZ_LOG_FILE": str(folder / f"firefox-{next(_launches)}")}
+        return launch(*bound.args, **bound.kwargs)
+    return logged
+
+
 for _name in ("launch", "launch_persistent_context"):   # the impl's: the sync and async APIs both call it
-    setattr(_BrowserType, _name, _headless_only(_direct(getattr(_BrowserType, _name))))
+    setattr(_BrowserType, _name, _headless_only(_direct(_logged(getattr(_BrowserType, _name)))))
 
 
 def pytest_sessionstart(session):

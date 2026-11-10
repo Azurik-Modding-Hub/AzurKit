@@ -2205,6 +2205,29 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         served.close()
 
 
+async def _given(value):
+    return value
+
+
+def _apart(call):
+    """``call`` run on a loop of its own, in a thread of its own, as a Playwright's sync object runs its calls."""
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(1) as pool:
+        return pool.submit(asyncio.run, call).result()
+
+
+def _stand_in(name: str, driver: int):
+    """A stand-in page of a browser ``name`` under the Playwright driver ``driver``, which answers an evaluate 7, its
+    state none and its browser's probe at once (its other calls a test's own)."""
+    connection = types.SimpleNamespace(_transport=types.SimpleNamespace(_proc=types.SimpleNamespace(pid=driver)))
+    context = types.SimpleNamespace(browser=types.SimpleNamespace(browser_type=types.SimpleNamespace(name=name)),
+                                    _sync=_apart, _impl_obj=types.SimpleNamespace(cookies=lambda: _given([]),
+                                                                                  _connection=connection))
+    return types.SimpleNamespace(main_frame=None, context=context, _sync=_apart, _impl_obj=types.SimpleNamespace(
+        evaluate=lambda *_: _given(7), goto=None, page_errors=lambda: _given([]),
+        console_messages=lambda: _given([])), on=lambda *_: None, remove_listener=lambda *_: None)
+
+
 def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypatch):
     """Step 4.5f: WebKit may end a live page's process and tell Playwright nothing (its network process's request,
     run 42198913490's Intel tier: the read-back's evaluate waited out its 120 s, its state unread, naming nothing). A
@@ -2216,8 +2239,6 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
     processes, reading no log. A load that fails so stays an Ended, its requests named after it. The log is read from a
     second before the call began or, if earlier, its context's last answer, so an ending just before the call is
     named too (Step 4.37k). Stand-in pages that never answer or whose target went, the log a stand-in's."""
-    from concurrent.futures import ThreadPoolExecutor
-
     from playwright._impl._errors import Error, TargetClosedError
 
     from scripts import ci_resources
@@ -2241,25 +2262,10 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
     for name, value in (("LOG", True), ("LOOK", 1), ("HEAR", 1)):
         monkeypatch.setattr(_page, name, value)
 
-    async def given(value):
-        return value
-
     async def raised(error):
         raise error
 
-    def apart(call):   # a Playwright's loop, in a thread of its own
-        with ThreadPoolExecutor(1) as pool:
-            return pool.submit(asyncio.run, call).result()
-
-    def stand_in(name: str):   # a page of a browser ``name`` that answers 7
-        connection = types.SimpleNamespace(_transport=types.SimpleNamespace(_proc=types.SimpleNamespace(pid=driver)))
-        context = types.SimpleNamespace(browser=types.SimpleNamespace(browser_type=types.SimpleNamespace(name=name)),
-                                        _sync=apart, _impl_obj=types.SimpleNamespace(cookies=lambda: given([]),
-                                                                                     _connection=connection))
-        return types.SimpleNamespace(main_frame=None, context=context, _sync=apart, _impl_obj=types.SimpleNamespace(
-            evaluate=lambda *_: given(7), goto=None, page_errors=lambda: given([]),
-            console_messages=lambda: given([])), on=lambda *_: None, remove_listener=lambda *_: None)
-    page = stand_in("webkit")
+    page = _stand_in("webkit", driver)
     assert _page.answer(page, "() => 7") == 7 and asked == []   # answered: no log read, its answer's time kept
     assert time.time() - 1 < getattr(page.context._impl_obj, _page.ANSWERED) <= time.time()
     ended = [_page.SAID, f"  {own[0]}"]
@@ -2284,7 +2290,7 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
               re.escape(drivers)], own, 1, None),
             ("chromium", lambda *_: raised(closed), AssertionError,   # elsewhere: no log
              [re.escape(f"() => azurkit.build: {closed}"), re.escape(drivers)], None, 0, 60)):
-        page, asked[:] = stand_in(name), []
+        page, asked[:] = _stand_in(name, driver), []
         if before is not None:   # a call answered ``before`` s ago
             assert _page.answer(page, "() => 7") == 7
             setattr(page.context._impl_obj, _page.ANSWERED, time.time() - before)
@@ -2303,6 +2309,58 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
         for at in asked:   # read from a second before it
             assert since - 2 < time.mktime(time.strptime(at, "%Y-%m-%d %H:%M:%S")) < since - 0.9, (name, at, since)
         assert took < 10, (name, took)
+
+
+def test_a_stalled_firefox_load_names_what_firefox_logged(monkeypatch, tmp_path):
+    """Step 4.37k (PENDING 8.10): on Windows' CI (``conftest.FIREFOX_LOGS``, stood in here) each Firefox a test
+    launches logs its requests, loads and hangs (``conftest.FIREFOX_LOG``, Firefox's ``MOZ_LOG``) to a file of its own
+    in its process's folder in the run's temporary folder, under the environment its launch gives, and a Firefox call
+    that stalls, a load among them, prints the last ``_page.TAIL`` lines of each of the ``_page.TAILS`` newest files
+    there, each line cut at ``_page.WIDTH`` and an address's token left out: on GitHub's Windows runner Firefox held a
+    page's first request about 37 s and nothing said why (runs 42409729869, 42494981621). Another browser's launch and
+    stall are as they were. A stand-in launch (Playwright's impl's), page and log."""
+    from scripts import ci_resources
+    driver, launched = os.getpid(), []
+
+    async def launch(self, env=None, headless=None):
+        launched.append(env)
+    monkeypatch.setattr(conftest, "FIREFOX_LOGS", True)
+    monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
+    for name in ("firefox", "chromium"):
+        asyncio.run(conftest._logged(launch)(types.SimpleNamespace(name=name), env={"KEPT": "1"}, headless=True))
+    folder = tmp_path / f"azurkit-firefox-log-{driver}"
+    file = Path(launched[0].pop("MOZ_LOG_FILE"))
+    assert launched == [{"KEPT": "1", "MOZ_LOG": conftest.FIREFOX_LOG}, {"KEPT": "1"}] and file.parent == folder
+    assert conftest.FIREFOX_LOG == "timestamp,sync,nsHttp:3,DocumentChannel:4,ProcessHangMonitor:4"
+    logged = {f"{file.name}.moz_log": [f"2026-11-10 10:00:{i:02}.000000 UTC - [Parent 50: Main Thread]: D/nsHttp "
+                                       f"nsHttpChannel::AsyncOpen [uri=http://127.0.0.1:9/?token=k{i}&x=1]"
+                                       for i in range(30)],   # the browser's own process
+              f"{file.name}.child-1.moz_log": ["2026-11-10 10:00:01.000000 UTC - [Child 51: Main Thread]: D/"
+                                               "DocumentChannel DocumentChannelChild ctor " + "x" * 300],
+              "firefox-0.moz_log": ["2026-11-10 09:59:00.000000 UTC - an earlier Firefox's"],
+              "firefox-00.moz_log": ["2026-11-10 09:58:00.000000 UTC - the oldest: not printed"]}
+    for age, (name, lines) in enumerate(logged.items()):
+        (folder / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+        os.utime(folder / name, (time.time() - 60 * age,) * 2)
+    monkeypatch.setattr(ci_resources, "table", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20)])
+    for name, value in (("ACT", 1), ("HEAR", 1)):
+        monkeypatch.setattr(_page, name, value)
+    shown = []
+    for name in ("firefox", "chromium"):
+        page = _stand_in(name, driver)
+        page._impl_obj.goto = lambda *_, **__: asyncio.sleep(600)   # its first request held
+        with pytest.raises(AssertionError) as stall:
+            _page.load(page, "http://127.0.0.1:9/")
+        shown.append(str(stall.value).splitlines())
+    said = [line for line in shown[0] if line.startswith(("Firefox's log ", "  2026-"))]
+    heads = [re.sub(r"\(\d+ bytes, its last line \d+ s ago\)", "(…)", line) for line in said if line[0] == "F"]
+    assert heads == [f"Firefox's log {name} (…), its last {n} lines:"
+                     for name, n in zip(list(logged)[:3], (20, 1, 1))], said
+    assert said[1:21] == [f"  {line.replace(f'token=k{i}', 'token=…')}" for i, line in enumerate(logged[
+        f"{file.name}.moz_log"]) if i >= 10] and max(map(len, said)) <= _page.WIDTH, said
+    assert said[22] == f"  {logged[f'{file.name}.child-1.moz_log'][0][:_page.WIDTH - 3]}…", said
+    assert shown[0][0] == "no answer in 1 s: the page's load of http://127.0.0.1:9/" and shown[0][-1] == (
+        "its requests unanswered: none") and not any("Firefox" in line for line in shown[1]), shown
 
 
 def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_state(browser):

@@ -16,6 +16,7 @@ import errno
 import hashlib
 import http.server
 import json
+import re
 import subprocess
 import sys
 import textwrap
@@ -45,10 +46,10 @@ Mac runner took over 1 s for a page's read, run 41666183947)."""
 LOOK = 15
 """s a WebKit page's call may go unanswered before macOS's log is read (in 2-3 s here, in at most :data:`HEAR`), then
 again each :data:`LOOK` s and at the call's bound, for a page of its browser whose process WebKit ended since the call
-began or its context last answered (:func:`within`), which fails the call at once by that name: on GitHub's Intel Mac runner WebKit ended a live
-page's process at its network process's request (``reason=RequestedByNetworkProcess``, run 42198913490) and told
-Playwright nothing, so the read-back's evaluate waited out its :data:`STALL` and its state went unread, naming nothing.
-A call answered in that time reads no log."""
+began or its context last answered (:func:`within`), which fails the call at once by that name: on GitHub's Intel Mac
+runner WebKit ended a live page's process at its network process's request (``reason=RequestedByNetworkProcess``, run
+42198913490) and told Playwright nothing, so the read-back's evaluate waited out its :data:`STALL` and its state went
+unread, naming nothing. A call answered in that time reads no log."""
 LOG = sys.platform == "darwin"
 """Whether WebKit's log can be read (macOS's ``log``: ``scripts/ci_resources.py``'s ``webkit_said``)."""
 CLOSED = 2
@@ -344,19 +345,55 @@ def _drivers(owner) -> str:
         return f"unread ({_short(str(error), 200)})"
 
 
+TAIL = 20
+"""Lines a stalled Firefox call's failure prints from the end of each of its browser's :data:`TAILS` newest log files
+(``tests/conftest.py``'s ``FIREFOX_LOG``: Windows' CI)."""
+TAILS = 3
+"""Of the newest log files of this process's Firefoxes, those a stalled Firefox call's failure prints the end of: the
+browser's own and its newest page processes' (a test's Firefox is the one its process uses now)."""
+TOKEN = re.compile(r"(token=)[^&\s\"'#]+")
+"""A token in an address (the app's page carries its own in its query), left out of a log line a failure prints."""
+
+
+def _firefox_said(context) -> list[str]:
+    """The end of each of the newest log files of this process's Firefoxes (``tests/conftest.py``'s ``firefox_logs``)
+    where ``context``'s browser is a Firefox that logs: :data:`TAIL` lines of :data:`TAILS` files, each its name, size
+    and age first, each line cut at :data:`WIDTH` with an address's token left out (:data:`TOKEN`); none elsewhere."""
+    from tests import conftest
+    if not conftest.FIREFOX_LOGS or context.browser is None or context.browser.browser_type.name != "firefox":
+        return []
+    said = []
+    try:
+        files = sorted((path for path in conftest.firefox_logs().iterdir() if path.is_file()),
+                       key=lambda path: path.stat().st_mtime, reverse=True)[:TAILS]
+        for path in files:
+            with open(path, "rb") as log:
+                size = log.seek(0, 2)
+                log.seek(max(size - (1 << 16), 0))
+                lines = log.read().decode("utf-8", "replace").splitlines()[-TAIL:]
+            said += [f"Firefox's log {path.name} ({size} bytes, its last line {time.time() - path.stat().st_mtime:.0f}"
+                     f" s ago), its last {len(lines)} lines:",
+                     *(f"  {_short(TOKEN.sub(r'\1…', line), WIDTH - 3)}" for line in lines)]
+    except OSError as error:
+        said.append(f"Firefox's log: unread ({type(error).__name__})")
+    return said or ["Firefox's log: none"]
+
+
 def stalled(owner, what: str, seconds: float, ended: tuple[str, ...] = ()) -> str:
     """What a call to ``owner`` (a page or a context) that went unanswered ``seconds`` s says: ``what`` it was, WebKit's
     log's lines on a page of its browser whose process it ended (``ended``, :func:`_ended`, :data:`SAID`), each
     on a line of its own, the page's state (:func:`hang`), whether its browser still answers a call of its own (its
     cookies, in :data:`PROBE` s) and the processes under its driver. A browser that answers nothing either has stopped:
     its Playwright connection is closed naming ``what``, so every later call to it fails at once by name, its module's
-    next tests too, never a silent wait (D1072)."""
+    next tests too, never a silent wait (D1072). A Firefox that logs (Windows' CI) adds the end of its newest log files
+    after the state (:func:`_firefox_said`)."""
     page = owner if hasattr(owner, "main_frame") else None
     context = page.context if page else owner
     said = [f"no answer in {seconds:.0f} s: {_short(what)}"]
     if ended:
         said += [SAID, *(f"  {line}" for line in ended)]
     said += [hang(page)] if page else []
+    said += _firefox_said(context)
     try:
         _heard(context, context._impl_obj.cookies(), PROBE)
         said.append("its browser still answers")

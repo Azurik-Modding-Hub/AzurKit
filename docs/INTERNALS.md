@@ -88,6 +88,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Playwright keeps 127.0.0.1 in Firefox's proxy lookup, which on Windows
     asks WinINet before each request starts, and a page's first load there
     went unanswered past its 30 s with its request not yet sent.
+  - On Windows' CI each Firefox a test launches logs its requests, loads
+    and hangs to files of its own in the runner's temporary folder
+    (`tests/conftest.py`'s `FIREFOX_LOG`, Firefox's `MOZ_LOG`), and a
+    stalled Firefox call prints the end of the newest ones
+    (`tests/_page.py`'s `stalled`): Windows' Firefox held a page's first
+    request about 37 s, its cause unshown.
   - Playwright's Firefox says a request as Firefox is about to send it,
     before the host hears it, so one a stall report hears late was late in
     Firefox, never held by the test's host. A load of the site's page (it
