@@ -350,19 +350,24 @@ def test_the_trackers_work_ahead_waits_for_a_logic_its_process_read_and_never_re
 
 
 def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_them_at_their_next_note(monkeypatch):
-    """A click raises a job ahead's fill: its threads too. A change stops it: they end there, not at a batch's end."""
+    """A click raises a job ahead's fill: its threads too. A change stops it: they end there, not at a batch's end.
+    Each attempt's kernel beside the fill waits until the fill's first note after the click, so no attempt ends
+    before the click and the fill waits (and notes) until its threads have heard it: no race on two clocks."""
     from azurkit.app import procpool
 
     class Gone(Exception):
         pass
 
-    lowered, heard = [True], []
+    lowered, heard, after = [True], [], threading.Event()
 
     def report(_step: dict) -> None:
-        if lowered[0] and any((True, name) in heard for name in attempts()):
-            lowered[0] = False     # the click
         if (False, True) in {(on, name.startswith("azurkit-attempt")) for on, name in heard}:
+            after.set()            # what still waits ends at its next note
             raise Gone             # the change
+        if not lowered[0]:
+            after.set()            # a note after the click: the threads go on, at the fill's priority now
+        elif any((True, name) in heard for name in attempts()):
+            lowered[0] = False     # the click
 
     def attempts() -> set[str]:
         return {t.name for t in threading.enumerate() if t.name.startswith("azurkit-attempt")}
@@ -371,19 +376,41 @@ def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_
         name = threading.current_thread().name
         return lambda on: heard.append((on, name))
 
+    def held(*a):
+        if threading.current_thread().name.startswith("azurkit-attempt"):
+            assert after.wait(60), "an attempt waited 60 s for the click"   # a deadlock guard only
+        return kernel(*a)
+
     monkeypatch.setattr(fill, "WIDTH", 4)
     monkeypatch.setattr(fill, "BESIDE", procpool.Beside)
     monkeypatch.setattr(procpool, "lowered", lambda: lowered[0])
     monkeypatch.setattr(procpool, "Low", low)
-    kernel = native.attempt   # each attempt as long as a busy computer's low priority makes it (Step 4.4ci57: the
-    monkeypatch.setattr(native, "attempt", lambda *a: time.sleep(0.1) or kernel(*a))   # kernel's take ~40 ms)
+    kernel = native.attempt
+    monkeypatch.setattr(native, "attempt", held)
     with pytest.raises(Gone), progress.noting(progress.Steps(report)) as steps:
         steps("plan")
         fill._fill(kept_logic(), "31", Settings(3, "hard", {}, frozenset({"fragments"}), seed_difficulty=3))
+    after.set()
     for thread in threading.enumerate():
         if thread.name.startswith("azurkit-attempt"):
             thread.join(5)
     assert not attempts()
+
+
+def test_a_beside_job_hears_the_priority_its_fill_took_between_two_waits(monkeypatch):
+    """A Build clicked while a Hard seed is planned ahead raises the fill at its next note, which may be a
+    candidate's, between two waits that never time out: what it hands out next runs at its new priority, not at
+    background priority to the fill's end."""
+    from azurkit.app import procpool
+
+    lowered, heard = [True], []
+    monkeypatch.setattr(procpool, "lowered", lambda: lowered[0])
+    monkeypatch.setattr(procpool, "Low", lambda: heard.append)
+    with procpool.Beside(1, lambda: None) as beside:
+        beside.answer(beside.submit(lambda _: None, 0))
+        lowered[0] = False         # the click, at a note between two answers
+        beside.answer(beside.submit(lambda _: None, 1))
+    assert heard == [True, False]
 
 
 def test_a_logic_handed_another_database_works_its_openers_out_again(monkeypatch):

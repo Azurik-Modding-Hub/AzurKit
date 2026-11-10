@@ -303,7 +303,8 @@ class Beside:
     """A shaped fill's work on threads beside its own (``fill.BESIDE``; its reaches leave the GIL): each job as soon as
     a thread is free, its answer read in order on the fill's thread, so what it decides is one thread's, at any width.
     That thread tells its notes meanwhile (``tick``: records, so cancel points); leaving, or :meth:`again`, stops what
-    runs at its next note and what hasn't begun. Each thread runs as low as the fill's does now (:class:`Low`)."""
+    runs at its next note and what hasn't begun. Each thread runs as low as the fill's did at its last hand-out or
+    wait (:class:`Low`): a click the fill hears at any note between two waits reaches them."""
 
     def __init__(self, width: int, tick: Callable[[], None]) -> None:
         self.width, self.tick, self.low = width, tick, lowered()
@@ -324,6 +325,7 @@ class Beside:
         self._close()
 
     def submit(self, fn: Callable, item) -> Future:
+        self.low = lowered()
         return self.pool.submit(self._job, self.stop, self.local, fn, item)
 
     def _job(self, stop: threading.Event, local: threading.local, fn: Callable, item):
@@ -341,11 +343,11 @@ class Beside:
     def answer(self, future: Future):
         """``future``'s answer, once it has one (its error raises here, in its turn)."""
         while True:
+            self.low = lowered()   # each pass: a click at a candidate's note too, not only at a tick
             try:
                 return future.result(0.1)
             except TimeoutError:
                 self.tick()
-                self.low = lowered()
 
     def again(self, fn: Callable, items: Sequence) -> list:
         """``fn`` of each of ``items``, what ran before dropped."""
