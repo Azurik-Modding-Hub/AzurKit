@@ -5268,9 +5268,13 @@ def test_the_forks_shared_ram_waits_through_a_boot_finds_its_page_directory_anyw
     booting has no page directory: its reads fail (Live reads "waiting"), and
     it is looked for again every 2 s, not on every read, found wherever the
     kernel put it (not at 0xF000 here). While the game doesn't run for 5 s the
-    name is opened anew every 2 s: a crashed xemu's frozen object is replaced
-    by the next xemu's under the same name, which Live then reads, and a name
-    gone is a lost link."""
+    name is opened anew every 2 s. On POSIX a crashed xemu's frozen object is
+    replaced by the next xemu's under the same name, which Live then reads.
+    Windows (Step 4.37j) keeps a named mapping while any handle to it lives,
+    Live's view too: the next xemu finds the name held (the fork then keeps
+    its RAM private) and Live's reopening lets the quit one's go, a lost link;
+    attached again, Live reads the xemu that makes the name next. A name gone
+    is a lost link."""
     import secrets
     from multiprocessing import shared_memory
 
@@ -5300,13 +5304,25 @@ def test_the_forks_shared_ram_waits_through_a_boot_finds_its_page_directory_anyw
         session = game.Session(shared, game.SpotTable({}, ()))
         assert session.poll().reading.state == "waiting"            # no XBE header: not Azurik
         shm.close()
-        shm.unlink()                                    # xemu quit; the next one makes the name anew
-        played = _LiveRam()
+        shm.unlink()                                    # xemu quit (on Windows unlink does nothing)
+        shm, played = None, _LiveRam()
         _live_game(played, usa, game.LevelSpots("w2", 0, 4, ()))
-        shm = shared_memory.SharedMemory(name, create=True, size=size)
-        shm.buf[:size] = played.ram
-        session.poll()                                  # read through the old mapping, then the name reopened
-        assert session.poll().reading.region is usa
+        if os.name == "nt":                             # Live's view holds the name: the next xemu can't make it
+            with pytest.raises(FileExistsError):        # (as the fork's CreateFileMapping finds it held)
+                shared_memory.SharedMemory(name, create=True, size=size)
+            with pytest.raises(link.LinkLost):          # Live's reopening let the quit xemu's mapping go
+                session.poll()
+            session.close()
+            session = None
+            shm = shared_memory.SharedMemory(name, create=True, size=size)
+            shm.buf[:size] = played.ram
+            session = game.Session(link.SharedRamLink(link.Endpoint("shm", name, True)), game.SpotTable({}, ()))
+            assert session.poll().reading.region is usa                 # attached again
+        else:                                           # the next xemu makes the name anew
+            shm = shared_memory.SharedMemory(name, create=True, size=size)
+            shm.buf[:size] = played.ram
+            session.poll()                              # read through the old mapping, then the name reopened
+            assert session.poll().reading.region is usa
         shm.close()
         shm.unlink()
         shm = None
