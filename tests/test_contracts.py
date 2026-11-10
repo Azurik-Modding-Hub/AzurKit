@@ -93,6 +93,40 @@ def test_import_linter_contracts_hold(capsys):
     assert lint_imports(config_filename=str(ROOT / "pyproject.toml"), no_cache=True) == 0, capsys.readouterr().out
 
 
+FIRST_IMPORT = """
+import importlib, sys
+for name in sys.argv[1:]:
+    for loaded in [m for m in sys.modules if m == "azurkit" or m.startswith("azurkit.")]:
+        del sys.modules[loaded]
+    try:
+        importlib.import_module(name)
+    except BaseException as exc:
+        print(name, type(exc).__name__, str(exc).splitlines()[:1])
+"""
+"""Each module named imported first, every azurkit module forgotten before it; one line for each that fails."""
+
+
+def test_each_azurkit_module_imports_first_in_a_fresh_interpreter():
+    """Whatever imports it first, every module of the package loads: no
+    import cycle leaves a name half defined. ``randomizer.levels``,
+    ``draft.geometry``, ``draft.floors`` and ``draft.wiring`` once failed
+    imported first (ImportError), since their leaf imports from ``art``
+    ran ``art/__init__.py``, whose eager import of ``art.maps`` read
+    ``draft.geometry.CELL`` and ``levels.GENERATED`` while they were half
+    loaded; ``art`` imports ``maps`` where it draws (Step 4.37l). One
+    process, the package forgotten before each module (no ``__main__``)."""
+    import os
+    import subprocess
+    import sys
+
+    names = sorted(".".join(p.relative_to(SRC.parent).with_suffix("").parts).removesuffix(".__init__")
+                   for p in SRC.rglob("*.py") if p.name != "__main__.py")
+    run = subprocess.run([sys.executable, "-c", FIRST_IMPORT, *names], cwd=ROOT, env={**os.environ},
+                         capture_output=True, text=True, encoding="utf-8", timeout=300)
+    failed = run.stdout.splitlines()
+    assert (failed, run.returncode) == ([], 0), "\n".join(failed) + "\n" + run.stderr[-4000:]
+
+
 def test_every_run_keeps_only_its_failed_tests_temp_folders_and_only_the_newest_failed_sessions():
     """Step 4.5v2: pytest's defaults kept every test's ``tmp_path`` for 3
     sessions, so a gate's site tests' built images piled up (one 8-worker

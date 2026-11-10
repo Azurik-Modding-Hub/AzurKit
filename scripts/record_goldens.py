@@ -748,6 +748,7 @@ def art(images: Images, workers: int, detail: Collection[str] | None = None) -> 
     tiles for the page's lists (``art.icons.css``)."""
     from azurkit.tools.randomizer import art as drawn
     from azurkit.tools.randomizer import tracking
+    from azurkit.tools.randomizer.art import maps
 
     path, v = str(images.stamp(gate.USA).path), tracking.ART_VERSION
     order = sorted(tracking.ART_PARTS, key=lambda p: LONGEST.index(p) if p in LONGEST else len(LONGEST))
@@ -761,7 +762,7 @@ def art(images: Images, workers: int, detail: Collection[str] | None = None) -> 
     out = {f"{v}/{name}.png": png for part in tracking.ART_PARTS for name, png in got[part]["pictures"].items()}
     out |= {f"{v}/{name}.png": png for lv in sorted(finer) for name, png in finer[lv].items()}
     shipped = {"version": v, "icons": got["icons"]["sheet"], "detail": factors}
-    floors = {"unit": drawn.maps.STOREY_M, "levels": {lv: got[lv]["floors"] for lv in sorted(tracking.GRID)}}
+    floors = {"unit": maps.STOREY_M, "levels": {lv: got[lv]["floors"] for lv in sorted(tracking.GRID)}}
     out |= {f"{v}/world.png": world["pictures"]["world"], f"{v}/maps.json": world["text"].encode(),
             f"{v}/floors.json": (json.dumps(floors, separators=(",", ":")) + "\n").encode(),
             "index.json": (json.dumps(shipped) + "\n").encode(),

@@ -45,7 +45,7 @@ if np.dtype(np.intp).itemsize < 8:   # the site's numpy (Pyodide's, wasm32) inde
     np.bincount = lambda x, weights=None, minlength=0: _bincount(_intp(x), weights, minlength)
 
 from azurkit.core import gate, inflate  # noqa: E402
-from azurkit.tools.randomizer.art import icons, maps, nodes  # noqa: E402
+from azurkit.tools.randomizer.art import icons, nodes  # noqa: E402
 from azurkit.tools.randomizer.ports import XisoReader  # noqa: E402
 
 __all__ = ["Vanilla", "detail", "detail_factor", "digest", "index", "part", "png", "unpng", "world"]
@@ -142,7 +142,12 @@ def part(reader: Vanilla, name: str) -> dict:
     (``{"pictures": {"icons": RGBA}, "sheet": where its tiles are}``, the one
     icon sheet, :func:`.icons.sheet`), or a level of the world map (``{"pictures": {floor:
     RGB}, "entry": its maps.json entry, "thumb": its main floor's world-map
-    thumbnail, "floors": its floors.json table, Live's Follow's, maps.storeys}``)."""
+    thumbnail, "floors": its floors.json table, Live's Follow's, maps.storeys}``).
+    :mod:`.maps` is imported where it draws, not at this package's top: it
+    reads ``draft.geometry`` and ``levels``, which import this package's
+    leaves, so either imported first would find it half loaded."""
+    from azurkit.tools.randomizer.art import maps
+
     schema = nodes.Schema(reader.read_file("default.xbe"))
     if name == "icons":
         picture, tiles = icons.sheet(reader, schema)
@@ -166,6 +171,8 @@ def detail(reader: Vanilla, level: str, factor: float) -> dict[str, np.ndarray]:
     RGB}``): each floor of its map drawn ``factor`` times finer
     (:func:`detail_factor`), on the same floors in the same colours, its
     pixel u the map's pixel u / ``factor`` (Modkit's ``draw_detail``)."""
+    from azurkit.tools.randomizer.art import maps
+
     if level not in maps.GRID:
         raise ValueError(f"art: no level {level!r} of the world map")
     pictures, _, _ = maps.render(reader, nodes.Schema(reader.read_file("default.xbe")), level, factor)
@@ -176,6 +183,8 @@ def world(thumbs: dict[str, np.ndarray]) -> tuple[np.ndarray, dict]:
     """The world map (every level's main floor on its grid cell, Modkit's
     ``world.png``) from each level's ``thumb`` (:func:`part`), and its
     entry in ``maps.json`` (``{"title", "levels": {level: [x, y, w, h]}}``)."""
+    from azurkit.tools.randomizer.art import maps
+
     width = maps.CELL[0] * (1 + max(c for c, _ in maps.GRID.values()))
     height = maps.WORLD_TOP + maps.CELL[1] * (1 + max(r for _, r in maps.GRID.values()))
     out = np.empty((height, width, 3), dtype=np.uint8)
