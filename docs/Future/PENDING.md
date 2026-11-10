@@ -46,10 +46,6 @@ The next session starts here (D1192), so 1.1 can follow.
 5. **The parts' download:** a first Check's 24.5 MB of parts come with no
    bar, and no pytest drives a real browser through a shipped fetch (S78 is
    the only proof).
-6. **4.6p's minor points:** `worker.mjs`'s `fetched()` uses a synchronous
-   XHR with no timeout (give it 60 s); `shipped.part` marks a source down
-   for 60 s on any OSError, even a 404 for one part; `sdk._later` lets
-   `$AZURKIT_CONTENT_SOURCE` win over the entry's recorded source.
 
 ## 2. Releases and content
 
