@@ -2037,9 +2037,12 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     change to her bytes is red until ``scripts/record_shipped.py`` re-records.
     Its parent's shipped places (the row of the first release that holds the
     file: USA's and Europe's ``characters.xbr`` are one) are too, a fresh
-    ``_parent_places`` in booblord_high's case. And on USA each shipped part
-    (Step 4.6p: a Check's of a built-in or of its own copy, :func:`_own_copies`
-    built for them) is the part a fresh dress works out under its key."""
+    ``_parent_places`` in booblord_high's case. And on USA, on the recording
+    host (``tests/_hosts.py``), each shipped part (Step 4.6p: a Check's of a
+    built-in or of its own copy, :func:`_own_copies` built for them) is the
+    part a fresh dress works out under its key: elsewhere (D1016) a fresh
+    dress's clips round otherwise, and the parts keyed on the file they went
+    into (W28's restyles, W39's LOD writes, the bakes) are other keys."""
     cases = _variants(release, tmp_path)
     assert len(cases) == {"usa": 7, "europe": 1}[release.name]
     plans = [row for row in shipped.table().get("plan", ()) if row["release"] == release.iso_sha256]
@@ -2055,7 +2058,10 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     places = [row for row in shipped.table().get("places", ()) if row["release"] == release.iso_sha256]
     assert bool(places) == (release.name == "usa") and {shipped.name("places", row) for row in places} <= held
     shipped_parts = {shipped.name("part", row) for row in shipped.table().get("part", ())}
-    assert release.name != "usa" or shipped_parts and shipped_parts <= held, sorted(shipped_parts - held)
+    assert release.name != "usa" or shipped_parts
+    if release.name == "usa" and _hosts.recording():   # a part's key is what its stage reads: off this host (D1016) a
+        # fresh dress's clips differ in their floats, so the keys of the parts that read the file they went into differ
+        assert shipped_parts <= held, sorted(shipped_parts - held)
 
 
 def _own_copies(folder: Path, monkeypatch) -> dict[str, dict]:
