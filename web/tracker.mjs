@@ -396,6 +396,10 @@ export function tracker({ call, app, say, kept, keep, tray = null }) {
   const liveOn = async () => {
     const reply = await call("live", { on: true, plan: t.plan, marks: t.marks, endpoints: $("track-endpoints").value,
                                        gems: t.gems });
+    if (!$("track-live").checked) {   // unticked while the app turned it on: off stays off, the feed it began ended
+      if (!("refused" in reply)) liveOff();
+      return;
+    }
     if ("refused" in reply) {
       $("track-live").checked = false;
       liveOff();

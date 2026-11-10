@@ -4340,6 +4340,76 @@ def test_play_on_the_apps_page_tracks_the_saved_builds_seed_with_live_on_and_liv
         server.close()
 
 
+# The tracker's poll (tracker.mjs' POLL_MS) is the page's one interval of 700 ms: each one set and not yet cleared,
+# counted, so a test says Live polls nothing without waiting for a poll that never comes.
+POLLS = """() => {
+    const set = globalThis.setInterval, clear = globalThis.clearInterval, live = new Map();
+    globalThis.setInterval = (f, ms, ...a) => { const id = set(f, ms, ...a); live.set(id, ms); return id; };
+    globalThis.clearInterval = (id) => { live.delete(id); return clear(id); };
+    globalThis.polls = () => [...live.values()].filter((ms) => ms === 700).length;
+}"""
+
+
+def test_live_unticked_while_its_on_call_is_held_stays_off_and_polls_nothing(browser, tmp_path, monkeypatch):
+    """Live ticked (as Play and Attach… tick it), then unticked while the app
+    still answers that on-call (the Play test's flake on Intel CI): once the
+    call comes back Live stays off, its box unticked, the tracker with no
+    Live state and no poll, and the feed that late call began is ended."""
+    from azurkit.tools.randomizer.live import link
+
+    def nothing(endpoints):
+        raise link.LiveError("no xemu answers")
+
+    _home(monkeypatch, tmp_path / "home")
+    (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
+    monkeypatch.setattr(app.pictures, "folder", lambda: tmp_path / "no-maps")   # no pictures: the chips show
+    monkeypatch.setattr(app.xemu, "tray_disc", lambda accept: None)            # no xemu's tray holds a seed
+    monkeypatch.setattr(link, "open_first", nothing)
+    server = app.serve(_page.WEB)
+    calls, held, real = [], threading.Event(), server.live
+
+    def live(body: dict) -> dict:   # the app's api/live, its on-call held until the test lets it go
+        if not body.get("on"):
+            calls.append("off")
+            return real(body)
+        calls.append("on")
+        held.wait(60)                # a deadlock guard only: the test's own wait fails first
+        try:
+            return real(body)
+        finally:
+            calls.append("on answered")
+
+    server.live = live
+
+    def until(done) -> None:
+        end = time.monotonic() + 60
+        while not done() and time.monotonic() < end:
+            time.sleep(0.02)
+    try:
+        page = browser.new_page()
+        page.add_init_script(f"({POLLS})()")
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
+        _page.click(page, "track-live")                                    # Live on: its call held
+        until(lambda: calls == ["on"])
+        _page.click(page, "track-live")                                    # off before it comes back
+        until(lambda: calls == ["on", "off"])
+        held.set()
+        until(lambda: len(calls) == 4 or page.evaluate("() => Boolean(azurkit.tracker.state.live)"))
+        _page.until(page, "() => !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length")
+        assert page.evaluate("() => [document.getElementById('track-live').checked, azurkit.tracker.state.live, "
+                             "polls()]") == [False, None, 0]
+        assert calls == ["on", "off", "on answered", "off"] and server.feed is None
+        page.close()
+    finally:
+        held.set()
+        server.close()
+
+
 # The tracker's looks (Step 4.2c2's looks seat), as the page measures them: WCAG's contrast ratio of each world-map
 # badge's text with the ground it sits on, [what, ratio]; each shown item icon (the Settings item rows', a level's
 # chips') and the picture it wears; whether the plan file's control is the tab's button (no native "No file chosen");
