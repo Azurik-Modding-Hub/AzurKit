@@ -223,11 +223,14 @@ def _part_rows(name: str) -> Sequence[Mapping]:
 FETCH: Callable[[str, str, int], bytes] | None = None
 """A host's ``fetch(source, path, size) -> bytes`` of a file Install leaves
 for the Check that asks for it (``content.later``) from the source its
-entry came from, ``OSError`` where it can't: the sdk's on CPython (the
-app's engine, the CLI's), the site's worker's (a synchronous request);
-``None``: none fetched."""
+entry came from, ``OSError`` where it can't: a ``ConnectionError`` or
+``TimeoutError`` where the source itself can't be reached (no connection,
+no DNS answer, no answer in time), any other where it refuses the one file
+(a 404); the sdk's on CPython (the app's engine, the CLI's), the site's
+worker's (a synchronous request); ``None``: none fetched."""
 DOWN = 60.0
-"""Seconds a source whose fetch failed isn't asked again, so an offline Check works its parts out at once."""
+"""Seconds a source that can't be reached (:data:`FETCH`'s ``ConnectionError`` or ``TimeoutError``) isn't asked
+again, so an offline Check works its parts out at once; one that refuses a part is asked for the next."""
 _DOWN: dict[str, float] = {}
 
 
@@ -254,8 +257,10 @@ def part(name: str, root: Path | None = None) -> tuple[bytes, bool] | None:
             continue
         try:
             data = bytes(FETCH(source, want["path"], want["size"]))
-        except OSError:
+        except (ConnectionError, TimeoutError):   # the source unreached: let be a while
             _DOWN[source] = time.monotonic()
+            continue
+        except OSError:   # the one part refused (a 404, a reply past its size): the source still asked
             continue
         if len(data) == want["size"] and hashlib.sha256(data).hexdigest() == want["sha256"]:
             return data, True

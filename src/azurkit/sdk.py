@@ -2508,8 +2508,11 @@ def _fetch(source: str) -> Callable[..., bytes]:
     ``source`` (:func:`_source`'s), reading at most one past ``size`` (the
     manifest's, SEC-9; for the manifest itself, what a manifest may hold),
     else the content folder's file limit, and refusing a file past it;
-    ``OSError`` names what failed. CPython hosts' (the app's, the CLI's):
-    the site fetches in its page."""
+    ``OSError`` names what failed, a ``ConnectionError`` where a URL
+    source gave no answer (no connection, no DNS answer, none in time:
+    ``shipped.DOWN``'s), any other where it refused the file (an HTTP
+    error). CPython hosts' (the app's, the CLI's): the site fetches in its
+    page."""
     from azurkit.tools.characters import content
 
     def fetch(path: str, size: int | None = None) -> bytes:
@@ -2519,6 +2522,7 @@ def _fetch(source: str) -> Callable[..., bytes]:
             with open(where, "rb") as f:
                 data = f.read(most + 1)
         else:
+            import urllib.error
             import urllib.request
 
             where = urllib.parse.urljoin(source, urllib.parse.quote(path))
@@ -2527,8 +2531,10 @@ def _fetch(source: str) -> Callable[..., bytes]:
                     if not _secure(reply.geturl()):   # a redirect's end is held to the source's rule
                         raise OSError(f"redirected to {reply.geturl()}, which isn't https")
                     data = reply.read(most + 1)
-            except OSError as exc:   # urllib's HTTPError and URLError are OSErrors
-                raise OSError(f"{where}: {getattr(exc, 'reason', exc)}") from None
+            except OSError as exc:   # urllib's HTTPError and URLError are OSErrors: an answer that refuses, and none
+                unreached = isinstance(exc, (ConnectionError, TimeoutError)) or (
+                    isinstance(exc, urllib.error.URLError) and not isinstance(exc, urllib.error.HTTPError))
+                raise (ConnectionError if unreached else OSError)(f"{where}: {getattr(exc, 'reason', exc)}") from None
         if len(data) > most:
             raise OSError(f"{where}: past the {most:,} bytes " + (
                 "a manifest may hold" if path == content.MANIFEST else "a content file may hold" if size is None

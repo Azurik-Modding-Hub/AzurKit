@@ -429,7 +429,8 @@ def test_a_built_ins_shipped_part_is_fetched_only_when_a_check_asks_for_it_held_
     back as it was, hears it fetched and hands it to the host's store as a part made there, so a later visit fetches
     none; one a content folder holds (a clone's) is taken there and never handed to the store. One whose fetched bytes
     aren't its row's (a byte spoiled, another part's, gone), one no installed entry lists at its sha256, and any with
-    ``shipped.OFF`` are worked out, and a source that failed isn't asked again for ``shipped.DOWN``. A fresh part is
+    ``shipped.OFF`` are worked out, the source asked again for the next (one it can't reach is let be: the next
+    test). A fresh part is
     heard (``shipped.SEEN``) by its digest, the row's answer, which a set of names doesn't move from one process to
     another (a str's hash does), so the re-record pin holds it to its row."""
     from azurkit.tools.characters import content, part_codec, shipped
@@ -485,9 +486,7 @@ def test_a_built_ins_shipped_part_is_fetched_only_when_a_check_asks_for_it_held_
         (source / at).write_bytes(blob)
         (root / content.INSTALLED).write_text(record, encoding="utf-8")
         shipped.OFF = False
-    assert fetches == [at] * 4 and parts.get("W24:k") is None and fetches == [at] * 4   # gone a moment ago: not asked
-    shipped._DOWN.clear()
-    assert _exact(parts.get("W24:k"), held) and fetches == [at] * 5
+    assert fetches == [at] * 4 and _exact(parts.get("W24:k"), held) and fetches == [at] * 5   # gone: asked again
     monkeypatch.setattr(shipped, "SEEN", [])
     parts.put("W24:k", held, 64)
     assert shipped.SEEN == [{"part": {"part": "W24:k", "answer": row["answer"]}}]
@@ -497,6 +496,47 @@ def test_a_built_ins_shipped_part_is_fetched_only_when_a_check_asks_for_it_held_
                               env=os.environ | {"PYTHONHASHSEED": seed}, capture_output=True, text=True,
                               check=True).stdout for seed in ("1", "2")}
     assert len(digests) == 1
+
+
+def test_a_parts_source_is_let_be_for_shipped_down_only_when_it_cant_be_reached_never_when_it_refuses_the_part(
+        tmp_path, monkeypatch):
+    """Step 4.37c: ``shipped.part`` lets a source be for ``shipped.DOWN`` only where its fetch says the source itself
+    can't be reached (a ``ConnectionError`` or ``TimeoutError``: no connection, no DNS answer, none in time), never
+    where it refused the one part (a 404, another ``OSError``), so the next part is asked of it; the sdk's fetch (the
+    CPython hosts') says which: no answer from a URL source is a ``ConnectionError``, an HTTP error a plain
+    ``OSError`` (the site worker's: ``test_site``'s fetch test)."""
+    import socket
+    import urllib.error
+
+    from azurkit.tools.characters import content, shipped
+
+    want = {"path": "variants/x/shipped/parts/0.azkp", "sha256": hashlib.sha256(b"part").hexdigest(), "size": 4}
+    monkeypatch.setattr(shipped, "table", lambda: {"part": [{"part": "W24:k", "answer": "0" * 64, "blob": want}]})
+    monkeypatch.setattr(shipped, "OFF", False)
+    monkeypatch.setattr(shipped, "_DOWN", {})
+    monkeypatch.setattr(content, "source_of", lambda *_: "https://source.test/")
+    asked = []
+    for error, down in ((FileNotFoundError("gone"), False), (OSError("HTTP 404"), False),
+                        (OSError("past the 4 bytes its row lists"), False), (ConnectionError("no answer"), True),
+                        (TimeoutError("timed out"), True)):
+        def fetch(source, path, size, error=error):
+            asked.append(source)
+            raise error
+        monkeypatch.setattr(shipped, "FETCH", fetch)
+        shipped._DOWN.clear()
+        asked.clear()
+        assert shipped.part("W24:k", tmp_path) is None and shipped.part("W24:k", tmp_path) is None
+        assert asked == ["https://source.test/"] * (1 if down else 2), error
+    for raised, unreached in ((urllib.error.URLError(socket.gaierror(8, "nodename nor servname provided")), True),
+                              (urllib.error.URLError(ConnectionRefusedError(61, "Connection refused")), True),
+                              (TimeoutError("timed out"), True),
+                              (urllib.error.HTTPError("https://source.test/p", 404, "Not Found", {}, None), False)):
+        def urlopen(*_, raised=raised, **__):
+            raise raised
+        monkeypatch.setattr("urllib.request.urlopen", urlopen)
+        with pytest.raises(OSError, match=r"^https://source\.test/p: ") as got:
+            sdk._fetch("https://source.test/")("p", 4)
+        assert isinstance(got.value, ConnectionError) is unreached, raised
 
 
 def test_two_dresses_on_two_threads_take_and_keep_parts_at_once_and_hold_only_the_parts_kept(monkeypatch):

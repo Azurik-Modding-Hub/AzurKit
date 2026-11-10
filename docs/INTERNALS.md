@@ -1121,8 +1121,10 @@ are the Characters section's.
       folder (a clone's), else fetched from the source its installed entry
       came from (`shipped.part` through `shipped.FETCH`: the sdk's `_later`
       on CPython, the site worker's synchronous request, which waits 60 s
-      at most, a timeout failing as any other; a source that
-      failed is let be for `shipped.DOWN`), no further than its size and
+      at most, a timeout failing as any other; a source that can't be
+      reached, with no connection, DNS or answer in time, is let be for
+      `shipped.DOWN`, one that refuses a part, a 404, never), no further
+      than its size and
       held to its sha256; a fetched one is handed to the store as a part
       made there (the app's signed store, the site's IndexedDB under the
       recipe's hint), one a content folder holds never, so a first Check of

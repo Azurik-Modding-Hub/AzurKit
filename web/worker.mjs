@@ -220,7 +220,8 @@ def fetched(source, path, size):
     https address or this site's own, as content.mjs's where() holds a source, a relative one read against the site's
     folder: this worker's location is a blob: URL) by a synchronous request, which a worker may make, so the dress
     that asks waits on it, at most PART_WAIT seconds; OSError where it can't (the part is worked out), a timeout as
-    any other."""
+    any other: a ConnectionError where no answer came (shipped.DOWN's: the source let be a while), a plain one where
+    the answer refused the part."""
     here = browser.azurkitBase
     url = browser.URL.new(path, browser.URL.new(source, here))
     if url.protocol != "https:" and url.origin != browser.URL.new(here).origin:
@@ -232,7 +233,7 @@ def fetched(source, path, size):
         request.responseType = "arraybuffer"
         request.send()
     except Exception as exc:   # a JsException: offline, no answer in PART_WAIT (a TimeoutError), or a source that
-        raise OSError(f"{path}: no answer ({exc})") from None   # lets no other site read it
+        raise ConnectionError(f"{path}: no answer ({exc})") from None   # lets no other site read it
     if request.status != 200:
         raise OSError(f"{path}: HTTP {request.status}")
     data = browser.Uint8Array.new(request.response).to_bytes()

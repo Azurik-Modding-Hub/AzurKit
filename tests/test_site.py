@@ -6172,7 +6172,8 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
     comes from its entry's source, read against the site (a relative one is the site's own), by one synchronous
     request for its bytes, given 60 s to answer (Step 4.37c); a source neither https nor the site's own is asked
     nothing, and no answer, none in time, an HTTP error or a reply past the row's size is an OSError (the part is
-    worked out)."""
+    worked out), only no answer (none in time too) a ConnectionError (Step 4.37c: ``shipped.DOWN``'s, the source
+    let be a while)."""
     _site_engine(monkeypatch, tmp_path)
     js, path, asked = sys.modules["js"], "variants/x/shipped/parts/0.azkp", []
     served = {f"https://raw.example.test/c/{path}": b"part", f"http://site.test/content/{path}": b"own"}
@@ -6212,8 +6213,9 @@ def test_the_site_engine_fetches_a_part_install_left_from_its_entrys_source_by_o
                                 ("https://slow.example.test/", 9, r"no answer \(TimeoutError\)"),
                                 ("https://raw.example.test/gone/", 9, "HTTP 404"),
                                 ("https://raw.example.test/c/", 3, "past the 3 bytes")):
-        with pytest.raises(OSError, match=words):
+        with pytest.raises(OSError, match=words) as got:
             shipped.FETCH(source, path, size)
+        assert isinstance(got.value, ConnectionError) is (words.startswith("no answer")), words
     assert len(asked) == 6   # the plain-http source elsewhere asked nothing
 
 
