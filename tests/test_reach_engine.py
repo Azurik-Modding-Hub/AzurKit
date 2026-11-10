@@ -885,7 +885,9 @@ def test_the_fast_cuts_give_an_aimed_jobs_record_with_a_landing_at_rest_on_ice_s
     other, was = _Sim(floors), dict(fast.DRIVER)                # another worker: the answers the first stored
     other.snap = sims[_Sim].snap
     assert runner.run_job(other, job, touch, here=0, zone_at=zone) == plain[0]
-    assert fast.DRIVER["read"] > was["read"] and fast.DRIVER["skipped"] > was["skipped"]
+    store = other.__dict__["_store"]["dir"]                     # its files, listed sizes and own: what it could read
+    assert fast.DRIVER["read"] > was["read"] and fast.DRIVER["skipped"] > was["skipped"], (
+        [(e.name, e.stat().st_size, os.stat(e.path).st_size) for e in os.scandir(store)] if store else store)
     monkeypatch.setattr(fast, "AUDIT_EVERY", 1)                 # every kept answer and launch done again: the same
     assert [runner.run_job(sims[s], j, touch, here=0, zone_at=zone) for s, j in jobs] == plain
     assert {o["pass"] for o in plain[1]["outcomes"]} == {1, 2, 3, 4} and "hold" in plain[0]["outcomes"][0]
@@ -927,6 +929,34 @@ def _out(sha, ticks, land, state=0, took=None, taint=(), **kw):
     return {"macro": "m", "kit": "k0", "flaps": 0, "end": "settled", "ticks": ticks, "land": land,
             "land_state": state, "first": None, "first_state": None, "took": took, "hp0": 200, "hp_min": 200,
             "labels": [], "volumes": [], "picks": [], "taint": list(taint), "string_sha12": sha, "start": "run"} | kw
+
+
+def test_a_worker_reads_the_placements_another_stores_while_its_file_is_open_whatever_size_the_folder_lists(
+        tmp_path, monkeypatch):
+    """Step 4.37j: a pool worker reads the placement answers another worker stored (``fast._read``) by each store
+    file's own size, never the folder listing's: Windows' listing gives the size a file had when it was last closed,
+    so a file the other worker still has open listed as empty and nothing was read (the fast cuts' test failed there:
+    ``DRIVER["read"]`` stayed 0). Stood in here: a listing whose every size is 0."""
+    import types
+
+    monkeypatch.setattr(cache, "folder", lambda level: tmp_path / level)
+    monkeypatch.setattr(worker, "IMPL", {"l3": "fast", "code": "c"})
+    one, two = (types.SimpleNamespace(snap=l3.Snapshot({}, [], {"level": "levels/t/x"})) for _ in range(2))
+    at, got = fast._at(one, (4.0, 2.0, 0.0), 0.5, 3), ((4.0, 2.0, 0.25), 0, True)
+    fast._keep(one, at, got, True)                    # stored: its worker keeps the file open for its life
+    listed = os.scandir
+
+    def windows_listing(path):
+        return [types.SimpleNamespace(name=e.name, path=e.path, stat=lambda: os.stat_result((0,) * 10))
+                for e in listed(path)]
+    try:
+        monkeypatch.setattr(fast.os, "scandir", windows_listing)
+        was = fast.DRIVER["read"]
+        fast._read(two)
+        monkeypatch.undo()
+        assert (two.__dict__.get("_placed"), fast.DRIVER["read"] - was) == ({at: got}, 1)
+    finally:
+        os.close(one._store["fd"])
 
 
 def test_a_zone_pair_keeps_its_best_witness_and_its_zone_mapping_flags():

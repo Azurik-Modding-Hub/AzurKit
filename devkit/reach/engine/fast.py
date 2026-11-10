@@ -426,8 +426,9 @@ def _read(sim) -> None:
     if st["dir"] is None or (now := time.monotonic()) - st["t"] < STORE_S:
         return
     st["t"] = now
-    for e in os.scandir(st["dir"]):
-        if e.name == st["own"] or not e.name.endswith(".jsonl") or e.stat().st_size <= st["seen"].get(e.name, 0):
+    for e in os.scandir(st["dir"]):   # a size from the file itself: Windows' listing gives the size a file had when
+        # last closed, not what the process that still has it open has written since
+        if e.name == st["own"] or not e.name.endswith(".jsonl") or os.stat(e.path).st_size <= st["seen"].get(e.name, 0):
             continue
         with open(e.path, "rb") as f:
             f.seek(off := st["seen"].get(e.name, 0))
