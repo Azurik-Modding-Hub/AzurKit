@@ -937,7 +937,7 @@ def test_restack_derives_again_only_the_stale_levels_then_authors_checks_and_rec
     isn't the current one, then authors the authored levels, checks the
     database and records the randomizer's goldens, in that order; and it runs
     only in a lane worktree: in the main checkout it is one line and exit 2,
-    before it renices itself or runs a step."""
+    before it lowers its priority or runs a step."""
     from devkit.rando import restack
     derived = tmp_path / "derived"
     derived.mkdir()
@@ -967,14 +967,14 @@ def test_restack_derives_again_only_the_stale_levels_then_authors_checks_and_rec
                   "--allow-empty", "-m", "x"],
                  ["-C", str(main), "worktree", "add", "-q", "-b", "lane", str(lane)]):
         subprocess.run(["git", *argv], check=True, capture_output=True, timeout=60)
-    niced, called = [], []
-    monkeypatch.setattr(restack.os, "nice", lambda increment: niced.append(increment) or 0)
+    lowered, called = [], []
+    monkeypatch.setattr(restack, "lower_priority", lambda: lowered.append(called[:]))
     monkeypatch.setattr(restack, "restack", lambda *args: called.append(args))
     monkeypatch.setattr(restack, "ROOT", main)
-    assert restack.main([]) == 2 and (niced, called) == ([], [])
+    assert restack.main([]) == 2 and (lowered, called) == ([], [])
     assert capsys.readouterr().err == "ERROR: run restack in a lane worktree, not the main checkout\n"
     monkeypatch.setattr(restack, "ROOT", lane)
-    assert restack.main(["-j", "3", "--no-goldens"]) == 0 and called == [(3, False, False)] and niced[-1] == 15
+    assert restack.main(["-j", "3", "--no-goldens"]) == 0 and (lowered, called) == ([[]], [(3, False, False)])
 
 
 REALM = ["a1", "a3", "a5", "a6", "airship", "d1", "d2", "e2", "e5", "e6", "e7", "f1", "f2", "f3", "f4", "f6", "life",

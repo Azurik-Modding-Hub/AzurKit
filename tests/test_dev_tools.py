@@ -1834,26 +1834,39 @@ def test_restack_runs_its_batch_work_at_nice_15_or_lower_priority_and_only_in_a_
     """Modkit's Step X.81a: a restack's batch work took every CPU at nice 0
     beside the gate's pytest at nice 10. ``devkit rando restack`` renices
     itself to 15 before any step (each process it starts inherits it), from
-    0 or the gate's 10, and leaves a lower priority as it is; in the main
-    checkout it refuses, exit 2, before renicing or any step."""
+    0 or the gate's 10, and leaves a lower priority as it is. Windows has no
+    nice (Step 4.37j: ``os.nice`` failed there): its priority class goes
+    below normal the same way, an idle one left as it is. In the main
+    checkout it refuses, exit 2, before any change of priority or any step."""
     from devkit.rando import restack
 
-    niceness, ran = [0], []
+    priority, ran, normal = [0], [], 0x20            # <winbase.h>'s NORMAL_PRIORITY_CLASS
+    lane, main = "/lane/.git/worktrees/x\n/lane/.git\n", "/main/.git\n/main/.git\n"
 
     def nice(by: int) -> int:
-        niceness[0] = min(19, niceness[0] + by)
-        return niceness[0]
+        priority[0] = min(19, priority[0] + by)
+        return priority[0]
 
-    monkeypatch.setattr(restack.os, "nice", nice)
-    monkeypatch.setattr(restack, "restack", lambda *args: ran.append(niceness[0]))
-    for start, dirs, want in ((0, "/lane/.git/worktrees/x\n/lane/.git\n", (0, [15])),
-                              (10, "/lane/.git/worktrees/x\n/lane/.git\n", (0, [15])),
-                              (19, "/lane/.git/worktrees/x\n/lane/.git\n", (0, [19])),
-                              (0, "/main/.git\n/main/.git\n", (2, []))):
-        niceness[0], ran[:] = start, []
+    def set_class(handle, cls: int) -> int:
+        assert handle == -1                            # the pseudo-handle of this process
+        priority[0] = cls
+        return 1
+
+    kernel32 = types.SimpleNamespace(GetCurrentProcess=lambda: -1, GetPriorityClass=lambda handle: priority[0],
+                                     SetPriorityClass=set_class)
+    monkeypatch.setattr(restack.os, "nice", nice, raising=False)    # none on Windows: the stand-in's alone
+    monkeypatch.setattr(restack, "_kernel32", lambda: kernel32)
+    monkeypatch.setattr(restack, "restack", lambda *args: ran.append(priority[0]))
+    below, idle = restack.BELOW_NORMAL, restack.IDLE
+    for windows, start, dirs, want in ((False, 0, lane, (0, [15])), (False, 10, lane, (0, [15])),
+                                       (False, 19, lane, (0, [19])), (False, 0, main, (2, [])),
+                                       (True, normal, lane, (0, [below])), (True, below, lane, (0, [below])),
+                                       (True, idle, lane, (0, [idle])), (True, normal, main, (2, []))):
+        priority[0], ran[:] = start, []
+        monkeypatch.setattr(restack, "WINDOWS", windows)
         monkeypatch.setattr(restack.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, dirs, ""))
-        assert (restack.main([]), ran) == want, start
-        assert niceness[0] == (want[1] or [start])[0]
+        assert (restack.main([]), ran) == want, (windows, start)
+        assert priority[0] == (want[1] or [start])[0]
 
 
 # --- Step 4.28f: Modkit's unpinned dev-tool behaviours, ported -------------------------------------------------

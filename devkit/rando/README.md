@@ -129,13 +129,14 @@ otherwise. A draft level's open fields are counted, not errors; an
 uv run --locked python -m devkit rando restack [-j N] [--derive-check] [--no-goldens]
 ```
 
-In a lane worktree (it refuses the main checkout), at nice 15: derives the
-stale levels again (`--derive-check`: a full `derive --all --check` first),
-authors every level, alternating with the derive until a derive changes
-nothing (three rounds at most), checks the database, then re-records the
-randomizer's goldens (`scripts/record_goldens.py rando_plans.json
-pipelines.json europe/pipelines.json tracker.json`). It commits nothing; the
-commit names each golden it changed.
+In a lane worktree (it refuses the main checkout), at nice 15 (on Windows
+below normal priority): derives the stale levels again (`--derive-check`: a
+full `derive --all --check` first), authors every level, alternating with
+the derive until a derive changes nothing (three rounds at most), checks the
+database, then re-records the randomizer's goldens
+(`scripts/record_goldens.py rando_plans.json pipelines.json
+europe/pipelines.json tracker.json`). It commits nothing; the commit names
+each golden it changed.
 
 ## `bench`: the solver's cost
 
