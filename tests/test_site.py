@@ -2220,7 +2220,8 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
     from playwright._impl._errors import Error, TargetClosedError
 
     from scripts import ci_resources
-    driver, ui, theirs = os.getpid(), 4242, 4343
+    driver = os.getpid()   # the stand-ins' ids from it, so neither is the worker's own (a runner's was once 4343)
+    ui, theirs = driver + 1, driver + 2
     rows = (("10.1", f"Playwright[{theirs}:9a1]", "Process", "[pageProxyID=3, webPageID=4, PID=950] "   # another's
              "WebPageProxy::processDidTerminate: (pid 950), reason=Crash"),
             ("11.2", "com.apple.WebKit.Networking.Development[813:9b2]", "IPC", "Received an invalid message "
