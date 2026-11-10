@@ -2490,6 +2490,30 @@ def test_a_shipped_answer_holds_to_a_fresh_one_exactly_on_its_recording_host_and
     assert shipped.same_size(near, 1.5) and not shipped.same_size(far, 1.5)
 
 
+def test_record_shipped_check_names_a_part_whose_file_is_gone_missing_and_one_whose_bytes_changed_by_its_bytes(
+        tmp_path):
+    """Step 4.37c: ``record_shipped.py --check --content CLONE`` holds each ``part`` row's file in the clone to the
+    row: one that is there and the row's passes, one that is gone is named ``missing``, and one whose bytes aren't
+    the row's (another part's, a byte spoiled) is named by its bytes, as before."""
+    from azurkit.tools.characters import part_codec
+
+    blob, other = part_codec.encode(({"bones": ("hip",)}, 64), 19), part_codec.encode(("another", 1))
+    rows = []
+    for k, data in enumerate((blob, None, other, blob[:-1] + bytes([blob[-1] ^ 1]))):
+        path = f"variants/x/shipped/parts/{k}.azkp"
+        if data is not None:
+            (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+            (tmp_path / path).write_bytes(data)
+        rows.append({"part": f"W24:{k}", "answer": part_codec.digest(({"bones": ("hip",)}, 64)), "blob": {
+            "path": path, "sha256": hashlib.sha256(blob if data is None else data).hexdigest(),
+            "size": len(blob if data is None else data)}})
+    rows[3]["blob"] |= {"sha256": hashlib.sha256(blob).hexdigest()}   # a byte spoiled since its row
+    assert record_shipped._parts_held(rows, tmp_path) == [
+        f"part W24:1's file variants/x/shipped/parts/1.azkp in {tmp_path}: missing",
+        f"part W24:2's bytes in variants/x/shipped/parts/2.azkp in {tmp_path}",
+        f"part W24:3's bytes in variants/x/shipped/parts/3.azkp in {tmp_path}"]
+
+
 def test_the_re_record_pin_holds_a_fresh_answer_to_its_row_off_the_recording_host_and_never_to_itself(monkeypatch):
     """D1016 (X11), the goldens' pin (:func:`_miss`) on another host: a dress's places are held to the row they stand
     on, so its own hold and places far from it are stale there too (how close is close: ``shipped.held``'s test)."""

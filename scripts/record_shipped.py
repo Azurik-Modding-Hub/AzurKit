@@ -20,8 +20,8 @@ other answers removed), and its entry then takes them at a new version
 (``azurkit content check --write`` there, the version bumped by hand).
 ``--check`` writes nothing and exits 1 naming each row a fresh dress
 doesn't give (a part row no Check works out too) and, with ``--content``,
-each answer file or part there that isn't its row's (the release check's);
-off the table's recording host a row holds
+each answer file or part there that isn't its row's (the release check's;
+a part whose file is gone, ``missing``); off the table's recording host a row holds
 close enough (D1016, ``shipped.agrees``). The images are the ones the gate finds;
 the plans, and the sizes of the variants that wear booblord, read her files
 in the content folder (``AZURKIT_CONTENT``: ``azurkit content install
@@ -196,6 +196,26 @@ def _files(checked: list[tuple[str, list[dict], dict[str, bytes]]]) -> tuple[dic
     return files, [rows[k] for k in sorted(rows)]
 
 
+def _parts_held(rows, content: Path) -> list[str]:
+    """Each of the ``part`` rows ``rows`` whose file in the clone ``content``
+    isn't the row's (``--check``'s, the release check's): one that is gone
+    named ``missing``, one whose bytes aren't the row's by its bytes."""
+    drift = []
+    for row in rows:
+        path = row["blob"]["path"]
+        if not (content / path).is_file():
+            drift.append(f"{shipped.name('part', row)}'s file {path} in {content}: missing")
+            continue
+        blob = shipped._blob(row["blob"], content)
+        try:
+            same = blob is not None and part_codec.digest(part_codec.decode(blob)) == row["answer"]
+        except ValueError:
+            same = False
+        if not same:
+            drift.append(f"{shipped.name('part', row)}'s bytes in {path} in {content}")
+    return drift
+
+
 def text(table: dict) -> str:
     return json.dumps(table, indent=1, sort_keys=True) + "\n"
 
@@ -242,14 +262,7 @@ def main(argv: list[str] | None = None) -> int:
             blob = shipped._blob(row["blob"], args.content)
             if blob is None or shipped._decode(blob, base, row["recipe"])[1] != row["answer"]:
                 drift.append(f"{shipped.name('plan', row)}'s file {row['blob']['path']} in {args.content}")
-        for row in held.get("part", ()) if args.content else ():
-            blob = shipped._blob(row["blob"], args.content)
-            try:
-                same = blob is not None and part_codec.digest(part_codec.decode(blob)) == row["answer"]
-            except ValueError:
-                same = False
-            if not same:
-                drift.append(f"{shipped.name('part', row)}'s bytes in {row['blob']['path']} in {args.content}")
+        drift += _parts_held(held.get("part", ()), args.content) if args.content else []
     else:
         for folder in {(args.content / path).parent for path in files}:
             for old in folder.glob("*.azkp"):   # a part no Check works out any more
