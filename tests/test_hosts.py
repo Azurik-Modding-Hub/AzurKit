@@ -1089,7 +1089,7 @@ def test_the_apps_relaunch_starts_at_the_defaults_with_remember_settings_unticke
         server = app.serve(_page.WEB)
         try:
             page = browser.new_page()
-            page.goto(server.url)
+            _page.load(page, server.url)
             _page.until(page, "() => globalThis.azurkit?.ready", 120)
             assert [list(_page.ticked(page)), page.evaluate(shown), app._kept()] == [
                 defaults, ["", False], {"theme": "light"}], launch
@@ -1173,7 +1173,7 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-characters")
         entry = """document.querySelector('#char-community .entry[data-entry="beamlord"]')"""
@@ -1306,7 +1306,7 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
         server = app.serve(_page.WEB)
         try:
             page = browser.new_page()
-            page.goto(server.url)
+            _page.load(page, server.url)
             _page.until(page, "() => globalThis.azurkit?.ready", 120)
             if launch == 2:
                 assert page.evaluate("() => azurkit.remembered?.community ?? null") == [{"id": "hard"}], (
@@ -1361,7 +1361,7 @@ def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browse
         server = app.serve(_page.WEB)
         try:
             page = browser.new_page()
-            page.goto(server.url)
+            _page.load(page, server.url)
             _page.until(page, "() => globalThis.azurkit?.ready", 120)
             _page.click(page, "tab-characters")
             _page.until(page, "() => azurkit.characters.state.view", 120)
@@ -1415,7 +1415,7 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
 
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-characters")
         _page.click(page, "char-view-variants")
@@ -1521,7 +1521,7 @@ def test_the_apps_moves_and_attacks_tabs_offer_the_images_bodies_and_weapons_and
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.fill(page, "iso-path", str(usa_iso))
         _page.click(page, "tab-characters")
@@ -1604,7 +1604,7 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.fill(page, "iso-path", str(usa_iso))
         _page.click(page, "tab-characters")
@@ -1711,7 +1711,7 @@ def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_png
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.fill(page, "iso-path", str(usa_iso))
         _page.click(page, "tab-characters")
@@ -1834,7 +1834,7 @@ def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(brow
         page.add_init_script(f"({bar})()")
         for started, shown in ((10, []), (-10, ["33", "67"])):   # the launch's start 10 s ahead (quick), 10 s ago
             server.started = time.monotonic() + started
-            page.goto(server.url)
+            _page.load(page, server.url)
             _page.until(page, "() => globalThis.azurkit?.ready", 120)
             assert [v for v in dict.fromkeys(page.evaluate("() => globalThis.__bar")) if v] == shown
             assert page.evaluate("() => document.getElementById('progress-row').hidden")
@@ -1859,7 +1859,7 @@ def test_the_apps_about_names_its_version_commit_and_platform_or_says_no_git_can
     try:
         page = browser.new_page()
         azurkit.commit.cache_clear()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         assert page.evaluate(about) == [head, f"This is AzurKit {version}, built from commit {head[:12]}."]
         assert page.evaluate(where) == f"Platform: {platform.system()} {platform.machine()}."
@@ -2618,7 +2618,7 @@ def test_randomize_ticked_with_no_seed_in_the_apps_page_stops_the_build_ahead(br
             time.sleep(0.01)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.fill(page, "iso-path", str(usa_iso))
         _page.until(page, "() => azurkit.vanilla")
@@ -3155,7 +3155,7 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
                       document.querySelector("#track-level .you")?.textContent ?? null]"""
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-randomizer")
         _page.click(page, "rando-view-tracker")
@@ -3280,7 +3280,7 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page(viewport={"width": 1100, "height": 820})
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-randomizer")
         _page.click(page, "rando-view-tracker")
@@ -3361,7 +3361,7 @@ def test_the_apps_tracker_opens_any_levels_map_with_the_vanilla_games_items_befo
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page(viewport={"width": 1100, "height": 820})
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-randomizer")
         _page.click(page, "rando-view-tracker")
@@ -3422,7 +3422,7 @@ def _live_map(browser, tmp_path, monkeypatch, played: _Played, doc: dict):
     monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
     server = app.serve(_page.WEB)
     page = browser.new_page(viewport={"width": 1100, "height": 820})
-    page.goto(server.url)
+    _page.load(page, server.url)
     _page.until(page, "() => globalThis.azurkit?.ready", 120)
     _page.click(page, "tab-randomizer")
     _page.click(page, "rando-view-tracker")
@@ -4492,7 +4492,7 @@ def test_play_on_the_apps_page_tracks_the_saved_builds_seed_with_live_on_and_liv
     live = "(sha) => azurkit.tracker.state.plan?.sha256 === sha && document.getElementById('track-live').checked"
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         button = "() => [document.getElementById('play').hidden, document.getElementById('play').disabled, " \
                  "document.getElementById('play').title, document.getElementById('track-attach').hidden]"
@@ -4667,7 +4667,7 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "theme")
         _page.click(page, "tab-randomizer")
@@ -4844,7 +4844,7 @@ def test_a_randomized_build_moves_the_tracker_to_its_exact_plan_and_each_plans_m
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page(viewport={"width": 1100, "height": 820})
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.fill(page, "iso-path", str(usa_iso))
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
@@ -4941,7 +4941,7 @@ def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_
                              ("speculate", lambda route: route.fulfill(json={"ahead": False})),
                              ("prefetch", lambda route: route.fulfill(json={"ahead": False}))):
             page.route(f"**/api/{path}", answer)
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.fill(page, "iso-path", str(usa_iso))
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
@@ -5020,7 +5020,7 @@ def test_the_apps_tools_track_an_opened_randomized_build_on_its_own_plan(browser
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         button = "() => [document.getElementById('tools-open-track').disabled, document.getElementById(" \
                  "'tools-open-track').title]"
@@ -5136,7 +5136,7 @@ def test_the_apps_track_this_seed_bar_follows_its_plan_from_the_click_and_the_fi
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-randomizer")
         _page.until(page, "() => azurkit.rando.view?.share", 300)
@@ -5170,7 +5170,7 @@ def test_the_apps_plan_file_spoiler_bar_follows_the_logic_read_from_the_pick(bro
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-tools")
         page.evaluate(BARS)
@@ -5211,7 +5211,7 @@ def test_the_apps_bar_polls_any_asks_record_from_its_click_so_a_counted_1_2_s_ca
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
-        page.goto(server.url)
+        _page.load(page, server.url)
         _page.until(page, "() => globalThis.azurkit?.ready && !azurkit.asks.size", 120)
         page.evaluate(BARS)
         page.evaluate(PICKING)
@@ -5249,7 +5249,7 @@ def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_
         server = app.serve(_page.WEB)
         try:
             page = browser.new_page()
-            page.goto(server.url)
+            _page.load(page, server.url)
             _page.until(page, "() => globalThis.azurkit?.ready", 120)
             if launch == 1:
                 _page.click(page, "remember")
