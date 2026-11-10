@@ -26,6 +26,7 @@ import sys
 import time
 import wave
 import zipfile
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -35,7 +36,7 @@ from azurkit import sdk
 from azurkit.app import engine
 from azurkit.core import iso
 from azurkit.tools import characters
-from azurkit.tools.characters import _player_variants, colour_preview, library, parts
+from azurkit.tools.characters import _player_variants, colour_preview, library, parts, retarget
 from azurkit.tools.randomizer import art
 from tests import _hosts
 
@@ -141,6 +142,34 @@ def test_each_base_species_answers_the_editors_tabs_from_the_image(usa_iso):
         "garret4": ("garret4", 122, root, none, kit, 23, 95, 33, 178, lent),
         "town_male_1": ("townspeople/male_1", 89, root, none, {"throw": "rock", "columns": ["right1"]}, 23, 8, 33, 265,
                         lent)}
+
+
+def test_the_moves_tabs_clips_check_every_lender_on_rigs_each_read_and_mapped_once(usa_iso, monkeypatch):
+    """The Moves tab's first open reads the bodies' clips (``sdk.move_sources``): its check of each lender a body
+    takes shares one ``retarget.Rigs``, so each body's rig is read once and each role map made once (the check read
+    garret4's and the body's rigs and mapped the body again for each of its 33 lenders: the tab's open took 1 to 3 s
+    in the app), and it offers the lenders a check of each on its own takes (the golem's and keylord's refused)."""
+    reads, maps = Counter(), Counter()
+    read, mapped = retarget.Rig.read.__func__, retarget.role_map
+    monkeypatch.setattr(retarget.Rig, "read", classmethod(lambda cls, xbr, body: reads.update([body])
+                                                          or read(cls, xbr, body)))
+    monkeypatch.setattr(retarget, "role_map", lambda target, g4, over=None: maps.update([target.name])
+                        or mapped(target, g4, over))
+    got = sdk.move_sources({"iso": str(usa_iso), "species": "town_female_3"})
+    assert (len(got["lenders"]), max(reads.values()), max(maps.values())) == (33, 1, 1)
+    _, bodies = _game(usa_iso)
+    lenders = ("garret4", "townspeople/female_2", "golem", "keylord")
+    alone = [lender for lender in lenders if not _refused(
+        lambda lender=lender: retarget.Retarget(bodies, "townspeople/female_3", grow=False, lender=lender))]
+    assert [lender for lender in lenders if lender in got["lenders"]] == alone == ["garret4", "townspeople/female_2"]
+
+
+def _refused(make) -> bool:
+    try:
+        make()
+    except ValueError:
+        return True
+    return False
 
 
 def test_an_edit_the_loader_refuses_is_refused_by_name_and_writes_nothing(usa_iso, tmp_path):

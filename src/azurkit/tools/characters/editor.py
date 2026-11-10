@@ -105,13 +105,14 @@ def move_sources(config: bytes, characters: bytes, body: str, bodies: dict[str, 
     find a built-in's): the ``attacks_anims`` columns but the roll; a
     lender is garret4 or a body ``retarget.MAPS`` lists (D785: "Any
     humanoid body's") whose role map and ``body``'s meet
-    (``retarget.Retarget``), so a body the bake doesn't serve lends nothing
-    and takes nothing; a built-in lends its ``gltf`` clips without a hit
-    box (a ``bake`` clip's ``variant``)."""
+    (``retarget.Retarget``, every lender's on one ``retarget.Rigs``: each
+    rig read and mapped once), so a body the bake doesn't serve lends
+    nothing and takes nothing; a built-in lends its ``gltf`` clips without
+    a hit box (a ``bake`` clip's ``variant``)."""
     from azurkit.core.xbr.nodes import named_resources, parse_toc
     from azurkit.tools.characters._player_variants import BUILTIN, PLAYER, ROLL, _builtin_clips
     from azurkit.tools.characters.ports import XbrDocument
-    from azurkit.tools.characters.retarget import MAPS, TARGETS, Retarget
+    from azurkit.tools.characters.retarget import MAPS, TARGETS, Retarget, Rigs
 
     columns = XbrDocument.from_bytes(config).keyed_section("attacks_anims").col_names()
     toc, clips = parse_toc(characters), {}
@@ -119,12 +120,12 @@ def move_sources(config: bytes, characters: bytes, body: str, bodies: dict[str, 
         owner, _, clip = name.removeprefix("characters/").rpartition("/")
         if toc[i].tag == "banm" and name.startswith("characters/") and owner:
             clips.setdefault(owner.casefold(), []).append(clip)
-    lenders = {}
+    lenders, rigs = {}, Rigs(characters)
     for lender in (PLAYER, *sorted(b for b in clips if b in MAPS)) if body.casefold() in TARGETS else ():
         if lender == body.casefold():
             continue
         try:
-            Retarget(characters, body, grow=False, lender=lender)
+            Retarget(characters, body, grow=False, lender=lender, rigs=rigs)
         except ValueError:
             continue
         lenders[lender] = tuple(sorted(clips[lender]))

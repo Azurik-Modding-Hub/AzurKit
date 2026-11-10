@@ -581,7 +581,12 @@ def role_map(target: Rig, garret4: Rig, overrides: dict[str, str | None] | None 
     leave unmapped on purpose (``None``: the golem's head, Step 2.134a)."""
     overrides = {k.casefold(): v for k, v in (overrides or {}).items()}
     names = {b.name.casefold(): k for k, b in enumerate(target.bones)}
+    by_stem: dict[str, list[int]] = {}   # the target's bones by their stem, split once
+    for k, b in enumerate(target.bones):
+        by_stem.setdefault(_split(b.name)[0], []).append(k)
+    ups: dict[int, list[int]] = {}   # and its ancestors, walked once
     by_g: dict[int, int] = {}
+    taken: set[int] = set()   # by_g's values
     for g, bone in enumerate(garret4.bones):
         low = bone.name.casefold()
         stem, named_side = _split(low)
@@ -589,6 +594,7 @@ def role_map(target: Rig, garret4: Rig, overrides: dict[str, str | None] | None 
             pick = overrides[low]
             if pick is not None:
                 by_g[g] = names[pick.casefold()]
+                taken.add(by_g[g])
             continue
         if named_side:
             family = FAMILIES.get(stem)
@@ -599,12 +605,14 @@ def role_map(target: Rig, garret4: Rig, overrides: dict[str, str | None] | None 
             continue
         anchor = next((by_g[a] for a in garret4.ancestors(g) if a in by_g), None)
         best = None
-        for k, tb in enumerate(target.bones):
-            if k in by_g.values() or _split(tb.name)[0] not in family:
+        for k in sorted(k for name in family for k in by_stem.get(name, ())):   # in the target's order
+            if k in taken:
                 continue
             if side and target.positions[k][0] * side <= _SIDE_EPS:
                 continue
-            up = target.ancestors(k)
+            up = ups.get(k)
+            if up is None:
+                up = ups[k] = target.ancestors(k)
             if anchor is not None and anchor not in up:
                 continue
             depth = up.index(anchor) if anchor is not None else len(up)
@@ -612,12 +620,48 @@ def role_map(target: Rig, garret4: Rig, overrides: dict[str, str | None] | None 
                 best = (depth, k)
         if best is not None:
             by_g[g] = best[1]
+            taken.add(best[1])
     have = {garret4.bones[g].name.casefold() for g in by_g}
     missing = [r for r in REQUIRED if r not in have and overrides.get(r, "") is not None]
     if missing:
         raise ValueError(f"{target.name}: garret4's clips can't be baked onto it: no bone plays "
                          f"{', '.join(missing)}")
     return {k: g for g, k in by_g.items()}
+
+
+class Rigs:
+    """One characters.xbr's rigs (:meth:`Rig.read`) and their role maps
+    (:func:`role_map`), each read once and kept while this lives: what
+    many :class:`Retarget` of it share (``rigs``), as the Moves tab's
+    check of each lender a body takes (``editor.move_sources``), which
+    read garret4's and the body's rigs and mapped the body again for
+    each."""
+
+    def __init__(self, characters_xbr: bytes):
+        self.characters = characters_xbr
+        self._rigs: dict[str, Rig] = {}
+        self._maps: dict[tuple, dict[int, int] | str] = {}   # a map, or the refusal's message
+
+    def rig(self, body: str) -> Rig:
+        got = self._rigs.get(body)
+        if got is None:
+            got = self._rigs[body] = Rig.read(self.characters, body)
+        return got
+
+    def roles(self, target: Rig, garret4: Rig, overrides: dict[str, str | None]) -> dict[int, int]:
+        """:func:`role_map`'s answer, kept (its refusal too, raised again
+        each time); never changed by its readers."""
+        key = (target.name, garret4.name, frozenset(overrides.items()))
+        got = self._maps.get(key)
+        if got is None:
+            try:
+                got = role_map(target, garret4, overrides)
+            except ValueError as exc:
+                got = str(exc)
+            self._maps[key] = got
+        if isinstance(got, str):
+            raise ValueError(got)
+        return got
 
 
 class Retarget:
@@ -638,24 +682,30 @@ class Retarget:
     a body's :data:`LIFTS` entry, else 0).
     :class:`ValueError` when the body isn't one :data:`TARGETS` lists or
     one with no clips (which maps no bone: his clips are timers on it),
-    or can't be mapped, or the lender isn't one :data:`MAPS` lists."""
+    or can't be mapped, or the lender isn't one :data:`MAPS` lists.
+    ``rigs``: the :class:`Rigs` of ``characters_xbr`` it reads its rigs
+    and role maps through (none: its own)."""
 
     def __init__(self, characters_xbr: bytes, body: str, *, grow: bool = True, stand: str | None = None,
-                 lift: float = 0.0, lender: str = PLAYER):
+                 lift: float = 0.0, lender: str = PLAYER, rigs: Rigs | None = None):
+        if rigs is None:
+            rigs = Rigs(characters_xbr)
+        elif rigs.characters is not characters_xbr:
+            raise ValueError(f"{body}: the rigs kept are another characters.xbr's")
         mapped = body.casefold() in TARGETS
         if not mapped and read_body(characters_xbr, body).clips:
             raise ValueError(f"{body}: no garret4 role map (retarget.MAPS)")
-        g4 = Rig.read(characters_xbr, PLAYER)
-        self.garret4 = g4 if lender == PLAYER else Rig.read(characters_xbr, lender)
-        self.target = target = Rig.read(characters_xbr, body)
-        roles = role_map(target, g4, TARGETS[body.casefold()]) if mapped else {}   # its bone -> the role it plays
+        g4 = rigs.rig(PLAYER)
+        self.garret4 = g4 if lender == PLAYER else rigs.rig(lender)
+        self.target = target = rigs.rig(body)
+        roles = rigs.roles(target, g4, TARGETS[body.casefold()]) if mapped else {}   # its bone -> the role it plays
         if lender == PLAYER:
             lent = None
         elif lender.casefold() in MAPS and mapped:   # each role's bone of the lender's
-            lent = {g: s for s, g in role_map(self.garret4, g4, MAPS[lender.casefold()]).items()}
+            lent = {g: s for s, g in rigs.roles(self.garret4, g4, MAPS[lender.casefold()]).items()}
         else:
             raise ValueError(f"{lender}'s clips can't be baked onto {body}: no role map for both (retarget.MAPS)")
-        self.source = roles if lent is None else {k: lent[g] for k, g in roles.items() if g in lent}
+        self.source = dict(roles) if lent is None else {k: lent[g] for k, g in roles.items() if g in lent}
         mine = {m.casefold() for m in target.markers}
         self.added = tuple((n, d) for n, d in marker_records(characters_xbr, PLAYER)
                            if grow and n.casefold() in ADDED_MARKERS and n.casefold() not in mine)
@@ -1347,7 +1397,7 @@ def add_clips(characters_xbr: bytes, index_xbr: bytes, body: str, clips: dict[st
 
 
 __all__ = ["ADDED_MARKERS", "AIM", "BAKED_DIR", "CENTRAL", "Clip", "FAMILIES", "FLOOR_FINE", "FLOORED", "LIFTS", "MAPS",
-           "REQUIRED", "Retarget", "Rig", "SAMPLE_HZ", "TARGETS", "TARGETS_EXTRA", "Track", "add_clips", "bake_body",
+           "REQUIRED", "Retarget", "Rig", "Rigs", "SAMPLE_HZ", "TARGETS", "TARGETS_EXTRA", "Track", "add_clips", "bake_body",
            "bake_clip", "bake_kept", "baked_key",
            "centred", "evaluate", "floored", "grow_markers", "named_clip", "origins", "pose", "qangle", "qinv", "qmul",
            "quiet", "read_clip", "role_map", "stretched", "turned", "write_clip"]
