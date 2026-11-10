@@ -132,7 +132,7 @@ def zig_version() -> str:
 @functools.cache
 def build() -> ctypes.CDLL:
     """The kernel and its controllers, compiled once per source and :data:`FLAGS` (``-O3``, the host CPU) and
-    loaded."""
+    loaded; a process that compiled it beside another loads the one installed first."""
     h = hashlib.sha256(" ".join(FLAGS).encode())
     for f in SOURCES:
         h.update(f.read_bytes())
@@ -148,7 +148,12 @@ def build() -> ctypes.CDLL:
                               env=os.environ | env, capture_output=True, text=True)
         if done.returncode != 0:
             raise RuntimeError(f"zig cc failed on {SRC.name}:\n{done.stderr.strip()}")
-        os.replace(tmp, out)
+        try:
+            os.replace(tmp, out)
+        except PermissionError:      # Windows: another process built it at once and has loaded it (same name:
+            if not out.exists():     # same source and flags), which Windows won't replace
+                raise
+            tmp.unlink()
     lib = ctypes.CDLL(str(out))
     lib.w_new.restype = ctypes.c_void_p
     lib.w_new.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_double, ctypes.c_double]

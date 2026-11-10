@@ -1704,6 +1704,76 @@ def test_the_c_controllers_build_steps_the_kernel_as_kernel_c_alone_does(tmp_pat
     assert runs(built) == runs(alone)
 
 
+_BUILD_AT_ONCE = r"""
+import ctypes, json, os, subprocess, sys, time, types
+from pathlib import Path
+
+import platformdirs
+
+from devkit.reach import l3_fast, native
+
+cache, which, me, other = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
+replace = os.replace
+
+
+def zig(argv, **kw):         # zig cc stood in: both compile before either installs, and "b" installs once "a" has
+    Path(argv[argv.index("-o") + 1]).write_bytes(b"lib")             # loaded the build it installed
+    (cache / f"compiled-{me}").touch()
+    while not (cache / f"compiled-{other}").exists() or (me == "b" and not (cache / "loaded-a").exists()):
+        time.sleep(0.01)
+    return subprocess.CompletedProcess(argv, 0, "", "")
+
+
+def windows_replace(src, dst):   # Windows won't replace a library another process has loaded (WinError 5)
+    if Path(dst).exists() and any(cache.glob("loaded-*")):
+        raise PermissionError(13, "Access is denied", str(src), None, str(dst))
+    replace(src, dst)
+
+
+class Lib:                   # ctypes.CDLL stood in: it names the file it loads
+    def __init__(self, path):
+        self.path = path
+        (cache / f"loaded-{me}").write_text(path)
+
+    def __getattr__(self, name):
+        setattr(self, name, value := types.SimpleNamespace())
+        return value
+
+
+platformdirs.user_cache_dir = lambda *a, **k: str(cache)
+subprocess.run, os.replace, ctypes.CDLL = zig, windows_replace, Lib
+print(json.dumps((native.build() if which == "kernel" else l3_fast.step_lib()).path))
+"""
+
+
+@pytest.mark.parametrize("which", ["kernel", "step"])
+def test_two_processes_building_one_c_library_into_an_empty_cache_at_once_both_load_its_one_build(which, tmp_path):
+    """Step 4.37j: two pool workers that find the kernel (``native.build``) or FastL3's C step (``l3_fast.step_lib``)
+    missing from the cache both compile it; the first installs and loads its build, and Windows refuses the second's
+    install over a library a process has loaded (``PermissionError``, WinError 5; stood in here, as is zig cc), so
+    the second drops its own build and loads the one installed (the same name: the same source and flags). Both
+    load the one file, and no part file stays."""
+    import os
+    import subprocess
+    import sys
+
+    root, runs = Path(__file__).resolve().parents[1], []
+    try:
+        for me, other in (("a", "b"), ("b", "a")):
+            runs.append(subprocess.Popen([sys.executable, "-c", _BUILD_AT_ONCE, str(tmp_path), which, me, other],
+                                         cwd=root, env={**os.environ}, stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE, text=True))
+        outs = [p.communicate(timeout=120) for p in runs]
+    finally:
+        for p in runs:
+            p.kill()
+            p.wait()
+    assert [(p.returncode, err) for p, (_, err) in zip(runs, outs)] == [(0, ""), (0, "")]
+    built = [p for p in tmp_path.rglob("*") if p.is_file() and not p.name.startswith(("compiled-", "loaded-"))]
+    assert len(built) == 1 and built[0].suffix == ".so" and built[0].read_bytes() == b"lib"
+    assert [json.loads(out) for out, _ in outs] == [str(built[0])] * 2
+
+
 def test_the_router_routes_a_witness_touching_a_mover_and_flags_one_passing_near_a_rig():
     """The mover-contact router (``reach_native.backend.Movers``, PLAN-v2 §1.5b) over a rig's deck (4 m square at
     z 0) and a toggled gate (a wall at x 10): a body standing on the deck is routed to the rig, one walking through

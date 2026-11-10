@@ -200,8 +200,9 @@ def step_on() -> bool:
 
 @functools.cache
 def step_lib() -> ctypes.CDLL | None:
-    """The C step, compiled once per :func:`step_sha12` into the AzurKit user cache's ``fastl3-step`` and loaded;
-    None where the ziglang wheel isn't installed (FastL3 then steps in Python, as exact)."""
+    """The C step, compiled once per :func:`step_sha12` into the AzurKit user cache's ``fastl3-step`` and loaded (a
+    process that compiled it beside another loads the one installed first); None where the ziglang wheel isn't
+    installed (FastL3 then steps in Python, as exact)."""
     from platformdirs import user_cache_dir
     spec = importlib.util.find_spec("ziglang")
     if spec is None:
@@ -216,7 +217,12 @@ def step_lib() -> ctypes.CDLL | None:
                                str(STEP_SRC)], env=os.environ | env, capture_output=True, text=True)
         if done.returncode != 0:
             raise RuntimeError(f"zig cc failed on {STEP_SRC.name}:\n{done.stderr.strip()}")
-        os.replace(tmp, out)
+        try:
+            os.replace(tmp, out)
+        except PermissionError:      # Windows: another process built it at once and has loaded it (same name:
+            if not out.exists():     # same source, flags and compiler), which Windows won't replace
+                raise
+            tmp.unlink()
     lib = ctypes.CDLL(str(out))
     lib.fl3_new.restype = ctypes.c_void_p
     lib.fl3_new.argtypes = [ctypes.c_void_p, ctypes.POINTER(_Spec), ctypes.POINTER(ctypes.c_uint32), ctypes.c_int64]
