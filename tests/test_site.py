@@ -882,10 +882,10 @@ def test_a_phone_or_a_tablet_gets_one_plain_line_to_use_a_computer(browser, site
     for options, seen in (({"is_mobile": True, "has_touch": True, "viewport": {"width": 390, "height": 844}}, True),
                           ({}, False)):
         served = Site(browser, site, **options)
-        try:
-            page = served.context.new_page()
-            _page.load(page, f"{served.origin}/")
-            assert page.evaluate(shown) == [seen, line], options
+        try:   # a new page's opening and its load, which starts its engine, in Site.open's bounds
+            page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
+            _page.load(page, f"{served.origin}/", seconds=_page.STALL)
+            assert _page.answer(page, shown) == [seen, line], options
         finally:
             served.close()
 
@@ -2723,7 +2723,7 @@ def test_the_bottom_bars_stripe_with_no_count_is_a_transform_its_compositor_move
     served = Site(browser, site)
     try:
         page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
-        _page.load(page, f"{served.origin}/")
+        _page.load(page, f"{served.origin}/", seconds=_page.STALL)   # it starts its engine, as Site.open's does
         assert _page.answer(page, LOOK, None) == ["none", "block", "stripe", "infinite", [["transform"], ["transform"]]]
         assert _page.answer(page, LOOK, "50")[:2] == ["auto", "none"]
         _page.close(page)
