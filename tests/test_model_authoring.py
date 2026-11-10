@@ -57,6 +57,7 @@ from azurkit.tools.characters.model_inspect import inspect, own_runs
 from azurkit.tools.characters.render import body_meshes
 from azurkit.tools.characters.retarget import Rig, origins, pose, read_clip
 from devkit.models import model
+from tests import _hosts
 
 ROOT = Path(__file__).resolve().parent.parent
 BODY = "townspeople/female_2"
@@ -250,8 +251,11 @@ def test_a_bodys_clips_come_back_from_gltf_animations(usa, usa_iso, tmp_path, mo
     new clip whose pose is the file's (the import's check) and its arm
     20 degrees off the walk's, added under her with its index record; a
     channel on a node that is no bone fails by name.  Step 2.158: her idle
-    keyed every 1/24 s (Blender's default) comes back thinned from 23,387
-    keys to at most 2.4 times vanilla's 686 (1,625 measured), its pose
+    keyed every 1/24 s (Blender's default) comes back thinned from the
+    keys the import keeps of the file's (none it doesn't key; on the
+    recording host 23,387 of 26,869: a component at its bone's rest is
+    dropped, an exact float test, so another host keeps another count,
+    D1016) to at most 2.4 times vanilla's 686 (1,625 measured), its pose
     within THIN_TOLERANCE of the unthinned clip's at 200 times.  ``model
     clips --out`` writes the clip and its index record as that, the
     recipe row naming the file's sha256, and writes nothing when a clip is
@@ -307,7 +311,13 @@ def test_a_bodys_clips_come_back_from_gltf_animations(usa, usa_iso, tmp_path, mo
     monkeypatch.setattr(clip_import, "THIN_HALVINGS", -1)   # no pass: the clip as the file keys it
     full = clip_import.read_clips(characters, body, gltf, ["idle_24"])[0]
     vanilla = sum(len(tr.keys) for tr in named_clip(characters, body, "idle").bones)
-    assert (vanilla, thin.keys_before, full.keys_after) == (686, 23387, 23387) and thin.keys_after <= 2.4 * vanilla
+    doc = json.loads(gltf.read_text(encoding="utf-8"))
+    idle = next(a for a in doc["animations"] if a["name"] == "idle_24")
+    keyed = sum(doc["accessors"][s["input"]]["count"] * {"VEC3": 3, "VEC4": 4}[doc["accessors"][s["output"]]["type"]]
+                for s in idle["samplers"])   # the file's keys, a component each
+    assert vanilla == 686 and thin.keys_before == full.keys_after <= keyed and thin.keys_after <= 2.4 * vanilla
+    if _hosts.recording():   # a component at its bone's rest is dropped, an exact float test: the count is a host's
+        assert (keyed, thin.keys_before) == (26869, 23387)
     info = gx._read(characters, body)
     assert max(float(np.abs(a - b).max()) for t in np.linspace(0.0, full.clip.length, 200)
                for a, b in zip(gx._engine(info, thin.clip, float(t)), gx._engine(info, full.clip, float(t)))) \
