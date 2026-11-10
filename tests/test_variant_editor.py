@@ -628,7 +628,7 @@ def _tabs(steps: str, given: dict) -> dict:
     web = Path(__file__).resolve().parent.parent / "web" / "variants"
     script = TABS % (json.dumps((web / "moves.mjs").as_uri()), json.dumps((web / "attacks.mjs").as_uri()), steps)
     run = subprocess.run(["node", "--input-type=module", "--eval", script], input=json.dumps(given), capture_output=True,
-                         text=True, timeout=120)
+                         encoding="utf-8", timeout=120)   # Node writes UTF-8 (the labels' dashes), not the locale's
     assert run.returncode == 0, run.stderr[-2000:]
     return json.loads(run.stdout)
 
