@@ -2213,8 +2213,9 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
     worker's) nor the network process's refusal; a call answered sooner reads no log. A call that fails as its target
     went (Playwright's TargetClosedError, or WebKit's "Target crashed", which named nothing more on runs 42614099236
     and 42650419614: Step 4.37k) fails so too, its error named; elsewhere it fails naming its error and its driver's
-    processes, reading no log. A load that fails so stays an Ended, its requests named after it (Step 4.37k). Stand-in
-    pages that never answer or whose target went, the log a stand-in's."""
+    processes, reading no log. A load that fails so stays an Ended, its requests named after it. The log is read from a
+    second before the call began or, if earlier, its context's last answer, so an ending just before the call is
+    named too (Step 4.37k). Stand-in pages that never answer or whose target went, the log a stand-in's."""
     from concurrent.futures import ThreadPoolExecutor
 
     from playwright._impl._errors import Error, TargetClosedError
@@ -2250,33 +2251,44 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
         with ThreadPoolExecutor(1) as pool:
             return pool.submit(asyncio.run, call).result()
 
-    def stand_in(name: str, evaluate=lambda *_: given(7)):   # a page of a browser ``name``
+    def stand_in(name: str):   # a page of a browser ``name`` that answers 7
         connection = types.SimpleNamespace(_transport=types.SimpleNamespace(_proc=types.SimpleNamespace(pid=driver)))
         context = types.SimpleNamespace(browser=types.SimpleNamespace(browser_type=types.SimpleNamespace(name=name)),
                                         _sync=apart, _impl_obj=types.SimpleNamespace(cookies=lambda: given([]),
                                                                                      _connection=connection))
         return types.SimpleNamespace(main_frame=None, context=context, _sync=apart, _impl_obj=types.SimpleNamespace(
-            evaluate=evaluate, goto=lambda *_, **__: asyncio.sleep(600), page_errors=lambda: given([]),
+            evaluate=lambda *_: given(7), goto=None, page_errors=lambda: given([]),
             console_messages=lambda: given([])), on=lambda *_: None, remove_listener=lambda *_: None)
     page = stand_in("webkit")
-    assert _page.answer(page, "() => 7") == 7 and asked == []
-    ended = ["WebKit ended a page's process in its browser since the call began (its log):", f"  {own[0]}"]
+    assert _page.answer(page, "() => 7") == 7 and asked == []   # answered: no log read, its answer's time kept
+    assert time.time() - 1 < getattr(page.context._impl_obj, _page.ANSWERED) <= time.time()
+    ended = [_page.SAID, f"  {own[0]}"]
     drivers = f"under its driver: node {driver} (100 s), Playwright {ui} (90 s)"
     closed, crashed = TargetClosedError(), Error("Page.evaluate: Target crashed")
-    for name, evaluate, kind, said, lines, read in (
-            ("webkit", lambda *_: asyncio.sleep(600), _page.Ended,   # its process ended: never answered
+
+    def never(*_, **__):   # a call never answered
+        return asyncio.sleep(600)
+    # each: its browser, the call (an evaluate's answer, or None for a load), the failure's class, its first lines,
+    # its WebKit lines, the log reads, and how long before the call its context last answered (None: never)
+    for name, evaluate, kind, said, lines, read, before in (
+            ("webkit", never, _page.Ended,   # its process ended: never answered
              [r"no answer in [12] s: \(\) => azurkit\.build", *map(re.escape, ended), re.escape(
-                 "state: unread (no answer in 1 s)")], own, 1),
+                 "state: unread (no answer in 1 s)")], own, 1, 60),
             ("webkit", None, _page.Ended,   # a load, never answered: its requests' line last
-             [r"no answer in [12] s: the page's load of http://127\.0\.0\.1:9/", *map(re.escape, ended)], own, 1),
+             [r"no answer in [12] s: the page's load of http://127\.0\.0\.1:9/", *map(re.escape, ended)], own, 1,
+             None),
             ("webkit", lambda *_: raised(closed), _page.Ended,
-             [re.escape(f"() => azurkit.build: {closed}"), *map(re.escape, ended), re.escape(drivers)], own, 1),
+             [re.escape(f"() => azurkit.build: {closed}"), *map(re.escape, ended), re.escape(drivers)], own, 1, 60),
             ("webkit", lambda *_: raised(crashed), _page.Ended,
              [re.escape("() => azurkit.build: Page.evaluate: Target crashed"), *map(re.escape, ended),
-              re.escape(drivers)], own, 1),
+              re.escape(drivers)], own, 1, None),
             ("chromium", lambda *_: raised(closed), AssertionError,   # elsewhere: no log
-             [re.escape(f"() => azurkit.build: {closed}"), re.escape(drivers)], None, 0)):
-        page, asked[:] = stand_in(name, evaluate), []
+             [re.escape(f"() => azurkit.build: {closed}"), re.escape(drivers)], None, 0, 60)):
+        page, asked[:] = stand_in(name), []
+        if before is not None:   # a call answered ``before`` s ago
+            assert _page.answer(page, "() => 7") == 7
+            setattr(page.context._impl_obj, _page.ANSWERED, time.time() - before)
+        page._impl_obj.evaluate, page._impl_obj.goto = evaluate or page._impl_obj.evaluate, never
         began = time.time()
         with pytest.raises(AssertionError) as failed:
             if evaluate:
@@ -2287,9 +2299,10 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
         assert type(failed.value) is kind and getattr(failed.value, "lines", None) == lines, (name, got)
         assert all(re.fullmatch(want, line) for want, line in zip(said, got)) and len(got) >= len(said), (name, got)
         assert got[-1] == (drivers if evaluate else "its requests unanswered: none") and len(asked) == read, (name, got)
+        since = began - (before or 0)   # the earlier of the call's start and its context's last answer
+        for at in asked:   # read from a second before it
+            assert since - 2 < time.mktime(time.strptime(at, "%Y-%m-%d %H:%M:%S")) < since - 0.9, (name, at, since)
         assert took < 10, (name, took)
-        for at in asked:   # from a second before the call began
-            assert began - 2 < time.mktime(time.strptime(at, "%Y-%m-%d %H:%M:%S")) < began - 0.9, (name, at, began)
 
 
 def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_state(browser):
