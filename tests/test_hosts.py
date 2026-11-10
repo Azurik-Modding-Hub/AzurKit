@@ -3693,6 +3693,9 @@ def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what
     drawn = """(loc) => { const m = azurkit.tracker.map, e = m.entry(m.level);
         const at = [...e.items, ...e.spots].find((i) => i.id === loc).at, [x, y] = m.at(at[0], at[1]);
         return m.hits.filter((h) => h.act && Math.hypot(h.x - x, h.y - y) < 1).map((h) => h.tip); }"""
+    # why a collected spot may still be drawn (mapview.mjs): Show collected on, or its Live pickup's flash (ms ago)
+    showing = """() => { const t = azurkit.tracker.state, now = performance.now();
+        return { collected: t.collected, fresh: [...t.fresh].map(([loc, at]) => [loc, Math.round(now - at)]) }; }"""
     try:
         page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off: the floor stays
         page.evaluate(f"() => {{ const m = azurkit.tracker.map; m.floor = {index[level]['main']}; m.draw(); }}")
@@ -3700,7 +3703,8 @@ def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what
         page.evaluate(MAP_CLICK, where[clicked][:2])
         _page.until(page, f"() => azurkit.tracker.state.marks.collected?.includes('{clicked}')"
                           " && !azurkit.tracker.state.running")
-        assert page.evaluate(drawn, clicked) == []
+        tips = _page.answer(page, drawn, clicked)   # a hand click's spot leaves at once (run 42387860921 drew it)
+        assert tips == [], (tips, _page.answer(page, showing))
         _page.click(page, "track-collected")
         assert page.evaluate(drawn, clicked) == [f"{spots[clicked]['name']}: collected"]
         assert page.evaluate("() => azurkit.tracker.state.kept.collected") is True
