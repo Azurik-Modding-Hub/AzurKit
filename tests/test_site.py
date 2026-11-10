@@ -2210,10 +2210,14 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
     """Step 4.5f: WebKit may end a live page's process and tell Playwright nothing (its network process's request,
     run 42198913490's Intel tier: the read-back's evaluate waited out its 120 s, its state unread, naming nothing). A
     WebKit page's call left ``_page.LOOK`` s unanswered reads macOS's log from a second before the call began and fails
-    at once naming a page of its own browser whose process ended, not another browser's (another worker's) nor the
-    network process's refusal; a call answered sooner reads no log. A stand-in page that never answers, its log a
-    stand-in's."""
+    at once naming a page of its own browser whose process ended (an ``_page.Ended``), not another browser's (another
+    worker's) nor the network process's refusal; a call answered sooner reads no log. A call that fails as its target
+    went (Playwright's TargetClosedError, or WebKit's "Target crashed", which named nothing more on runs 42614099236
+    and 42650419614: Step 4.37k) fails so too, its error named; elsewhere it fails naming its error and its driver's
+    processes, reading no log. Stand-in pages that never answer or whose target went, the log a stand-in's."""
     from concurrent.futures import ThreadPoolExecutor
+
+    from playwright._impl._errors import Error, TargetClosedError
 
     from scripts import ci_resources
     driver, ui, theirs = os.getpid(), 4242, 4343
@@ -2225,6 +2229,8 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
              "WebPageProxy::processDidTerminate: (pid 38790), reason=RequestedByNetworkProcess"))
     log = "".join(f"2026-11-06 10:57:{at} E  {who} [com.apple.WebKit:{kind}] 0x1 - {what}\n"
                   for at, who, kind, what in rows)
+    own = ("10:57:11 Playwright: [pageProxyID=1529, webPageID=1530, PID=38790] WebPageProxy::processDidTerminate: (pid "
+           "38790), reason=RequestedByNetworkProcess",)
     asked = []
     monkeypatch.setattr(ci_resources.subprocess, "run", lambda argv, **_: (
         asked.append(argv[argv.index("--start") + 1]), types.SimpleNamespace(stdout=log))[1])
@@ -2236,31 +2242,46 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
     async def given(value):
         return value
 
+    async def raised(error):
+        raise error
+
     def apart(call):   # a Playwright's loop, in a thread of its own
         with ThreadPoolExecutor(1) as pool:
             return pool.submit(asyncio.run, call).result()
-    connection = types.SimpleNamespace(_transport=types.SimpleNamespace(_proc=types.SimpleNamespace(pid=driver)))
-    context = types.SimpleNamespace(browser=types.SimpleNamespace(browser_type=types.SimpleNamespace(name="webkit")),
-                                    _sync=apart, _impl_obj=types.SimpleNamespace(cookies=lambda: given([]),
-                                                                                 _connection=connection))
-    page = types.SimpleNamespace(main_frame=None, context=context, _sync=apart, _impl_obj=types.SimpleNamespace(
-        evaluate=lambda *_: given(7), page_errors=lambda: given([]), console_messages=lambda: given([])))
+
+    def stand_in(name: str, evaluate=lambda *_: given(7)):   # a page of a browser ``name``
+        connection = types.SimpleNamespace(_transport=types.SimpleNamespace(_proc=types.SimpleNamespace(pid=driver)))
+        context = types.SimpleNamespace(browser=types.SimpleNamespace(browser_type=types.SimpleNamespace(name=name)),
+                                        _sync=apart, _impl_obj=types.SimpleNamespace(cookies=lambda: given([]),
+                                                                                     _connection=connection))
+        return types.SimpleNamespace(main_frame=None, context=context, _sync=apart, _impl_obj=types.SimpleNamespace(
+            evaluate=evaluate, page_errors=lambda: given([]), console_messages=lambda: given([])))
+    page = stand_in("webkit")
     assert _page.answer(page, "() => 7") == 7 and asked == []
-    page._impl_obj.evaluate = lambda *_: asyncio.sleep(600)   # its process ended: never answered
-    began = time.time()
-    with pytest.raises(AssertionError) as ended:
-        _page.answer(page, "() => azurkit.build")
-    took = time.time() - began
-    lines = str(ended.value).splitlines()
-    assert re.fullmatch(r"no answer in [12] s: \(\) => azurkit\.build", lines[0]) and lines[1:4] == [
-        "WebKit ended a page's process in its browser since the call began (its log):",
-        "  10:57:11 Playwright: [pageProxyID=1529, webPageID=1530, PID=38790] WebPageProxy::processDidTerminate: (pid "
-        "38790), reason=RequestedByNetworkProcess", "state: unread (no answer in 1 s)"], lines
-    assert lines[-2:] == ["its browser still answers",
-                          f"under its driver: node {driver} (100 s), Playwright {ui} (90 s)"], lines
-    start = time.mktime(time.strptime(asked[0], "%Y-%m-%d %H:%M:%S"))
-    assert len(asked) == 1 and began - 2 < start < began - 0.9 and took < 10, (asked, began, took)
-    assert isinstance(ended.value, _page.Ended) and ended.value.lines == (lines[2].strip(),), ended.value.lines
+    ended = ["WebKit ended a page's process in its browser since the call began (its log):", f"  {own[0]}"]
+    drivers = f"under its driver: node {driver} (100 s), Playwright {ui} (90 s)"
+    closed, crashed = TargetClosedError(), Error("Page.evaluate: Target crashed")
+    for name, evaluate, kind, said, lines, read in (
+            ("webkit", lambda *_: asyncio.sleep(600), _page.Ended,   # its process ended: never answered
+             [r"no answer in [12] s: \(\) => azurkit\.build", *map(re.escape, ended), re.escape(
+                 "state: unread (no answer in 1 s)")], own, 1),
+            ("webkit", lambda *_: raised(closed), _page.Ended,
+             [re.escape(f"() => azurkit.build: {closed}"), *map(re.escape, ended), re.escape(drivers)], own, 1),
+            ("webkit", lambda *_: raised(crashed), _page.Ended,
+             [re.escape("() => azurkit.build: Page.evaluate: Target crashed"), *map(re.escape, ended),
+              re.escape(drivers)], own, 1),
+            ("chromium", lambda *_: raised(closed), AssertionError,   # elsewhere: no log
+             [re.escape(f"() => azurkit.build: {closed}"), re.escape(drivers)], None, 0)):
+        page, asked[:] = stand_in(name, evaluate), []
+        began = time.time()
+        with pytest.raises(AssertionError) as failed:
+            _page.answer(page, "() => azurkit.build")
+        took, got = time.time() - began, str(failed.value).splitlines()
+        assert type(failed.value) is kind and getattr(failed.value, "lines", None) == lines, (name, got)
+        assert all(re.fullmatch(want, line) for want, line in zip(said, got)) and len(got) >= len(said), (name, got)
+        assert got[-1] == drivers and len(asked) == read and took < 10, (name, got, asked, took)
+        for at in asked:   # from a second before the call began
+            assert began - 2 < time.mktime(time.strptime(at, "%Y-%m-%d %H:%M:%S")) < began - 0.9, (name, at, began)
 
 
 def test_a_test_whose_page_webkit_ended_at_its_network_process_request_runs_again_once_saying_so():

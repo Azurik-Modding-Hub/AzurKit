@@ -418,6 +418,36 @@ def lost(page, what: str, error, start: float, look=None) -> str:
     return "\n".join([*said, hang(page), f"under its driver: {_drivers(page.context)}"])
 
 
+GONE = "Target crashed"
+"""WebKit's driver's words (a plain error) for a call whose page's process ended under it, beside Playwright's
+``TargetClosedError`` ("Target page, context or browser has been closed"): on GitHub's Apple Silicon runner each failed
+a WebKit page's evaluate so with nothing more (runs 42614099236 and 42650419614)."""
+
+
+def _gone(error) -> bool:
+    """Whether a call's ``error`` says its page, context or browser went (:data:`GONE`)."""
+    from playwright._impl._errors import TargetClosedError
+    return isinstance(error, TargetClosedError) or GONE in str(error)
+
+
+def gone(owner, what: str, error, look=None) -> tuple[str, tuple[str, ...]]:
+    """What a call to ``owner`` (a page or a context) that failed as its target went (:func:`_gone`) says: ``what`` it
+    was and its error, WebKit's log's lines on a page of its browser whose process it ended since the call began
+    (``look``, :func:`_ended`, read in :data:`HEAR` s), or that it names none, and the processes under its driver; and
+    those lines."""
+    said, ended = [f"{_short(what)}: {_short(str(error), 300)}"], ()
+    if look:
+        try:
+            ended = tuple(_heard(owner, asyncio.to_thread(look), HEAR) or ())
+            said += (["WebKit ended a page's process in its browser since the call began (its log):",
+                      *(f"  {line}" for line in ended)] if ended
+                     else ["WebKit's log names no page's process of its browser ended since the call began"])
+        except TimeoutError:
+            said.append(f"WebKit's log: unread in {HEAR} s")
+    context = owner.context if hasattr(owner, "main_frame") else owner
+    return "\n".join([*said, f"under its driver: {_drivers(context)}"]), ended
+
+
 def within(owner, call, seconds: float, what: str):
     """``call``'s answer (:func:`_heard`), or an AssertionError naming ``what`` with the page's state past ``seconds``
     (:func:`stalled`); in WebKit on macOS also at once, naming it (an :class:`Ended`), as its log says WebKit ended the
@@ -425,7 +455,9 @@ def within(owner, call, seconds: float, what: str):
     seconds), read once the call went :data:`LOOK` s unanswered, each :data:`LOOK` s after and at ``seconds``
     (:func:`_ended`). A page's
     call that fails as :data:`LOST` fails naming when its page's document began against the call and what WebKit's log
-    says (:func:`lost`); any other error is the call's own, raised as it came."""
+    says (:func:`lost`); one that fails as its target went (:func:`_gone`) fails naming its error, what WebKit's log
+    says, an :class:`Ended` where it names an ending, and its driver's processes (:func:`gone`); any other error is
+    the call's own, raised as it came."""
     look, start, began = _ended(owner), time.time(), time.monotonic()
     since = start - 1
     try:
@@ -435,9 +467,12 @@ def within(owner, call, seconds: float, what: str):
     except TimeoutError:
         raise AssertionError(stalled(owner, what, seconds)) from None
     except Exception as error:
-        if LOST not in str(error) or not hasattr(owner, "main_frame"):
+        if LOST in str(error) and hasattr(owner, "main_frame"):
+            raise AssertionError(lost(owner, what, error, start, look and (lambda: look(since)))) from None
+        if not _gone(error):
             raise
-        raise AssertionError(lost(owner, what, error, start, look and (lambda: look(since)))) from None
+        said, ended = gone(owner, what, error, look and (lambda: look(since)))
+        raise (Ended(said, ended) if ended else AssertionError(said)) from None
 
 
 def answer(page, js: str, arg=None, seconds: float = STALL):
