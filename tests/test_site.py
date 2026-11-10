@@ -6203,8 +6203,14 @@ def test_two_real_engine_workers_plan_a_seed_alike_and_a_change_drops_bs_plan_mi
         assert (took, same, planned, waited) == (True, True, True, True)
         page.evaluate("""() => smoke.pool.want([{ key: "plan 2", message: { type: "plan", call: 4,
                                                                             recipe: { seed: "2" } } }])""")
-        _page.until(page, "() => smoke.pool.state().b?.job === 'plan 2'", 120)
-        page.evaluate("() => smoke.pool.want([])")
+        _page.answer(page, """() => new Promise((dropped) => {   // the check and the change in one task, so B's
+            const drop = () => {                                       // plan 2 can't end between them (Step 4.37g)
+                if (smoke.pool.state().b?.job !== "plan 2") return setTimeout(drop, 1);
+                smoke.pool.want([]);
+                dropped(true);
+            };
+            drop();
+        })""", seconds=120)
         _page.until(page, "() => smoke.pool.state().b?.loaded", 300)
         state = page.evaluate("() => smoke.pool.state()")
         assert (state["dropped"], state["started"], state["promoted"], state["kept"], state["f"]["job"]) == (
