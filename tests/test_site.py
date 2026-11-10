@@ -52,6 +52,7 @@ import pytest
 
 from azurkit import sdk
 from azurkit.core import gate, iso
+from azurkit.edits import preset
 from azurkit.tools import characters, data, mods, randomizer
 from azurkit.tools.characters import parts, pool, shipped
 from azurkit.tools.randomizer import generator, tracking
@@ -4667,8 +4668,11 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
             f"Building a plan file as it is (plan.json: seed 5, plan {doc['sha256'][:12]}): its seed and settings "
             "are locked.")
         _page.click(page, "share")
-        assert _page.until(page, "() => azurkit.link") == (
-            f"{served.origin}/{sdk.preset_encode({'packs': mods.normalize(on), 'randomizer': {'plan': doc}})}")
+        link = _page.until(page, "() => azurkit.link")
+        shared = f"{served.origin}/{sdk.preset_encode({'packs': mods.normalize(on), 'randomizer': {'plan': doc}})}"
+        # the preset the link holds, as a player's link means it: its text is its zlib's deflate stream, and Windows'
+        # CPython deflates this plan otherwise than the page's Pyodide (the same preset, another stream)
+        assert (link.partition("#")[0], preset.decode(link)) == (shared.partition("#")[0], preset.decode(shared))
         _page.pick(page, "#rando-plan", tmp_path / "edited.json")
         assert _page.until(page, "() => !azurkit.rando.load && document.getElementById('rando-warn').textContent") == (
             "⚠ edited.json: its sha256 doesn't match its content (an edited plan)")
