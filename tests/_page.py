@@ -494,7 +494,8 @@ def load(page, url: str | None = None, until: str = "load", seconds: float | Non
     driver's processes, then the requests the page made since the call that neither finished nor failed, each one's
     method, address with no query (the app's page carries its token in it) and age, or none: the frozen app's page in
     Firefox on GitHub's Windows runner went past Playwright's 30 s at its first load, the app running, its stderr empty,
-    the failure naming no file (tests.yml run 42122369507)."""
+    the failure naming no file (tests.yml run 42122369507). A load that fails as an :class:`Ended` stays one, its
+    lines kept."""
     asked, ended = [], set()
 
     def asking(request) -> None:
@@ -517,7 +518,8 @@ def load(page, url: str | None = None, until: str = "load", seconds: float | Non
             if request._impl_obj not in ended:
                 where = urllib.parse.urlsplit(request.url)._replace(query="", fragment="").geturl()
                 waiting.append(f"{request.method} {_short(where)} ({now - at:.0f} s)")
-        raise AssertionError(f"{stall}\nits requests unanswered: {', '.join(waiting[-10:]) or 'none'}") from None
+        said = f"{stall}\nits requests unanswered: {', '.join(waiting[-10:]) or 'none'}"
+        raise (Ended(said, stall.lines) if isinstance(stall, Ended) else AssertionError(said)) from None
     finally:
         for event, handler in heard:
             page.remove_listener(event, handler)
