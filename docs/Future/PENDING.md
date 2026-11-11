@@ -15,7 +15,7 @@ it in the commit that does it, and add new items to the group they fit.
 Nothing waits on the owner except the owner-only acts in group 12 (D115).
 
 Step 4.47c brought it up to date on 2026-11-11, against the landing
-queue's tail (09564439; `main` 7a4bab60, 1.0.3's release commit), after
+queue's tail (09564439, behind 1.0.3's release commit 7a4bab60), after
 the 11-10 session's steps 4.37-4.47. A done item is struck to one line
 naming what closed it, so the numbers that tests and decisions cite still
 point; a new item takes the next free number in its group. Groups 4 and 5
@@ -96,8 +96,8 @@ The next session starts here (D1192), so 1.1 can follow.
    85cc0426, seen passing on Windows CI); pywin32 out of the Windows bundle
    (4.37h, fb135f4c); and the Windows Firefox save-bar test's race (4.37t,
    e2a93f07, a test fix, queued). Step 4.47b's release commit (7a4bab60:
-   the version and the developer log's 1.0.3 section) is on `main`, its
-   full gate green. It is pushed to `main` alone, and main's CI decides:
+   the version and the developer log's 1.0.3 section) lands ahead of this
+   list's commit, on its full gate. It is pushed to `main` alone, and main's CI decides:
    green, or red only on the Windows Firefox save-check test and green on
    one rerun of that job, then tag `v1.0.3` there and publish at once, the
    notes shown to the owner after; red again, the tag waits for 4.37t on
@@ -613,8 +613,8 @@ memory peaks stay strict. The gate writes both kinds of row to
 5. **The gate's main runs:** AzurKit's `land.py` and `fullsuite.py` have no
    1-in-5 run on `main`, no session-end whole run and no main-red rule
    (4.17a's default; AzurKit's CI covers `main` today).
-6. **`ledger check`** reports 3 problems: PROGRAM.md allocates D973, D976
-   and D1033 twice each. Annotate or renumber the second copies.
+6. ~~`ledger check`'s three ids allocated twice~~: D973's and D976's
+   results and D1033's addendum are annotations of their decisions now.
 7. **The toydb settings tests** sit in `test_randomizer.py`, which a change
    to only `generated/t1.json` doesn't pick; moving them into
    `tests/test_rando_db.py` fixes that and drops the second TOYDB (4.28f).
