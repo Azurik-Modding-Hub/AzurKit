@@ -744,9 +744,39 @@ def test_the_perf_gate_keeps_misses_as_debt_and_fails_only_a_regression_against_
         "ceilings": {"A15/app": 4.6}, "debts": [], "memory": {}, "untimed": {}}
     assert perf.updated(perf.listed(None), results, {}, first=True)["ceilings"] == {"A15/app": 4.6, "A06/app": 8.1}
     assert perf.listed(perf.render(main)) == main
-    assert perf.select(["src/azurkit/tools/randomizer/x.py", "scripts/web_tools.py"]) == {
-        *(("app", g) for g in ("randomizer", "tracker")), *(("site", g) for g in perf.GROUPS)}
-    assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set() and len(perf.select(["web/app.mjs"])) == 12
+
+
+def test_a_changed_path_times_only_the_perf_ops_of_the_groups_that_load_it():
+    """``perf.select`` (``perf.REACH``): a path times the ops of the hosts
+    and groups that load it, an unlisted path under ``src/`` or ``web/``
+    every op, a test or a doc none; each narrow row's loaders are still its
+    own (Step 4.43a: the app's stack dumps, the Tracker's modules and
+    pictures, the site worker's Check parts), so an import that widens one
+    fails here, not as a missed op."""
+    pairs = lambda hosts, groups: {(host, group) for host in hosts for group in groups}   # noqa: E731
+    both, every = ("app", "site"), pairs(("app", "site"), perf.GROUPS)
+    assert perf.select(["src/azurkit/tools/randomizer/x.py", "scripts/web_tools.py"]) == (
+        pairs(("app",), ("randomizer", "tracker")) | pairs(("site",), perf.GROUPS))
+    assert perf.select(["src/azurkit/_stacks.py"]) == pairs(("app",), perf.GROUPS)
+    for path in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs", "web/art/1-x/w1.png", "web/art/icons.css"):
+        assert perf.select([path]) == pairs(both, ("start", "image", "randomizer", "tracker")), path
+    assert perf.select(["web/parts.mjs"]) == pairs(("site",), ("start", "characters"))
+    for path in ("web/app.mjs", "web/worker.mjs", "web/characters.mjs", "web/variants.mjs", "src/azurkit/core/native.py"):
+        assert perf.select([path]) == every, path
+    assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set()
+    imports = re.compile(r'^import [^;]*? from "\.{1,2}/([\w./]+\.mjs)";', re.M)
+    importers = {}
+    for module in (ROOT / "web").rglob("*.mjs"):
+        for name in imports.findall(module.read_text(encoding="utf-8")):
+            importers.setdefault((module.parent / name).resolve().relative_to(ROOT).as_posix(), set()).add(
+                module.relative_to(ROOT).as_posix())
+    assert {name: importers.get(name) for name in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs",
+                                                   "web/parts.mjs")} == {
+        "web/tracker.mjs": {"web/app.mjs"}, "web/mapview.mjs": {"web/tracker.mjs"}, "web/art.mjs": {"web/tracker.mjs"},
+        "web/parts.mjs": {"web/worker.mjs"}}
+    stacks = {path.relative_to(ROOT / "src" / "azurkit").as_posix() for path in (ROOT / "src").rglob("*.py")
+              if re.search(r"^\s*from azurkit import [^\n]*\b_stacks\b", path.read_text(encoding="utf-8"), re.M)}
+    assert stacks and all(rel == "__main__.py" or rel.startswith("app/") for rel in stacks), stacks
 
 
 def test_the_perf_gate_fails_a_run_whose_engine_answers_without_the_native_library_its_worktree_ships():

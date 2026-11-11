@@ -101,12 +101,25 @@ DEBTS = ("listed", "over", "regressed", "no progress")   # D1170: the verdicts t
 LOAD_LINE = 40.0      # D926/D975: the gate's perf stage starts under this normal-priority load
 PROFILES = ("app", "site", "lag", "capped")
 BROWSERS = ("webkit", "chromium", "firefox")   # the site's (D994: Firefox)
+#: The groups the Tracker's modules and pictures reach: app.mjs imports tracker.mjs (and through it art.mjs and
+#: mapview.mjs) and makes the tracker as the page starts, index.html loads art/icons.css and sw.js keeps art/ at its
+#: install (start); each image chosen asks the tracker to draw its maps (image); a seed's build opens its plan in the
+#: tracker and the Randomizer tab's items show art/'s icons (randomizer). No build or characters op calls it.
+TRACKED = ("start", "image", "randomizer", "tracker")
 #: Which ops a changed path reaches (section 2.4 of round 1's plan): ``(prefix, hosts, groups)``, the first match;
-#: an unlisted path under ``src/`` reaches every op; any other path none.
+#: an unlisted path under ``src/`` or ``web/`` reaches every op; any other path none. A narrower row stands on what
+#: loads its path (Step 4.43a): ``_stacks.py`` is imported by the app's processes alone (``__main__``, ``app`` and
+#: ``app.engine``), and ``parts.mjs`` by the site's engine worker alone (worker.mjs: its start), whose Check with
+#: game data alone calls it. characters.mjs and variants.mjs stay every op: every build, the work ahead and each
+#: image chosen ask them.
 REACH = (("src/azurkit/app/", ("app",), None), ("src/azurkit/__main__.py", ("app",), None),
+         ("src/azurkit/_stacks.py", ("app",), None),
          ("src/azurkit/tools/randomizer/", ("app", "site"), ("randomizer", "tracker")),
          ("src/azurkit/tools/characters/", ("app", "site"), ("characters", "build")),
-         ("src/", ("app", "site"), None), ("web/", ("app", "site"), None), ("scripts/web_tools.py", ("site",), None))
+         ("src/", ("app", "site"), None),
+         *((path, ("app", "site"), TRACKED) for path in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs", "web/art/")),
+         ("web/parts.mjs", ("site",), ("start", "characters")),
+         ("web/", ("app", "site"), None), ("scripts/web_tools.py", ("site",), None))
 GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")   # tests/_perf.py's
 NATIVE = "src/azurkit/core/_native"   # the compiled kernels' libraries a worktree ships (core/native.py)
 SIDE_MODULE = "emscripten-wasm32.so"  # the site's (its Pyodide's); the app's is this machine's, core.native.target()
