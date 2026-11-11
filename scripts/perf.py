@@ -25,7 +25,11 @@ size (``tree_peaks``); no verdict reads it.
 
 The verdicts (:func:`judge`): each op runs :data:`R` times (an op with a
 sample over 30 s once), first-time ops each in a fresh state, and its median
-decides. Timings are advisory (D1170): an op over its budget (an unlisted
+decides; a changed area's run (``--select``, ``--base``: not ``--all``, main's
+and the release's reference) times an op once, and only an op whose first
+sample is at or past 1 s or froze takes the rest (:func:`alone`, D1215: one
+under 1 s can't fail on time or progress), the block's ``one_sample`` naming
+the cases that took one. Timings are advisory (D1170): an op over its budget (an unlisted
 one, or a listed one over its ceiling), one whose median passes 1 s with no
 progress shown, or one a sample of which froze in a gap (``_perf.FREEZE_MS``)
 is a perf-debt row (the block's ``debt``, :func:`debt_rows`; a Save's with
@@ -375,6 +379,16 @@ def taken(samples: list[dict]) -> int:
     return len(samples) + (R - 1 if any(s["s"] > LONG for s in samples) else 0)
 
 
+def alone(samples: list[dict]) -> bool:
+    """Whether a changed area's op stands on its one sample (D1215): it is under :data:`PROGRESS` and clean (no
+    freeze, no error). Under 1 s an op is within its budget and needs no progress shown, so more samples move no
+    verdict but through a median past 1 s (Step 4.40a's count of the gate's runs from 11-01: 32 of 12,239 cases
+    whose first sample was under 1 s, one with a verdict other than ``pass``); an error takes no more, as before
+    (it ends an op's samples)."""
+    return (any(s.get("error") for s in samples) or not samples
+            or all(s["s"] < PROGRESS and not s.get("froze") for s in samples))
+
+
 def rerun(results: dict, samples: list[dict]) -> int:
     """How many more samples a failing time verdict (``slower``, D1170) takes (a spike can't fail it): :data:`R`,
     one past 30 s."""
@@ -421,11 +435,14 @@ def debt_line(row: dict) -> str:
 
 
 def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(), bars=frozenset(),
-            fresh=frozenset(), browser_bars=frozenset(), reference: dict | None = None) -> tuple[dict, dict, dict]:
+            fresh=frozenset(), browser_bars=frozenset(), reference: dict | None = None,
+            once: bool = False) -> tuple[dict, dict, dict]:
     """``({key: verdict}, {run: memory peak}, {(run, op): samples})`` for ``cases`` (``(op,
     context)``): ``drive(run, {op: target})`` returns that run's ``{"samples":
     {op: every sample so far}, "memory_peak"}`` once each op has
-    :func:`taken` its target; a failing time verdict (``slower`` than its
+    :func:`taken` its target; with ``once`` (a changed area's run, D1215) each
+    op's target is one sample, then :data:`R` for each op not :func:`alone`; a
+    failing time verdict (``slower`` than its
     ``reference`` median) drives its op again
     (:func:`rerun`; not in a context of ``fresh``: a first record lists every
     over-budget op as it is) and is judged on all its samples."""
@@ -445,8 +462,14 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
 
     first: dict[str, dict[str, int]] = {}
     for op, c in timed:
-        first.setdefault(run_of(op, c), {})[op] = R
+        first.setdefault(run_of(op, c), {})[op] = 1 if once else R
     go(first)
+    rest: dict[str, dict[str, int]] = {}
+    for op, c in timed if once else ():
+        if not alone(samples.get((run_of(op, c), op), [])):
+            rest.setdefault(run_of(op, c), {})[op] = R
+    if rest:
+        go(rest)
     more: dict[str, dict[str, int]] = {}
     judged = verdicts(timed, samples, lst, bars, browser_bars, reference)
     for op, c in timed:
@@ -601,7 +624,11 @@ def main(argv: list[str] | None = None) -> int:
 
             bars, browser_bars = {op.id for op in ops if op.bar}, {op.id for op in ops if op.browser_bar}
             fresh = (set(contexts(profiles, browsers)) if main_list is None else new) if args.update_ceilings else ()
-            block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh, browser_bars, reference)
+            block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh, browser_bars, reference,
+                                                     once=not args.all)
+            if not args.all:   # D1215: the cases whose one sample stood (under 1 s, clean)
+                block["one_sample"] = sorted(k for k, r in block["cases"].items()
+                                             if r["n"] == 1 and r.get("median") is not None and r["median"] < PROGRESS)
             from azurkit.core import native
             block["native"] = natives
             block["native_failures"] = native_failures(natives, {
@@ -641,6 +668,8 @@ def main(argv: list[str] | None = None) -> int:
     for run, peak in block["tree_peaks"].items():
         print(f"{run} tree peak {peak / 2**30:.2f} GiB (logged)")
     print(f"perf: {'passed' if block['passed'] else 'failed'}, {len(block['cases'])} cases in {block['wall_s']} s"
+          + (f", {len(block['one_sample'])} of them on one sample under {PROGRESS:g} s (D1215)"
+             if block.get("one_sample") else "")
           + "".join(f"\n  {line}" for line in block["failures"])
           + (f"\nperf debt: {len(block['debt'])} rows, failing nothing (D1170)" if block["debt"] else "")
           + "".join(f"\n  {debt_line(row)}" for row in block["debt"]))

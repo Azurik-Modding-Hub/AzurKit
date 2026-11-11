@@ -1423,7 +1423,8 @@ def test_the_perf_gate_logs_firefoxs_tree_peak_and_no_verdict_or_list_reads_it(t
 def test_the_perf_gates_rerun_of_a_slower_op_adds_its_samples_to_the_first_and_judges_them_all(tmp_path, monkeypatch):
     """D1170's rerun, as the gate runs perf.py (no ``--keep``): an op slower
     than the release's takes R more samples (one past 30 s), each run asked
-    only for those, and its verdict reads every sample, the first ones too."""
+    only for those, and its verdict reads every sample, the first ones too
+    (a changed area's first pass takes one each, D1215: A21's R from there)."""
     from azurkit.core import gate
     from scripts import web_tools
 
@@ -1454,9 +1455,52 @@ def test_the_perf_gates_rerun_of_a_slower_op_adds_its_samples_to_the_first_and_j
     assert perf.main([str(repo), "--select", "app:build", "--ops", "A31,A21", "--profiles", "app",
                       "--reference", str(release), "--json", str(tmp_path / "perf.json")]) == 1
     cases = json.loads((tmp_path / "perf.json").read_text(encoding="utf-8"))["cases"]
-    assert asked == [{"A31": 3, "A21": 3}, {"A31": 1, "A21": 3}]
+    assert asked == [{"A31": 1, "A21": 1}, {"A21": 2}, {"A31": 1, "A21": 3}]
     assert {k: (r["samples"], r["median"], r["slower"]) for k, r in cases.items()} == {
         "A31/app": ([200.0, 100.0], 150.0, True), "A21/app": ([4.0] * 6, 4.0, True)}
+
+
+def test_a_changed_areas_perf_run_times_an_op_once_under_1_s_and_mains_run_of_every_op_three_times(tmp_path,
+                                                                                                    monkeypatch):
+    """P4 (D1215): a changed area's perf run (``--select``) takes one sample
+    of each op, and R in all only of one whose sample is at or past 1 s or
+    whose page froze; the block's ``one_sample`` names the cases one sample
+    judged. Main's run of every op (``--all``) takes R of each."""
+    from azurkit.core import gate
+    from scripts import web_tools
+
+    monkeypatch.setattr(perf.signal, "signal", lambda *_: None)
+    monkeypatch.setattr(perf, "R", perf.R)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    repo = tmp_path / "repo"
+    (repo / "tests").mkdir(parents=True)
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    (repo / perf.CEILINGS).write_text(perf.render(perf.listed(None)), encoding="utf-8")
+    _git(repo, "add", perf.CEILINGS)
+    _git(repo, "commit", "-q", "-m", "main")
+    image = types.SimpleNamespace(stat=lambda: types.SimpleNamespace(st_size=gate.USA.iso_size))
+    monkeypatch.setattr(gate, "find", lambda release: image)
+    monkeypatch.setattr(web_tools, "wheel", lambda *a, **k: tmp_path / "wheel")
+    monkeypatch.setattr(_perf, "venv", lambda *a, **k: "python")
+    monkeypatch.setattr(perf, "native_failures", lambda *_: [])
+    froze = {"froze": "the page froze 300 ms in the head start before A12"}
+    sample = {"A21": {"s": 0.1}, "A13": {"s": 1.5}, "A12": {"s": 0.2} | froze}
+    asked = []
+
+    def drive(wt, spec, todo, *_):
+        asked.append(dict(todo))
+        return {"samples": {op: [sample[op] | {"bar": 0, "progress": True}] * n for op, n in todo.items()}, "log": []}
+    monkeypatch.setattr(_perf, "drive", drive)
+    for how, drives, n in ((["--select", "app:build"], [{"A21": 1, "A13": 1, "A12": 1}, {"A13": 2, "A12": 2}],
+                            {"A21/app": 1, "A13/app": 3, "A12/app": 3}),
+                           (["--all"], [{"A21": 3, "A13": 3, "A12": 3}], {"A21/app": 3, "A13/app": 3, "A12/app": 3})):
+        asked.clear()
+        assert perf.main([str(repo), *how, "--ops", "A21,A13,A12", "--profiles", "app",
+                          "--json", str(tmp_path / "perf.json")]) == 0
+        block = json.loads((tmp_path / "perf.json").read_text(encoding="utf-8"))
+        assert asked == drives, how
+        assert {k: r["n"] for k, r in block["cases"].items()} == n
+        assert block.get("one_sample") == (["A21/app"] if "--select" in how else None)
 
 
 def test_the_perf_gates_scratch_is_out_of_reach_of_macoss_temp_sweep(tmp_path, monkeypatch):

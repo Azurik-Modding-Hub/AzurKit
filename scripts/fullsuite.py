@@ -675,7 +675,8 @@ def describe(m: dict, meta: Path) -> str:
         p = m.get("perf") or {}
         line += (f"\n  perf {' '.join(m['perf_args'])}: " + ("not run" if not p else
                  f"{'failed' if perf.blocking(p) else 'passed'}, {len(p.get('cases', {}))} cases in {p.get('wall_s')} s "
-                 f"after {p.get('load_wait_s')} s waiting for the load")
+                 f"after {p.get('load_wait_s')} s waiting for the load"
+                 + (f", {len(p['one_sample'])} on one sample under 1 s (D1215)" if p.get("one_sample") else ""))
                  + "".join(f"\n    {f}" for f in (perf.blocking(p) if p else [])[:12]))
         if p.get("debt"):
             line += f"\n  perf debt: {len(p['debt'])} rows, failing nothing (in {DEBT_LEDGER}, D1170)"

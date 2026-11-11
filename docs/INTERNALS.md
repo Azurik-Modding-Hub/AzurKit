@@ -2246,7 +2246,10 @@ are the Characters section's.
   opened again on the folder, as WebKit keeps a closed page's process, all it
   held resident, for the site's service worker while a page of the site is
   open (Step 4.4m). An op
-  runs three times (once past 30 s) and its median decides. Timings are
+  runs three times (once past 30 s) and its median decides, but a changed
+  area's run times it once and the rest only when that sample is at or past
+  1 s or froze (`perf.alone`, D1215: the block's `one_sample` names the cases
+  one sample judged; main's every-op run keeps three). Timings are
   advisory (D1170): an op over 3 s (or over its ceiling in
   `tests/perf_ceilings.toml`), past 1 s with no progress, or whose page froze
   in a gap is a perf-debt row (the block's `debt`, printed and appended to
