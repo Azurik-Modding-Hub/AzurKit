@@ -47,7 +47,7 @@ wheels = [
 
 [[package]]
 name = "azurkit"
-version = "1.0.2"
+version = "1.0.3"
 source = { editable = "." }
 default-groups = ["app", "dev", "devkit"]
 dependencies = [

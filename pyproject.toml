@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "azurkit"
-version = "1.0.2"
+version = "1.0.3"
 description = "Patch packs, sliders, a randomizer and character swaps for Azurik: Rise of Perathia (Xbox), built from your own copy of the game."
 readme = "README.md"
 requires-python = ">=3.14"
