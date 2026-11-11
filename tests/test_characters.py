@@ -1549,13 +1549,15 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     answer (``shipped.py``, D995) whose file isn't its row's size and sha256, never inflated, or that inflates
     past the size its head lists, stopped there (SEC-5's rule); and a WAV whose header gives a rate under
     ``xbox_adpcm.MIN_RATE`` (refused before it is resampled: 2 bytes at 1 Hz were 22,050 samples, 2 s of work),
-    one at the floor read."""
+    one at the floor read; and a glTF whose ``asset`` isn't an object or that nests deep (200,000 brackets: the
+    parser's ``RecursionError`` on this Mac), refused by name where every key on a recipe's files reads it, so
+    a recipe file naming one is stamped by its bytes."""
     import time
     import tracemalloc
 
     from compression import zstd
 
-    from azurkit.tools.characters import gltf, textures, xbox_adpcm
+    from azurkit.tools.characters import gltf, library, mesh_edit, textures, xbox_adpcm
     from azurkit.tools.randomizer import art
 
     def wav(rate: int) -> Path:
@@ -1565,6 +1567,9 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             out.writeframes(b"\x01\x00")
         return path
     bomb, wide = _png(64, 64, bytes(64 << 20)), _png(8192, 4096, bytes(4096 * (8192 * 4 + 1)))
+    (stamped := tmp_path / "stamped").mkdir()
+    for name, text in (("list", '{"asset": []}'), ("null", '{"asset": null}'), ("deep", "[" * 200_000)):
+        (stamped / f"{name}.gltf").write_text(text, encoding="utf-8")
     flood = zstd.compress(bytes(64 << 20), options={zstd.CompressionParameter.window_log: 20})
 
     def answer(size: int) -> bytes:
@@ -1654,6 +1659,10 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             {"id": "a", "files": [{"path": "packs/a/X.json", "sha256": "0" * 64, "size": 0}]},
             {"id": "b", "files": [{"path": "packs/a/x.json", "sha256": "0" * 64, "size": 0}]}])),
             r"^manifest: entry 'b': packs/a/x\.json is entry 'a''s too"),
+        **{f"a glTF {what}": (lambda name=name: mesh_edit.file_sha256(stamped / f"{name}.gltf"),
+                              rf"^{name}\.gltf: not a glTF this import reads \({why}\)$") for what, name, why in (
+            ("whose asset is a list", "list", r"not glTF 2\.0"), ("whose asset is null", "null", r"not glTF 2\.0"),
+            ("of 200,000 brackets", "deep", "its JSON nests deeper than 64"))},
         **{f"a WAV at {rate} Hz": (lambda rate=rate: xbox_adpcm.read_wav(wav(rate)),
                                    rf"{rate}\.wav: {rate} Hz; a sound here is at least 1,000 Hz$") for rate in (1, 999)},
     }
@@ -1701,6 +1710,9 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     assert set(content.installed(updated)["a"]["files"]) == set(news)   # an Update removes only its own (SEC-15)
     assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
     assert len(xbox_adpcm.read_wav(wav(1000))[0]) == 23   # the floor's one frame, at the build's 22,050 Hz
+    for name in ("list", "deep"):   # a recipe file naming the glTF is stamped by its bytes, as a dress refuses it
+        (stamped / "variant.json").write_text(recipe("mesh", {"gltf": {"file": f"{name}.gltf", "sha256": "0" * 64}}))
+        assert isinstance(library.file_stamp(stamped / "variant.json"), str), name
 
 
 def test_an_install_takes_its_hosts_refusal_and_an_entry_keeps_its_description(tmp_path):

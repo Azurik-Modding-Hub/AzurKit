@@ -287,7 +287,7 @@ from pathlib import Path
 
 import numpy as np
 
-from azurkit.core import fdlibm, native
+from azurkit.core import fdlibm, jsondepth, native
 from azurkit.tools.characters.characters import (
     VERTEX_SIZE, MeshGroup, body_at, bone_records, inverse_binds, mesh_groups, read_body)
 from azurkit.tools.characters.gltf import HELPER
@@ -2345,9 +2345,17 @@ def _buffer(uri, folder: Path) -> bytes:
     return path.read_bytes()
 
 
+GLTF_NESTING = 64
+"""How deep a glTF's JSON may nest, read before json parses it (the shipped
+ones nest 6 deep; ``core.jsondepth``: the parser's own limit is each
+platform's, a ``RecursionError`` no refusal names)."""
+
+
 def _load(path: Path) -> tuple[dict, list[bytes], str]:
     """The document, its buffers and the file's sha256 (``.glb``: its
-    bytes; ``.gltf``: its bytes, then each external buffer's in order)."""
+    bytes; ``.gltf``: its bytes, then each external buffer's in order).
+    JSON nested past :data:`GLTF_NESTING`, or an ``asset`` that isn't
+    glTF 2.0's object, raises :class:`ValueError` (a handed file's)."""
     data = path.read_bytes()
     sha = hashlib.sha256(data)
     chunk = None
@@ -2358,17 +2366,20 @@ def _load(path: Path) -> tuple[dict, list[bytes], str]:
         size, kind = struct.unpack_from("<II", data, 12)
         if kind != _JSON:
             raise ValueError("a .glb whose first chunk isn't JSON")
-        doc = json.loads(data[20:20 + size].decode("utf-8"))
+        text = data[20:20 + size].decode("utf-8")
         at = 20 + size
         if at + 8 <= len(data):
             size2, kind2 = struct.unpack_from("<II", data, at)
             if kind2 == _BIN:
                 chunk = data[at + 8:at + 8 + size2]
     else:
-        doc = json.loads(data.decode("utf-8"))
+        text = data.decode("utf-8")
+    if jsondepth.deeper(text, GLTF_NESTING):
+        raise ValueError(f"its JSON nests deeper than {GLTF_NESTING}")
+    doc = json.loads(text)
     if not isinstance(doc, dict):
         raise ValueError("its JSON isn't a glTF document")
-    if doc.get("asset", {}).get("version") != "2.0":
+    if not isinstance(asset := doc.get("asset"), dict) or asset.get("version") != "2.0":
         raise ValueError("not glTF 2.0")
     if doc.get("extensionsRequired"):
         raise ValueError(f"it needs extensions {', '.join(map(str, doc['extensionsRequired']))} (export without "
