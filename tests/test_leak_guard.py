@@ -33,7 +33,8 @@ def test_game_files_and_bytes_pass_and_images_disks_eeproms_snapshots_and_keys_a
     XISO part and the snapshot also inside a gzip file, each member on its
     own (a later one, after a note or 17 MiB of zeros; the snapshot also in
     one with a bad CRC and in one whose deflate data is damaged after it),
-    and an ISO part's name inside one named ``.GZ``."""
+    the XISO part split into two members by the members joined, and an ISO
+    part's name inside one named ``.GZ``."""
     snapshot = b"AZL3SNAP" + bytes(56)
     gz = gzip.compress(snapshot)
     deflate = zlib.compressobj(wbits=31)
@@ -43,6 +44,8 @@ def test_game_files_and_bytes_pass_and_images_disks_eeproms_snapshots_and_keys_a
         "part.000": (xiso_part, "XISO volume descriptor at 0x10000"),
         "part.001.gz": (gzip.compress(xiso_part), "inside its gzip: XISO volume descriptor at 0x10000"),
         "notes.part.gz": (gzip.compress(b"note\n") + gzip.compress(xiso_part),
+                          "inside its gzip: XISO volume descriptor at 0x10000"),
+        "split.part.gz": (gzip.compress(xiso_part[:0x8000]) + gzip.compress(xiso_part[0x8000:]),
                           "inside its gzip: XISO volume descriptor at 0x10000"),
         "AZURIK.ISO.007.GZ": (gzip.compress(bytes(64)),
                               "inside its gzip: ISO image or part (.iso/.xiso/.iso.NNN name)"),

@@ -38,13 +38,14 @@ texture, a save, a snippet, a byte literal, a disassembly listing. Refused:
 A gzip file (``1f 8b`` at 0) is refused for what it holds as well: each
 member on its own (:class:`_Inflated`: read to its end, past a bad CRC or
 size and up to a damaged spot), named as the file without its ``.gz``, is
-checked by every rule here. So is each file a tar (``ustar`` at 257, also
-inside a gzip file) or a zip (``PK\\x03\\x04`` at 0) holds, by its name in
-the archive, up to a damaged spot: an encrypted zip member, or one in a
-method zipfile can't read, by its name alone; a zip read with no seek (a
-pushed or staged one, or one in a gzip file or a tar) is copied first, held
-up to :data:`MAX_TEXT` and on disk past it. Other archives (7z, rar, zstd,
-xz, bzip2) are checked as files.
+checked by every rule here, and the members' bytes joined (one file split
+into members, as bgzip writes) by the rules on its head. So is each file a
+tar (``ustar`` at 257, also inside a gzip file) or a zip (``PK\\x03\\x04``
+at 0) holds, by its name in the archive, up to a damaged spot: an encrypted
+zip member, or one in a method zipfile can't read, by its name alone; a zip
+read with no seek (a pushed or staged one, or one in a gzip file or a tar)
+is copied first, held up to :data:`MAX_TEXT` and on disk past it. Other
+archives (7z, rar, zstd, xz, bzip2) are checked as files.
 """
 
 from __future__ import annotations
@@ -283,16 +284,21 @@ def _zip(f: _Reader, head: bytes, depth: int) -> str | None:
 def _check(rel: str, f: _Reader, depth: int = 0) -> str | None:
     """:func:`check_blob` for the file ``rel`` read forward from ``f``, and
     for each member of a gzip file (named ``rel`` without ``.gz``, in any
-    case) and each file of a tar or a zip archive, :data:`DEPTH` wrappings
-    deep; any other file past its head is a whole disc image or not."""
+    case) and the head of its members joined, and each file of a tar or a
+    zip archive, :data:`DEPTH` wrappings deep; any other file past its head
+    is a whole disc image or not."""
     head = _read(f, MAGIC_SPAN)
     if why := check_blob(rel, head):
         return why
     if depth < DEPTH and head.startswith(GZIP):
-        inner = re.sub(r"\.gz\Z", "", rel, flags=re.I)
-        for member in _members(_Chain(head, f)):
-            if why := _check(inner, member, depth + 1):
+        inner, joined, members = re.sub(r"\.gz\Z", "", rel, flags=re.I), b"", 0
+        for members, member in enumerate(_members(_Chain(head, f)), 1):
+            first = _read(member, MAGIC_SPAN)
+            joined += first[:MAGIC_SPAN - len(joined)]   # whole while it is shorter: the join's head
+            if why := _check(inner, _Chain(first, member), depth + 1):
                 return f"inside its gzip: {why}"
+        if members > 1 and (why := check_blob(inner, joined)):
+            return f"inside its gzip: {why}"
         return None
     if depth < DEPTH and head[257:262] == b"ustar":
         return _tar(_Chain(head, f), depth)
