@@ -318,15 +318,17 @@ static double nmax(const double *x, i64 n) {
 enum { N_TURN = 0, N_TOL, N_NEAR, N_DRAPE, N_DRAPE_RATE, N_REST, N_REACH, N_CELL, N_LENGTH, N_PU, N_COUNT = N_PU + 3 };
 /* The sizes: links, keys, loop, held, posed bones a frame, skin and tail points, the rig's bones, the posed slots of
  * the first link's parent and the pivot's bone, CLEAR_SUB, CLEAR_STEPS, CLEAR_EASE and CLEAR_HOLD. */
-enum { Z_L = 0, Z_NK, Z_LOOP, Z_HELD, Z_NP, Z_NS, Z_NT, Z_NB, Z_PARENT, Z_PIVOT, Z_SUB, Z_STEPS, Z_EASE, Z_HOLD, Z_COUNT };
+enum {
+    Z_L = 0, Z_NK, Z_LOOP, Z_HELD, Z_NP, Z_NS, Z_NT, Z_NB, Z_PARENT, Z_PIVOT, Z_SUB, Z_STEPS, Z_EASE, Z_HOLD, Z_COUNT
+};
 
 typedef struct {
     i64 L, nk, loop, held, back, np, ns, nt, nb, sub, steps, ease, hold, count, n, parent, pivot;
     const double *num, *bone, *world, *origin, *sW, *sU, *sUN, *tW, *tU, *target, *keys;
     const i64 *slot, *linkof, *sB, *tB, *owner;
-    double *R, *X, *N, *W0, *O0, *angle, *need, *at_key, *share, *was, *Wt, *Ot, *Wr, *Or, *Rl, *P, *g, *d, *bspan, *xaxis;
-    i64 *own, *sel, *ok, *far, *keep, *has, *bucket, *order, *kb, *fill, *xorder, *xstart;
-    unsigned char *done;
+    double *R, *X, *W0, *O0, *angle, *need, *at_key, *share, *was, *Wt, *Ot, *Wr, *Or, *Rl, *P, *g, *d, *bspan, *xaxis;
+    i64 *own, *sel, *ok, *far, *keep, *has, *bucket, *order, *kb, *fill, *xstart;
+    int32_t *xorder;
     int bad;
 } K;
 
@@ -335,7 +337,10 @@ static void eased(const K *k, i64 c, i64 f, double *o) {
     i64 j = f / k->sub, q = f % k->sub;
     const double *a = k->angle + 2 * (k->count * c + j);
     double nxt[2] = {0.0, 0.0};
-    if (q) nxt[0] = k->angle[2 * (k->count * c + (j + 1) % k->count)], nxt[1] = k->angle[2 * (k->count * c + (j + 1) % k->count) + 1];
+    if (q) {
+        const double *b = k->angle + 2 * (k->count * c + (j + 1) % k->count);
+        nxt[0] = b[0], nxt[1] = b[1];
+    }
     for (int x = 0; x < 2; x++) o[x] = a[x] + (nxt[x] - a[x]) * (double)q / (double)k->sub;
 }
 
@@ -405,7 +410,8 @@ static i64 bucket(double v, double lo, double w, i64 nb) {
 static void index_frame(K *k, i64 f) {
     const double *X = k->X + 3 * k->ns * f;
     double lo[3], hi[3], *ax = k->xaxis + 4 * f;
-    i64 *start = k->xstart + (XB + 1) * f, *order = k->xorder + k->ns * f, *at = k->kb;
+    i64 *start = k->xstart + (XB + 1) * f, *at = k->kb;
+    int32_t *order = k->xorder + k->ns * f;
     for (int c = 0; c < 3; c++) lo[c] = hi[c] = X[c];
     for (i64 p = 0; p < 3 * k->ns; p++) {
         double v = X[p];
@@ -426,14 +432,12 @@ static void index_frame(K *k, i64 f) {
     for (i64 p = 0; p < k->ns; p++) at[p] = bucket(X[3 * p + a], lo[a], w, nb), start[at[p] + 1]++;
     for (i64 b = 0; b < XB; b++) start[b + 1] += start[b];
     for (i64 b = 0; b < XB; b++) k->fill[b] = start[b];
-    for (i64 p = 0; p < k->ns; p++) order[k->fill[at[p]]++] = p;
+    for (i64 p = 0; p < k->ns; p++) order[k->fill[at[p]]++] = (int32_t)p;
 }
 
-/* The skin point x's unit normal at frame f (jiggle._skinned's normals of the frame's pose), worked out once. */
-static const double *normal(K *k, i64 f, i64 x) {
-    double *o = k->N + 3 * (k->ns * f + x);
-    unsigned char *done = k->done + k->ns * f + x;
-    if (*done) return o;
+/* The skin point x's unit normal at frame f (jiggle._skinned's normals of the frame's pose) into o: only the nearest
+ * points' are asked, so none is kept. */
+static const double *normal(K *k, i64 f, i64 x, double *o) {
     o[0] = o[1] = o[2] = 0.0;
     for (int s = 0; s < 4; s++) {
         i64 b = k->sB[4 * x + s];
@@ -443,7 +447,6 @@ static const double *normal(K *k, i64 f, i64 x) {
     }
     double len = sqr(o[0] * o[0] + o[1] * o[1] + o[2] * o[2]);
     for (int c = 0; c < 3; c++) o[c] = o[c] / len;
-    *done = 1;
     return o;
 }
 
@@ -496,9 +499,10 @@ static void short_(K *k, i64 f, const double *W, const double *Og, const i64 *se
     }
     i64 kept = 0, *keep = k->keep;
     const double *ax = k->xaxis + 4 * f;
-    if (open && ax[0] >= 0.0) {   /* the frame's buckets the box spans along their axis (in any order: ties go by index) */
+    if (open && ax[0] >= 0.0) {   /* the frame's buckets the box spans on their axis (any order: ties go by index) */
         int A = (int)ax[0];
-        const i64 *start = k->xstart + (XB + 1) * f, *order = k->xorder + k->ns * f;
+        const i64 *start = k->xstart + (XB + 1) * f;
+        const int32_t *order = k->xorder + k->ns * f;
         i64 b1 = bucket(hi[A], ax[1], ax[2], (i64)ax[3]);
         for (i64 i = start[bucket(lo[A], ax[1], ax[2], (i64)ax[3])]; i < start[b1 + 1]; i++) {
             const double *y = X + 3 * order[i];
@@ -575,7 +579,8 @@ static void short_(K *k, i64 f, const double *W, const double *Og, const i64 *se
         if (j < 0) {
             d = __builtin_inf();
         } else {
-            const double *y = X + 3 * j, *n = normal(k, f, j);
+            double nn[3];
+            const double *y = X + 3 * j, *n = normal(k, f, j, nn);
             double e = (q[0] - y[0]) * n[0] + (q[1] - y[1]) * n[1] + (q[2] - y[2]) * n[2], aside = near - e * e;
             if (aside > cell * cell && aside > e * e) e = sqr(near);
             d = near <= reach * reach ? e : __builtin_inf();
@@ -819,7 +824,8 @@ static void drape(K *k) {
         const double *x = k->X + 3 * k->ns * ((rest - 1) * sub);
         double m = 0.0;
         for (i64 p = 0; p < k->ns; p++) {   /* numpy's norm along the last axis (its squares summed in order) */
-            double dx = x[3 * p] - last[3 * p], dy = x[3 * p + 1] - last[3 * p + 1], dz = x[3 * p + 2] - last[3 * p + 2];
+            double dx = x[3 * p] - last[3 * p], dy = x[3 * p + 1] - last[3 * p + 1];
+            double dz = x[3 * p + 2] - last[3 * p + 2];
             k->d[0] = sqr((dx * dx + dy * dy) + dz * dz);
             m = p ? nmax((double[2]){m, k->d[0]}, 2) : k->d[0];
         }
@@ -882,9 +888,9 @@ static void drape(K *k) {
 API i64 az_clear_need(const i64 *z, i64 *need) {
     i64 L = z[Z_L], nk = z[Z_NK], loop = z[Z_LOOP], np = z[Z_NP], ns = z[Z_NS], nt = z[Z_NT], sub = z[Z_SUB];
     i64 n = (nk - 1) * sub + (loop ? 0 : 1), count = loop ? nk - 1 : nk;
-    need[0] = n * np * 9 + 2 * n * ns * 3 + n * L * 7 + L * count * 2 + 2 * n + 2 * count + 5 * count +
+    need[0] = n * np * 9 + n * ns * 3 + n * L * 7 + L * count * 2 + 2 * n + 2 * count + 5 * count +
               (2 * sub) * nt + 2 * L * 7 + L * 9 + nt * 3 + 3 * nt + 512 + 4 * n + 16;
-    need[1] = z[Z_NB] + 4 * nt + 3 * ns + count + 2 * 257 + n * ns + n * (XB + 1) + (n * ns + 7) / 8 + 16;
+    need[1] = z[Z_NB] + 4 * nt + 3 * ns + count + 2 * 257 + n * (XB + 1) + (n * ns + 1) / 2 + 16;
     return 0;
 }
 
@@ -905,8 +911,8 @@ API i64 az_clear(const i64 *z, const double *num, const i64 *slot, const i64 *li
     k.back = k.held && !k.loop;
     k.n = (k.nk - 1) * k.sub + (k.loop ? 0 : 1), k.count = k.loop ? k.nk - 1 : k.nk;
     i64 L = k.L, n = k.n, np = k.np, ns = k.ns, nt = k.nt, nb = k.nb, count = k.count;
-    if (L < 1 || L > 64 || k.nk < 2 || k.sub < 2 || n < 1 || count < 1 || ns < 1 || nt < 1 || k.parent < 0 ||
-        k.pivot < 0 || k.parent >= np || k.pivot >= np || k.ease < 0 || k.hold < 0 || k.steps < 0)
+    if (L < 1 || L > 64 || ns > 0x7FFFFFFF || k.nk < 2 || k.sub < 2 || n < 1 || count < 1 || ns < 1 || nt < 1 ||
+        k.parent < 0 || k.pivot < 0 || k.parent >= np || k.pivot >= np || k.ease < 0 || k.hold < 0 || k.steps < 0)
         return TWIN;
     for (i64 i = 0; i < 4 * ns; i++)
         if (sB[i] < 0 || sB[i] >= nb) return TWIN;
@@ -917,7 +923,6 @@ API i64 az_clear(const i64 *z, const double *num, const i64 *slot, const i64 *li
     double *w = work;
     k.R = w, w += n * np * 9;
     k.X = w, w += n * ns * 3;
-    k.N = w, w += n * ns * 3;
     k.W0 = w, w += n * L * 4;
     k.O0 = w, w += n * L * 3;
     k.angle = w, w += L * count * 2;
@@ -947,10 +952,8 @@ API i64 az_clear(const i64 *z, const double *num, const i64 *slot, const i64 *li
     k.bucket = iw, iw += 257;
     k.fill = iw, iw += 257;
     k.has = iw, iw += count;
-    k.xorder = iw, iw += n * ns;
     k.xstart = iw, iw += n * (XB + 1);
-    k.done = (unsigned char *)iw;
-    for (i64 i = 0; i < n * ns; i++) k.done[i] = 0;
+    k.xorder = (int32_t *)iw;
     for (i64 b = 0; b < nb; b++) linkof[b] = -1;
     for (i64 c = 0; c < L; c++) {
         if (link[c] < 0 || link[c] >= nb) return TWIN;
@@ -963,7 +966,8 @@ API i64 az_clear(const i64 *z, const double *num, const i64 *slot, const i64 *li
         double u = (double)q / (double)k.sub;
         double *W = k.W0 + 4 * L * f, *Og = k.O0 + 3 * L * f;
         for (i64 c = 0; c < L; c++) {
-            const double *a = keys + 5 * (k.nk * c + j), *zz = keys + 5 * (k.nk * c + (j + 1 < k.nk ? j + 1 : k.nk - 1));
+            const double *a = keys + 5 * (k.nk * c + j);
+            const double *zz = keys + 5 * (k.nk * c + (j + 1 < k.nk ? j + 1 : k.nk - 1));
             const double *b = bone + 12 * c;
             double f5[5], pw[4], po[3];
             for (int i = 0; i < 5; i++) f5[i] = a[i] + u * (zz[i] - a[i]);
