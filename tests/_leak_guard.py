@@ -1,6 +1,6 @@
-"""Leak guard: no game image, xemu disk, EEPROM dump, guest RAM snapshot or
-private key in a file this repository tracks, could commit or pushes (D961:
-the content repo's rules, Modkit's D153 and D960).
+"""Leak guard: no game image, xemu disk, EEPROM dump, guest RAM snapshot,
+BIOS or key file or private key in a file this repository tracks, could
+commit or pushes (D961: the content repo's rules, Modkit's D153 and D960).
 
 Stdlib only. ``tests/test_leak_guard.py`` runs it in the pure tier, the
 ``pre-push`` hook that ``bootstrap.py`` writes runs it on every push, and it
@@ -25,7 +25,13 @@ texture, a save, a snippet, a byte literal, a disassembly listing. Refused:
 - an xemu HDD image (qcow2, ``QFI\\xfb`` at 0), an EEPROM dump (an ``eeprom``
   name ending ``.bin``; console keys), a guest RAM snapshot (``AZL3SNAP`` at
   0, Modkit's L3 snapshots; console keys) or a private key (a ``-----BEGIN
-  … PRIVATE KEY-----`` line in its first :data:`MAGIC_SPAN` bytes).
+  … PRIVATE KEY-----`` line in its first :data:`MAGIC_SPAN` bytes);
+- the files the console's keys are read from (``tools/saves/sign.py``): the
+  MCPX boot ROM and flash BIOS pair or a key file, by an Xbox BIOS or key
+  file name (``keys.bin``, ``bootrom.bin``, ``flashrom.bin``, ``mcpx*.bin``,
+  ``complex*.bin``, ``*bios*.bin``), and a file of at most 64 bytes holding
+  the retail certificate key (:data:`CERT_KEY_SHA256_12`, sign.py's
+  fingerprint).
 
 A gzip file (``1f 8b`` at 0) is refused for what it holds as well: each
 member on its own (:class:`_Inflated`: read to its end, past a bad CRC or
@@ -40,6 +46,7 @@ zstd, xz, bzip2) are checked as files.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 import re
@@ -62,6 +69,8 @@ XISO = b"MICROSOFT*XBOX*MEDIA"
 GZIP = b"\x1f\x8b"
 _ISO_NAME = re.compile(r"\.x?iso(\.\d+)?$")   # an image or a part of one (azurik.iso.007)
 _PRIVATE_KEY = re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\r?\n")
+_BIOS_NAME = re.compile(r"^(keys|bootrom|flashrom)\.bin$|^(mcpx|complex).*\.bin$|bios.*\.bin$")
+CERT_KEY_SHA256_12 = "0961021c45b7"   # sha256[:12] of the retail kernels' certificate key (sign.py's)
 
 
 def check_blob(rel: str, head: bytes) -> str | None:
@@ -80,6 +89,11 @@ def check_blob(rel: str, head: bytes) -> str | None:
         return "guest RAM snapshot (console keys) at 0"
     if key := _PRIVATE_KEY.search(head):
         return f"private key at {key.start():#x}" if key.start() else "private key at 0"
+    if _BIOS_NAME.search(name):
+        return "Xbox BIOS or key file (keys, bootrom, flashrom, mcpx*, complex*, *bios*.bin name)"
+    if len(head) <= 64 and any(hashlib.sha256(head[at:at + 16]).hexdigest()[:12] == CERT_KEY_SHA256_12
+                               for at in range(len(head) - 15)):
+        return "Xbox certificate key"
     return None
 
 

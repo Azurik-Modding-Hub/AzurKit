@@ -63,6 +63,7 @@ again, the run fails.
 - Recorded results are hashes (sha256) and lengths, by convention.
 - [`tests/_leak_guard.py`](../tests/_leak_guard.py)
   refuses an ISO image or a part of one, an xemu disk, an EEPROM dump, a
-  guest RAM snapshot or a private key, also inside a gzip, tar or zip file.
+  BIOS or key file, a guest RAM snapshot or a private key, also inside a
+  gzip, tar or zip file.
   It checks the checkout in the test suite and every push through its
   `pre-push` hook.

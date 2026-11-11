@@ -5,6 +5,7 @@ pushes; game files and game bytes may be committed."""
 from __future__ import annotations
 
 import gzip
+import hashlib
 import io
 import os
 import subprocess
@@ -17,6 +18,7 @@ import pytest
 
 import bootstrap
 from azurkit.core import iso
+from azurkit.tools.saves import sign
 from tests import _leak_guard
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -163,6 +165,24 @@ def test_a_key_past_a_files_start_and_a_whole_disc_images_descriptor_are_refused
     assert sorted(_leak_guard.DISCS) == list(_leak_guard.DISCS) == sorted(iso._PARTITIONS[1:])
     assert [_leak_guard._check("game.img", _Disc(base + 0x10000)) for base in _leak_guard.DISCS] == [
         f"XISO volume descriptor at {base + 0x10000:#x}" for base in _leak_guard.DISCS]
+
+
+def test_bios_and_key_files_are_refused_by_name_and_a_certificate_key_file_by_its_fingerprint(tmp_path, monkeypatch):
+    """The files sign.py reads the console's keys from: the MCPX boot ROM
+    and flash BIOS pair (xemu's names and the fixtures') and a key file, by
+    name; a file of at most 64 bytes holding the certificate key, under any
+    name, by sign.py's fingerprint (a stand-in key's here); a game's .bin
+    passes."""
+    assert _leak_guard.CERT_KEY_SHA256_12 == sign.CERT_KEY_SHA256_12
+    key = bytes(range(16))
+    monkeypatch.setattr(_leak_guard, "CERT_KEY_SHA256_12", hashlib.sha256(key).hexdigest()[:12])
+    why = "Xbox BIOS or key file (keys, bootrom, flashrom, mcpx*, complex*, *bios*.bin name)"
+    files = {**dict.fromkeys(("bootrom.bin", "mcpx_1.0.bin", "flashrom.bin", "Complex_4627v1.03.bin", "keys.bin",
+                              "xbox_bios.bin"), (bytes(512), why)),
+             "blob.dat": (bytes(16) + key, "Xbox certificate key"), "dsstdfx.bin": (bytes(32), None)}
+    for name, (data, _) in files.items():
+        (tmp_path / name).write_bytes(data)
+    assert {name: _leak_guard.check(tmp_path, name) for name in files} == {n: w for n, (_, w) in files.items()}
 
 
 def test_a_push_fails_on_a_refused_file_a_later_commit_deleted(tmp_path):

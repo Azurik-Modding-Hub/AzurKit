@@ -137,8 +137,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - `.gitignore` still ignores `*.xbe`, `*.xbr`, saves and extracted trees
     against accidental bloat: add a game file on purpose with `git add -f`.
 - Never commit the ISO/XISO image, whole or in parts that rebuild it, a
-  private key, an EEPROM dump, an xemu HDD (qcow2) image or a guest RAM
-  snapshot (`AZL3SNAP`): the last three can hold console keys.
+  private key, an EEPROM dump, the BIOS pair (the MCPX boot ROM and flash
+  image) or a key file, an xemu HDD (qcow2) image or a guest RAM snapshot
+  (`AZL3SNAP`): all but the first two can hold console keys.
   - `tests/_leak_guard.py` refuses them in the suite and on every push,
     also inside a gzip, tar or zip file. Its rules have no allow-list.
   - Never weaken them to get green.

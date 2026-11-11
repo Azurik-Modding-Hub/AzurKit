@@ -567,7 +567,7 @@ is `cert_key`, `title_key` and `signature_key` beside it, which
 
 - Code: [`src/azurkit/tools/saves/`](../src/azurkit/tools/saves/)
 - Tests: [`tests/test_saves.py`](../tests/test_saves.py),
-  on synthetic saves built in-test. The repo tracks no save (D59):
-  the leak guard ([`tests/_leak_guard.py`](../tests/_leak_guard.py))
-  refuses a `.sav` or `.xbx` file and a text-save or `SaveMeta.xbx`
-  header under any name.
+  on synthetic saves built in-test: the repo tracks no save (D59),
+  though one may be committed (D961). The leak guard
+  ([`tests/_leak_guard.py`](../tests/_leak_guard.py)) refuses the files
+  a signature key is read from: the BIOS pair and a key file.

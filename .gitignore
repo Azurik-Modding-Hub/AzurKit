@@ -11,7 +11,8 @@ build/
 # Game data: ignored against accidental bloat (bring your own copy of the game).
 # A game file may be committed on purpose with `git add -f` (D961); the leak
 # guard, tests/_leak_guard.py, refuses only an ISO image or a part of one, an
-# xemu disk, an EEPROM dump, a guest RAM snapshot and a private key.
+# xemu disk, an EEPROM dump, a BIOS or key file, a guest RAM snapshot and a
+# private key.
 /iso/
 *.iso
 *.xiso
@@ -21,6 +22,12 @@ build/
 *.xbx
 *.qcow2
 *eeprom*.bin
+keys.bin
+bootrom.bin
+flashrom.bin
+mcpx*.bin
+[Cc]omplex*.bin
+*bios*.bin
 gamedata/
 movies/
 !/devkit/movies/

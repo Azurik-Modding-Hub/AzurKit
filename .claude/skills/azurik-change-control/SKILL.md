@@ -166,8 +166,9 @@ suspect first; never widen an allow-list or re-record a golden to go green.
   literal, a disassembly listing) and our own clips; `.gitignore` keeps them out against bloat, `git
   add -f` adds one on purpose (D1136: assets may ship, never the whole image). Never print game bytes
   in logs, commits or chat: lengths and `sha256[:12]`.
-- **Never:** the ISO/XISO image, whole or in parts, an EEPROM dump, an xemu HDD (qcow2) image, a guest
-  RAM snapshot (`AZL3SNAP`), the deploy key or any private key.
+- **Never:** the ISO/XISO image, whole or in parts, an EEPROM dump, the BIOS pair (MCPX boot ROM and
+  flash image) or a key file, an xemu HDD (qcow2) image, a guest RAM snapshot (`AZL3SNAP`), the deploy
+  key or any private key.
 - **The leak guard** (`tests/_leak_guard.py`) refuses exactly those, in the suite, on every push (the
   `pre-push` hook `uv run bootstrap.py` writes) and in CI's `checks.yml`; `uv run --locked python -I
   tests/_leak_guard.py` scans the checkout (exit 1 names each file). Never weaken it.
