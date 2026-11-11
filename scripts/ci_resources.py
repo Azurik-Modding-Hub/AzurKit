@@ -521,6 +521,52 @@ def webkit_said(since: float, browsers: set[int] | None = None) -> list[str]:
                         + ", ".join(f"{call} {n} (the last at {at})" for call, (n, at) in calls.items())]
 
 
+ASKED = ('process == "tccd" AND (eventMessage CONTAINS "AUTHREQ_PROMPTING" OR eventMessage CONTAINS '
+         '"AUTHREQ_RESULT")')
+"""tccd's lines (macOS's log) on a privacy prompt (TCC): the request it put to the user (``AUTHREQ_PROMPTING``: its id,
+service and subject, the program it asks for) and each request's answer (``AUTHREQ_RESULT``). While one stands
+unanswered, a program of the same name asking about the same folder waits in its check until the user answers: another
+headless shell's prompt for the Documents folder stood 6 min 43 s on this Mac, and every test Chromium whose GPU
+process started inside it stopped answering at its page's engine start (Step 4.37o)."""
+BACK = 3600
+"""s before a stalled call began that :func:`privacy_asked` reads macOS's log back for a prompt asked then and standing
+still: an hour of tccd's lines in 2-4 s here, two in 11 s; one asked earlier goes unnamed."""
+PROMPTING = re.compile(r"^(\S+ \S+?)\.\d+ .*?AUTHREQ_PROMPTING: msgID=([\d.]+), service=(\w+), subject=Sub:\{([^}]*)\}",
+                       re.M)
+"""A prompt tccd put to the user, in its line (``--style compact``): its time, id, service and subject."""
+RESULT = re.compile(r"^(\S+ \S+?)\.\d+ .*?AUTHREQ_RESULT: msgID=([\d.]+),", re.M)
+"""A request's answer, in its line: its time and id."""
+SUBJECT = 80
+"""Characters of a prompt's subject :func:`privacy_asked` names at most, its end (the program's name) kept."""
+
+
+def privacy_asked(since: float, timeout: float = SAY_S) -> list[str]:
+    """Each privacy prompt (TCC) macOS put to the user that stood at some time since ``since`` (seconds since the
+    epoch): asked after ``since`` or in the :data:`BACK` s before it, with no answer before ``since`` (:data:`ASKED`),
+    one line each: its id and service, its answer's time or that none came yet, when it was asked and how long ago,
+    and its subject (the home folder as ``~``, cut to :data:`SUBJECT`); the log read in ``timeout`` s."""
+    try:
+        out = subprocess.run(["log", "show", "--style", "compact", "--start",
+                              time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since - BACK)), "--predicate", ASKED],
+                             capture_output=True, text=True, errors="replace", timeout=timeout).stdout
+    except (OSError, subprocess.SubprocessError) as e:
+        return [f"macOS's privacy prompts: its log unread ({type(e).__name__})"]
+
+    def at(stamp: str) -> float:
+        return time.mktime(time.strptime(stamp, "%Y-%m-%d %H:%M:%S"))
+    answers = {msg: stamp for stamp, msg in reversed(RESULT.findall(out))}   # each request's first answer
+    said, now, home = [], time.time(), f"{Path.home()}/"   # the log's paths are POSIX
+    for stamp, msg, service, subject in PROMPTING.findall(out):
+        if (answered := answers.get(msg)) is not None and at(answered) < since:
+            continue
+        subject = f"~/{subject[len(home):]}" if subject.startswith(home) else subject
+        subject = subject if len(subject) <= SUBJECT else f"…{subject[-SUBJECT:]}"
+        said.append(f"macOS's privacy prompt {msg} for {service}: "
+                    + (f"answered at {answered[11:]}" if answered else "no answer yet")
+                    + f", asked at {stamp[11:]} ({now - at(stamp):.0f} s ago) for {subject}")
+    return said
+
+
 GPU_PROCESS = "WebKit.GPU"
 """In the name of WebKit's GPU process (Playwright's macOS build: ``com.apple.WebKit.GPU.Development``), which draws its
 pages' layers, canvases and media for their page processes."""

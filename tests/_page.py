@@ -51,7 +51,10 @@ runner WebKit ended a live page's process at its network process's request (``re
 42198913490) and told Playwright nothing, so the read-back's evaluate waited out its :data:`STALL` and its state went
 unread, naming nothing. A call answered in that time reads no log."""
 LOG = sys.platform == "darwin"
-"""Whether WebKit's log can be read (macOS's ``log``: ``scripts/ci_resources.py``'s ``webkit_said``)."""
+"""Whether WebKit's log and macOS's privacy prompts can be read (macOS's ``log``: ``scripts/ci_resources.py``'s
+``webkit_said`` and ``privacy_asked``)."""
+ASKED = 10
+"""s a stalled call's read of macOS's privacy prompts may take (:func:`stalled`): its hour of the log in 2-4 s here."""
 CLOSED = 2
 """s a worker whose evaluate failed may stay in ``page.workers`` before Playwright hears its close (:func:`checks`):
 Firefox fails an evaluate in flight as the worker's thread closes (Juggler's worker debugger ``onClose`` ends the
@@ -380,20 +383,33 @@ def _firefox_said(context) -> list[str]:
     return said or ["Firefox's log: none"]
 
 
+def _asked(since: float) -> list[str]:
+    """Each privacy prompt macOS put to the user that stood since ``since`` (seconds since the epoch), a line each
+    (``scripts/ci_resources.py``'s ``privacy_asked``, read in :data:`ASKED` s), on macOS (:data:`LOG`); none
+    elsewhere."""
+    if not LOG:
+        return []
+    from scripts import ci_resources
+    return ci_resources.privacy_asked(since, ASKED)
+
+
 def stalled(owner, what: str, seconds: float, ended: tuple[str, ...] = ()) -> str:
     """What a call to ``owner`` (a page or a context) that went unanswered ``seconds`` s says: ``what`` it was, WebKit's
     log's lines on a page of its browser whose process it ended (``ended``, :func:`_ended`, :data:`SAID`), each
-    on a line of its own, the page's state (:func:`hang`), whether its browser still answers a call of its own (its
-    cookies, in :data:`PROBE` s) and the processes under its driver. A browser that answers nothing either has stopped:
-    its Playwright connection is closed naming ``what``, so every later call to it fails at once by name, its module's
-    next tests too, never a silent wait (D1072). A Firefox that logs (Windows' CI) adds the end of its newest log files
-    after the state (:func:`_firefox_said`)."""
+    on a line of its own, the page's state (:func:`hang`), on macOS each privacy prompt that stood since the call
+    began, a line each (:func:`_asked`: while one for another headless shell stood, every test Chromium's GPU process
+    started inside it waited on it, and its pages with it, Step 4.37o), whether its browser still answers a call of its
+    own (its cookies, in :data:`PROBE` s) and the processes under its driver. A browser that answers nothing either has
+    stopped: its Playwright connection is closed naming ``what``, so every later call to it fails at once by name, its
+    module's next tests too, never a silent wait (D1072). A Firefox that logs (Windows' CI) adds the end of its newest
+    log files after the state and the prompts (:func:`_firefox_said`)."""
     page = owner if hasattr(owner, "main_frame") else None
-    context = page.context if page else owner
+    context, since = page.context if page else owner, time.time() - seconds
     said = [f"no answer in {seconds:.0f} s: {_short(what)}"]
     if ended:
         said += [SAID, *(f"  {line}" for line in ended)]
     said += [hang(page)] if page else []
+    said += _asked(since)
     said += _firefox_said(context)
     try:
         _heard(context, context._impl_obj.cookies(), PROBE)

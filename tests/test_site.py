@@ -2310,6 +2310,7 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
         asked.append(argv[argv.index("--start") + 1]), types.SimpleNamespace(stdout=log))[1])
     monkeypatch.setattr(ci_resources, "table", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20),
                                                                   (ui, driver, 90, "Playwright", "", 1 << 20)])
+    monkeypatch.setattr(ci_resources, "privacy_asked", lambda since, timeout: [])   # no prompt: its own test's
     for name, value in (("LOG", True), ("LOOK", 1), ("HEAR", 1)):
         monkeypatch.setattr(_page, name, value)
 
@@ -2394,6 +2395,7 @@ def test_a_stalled_firefox_load_names_what_firefox_logged(monkeypatch, tmp_path)
         (folder / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
         os.utime(folder / name, (time.time() - 60 * age,) * 2)
     monkeypatch.setattr(ci_resources, "table", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20)])
+    monkeypatch.setattr(ci_resources, "privacy_asked", lambda since, timeout: [])   # no prompt: its own test's
     for name, value in (("ACT", 1), ("HEAR", 1)):
         monkeypatch.setattr(_page, name, value)
     shown = []
@@ -2412,6 +2414,57 @@ def test_a_stalled_firefox_load_names_what_firefox_logged(monkeypatch, tmp_path)
     assert said[22] == f"| {logged[f'{file.name}.child-1.moz_log'][0][:_page.WIDTH - 3]}…", said
     assert shown[0][0] == "no answer in 1 s: the page's load of http://127.0.0.1:9/" and shown[0][-1] == (
         "its requests unanswered: none") and not any("Firefox" in line for line in shown[1]), shown
+
+
+def test_a_stall_names_a_privacy_prompt_pending_since_its_call_began(monkeypatch):
+    """Step 4.37p (4.37o): on macOS a stalled call names each privacy prompt (TCC) macOS put to the user that stood
+    since the call began, a line each after the page's state: its id and service, its answer's time or that none came
+    yet, when it was asked and how long ago, and the program it asks for (the home folder as ``~``, the path's end kept
+    past ``ci_resources.SUBJECT``), read from tccd's lines in macOS's log from ``ci_resources.BACK`` s before the call
+    began. A prompt answered before the call began is left out. While another headless shell's prompt for the Documents
+    folder stood on this Mac, six test Chromiums' pages stopped answering at their engine's start and their failures
+    named nothing of it; the box's load (25.8) looked a cause and wasn't, so no line names the load. A stand-in page
+    that never answers, the log a stand-in's."""
+    from scripts import ci_resources
+    driver, home, now = os.getpid(), Path.home(), time.time()
+
+    def stamp(ago: float) -> str:
+        return time.strftime("%Y-%m-%d %H:%M:%S.123", time.localtime(now - ago))
+    shell = f"Sub:{{{home}/work/chrome/chrome-headless-shell}}Resp:{{TCCDProcess: identifier=headless_shell}}"
+    long = "/opt/" + "x" * 100 + "/helper"
+    rows = ((400, "PROMPTING: msgID=400.1, service=kTCCServiceSystemPolicyDocumentsFolder, subject=" + shell),
+            (300, "PROMPTING: msgID=400.2, service=kTCCServiceCamera, subject=Sub:{/Applications/A.app}Resp:{}"),
+            (290, "RESULT: msgID=400.2, authValue=2, authReason=2, authVersion=1,"),   # answered before the call
+            (200, "PROMPTING: msgID=400.3, service=kTCCServiceSystemPolicyDownloadsFolder, subject=Sub:{"
+                  + long + "}Resp:{}"),
+            (30, "RESULT: msgID=400.3, authValue=0, authReason=2, authVersion=1,"),   # answered since the call began
+            (20, "RESULT: msgID=400.3, authValue=2, authReason=2, authVersion=1,"))
+    log = "".join(f"{stamp(ago)} Df tccd[913:a2ef77] [com.apple.TCC:access] AUTHREQ_{what}\n" for ago, what in rows)
+    asked = []
+    monkeypatch.setattr(ci_resources.subprocess, "run", lambda argv, **_: (asked.append(argv),
+                                                                           types.SimpleNamespace(stdout=log))[1])
+    said = ci_resources.privacy_asked(now - 60, 5)
+    assert [argv[argv.index("--start") + 1] for argv in asked] == [
+        time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now - 60 - ci_resources.BACK))] and asked[0][-1] == (
+        ci_resources.ASKED)
+    assert [re.sub(r"\(\d+ s ago\)", "(…)", line) for line in said] == [
+        f"macOS's privacy prompt 400.1 for kTCCServiceSystemPolicyDocumentsFolder: no answer yet, asked at "
+        f"{stamp(400)[11:19]} (…) for ~/work/chrome/chrome-headless-shell",
+        f"macOS's privacy prompt 400.3 for kTCCServiceSystemPolicyDownloadsFolder: answered at {stamp(30)[11:19]}, "
+        f"asked at {stamp(200)[11:19]} (…) for …{long[-ci_resources.SUBJECT:]}"], said
+    assert [int(re.search(r"\((\d+) s ago\)", line)[1]) // 10 for line in said] == [40, 20], said
+    monkeypatch.setattr(ci_resources, "table", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20)])
+    for name, value in (("LOG", True), ("HEAR", 1)):
+        monkeypatch.setattr(_page, name, value)
+    page = _stand_in("chromium", driver)
+    page._impl_obj.evaluate = lambda *_: asyncio.sleep(600)   # never answered
+    with pytest.raises(AssertionError) as stall:
+        _page.answer(page, "() => azurkit.ready", seconds=1)
+    lines = str(stall.value).splitlines()
+    standing = next(i for i, line in enumerate(lines) if line.startswith("macOS's privacy prompt 400.1 "))
+    assert lines[0] == "no answer in 1 s: () => azurkit.ready" and lines[1] == "state: unread (no answer in 1 s)"
+    assert lines[standing + 1:] == ["its browser still answers", f"under its driver: node {driver} (100 s)"], lines
+    assert not any(re.search(r"\bload\b", line) for line in lines), lines
 
 
 def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_state(browser):
@@ -2575,6 +2628,7 @@ def test_each_firefox_a_test_launches_takes_no_proxy_under_its_own_prefs():
     assert prefs("firefox") == conftest.DIRECT == {"network.proxy.type": 0}
     assert prefs("firefox", "launch_persistent_context", "profile", firefoxUserPrefs=own) == conftest.DIRECT | own
     assert [prefs("chromium"), prefs("webkit", firefoxUserPrefs=own)] == [None, own]
+
 
 
 HELD = """const made = [];
