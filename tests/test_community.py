@@ -450,6 +450,55 @@ def test_the_pages_content_list_offers_no_update_below_the_version_installed(tmp
     assert json.loads(done.stdout) == [[["a", "installed", 2], ["b", "update", 2]], ["/content/manifest.json"]]
 
 
+STALLED = r"""
+const { content } = await import(process.argv[2]);
+const enc = (text) => new TextEncoder().encode(text);
+const list = JSON.stringify({ format: "azurik-custom-content", schema_version: 1, entries: [
+  { id: "s", kind: "pack", title: "s", version: 1, requires: [], files: [{ path: "packs/s/pack.json", size: 2,
+                                                                          sha256: "s@1" }] }] });
+let stall = true;
+const asked = [], store = new Map();
+const kept = { get: async (key) => store.get(key), put: async (kv) => kv.forEach(([k, v]) => store.set(k, v)) };
+const fetch = (url, options) => {   // the file's reply never comes while it stalls: only its signal ends the wait
+  const path = new URL(url).pathname;
+  asked.push(path);
+  if (path.endsWith("manifest.json")) return Promise.resolve({ ok: true, status: 200, text: async () => list });
+  if (stall) return new Promise((_, no) => options.signal.addEventListener("abort", () => no(options.signal.reason)));
+  return Promise.resolve({ ok: true, status: 200, headers: { get: () => null }, arrayBuffer: async () => enc("ss") });
+};
+const seconds = [];
+const c = content({ call: async (_, given) => ({ manifest: JSON.parse(given.manifest) }), app: false,
+                    fallback: "content/", kept, fetch, storage: { getItem: () => null },
+                    location: { href: "http://site.test/", origin: "http://site.test" },
+                    timeout: (s) => (seconds.push(s), AbortSignal.timeout(5)) });
+await c.read();
+const out = {}, alive = setInterval(() => {}, 1000);   // Node's AbortSignal.timeout holds no loop open
+try { await c.install(c.state.manifest.entries[0]); } catch (error) { out.stalled = error.message; }
+clearInterval(alive);
+out.after = [c.state.installing, store.has("files"), [...seconds]];
+stall = false;
+await c.install(c.state.manifest.entries[0]);
+out.again = [new TextDecoder().decode(store.get("files")["packs/s/pack.json"]), c.state.entries[0].state, asked.length];
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.mark.web
+def test_the_pages_content_install_whose_file_never_answers_ends_in_its_time_and_frees_install(tmp_path):
+    """web/content.mjs on Node: an Install whose file's reply never comes
+    (a half-open connection, a proxy that stalls) ends once its time is up
+    (a minute and a second each 50,000 bytes of its listed size, as the
+    worker's part fetch), naming the file, with nothing kept and Install
+    free, so the next Install fetches and keeps it (Step 4.42c)."""
+    driver = tmp_path / "stalled.mjs"
+    driver.write_text(STALLED, encoding="utf-8")
+    done = subprocess.run(["node", str(driver), (ROOT / "web" / "content.mjs").as_uri()], capture_output=True,
+                          text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert json.loads(done.stdout) == {"stalled": "packs/s/pack.json: no answer in 60 s",
+                                       "after": [None, False, [60, 60]], "again": ["ss", "installed", 3]}
+
+
 OVERTAKEN = r"""
 const { content } = await import(process.argv[2]);
 const [GH, MINE] = process.argv.slice(3);

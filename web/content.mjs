@@ -15,6 +15,9 @@
 export const SOURCE = "azurkit.content_source";   // the site's remembered source (localStorage)
 export const MAX_ENTRY = 256 * 1024 * 1024;        // the most bytes one Install fetches (the engine's entry cap)
 const UNREACHED = "no answer: offline, or it doesn't let other sites read it";   // a fetch that rejects (CORS too)
+// The seconds a fetch may take (the list's, an Install's file's), plus a second each RATE bytes of a file's listed size
+// (the worker's PART_WAIT and PART_RATE): one stalled reply ends there, named, and frees Install for the next.
+const WAIT = 60, RATE = 50_000;
 
 // where(source, here): the address the site reads source at, or a refusal naming it (plain: said as it is). The page's
 // CSP (connect-src 'self' https:) lets it read any https address and its own (relative, or plain http when the site is
@@ -126,12 +129,13 @@ async function capped(reply, path, size) {
   return data;
 }
 
-// content({call, app, host, handoff, fallback, kept, fetch, storage, location}): call is the engine's (the site's
-// worker, the app's api); host the app's (its content_source); handoff(files, installed) gives the site's engine what
-// this browser keeps; fallback the source with no setting (Azurik-Custom-Content's, from the catalog). kept, fetch,
-// storage and location are the browser's unless given.
+// content({call, app, host, handoff, fallback, kept, fetch, storage, location, timeout}): call is the engine's (the
+// site's worker, the app's api); host the app's (its content_source); handoff(files, installed) gives the site's engine
+// what this browser keeps; fallback the source with no setting (Azurik-Custom-Content's, from the catalog). kept,
+// fetch, storage, location and timeout (seconds -> the AbortSignal a fetch ends on) are the browser's unless given.
 export function content({ call, app, host = {}, handoff = () => {}, fallback, kept, fetch: get, storage,
-                          location: here = globalThis.location }) {
+                          location: here = globalThis.location,
+                          timeout = (seconds) => globalThis.AbortSignal?.timeout?.(seconds * 1000) }) {
   const base = fallback ?? host.catalog?.characters?.source ?? "";
   kept ??= app ? null : keeper();
   get ??= (...args) => globalThis.fetch(...args);
@@ -179,7 +183,8 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
     }
     s.why = null;
     try {
-      const reply = await get(new URL("manifest.json", where(s.source, here)), { cache: "no-store" })
+      const reply = await get(new URL("manifest.json", where(s.source, here)),
+                              { cache: "no-store", signal: timeout(WAIT) })
         .catch(() => { throw new Error(UNREACHED); });
       if (!reply.ok) throw new Error(`HTTP ${reply.status}${reply.status === 404 ? ": no manifest.json there" : ""}`);
       const text = await reply.text();
@@ -229,10 +234,12 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
       const fetched = {}, from = where(s.source, here);
       progress(0, wanted.length);
       for (const [k, f] of wanted.entries()) {
-        const reply = await get(new URL(f.path, from), { cache: "no-store" })
-          .catch(() => { throw new Error(`${f.path}: ${UNREACHED}`); });
+        const seconds = WAIT + Math.floor(f.size / RATE), signal = timeout(seconds);
+        const late = (error) => signal?.aborted ? new Error(`${f.path}: no answer in ${seconds} s`) : error;
+        const reply = await get(new URL(f.path, from), { cache: "no-store", signal })
+          .catch(() => { throw late(new Error(`${f.path}: ${UNREACHED}`)); });
         if (!reply.ok) throw new Error(`${f.path}: HTTP ${reply.status}`);
-        fetched[f.path] = await capped(reply, f.path, f.size);
+        fetched[f.path] = await capped(reply, f.path, f.size).catch((error) => { throw late(error); });
         progress(k + 1, wanted.length);
       }
       const held = Object.fromEntries(need.filter((id) => !todo.includes(id)).flatMap((id) => ids.get(id).files
