@@ -25,7 +25,8 @@ the same answer, and a key that misses an input only misses.
   (``core.host``, :class:`Low`) and, past a seed's fill (which another
   call may be waiting on), waits at its records while a click or another
   call is in flight in this process (:meth:`Ahead.turn`: they share its
-  GIL).
+  GIL); within the fill, the engine brings it up to normal priority at its
+  records while a call the player waits on is in flight there.
 - **The click** (:meth:`Ahead.take`: Build, Track, the tracker's first
   view) takes a job of its key, running (its records followed from the
   last, at normal priority) or done; else it runs its own, in the slot.

@@ -92,17 +92,20 @@ class _Built:
 
     def __init__(self, made, report: dict):
         self.made, self.report = made, report
-        self.done, self.sha, self.stopped = 0, None, False
+        self.done, self.sha, self.stopped, self.wanted = 0, None, False, False
         self.ended = threading.Event()
-        threading.Thread(target=self._hash, args=(procpool.inherit(),), name="azurkit-hash-build", daemon=True).start()
+        threading.Thread(target=self._hash, args=(procpool.lowered(),), name="azurkit-hash-build", daemon=True).start()
 
-    def _hash(self, lower: Callable[[], object]) -> None:
-        lower()   # as low as the job that built it, if it is
+    def _hash(self, was: bool) -> None:
+        low = procpool.Low()
+        low(was)   # as low as the job that built it, if it is (a thread starts at normal priority)
 
         def tick(done: int, total: int) -> None:
             self.done = done
             if self.stopped:
                 raise Cancelled
+            if self.wanted:   # a Save waits on it: normal priority from here
+                low(False)
         try:
             self.sha = iso.digest(self.made, tick)
         except BaseException:   # stopped, or an image that can't be read now: the Save hashes as it writes
@@ -119,8 +122,10 @@ class _Built:
         return (at.st_size, at.st_mtime_ns, at.st_ctime_ns) == getattr(self.made, "origin", None)
 
     def sha256(self, progress: Callable[[dict], object]) -> str:
-        """``iso.pack``'s ``sha256=``: the hash, once its thread ends, its
-        progress the save's meanwhile (whose cancel stops the wait)."""
+        """``iso.pack``'s ``sha256=``: the hash, once its thread ends (up to
+        normal priority from its next tick, if it ran low), its progress the
+        save's meanwhile (whose cancel stops the wait)."""
+        self.wanted = True
         while not self.ended.wait(0.1):
             progress(record("write", "Hashing the saved image", self.done, self.made.size))
         if self.sha is not None:
@@ -678,12 +683,14 @@ def _main(conn, stores: bool = False) -> None:
 
         def progress(step: dict) -> None:
             send("progress", ident, step)
-            if fore is not None and not (isinstance(step, dict) and step.get("stage") in ahead.KEEPS):
+            keep = isinstance(step, dict) and step.get("stage") in ahead.KEEPS
+            if fore is not None and not keep:
                 while not fore.is_set() and not stop.is_set() and waited(ident):   # never within a fill
                     stop.wait(0.05)
             if stop.is_set():
                 raise Cancelled
-            low(fore is not None and not fore.is_set())
+            # a fill runs on while the player waits (a Build of its seed waits on it): at normal priority meanwhile
+            low(fore is not None and not fore.is_set() and not (keep and waited(ident)))
         try:
             with _following(progress if follows else None) as report:
                 value = JOBS[job](*args, **({"progress": report} if follows else {}))

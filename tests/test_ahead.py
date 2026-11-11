@@ -379,6 +379,96 @@ def _is_low(here: int | None = None, item: int = 0) -> bool:   # a pool child's 
     return low(read())
 
 
+def test_a_fill_or_a_builds_hash_a_player_waits_on_comes_up_to_normal_priority(monkeypatch):
+    """Work ahead runs low, but what a call the player waits on waits on comes up (audit pass 2's C2: a priority
+    inversion): a seed's fill ahead (its records of a stage ``ahead.KEEPS`` names, which never wait) at its next
+    record while such a call is in flight in the engine (a Build of that seed waits on it), and a build's hash,
+    started low by a build ahead, at its next tick once a Save waits on it."""
+    import collections
+    import multiprocessing
+
+    from azurkit.app import engine, procpool
+    from azurkit.core import native
+    from azurkit.tools.randomizer.planner import fill
+
+    calls = []
+    monkeypatch.setattr(native, "CALLS", collections.Counter())   # none an earlier test left: no count before an answer
+    monkeypatch.setattr(host, "background", lambda process=False: calls.append(("low", threading.current_thread()))
+                        or 7)
+    monkeypatch.setattr(host, "foreground", lambda was, process=False: calls.append(
+        ("normal", threading.current_thread())) or True)
+    monkeypatch.setattr(engine, "orphaned", lambda: None)   # the loop on a thread of this process, not its own
+    monkeypatch.setattr(procpool, "install", lambda: None)
+    for name in ("WIDTH", "BESIDE"):   # the engine's, put back after
+        monkeypatch.setattr(fill, name, getattr(fill, name))
+    noted, go, started, release, threads = threading.Event(), threading.Event(), threading.Event(), threading.Event(), []
+
+    def plan(recipe, progress) -> dict:   # a seed's fill ahead, two records of its stage
+        threads.append(threading.current_thread())
+        progress(record("plan", "Placing the items", 1, 2))
+        noted.set()
+        assert go.wait(10)
+        progress(record("plan", "Placing the items", 2, 2))
+        noted.set()
+        assert release.wait(10)
+        return {}
+
+    def image(recipe) -> dict:   # the player's Build, waiting on that fill
+        started.set()
+        assert release.wait(10)
+        return {}
+    monkeypatch.setitem(engine.JOBS, "plan", plan)
+    monkeypatch.setitem(engine.JOBS, "image", image)
+    here, there = multiprocessing.Pipe()
+    loop = threading.Thread(target=engine._main, args=(there,), daemon=True)
+    loop.start()
+    try:
+        here.send(("call", 1, "plan", ({"seed": "2"},), True, False))   # ahead: no click follows it
+        assert noted.wait(10)
+        alone = list(calls)
+        noted.clear()
+        here.send(("call", 2, "image", ({"seed": "2"},), False, None))
+        assert started.wait(10)
+        go.set()
+        assert noted.wait(10)
+        waited = list(calls)
+    finally:
+        release.set()
+        heard = [here.recv()[:2] for _ in range(4)]   # each record and answer, so the loop never blocks on its pipe
+        here.close()
+        loop.join(10)
+    assert (alone, waited) == ([("low", threads[0])], [("low", threads[0]), ("normal", threads[0])])
+    assert sorted(heard) == [("done", 1), ("done", 2), ("progress", 1), ("progress", 1)]
+
+    calls.clear()
+    hashing, hashed, built = threading.Event(), threading.Event(), []
+
+    def digest(made, tick) -> str:   # the build's hash: ticks until the test lets it end
+        while not hashed.is_set():
+            tick(1, 2)
+            hashing.set()
+            time.sleep(0.01)
+        return "ab" * 32
+    monkeypatch.setattr(engine.iso, "digest", digest)
+
+    def ahead_build() -> None:   # a build ahead, low, keeps its image
+        procpool.Low()(True)
+        built.append(engine._Built(types.SimpleNamespace(size=2), {}))
+    thread = threading.Thread(target=ahead_build)
+    thread.start()
+    thread.join(10)
+    assert hashing.wait(10)
+    saving = threading.Thread(target=lambda: built.append(built[0].sha256(lambda step: None)))
+    saving.start()
+    try:
+        _until(lambda: any(how == "normal" and at.name == "azurkit-hash-build" for how, at in calls))
+    finally:
+        hashed.set()
+        saving.join(10)
+    assert [(how, at.name) for how, at in calls if at is not thread] == [
+        ("low", "azurkit-hash-build"), ("normal", "azurkit-hash-build")] and built[1] == "ab" * 32
+
+
 def test_a_low_jobs_pool_parts_and_the_threads_it_starts_run_low_and_a_normal_calls_parts_dont(monkeypatch, tmp_path):
     """What a job ahead no click follows starts runs at its priority (review
     D3 of Step 4.3r4g: D1007's every core at low priority held its own

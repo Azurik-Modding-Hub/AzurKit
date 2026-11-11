@@ -2047,7 +2047,9 @@ are the Characters section's.
   image's stamp, the content's
   `installed.json` and the version, at the page's change number, at background
   priority (with its pool parts, the threads it starts and `sdk.py`'s hash pools)
-  and waiting at its records behind a call the player waits on; a
+  and waiting at its records behind a call the player waits on, but for a
+  seed's fill, which such a call may wait on: that comes up to normal priority
+  at its records meanwhile, as a build's hash does once a Save waits on it; a
   change, or a preview or G4 match beside a build ahead (no dress runs beside
   its GiBs: D1017), stops it at its next record, Build, Track and the tracker's first ask
   take it (a repeated Build of one recipe too), and Cancel answers at once,
