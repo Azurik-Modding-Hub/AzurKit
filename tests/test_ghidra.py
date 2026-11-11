@@ -1196,16 +1196,24 @@ def test_bootstrap_with_re_installs_each_verified_tool_binds_ghidra_to_loopback_
         bootstrap.install_re(root, allow_scripts=False)
 
 
-def test_the_pins_workflow_hashes_again_only_the_tools_toml_assets_a_pull_request_alters_and_fails_a_wrong_hash(
+def test_the_pins_workflow_hashes_again_the_tools_toml_assets_a_push_or_pull_request_alters_and_fails_a_wrong_hash(
         tmp_path, monkeypatch, capsys):
     """Modkit's pins workflow (Step 4.24c): ``.github/workflows/pins.yml``
-    runs only on a pull request that changes ``devkit/re/tools.toml`` or
-    ``bootstrap.py``, and runs ``bootstrap.py --verify-pins`` against the
-    base commit's tools.toml with no project synced; that downloads only the
-    assets the change adds or alters (an unchanged one isn't fetched) and
-    names each whose sha256 isn't the download's, exit 1."""
+    runs on a push to main or a lane branch (Step 4.46a: AzurKit lands by
+    push and opens no pull request, so it never ran) and on a pull request
+    that changes ``devkit/re/tools.toml`` or ``bootstrap.py``, a push's run
+    never cancelled, and runs ``bootstrap.py --verify-pins`` against the
+    push's previous commit's tools.toml (a new branch's merge base with
+    main) or the pull request's base's, with no project synced; that
+    downloads only the assets the change adds or alters (an unchanged one
+    isn't fetched) and names each whose sha256 isn't the download's,
+    exit 1."""
     pins = (ROOT / ".github" / "workflows" / "pins.yml").read_text(encoding="utf-8")
-    assert re.search(r"(?m)^on:\n  pull_request:\n    paths: \[devkit/re/tools.toml, bootstrap.py\]\n\n", pins)
+    paths = "    paths: [devkit/re/tools.toml, bootstrap.py]\n"
+    assert f"on:\n  push:\n    branches: [main, 'p2/**']\n{paths}  pull_request:\n{paths}\n" in pins
+    assert "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n" in pins
+    assert "BASE: ${{ github.event.pull_request.base.sha || github.event.before }}\n" in pins
+    assert 'if [ -z "${BASE//0/}" ]; then BASE="$(git merge-base origin/main HEAD || true)"; fi' in pins
     assert ('uv run --no-project --python 3.14 python -I bootstrap.py --verify-pins "$RUNNER_TEMP/base-tools.toml"'
             in pins)
     src, root = fake_re_checkout(tmp_path)

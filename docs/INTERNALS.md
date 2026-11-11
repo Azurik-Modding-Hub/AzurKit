@@ -2402,10 +2402,12 @@ are the Characters section's.
   --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four
   apps (`scripts/freeze.py --check`, which refuses one whose compiled library
   doesn't load) on a push to `main`, each a 14-day workflow
-  artifact with its sha256. `pins.yml` (Step 4.24c) runs only on a pull
-  request that changes `devkit/re/tools.toml` or `bootstrap.py`: each
-  tools.toml asset the change adds or alters is downloaded again and hashed
-  (`bootstrap.py --verify-pins`, stdlib only). `.github/dependabot.yml`
+  artifact with its sha256. `pins.yml` (Step 4.24c) runs on a push to
+  `main` or a lane branch (Step 4.46a; never cancelled) and a pull request
+  that changes `devkit/re/tools.toml` or `bootstrap.py`: each tools.toml
+  asset the change adds or alters against the push's previous commit (a new
+  branch's merge base with `main`) or the pull request's base is downloaded
+  again and hashed (`bootstrap.py --verify-pins`, stdlib only). `.github/dependabot.yml`
   asks weekly for a newer release of each action pinned by commit sha and
   opens a pull request once that release is a week old. `release.yml` (Step 4.3r4j; D885) starts only
   on a `v*` tag and on a release's publishing: a tag whose name is
