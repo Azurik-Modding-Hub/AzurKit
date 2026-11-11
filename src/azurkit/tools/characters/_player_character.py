@@ -8912,7 +8912,9 @@ def _body_keys(current: bytes, stored: bytes, body: str, variant, folder, parent
     ``==``, since 0.0 == -0.0 and a zero's sign reaches the bytes (as
     ``mesh_edit._ray``'s memo refuses), both files by their sha256 and the
     glTFs it reads in ``folder`` by their bytes, never the name or the
-    folder; ``parent``: the recipe whose jiggle places it takes
+    folder (a jiggle's real-time springs only as there: their numbers are
+    X41's table's alone, so a Jiggle-tab edit takes every part, Step
+    4.37m1); ``parent``: the recipe whose jiggle places it takes
     (:func:`_parent_places`), its specs standing for those places, a shipped
     row's or worked out alike (Step 4.6r: the row is a fresh dress's, the
     goldens' pin holds it so, and the recorder dresses fresh, so a Check that
@@ -8925,8 +8927,8 @@ def _body_keys(current: bytes, stored: bytes, body: str, variant, folder, parent
              if getattr(spec, "gltf", None) is not None]
     mesh = parts.key("W24", staged, held, body, repr(variant.mesh), variant.jiggle is not None,
                      parts.stamps(folder, files))
-    rig = parts.key("W29", mesh, repr(variant.jiggle),
-                    repr((parent.mesh, parent.jiggle)) if parent is not None else None)
+    rig = parts.key("W29", mesh, repr(jiggles.unsprung(variant.jiggle)),   # a spring's numbers are X41's alone
+                    repr((parent.mesh, jiggles.unsprung(parent.jiggle))) if parent is not None else None)
     return mesh, rig, parts.key("W30", rig, repr((variant.textures, variant.texture_scale)))
 
 
@@ -8964,6 +8966,20 @@ def _held_places(current: bytes, stored: bytes, body: str, parent, folder) -> di
     plain = SimpleNamespace(mesh=parent.mesh, jiggle=parent.jiggle, textures=(), texture_scale=1)
     held = parts.get(_body_keys(current, stored, body, plain, folder)[1], "W29 places")
     return None if held is None else {pl.bone.role: (pl.origin, pl.sides) for pl in parts.load(held[1]).bones}
+
+
+def _rig_of(part: tuple, spec) -> "jiggles.Rigged | None":
+    """The rig W29's ``part`` holds, its bones ``spec``'s own (its key reads a
+    spring only as there, :func:`_body_keys`), once the refusals the spec
+    alone decides pass as they would in :func:`~azurkit.tools.characters.jiggle.rig`
+    (Step 4.37m1: a refusal is never kept)."""
+    from azurkit.tools.characters import parts
+
+    rigged = parts.load(part[1])
+    if rigged is None:
+        return None
+    jiggles.check_clear(spec)
+    return jiggles.rebound(rigged, spec)
 
 
 def _variant_body(current: bytes, stored: bytes, body: str, variant
@@ -9005,7 +9021,7 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
             _progress.note("the springs")
         if paint_[2]:
             _progress.note("the paint")
-        return parts.undelta(current, paint_[0]), reshaped, parts.load(rig[1]), list(paint_[1]), keys[2]
+        return parts.undelta(current, paint_[0]), reshaped, _rig_of(rig, variant.jiggle), list(paint_[1]), keys[2]
     assembled = rigged = placing = None
     if parent is not None and at is None and rig is None:
         at = _held_places(current, stored, body, parent, folder)
@@ -9047,7 +9063,7 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     if specs or (reshaped is not None and reshaped.repaint):   # W30's bakes, in children while W29 rigs
         baking = pool.later(paint.bakes, stored, body, reshaped, specs)
     if rig is not None:
-        rigged, edited = parts.load(rig[1]), bytearray(parts.undelta(current, rig[0]))
+        rigged, edited = _rig_of(rig, variant.jiggle), bytearray(parts.undelta(current, rig[0]))
     elif variant.jiggle is not None:   # W29: the jiggle bones, before any reader
         rigged = jiggles.rig(edited, stored, body, variant.jiggle, variant.mesh, folder, asset=assembled, at=at,
                              late=reshaped.late if reshaped is not None else None)

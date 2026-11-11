@@ -288,6 +288,47 @@ class Rigged:
     clip_clears: tuple[tuple[str, Collider], ...] = ()
 
 
+def unsprung(spec: Spec | None) -> Spec | None:
+    """``spec`` with each real-time ``spring`` (X41's, Step 2.156) only
+    there, its numbers gone: what a dress's parts read of it (Step 4.37m1,
+    the Check's B2). The numbers reach only X41's table in default.xbe
+    (``jiggle_rt.rows``) and :func:`rig` reads a spring only for whether a
+    bone has one, so a Jiggle-tab edit takes every part a Check kept."""
+    if not isinstance(spec, Spec):   # none (or a test's stand-in)
+        return spec
+
+    def bare(bone: Bone) -> Bone:
+        return bone if bone.spring is None else replace(bone, spring=True)
+    return replace(spec, bones=tuple(map(bare, spec.bones)), springs=tuple(map(bare, spec.springs)))
+
+
+def rebound(rigged: Rigged, spec: Spec) -> Rigged:
+    """``rigged``, a part kept by :func:`unsprung`'s spec, with each bone it
+    placed ``spec``'s own (:func:`rig` places them in its order): its
+    springs this recipe's, as its build's log line names them."""
+    if not isinstance(rigged, Rigged) or not isinstance(spec, Spec):   # a test's stand-ins
+        return rigged
+    return replace(rigged, bones=tuple(replace(pl, bone=bone) for pl, bone in zip(rigged.bones, spec.bones,
+                                                                                    strict=True)))
+
+
+def check_clear(spec: Spec) -> None:
+    """The refusals of :func:`collider` that ``spec``'s clear chain alone
+    decides (a link no baked jiggle bone, a link whose freq isn't the
+    first's), for a rig taken from a part, not made (Step 4.37m1: a refusal
+    is never kept, and its key reads each link's spring only as there)."""
+    if not isinstance(spec, Spec) or spec.clear is None:
+        return
+    by_bone, first = {jb.bone: jb for jb in spec.bones}, None
+    for c, name in enumerate(spec.clear.links):
+        jb = by_bone.get(name)
+        if jb is None or jb.spring is not None or jb.keyed:
+            raise ValueError(f"jiggle.clear.links[{c}]: {name!r} is no baked jiggle bone")
+        if first is not None and jb.freq != first.freq:
+            raise ValueError(f"jiggle.clear.links[{c}]: {name!r}'s freq isn't {spec.clear.links[0]!r}'s (one key rate)")
+        first = first or jb
+
+
 @dataclass(frozen=True)
 class Collider:
     """A :class:`Clear` made on the rigged body (:func:`collider`): the
@@ -1715,5 +1756,5 @@ def _flat(value, pl: Placed, bind: Quat) -> tuple[float, ...]:
     return (pl.rest[0] + off[0], pl.rest[1] + off[1], pl.rest[2] + off[2], roll / 2.0, yaw / 2.0)
 
 
-__all__ = ["DROP", "Bone", "Free", "MIN_SHARE", "Placed", "Rigged", "SIM_HZ", "SMOOTH_HZ", "Spec", "closes", "keyed",
-           "keyed_each", "rig"]
+__all__ = ["DROP", "Bone", "Free", "MIN_SHARE", "Placed", "Rigged", "SIM_HZ", "SMOOTH_HZ", "Spec", "check_clear",
+           "closes", "keyed", "keyed_each", "rebound", "rig", "unsprung"]

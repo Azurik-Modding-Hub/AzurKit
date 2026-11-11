@@ -287,8 +287,9 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
     """Step 4.6n (the Check design's R1): a dress's parts are kept by what they read, never the variant's name or
     folder, so PARTED checked again under another name in another folder takes each part the first Check kept (its
     size, its body's mesh, rig and paint, its kit's clips, its bakes, both restyles, its LODs and, Step 4.6q, its
-    sounds' encodings, each later file named from the one before it), and a copy with its spring edited keeps the mesh
-    and works out the rest, each answering and dressing as a fresh Check of it (no part kept or taken) does, byte for
+    sounds' encodings, each later file named from the one before it), and so does a copy with its spring edited (Step
+    4.37m1, the Jiggle tab's edit: its numbers are X41's table's alone), its characters.xbr, fx.xbr and index.xbr
+    those of PARTED's under its name (which names its sounds), each answering and dressing as a fresh Check of it (no part kept or taken) does, byte for
     byte; at a later visit (Step 4.6o: this process's parts gone, its host's store holding what the first Check's
     parts were handed it as, ``part_codec``'s bytes) the copy takes each of them from the store, answering the same
     (a built-in's own copy shares its body's parts: ``test_variant_library``'s New from this test)."""
@@ -299,6 +300,10 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
     monkeypatch.setattr(parts, "HEARD", {})
     monkeypatch.setattr(parts, "STORE", store())
     parts.clear()
+    plan, files = sdk._plan, {}   # each file the swap's layer writes, by its changes' bytes
+    monkeypatch.setattr(sdk, "_plan", lambda *a, **k: (got := plan(*a, **k), files.__setitem__("last", {
+        Path(c.file).name: _sha12(b"".join(d.after for d in la.changes if d.file == c.file))
+        for la in got[2] if la.tool == characters.TOOL for c in la.changes}))[0])
     sdk.variant_check(_given(usa_iso, tmp_path, PARTED, name="first"))
     springier = json.loads(json.dumps(PARTED))
     springier["jiggle"]["bones"][0]["spring"]["freq"] = 2.5
@@ -312,12 +317,18 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
             sdk._CHECKED["last"]["characters"])
         missed[visit, name] = {stage: counts["miss"] for stage, counts in parts.HEARD.items()}
         heard[visit, name] = {stage: counts.get("stored", 0) for stage, counts in parts.HEARD.items()}
+        files[visit, name] = files["last"]
     taken = dict.fromkeys(("size", "W24", "W29", "W30", "kit clips", "bake", "W28 arms", "W28 springs", "W39",
                            "wave"), 0)
     assert missed[1, "second"] == missed[2, "second"] == taken and heard[2, "second"] == dict.fromkeys(
         taken, 1) | {"bake": 2}   # its two bakes (Step 4.6q): its own clips, then its style's
     assert answers[2, "second"] == answers[1, "second"]
-    assert missed[1, "third"]["W24"] == 0 < missed[1, "third"]["W29"] and answers[1, "third"][0]["refusal"] is None
+    assert missed[1, "third"] == taken and answers[1, "third"][0]["refusal"] is None
+    sdk._CHECKED.clear()
+    sdk.variant_check(_given(usa_iso, tmp_path, PARTED, name="third"))
+    assert {"characters.xbr", "fx.xbr", "index.xbr"} <= files["last"].keys()
+    assert files[1, "third"] == files["last"] | {"default.xbe": files[1, "third"]["default.xbe"]} != files[
+        "last"]   # the edit moves only X41's table
     answers = {name: answers[1, name] for name in copies}
     monkeypatch.setattr(parts, "OFF", True)
     for name, recipe in copies.items():

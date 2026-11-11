@@ -2092,7 +2092,8 @@ def content_key(variant: Variant | None) -> str | None:
 
     if variant is None:
         return None
-    fields = repr([(f.name, getattr(variant, f.name)) for f in dataclasses.fields(variant)
+    fields = repr([(f.name, jiggles.unsprung(variant.jiggle) if f.name == "jiggle" else getattr(variant, f.name))
+                   for f in dataclasses.fields(variant)   # a spring's numbers are X41's alone (Step 4.37m1)
                    if f.name not in ("name", "source", "title", "notes", "sha", "unshaped")])
     if variant.source in ("built-in", "overlay"):
         return parts.key("variant", variant.source, variant.name, fields, kit.installed())
@@ -4272,13 +4273,14 @@ def restyled(before: bytes, after: bytes, first: int, body: str, variant: Varian
     What it gives is a part kept by what it reads (:mod:`~azurkit.tools.characters.parts`,
     Step 4.6n): both files by their sha256 (``known``: those of ``before``,
     ``after`` and ``rigged`` where the caller has them), the recipe's arms,
-    poses and jiggle, ``rigged``, ``rates``, ``drawn`` and ``arms``, never the
+    poses and jiggle (its real-time springs only as there: X41 keys none,
+    Step 4.37m1), ``rigged``, ``rates``, ``drawn`` and ``arms``, never the
     variant's name."""
     from azurkit.tools.characters import parts
 
     key = parts.key("W28", known[0] or parts.digest(before), known[1] or parts.digest(after), first, body,
                     repr((variant.arms, variant.arm_clips, variant.poses,
-                          variant.jiggle if rigged is not None else None)),
+                          jiggles.unsprung(variant.jiggle) if rigged is not None else None)),
                     known[2] or (parts.pickled(rigged) if rigged is not None else None),
                     repr(sorted((rates or {}).items())), repr(drawn), arms)
     if (kept := parts.get(key, "W28 arms" if arms else "W28 springs")) is not None:
