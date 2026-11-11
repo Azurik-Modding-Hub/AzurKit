@@ -8230,8 +8230,9 @@ class _Recipe:
     (Step 2.206, D813): the ``variant``, the moveset it plays (``worn``:
     its own, or :func:`~azurik_mod.patches._player_variants.unarmed`
     under another weapon), its WAVs (``drop``,
-    :func:`~azurik_mod.patches._player_variants.recipe_wavs`) and the
-    :func:`apply_player_model` options its layers read."""
+    :func:`~azurik_mod.patches._player_variants.recipe_wavs`), the
+    :func:`apply_player_model` options its layers read and the names the
+    glue between his parts reads (Step 4.37m1, as a dress's)."""
 
     variant: object
     worn: object
@@ -8241,6 +8242,10 @@ class _Recipe:
     springs_out: dict | None = None
     plans: list | None = None
     ram: int | None = None
+    dress: str | None = None
+    """DRESS (:func:`_dress_key`) of his build: what the glue up to W28's arms reads (``None``: nothing named)."""
+    dressing: str | None = None
+    """DRESS and his build's attack options: what the glue after W28's arms reads (``None``: nothing named)."""
 
 
 def _layered(variant, worn, drop: dict) -> bool:
@@ -8258,8 +8263,9 @@ def _his_look(game, variant, who: str) -> tuple:
     """A recipe's W24 mesh, W29 jiggle bones and W30 textures made on
     garret4's own body in ``game``'s staged characters.xbr, in place
     (Step 2.206; only he wears it), first, so every measure of his build
-    reads them (:func:`_variant_body`); its mesh plan, rig and W30's log
-    lines.  :class:`ValueError` names the step that fails (D35)."""
+    reads them (:func:`_variant_body`); its mesh plan, rig, W30's log
+    lines, the name of the file they leave and W29's key (Step 4.37m1).
+    :class:`ValueError` names the step that fails (D35)."""
     try:
         made, reshaped, rigged, painted, known, rig_key = _variant_body(bytes(game["characters.xbr"]),
                                                                         game.stored("characters.xbr"), PLAYER, variant)
@@ -8267,23 +8273,27 @@ def _his_look(game, variant, who: str) -> tuple:
         sized = ", ".join(f"{s.title} {s.value:g}" for s in variant.shapes if s.value != 1.0)
         raise ValueError(f"{who}" + (f" at {sized}" if sized else "") + f": {exc}") from None
     game["characters.xbr"] = bytearray(made)
-    if variant.lods is not None:   # W39's cuts (none of W36's; his LODs' writes and cuts are worked out each time:
-        _lods_ahead(made, PLAYER, variant.lods, known)   # nothing names his files by their inputs, Step 4.37m1)
+    if variant.lods is not None:   # W39's cuts (none of W36's), its LOD 0 named by W29's key as a dress's
+        _lods_ahead(made, PLAYER, variant.lods, known, _mesh(rig_key, PLAYER))
     else:
         engine = XbrDocument.from_bytes(game.stored("config.xbr")).keyed_section("critters_engine")
-        _shadow_ahead(made, engine, PLAYER, PLAYER, variant.shadow, known)
-    return reshaped, rigged, painted
+        _shadow_ahead(made, engine, PLAYER, PLAYER, variant.shadow, known, _mesh(rig_key, PLAYER))
+    return reshaped, rigged, painted, known, rig_key
 
 
-def _his_moves(game, characters: bytes, body: Body, variant, worn, who: str, first: int) -> tuple:
+def _his_moves(game, characters: bytes, body: Body, variant, worn, who: str, first: int, start: str | None = None,
+               dress: str | None = None) -> tuple:
     """A recipe's W22 on garret4's own body (Step 2.206): its markers
     grown and its clips under ``characters/garret4/v/``, its fx clone
     (:func:`~azurik_mod.patches._player_variants.grow`); X11's fills from
     its ``slots`` and ``idles`` (its base loops, :data:`CALM_SEAM`), the
     gait and move checks as any body's; and W28's arms and poses on every
     clip he plays but its own ``v/`` ones (``characters`` the staged file
-    before W22, ``first`` its TOC count).  Returns the file, his body
-    read from it, the fills, the victories and how many clips W28 turned."""
+    before W22, ``first`` its TOC count; ``start`` its name and ``dress``
+    DRESS, the glue's reads, as a dress names its files, Step 4.37m1).
+    Returns the file, his body read from it, the fills, the victories, how
+    many clips W28 turned and the name of what last wrote the file (W28's
+    key, else ``start``)."""
     from azurkit.tools.characters import _player_variants as variants
 
     dressed = characters
@@ -8308,15 +8318,16 @@ def _his_moves(game, characters: bytes, body: Body, variant, worn, who: str, fir
     named = f"{variant.name!r} (a variant of {PLAYER})"   # as the swap's checks name it
     gait_checks(characters, body, worn, named)
     move_checks(characters, body, worn, named)
-    styled = 0
+    styled, named = 0, start
     if variant.arms or variant.arm_clips or variant.poses:   # W28 (Step 2.143, D428): his clips' arms and poses
         try:
-            grown, styled, _, _ = variants.restyled(dressed, bytes(game["characters.xbr"]), first, PLAYER, variant)
+            grown, styled, _, named = variants.restyled(dressed, bytes(game["characters.xbr"]), first, PLAYER, variant,
+                                                        known=(start, _glued(start, "arms", dress), None, None))
         except ValueError as exc:
             raise ValueError(f"{who}: {exc}") from None
         game["characters.xbr"] = bytearray(grown)
         characters = grown
-    return characters, body, fills, victory, styled
+    return characters, body, fills, victory, styled, named
 
 
 def _his_cells(game, doc, anims, characters: bytes, body: Body, worn, lo, columns: list[str], picks: list[str],
@@ -8357,16 +8368,19 @@ def _his_cells(game, doc, anims, characters: bytes, body: Body, worn, lo, column
 
 def _his_recipe(game, recipe: _Recipe, who: str, characters: bytes, body: Body, columns: list[str],
                 picks: list[str], anims, fills: dict, victory: dict, model_scale: float, lo, shot, toss, seek: int,
-                rigged, dressed: bytes, first: int, doc, attack_reach: float, every: int, x26: bool
-                ) -> tuple[list[str], list[str], list]:
+                rigged, dressed: bytes, first: int, doc, attack_reach: float, every: int, x26: bool,
+                names: tuple = (None, None, None)) -> tuple[list[str], list[str], list, str | None]:
     """A recipe's shims and its sounds and springs on garret4's own build
     (Step 2.206, D813), after his own parts and before the hoe's (W31-W33
     come after X41, as the swap's): X11's slots, X45, X46, X10's ring over
     its columns' clips, X33, X39, X49, its shield and beam rows (X38's
     bound keys), X40 (its fx clone), X42 (its projectile, X32 where it
     hits with a type), X14, X15 and W9 (its sounds), W28's springs and
-    X41.  Returns its words, its sounds' log lines and what it adds to
-    fx.xbr (written last, :func:`_his_tail`)."""
+    X41 (``names``: ``dressed``'s, the last part's that wrote the file and
+    W29's key, Step 4.37m1).  Returns its words, its sounds' log lines,
+    what it adds to fx.xbr (written last, :func:`_his_tail`) and the name
+    of what last wrote characters.xbr (W28's springs' key, else the last
+    part's)."""
     from azurkit.tools.characters import _player_variants as variants
 
     variant, worn, xbe = recipe.variant, recipe.worn, game["default.xbe"]
@@ -8495,14 +8509,17 @@ def _his_recipe(game, recipe: _Recipe, who: str, characters: bytes, body: Body, 
             + (f"; past the game's longest inline wave ({LONGEST_WAVE} s), unseen in game"
                if len(d.samples) / SOUND_RATE > LONGEST_WAVE else "") for leaf, d in sorted(drop.items())])
     flash = hit_flash(game.stored("fx.xbr"), game.stored("default.xbe")) if hit_fx and toss is not None else []
+    start, last, rig_key = names
     if rigged is not None:   # W28's springs (Step 2.143, AZ-648): last, at the rates his written cells play each clip
         built = bytes(game["characters.xbr"])   # each column's clip as W3 wrote it (his sized roll, his lunges)
         rates = playback_rates(built, doc, body, fills | victory, [anims.find_cell(col, "Anim", i).string_value
                                                                     for i, col in enumerate(columns)],
                                model_scale, False)
-        try:
-            grown, _, peaks, _ = variants.restyled(dressed, built, first, PLAYER, variant, rigged, rates, model_scale,
-                                                arms=False)
+        try:   # its rates and drawn the build's glue worked out from (their name)
+            grown, _, peaks, last = variants.restyled(
+                dressed, built, first, PLAYER, variant, rigged, rates, model_scale, arms=False,
+                known=(start, _glued(last, "springs", recipe.dressing), rig_key,
+                       _glued(last, "drawn", recipe.dressing)))
         except ValueError as exc:
             raise ValueError(f"{who}: {exc}") from None
         game["characters.xbr"] = bytearray(grown)
@@ -8537,16 +8554,21 @@ def _his_recipe(game, recipe: _Recipe, who: str, characters: bytes, body: Body, 
             except ValueError as exc:
                 raise ValueError(f"{who}: {exc}") from None
         words.append(_jiggle_line(rigged, peaks, variant, sprung, recipe.jiggle_strength, recipe.jiggle_stiffness))
-    return words, voice, [*flash, *waves]
+    return words, voice, [*flash, *waves], last
 
 
-def _his_tail(game, recipe: _Recipe, who: str, engine, added: list) -> tuple[list[str], list[str]]:
+def _his_tail(game, recipe: _Recipe, who: str, engine, added: list, last: str | None = None,
+              mesh_key: str | None = None, meshed: bool = False) -> tuple[list[str], list[str]]:
     """The last of a recipe on garret4's own build (Step 2.206), after the
     hoe's parts: what it adds to fx.xbr (X32's flash, its sounds), W39's
     LODs and W36's shadow LOD (for a recipe with a mesh or ``lods``), W38
     in place (his rows recoloured, no copy and no X47: only he wears his
-    body, Step 2.170c) and the load budget.  Returns W38's words and the
-    LOD and budget lines."""
+    body, Step 2.170c) and the load budget.  W39's and W36's files are
+    named as a dress names them (Step 4.37m1): by ``last``, the name of
+    what last wrote his file, and the glue's reads; their LOD 0 by
+    ``mesh_key`` (W29's key, or the staged file's digest), or with
+    ``meshed`` (the hoe's writes on it) by the file's name.  Returns W38's
+    words and the LOD and budget lines."""
     from azurkit.tools.characters import _player_variants as variants
 
     variant = recipe.variant
@@ -8558,15 +8580,22 @@ def _his_tail(game, recipe: _Recipe, who: str, engine, added: list) -> tuple[lis
         except ValueError as exc:
             raise ValueError(f"{who}: its sounds: {exc}") from None
     laid, lods_bytes, shadowed, shadow_bytes = [], 0, [], 0
-    if variant.lods is not None or variant.mesh is not None:   # W39 (Step 2.166d) after W33, before W36
+    lodded = variant.lods is not None or variant.mesh is not None
+    lods_at = _glued(last, "lods", recipe.dressing)
+    shadow_at = _glued(last, "shadow", recipe.dressing, repr(variant.lods), variant.mesh is not None)
+    lods_mesh = _mesh(mesh_key, PLAYER, lods_at) if meshed else _mesh(mesh_key, PLAYER)
+    shadow_mesh = _mesh(mesh_key, PLAYER, shadow_at) if meshed or lodded else _mesh(mesh_key, PLAYER)
+    if lodded:   # W39 (Step 2.166d) after W33, before W36
         try:
             laid, lods_bytes = write_lods(game, engine, PLAYER, variant.lods,
-                                          game.stored("characters.xbr") if variant.mesh is not None else None)
+                                          game.stored("characters.xbr") if variant.mesh is not None else None,
+                                          known=lods_at, mesh=lods_mesh if lods_at is not None or not meshed else None)
         except ValueError as exc:
             raise ValueError(f"{who}: W39: {exc}") from None
     if variant.mesh is not None or variant.shadow is not None:   # W36 (Step 2.166c)
         try:
-            shadowed, shadow_bytes = write_shadow_lod(game, engine, PLAYER, variant.shadow)
+            shadowed, shadow_bytes = write_shadow_lod(game, engine, PLAYER, variant.shadow, known=shadow_at, mesh=(
+                shadow_mesh if shadow_at is not None or not (meshed or lodded) else None))
         except ValueError as exc:
             raise ValueError(f"{who}: W36: {exc}") from None
     coloured = []
@@ -8641,20 +8670,25 @@ def _apply_garret4(game, model_scale: float, attack_reach: float, attack_damage:
     from azurkit.tools.characters import _player_variants as variants
     variant, worn = (recipe.variant, recipe.worn) if recipe is not None else (None, None)
     who = f"--player-character {variant.name!r} (a variant of {PLAYER})" if variant is not None else _named(PLAYER)
-    reshaped = rigged = None
+    reshaped = rigged = start = rig_key = None
     painted: list[str] = []
     if variant is not None and (variant.mesh is not None or variant.jiggle is not None or variant.textures):
-        reshaped, rigged, painted = _his_look(game, variant, who)   # W24, W29, W30: first, every measure reads them
-        if recipe.plans is not None and reshaped is not None:
+        reshaped, rigged, painted, start, rig_key = _his_look(game, variant, who)   # W24, W29, W30: first, every
+        if recipe.plans is not None and reshaped is not None:   # measure reads them
             recipe.plans.append(reshaped)
     characters = game.stored("characters.xbr") if variant is None else bytes(game["characters.xbr"])
+    mesh_key = rig_key   # what wrote his mesh, his LOD cuts' name (Step 4.37m1), else the staged file names itself
+    if recipe is not None and start is None:
+        from azurkit.tools.characters.parts import digest
+        start = mesh_key = digest(characters)
     body = read_body(characters, PLAYER)
     dressed, first = characters, len(parse_toc(characters))   # W28's start: the clips this build adds after
     fills: dict[int, tuple[str, float]] = {}
     victory: dict[int, tuple[str, float]] = {}
-    styled = 0
+    styled, named = 0, start
     if worn is not None:   # W22 (his markers, clips, fx clone), his idles and slots (X11), W28's arms and poses
-        characters, body, fills, victory, styled = _his_moves(game, characters, body, variant, worn, who, first)
+        characters, body, fills, victory, styled, named = _his_moves(game, characters, body, variant, worn, who,
+                                                                     first, start, recipe.dress)
     vanilla = XbrDocument.from_bytes(game.stored("config.xbr")).keyed_section("attacks_anims")
     columns = vanilla.col_names()
     clips = [vanilla.find_cell(col, "Anim", i).string_value for i, col in enumerate(columns)]
@@ -8780,9 +8814,9 @@ def _apply_garret4(game, model_scale: float, attack_reach: float, attack_damage:
     voice: list[str] = []
     added: list = []
     if recipe is not None:   # Step 2.206 (D813): the recipe's shims, sounds and springs, then the hoe's parts
-        said, voice, added = _his_recipe(game, recipe, who, characters, body, columns, picks, anims, fills, victory,
-                                         model_scale, lo, shot, toss, seek, rigged, dressed, first, doc,
-                                         attack_reach, every, "X26" in parts)
+        said, voice, added, named = _his_recipe(game, recipe, who, characters, body, columns, picks, anims, fills,
+                                                victory, model_scale, lo, shot, toss, seek, rigged, dressed, first,
+                                                doc, attack_reach, every, "X26" in parts, (start, named, rig_key))
     if armed:   # Step 2.161d: W33, his staff cut; W32, the hoe on his m_stafftop; Step 2.161g (D618): W31, its
         # carriers at its ends under his m_stafftop, and W6 his staff's fx there: his powers' heads whole (the Axion's
         # power heads), the plain staff's head hidden with the staff (Step 2.206b, AZ-782)
@@ -8800,7 +8834,7 @@ def _apply_garret4(game, model_scale: float, attack_reach: float, attack_damage:
         game["characters.xbr"] = bytearray(grown)
     tail: list[str] = []
     if recipe is not None:   # its fx.xbr sounds, W39, W36, W38 in place and the budget, last (Step 2.206)
-        coloured, tail = _his_tail(game, recipe, who, engine, added)
+        coloured, tail = _his_tail(game, recipe, who, engine, added, named, mesh_key, armed)
         said += coloured
     words = {"X13": f"X13 (hit boxes x{attack_reach:g}" + (", filled to the feet and the floor)" if filled else ")"),
              "X3": "X3 (his own box and window in every column, grown to the hoe's tip)",
@@ -9827,10 +9861,18 @@ def _garret4_recipe(game, variant, options: dict) -> list[str] | None:
                 raise ValueError(f"{who}: attacks.{key} true: garret4 plays his own attacks with his staff, "
                                  + ("the ones the balance weighs a swapped body's against" if key == "balance" else
                                     "and his hit boxes are his own") + "; leave it out, or give it a weapon")
+        from azurkit.tools.characters import parts
+        # his files named by their inputs as a dress's (Step 4.37m1): DRESS before any write, and the attack options
+        # the glue after W28's arms reads (the jiggle sliders reach X41 alone, the sounds their own stage)
+        dress = _dress_key(game, PLAYER, o["mode"], o["missing_anims"], o["size"], o["model_scale"], variant,
+                           o["weapon"])
+        dressing = None if dress is None else parts.key(
+            "his own apply", dress, repr(o["attack_reach"]), o["attack_ground"], o["attack_balance"],
+            repr(o["attack_damage"]), repr(o["attack_speed"]), o["ram"], o["chain"])
         log = _apply_garret4(game, o["model_scale"], o["attack_reach"], o["attack_damage"], o["attack_speed"],
                              o["attack_balance"], o["attack_ground"], o["logic"], lo, o["mode"],
                              _Recipe(variant, worn, drop, o["jiggle_strength"], o["jiggle_stiffness"],
-                                     o["springs_out"], o["plans"], o["ram"]), chain=o["chain"])
+                                     o["springs_out"], o["plans"], o["ram"], dress, dressing), chain=o["chain"])
         if not log[0].endswith("; nothing written"):
             return log
     else:   # the style it wears, the recipe's or the one picked over it

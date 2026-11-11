@@ -249,6 +249,40 @@ def test_a_check_of_a_look_on_garret4_hands_the_colours_views_his_body_before_it
         (q.row, q.raw.tobytes()) for q in plain.parts] != []
 
 
+def test_a_colour_edit_of_a_recipe_on_garret4s_own_body_takes_every_part_its_check_kept(usa_iso, tmp_path,
+                                                                                         monkeypatch):
+    """Step 4.37m1 (D1195): his own build names his files by their inputs as a dress names hers, so a Check of a
+    recipe on garret4's own body (a mesh op and a jiggle bone, its arms and LODs) keeps each part under such a name
+    (its LOD cut's too) and, a colour added (W38, after every part), the next Check asks no stage anew, answering as a
+    fresh Check of it (no part kept) does."""
+    belly = {"op": "round", "name": "belly", "bone": "spine_1", "offset": [0.0, 0.0, 0.1], "dir": [0.05, -1.0, 0.0],
+             "origin": 0.05, "groups": [0], "blend": {"up": 0.05, "down": 0.06, "inner": [0.1, 0.11, 0.15]},
+             "radius": {"across": 0.06, "along": 0.06, "up": 0.06, "down": 0.06, "taper": 0.3}}
+    bone = {"role": "belly", "bone": "belly", "parent": "spine_1", "shape": ["belly"], "groups": [0],
+            "takes": ["spine_1"], "weight": 0.75,
+            "spring": {"freq": 3.1, "damping": 0.15, "travel": [0.03, 0.08, 0.12], "gain": 4.3}}
+    recipe = {"base": "garret4", "arms": {"out_deg": 10.0}, "lods": {"ratio": [0.5], "at": [9.0]},
+              "mesh": {"ops": [{"op": "scale", "bone": "spine_2", "radius": [0.2] * 3, "factors": [1.2] * 3}, belly]},
+              "jiggle": {"frees": [], "bones": [bone]}}
+    coloured = recipe | {"colours": [{"ops": [{"op": "hsv", "hue": 120}]}]}
+    monkeypatch.setattr(parts, "HEARD", {})
+    monkeypatch.setattr(parts, "STORE", None)
+    parts.clear()
+    missed = {}
+    for label, given in (("first", recipe), ("coloured", coloured)):
+        parts.HEARD.clear()
+        sdk._CHECKED.clear()
+        answer = sdk.variant_check(_given(usa_iso, tmp_path, given)), _sha12(sdk._CHECKED["last"]["characters"])
+        missed[label] = {stage: counts["miss"] for stage, counts in parts.HEARD.items()}
+    stages = ("W24", "W29", "W30", "W28 arms", "W28 springs", "W39")
+    assert missed == {"first": dict.fromkeys((*stages, "cut"), 1), "coloured": dict.fromkeys(stages, 0)}
+    assert answer[0]["refusal"] is None
+    monkeypatch.setattr(parts, "OFF", True)
+    sdk._CHECKED.clear()
+    fresh = sdk.variant_check(_given(usa_iso, tmp_path, coloured))
+    assert (fresh, _sha12(sdk._CHECKED["last"]["characters"])) == answer
+
+
 def test_a_check_of_content_checked_before_answers_from_what_it_kept(usa_iso, tmp_path, monkeypatch):
     """Check with game data keeps by content (D1015): the same edit checked again answers at once, and in a process
     that kept its dress (another thread's call: another hidden recipe file) takes it by what the file dresses, its
