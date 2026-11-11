@@ -1326,10 +1326,11 @@ def test_a_batchs_last_receipt_runs_the_perf_stage_its_entries_deferred_and_its_
     selection, so main moving keeps it); ``--perf-later --perf-now`` runs
     it alone, its selection made against main's head then (``perf_base``),
     the receipt's pytest fields kept (one that never ran leaves it deferred
-    to run again). land.py lands a deferred ``src/``
-    stack only on a later receipt's perf block that covers it: its head
-    holds the stack's, its perf ran against main or a commit main holds,
-    timed every op the stack's changes reach and blocks nothing."""
+    to run again). land.py lands a deferred stack the perf stage times
+    (``src/``, or ``scripts/web_tools.py`` outside ``src/`` and ``web/``)
+    only on a later receipt's perf block that covers it: its head holds the
+    stack's, its perf ran against main or a commit main holds, timed every
+    op the stack's changes reach and blocks nothing."""
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     (lane / "src").mkdir()
     (lane / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
@@ -1379,6 +1380,16 @@ def test_a_batchs_last_receipt_runs_the_perf_stage_its_entries_deferred_and_its_
     assert land.land(repo, "p2/x") == (0, f"land: moved main {base[:12]} -> {a[:12]} (p2/x; receipt {a[:12]}-0, "
                                           f"changed; its perf deferred, covered by receipt {b[:12]}-0's)")
     assert land.land(repo, "p2/y")[0] == 0 and _git(repo, "rev-parse", "main") == b   # b on its own block
+    tools = tmp_path / "lanes" / "w"   # perf.REACH times scripts/web_tools.py, outside src/ and web/
+    _git(repo, "worktree", "add", "-q", "-b", "p2/w", str(tools), "main")
+    (tools / "scripts").mkdir()
+    (tools / "scripts" / "web_tools.py").write_text("x = 1\n", encoding="utf-8")
+    _git(tools, "add", "scripts/web_tools.py")
+    _git(tools, "commit", "-q", "-m", "w")
+    _receipt(receipts, _git(tools, "rev-parse", "HEAD"), mode="changed", base=b, perf={"deferred": True},
+             perf_args=["--select", ",".join(sorted(f"{h}:{g}" for h, g in perf.select(["scripts/web_tools.py"])))])
+    code, why = land.land(repo, "p2/w", dry_run=True)
+    assert code == 1 and "a later receipt of its batch covering it" in why, why
 
 
 def test_lanes_devlog_bullets_merge_once_each_and_land_refuses_the_stale_copy_of_one_a_lane_edited(tmp_path):

@@ -2296,7 +2296,8 @@ are the Characters section's.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that
-  changes `src/` or `web/`, a perf block in which nothing blocks
+  changes `src/`, `web/` or another path the perf stage times
+  (`perf.select`: `scripts/web_tools.py`), a perf block in which nothing blocks
   (`perf.blocking`, read from its verdicts, as the receipt's status is: its
   debt rows never do); it refuses any stack whose
   perf list grows main's (one that changes only the list too). The landing

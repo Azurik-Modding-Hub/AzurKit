@@ -9,7 +9,8 @@ clean tree, in which at least one vanilla and one europe test ran (D26):
 either a whole-suite run, or a changed-area run whose base is main's head
 and whose flake stage, when it has one (the tests the stack added or edited,
 run again and again slowed: ``fullsuite.flake_stage``), passed. A
-stack that changes a file under ``src/`` or ``web/`` also needs the
+stack that changes a file under ``src/`` or ``web/``, or another path the
+perf stage times (``perf.select``: ``scripts/web_tools.py``), also needs the
 receipt's perf block (D981, ``scripts/perf.py``) with nothing blocking in it
 (D1170, ``perf.blocking``, read from its verdicts whichever perf.py wrote
 it): a clear regression against the last release's run, a memory peak, a
@@ -130,14 +131,14 @@ def land(repo: Path, branch: str, dry_run: bool = False) -> tuple[int, str]:
         return 1, f"land: {branch}'s {perf.CEILINGS} grows main's list (D981): " + "; ".join(grown)
     folder = fs.receipts(repo)
     paths = fs.git(repo, "diff", "--name-only", main, top) if main else fs.git(repo, "ls-tree", "-r", "--name-only", top)
-    timed = any(rel.startswith(PERF_PATHS) for rel in paths.split())
+    timed = any(rel.startswith(PERF_PATHS) for rel in paths.split()) or bool(perf.select(paths.split()))
     m, cover = receipt_for(folder, top, main, timed), None
     if m is None and timed and main and (own := receipt_for(folder, top, main, deferred=True)) is not None:
         if cover := cover_for(folder, repo, top, main, perf.select(paths.split())):
             m = own
     if m is None:
         return 1, (f"land: no passing clean receipt with vanilla and europe tests run"
-                   f"{' and a perf block blocking nothing (it changes src/ or web/: D981, D1170), its own or, for '
+                   f"{' and a perf block blocking nothing (the perf stage times it: D981, D1170), its own or, for '
                       'a deferred one (--perf-later), a later receipt of its batch covering it (D1215)' if timed else ''} "
                    f"for {branch} ({top[:12]}): run scripts/fullsuite.py on its worktree (receipts in {folder})")
     did = (f"main {main[:12] if main else '(unborn)'} -> {top[:12]} ({branch}; receipt {m['key']}, {m['mode']}"
