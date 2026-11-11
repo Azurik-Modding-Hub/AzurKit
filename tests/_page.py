@@ -54,7 +54,11 @@ LOG = sys.platform == "darwin"
 """Whether WebKit's log and macOS's privacy prompts can be read (macOS's ``log``: ``scripts/ci_resources.py``'s
 ``webkit_said`` and ``privacy_asked``)."""
 ASKED = 10
-"""s a stalled call's read of macOS's privacy prompts may take (:func:`stalled`): its hour of the log in 2-4 s here."""
+"""s a stalled call's read of macOS's privacy prompts may take (:func:`_asked`): its hour of the log in 3-8 s here."""
+LONG = 30
+"""s a stalled call must have waited for its read of macOS's privacy prompts to go back ``ci_resources.EARLIER`` s, in
+as long at most (:func:`_asked`; six hours of the log in 13 s here): a prompt that holds a test's browser may have stood
+for hours, while a shorter stall is a test's stand-in (its bound cut), which keeps the hour and :data:`ASKED`."""
 CLOSED = 2
 """s a worker whose evaluate failed may stay in ``page.workers`` before Playwright hears its close (:func:`checks`):
 Firefox fails an evaluate in flight as the worker's thread closes (Juggler's worker debugger ``onClose`` ends the
@@ -383,13 +387,16 @@ def _firefox_said(context) -> list[str]:
     return said or ["Firefox's log: none"]
 
 
-def _asked(since: float) -> list[str]:
+def _asked(since: float, seconds: float) -> list[str]:
     """Each privacy prompt macOS put to the user that stood since ``since`` (seconds since the epoch), a line each
-    (``scripts/ci_resources.py``'s ``privacy_asked``, read in :data:`ASKED` s), on macOS (:data:`LOG`); none
-    elsewhere."""
+    (``scripts/ci_resources.py``'s ``privacy_asked``: from its ``BACK`` s before ``since``, read in :data:`ASKED` s,
+    or for a call that waited :data:`LONG` s or more from its ``EARLIER`` s before, in :data:`LONG` s), on macOS
+    (:data:`LOG`); none elsewhere."""
     if not LOG:
         return []
     from scripts import ci_resources
+    if seconds >= LONG:
+        return ci_resources.privacy_asked(since, LONG, ci_resources.EARLIER)
     return ci_resources.privacy_asked(since, ASKED)
 
 
@@ -409,7 +416,7 @@ def stalled(owner, what: str, seconds: float, ended: tuple[str, ...] = ()) -> st
     if ended:
         said += [SAID, *(f"  {line}" for line in ended)]
     said += [hang(page)] if page else []
-    said += _asked(since)
+    said += _asked(since, seconds)
     said += _firefox_said(context)
     try:
         _heard(context, context._impl_obj.cookies(), PROBE)

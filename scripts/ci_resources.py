@@ -530,7 +530,12 @@ headless shell's prompt for the Documents folder stood 6 min 43 s on this Mac, a
 process started inside it stopped answering at its page's engine start (Step 4.37o)."""
 BACK = 3600
 """s before a stalled call began that :func:`privacy_asked` reads macOS's log back for a prompt asked then and standing
-still: an hour of tccd's lines in 2-4 s here, two in 11 s; one asked earlier goes unnamed."""
+still, by default: an hour of tccd's lines in 3-8 s here; one asked earlier goes unnamed, and a read that names none
+says from when it read."""
+EARLIER = 6 * 3600
+"""s a long stall's read goes back instead (``tests/_page.py``'s ``LONG``): a prompt that held every test Chromium's
+pages stood 4 h 22 min on this Mac, and three of the five stalls it made began over an hour after it was asked; six
+hours of tccd's lines in 13 s here."""
 PROMPTING = re.compile(r"^(\S+ \S+?)\.\d+ .*?AUTHREQ_PROMPTING: msgID=([\d.]+), service=(\w+), subject=Sub:\{([^}]*)\}",
                        re.M)
 """A prompt tccd put to the user, in its line (``--style compact``): its time, id, service and subject."""
@@ -542,16 +547,17 @@ SUBJECT = 80
 """Characters of a prompt's subject :func:`privacy_asked` names at most, its end (the program's name) kept."""
 
 
-def privacy_asked(since: float, timeout: float = SAY_S) -> list[str]:
+def privacy_asked(since: float, timeout: float = SAY_S, back: float = BACK) -> list[str]:
     """Each privacy prompt (TCC) macOS put to the user that stood at some time since ``since`` (seconds since the
-    epoch): asked after ``since`` or in the :data:`BACK` s before it, with no answer before ``since`` (:data:`ASKED`),
+    epoch): asked after ``since`` or in the ``back`` s before it, with no answer before ``since`` (:data:`ASKED`),
     its answer the first logged under its id after it, never one logged before it (another process's of that id,
     :data:`RESULT`), one line each: its id and service, its answer's time or that none came yet, when it was asked
     and how long ago, and its subject (the home folder as ``~``, cut to :data:`SUBJECT`); the log read in ``timeout``
-    s. A request of a later process under its id may still read as its answer."""
+    s. A request of a later process under its id may still read as its answer. None standing is one line, naming the
+    time the log was read from."""
+    start = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since - back))
     try:
-        out = subprocess.run(["log", "show", "--style", "compact", "--start",
-                              time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since - BACK)), "--predicate", ASKED],
+        out = subprocess.run(["log", "show", "--style", "compact", "--start", start, "--predicate", ASKED],
                              capture_output=True, text=True, errors="replace", timeout=timeout).stdout
     except (OSError, subprocess.SubprocessError) as e:
         return [f"macOS's privacy prompts: its log unread ({type(e).__name__})"]
@@ -570,7 +576,8 @@ def privacy_asked(since: float, timeout: float = SAY_S) -> list[str]:
         said.append(f"macOS's privacy prompt {msg} for {service}: "
                     + (f"answered at {answered[11:]}" if answered else "no answer yet")
                     + f", asked at {stamp[11:]} ({now - at(stamp):.0f} s ago) for {subject}")
-    return said
+    return said or [f"macOS's privacy prompts: none stood since the call began (its log read from {start[11:]}, "
+                    f"{back / 3600:g} h before)"]
 
 
 GPU_PROCESS = "WebKit.GPU"

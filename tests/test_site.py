@@ -2421,11 +2421,12 @@ def test_a_stall_names_a_privacy_prompt_pending_since_its_call_began(monkeypatch
     since the call began, a line each after the page's state: its id and service, its answer's time or that none came
     yet, when it was asked and how long ago, and the program it asks for (the home folder as ``~``, the path's end kept
     past ``ci_resources.SUBJECT``), read from tccd's lines in macOS's log from ``ci_resources.BACK`` s before the call
-    began. A prompt answered before the call began is left out, and an answer logged before a prompt under its id (an
-    earlier process's: macOS reuses process ids) is never its own. While another headless shell's prompt for the
-    Documents folder stood on this Mac, six test Chromiums' pages stopped answering at their engine's start and their
-    failures named nothing of it; the box's load (25.8) looked a cause and wasn't, so no line names the load. A
-    stand-in page that never answers, the log a stand-in's."""
+    began, or ``ci_resources.EARLIER`` s for a call that waited ``_page.LONG`` s or more (that prompt stood over 4 h),
+    and a read that names none says from when it read. A prompt answered before the call began is left out, and an
+    answer logged before a prompt under its id (an earlier process's: macOS reuses process ids) is never its own.
+    While another headless shell's prompt for the Documents folder stood on this Mac, six test Chromiums' pages
+    stopped answering at their engine's start and their failures named nothing of it; the box's load (25.8) looked a
+    cause and wasn't, so no line names the load. A stand-in page that never answers, the log a stand-in's."""
     from scripts import ci_resources
     driver, home, now = os.getpid(), Path.home(), time.time()
 
@@ -2443,11 +2444,11 @@ def test_a_stall_names_a_privacy_prompt_pending_since_its_call_began(monkeypatch
             (20, "RESULT: msgID=400.3, authValue=2, authReason=2, authVersion=1,"))
     log = "".join(f"{stamp(ago)} Df tccd[913:a2ef77] [com.apple.TCC:access] AUTHREQ_{what}\n" for ago, what in rows)
     asked = []
-    monkeypatch.setattr(ci_resources.subprocess, "run", lambda argv, **_: (asked.append(argv),
-                                                                           types.SimpleNamespace(stdout=log))[1])
+    monkeypatch.setattr(ci_resources.subprocess, "run", lambda argv, timeout, **_: (
+        asked.append((argv, timeout)), types.SimpleNamespace(stdout=log))[1])
     said = ci_resources.privacy_asked(now - 60, 5)
-    assert [argv[argv.index("--start") + 1] for argv in asked] == [
-        time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now - 60 - ci_resources.BACK))] and asked[0][-1] == (
+    assert [(argv[argv.index("--start") + 1], timeout) for argv, timeout in asked] == [
+        (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now - 60 - ci_resources.BACK)), 5)] and asked[0][0][-1] == (
         ci_resources.ASKED)
     assert [re.sub(r"\(\d+ s ago\)", "(…)", line) for line in said] == [
         f"macOS's privacy prompt 400.1 for kTCCServiceSystemPolicyDocumentsFolder: no answer yet, asked at "
@@ -2467,6 +2468,11 @@ def test_a_stall_names_a_privacy_prompt_pending_since_its_call_began(monkeypatch
     assert lines[0] == "no answer in 1 s: () => azurkit.ready" and lines[1] == "state: unread (no answer in 1 s)"
     assert lines[standing + 1:] == ["its browser still answers", f"under its driver: node {driver} (100 s)"], lines
     assert not any(re.search(r"\bload\b", line) for line in lines), lines
+    log, began = "", now - _page.LONG   # a call that waited LONG s reads EARLIER s back in LONG s, here naming none
+    start = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(began - ci_resources.EARLIER))
+    assert _page._asked(began, _page.LONG) == [
+        f"macOS's privacy prompts: none stood since the call began (its log read from {start[11:]}, 6 h before)"]
+    assert [timeout for _, timeout in asked] == [5, _page.ASKED, _page.LONG] and start in asked[-1][0], asked
 
 
 def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_state(browser):
