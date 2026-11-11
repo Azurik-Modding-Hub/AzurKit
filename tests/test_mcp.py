@@ -171,7 +171,8 @@ def test_a_spoiler_naming_the_built_image_by_another_spelling_is_refused(tmp_pat
     """Step 4.42d: rando_build_iso's spoiler is checked against the built image by file identity, so out spelled
     in another letter case (a case-blind disk) or through macOS's /System/Volumes/Data firmlink is refused and no
     image is left (D35), where the spoiler replaced the image and the reply still said success. One rule on every
-    OS: a spelling that names out is refused, one that names another file gets the spoiler beside the image."""
+    OS: a spelling that names out is refused, one that names another file gets the spoiler beside the image, and
+    one whose folder is missing (the firmlink spelling off macOS) is not asked."""
     def build(made, out):   # sdk.build's report, its image a stand-in (the guards under test are the tool's)
         Path(out).write_bytes(b"image")
         return {"out": str(out), "release": "usa", "sha256": "0" * 64, "layers": [], "result": {}, "size": 5,
@@ -186,6 +187,8 @@ def test_a_spoiler_naming_the_built_image_by_another_spelling_is_refused(tmp_pat
         out.write_bytes(b"")
         aliased = (spoiler := spelled(out)).exists()
         out.unlink()
+        if not aliased and not spoiler.parent.is_dir():
+            continue   # off macOS the firmlink spelling names no folder: nothing to write there
         reply = tools.rando_build_iso(str(tmp_path / "in.iso"), str(out), 1, {"spoiler": str(spoiler)})
         if aliased:
             assert not reply["success"] and "output image itself" in reply["error"], reply
