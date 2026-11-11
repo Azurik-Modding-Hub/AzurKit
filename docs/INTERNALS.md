@@ -1978,8 +1978,11 @@ are the Characters section's.
     from their own URLs, as Firefox sends a blob: worker's imports past the
     worker, shows "An update is ready: Reload" when the next release waits
     and asks for one every half hour; the Tools tab's Storage counts the
-    release kept and Clear deletes it (the page runs on, each file it asks
-    for kept again, checked). Another origin's content (the community
+    release kept and Clear deletes it and unregisters `sw.js` (the page
+    runs on, each file it asks for kept again, checked; the next load is
+    the network's release, registered anew: kept, it came from the cleared
+    release's `sw.js`, which answers 503 to each file of a release deployed
+    since, and no reload mended it). Another origin's content (the community
     source on raw.githubusercontent.com) is a CORS fetch, which
     cross-origin isolation allows as its host sends
     `Access-Control-Allow-Origin: *`; sw.js handles only its own scope's

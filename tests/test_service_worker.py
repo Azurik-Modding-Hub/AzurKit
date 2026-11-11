@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import os
 import re
 import shutil
 import time
@@ -329,6 +330,45 @@ def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_r
         host.down = True
         other = visited(context, host)
         assert other.evaluate("() => crossOriginIsolated")
+
+
+def _next_release(site: Path, out: Path) -> Path:
+    """``site``'s next release in the new folder ``out``: its page (``index.html``) marked ``data-next``, its ``sw.js``
+    listing it as ``site()`` would, every other file a hard link to ``site``'s."""
+    shutil.copytree(site, out, copy_function=os.link)
+    for name, edit in (("index.html", lambda text: text.replace("<html ", '<html data-next="1" ', 1)),
+                       (web_tools.WORKER, lambda text: re.sub(
+                           r"^const RELEASE = .*;$", lambda _: "const RELEASE = " + json.dumps(
+                               web_tools.release(out, listed(site)["csp"]), sort_keys=True) + ";", text, count=1,
+                           flags=re.MULTILINE))):
+        text = edit((out / name).read_text(encoding="utf-8"))
+        (out / name).unlink()   # a link's: never site's own file
+        (out / name).write_text(text, encoding="utf-8", newline="\n")
+    return out
+
+
+def test_a_reload_after_clear_runs_the_release_deployed_since_never_a_503(browser, site, tmp_path):
+    """The Tools tab's Clear deletes the release kept and unregisters ``sw.js``, so the next load is the network's: with
+    the next release deployed meanwhile, the reload runs that release's page and engine and keeps it. Clear kept the
+    registration, so the reload came from the cleared release's ``sw.js``, which answered the next release's
+    ``index.html`` (or ``host.json``) 503 "isn't this release's: reload the page", and every reload did the same."""
+    after = _next_release(site, tmp_path / "next")
+    with hosted(browser, site) as (host, context):
+        kept(visited(context, host), host, listed(site), 60)
+        page = visited(context, host)
+        assert page.evaluate("() => Boolean(navigator.serviceWorker.controller)")
+        page.evaluate("() => document.getElementById('tab-tools').click()")
+        assert _page.until(page, KEPT_ROW, 60)
+        host.root = after
+        page.evaluate("() => document.getElementById('tools-clear').click()")
+        _page.until(page, "() => document.getElementById('status').textContent.startsWith('Cleared what AzurKit kept')",
+                    60)
+        assert page.evaluate("async () => await navigator.serviceWorker.getRegistration() ?? null") is None
+        _page.load(page, seconds=VISIT)
+        ready(page)
+        assert page.evaluate("() => [document.documentElement.dataset.next, "
+                             "Boolean(navigator.serviceWorker.controller)]") == ["1", False]
+        kept(page, host, listed(after), 60)
 
 
 RELOADED = 60

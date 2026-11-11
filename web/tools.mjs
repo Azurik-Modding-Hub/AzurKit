@@ -457,7 +457,12 @@ export function tools({ root, call, app, say, image, known = () => null, out, pi
       } catch {}
     }
     await sweep();   // those no page or worker holds
-    await Promise.all((await releases()).map((key) => caches.delete(key)));   // this page runs on: sw.js keeps again
+    // The release's caches go, and sw.js's registration with them: this page runs on (sw.js keeps each file it asks
+    // for again, checked), and the next load is the network's release, registered anew. Kept, the next load came from
+    // the cleared release's sw.js, which refused every file a release deployed since serves (503: no reload mended it).
+    const reg = await navigator.serviceWorker?.getRegistration?.().catch(() => null);
+    await Promise.all((await releases()).map((key) => caches.delete(key)));
+    await reg?.unregister().catch(() => {});
     const later = (await Promise.all(KEPT.databases.map(([name]) => new Promise((done) => {
       const request = indexedDB.deleteDatabase(name);
       request.onsuccess = request.onerror = () => done(false);

@@ -15,7 +15,7 @@
 // - The activation deletes the older releases' caches of this scope (never another site's on this origin).
 // - Each GET in the scope of a listed file (a navigation to the scope or index.html is index.html) is answered from
 //   this release's cache as kept (never rewrapped: the browser reads it from the cache itself); one gone from it
-//   (Storage's Clear) is downloaded again and kept only if its sha256 is the list's, else answered 503: a page never
+//   (Storage's Clear, which unregisters this worker too) is downloaded again and kept only if its sha256 is the list's, else answered 503: a page never
 //   gets another release's bytes. Any other GET goes to the network.
 // - The page's messages, each answered on its port: "release" (this release's name, files and bytes, and how many are
 //   kept), "check" (the registration looks for a new release, a new sw.js, which carries a new release's whole list:
