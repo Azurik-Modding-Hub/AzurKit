@@ -7427,7 +7427,8 @@ def test_a_check_cancelled_shows_no_drawing_line_for_the_pictures_asked_with_it(
                           ".disabled", 60)
         page.evaluate("() => { globalThis.holdCheck = true; }")
         _page.click(page, "var-check")
-        _page.until(page, "() => sent.some((m) => m.type === 'variant_check') && azurkit.variants.state.checking", 60)
+        _page.until(page, "() => sent.some((m) => m.type === 'variant_check') "
+                          "&& Boolean(azurkit.variants.state.checking)", 60)   # its ticket, {}: falsy as Python's
         page.evaluate("() => { const b = document.getElementById('build'); b.disabled = false; b.click(); }")
         _page.until(page, "() => !document.getElementById('cancel').hidden", 10)
         page.evaluate("() => { globalThis.sentBefore = sent.length; }")
