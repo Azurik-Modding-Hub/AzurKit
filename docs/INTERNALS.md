@@ -2285,7 +2285,18 @@ are the Characters section's.
   keeps its own) waited for a core: it is taken once more and, starved again
   or past 30 s, stands with its tag (`starved`, `perf.judge` names it and no
   verdict reads it; `retook` keeps the first take's seconds); the lag run,
-  whose reads wait by design, has no CPU figure. The list only shrinks: `perf.py
+  whose reads wait by design, has no CPU figure. Each call the driver makes
+  to a page, a context or a browser is bounded (`_perf.bounded`, through
+  `_page.within`): an evaluate, a page's opening and close in `_page.STALL`
+  (a wait's poll in what is left of its timeout and that), a load in
+  Playwright's own 30 s, a download's write in its wait's own timeout. Past
+  it, or at once as WebKit's log names a page's process it ended, the pass
+  stops: its ops' error names the call, the ending's `reason=`, the run's
+  WebKit processes (launchd's, outside the driver's tree) and whether its
+  browser still answers, the whole failure is in the run's log, and the run
+  goes on (Step 4.37s: WebKit ended its pages' processes as its GPU process
+  stopped answering three times in 30 s, under an evaluate that had no
+  bound, which held the perf stage and the suite lock 1 h 43 min). The list only shrinks: `perf.py
   --update-ceilings` lowers a ceiling you earned (in your own commit) and
   drops what is back under, and the gate and `land.py` fail an added op or
   debt or a raised ceiling against main's, but for a browser main's

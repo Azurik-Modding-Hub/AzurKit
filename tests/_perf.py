@@ -517,51 +517,107 @@ def progress_of(events: list, t0: float, t1: float) -> tuple[int, bool]:
     return bar, bar >= 2 or any(len(v) >= 2 for v in counted.values())
 
 
+def bounded(owner, call, what: str, seconds: float | None = None, look: bool = True):
+    """``call`` (a coroutine of ``owner``'s Playwright object, ``owner._impl_obj``: a page's, a context's or a
+    browser's) answered in at most ``seconds`` s, :data:`tests._page.STALL` unless given: Playwright gives an evaluate,
+    a page's opening and close, a context's and a browser's calls and a download's path no bound of their own, and a
+    page WebKit ended under such a call held the perf stage, and with it the suite lock, 1 h 43 min (Step 4.37s). A
+    page's or a context's call fails as ``_page.within`` fails it: past ``seconds`` naming ``what`` and the page's and
+    browser's state, and in WebKit on macOS also at once, as an ``_page.Ended``, once its log says WebKit ended a page's
+    process of the call's browser (read once the call went ``_page.LOOK`` s unanswered); with ``look`` false (a
+    download's write, which an op times) or a browser's, past ``seconds`` naming ``what`` and its driver's processes,
+    reading no log. ``what`` is named on one line, its whitespace collapsed."""
+    seconds, what = _page.STALL if seconds is None else seconds, " ".join(what.split())
+    if look and (hasattr(owner, "main_frame") or hasattr(owner, "pages")):
+        return _page.within(owner, call, seconds, what)
+    try:
+        return _page._heard(owner, call, seconds)
+    except TimeoutError:
+        context = getattr(owner, "context", owner)
+        raise AssertionError(f"no answer in {seconds:.0f} s: {what}\n"
+                             f"under its driver: {_page._drivers(context)}") from None
+
+
+def opened(ctx) -> Page:
+    """A new page of the browser context ``ctx``, its opening bounded (:func:`bounded`)."""
+    return Page(bounded(ctx, ctx._impl_obj.new_page(), "the context's new page"))
+
+
+def shut(owner) -> None:
+    """``owner`` (a browser context, or the app run's browser) closed, its close bounded (:func:`bounded`)."""
+    bounded(owner, owner._impl_obj.close(), "the browser's close" if hasattr(owner, "contexts") else
+            "the context's close")
+
+
 class Page:
     """A page with the init script: actions timed by its clock, and the
     freeze probe's late ticks (``[due, ms]`` by its clock, :attr:`late`)
-    gathered at each read of its events."""
+    gathered at each read of its events. Each call to the page is bounded
+    (:meth:`ask`, :func:`bounded`)."""
 
     def __init__(self, page):
         self.page = page
         self.late: list = []
 
+    def ask(self, fn: str, arg=None, seconds: float | None = None, what: str | None = None):
+        """``page.evaluate(fn, arg)``, unanswered for at most ``seconds`` s (:data:`tests._page.STALL` unless given;
+        :func:`bounded`: ``what``, else ``fn``)."""
+        from playwright._impl._sync_base import mapping
+        return bounded(self.page, self.page._impl_obj.evaluate(fn, mapping.to_impl(arg)), what or fn, seconds)
+
     def js(self, fn: str, arg=None):
-        return self.page.evaluate(fn, arg)
+        return self.ask(fn, arg)
 
     def now(self) -> float:
-        return self.page.evaluate("() => performance.now()")
+        return self.ask("() => performance.now()")
 
     def do(self, action: str, arg=None) -> float:
         """Do the page function ``action``: the page's clock as it starts."""
-        return self.page.evaluate(f"(a) => {{ const t = performance.now(); ({action})(a); return t; }}", arg)
+        return self.ask(f"(a) => {{ const t = performance.now(); ({action})(a); return t; }}", arg, what=action)
 
     def wait(self, done: str, timeout: float = 900, arg=None) -> tuple[float, object]:
-        """(the page's clock, the value) once ``done`` is truthy; polled every 50 ms, then 200 ms after 5 s."""
+        """(the page's clock, the value) once ``done`` is truthy; polled every 50 ms, then 200 ms after 5 s, each
+        poll unanswered for at most what is left of ``timeout`` and :data:`tests._page.STALL` (``_page.until``'s)."""
         probe = f"(a) => {{ const v = ({done})(a); return v ? [performance.now(), v] : null; }}"
         start = time.monotonic()
-        while not (got := self.page.evaluate(probe, arg)):
+        while not (got := self.ask(probe, arg, max(timeout - (time.monotonic() - start), 0) + _page.STALL,
+                                   f"the wait for {done}")):
             waited = time.monotonic() - start
             if waited > timeout:
                 raise TimeoutError(f"timed out after {timeout:.0f} s: {done[:100]}")
             time.sleep(0.05 if waited < 5 else 0.2)
         return got[0], got[1]
 
-    def poll(self, dones: list[str]) -> tuple[float, list]:
-        """(the page's clock, each of ``dones``' values: an error text, else true or false) in one evaluate."""
+    def poll(self, dones: list[str], seconds: float | None = None) -> tuple[float, list]:
+        """(the page's clock, each of ``dones``' values: an error text, else true or false) in one evaluate,
+        unanswered for at most ``seconds`` s (:meth:`ask`)."""
         each = ", ".join(f"b(({done})())" for done in dones)
-        return self.page.evaluate(f"() => {{ const b = (v) => typeof v === 'string' ? v : Boolean(v); "
-                                  f"return [performance.now(), [{each}]]; }}")
+        return self.ask(f"() => {{ const b = (v) => typeof v === 'string' ? v : Boolean(v); "
+                        f"return [performance.now(), [{each}]]; }}", seconds=seconds, what=f"the poll of {dones}")
 
     def settled(self) -> float:
         """The page's clock once the timers already due have run (a tick the page owes is in the next read)."""
-        return self.page.evaluate("() => new Promise((done) => setTimeout(() => done(performance.now()), 0))")
+        return self.ask("() => new Promise((done) => setTimeout(() => done(performance.now()), 0))")
 
     def events(self) -> list:
-        events, late = self.page.evaluate("() => [(globalThis.__perf ?? []).splice(0), "
-                                          "(globalThis.__late ?? []).splice(0)]")
+        events, late = self.ask("() => [(globalThis.__perf ?? []).splice(0), (globalThis.__late ?? []).splice(0)]")
         self.late += late
         return events
+
+    def load(self, url: str) -> None:
+        """``page.goto(url)`` to its load, in Playwright's own 30 s (``_page.load``'s :data:`tests._page.ACT`), past
+        which it fails naming the page's state and its requests unanswered."""
+        _page.load(self.page, url)
+
+    def close(self) -> None:
+        """``page.close()``, bounded (``_page.close``)."""
+        _page.close(self.page)
+
+    def saved(self, download, seconds: float) -> Path:
+        """``download.path()``: the file once the browser has written it, in at most ``seconds`` s (its wait's own
+        timeout), reading no log while an op times it (:func:`bounded`)."""
+        return bounded(self.page, download._impl_obj.path(), f"the download of {download.suggested_filename}",
+                       seconds, look=False)
 
     def worst(self, t0: float, t1: float) -> float:
         """The freeze probe's worst lateness (ms) of a tick due in ``[t0,
@@ -620,6 +676,51 @@ class Driver:
         self.retaking: dict[str, dict] = {}  # each op's starved sample, while it is taken once more
         self.ctx = None                      # the pass's browser context, the one reopen() gave last
         self.reopened: Callable | None = None   # the pass's browser closed and opened again on its profile
+        self.before: set[tuple[int, str]] = set()   # the WebKit processes running before the run (browser_pids)
+
+    def webkit(self) -> str | None:
+        """This run's WebKit processes as they are now, each its kind and id (its pages', GPU's and network's: XPC
+        services launchd starts, outside its driver's tree, so ``_page``'s list of the processes under the driver never
+        names them; :func:`browser_pids` does), and whether none is a page's (WebContent); None outside WebKit."""
+        if self.run.browser != "webkit":
+            return None
+        try:
+            rows = Memory.rows()
+            mine = set(browser_pids(rows, self.before))
+        except Exception as error:   # an unread listing names nothing more
+            return f"its WebKit processes: unread ({type(error).__name__})"
+        kinds = [f"{kind[1] if (kind := re.search(r'com\.apple\.WebKit\.(\w+)', comm)) else Path(comm).name} {pid}"
+                 for pid, _, comm, _ in rows if pid in mine and ".xpc/" in comm]
+        return (f"its WebKit processes: {', '.join(kinds) or 'none'}"
+                + ("" if any(kind.startswith("WebContent ") for kind in kinds) else "; no page's (WebContent) process"))
+
+    def attempt(self, name: str, n: int, ops, scenario: Callable[[], None]) -> None:
+        """Pass ``n`` of the scenario ``name`` (``scenario()``), then its freezes no sample took (:meth:`over`). One
+        that stops is a line of the run's log and each of its ``ops`` still needing a sample has its error; the rest of
+        the pass is lost. A page's call that stops it (unanswered past its bound or ended under it, :func:`bounded`, or
+        its target gone) is logged whole with this run's WebKit processes as it stopped (:meth:`webkit`), and its ops'
+        error says on one line the call and its seconds, WebKit's ending's ``reason=``, the processes and whether its
+        browser still answers."""
+        try:
+            scenario()
+            self.over()
+        except Exception as exc:   # the op being timed has its error; the rest of this pass is lost
+            said, call = str(exc), isinstance(exc, AssertionError) or _page._gone(exc)
+            processes, error = (self.webkit() if call else None), said[:200]
+            if call:
+                lines = said.splitlines() or [""]
+                parts = [lines[0][:120]]
+                if isinstance(exc, _page.Ended):
+                    reasons = sorted(set(re.findall(r"reason=\w+", " ".join(exc.lines)))) or ["no reason named"]
+                    parts.append(f"WebKit ended its page's process ({', '.join(reasons)})")
+                parts += [processes] if processes else []
+                error = "; ".join(parts + [line for line in lines[1:] if line.startswith("its browser")][:1])
+            self.log.append(f"{self.run.name} {name} pass {n + 1}: {type(exc).__name__}: "
+                            + (said[:6000] + (f"\n{processes}" if processes else "") if call else said[:300]))
+            print(self.log[-1], flush=True)
+            for op in ops:
+                if self.need(op):
+                    self.record(op, 0.0, [], 0, 0, f"{name} stopped: {type(exc).__name__}: {error}")
 
     def reopen(self, ctx):
         """The browser of ``ctx`` closed and opened again on the pass's profile, its storage kept (the dress, the
@@ -657,7 +758,7 @@ class Driver:
         report = p.js(CALLS)
         if report not in self.native:
             self.native.append(report)
-        p.page.close()
+        p.close()
 
     def fresh(self, p: Page) -> None:
         """A new page (its own clock): the events it has logged, no change pending."""
@@ -833,7 +934,7 @@ class Driver:
         got: dict[str, tuple[float, object]] = {}
         began = time.monotonic()
         while len(got) < len(dones):
-            t, values = p.poll(list(dones.values()))
+            t, values = p.poll(list(dones.values()), max(timeout - (time.monotonic() - began), 0) + _page.STALL)
             got |= {name: (t, value) for name, value in zip(dones, values) if value and name not in got}
             if errors := [v for _, v in got.values() if isinstance(v, str) and v.startswith("error: ")]:
                 raise RuntimeError(f"{op}: {errors[0][:200]}")
@@ -1027,8 +1128,8 @@ class App:
         url = self.proc.stdout.readline().strip()
         if not url.startswith("http://127.0.0.1:"):
             raise RuntimeError(f"azurkit serve gave no address: {err.read_text(encoding='utf-8')[-300:]!r}")
-        p = Page(ctx.new_page())
-        p.page.goto(url)
+        p = opened(ctx)
+        p.load(url)
         t1, _ = p.wait(READY, 600)
         d.engine(p)
         d.fresh(p)
@@ -1481,8 +1582,8 @@ def app_reshape_pictures(d: Driver, app: App, ctx) -> None:
 def _site_page(d: Driver, ctx, url: str, op: str | None) -> Page:
     """A new page on ``url``, ``op`` timed by its own clock from its navigation to the engine's ready flag. A return
     visit (S02) the release ``sw.js`` keeps doesn't serve cross-origin isolated (D1013) fails its sample."""
-    p = Page(ctx.new_page())
-    p.page.goto(url)
+    p = opened(ctx)
+    p.load(url)
     t1, _ = p.wait(READY, 600)
     d.engine(p)
     d.fresh(p)
@@ -1502,7 +1603,7 @@ def _download(d: Driver, p: Page, op: str | None) -> None:
     with p.page.expect_download(timeout=1_800_000) as caught:
         p.js("() => document.querySelector('#save').click()")
     started = p.now()
-    caught.value.path()
+    p.saved(caught.value, 1800)
     t1, check = p.wait("() => azurkit.saveCheck !== 'running' && azurkit.saveCheck", 1800)
     d.ev += p.events()
     d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, None if check == "held" else check, (started - t0) / 1000)
@@ -1827,7 +1928,7 @@ def site_tools(d: Driver, ctx, url: str) -> None:
         t0 = p.now()
         with p.page.expect_download(timeout=900_000) as caught:
             p.js(LARGEST)
-        caught.value.path()
+        p.saved(caught.value, 900)
         t1 = p.now()
         d.ev += p.events()
         d.record("S44", (t1 - t0) / 1000, d.ev, t0, t1)
@@ -1837,7 +1938,7 @@ def site_tools(d: Driver, ctx, url: str) -> None:
     p.wait(SAVE_OPEN, 600)
     with p.page.expect_download(timeout=1_800_000) as caught:
         p.js("() => document.querySelector('#save').click()")
-    built = Path(caught.value.path())
+    built = Path(p.saved(caught.value, 1800))
     p.wait(READY, 600)   # the site's engine is replaced after each build
     p.js(click("tab-tools"))
     d.act(p, "S45", lambda: p.page.set_input_files("#tools-open-file", str(built)), OPENED, 900)
@@ -1846,7 +1947,7 @@ def site_tools(d: Driver, ctx, url: str) -> None:
     t0 = p.now()
     with p.page.expect_download(timeout=600_000) as saved:
         p.js(click("tools-mods-save"))
-    mods, t1 = saved.value.path(), p.now()
+    mods, t1 = p.saved(saved.value, 600), p.now()
     t2, t3 = d.act(p, None, lambda: p.page.set_input_files("#tools-mods-file", str(mods)),
                    f"() => {STATUS}.startsWith('Loaded') ? 'loaded' : {ERROR}", 600)
     t0, t1 = max((t0, t1), (t2, t3), key=lambda span: span[1] - span[0])
@@ -2308,7 +2409,7 @@ def site_variants(d: Driver, ctx, url: str) -> None:
         with p.page.expect_download(timeout=600_000) as caught:
             p.js(click("var-export"))
         started = p.now()
-        caught.value.path()
+        p.saved(caught.value, 600)
         t1 = p.now()
         d.ev += p.events()
         d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, None, (started - t0) / 1000)
@@ -2508,7 +2609,7 @@ def site_colours(d: Driver, ctx, url: str) -> None:
         with p.page.expect_download(timeout=600_000) as caught:
             p.js(click("var-png-export"))
         started = p.now()
-        caught.value.path()
+        p.saved(caught.value, 600)
         t1 = p.now()
         d.ev += p.events()
         d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, None, (started - t0) / 1000)
@@ -2588,12 +2689,12 @@ def clean_storage(ctx, url: str) -> None:
     Content from remembered as the site's ``./content-source/`` (the clone ``perf.py --content`` serves; with none, a
     404 the page says plainly), as the app's config remembers the clone: the default, Azurik-Custom-Content on GitHub
     (D1135), is the network's, which no op times."""
-    page = ctx.new_page()
+    page = opened(ctx)
     try:
-        page.goto(url.split("?")[0].rstrip("/") + "/theme.js")
-        if not page.evaluate(CLEAN):
+        page.load(url.split("?")[0].rstrip("/") + "/theme.js")
+        if not page.js(CLEAN):
             raise RuntimeError("the site's OPFS holds a file no one lets go of")
-        page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-source/')")
+        page.js("() => localStorage.setItem('azurkit.content_source', './content-source/')")
     finally:
         page.close()
 
@@ -2639,6 +2740,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
     python = python or (venv(wt, scratch / "app") if run.host == "app" else None)
     current: list[App] = []
     before, shared = {(pid, started) for pid, _, comm, started in Memory.rows() if ".xpc/" in comm}, []
+    d.before = before
 
     def site_roots(rows):   # another Playwright driver alive: a new WebKit process may be its (said, not dropped)
         if any(comm.endswith("playwright/driver/node") and ppid != os.getpid() for _, ppid, comm, _ in rows):
@@ -2656,7 +2758,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
             def launched(profile):   # the site's in a persistent context on a folder: an ephemeral one is WebKit's
                 made = engine.launch_persistent_context(str(profile), headless=True, accept_downloads=True,   # 1 GiB
                                                         downloads_path=str(scratch))                        # no OPFS
-                made.add_init_script(INIT)
+                bounded(made, made._impl_obj.add_init_script(INIT), "the context's init script")
                 return made
 
             for name, (host, ops, scenario) in SCENARIOS.items():
@@ -2670,41 +2772,37 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                         for op in missing:
                             d.record(op, 0.0, [], 0, 0, "needs a clone of Azurik-Custom-Content (perf.py --content)")
                     if browser:
-                        profile, ctx = None, browser.new_context(accept_downloads=True)
-                        ctx.add_init_script(INIT)
+                        profile, ctx = None, bounded(browser, browser._impl_obj.new_context(acceptDownloads=True),
+                                                     "the browser's new context")
+                        bounded(ctx, ctx._impl_obj.add_init_script(INIT), "the context's init script")
                         d.reopened = None
                     else:
                         profile = Path(tempfile.mkdtemp(prefix=f"profile-{name}-{n}.", dir=scratch))
                         ctx = launched(profile)
-                        d.reopened = lambda old, profile=profile: (old.close(), launched(profile))[1]
+                        d.reopened = lambda old, profile=profile: (shut(old), launched(profile))[1]
                     d.ctx = ctx
-                    try:
+
+                    def one(name=name, n=n, scenario=scenario, ctx=ctx) -> None:
                         if run.host == "app":
                             current[:] = [App(python, scratch / f"home-{name}-{n}", run, content)]
                             scenario(d, current[0], ctx)
                         else:
                             clean_storage(ctx, url)
                             scenario(d, ctx, url)
-                            ctx = d.ctx
-                            for page in list(ctx.pages):
-                                page.close()
-                            clean_storage(ctx, url)
-                        d.over()
-                    except Exception as exc:   # the op being timed has its error; the rest of this pass is lost
-                        d.log.append(f"{run.name} {name} pass {n + 1}: {type(exc).__name__}: {str(exc)[:300]}")
-                        print(d.log[-1], flush=True)
-                        for op in ops:
-                            if d.need(op):
-                                d.record(op, 0.0, [], 0, 0, f"{name} stopped: {type(exc).__name__}: {str(exc)[:200]}")
+                            for page in list(d.ctx.pages):
+                                _page.close(page)
+                            clean_storage(d.ctx, url)
+                    try:
+                        d.attempt(name, n, ops, one)
                     finally:
                         for app in current:
                             app.quit()
                         current.clear()
-                        d.ctx.close()
+                        shut(d.ctx)
                         if profile:
                             shutil.rmtree(profile, ignore_errors=True)
             if browser:
-                browser.close()
+                shut(browser)
             d.finish()
     finally:
         shutil.rmtree(scratch, ignore_errors=True)

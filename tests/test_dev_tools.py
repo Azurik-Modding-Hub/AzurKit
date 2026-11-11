@@ -5,6 +5,7 @@ union merge and its stale bullets (``scripts/devlog.py``)."""
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import json
 import os
@@ -20,7 +21,7 @@ from pathlib import Path
 import pytest
 
 from scripts import devlog, flake_repeat, fullsuite, land, perf
-from tests import _perf
+from tests import _page, _perf
 
 ROOT = Path(__file__).resolve().parent.parent
 SMOKE = sorted(fullsuite.SMOKE)
@@ -885,8 +886,14 @@ class _Stub(_perf.Page):
     probe's ``[due, ms]`` ticks."""
 
     def __init__(self, costs, ticks=()):
-        super().__init__(types.SimpleNamespace(**dict.fromkeys(("goto", "set_input_files", "close"), lambda *a: None)))
+        super().__init__(types.SimpleNamespace(set_input_files=lambda *a: None))
         self.t, self.costs, self.ticks, self.at, self.clicks = 0.0, costs, list(ticks), {}, {}
+
+    def load(self, url):
+        pass
+
+    def close(self):
+        pass
 
     def now(self):
         return self.t
@@ -903,7 +910,7 @@ class _Stub(_perf.Page):
         self.t = max(self.t, self.at.get(done, self.t))
         return self.t, True
 
-    def poll(self, dones):
+    def poll(self, dones, seconds=None):
         return self.t, [self.t >= self.at.get(done, self.t) for done in dones]
 
     def settled(self):
@@ -1076,8 +1083,95 @@ def test_the_sites_tracker_view_times_its_world_map_from_its_own_click_and_track
         _perf.site_track(d, types.SimpleNamespace(new_page=dict), "http://127.0.0.1:9800/")
         return round(pages[0].clicks[track]), {op: d.samples[op][0]["s"] for op in ("S18", "S19", "S20")}
     monkeypatch.setattr(_perf, "Page", page)
+    monkeypatch.setattr(_perf, "opened", lambda ctx: _perf.Page(ctx.new_page()))
     assert [tracked(ms) for ms in (50, 30_000)] == [
         (3000, {"S18": 5.0, "S19": 0.05, "S20": 0.0}), (30_000, {"S18": 5.0, "S19": 30.0, "S20": 0.0})]
+
+
+def _apart(call):
+    """``call`` run on a loop of its own, in a thread of its own, as a Playwright's sync object runs its calls."""
+    with ThreadPoolExecutor(1) as pool:
+        return pool.submit(asyncio.run, call).result()
+
+
+def _playwright(name: str, driver: int, never: str):
+    """A stand-in browser ``name``'s browser, context and page under the Playwright driver ``driver``: their impl
+    objects' calls answer at once, all but the one ``never`` names, which never answers."""
+    async def given(value):
+        return value
+
+    def call(what, value=None):
+        return lambda *_, **__: asyncio.sleep(600) if what == never else given(value)
+    connection = types.SimpleNamespace(_transport=types.SimpleNamespace(_proc=types.SimpleNamespace(pid=driver)))
+    browser = types.SimpleNamespace(contexts=[], browser_type=types.SimpleNamespace(name=name), _sync=_apart,
+                                    _impl_obj=types.SimpleNamespace(close=call("browser close"), _connection=connection))
+    context = types.SimpleNamespace(pages=[], browser=browser, _sync=_apart)
+    page = types.SimpleNamespace(main_frame=None, context=context, _sync=_apart, on=lambda *_: None,
+                                 remove_listener=lambda *_: None, _impl_obj=types.SimpleNamespace(
+                                     evaluate=call("evaluate", 0), goto=call("goto"), close=call("close"),
+                                     page_errors=call("errors", []), console_messages=call("console", [])))
+    context._impl_obj = types.SimpleNamespace(new_page=call("new page", page), cookies=call("cookies", []),
+                                              _connection=connection)
+    return browser, context, page
+
+
+def test_a_perf_pass_whose_page_call_never_answers_ends_by_name_and_the_run_goes_on(tmp_path, monkeypatch):
+    """Step 4.37s: the perf stage's driver left a WebKit page's evaluate unanswered 1 h 43 min, the suite lock held
+    and seven gates behind it: WebKit had ended the page's process (its GPU process unresponsive three times in 30 s,
+    ``reason=GPUProcessCrashedTooManyTimes``) and told Playwright nothing. Each call the driver makes to a page, a
+    context or a browser is bounded (``_perf.bounded``), so a pass whose call never answers ends, its ops' error naming
+    the call, WebKit's ending (at once, as its log names it) or that it went unanswered past its bound, this run's
+    WebKit processes (none a page's) and whether its browser still answers, the whole failure in the run's log, and
+    the run goes on. A row a call kind: a WebKit page's evaluate in S60's pass whose log names its page's ending; a
+    page's evaluate past its bound (the storage's clean a site pass starts with); a context's new page past its bound;
+    then a browser's close past its bound. Stand-in Playwright objects, process listings and log."""
+    from scripts import ci_resources
+    driver = os.getpid()   # the stand-ins' ids from it, so none is the worker's own
+    ui, network = driver + 1, driver + 2
+    said: list[str] = []
+    monkeypatch.setattr(ci_resources, "table", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20),
+                                                                  (ui, driver, 90, "Playwright", "", 1 << 20)])
+    monkeypatch.setattr(ci_resources, "webkit_said", lambda since, browsers: said if ui in browsers else [])
+    webkit = "/x/.tools/playwright/webkit-2370/Playwright.app/Contents"
+    monkeypatch.setattr(_perf.Memory, "rows", staticmethod(lambda rss=None, cpu=None: [
+        (driver, os.getpid(), "node", "t0"), (ui, driver, f"{webkit}/MacOS/Playwright", "t0"),
+        (network, 1, f"{webkit}/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/"
+                     "Contents/MacOS/com.apple.WebKit.Networking.Development", "t1")]))
+    monkeypatch.setattr(_perf, "ours", lambda pid, started: True)
+    for name, value in (("LOG", True), ("LOOK", 0.5), ("HEAR", 0.5), ("PROBE", 0.5), ("STALL", 1)):
+        monkeypatch.setattr(_page, name, value)
+    ending = (f"00:15:28 Playwright: [pageProxyID=22, webPageID=23, PID=28607] WebPageProxy::processDidTerminate: "
+              f"(pid 28607), reason=GPUProcessCrashedTooManyTimes")
+    processes = f"its WebKit processes: Networking {network}; no page's (WebContent) process"
+    url = "http://127.0.0.1:9/"
+    # each: its browser, the call that never answers, the log's lines on its page's ending, the pass, and its ops'
+    # error (a pattern): the call and its seconds, the ending, the processes, the browser's probe
+    for browser, never, lines, scenario, error in (
+            ("webkit", "evaluate", [ending], _perf.site_ahead_track,
+             r"site-ahead-track stopped: Ended: no answer in [01] s: the wait for \(\) => globalThis\.azurkit\?\.ready; "
+             rf"WebKit ended its page's process \(reason=GPUProcessCrashedTooManyTimes\); {re.escape(processes)}; "
+             "its browser still answers"),
+            ("chromium", "evaluate", [], lambda d, ctx, url: _perf.clean_storage(ctx, url),
+             r"site-ahead-track stopped: AssertionError: no answer in 1 s: async \(\) => \{ const root = await "
+             r"navigator\.storage\.getDirectory\(\); .+; its browser still answers"),
+            ("webkit", "new page", [], _perf.site_ahead_track,
+             rf"site-ahead-track stopped: AssertionError: no answer in 1 s: the context's new page; {re.escape(processes)}; "
+             "its browser still answers")):
+        said[:] = lines
+        _, ctx, _ = _playwright(browser, driver, never)
+        d = _perf.Driver(_perf.RUNS[browser], {"S60": 1}, tmp_path, tmp_path / "usa.iso", None)
+        began = time.monotonic()
+        d.attempt("site-ahead-track", 3, ("S60",), lambda: scenario(d, ctx, url))   # the run goes on
+        took, got = time.monotonic() - began, d.samples["S60"][0]["error"]
+        assert re.fullmatch(error, got) and took < 10, (browser, never, got, took)
+        assert d.log[0].startswith(f"{browser} site-ahead-track pass 4: ") and d.log[0].endswith(
+            (processes if browser == "webkit" else "") or f"under its driver: node {driver} (100 s), Playwright {ui} "
+            "(90 s)") and (ending in d.log[0]) == bool(lines), (browser, never, d.log)
+    browser, _, _ = _playwright("chromium", driver, "browser close")
+    with pytest.raises(AssertionError) as failed:
+        _perf.shut(browser)
+    assert str(failed.value) == (f"no answer in 1 s: the browser's close\n"
+                                 f"under its driver: node {driver} (100 s), Playwright {ui} (90 s)")
 
 
 class _Seeds(_Stub):
@@ -1142,6 +1236,7 @@ def test_each_later_visit_on_the_site_opens_in_its_browser_opened_again_on_the_p
             return True if fn == "() => crossOriginIsolated" else super().js(fn, arg)
     page = Page({})
     monkeypatch.setattr(_perf, "Page", lambda _: page)
+    monkeypatch.setattr(_perf, "opened", lambda ctx: _perf.Page(ctx.new_page()))
     monkeypatch.setattr(_perf, "_download", lambda d, p, op: None)
     browsers = []   # each browser's pages, as they open
 
@@ -1159,6 +1254,7 @@ def test_the_engine_ready_again_after_a_seeds_build_is_timed_from_the_builds_ans
     replaced, counts from the build's answer, not its click."""
     page = _Stub({_perf.build_js(): {_perf.BUILT: 5000, _perf.RESTED: 6200}})
     monkeypatch.setattr(_perf, "Page", lambda _: page)
+    monkeypatch.setattr(_perf, "opened", lambda ctx: _perf.Page(ctx.new_page()))
     d = _perf.Driver(_perf.RUNS["webkit"], {"S24": 1, "R24": 1}, tmp_path, tmp_path / "usa.iso", None)
     d.sleep = lambda seconds: setattr(page, "t", page.t + seconds * 1000)
     _perf.site_seed(d, types.SimpleNamespace(new_page=dict), "http://127.0.0.1:9800/")
