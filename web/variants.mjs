@@ -346,9 +346,10 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   });
   ui.filter.addEventListener("input", draw);
 
-  // Whether the recipe open may be left: at once with nothing unsaved, else after a yes.
-  const leave = async () => !edited() || v.kind === "new" && v.saved === null && !Object.keys(v.recipe).length
-    || ask(`Leave ${label()} and lose its unsaved edits?`);
+  // Whether leaving the recipe open loses edits: its edits not saved, a New one's too (Save as keeps it), but none
+  // before a variant opens (the view's empty New). The recipe open may be left at once without, else after a yes.
+  const lost = () => edited() && !(v.kind === "new" && v.saved === null && !Object.keys(v.recipe).length);
+  const leave = async () => !lost() || ask(`Leave ${label()} and lose its unsaved edits?`);
   const choose = async (kind, name) => {
     if (kind === v.kind && name === v.name) return;
     if (await leave()) await open(kind, name);
@@ -834,7 +835,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   // leaving it in the page is (Modkit's AZ-792).
   if (!app) {
     addEventListener("beforeunload", (event) => {
-      if (edited()) event.preventDefault();
+      if (lost()) event.preventDefault();
     });
   }
 

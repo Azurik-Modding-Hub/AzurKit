@@ -6275,9 +6275,10 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
     unsaved edits is asked about (a no stays); New from this offers mine_2; Export downloads the engine's zip; Delete
     (after a yes) and Import take it out and back; New offers the species then the objects, each counted and in its
     grade's colour and mark; a New's unsaved edits are asked about as the page closes (Modkit's AZ-792), a saved
-    one's never; a new page lists what this browser keeps (IndexedDB's azurkit-variants), which the Tools tab's
-    Storage names and Clear removes, and a Save the first page makes after that Clear says this browser didn't keep
-    it, Export to keep a copy. No CSP violation, no request but GETs of the site's files and that source's."""
+    one's never, nor anything before a variant opens; a new page lists what this browser keeps (IndexedDB's
+    azurkit-variants), which the Tools tab's Storage names and Clear removes, and a Save the first page makes after
+    that Clear says this browser didn't keep it, Export to keep a copy. No CSP violation, no request but GETs of the
+    site's files and that source's."""
     from azurkit.tools.characters import _player_variants, content, picker
 
     beam = _player_variants.builtins()["beamlord"]
@@ -6303,6 +6304,9 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         return out; }"""
     try:
         page = served.open()
+        closing = ("() => { const event = new Event('beforeunload', { cancelable: true }); dispatchEvent(event); "
+                   "return event.defaultPrevented; }")
+        assert page.evaluate(closing) is False   # no variant open yet: the page closes with no question
         _page.click(page, "tab-characters")
         page.evaluate("(url) => { const box = document.getElementById('char-source'); box.value = url; "
                       "box.dispatchEvent(new Event('change')); }", "./content-test/")
@@ -6406,8 +6410,6 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
                           "&& !('mine_2' in azurkit.variants.state.folders)", 60)
         _page.pick(page, "#var-import", zipped)
         _variants_shown(page, status="· saved ·", name="mine_2")
-        closing = ("() => { const event = new Event('beforeunload', { cancelable: true }); dispatchEvent(event); "
-                   "return event.defaultPrevented; }")
         assert page.evaluate(closing) is False   # saved: the page closes with no question
         _page.click(page, "var-new")
         keylord = "document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')"
