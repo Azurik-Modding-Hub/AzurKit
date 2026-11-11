@@ -18,6 +18,7 @@
 typedef int64_t i64;
 
 #define TWIN 2
+#define XB 64                     /* a frame's skin's buckets */
 
 static double fab(double x) { return __builtin_fabs(x); }
 static double sqr(double x) { return __builtin_elementwise_sqrt(x); }   /* never errno, so never libm's sqrt */
@@ -323,8 +324,8 @@ typedef struct {
     i64 L, nk, loop, held, back, np, ns, nt, nb, sub, steps, ease, hold, count, n, parent, pivot;
     const double *num, *bone, *world, *origin, *sW, *sU, *sUN, *tW, *tU, *target, *keys;
     const i64 *slot, *linkof, *sB, *tB, *owner;
-    double *R, *X, *N, *W0, *O0, *angle, *need, *at_key, *share, *was, *Wt, *Ot, *Wr, *Or, *Rl, *P, *g, *d, *bspan;
-    i64 *own, *sel, *ok, *far, *keep, *has, *bucket, *order, *kb, *fill;
+    double *R, *X, *N, *W0, *O0, *angle, *need, *at_key, *share, *was, *Wt, *Ot, *Wr, *Or, *Rl, *P, *g, *d, *bspan, *xaxis;
+    i64 *own, *sel, *ok, *far, *keep, *has, *bucket, *order, *kb, *fill, *xorder, *xstart;
     unsigned char *done;
     int bad;
 } K;
@@ -399,6 +400,35 @@ static i64 bucket(double v, double lo, double w, i64 nb) {
     return b;
 }
 
+/* Frame f's skin in XB buckets along its widest axis (ordered: a bucket's values never above a later one's), so a
+ * box's points are found in the buckets it spans; a skin not finite is left to a whole search (axis -1). */
+static void index_frame(K *k, i64 f) {
+    const double *X = k->X + 3 * k->ns * f;
+    double lo[3], hi[3], *ax = k->xaxis + 4 * f;
+    i64 *start = k->xstart + (XB + 1) * f, *order = k->xorder + k->ns * f, *at = k->kb;
+    for (int c = 0; c < 3; c++) lo[c] = hi[c] = X[c];
+    for (i64 p = 0; p < 3 * k->ns; p++) {
+        double v = X[p];
+        if (!finite(v)) {
+            ax[0] = -1.0;
+            return;
+        }
+        if (v < lo[p % 3]) lo[p % 3] = v;
+        if (v > hi[p % 3]) hi[p % 3] = v;
+    }
+    int a = 0;
+    for (int c = 1; c < 3; c++)
+        if (hi[c] - lo[c] > hi[a] - lo[a]) a = c;
+    double w = (hi[a] - lo[a]) / (double)XB;
+    i64 nb = w > 0.0 && finite(w) ? XB : 1;
+    ax[0] = (double)a, ax[1] = lo[a], ax[2] = w, ax[3] = (double)nb;
+    for (i64 b = 0; b <= XB; b++) start[b] = 0;
+    for (i64 p = 0; p < k->ns; p++) at[p] = bucket(X[3 * p + a], lo[a], w, nb), start[at[p] + 1]++;
+    for (i64 b = 0; b < XB; b++) start[b + 1] += start[b];
+    for (i64 b = 0; b < XB; b++) k->fill[b] = start[b];
+    for (i64 p = 0; p < k->ns; p++) order[k->fill[at[p]]++] = p;
+}
+
 /* The skin point x's unit normal at frame f (jiggle._skinned's normals of the frame's pose), worked out once. */
 static const double *normal(K *k, i64 f, i64 x) {
     double *o = k->N + 3 * (k->ns * f + x);
@@ -459,16 +489,28 @@ static void short_(K *k, i64 f, const double *W, const double *Og, const i64 *se
         }
         lo[c] = lo[c] - reach, hi[c] = hi[c] + reach;
     }
-    i64 kept = 0, *keep = k->keep;
-    for (i64 x = 0; x < k->ns; x++) {
-        const double *y = X + 3 * x;
-        if (y[0] >= lo[0] && y[0] <= hi[0] && y[1] >= lo[1] && y[1] <= hi[1] && y[2] >= lo[2] && y[2] <= hi[2])
-            keep[kept++] = x;
-    }
     int a = 0, open = 1;   /* a box of finite bounds: its points finite, so no distance is NaN */
     for (int c = 0; c < 3; c++) {
         if (!(finite(lo[c]) && finite(hi[c]))) open = 0;
         if (hi[c] - lo[c] > hi[a] - lo[a]) a = c;
+    }
+    i64 kept = 0, *keep = k->keep;
+    const double *ax = k->xaxis + 4 * f;
+    if (open && ax[0] >= 0.0) {   /* the frame's buckets the box spans along their axis (in any order: ties go by index) */
+        int A = (int)ax[0];
+        const i64 *start = k->xstart + (XB + 1) * f, *order = k->xorder + k->ns * f;
+        i64 b1 = bucket(hi[A], ax[1], ax[2], (i64)ax[3]);
+        for (i64 i = start[bucket(lo[A], ax[1], ax[2], (i64)ax[3])]; i < start[b1 + 1]; i++) {
+            const double *y = X + 3 * order[i];
+            if (y[0] >= lo[0] && y[0] <= hi[0] && y[1] >= lo[1] && y[1] <= hi[1] && y[2] >= lo[2] && y[2] <= hi[2])
+                keep[kept++] = order[i];
+        }
+    } else {
+        for (i64 x = 0; x < k->ns; x++) {
+            const double *y = X + 3 * x;
+            if (y[0] >= lo[0] && y[0] <= hi[0] && y[1] >= lo[1] && y[1] <= hi[1] && y[2] >= lo[2] && y[2] <= hi[2])
+                keep[kept++] = x;
+        }
     }
     i64 nb = 1;
     double w = 0.0;
@@ -841,8 +883,8 @@ API i64 az_clear_need(const i64 *z, i64 *need) {
     i64 L = z[Z_L], nk = z[Z_NK], loop = z[Z_LOOP], np = z[Z_NP], ns = z[Z_NS], nt = z[Z_NT], sub = z[Z_SUB];
     i64 n = (nk - 1) * sub + (loop ? 0 : 1), count = loop ? nk - 1 : nk;
     need[0] = n * np * 9 + 2 * n * ns * 3 + n * L * 7 + L * count * 2 + 2 * n + 2 * count + 5 * count +
-              (2 * sub) * nt + 2 * L * 7 + L * 9 + nt * 3 + 3 * nt + 512 + 16;
-    need[1] = z[Z_NB] + 4 * nt + 3 * ns + count + 2 * 257 + (n * ns + 7) / 8 + 16;
+              (2 * sub) * nt + 2 * L * 7 + L * 9 + nt * 3 + 3 * nt + 512 + 4 * n + 16;
+    need[1] = z[Z_NB] + 4 * nt + 3 * ns + count + 2 * 257 + n * ns + n * (XB + 1) + (n * ns + 7) / 8 + 16;
     return 0;
 }
 
@@ -891,7 +933,8 @@ API i64 az_clear(const i64 *z, const double *num, const i64 *slot, const i64 *li
     k.P = w, w += 3 * nt;
     k.g = w, w += nt;
     k.d = w, w += nt;
-    k.bspan = w;
+    k.bspan = w, w += 512;
+    k.xaxis = w;
     i64 *iw = iwork, *linkof = iw;
     iw += nb;
     k.own = iw, iw += nt;
@@ -904,6 +947,8 @@ API i64 az_clear(const i64 *z, const double *num, const i64 *slot, const i64 *li
     k.bucket = iw, iw += 257;
     k.fill = iw, iw += 257;
     k.has = iw, iw += count;
+    k.xorder = iw, iw += n * ns;
+    k.xstart = iw, iw += n * (XB + 1);
     k.done = (unsigned char *)iw;
     for (i64 i = 0; i < n * ns; i++) k.done[i] = 0;
     for (i64 b = 0; b < nb; b++) linkof[b] = -1;
@@ -951,6 +996,7 @@ API i64 az_clear(const i64 *z, const double *num, const i64 *slot, const i64 *li
                 }
             }
         }
+        index_frame(&k, f);
     }
     for (i64 i = 0; i < 2 * L * count; i++) k.angle[i] = 0.0;
     for (i64 c = 0; c < L; c++) {

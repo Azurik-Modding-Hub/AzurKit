@@ -1287,11 +1287,13 @@ are the Characters section's.
   raises, a point set numpy refuses, a turn past fdlibm's kernels and a
   pose the engine model can't take are the twin's; the drive's integer
   weights are doubles as Python's arithmetic rounds them; a skin's normals
-  are worked out only for the points found nearest, and each point's
-  nearest skin point within reach is found in buckets along the widest
-  axis of the points' box, a bucket passed only where its nearest value
-  is farther than the best so far, ties to the first point as numpy's
-  `argmin` takes them (a box not finite searches every point in order).
+  are worked out only for the points found nearest, the skin points in
+  the points' box are taken from the frame's buckets along its skin's
+  widest axis, and each point's nearest skin point within reach is found
+  in buckets along the widest axis of the box, a bucket passed only where
+  its nearest value is farther than the best so far, ties to the first
+  point as numpy's `argmin` takes them (a box or skin not finite searches
+  every point in order).
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,
