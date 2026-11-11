@@ -215,8 +215,9 @@ then. Lengths are model units (about a metre), in the body's frame: x right, y f
 - `wavs`: `{role: [file, ...]}`, 1 to 20 files a role, each a `.wav` name with no folder, beside the recipe. Roles:
   `hurt`, `death`, `idle`, `taunt`, `land`, `roll`, `jump`, `footstep`, `fall`, `climb`.
 - `sfx`: `{name: {...}}`, a name lower-case letters, digits and `_`, not a role, not `shout` and not ending in `_a`
-  to `_s` (the game reads those as takes): `{"generator": "whoosh", "length" (s, at most 60), "swells", "seed",
-  "columns"; "takes" 1-20}`, or `{"generator": "wav", "files", "columns"}`; `columns` the attack columns it plays on.
+  to `_s` (the game reads those as takes): `{"generator": "whoosh", "length" (s), "swells", "seed", "columns";
+  "takes" 1-20}`, or `{"generator": "wav", "files", "columns"}`; `columns` the attack columns it plays on. A
+  recipe's whooshes make at most 60 s in all (each one's length x takes, summed).
 - `shouts`: `{"files": [...]}`, 1 to 20 WAVs: its voice where Garret shouts under another weapon.
 
 ### Effects

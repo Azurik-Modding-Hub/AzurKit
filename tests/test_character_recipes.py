@@ -142,8 +142,8 @@ _LOAD_REFUSALS = [({n: r}, "test", taken, said) for r, n, taken, said in (
     (_with(sfx={"spin": {**WHOOSH, "takes": 21}}), "booblord", (), "takes: 21 is not a whole number from 1 to 20"),
     (_with(sfx={"spin": {**WHOOSH, "swells": 0}}), "booblord", (), "swells: 0 is not a whole number from 1"),
     (_with(sfx={"spin": {**WHOOSH, "length": 1e-6}}), "booblord", (), "sfx.spin.length: 1e-06 s makes no sample"),
-    (_with(sfx={"spin": {**WHOOSH, "length": 1e6}}), "booblord", (),
-     "sfx.spin.length: 1e+06 s is past the 60 s a whoosh may last"),
+    (_with(sfx={"spin": {**WHOOSH, "length": 40}, "jab": {**WHOOSH, "length": 10, "takes": 3, "columns": ["basic2"]}}),
+     "booblord", (), "sfx: 70 s of whooshes (length x takes) is past the 60 s a recipe may make"),
     (_with(sfx={"hurt": WHOOSH}), "booblord", (), "'hurt' is a wavs role"),
     (_with(sfx={"spin_a": WHOOSH}), "booblord", (), "not ending in _a .. _s"),
     (_with(sfx={"spin": WHOOSH}), "b" * 240, (), "is past the 255 characters 0x4B680 formats"),
@@ -315,7 +315,8 @@ def test_a_recipe_that_cant_build_fails_by_name(recipes, source, taken, said):
     the CLI can't take, a retired mode or unknown size, a number that isn't
     finite (D23: never clamped), a switch that isn't true or false, an
     unknown generator or a parameter of it missing, unknown, 0 or past its
-    cap (a whoosh's length past 60 s, which makes each sample; a mesh op's
+    cap (whooshes past 60 s in all, length x takes summed over the sfx,
+    each sample made in turn; a mesh op's
     passes, a tube's sides, rings, points or segments), a hand
     spin's tilt or plant out of range, the roll in its columns, carry or
     held, mode garret4 with authored clips, a user's name a built-in has;
