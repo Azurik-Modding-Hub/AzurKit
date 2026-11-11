@@ -6,7 +6,7 @@ its tools.
 
 The roles and skills are tracked here under their ``azurik-*`` names
 (D951); the first two guards are Modkit's (``tests/test_retired_names.py``),
-ported with the four roles in use (the judge is unused since D457)."""
+ported with the four roles then in use; the judge returned on Fable 5.2 (D1207)."""
 
 from __future__ import annotations
 
@@ -17,8 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # D281 (amending D241): each role on the model that fits its job; Opus at xhigh where judgment is the job,
-# Sonnet for a lookup with cites, Haiku for a handed-over command list.
-ROLES = {"azurik-builder": ("opus", "xhigh"), "azurik-reader": ("opus", "xhigh"),
+# Sonnet for a lookup with cites, Haiku for a handed-over command list; Fable at xhigh for a round's single designer
+# and a hard root-cause hunt (D1207, amending D457 for those seats only).
+ROLES = {"azurik-builder": ("opus", "xhigh"), "azurik-reader": ("opus", "xhigh"), "azurik-judge": ("fable", "xhigh"),
          "azurik-scout": ("sonnet", "medium"), "azurik-mechanic": ("haiku", "medium")}
 GHIDRA_WRITERS = (
     "analysis_run comments_set data_create data_delete data_rename data_set_type "
@@ -51,7 +52,7 @@ def test_every_agent_role_pins_the_model_that_fits_its_job():
     """An unpinned seat runs the session's model, so each role in
     .claude/agents/ pins its own (D241, D281), with an effort the harness
     parses (an unknown one silently falls back to the model's default).
-    The read-only roles (reader, scout: one deny list) can't reach the
+    The read-only roles (reader, judge, scout: one deny list) can't reach the
     Ghidra MCP's write tools: the bridge's default port is the owner's live
     Ghidra. The builder spawns and messages no seat (Agent, SendMessage).
     Only the builder, whose seats wait on suites and sittings, keeps its
@@ -63,7 +64,7 @@ def test_every_agent_role_pins_the_model_that_fits_its_job():
     assert {stem: (f.get("name"), f.get("model"), f.get("effort")) for stem, f in roles.items()} == {
         stem: (stem, *pin) for stem, pin in ROLES.items()}
     denied = {stem: set(f["disallowedTools"].split(", ")) for stem, f in roles.items()}
-    assert denied["azurik-scout"] == denied["azurik-reader"] >= {
+    assert denied["azurik-scout"] == denied["azurik-judge"] == denied["azurik-reader"] >= {
         "Edit", *(f"mcp__ghidra__{t}" for t in GHIDRA_WRITERS)}
     assert {"Edit", "Write", "mcp__ghidra"} <= denied["azurik-mechanic"]
     assert {"Agent", "SendMessage"} <= denied["azurik-builder"]

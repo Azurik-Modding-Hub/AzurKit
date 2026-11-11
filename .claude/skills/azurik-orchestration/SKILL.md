@@ -2,9 +2,10 @@
 name: azurik-orchestration
 description: >-
   How the orchestrator runs agents in AzurKit (D281: each seat on the model
-  that fits; D457: judges on Opus; D148/D149 lean; D288 reviews; D1170:
-  nothing small blocks). Load BEFORE writing a Workflow script or spawning
-  any agent. Holds the four azurik-* roles, typing a seat, the first-use
+  that fits; D457: judges on Opus; D1207: a round's designer and hard
+  root-cause hunts on Fable; D148/D149 lean; D288 reviews; D1170: nothing
+  small blocks). Load BEFORE writing a Workflow script or spawning any
+  agent. Holds the five azurik-* roles, typing a seat, the first-use
   check, the step shapes with their review and skeptic seats, the gate and
   the lock seats share, prompts and returns, seat practice (batched reads,
   polling, reach measure seats and benches) and the traps. Triggers:
@@ -34,6 +35,7 @@ and wins. A seat reads its role file and BRIEF, not this skill. Ported from Modk
 |---|---|---|---|
 | `azurik-builder` | opus, xhigh | Agent, SendMessage | build, fix, fix+gate, sitting, record+gate |
 | `azurik-reader` | opus, xhigh | Edit, NotebookEdit, Agent, SendMessage, the Ghidra MCP's 24 write tools | read, RE, premise read, designer, a sweep that judges, rank, docs read, a correctness review, a skeptic |
+| `azurik-judge` | fable, xhigh | the reader's | an optimization round's single designer, a hard root-cause hunt (D1207); never a build, fix, review or skeptic |
 | `azurik-scout` | sonnet, medium | the reader's | locate and cite: the files, lines, counts and quotes that answer one narrow question; never a verdict, fix or ranking |
 | `azurik-mechanic` | haiku, medium | Edit, Write, NotebookEdit, Agent, SendMessage, the whole `mcp__ghidra` server | a command list handed over verbatim, its output returned raw |
 
@@ -41,11 +43,16 @@ and wins. A seat reads its role file and BRIEF, not this skill. Ported from Modk
   judgment is the job (implementation, RE, reviews, sittings, designs, sweeps that judge); Sonnet or
   Haiku where they fit (a lookup with cites, a handed-over command list). **D457 ("Stay on Opus"):**
   every judge seat (a skeptic, a review of logic that can silently go wrong, a hard RE or design
-  call, a survey's rank) is an `azurik-reader` on Opus, so no seat runs on Fable; Modkit's
-  `azurik-judge` role isn't ported. A usage-limit error never changes a seat's model.
-- Opus roles run xhigh, Sonnet and Haiku medium (each passed the first-use check at it).
-- The reader and the scout keep Write for their evidence dir: a seat told never to write can't leave
-  its report.
+  call, a survey's rank) is an `azurik-reader` on Opus. **D1207 amends it for two seats only:** an
+  optimization round's single designer and a hard root-cause hunt are an `azurik-judge` on Fable
+  5.2 (the reader's rules and deny list on another model); every other seat stays as it is. When
+  Fable's credits run out, the orchestrator relaunches that seat as an `azurik-reader` on Opus,
+  never a per-call model, and a seat never switches its own. A usage-limit error never changes a
+  seat's model.
+- Opus and Fable roles run xhigh, Sonnet and Haiku medium (each passed, or owes, the first-use check
+  at it: §3).
+- The reader, the judge and the scout keep Write for their evidence dir: a seat told never to write
+  can't leave its report.
 - Only the builder keeps its prompt cache 1 hour (`cacheTtl: 1h` under `experimental:`): its seats
   wait on suites, L3 searches and sittings, and a 5-minute cache re-wrote a 300-500K-token context
   on each wait past 300 s. `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` or a `subagentPromptCacheTtl`
@@ -93,8 +100,9 @@ for j in "$P"/subagents/workflows/<run>/agent-*.jsonl; do printf '%s\t%s\n' "$(j
    single word ok-<role>"; a read-only role also runs `ToolSearch select:mcp__ghidra__memory_write`
    and reports what came back; a mechanic is handed `true`, `false`, `echo three`.
 3. Pass: each token returned, each `agentType` in its meta.json, every audit row on its pin
-   (`claude-opus-5-5 xhigh`, `claude-sonnet-5-5 medium`, `claude-haiku-5-5 medium`), a read-only
-   role's ToolSearch found nothing, the mechanic stopped at `false` with its exit code. A builder
+   (`claude-opus-5-5 xhigh`, `claude-fable-5-2 xhigh`, `claude-sonnet-5-5 medium`,
+   `claude-haiku-5-5 medium`), a read-only role's ToolSearch found nothing, the mechanic stopped
+   at `false` with its exit code. A builder
    also shows `cache_creation.ephemeral_1h_input_tokens > 0` and `ephemeral_5m_input_tokens == 0`
    on its assistant rows; re-check after each Claude Code update (the key is experimental):
    `jq -r 'select(.type=="assistant")|.message.usage|"\(.cache_read_input_tokens) 5m=\(.cache_creation.ephemeral_5m_input_tokens) 1h=\(.cache_creation.ephemeral_1h_input_tokens)"' <seat>.jsonl | uniq`
@@ -148,8 +156,9 @@ for j in "$P"/subagents/workflows/<run>/agent-*.jsonl; do printf '%s\t%s\n' "$(j
   unsure, and may overrule later.
 - **Owner's broad question:** independent reader sweeps in parallel, then one reader that ranks them
   and re-reads its top picks' cites; a census inside it is a mechanic's (or a scout's when the files
-  must be found first). **Design question:** one reader as designer; the orchestrator decides
-  (D115). No verify, critic or panel seats (D149). **Curiosity question:** inline. **One command:**
+  must be found first). **Design question:** one `azurik-judge` as designer (D1207; a reader when
+  Fable's credits are out); the orchestrator decides (D115). No verify, critic or panel seats
+  (D149). **Curiosity question:** inline. **One command:**
   the orchestrator's own Bash. **A command list:** one mechanic (it may run the list's commands in
   parallel: hand an order-dependent list as one `set -e` script). **Locate-and-cite:** one scout.
 - Size the workflow to the ask (D148). Changing D148/D149, D288, D778 or D1170 waits for the owner.
