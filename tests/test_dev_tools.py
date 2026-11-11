@@ -1695,6 +1695,33 @@ def test_a_changed_areas_perf_run_times_an_op_once_under_1_s_and_mains_run_of_ev
         assert block.get("one_sample") == (["A21/app"] if "--select" in how else None)
 
 
+def test_a_perf_stage_past_its_cap_stops_perf_py_so_its_scratch_goes(tmp_path, monkeypatch):
+    """Step 4.46a: at its cap the perf stage stops perf.py with SIGTERM (it
+    SIGKILLed its group), so perf.py's handler runs its finallys, its
+    scratch deleted, and the block says it wrote no result, exit 143; one
+    that ignores it is ended once :data:`fullsuite.PERF_STOP` passes."""
+    scratch, fake = tmp_path / "scratch", tmp_path / "fake_perf.py"
+    fake.write_text("import pathlib, shutil, signal, sys, time\n"
+                    "signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))\n"
+                    f"scratch = pathlib.Path({str(scratch)!r})\nscratch.mkdir()\n"
+                    "try:\n    time.sleep(60)\nfinally:\n    shutil.rmtree(scratch)\n", encoding="utf-8")
+    real = subprocess.Popen
+    monkeypatch.setattr(fullsuite.subprocess, "Popen", lambda argv, **kw: real(   # perf.py's alone (end()'s ps too)
+        [sys.executable, str(fake)] if argv[:1] == ["nice"] else argv, **kw))
+    monkeypatch.setattr(fullsuite, "PERF_CAP", 3)
+    monkeypatch.setattr(perf, "normal_load", lambda: 0.0)
+    monkeypatch.setattr(fullsuite, "release_reference", lambda *a: None)
+    m = {"worktree": str(tmp_path), "perf_args": ["--select", "app:start"]}
+    block = fullsuite.perf_stage(tmp_path / "suite-x.meta", m)
+    assert block["failures"] == ["perf.py wrote no result (exit 143): see the log"] and not scratch.exists()
+    fake.write_text("import signal, time\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\ntime.sleep(60)\n",
+                    encoding="utf-8")
+    monkeypatch.setattr(fullsuite, "PERF_STOP", 1)
+    t0 = time.monotonic()
+    assert fullsuite.perf_stage(tmp_path / "suite-y.meta", m)["failures"] == [
+        "perf.py wrote no result (exit -9): see the log"] and time.monotonic() - t0 < 30
+
+
 def test_the_perf_gates_scratch_is_out_of_reach_of_macoss_temp_sweep(tmp_path, monkeypatch):
     """macOS empties $TMPDIR daily of what looks 3 days old, and the app's venv in this scratch keeps uv's cache's times,
     so a run crossing 03:35 would lose its dependencies; Windows, which has no /tmp, takes its temp folder."""

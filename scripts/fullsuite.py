@@ -120,6 +120,7 @@ DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in t
 WORKERS = 8   # pytest-xdist's workers; --dist loadgroup keeps a group (tests/conftest.py's) on one (D991)
 FINAL = {"done", "capped", "error", "stale"}   # stale: its tree moved while it waited for the lock (stale())
 PERF_CAP = 4 * 3600    # the perf stage's cap (main's full record times every op in every profile)
+PERF_STOP = 120        # how long perf.py, stopped at its cap, has to delete its scratch and quit what it started
 PERF_WAIT = 3 * 3600   # how long it waits for the load to fall under perf.LOAD_LINE
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
 #: Every run loads them (conftest and its pytest_plugins): what a session runs of them is whole (:func:`graph_of`).
@@ -1193,7 +1194,10 @@ def flake_stage(meta: Path, m: dict) -> dict:
 def perf_stage(meta: Path, m: dict) -> dict:
     """The perf block: ``scripts/perf.py`` on the worktree once the
     normal-priority load is under :data:`perf.LOAD_LINE` (polled every 30 s,
-    up to :data:`PERF_WAIT`), at nice 10, its output appended to the log."""
+    up to :data:`PERF_WAIT`), at nice 10, its output appended to the log. At
+    :data:`PERF_CAP` it is stopped (SIGTERM), so it deletes its scratch and
+    quits the app and browsers it started, and ended (:func:`end`) if it
+    hasn't within :data:`PERF_STOP`."""
     t0 = time.time()
     while (load5 := perf.normal_load()) >= perf.LOAD_LINE:
         if time.time() - t0 > PERF_WAIT:
@@ -1212,9 +1216,12 @@ def perf_stage(meta: Path, m: dict) -> dict:
                                 stderr=subprocess.STDOUT, start_new_session=True, env=_env())
         try:
             proc.wait(timeout=PERF_CAP)
-        except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait()
+        except subprocess.TimeoutExpired:   # perf.py's SIGTERM handler runs its finallys (scratch, app, browsers)
+            os.kill(proc.pid, signal.SIGTERM)   # nice execs uv, which passes it on to perf.py once
+            try:
+                proc.wait(timeout=PERF_STOP)
+            except subprocess.TimeoutExpired:
+                end(proc)   # as the flake stage's cap: every process under it, then its group
     block = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {
         "passed": False, "failures": [f"perf.py wrote no result (exit {proc.returncode}): see the log"]}
     return block | {"load_wait_s": waited, "load": load5}
