@@ -2286,9 +2286,9 @@ are the Characters section's.
   app's engine process hands its counts to the server with each answer, a
   site's worker to the page). A sample past 1 s whose wall passes 1.3x the CPU seconds
   its tree used (each process's highest figure, so a child gone mid-op
-  keeps its own) waited for a core: it is taken once more and, starved again
-  or past 30 s, stands with its tag (`starved`, `perf.judge` names it and no
-  verdict reads it; `retook` keeps the first take's seconds); the lag run,
+  keeps its own) waited for a core: it stands as it was taken, with its tag
+  (`starved`, `perf.judge` names it), and counts in its op's verdict as any
+  other, never taken again or discounted (D1107, Step 4.46a); the lag run,
   whose reads wait by design, has no CPU figure. Each call the driver makes
   to a page, a context or a browser is bounded (`_perf.bounded`, through
   `_page.within`): an evaluate, a page's opening and close in `_page.STALL`

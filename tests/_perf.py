@@ -653,10 +653,10 @@ class Driver:
 
     The click's CPU (:attr:`memory`, a run's :class:`Memory`): an op timed
     from a click keeps the CPU seconds its tree used (``cpu``). A
-    :func:`starved` sample (a busy machine, not the op's work) is taken once
-    more; the next one takes its place (``retook``: its seconds), and, starved
-    too, is recorded with its tag (``starved``), as one past :data:`LONG` is at
-    once (it runs once)."""
+    :func:`starved` sample (it waited for a core: a busy machine) is recorded
+    as it was taken, with its tag (``starved``), and counts in its op's
+    verdict as any other: never taken again, never discounted (D1107,
+    Step 4.46a)."""
 
     sleep = staticmethod(time.sleep)   # a stub clock's in the tests
 
@@ -673,7 +673,6 @@ class Driver:
         self.memory: Memory | None = None    # the run's tree's CPU seconds (none: its samples have no ``cpu``)
         self.watch: Memory | None = None     # the run's sampler, whose browser CPU a frozen gap names (:meth:`idle`)
         self.clicked = 0.0                   # those seconds at the last click
-        self.retaking: dict[str, dict] = {}  # each op's starved sample, while it is taken once more
         self.ctx = None                      # the pass's browser context, the one reopen() gave last
         self.reopened: Callable | None = None   # the pass's browser closed and opened again on its profile
         self.before: set[tuple[int, str]] = set()   # the WebKit processes running before the run (browser_pids)
@@ -795,31 +794,19 @@ class Driver:
             sample["steady"] = steady
             if self.memory:
                 sample["resident"] = self.memory.peak
-        retake = sample.get("starved") and op not in self.retaking and seconds <= LONG
         self.log.append(f"{self.run.name} {op} {seconds:.2f} s{f' (page {page:.2f} s)' if page is not None else ''}"
                         f"{f' cpu {cpu:.2f} s' if cpu is not None else ''}"
-                        f"{' starved' if sample.get('starved') else ''}{', taken once more' if retake else ''}"
+                        f"{' starved' if sample.get('starved') else ''}"
                         f"{' bar ' + str(bar) if bar else ''}{' progress' if shown else ''}"
                         f"{f' steady {steady / 2**30:.2f} GiB' if steady is not None else ''}"
                         f"{f' peak {sample['resident'] / 2**30:.2f} GiB' if 'resident' in sample else ''}"
                         f"{' ' + froze if froze else ''}{' ' + error[:120] if error else ''}")
         print(self.log[-1], flush=True)
-        if retake:
-            self.retaking[op] = sample
-            return
-        if first := self.retaking.pop(op, None):
-            sample["retook"] = first["s"]
         self.samples.setdefault(op, []).append(sample)
 
     def spent(self, op: str | None) -> float | None:
         """The CPU seconds since the last click, for ``op`` while it needs a sample."""
         return self.memory.take() - self.clicked if self.memory and self.need(op) else None
-
-    def finish(self) -> None:
-        """The run is over: a starved sample whose second take never came stands."""
-        for op, sample in self.retaking.items():
-            self.samples.setdefault(op, []).append(sample)
-        self.retaking.clear()
 
     def change(self, t: float) -> None:
         """The page's time ``t`` is the pass's last change: D1014's head start counts from it."""
@@ -2721,7 +2708,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
           python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
     {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "froze"][, "error"][, "cpu"][, "starved"]
-    [, "retook"][, "steady", "resident"]}]},
+    [, "steady", "resident"]}]},
     "native" (the engine reports its
     pages gave, :meth:`Driver.engine`), "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh
@@ -2803,7 +2790,6 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                             shutil.rmtree(profile, ignore_errors=True)
             if browser:
                 shut(browser)
-            d.finish()
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     return {"samples": d.samples, "native": d.native, "memory_peak": memory.peak if run.memory else None,

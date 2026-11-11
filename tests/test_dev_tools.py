@@ -945,12 +945,13 @@ class _Stub(_perf.Page):
         return []
 
 
-def test_the_perf_gate_takes_a_starved_sample_once_more_names_it_and_counts_a_child_gone_mid_op(tmp_path, monkeypatch):
-    """A sample past 1 s whose wall passes 1.3x its tree's CPU seconds is
-    taken once more, then stands with its tag, one past 30 s at once, and the
-    case names it with no verdict changed. A child gone mid-op keeps what it
-    used, so it reads as no starved sample, and a pid reused is another
-    process (ps stubbed)."""
+def test_the_perf_gate_keeps_a_starved_sample_as_taken_names_it_and_counts_a_child_gone_mid_op(tmp_path, monkeypatch):
+    """A sample past 1 s whose wall passes 1.3x its tree's CPU seconds
+    stands as it was taken, with its tag, and counts in its op's verdict
+    (D1107: it was taken once more and the second take replaced it, Step
+    4.46a); the case names it. A child gone mid-op keeps what it used, so it
+    reads as no starved sample, and a pid reused is another process (ps
+    stubbed)."""
     start, new = "Sun Nov  1 08:22:00 2026", "Sun Nov  1 09:00:00 2026"
     reads = iter(["1 0 10 0:10.00 {0} /a\n2 1 10 0:05.00 {0} /a\n3 0 10 9:00.00 {0} /other\n",
                   "1 0 10 0:10.50 {0} /a\n2 1 10 0:09.00 {0} /a\n",
@@ -963,7 +964,7 @@ def test_the_perf_gate_takes_a_starved_sample_once_more_names_it_and_counts_a_ch
     assert [memory.take() for _ in range(5)] == [15.0, 19.5, 19.5, 19.5, 20.5]
     assert not _perf.starved(4.5, 19.5 - 15.0)   # the child's 4 s stay though it exited
 
-    spends = iter([1.0, 1.9, 1.0, 1.0, 0.1, 10.0, 1.0])
+    spends = iter([1.0, 1.9, 0.1, 10.0])
     meter = types.SimpleNamespace(used=0.0)
     meter.take = lambda: setattr(meter, "used", meter.used + next(spends)) or meter.used
 
@@ -973,28 +974,23 @@ def test_the_perf_gate_takes_a_starved_sample_once_more_names_it_and_counts_a_ch
         d.act(p, "A12", "go", "done")
     d = _perf.Driver(_perf.RUNS["app"], {}, tmp_path, tmp_path, None)
     d.memory = meter
+    timed(2000)   # starved: recorded at once, as taken
+    assert d.samples["A12"] == [{"s": 2.0, "bar": 0, "progress": False, "late_ms": 0, "cpu": 1.0, "starved": True}]
     timed(2000)
-    assert d.need("A12") and "A12" not in d.samples   # starved: not recorded yet
-    timed(2000)
-    assert d.samples["A12"] == [{"s": 2.0, "bar": 0, "progress": False, "late_ms": 0, "cpu": 1.9, "retook": 2.0}]
-    d.samples.clear()
-    timed(4000)
-    timed(4000)
-    assert [(s["cpu"], s["starved"], s["retook"]) for s in d.samples["A12"]] == [(1.0, True, 4.0)]
     timed(900)     # under 1 s: never named
     timed(40000)   # past 30 s: it runs once
-    assert [(s["s"], s.get("starved")) for s in d.samples["A12"]] == [(4.0, True), (0.9, None), (40.0, True)]
-    d.samples.clear()
-    timed(5000)   # its second take never came: it stands
-    assert "A12" not in d.samples
-    d.finish()
-    assert [s["s"] for s in d.samples["A12"]] == [5.0] and not d.retaking
+    assert [(s["s"], s.get("starved")) for s in d.samples["A12"]] == [(2.0, True), (2.0, None), (0.9, None),
+                                                                      (40.0, True)]
+    assert not any("retook" in s for s in d.samples["A12"]) and "taken once more" not in "".join(d.log)
     plain = {"s": 1.2, "bar": 0, "progress": True}
     named = [{"s": 4.0, "bar": 0, "progress": True, "cpu": 1.0, "starved": True}, plain, plain]
     got = perf.judge(named, 3.0)
     assert got["starved"] == [4.0] and "starved" not in perf.judge([plain] * 3, 3.0)
     untagged = [{k: v for k, v in s.items() if k != "starved"} for s in named]
     assert {k: v for k, v in got.items() if k != "starved"} == perf.judge(untagged, 3.0)
+    took = [{"s": 4.2, "bar": 0, "progress": True, "starved": True}, {"s": 2.8, "bar": 0, "progress": True},
+            {"s": 4.0, "bar": 0, "progress": True, "starved": True}]
+    assert (perf.judge(took, 3.0)["median"], perf.judge(took, 3.0)["verdict"]) == (4.0, "over")
 
 
 def test_the_perf_gate_clicks_3_s_after_a_change_and_marks_a_sample_whose_page_froze_in_a_gap(tmp_path):
