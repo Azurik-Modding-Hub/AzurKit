@@ -174,9 +174,9 @@ def _refused(make) -> bool:
 
 def test_an_edit_the_loader_refuses_is_refused_by_name_and_writes_nothing(usa_iso, tmp_path):
     """Each call refuses an edit by the field or file it can't take (D35): an unknown field, a built-in's name, a
-    number that isn't finite (D23), a colour op of another kind, no folder, no such built-in; a PNG not the row's
-    size and a file that isn't a WAV (nothing copied); and an Export into a folder holding one of its names
-    (nothing written)."""
+    number that isn't finite (D23), a colour op of another kind, no folder, no such built-in or community character;
+    a PNG not the row's size and a file that isn't a WAV (nothing copied); and an Export into a folder holding one of
+    its names (nothing written)."""
     out = tmp_path / "out"
     out.mkdir()
     (out / "mine_row1.png").write_bytes(b"kept")
@@ -191,7 +191,8 @@ def test_an_edit_the_loader_refuses_is_refused_by_name_and_writes_nothing(usa_is
         (sdk.variant_colours, _given(usa_iso, tmp_path, {"base": "town_female_2", "colours": [
             {"ops": [{"op": "skin"}]}]}), "a textures op"),
         (sdk.variant_rows, {"iso": str(usa_iso), "name": "mine", "recipe": {"base": "town_female_2"}}, "folder"),
-        (sdk.variant_check, _given(usa_iso, tmp_path, name="nobody"), "no built-in has that name"),
+        (sdk.variant_check, _given(usa_iso, tmp_path, name="nobody"),
+         "no built-in or community character has that name"),
         (sdk.add_png, {"folder": str(folder), "file": str(tmp_path / "small.png"), "size": [256, 256]}, "4x4"),
         (sdk.add_wav, {"folder": str(folder), "file": str(tmp_path / "noise.wav")}, "noise.wav"),
         (sdk.export_pngs, _given(usa_iso, tmp_path, {"base": "town_female_2", "colours": HUMAN}, out=str(out)),
