@@ -841,7 +841,8 @@ _BODIES: dict[tuple, object] = {}   # the last base body the Colours views recol
 
 def _editing(given: object, what: str, *, image: bool = True) -> tuple[str, object, dict | None]:
     """The variant the editor has open in ``given``: ``name`` a built-in's
-    (no ``recipe``), else its ``recipe`` read as ``folder``'s
+    or an installed entry's own character (no ``recipe``; ``content.variant``),
+    else its ``recipe`` read as ``folder``'s
     ``recipe.json`` would hold it (its files beside it), checked as the
     loader checks a recipe file: an unknown field or value, a number not
     finite, a built-in's name, each refused by name (D23, D35). Its name,
@@ -854,9 +855,13 @@ def _editing(given: object, what: str, *, image: bool = True) -> tuple[str, obje
         raise ValueError(f"{what}: iso names no image")
     name = given["name"]
     if "recipe" not in given:
-        if name not in variants.builtins():
-            raise ValueError(f"variant {name!r}: no built-in has that name (give its recipe and folder)")
-        return name, variants.builtins()[name], None
+        from azurkit.tools.characters import content as kit
+
+        found = variants.builtins().get(name) or kit.variant(name)
+        if found is None:
+            raise ValueError(f"variant {name!r}: no built-in or community character has that name (give its recipe "
+                             "and folder)")
+        return name, found, None
     recipe = given["recipe"]
     if not isinstance(recipe, Mapping):
         raise ValueError(f"variant {name!r}: its recipe is not an object of recipe fields")
@@ -1402,8 +1407,11 @@ def variants(given: Mapping | None = None) -> dict:
     variant's name, title, base, grade and ``community`` (the
     Azurik-Custom-Content entry whose files it needs, with ``content``'s
     ``manifest`` as :func:`pickers` takes it, else the content folder's
-    alone: ``None``); ``yours``, each library folder's name with its title,
-    base and grade, or its ``refusal``; ``species``, the species New may
+    alone: ``None``); ``community``, each installed entry's own character
+    (``content.community``: no built-in's name) with its title, base,
+    grade and entry (``community``), or its ``refusal``; ``yours``, each
+    library folder's name with its title, base and grade, or its
+    ``refusal``; ``species``, the species New may
     start on, none of which a variant of yours may be named as; ``unsaved``,
     the name a recipe not saved yet works under; ``grades``, each grade's
     words; ``colours``, each grade's colour (the Models view's); and
@@ -1424,6 +1432,9 @@ def variants(given: Mapping | None = None) -> dict:
             "colours": picker.STATUS_COLOURS, "editor": editor.lists(),
             "builtins": [{"name": name, "title": v.title, "base": v.base, "grade": _grade(v),
                           "community": community[name]} for name, v in kinds.builtins().items()],
+            "community": [{"name": r.name, "community": r.entry, "refusal": r.refusal} if r.variant is None else
+                          {"name": r.name, "title": r.variant.title, "base": r.variant.base,
+                           "grade": _grade(r.variant), "community": r.entry} for r in kit.community()],
             "yours": [{"name": e.name, "title": e.variant.title, "base": e.variant.base, "grade": _grade(e.variant)}
                       if e.variant is not None else {"name": e.name, "refusal": e.refusal} for e in library.listing()],
             "species": [name for name, _, _ in picker.species_list()]}
@@ -1440,12 +1451,21 @@ def variant_open(given: Mapping) -> dict:
     ``_open``): a built-in's (``kind`` ``"built-in"``: its own recipe where
     it is ``from`` others, else one ``from`` it with its labels), yours as
     its ``recipe.json`` holds it (``"yours"``; a refused folder's recipe as
-    far as it reads, else ``{}``), with its ``folder`` and its ``read``
+    far as it reads, else ``{}``), an installed entry's own character as
+    its entry holds it (``"community"``: its ``folder`` the entry's, where
+    its files are), with its ``folder`` and its ``read``
     (:func:`variant_read`'s answer)."""
     from azurkit.tools.characters import _player_variants as kinds
+    from azurkit.tools.characters import content as kit
     from azurkit.tools.characters import library
 
     name = _named(given, "variant_open")
+    held = None if name in kinds.builtins() or (library.root() / name).is_dir() else kit.variant(name)
+    if held is not None:
+        recipe = json.loads(Path(held.source).read_text(encoding="utf-8"))[name]
+        folder = str(Path(held.source).parent)
+        shown = {"name": UNSAVED, "recipe": recipe, "folder": folder}
+        return {"name": name, "kind": "community", "recipe": recipe, "folder": folder, "read": variant_read(shown)}
     if name in kinds.builtins():
         recipe, kind = library.opened(name), "built-in"
     else:
@@ -1531,13 +1551,14 @@ def variant_save(given: Mapping) -> dict:
     """Save, Save as and New from this (Modkit's): ``{"name", "recipe"}``
     written again as your variant ``name`` (Save); with ``as``, a new
     folder of that name holding the recipe and copies of the files it names
-    from ``from``'s folder (yours, the one open; ``None``: none), one
-    ``from`` a built-in an own copy (``library.copy_as``: every field its
-    own). Each whole or nothing, a refusal naming why (D35): a ``from``
-    that is no variant's name (a path), or none of yours, too.
-    ``{"name", "folder"}``, and the folder's ``files`` when ``files`` is
-    true."""
+    from ``from``'s folder (the one open: yours, or an installed entry's own
+    character's, its entry's folder; ``None``: none), one ``from`` a
+    built-in an own copy (``library.copy_as``: every field its own). Each
+    whole or nothing, a refusal naming why (D35): a ``from`` that is no
+    variant's name (a path), or names neither, too. ``{"name", "folder"}``,
+    and the folder's ``files`` when ``files`` is true."""
     from azurkit.tools.characters import _player_variants as kinds
+    from azurkit.tools.characters import content as kit
     from azurkit.tools.characters import library
 
     name = _named(given, "variant_save")
@@ -1551,12 +1572,15 @@ def variant_save(given: Mapping) -> dict:
     if not isinstance(new, str):
         raise ValueError(f"{new!r}: a variant's name is a lower-case letter, then lower-case letters, digits and _")
     files = None
-    if source is not None:   # checked as a new name is: never a path out of the library
+    if source is not None:   # checked as a new name is: never a path out of the library or the content folder
         if not isinstance(source, str) or not kinds._NAME.match(source):
             raise ValueError(f"from {source!r}: a variant's name is a lower-case letter, then lower-case letters, "
                              "digits and _")
         if not (files := library.root() / source).is_dir():
-            raise ValueError(f"from {source!r}: none of your variants has that name")
+            if (held := kit.variant(source)) is None:
+                raise ValueError(f"from {source!r}: none of your variants has that name, nor does a community "
+                                 "character")
+            files = Path(held.source).parent
     library.copy_as(new, dict(recipe), files)
     return _saved(new, given)
 
@@ -1867,7 +1891,9 @@ def _character(given: object) -> tuple[dict, dict]:
                          "of: install it from the Characters tab's community variants, or import its recipe file "
                          "as one of yours")
     if worn is not None and sha not in (None, worn.sha):
-        mine = worn.source != "built-in"
+        from azurkit.tools.characters import content as kit
+
+        mine = worn.source != "built-in" and kit.entry_of(worn.source) is None
         raise ValueError(f"preset: {character['species']!r} is recipe {sha} there and recipe {worn.sha} "
                          + ("in your variants: import its recipe file as yours to wear it" if mine else
                             "here: Install or Update it (the Characters tab's community variants), or update "

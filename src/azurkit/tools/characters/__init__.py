@@ -31,7 +31,8 @@ springs, its clips, sounds and effects) is worn as ``--player-character``
 wears one: ``species`` names a built-in (``variants.json``) or one of the
 recipes of the file ``variant_file`` names (``--player-variant-file``; the
 files a recipe names are read beside it), else one of yours
-(:mod:`.library`), its shapes sized by ``shapes`` (``{name: x}``,
+(:mod:`.library`), else an installed community entry's own
+(``content.variant``), its shapes sized by ``shapes`` (``{name: x}``,
 ``--player-shape``); an option the recipe gives must be the
 variant's, and its scale and attack numbers multiply the variant's
 (:func:`variant`). The layer's recipe keeps the variant's sha and its
@@ -489,8 +490,12 @@ def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str,
     attack = swap.AttackLogic()
     note(f"Dressing {recipe['species']}")
     staging, build, worn, lines = dressed(recipe, vanilla, before, packs, staging=staging, logic=attack)
-    if worn is not None and worn.source != "built-in":   # the log names the recipe's file: its name only
-        lines = [line.replace(worn.source, PurePath(worn.source).name) for line in lines]
+    if worn is not None and worn.source != "built-in":   # the log names the recipe's file (its name only) or entry
+        from azurkit.tools.characters import content
+
+        held = content.entry_of(worn.source)
+        named = f"community {held[0]} v{held[1]}" if held else PurePath(worn.source).name
+        lines = [line.replace(worn.source, named) for line in lines]
     if folded is not None and not shipped.same_size(attack.size, folded):
         raise ValueError(f"character: the dressed body's size x{attack.size:.6g} isn't the x{folded:.6g} the walk "
                          "and roll were folded with")

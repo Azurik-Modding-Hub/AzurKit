@@ -1545,6 +1545,53 @@ def test_an_install_lists_its_variants_while_the_images_check_runs(browser, site
         served.close()
 
 
+def test_an_installed_community_only_character_lists_opens_and_checks_in_the_variants_view(browser, site, usa_iso,
+                                                                                          tmp_path):
+    """A community repository's own character (Step 4.38b, D988), a recipe no built-in has the name of: installed
+    from Content from (the site's own address here), it is listed under its entry in the Models view and under
+    Community in the Variants view, opens there as its entry holds it ("community" in its status line), and its
+    Check with game data dresses it on the image by name, as a build wears it: checked, it builds. No CSP
+    violation."""
+    from azurkit.tools.characters import content
+
+    repo, path = tmp_path / "repo", "variants/mine_lord/variant.json"
+    (repo / path).parent.mkdir(parents=True)
+    (repo / path).write_text(json.dumps({"mine_lord": {"base": "keylord", "mode": "own", "scale": 1.2,
+                                                       "title": "Mine"}}), encoding="utf-8")
+    (repo / "manifest.json").write_text(json.dumps(content.filled({
+        "format": content.FORMAT, "schema_version": 1, "entries": [
+            {"author": "a player", "licence": "MIT", "version": 1, "requires": [], "id": "mine_lord",
+             "kind": "variant", "title": "Mine", "files": [{"path": path}]}]},
+        lambda p: (repo / p).read_bytes())), encoding="utf-8")
+    served = Site(browser, site)
+    served.context.route(f"{served.origin}/content-test/**", lambda route, request: route.fulfill(
+        path=str(repo / urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/"))))
+    entry = "document.querySelector('#char-community .entry[data-entry=\"mine_lord\"]"
+    try:
+        page = served.open()
+        page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, f"() => {entry} button')", 300)
+        page.evaluate(f"() => {entry} button').click()")
+        _page.until(page, f"() => {entry} .model[data-model=\"mine_lord\"]')", 120)
+        _page.pick(page, "#iso", usa_iso)
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list?.community?.length === 1", 120)
+        page.evaluate(VARIANTS_ROW, "mine_lord")
+        shown = _variants_shown(page, status=" · community · ", name="mine_lord")
+        assert (shown["kind"], ["community", "mine_lord"] in shown["rows"]) == ("community", True)
+        _page.until(page, "() => !document.getElementById('var-check').disabled", 300)
+        _page.click(page, "var-check")
+        _page.until(page, f"() => {{ const s = ({VARIANTS_SHOWN})(); return s && /checked: it builds|the check refused "
+                          "it/.test(s.status); }", 600)
+        assert page.evaluate("() => document.getElementById('var-status').textContent").endswith(
+            "· community · checked: it builds")
+        assert page.evaluate("() => azurkit.violations") == []
+    finally:
+        served.close()
+
+
 CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length,
     document.getElementById("char-count").textContent, ["char-front", "char-back"].map((id) => document.getElementById(id)
     .getContext("2d").getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0)),

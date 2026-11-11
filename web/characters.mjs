@@ -238,6 +238,14 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     button.addEventListener("click", () => pick(name));
     return button;
   };
+  // A variant's row (a community entry's or yours): one the engine refused greyed, its refusal its title.
+  const model = (v) => {
+    if (!v.refusal) return row(v.name, `${v.name}  (variant of ${v.base})`, v.colour);
+    const refused = el("button", { type: "button", className: "model refused", textContent: `${v.name} (refused)`,
+                                   title: v.refusal, disabled: true });
+    refused.dataset.model = v.name;
+    return refused;
+  };
   const render = () => {
     if (!c.view) return;
     const view = c.view, chosen = view.chosen, filter = c.filter.toLowerCase();
@@ -264,19 +272,13 @@ export function characters({ call, app, host, say, image, packs, changed, shared
                       action ?? el("span", { className: "note",
                                              textContent: c.installing === e.id ? "installing…" : `installed v${e.installed}` }),
                       el("span", { className: "what", textContent: `${e.author} · ${e.licence} · v${e.version}` }),
-                      ...variants.map((v) => row(v.name, `${v.name}  (variant of ${v.base})`, v.colour)));
+                      ...variants.map(model));
       item.dataset.entry = e.id;
       return [item];
     });
     $("char-community").replaceChildren(...groups.length ? groups : none(c.why ? "None read yet." : "None listed."));
     const custom = view.custom?.variants ?? [];
-    const mine = custom.filter((v) => matches(v.name, v.title)).map((v) => {
-      if (!v.refusal) return row(v.name, `${v.name}  (variant of ${v.base})`, v.colour);
-      const refused = el("button", { type: "button", className: "model refused", textContent: `${v.name} (refused)`,
-                                     title: v.refusal, disabled: true });
-      refused.dataset.model = v.name;
-      return refused;
-    });
+    const mine = custom.filter((v) => matches(v.name, v.title)).map(model);
     $("char-custom").replaceChildren(...mine.length ? mine : none("None saved yet."));
     // Each group's drop-down (Step 4.21, D1169): its summary counts what it lists (of all, while a search narrows it)
     // and names the chosen model when it is in it, so a pick is never folded away, and the group opens when its model

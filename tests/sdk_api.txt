@@ -885,8 +885,11 @@ names beside its ``recipe.json``); ``builtins``, each built-in
 variant's name, title, base, grade and ``community`` (the
 Azurik-Custom-Content entry whose files it needs, with ``content``'s
 ``manifest`` as :func:`pickers` takes it, else the content folder's
-alone: ``None``); ``yours``, each library folder's name with its title,
-base and grade, or its ``refusal``; ``species``, the species New may
+alone: ``None``); ``community``, each installed entry's own character
+(``content.community``: no built-in's name) with its title, base,
+grade and entry (``community``), or its ``refusal``; ``yours``, each
+library folder's name with its title, base and grade, or its
+``refusal``; ``species``, the species New may
 start on, none of which a variant of yours may be named as; ``unsaved``,
 the name a recipe not saved yet works under; ``grades``, each grade's
 words; ``colours``, each grade's colour (the Models view's); and
@@ -900,7 +903,9 @@ The recipe the Variants view opens variant ``name`` as (Modkit's
 ``_open``): a built-in's (``kind`` ``"built-in"``: its own recipe where
 it is ``from`` others, else one ``from`` it with its labels), yours as
 its ``recipe.json`` holds it (``"yours"``; a refused folder's recipe as
-far as it reads, else ``{}``), with its ``folder`` and its ``read``
+far as it reads, else ``{}``), an installed entry's own character as
+its entry holds it (``"community"``: its ``folder`` the entry's, where
+its files are), with its ``folder`` and its ``read``
 (:func:`variant_read`'s answer).
 
 
@@ -932,12 +937,12 @@ def variant_save(given: 'Mapping') -> 'dict':
 Save, Save as and New from this (Modkit's): ``{"name", "recipe"}``
 written again as your variant ``name`` (Save); with ``as``, a new
 folder of that name holding the recipe and copies of the files it names
-from ``from``'s folder (yours, the one open; ``None``: none), one
-``from`` a built-in an own copy (``library.copy_as``: every field its
-own). Each whole or nothing, a refusal naming why (D35): a ``from``
-that is no variant's name (a path), or none of yours, too.
-``{"name", "folder"}``, and the folder's ``files`` when ``files`` is
-true.
+from ``from``'s folder (the one open: yours, or an installed entry's own
+character's, its entry's folder; ``None``: none), one ``from`` a
+built-in an own copy (``library.copy_as``: every field its own). Each
+whole or nothing, a refusal naming why (D35): a ``from`` that is no
+variant's name (a path), or names neither, too. ``{"name", "folder"}``,
+and the folder's ``files`` when ``files`` is true.
 
 
 def variant_delete(given: 'Mapping') -> 'dict':

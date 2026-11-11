@@ -17,7 +17,7 @@ from azurkit.app import ahead
 from azurkit.core import gate, iso
 from azurkit.tools import characters
 from azurkit.tools.characters import _player_variants as variants
-from azurkit.tools.characters import library
+from azurkit.tools.characters import content, library
 from tests.test_characters import _golden, _probe, no_content  # noqa: F401 (a fixture)
 
 GLTF = {"file": "nowhere.glb", "sha256": "0" * 64}
@@ -38,6 +38,34 @@ def lib(tmp_path, monkeypatch):
 def _write(folder, name: str, text: str) -> None:
     (folder / name).mkdir(parents=True)
     (folder / name / library.RECIPE).write_text(text, encoding="utf-8")
+
+
+#: A community repository's own character (Step 4.38b): a recipe no built-in has the name of, and its entry's note.
+MINE = {"variants/mine_lord/variant.json": json.dumps({"mine_lord": {"base": "keylord", "mode": "own", "scale": 1.2,
+                                                                    "title": "Mine"}}).encode(),
+        "variants/mine_lord/README.md": b"A key lord of a player's own."}
+
+
+@pytest.fixture
+def installs(lib, tmp_path, monkeypatch):
+    """``install(entry, files)``: ``files`` (path -> bytes) installed as community entry ``entry`` into a content
+    folder in ``tmp_path`` (``content.install``, from a repository of them), which the engine reads (``content.ROOT``),
+    beside the empty library ``lib``."""
+    root = tmp_path / "content"
+    monkeypatch.setattr(content, "ROOT", root)
+
+    def install(entry: str, files: dict[str, bytes], version: int = 1) -> dict:
+        repo = tmp_path / f"repo-{entry}"
+        for path, data in files.items():
+            (repo / path).parent.mkdir(parents=True, exist_ok=True)
+            (repo / path).write_bytes(data)
+        manifest = content.filled({"format": content.FORMAT, "schema_version": 1, "entries": [
+            {"id": entry, "kind": "variant", "title": entry.title(), "author": "a player", "licence": "MIT",
+             "version": version, "requires": [], "files": [{"path": path} for path in files]}]},
+            lambda path: (repo / path).read_bytes())
+        return content.install(manifest, entry, lambda path: (repo / path).read_bytes(), root)
+    install.root = root
+    return install
 
 
 def test_the_library_lists_each_folder_as_its_recipe_or_its_refusal_and_a_build_finds_it_by_name(lib):
@@ -252,6 +280,106 @@ def test_save_as_copies_files_only_from_the_variant_its_from_names_and_refuses_a
         assert sorted(p.name for p in lib.iterdir()) == ["mine"]
     assert sdk.variant_save({"name": "mine", "recipe": recipe, "as": "copy", "from": "mine"})["name"] == "copy"
     assert (lib / "copy" / "ow.wav").read_bytes() == b"RIFF"
+
+
+def test_an_installed_community_only_character_is_worn_by_name_as_its_entry_after_the_built_ins_and_yours(installs):
+    """A community repository's own character (Step 4.38b, D988), a recipe of an installed entry's ``variant.json``
+    no built-in has the name of, resolves third, after the built-ins and yours, read as a recipe file is from its
+    entry's folder: a build and its options wear it by name, its Source and every line its dress logs name the
+    entry and version (``community mine_lord v1``), never the folder; the Models view lists it under its entry,
+    the Variants view lists and opens it (its folder the entry's) and its Check takes it by name, a share link
+    carries it by name and sha, and New from this copies it as yours."""
+    installs("mine_lord", MINE)
+    worn = variants.resolve("mine_lord")
+    assert (worn.base, worn.scale, worn.source) == ("keylord", 1.2, str(installs.root / "variants/mine_lord/variant.json"))
+    assert content.entry_of(worn.source) == ("mine_lord", 1) and characters.variant({"species": "mine_lord"}, None)[0] is worn
+    assert variants.status(worn) == ("unseen", "a community recipe (community mine_lord v1); no sitting graded it")
+    view = sdk.pickers({"iso": None, "character": {"species": "mine_lord"}})
+    assert [(e["id"], e["variants"]) for e in view["community"]] == [("mine_lord", [
+        {"name": "mine_lord", "title": "Mine", "base": "keylord", "colour": view["colours"]["unseen"]}])]
+    assert (view["chosen"]["community"], view["chosen"]["refused"]) == ("mine_lord", None)
+    assert ["Source", f"community mine_lord v1, recipe {worn.sha}", None] in view["chosen"]["info"]
+    assert sdk.variants()["community"] == [{"name": "mine_lord", "title": "Mine", "base": "keylord", "grade": "unseen",
+                                            "community": "mine_lord"}]
+    opened = sdk.variant_open({"name": "mine_lord"})
+    assert (opened["kind"], opened["recipe"], opened["folder"], opened["read"]["sha"]) == (
+        "community", json.loads(MINE["variants/mine_lord/variant.json"])["mine_lord"],
+        str(installs.root / "variants/mine_lord"), worn.sha)
+    assert sdk._editing({"name": "mine_lord"}, "variant_check", image=False)[1] is worn
+    link = sdk.preset_encode({"iso": "/nowhere/usa.iso", "packs": {}, "character": {"species": "mine_lord"}})
+    assert [la["recipe"] for la in sdk.preset_decode(link)["layers"] if la["tool"] == characters.TOOL] == [
+        {"species": "mine_lord", "variant": worn.sha}]
+    sdk.variant_save({"name": "unsaved", "recipe": opened["recipe"], "as": "my_lord", "from": "mine_lord"})
+    assert variants.resolve("my_lord").sha == worn.sha and variants.resolve("my_lord").source.startswith(
+        str(library.root()))
+
+
+def test_a_community_character_is_refused_by_name_where_its_files_arent_as_installed_or_its_name_is_taken(installs):
+    """A community-only character is read only once its entry's files are those ``installed.json`` records (an
+    altered or moved file refused by name, its sha256s' first 12 digits beside it), names only files its entry
+    lists, and never stands in for a built-in or yours (what a link or a saved setup already names): an entry whose
+    recipe has a built-in's name with another recipe is refused at Install, one holding the built-in's own recipe
+    lists that built-in and the name is the built-in's (one from a built-in reads that one's files); one named as yours lists refused and yours is worn; one
+    named as a species, or held by two entries, is refused by name. A link of a community character whose recipe
+    changed names the Install or Update to make."""
+    installs("mine_lord", MINE)
+    sha = variants.resolve("mine_lord").sha
+    link = sdk.preset_encode({"iso": "/nowhere/usa.iso", "packs": {}, "character": {"species": "mine_lord"}})
+    recipe = installs.root / "variants/mine_lord/variant.json"
+    recipe.write_bytes(json.dumps({"mine_lord": {"base": "keylord", "mode": "own", "scale": 3.0}}).encode())
+    for why in (r"variant 'mine_lord': community entry 'mine_lord': variants/mine_lord/variant\.json isn't the file "
+                r"installed \(its sha256 [0-9a-f]{12}, installed [0-9a-f]{12}\): Install it again",):
+        with pytest.raises(ValueError, match=why):
+            variants.resolve("mine_lord")
+    recipe.unlink()
+    with pytest.raises(ValueError, match=r"variants/mine_lord/variant\.json isn't in the content folder \(moved"):
+        variants.resolve("mine_lord")
+    installs("mine_lord", {**MINE, "variants/mine_lord/variant.json": json.dumps(
+        {"mine_lord": {"base": "keylord", "mode": "own", "scale": 3.0}}).encode()}, version=2)
+    with pytest.raises(ValueError, match=rf"'mine_lord' is recipe {sha} there and recipe \w+ here: Install or Update"):
+        sdk.preset_decode(link)
+    beam = json.loads(variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"]
+    with pytest.raises(ValueError, match=r"beam_fake: variants/beam_fake/variant\.json's beamlord is recipe \w+, not "
+                                         r"the built-in beamlord's"):
+        installs("beam_fake", {"variants/beam_fake/variant.json": json.dumps({"beamlord": {**beam, "scale": 9.0}}).encode()})
+    installs("beam_copy", {"variants/beam_copy/variant.json": json.dumps({"beamlord": beam}).encode()})
+    installs("keylord_pack", {"variants/keylord_pack/variant.json": json.dumps({"keylord": {"base": "golem"}}).encode()})
+    for entry in ("twin_a", "twin_b"):
+        installs(entry, {f"variants/{entry}/variant.json": json.dumps({"twin": {"base": "keylord"}}).encode()})
+    installs("lister", {"variants/lister/variant.json": json.dumps({"lister": {"base": "town_female_2", "mesh": {
+        "gltf": {"file": "body.glb", "sha256": "0" * 64}}}}).encode()})
+    (installs.root / "variants/lister/body.glb").write_bytes(b"glTF not listed")
+    installs("from_boob", {"variants/from_boob/variant.json": json.dumps({"from_boob": {"from": "booblord"}}).encode()})
+    library.save_as("yours_too", library.new("keylord"))
+    installs("yours_too", {"variants/yours_too/variant.json": json.dumps({"yours_too": {"base": "golem"}}).encode()})
+    assert variants.resolve("beamlord") is variants.builtins()["beamlord"] and variants.resolve("keylord") is None
+    assert variants.resolve("yours_too").base == "keylord"
+    refused = {r.name: r.refusal for r in content.community()}
+    for name, why in (("keylord", "a species has that name"), ("twin", "community entries twin_a, twin_b each hold it"),
+                      ("lister", r"\(variants/lister/variant\.json\): it names 'body\.glb', which community entry "
+                                 r"'lister' doesn't list"),
+                      ("yours_too", "one of yours has that name, which a build wears in its place")):
+        assert re.search(why, refused.pop(name)), name
+    assert refused == {"mine_lord": None, "from_boob": None}   # from a built-in: its files the built-in's
+    for name in ("twin", "lister"):
+        with pytest.raises(ValueError, match=f"variant '{name}'"):
+            characters.variant({"species": name}, None)
+    rows = {e["id"]: e["variants"] for e in sdk.pickers({"iso": None, "character": {"species": "garret4"}})["community"]}
+    assert ([(v["name"], "refusal" in v) for v in rows["beam_copy"]], [(v["name"], "refusal" in v)
+                                                                       for v in rows["twin_a"]]) == (
+        [("beamlord", False)], [("twin", True)])
+
+
+def test_a_community_only_characters_check_dresses_it_on_the_image_as_a_build_and_its_log_names_its_entry(
+        usa_iso, no_content, installs):  # noqa: F811
+    """The Variants view's Check of an installed community-only character by name (Step 4.38b) dresses it on the
+    image as a build of it does (the build's plan): no refusal, its recipe's sha, and its log names its entry and
+    version, never the content folder's path."""
+    installs("mine_lord", MINE)
+    found = sdk.variant_check({"iso": str(usa_iso), "name": "mine_lord"})
+    assert (found["refusal"], found["sha"]) == (None, variants.resolve("mine_lord").sha)
+    assert any("(recipe " in line and "community mine_lord v1" in line for line in found["log"])
+    assert str(installs.root) not in json.dumps(found["log"])
 
 
 def _zip(files: dict[str, bytes]) -> bytes:

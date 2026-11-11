@@ -9,7 +9,9 @@ nothing of its own.
   lists the objects only with Show objects),
   Azurik-Custom-Content's entries as the community group (D913: each
   marked community, its state Install, installed or Update, its variants
-  once installed), your own variants as the Yours group (``library``:
+  once installed: the built-ins it holds the files of, then its own
+  characters, ``content.community``, each its title, base and grade or its
+  refusal), your own variants as the Yours group (``library``:
   each its title, base and grade, a folder that isn't one named with its
   refusal), and the chosen model's info panel (with the image read,
   an "In game" line saying LB switches between its attack sets, where it
@@ -192,7 +194,7 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
         worn, lost = variants.resolve(species), None
     except ValueError as exc:   # a folder of yours of that name that isn't a variant (now)
         worn, lost = None, str(exc)
-    yours = worn is not None and worn.source != "built-in"
+    yours = worn is not None and worn.source != "built-in" and content.entry_of(worn.source, root) is None
     if worn is not None and character.get("shapes"):
         worn = variants.reshaped(worn, character["shapes"])
     unit = worn.scale * scale if worn is not None else scale
@@ -297,13 +299,19 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     refused = lost
     if worn is not None and entry is not None and entry["id"] not in record and _needs_files(entry):
         refused = f"Install {entry['title']} (community) first"
-    groups = []
+    groups, only = [], {}
+    for r in content.community(root):   # its own characters (Step 4.38b), each worn or refused by name
+        only.setdefault(r.entry, []).append(
+            {"name": r.name, "refusal": r.refusal} if r.variant is None else
+            {"name": r.name, "title": r.variant.title, "base": r.variant.base,
+             "colour": STATUS_COLOURS[model_grade(r.name, r.variant)[0]]})
     for e in entries:
         if e["kind"] != "variant":
             continue
         names = [n for n in held.get(e["id"], []) if n in built] if e["id"] in record else []
         groups.append(e | {"variants": [{"name": n, "title": built[n].title, "base": built[n].base,
-                                         "colour": STATUS_COLOURS[model_grade(n, built[n])[0]]} for n in names]})
+                                         "colour": STATUS_COLOURS[model_grade(n, built[n])[0]]} for n in names]
+                           + (only.get(e["id"], []) if e["id"] in record else [])})
     return {
         "modes": [{"id": m, "title": t} for m, t in MODE_TITLES.items()], "mode_tip": MODE_TIP,
         "tracks": TRACKS, "titles": TITLES, "match_tips": MATCH_TIPS, "colours": STATUS_COLOURS, "grade_words": GRADE_WORDS,

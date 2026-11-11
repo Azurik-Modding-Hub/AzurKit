@@ -13,8 +13,10 @@ authors who write or check one by hand, or share one as community content.
 - Export packs the folder as a zip, which Import takes back. Export names any file made from the game's own (a glTF
   of a game model holds its geometry): those belong to the game's rights holders, so keep them out of what you share
   unless the place allows game files.
-- A community content repository lists a variant as an entry of kind `variant`: its recipe file and the files it
-  names, each with its size and checksum.
+- A community content repository lists a variant as an entry of kind `variant`: its recipe file
+  `variants/<id>/variant.json` (`{"<name>": {the recipe}}`, one or more) and the files it names beside it, each
+  with its size and checksum. Once installed, each recipe is worn by its name like a built-in, unless a built-in, one
+  of yours, a species or another entry has the name (a built-in's name holds only that built-in's own recipe).
 
 ## The rules
 

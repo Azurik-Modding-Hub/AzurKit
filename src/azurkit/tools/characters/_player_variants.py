@@ -3815,17 +3815,22 @@ def builtins() -> dict[str, Variant]:
 
 def resolve(name: str, user_file: str | Path | None = None) -> Variant | None:
     """The variant ``name`` names (a built-in, else one in ``user_file``,
-    else with no file one of yours: ``library.find``), or ``None`` (a
-    species, or nothing); a folder of yours of that name that isn't a
-    variant raises ``ValueError`` naming why."""
+    else with no file one of yours, ``library.find``, else an installed
+    community entry's, ``content.variant``), or ``None`` (a species, or
+    nothing); a folder of yours of that name that isn't a variant, or a
+    community recipe that can't be worn (its file not the one installed,
+    say), raises ``ValueError`` naming why. A community entry never stands
+    in for a built-in or yours: those are what a link, a setup or a saved
+    build already names, which an Install or Update must not change."""
     if name in builtins():
         if user_file is not None:
             load_variants(Path(user_file).read_text(encoding="utf-8"), str(user_file), tuple(builtins()))
         return builtins()[name]
     if user_file is None:
-        from azurkit.tools.characters import library
+        from azurkit.tools.characters import content, library
 
-        return library.find(name)
+        mine = library.find(name)
+        return mine if mine is not None else content.variant(name)
     return load_variants(Path(user_file).read_text(encoding="utf-8"), str(user_file), tuple(builtins())).get(name)
 
 
@@ -3960,7 +3965,11 @@ def status(variant: Variant, model_scale: float | None = None, reach: float | No
             x != 1.0 for x in (shapes or {}).values()):
         return "unseen", "no sitting has graded this variant at other sliders than its recipe's (D242)"
     if variant.source != "built-in":
-        return "unseen", f"a recipe of yours ({variant.source}); no sitting graded it"
+        from azurkit.tools.characters import content
+
+        held = content.entry_of(variant.source)
+        return "unseen", (f"a community recipe (community {held[0]} v{held[1]}); no sitting graded it" if held
+                          else f"a recipe of yours ({variant.source}); no sitting graded it")
     return VARIANT_GRADES.get((variant.name, variant.sha),
                               ("unseen", f"no sitting has graded recipe {variant.sha} (D242)"))
 

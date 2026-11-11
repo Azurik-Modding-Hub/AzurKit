@@ -11,6 +11,10 @@ Characters tab's community entries):
   (``parts/``, one ``.azkp`` file a part, Step 4.6p), read in place of
   those stages: listed with the entry, but Install leaves them for the
   Check that asks for one (:func:`later`, ``shipped.part``).
+- ``variants/<id>/variant.json``: an entry's recipes; one no built-in has
+  the name of is a community-only character (:func:`community`, Step
+  4.38b), worn by name after the built-ins and yours, read from its
+  entry's folder only as installed.
 
 The townsfolk's bare-hands kit (``clips/townsfolk/``, ``_player_kit.KIT``)
 and the air elemental's funnel (``fx/air_elemental/``,
@@ -57,6 +61,7 @@ import os
 import re
 import shutil
 from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from azurkit.core import jsondepth
@@ -93,6 +98,8 @@ _DEVICE = re.compile(r"(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³]) *(\..*)?\
 ENTRY = ("id", "kind", "title", "author", "licence", "version", "files", "requires")
 DESCRIPTION = 200
 """An entry's optional ``description``: at most this many characters, one line of plain text."""
+RECIPES = "variants/{}/variant.json"
+"""A variant entry's recipes (``{name: recipe}``, the files they name beside it), by its id."""
 
 
 def root() -> Path:
@@ -420,6 +427,176 @@ def builtin_refusal(entry: Mapping, files: Mapping[str, bytes]) -> str | None:
                 return (f"{recipe}'s {name} is recipe {sha}, not the built-in {name}'s {built[name].sha}: AzurKit "
                         "builds the built-in until the recipes move out of it")
     return None
+
+
+@dataclass(frozen=True)
+class Community:
+    """A recipe an installed variant entry holds under a name no built-in
+    has (:func:`community`): its name, its entry's id and version, and its
+    ``Variant`` or why it can't be worn."""
+
+    name: str
+    entry: str
+    version: int
+    variant: object
+    refusal: str | None
+
+
+_COMMUNITY: dict[tuple, list[Community]] = {}   # an entry's recipes, by what they stand on (:func:`_entry_recipes`)
+
+
+def community(root: Path | None = None) -> list[Community]:
+    """The community-only characters: each recipe of an installed variant
+    entry's ``variants/<id>/variant.json`` (:data:`RECIPES`) whose name no
+    built-in has (one that does is that built-in's, held to it at Install,
+    :func:`builtin_refusal`), by entry, read only once its file is the one
+    ``installed.json`` records (its sha256) and, for one the entry holds,
+    each file of its folder too (an altered or moved file is refused by
+    name), as a recipe file is read (the files it names beside it, in its
+    entry's folder, each one the entry lists: never a path outside it).
+    One named as a species, as one of yours (the library's folder of that
+    name: yours is what a build wears, :func:`_player_variants.resolve`'s
+    order) or by two entries is refused by name, never worn in their
+    place."""
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import library
+
+    root = root or ROOT
+    record = installed(root)
+    rows = [row for name in sorted(record) if _ID.match(name) and RECIPES.format(name) in _files(_record(record, name))
+            for row in _entry_recipes(root, name, _record(record, name))]
+    holders: dict[str, list[str]] = {}
+    for r in rows:
+        holders.setdefault(r.name, []).append(r.entry)
+    species, out = library.species(), []
+    for r in rows:
+        if not variants._NAME.match(r.name):
+            why = "a variant's name is a lower-case letter, then lower-case letters, digits and _"
+        elif r.name in species:
+            why = "a species has that name, so a character can't name the variant"
+        elif (library.root() / r.name).is_dir():
+            why = "one of yours has that name, which a build wears in its place (rename yours to wear this one)"
+        elif len(holders[r.name]) > 1:
+            why = f"community entries {', '.join(holders[r.name])} each hold it, so none is worn"
+        else:
+            why = None
+        out.append(r if why is None or r.refusal is not None
+                   else Community(r.name, r.entry, r.version, None, f"variant {r.name!r}: {why}"))
+    return out
+
+
+def variant(name: str, root: Path | None = None):
+    """The community-only character ``name`` (:func:`community`), or ``None``
+    (no installed entry holds it, or a species has the name: the species is
+    worn, as ``library.find`` leaves it); :class:`ValueError` names why one
+    that holds it can't be worn."""
+    from azurkit.tools.characters import library
+
+    if name in library.species():
+        return None
+    found = next((r for r in community(root) if r.name == name), None)
+    if found is not None and found.refusal is not None:
+        raise ValueError(found.refusal)
+    return None if found is None else found.variant
+
+
+def entry_of(source: str, root: Path | None = None) -> tuple[str, int] | None:
+    """The installed variant entry (its id and version) whose recipes file
+    ``source`` (a ``Variant``'s) is, or ``None``: what a build keeps of a
+    community character's source in place of its folder."""
+    root, path = root or ROOT, Path(source)
+    if path.name != PurePosixPath(RECIPES).name or path.parent.parent != root / "variants":
+        return None
+    held = _record(installed(root), path.parent.name)
+    return (path.parent.name, held.get("version")) if RECIPES.format(path.parent.name) in _files(held) else None
+
+
+def _files(held: Mapping) -> Mapping:
+    """An entry's installed record's ``files`` (``{}``: none AzurKit can read)."""
+    return files if isinstance(files := held.get("files"), Mapping) else {}
+
+
+def _entry_recipes(root: Path, entry: str, held: Mapping) -> list[Community]:
+    """:func:`community`'s rows of ``entry`` (installed as ``held``), but the
+    names a species, yours or another entry takes, read again only once
+    what they stand on changes (``held`` and its folder's files' sizes and
+    modification times)."""
+    folder = PurePosixPath(RECIPES.format(entry)).parent
+    files = {path: sha for path, sha in _files(held).items() if isinstance(path, str) and isinstance(sha, str)
+             and PurePosixPath(path).parent.is_relative_to(folder) and not later(path)}
+    stats = []
+    for path in sorted(files):
+        try:
+            at = (root / path).stat()
+            stats.append((path, at.st_size, at.st_mtime_ns))
+        except OSError:
+            stats.append((path, None, None))
+    key = (str(root), entry, json.dumps(held, sort_keys=True, default=str), tuple(stats))
+    if key not in _COMMUNITY:
+        if len(_COMMUNITY) > 64:
+            _COMMUNITY.clear()
+        _COMMUNITY[key] = _read_recipes(root, entry, held.get("version"), files)
+    return _COMMUNITY[key]
+
+
+def _altered(root: Path, entry: str, path: str, sha: str) -> str | None:
+    """Why ``entry``'s installed file ``path`` isn't the one its record holds at ``sha``, or ``None``."""
+    try:
+        _path(INSTALLED, path, suffix=False)
+        if (size := (root / path).stat().st_size) > MAX_FILE:
+            return f"community entry {entry!r}: {path} is {size:,} bytes, past the {MAX_FILE:,} a content file may hold"
+        got = hashlib.sha256((root / path).read_bytes()).hexdigest()
+    except ValueError as exc:
+        return str(exc)
+    except OSError:
+        return f"community entry {entry!r}: {path} isn't in the content folder (moved or deleted): Install it again"
+    if got != sha:
+        return (f"community entry {entry!r}: {path} isn't the file installed (its sha256 {got[:12]}, installed "
+                f"{sha[:12]}): Install it again")
+    return None
+
+
+def _read_recipes(root: Path, entry: str, version, files: Mapping[str, str]) -> list[Community]:
+    """:func:`_entry_recipes`' rows, read from the content folder ``root``
+    (``files``: the installed sha256 of each file of the entry's folder);
+    a file not as installed is read only for the names its refusal goes
+    under, never as a recipe."""
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import library
+
+    recipes = RECIPES.format(entry)
+    file, built = root / recipes, variants.builtins()
+    version = version if type(version) is int else 0
+    why = _altered(root, entry, recipes, files[recipes])
+    try:
+        text = file.read_text(encoding="utf-8") if why is None or file.stat().st_size <= MAX_FILE else "{}"
+        doc = None if jsondepth.deeper(text, library.NESTING) else json.loads(text)
+    except (OSError, UnicodeDecodeError, ValueError):
+        doc = None
+    if why is None and not isinstance(doc, dict):
+        why = f"community entry {entry!r}: {recipes} is no JSON object of recipes"
+    names = [n for n in (doc if isinstance(doc, dict) else {entry: None}) if n not in built]
+    if why is None and names:   # one it holds: every file of its folder as installed, before any is read
+        why = next(filter(None, (_altered(root, entry, path, sha) for path, sha in sorted(files.items())
+                                 if path != recipes)), None)
+    out = []
+    for name in names:
+        if why is not None:
+            out.append(Community(name, entry, version, None, f"variant {name!r}: {why}"))
+            continue
+        try:
+            recipe, parent = variants.recipe_of(doc, name, str(file))
+            found = variants._variant(name, recipe, str(file), parent)
+            lost = [] if variants.files_shipped(found) else [   # from a built-in: its files are the built-in's
+                f for f in library.named_files(recipe) if f"{PurePosixPath(recipes).parent}/{f}" not in files]
+            if lost:
+                raise ValueError(f"variant {name!r} ({recipes}): it names {', '.join(map(repr, lost))}, which "
+                                 f"community entry {entry!r} doesn't list")
+            out.append(Community(name, entry, version, found, None))
+        except (ValueError, TypeError, KeyError, RecursionError) as exc:
+            said = str(exc).replace(str(file), recipes).replace(str(file.parent), str(PurePosixPath(recipes).parent))
+            out.append(Community(name, entry, version, None, said))
+    return out
 
 
 def installed(root: Path | None = None) -> dict:

@@ -1,8 +1,9 @@
 // The Characters tab's Variants view (Step 4.6c; Modkit's Variants page, D372, D480, D1087): your own player models,
 // each a recipe over a base body (the engine's tools/characters/_player_variants.py), made and kept here in your
 // library, a folder each in Modkit's format, which the Models view's Yours group lists and a build wears by name.
-// The list: the built-ins (those whose files come from Azurik-Custom-Content marked community), then yours, a refused
-// one marked, its refusal in the status line. New (a base species from the shared picker), New from this (a new
+// The list: the built-ins (those whose files come from Azurik-Custom-Content marked community), an installed entry's
+// own characters (Community too), then yours, a refused one marked, its refusal in the status line. New (a base
+// species from the shared picker), New from this (a new
 // folder of the one open: a built-in's recipe laid whole with its files copied, so every field is its own), Save, Save
 // as (the name in its box) and Delete (after a yes); Import (an Export's zip, or a recipe.json alone) and Export (a
 // zip, naming the files in it that aren't yours to share). The Base, fixed once chosen; Gameplay, the recipe's mode.
@@ -267,10 +268,12 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const working = () => v.kind === "yours" ? v.name : v.list?.unsaved ?? "unsaved";
   const folderOf = (name) => `${v.list?.root ?? "variants"}/${name}`;
   const edited = () => v.saved !== canon(v.recipe);
-  const given = () => v.kind === "built-in" && !edited() ? { name: v.name }
-    : { name: working(), recipe: v.recipe, folder: folderOf(working()) };
+  const stock = () => v.kind === "built-in" || v.kind === "community";   // opened from the engine's or a community
+  // entry's recipe: checked by its name until edited, an edit beside the files it names (a community entry's folder)
+  const given = () => stock() && !edited() ? { name: v.name }
+    : { name: working(), recipe: v.recipe, folder: v.kind === "community" ? v.folder : folderOf(working()) };
   const now = () => canon(v.recipe);
-  const label = () => v.kind === "new" ? "(new, unsaved)" : v.kind === "built-in" && edited() ? `${v.name} (edited)` : v.name;
+  const label = () => v.kind === "new" ? "(new, unsaved)" : stock() && edited() ? `${v.name} (edited)` : v.name;
 
   // The site's library: what this browser keeps, by folder, handed to its engine (none: the app's engine reads its own).
   // Why this browser refused to keep it (a quota, a Clear meanwhile), else null: the engine has it this visit only. The
@@ -323,6 +326,9 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     const grade = (e) => e.grade ?? "unseen";
     return [...v.list.builtins.filter(shown).map((e) => ({ ...e, group: e.community ? "Community" : "Built-in",
                                                            label: e.name, grade: grade(e), kind: "built-in" })),
+            ...(v.list.community ?? []).filter(shown).map((e) => ({ ...e, group: "Community", kind: "community",
+                                                                    label: e.refusal ? `${e.name} (refused)` : e.name,
+                                                                    grade: e.refusal ? null : grade(e) })),
             ...v.list.yours.filter(shown).map((e) => ({ ...e, group: "Yours", kind: "yours",
                                                         label: e.refusal ? `${e.name} (refused)` : e.name,
                                                         grade: e.refusal ? null : grade(e) }))];
@@ -342,7 +348,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
       ...rows.map((e) => {
         const words = e.grade ? v.list?.grades?.[e.grade] : null;
         const row = el("button", { type: "button", className: "picker-entry model", textContent: e.kind === v.kind
-          && e.name === v.name && v.kind === "built-in" ? label() : e.label,
+          && e.name === v.name && stock() ? label() : e.label,
                                    title: e.refusal ?? [e.title ? `${e.title}, on ${e.base}` : e.label, words]
                                      .filter(Boolean).join(" · ") });
         row.dataset.name = e.name;
@@ -483,6 +489,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   };
   const status = (r) => {
     const saved = { "built-in": edited() ? "built in: Save as keeps your edits" : "built in",
+                    community: edited() ? "community: Save as keeps your edits" : "community",
                     new: "unsaved: Save as keeps it", yours: edited() ? "unsaved edits" : "saved" }[v.kind];
     const check = !image() ? `${CHOOSE} to check it` : v.checking ? "checking with game data…"
       : !v.checked ? "not checked" : v.checked[0] !== now() ? "edited since the check"
@@ -642,7 +649,8 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const copyAs = async (name) => {
     if (!name) return;
     const reply = await call("variant_save", { given: { name: working(), recipe: v.recipe, as: name,
-                                                        from: v.kind === "yours" ? v.name : null, files: !app } });
+                                                        from: v.kind === "yours" || v.kind === "community" ? v.name
+                                                          : null, files: !app } });
     if ("refused" in reply) return refused(reply.refused);
     const lost = await wrote(reply);
     await open("yours", reply.name);

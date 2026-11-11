@@ -912,7 +912,15 @@ are the Characters section's.
     hold) and Delete check first and write whole or not at all
     (D35). `_player_variants.resolve` finds a built-in, else `variant_file`'s
     recipe, else with no file yours (`library.find`; a folder that isn't a
-    variant refused by name), so a build, a link, a mods file and the
+    variant refused by name), else an installed community entry's own
+    character (`content.variant`, Step 4.38b: a recipe of its
+    `variants/<id>/variant.json` no built-in has the name of, read only
+    once that file and its folder's are the sha256 `installed.json`
+    records, naming only files its entry lists; a name a species, yours or
+    two entries take refused by name, never worn in their place, so an
+    Install or Update never changes what a link or a setup already wears;
+    its dress's log names `community <id> v<version>`, never the folder),
+    so a build, a link, a mods file and the
     remembered setup wear one by name (a link with its sha12, Q174); each
     key an answer for a character is kept under (`characters.cache_key`,
     `app.ahead.key`, the sdk's dresses) stands on what a build of yours
