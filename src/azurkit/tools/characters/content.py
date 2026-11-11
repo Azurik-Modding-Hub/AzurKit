@@ -702,6 +702,11 @@ def _record(record: Mapping, name: str) -> Mapping:
     return held if isinstance(held := record.get(name), Mapping) else {}
 
 
+def _files(held: Mapping) -> Mapping:
+    """An entry's installed record's ``files`` (``{}``: none AzurKit can read)."""
+    return files if isinstance(files := held.get("files"), Mapping) else {}
+
+
 def _removable(record: Mapping, name: str) -> set[str]:
     """The paths ``installed.json`` lists for entry ``name`` that lie in the
     content folder (:func:`_path`, any suffix: a file an older version
