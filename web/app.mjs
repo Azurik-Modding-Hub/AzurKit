@@ -506,10 +506,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     }),
     restore: (setup) => wait("restore", { type: "restore", setup }, {}, (data) => restored(plain(data))),
     // after: an ask sent before this one, which this one waits behind in F's queue (Check with game data's pictures,
-    // drawn by the worker that dressed it): its line on the bar only once that one is answered, whose records it shows.
+    // drawn by the worker that dressed it): its line on the bar only once that one is answered, whose records it shows,
+    // and none where that one failed (cancelled, its worker stopped, refused), whose pictures the page never draws.
     call: (type, body, { once = false, after = null } = {}) => new Promise((resolve) => {
       let id = after ? null : asking(type), done = false;
-      after?.then(() => { if (!done) id = asking(type); });
+      after?.then((first) => { if (!done && !("refused" in first || first.refusal)) id = asking(type); });
       const aside = ASIDE.has(type) && !body.file;
       pool.ask({ type, call: ++calls, ...body }, {
         once, heavy: once, anywhere: SMALL.has(type) || aside, aside, progress,

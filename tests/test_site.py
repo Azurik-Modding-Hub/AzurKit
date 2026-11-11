@@ -7308,14 +7308,19 @@ def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_t
 
 # The Variants view's engine as stubs (STUB_ENGINES' answer): booblord listed and opened; a Check that grows the other
 # worker's heap past this one's (the pool's next heavy ask runs there once the Check's worker, which stays F, is gone),
-# and with ``grow`` its own past workers.GROWN (the pool replaces it); pictures only from a worker that checked.
+# and with ``grow`` its own past workers.GROWN (the pool replaces it); pictures only from a worker that checked; with
+# ``holdCheck`` a Check, and pictures a worker that checked none is asked, never answered.
 CHECK_STUB = """(() => {
     const { listed, opened, drawn } = %s, ours = /^(variant|move_sources$|kit_throw$|own_sounds$|base_bones$)/;
     const kept = "variant 'booblord': no Check of it is kept (none yet, or it changed since): "
         + "Check with game data dresses it";
     globalThis.grow = false;
+    globalThis.holdCheck = false;
     globalThis.answer = (worker, m) => {
         if (typeof m.call !== "number" || !ours.test(m.type)) return false;
+        if (globalThis.holdCheck && (m.type === "variant_check" || m.type === "variant_pictures" && !worker.checked)) {
+            return true;
+        }
         let heap = 2 ** 28, reply = { refused: "not this stub's" };
         if (m.type === "variants") reply = listed;
         else if (m.type === "variant_open") reply = opened;
@@ -7388,6 +7393,52 @@ def test_a_checks_pictures_are_drawn_by_the_worker_that_dressed_it_or_after_a_ch
         assert _page.until(page, f"() => {{ const s = ({shown})(); return s[2] && s.slice(1); }}", 60) == [
             "Preview: the nearest shape drawn. Let go to preview these values.", True]
         _page.check_csp(page)
+    finally:
+        served.close()
+
+
+def test_a_check_cancelled_shows_no_drawing_line_for_the_pictures_asked_with_it(browser, site):
+    """A Check on the site asks its pictures with it, behind it in F's queue. One that ends with no answer (Build's
+    Cancel during it, or its worker stopped) leaves that ask to the worker that replaced it, which keeps no Check, and
+    the page draws nothing for it: its bar line, "Drawing the variant", showed past 1 s over the new engine's start
+    until that worker refused the ask (4.37b's review). It shows none."""
+    from azurkit.tools.characters import _player_variants, editor, picker
+
+    her = _player_variants.builtins()["booblord"]
+    listed = {"root": "variants", "unsaved": sdk.UNSAVED, "grades": picker.GRADE_WORDS,
+              "colours": picker.STATUS_COLOURS, "editor": editor.lists(), "yours": [], "species": [], "builtins": [
+                  {"name": "booblord", "title": her.title, "base": her.base, "grade": "unseen", "community": None}]}
+    drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
+             for side in ("front", "back")}
+    view = sdk.pickers({"iso": None, "character": {"species": "garret4"}})
+    served = Site(browser, site)
+    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn}))
+    served.context.add_init_script(CHECK_STUB % json.dumps({"listed": listed, "opened": sdk.variant_open(
+        {"name": "booblord"}), "drawn": drawn}))
+    shown = ("() => [[...azurkit.asks.values()].map((a) => a.kind), document.getElementById('progress-row').hidden "
+             "? '' : document.getElementById('progress-line').textContent]")
+    try:
+        page = served.open()
+        page.evaluate("() => { azurkit.file = new File(['x'], 'x.iso'); azurkit.asked = azurkit.file; }")
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view", 60)
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.pictured === 'shipped' && !document.getElementById('var-check')"
+                          ".disabled", 60)
+        page.evaluate("() => { globalThis.holdCheck = true; }")
+        _page.click(page, "var-check")
+        _page.until(page, "() => sent.some((m) => m.type === 'variant_check') && azurkit.variants.state.checking", 60)
+        page.evaluate("() => { const b = document.getElementById('build'); b.disabled = false; b.click(); }")
+        _page.until(page, "() => !document.getElementById('cancel').hidden", 10)
+        page.evaluate("() => { globalThis.sentBefore = sent.length; }")
+        _page.click(page, "cancel")
+        _page.until(page, "() => azurkit.variants.state.checking === null && made.some((w) => !w.stopped && "
+                          "w.got.some((m) => m.type === 'variant_pictures' && sent.indexOf(m) >= sentBefore))",
+                    10)   # asked of F's replacement, which holds it
+        page.evaluate("() => { globalThis.cancelledAt = performance.now(); }")
+        _page.until(page, "() => performance.now() - cancelledAt > 1500", 10)   # past the bar's 1 s
+        kinds, line = page.evaluate(shown)
+        assert "variant_pictures" not in kinds and not line.startswith("Drawing"), (kinds, line)
     finally:
         served.close()
 
