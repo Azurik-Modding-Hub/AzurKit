@@ -156,7 +156,7 @@ import struct
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from azurkit.core import fdlibm
+from azurkit.core import fdlibm, jsondepth
 from azurkit.tools.characters import fx_edit, fx_templates
 from azurkit.tools.characters import jiggle as jiggles
 from azurkit.tools.characters import jiggle_rt
@@ -356,6 +356,10 @@ _WAV_FILE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.wav\Z", re.IGNORECASE)
 TAKES = 20
 """A name's takes the binder tries: ``<name>`` and ``<name>_a`` ..
 ``_s`` (0x4B680, ``cmp ebx, 0x14`` at 0x4B71F)."""
+RECIPE_NESTING = 64
+"""How deep a recipe file's JSON may nest (the shipped ones nest 8 deep),
+read before json parses it (``core.jsondepth``: the parser's own limit is
+each platform's, a ``RecursionError`` no refusal names)."""
 WHOOSH_LONGEST = 60.0
 """The longest a ``whoosh`` may last (s): about 10 x the game's longest
 inline wave (``xbox_adpcm.LONGEST_WAVE``) and 40 x the longest a shipped
@@ -3596,7 +3600,10 @@ def load_variants(text: str, source: str, taken: tuple[str, ...] = ()) -> dict[s
     """The recipes of ``text`` (one JSON object, {name: recipe}) from
     ``source`` (named in every refusal); a name in ``taken`` (the
     built-ins, for a user's file) fails by name, as does anything
-    :data:`FIELDS` doesn't hold."""
+    :data:`FIELDS` doesn't hold, JSON nested past :data:`RECIPE_NESTING`
+    and a field the checks look up as the wrong kind (``"mode": []``)."""
+    if jsondepth.deeper(text, RECIPE_NESTING):
+        raise ValueError(f"{source}: not a recipe (it nests deeper than {RECIPE_NESTING})")
     try:
         doc = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -3604,11 +3611,14 @@ def load_variants(text: str, source: str, taken: tuple[str, ...] = ()) -> dict[s
     if not isinstance(doc, dict):
         raise ValueError(f"variants ({source}): not an object of recipes")
     out = {}
-    for name in doc:
-        if name in taken:
-            raise ValueError(f"variant {name!r} ({source}): a built-in variant has that name")
-        recipe, parent = recipe_of(doc, name, source)
-        out[name] = _variant(name, recipe, source, parent)
+    try:
+        for name in doc:
+            if name in taken:
+                raise ValueError(f"variant {name!r} ({source}): a built-in variant has that name")
+            recipe, parent = recipe_of(doc, name, source)
+            out[name] = _variant(name, recipe, source, parent)
+    except (TypeError, RecursionError) as exc:   # a lookup of a list ("mode": []), as library.checked names it
+        raise ValueError(f"{source}: not a recipe ({type(exc).__name__}: {exc})") from None
     return out
 
 

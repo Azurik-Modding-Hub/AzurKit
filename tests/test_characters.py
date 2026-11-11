@@ -1551,7 +1551,8 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     ``xbox_adpcm.MIN_RATE`` (refused before it is resampled: 2 bytes at 1 Hz were 22,050 samples, 2 s of work),
     one at the floor read; and a glTF whose ``asset`` isn't an object or that nests deep (200,000 brackets: the
     parser's ``RecursionError`` on this Mac), refused by name where every key on a recipe's files reads it, so
-    a recipe file naming one is stamped by its bytes."""
+    a recipe file naming one is stamped by its bytes; and a recipe file (``variant_file``, the CLI's) whose
+    ``mode`` is a list or that nests deep, refused naming the file, not a ``TypeError`` or ``RecursionError``."""
     import time
     import tracemalloc
 
@@ -1570,6 +1571,8 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     (stamped := tmp_path / "stamped").mkdir()
     for name, text in (("list", '{"asset": []}'), ("null", '{"asset": null}'), ("deep", "[" * 200_000)):
         (stamped / f"{name}.gltf").write_text(text, encoding="utf-8")
+    (stamped / "mode.json").write_text('{"mine": {"base": "keylord", "mode": []}}', encoding="utf-8")
+    (stamped / "deep.json").write_text("[" * 200_000, encoding="utf-8")
     flood = zstd.compress(bytes(64 << 20), options={zstd.CompressionParameter.window_log: 20})
 
     def answer(size: int) -> bytes:
@@ -1663,11 +1666,14 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
                               rf"^{name}\.gltf: not a glTF this import reads \({why}\)$") for what, name, why in (
             ("whose asset is a list", "list", r"not glTF 2\.0"), ("whose asset is null", "null", r"not glTF 2\.0"),
             ("of 200,000 brackets", "deep", "its JSON nests deeper than 64"))},
+        **{f"a recipe file {what}": (lambda name=name: _player_variants.resolve("mine", stamped / f"{name}.json"),
+                                     rf"{name}\.json: not a recipe \({why}") for what, name, why in (
+            ("whose mode is a list", "mode", "TypeError: "), ("of 200,000 brackets", "deep", "it nests deeper than 64\\)$"))},
         **{f"a WAV at {rate} Hz": (lambda rate=rate: xbox_adpcm.read_wav(wav(rate)),
                                    rf"{rate}\.wav: {rate} Hz; a sound here is at least 1,000 Hz$") for rate in (1, 999)},
     }
-    assert list(_player_variants.load_variants(json.dumps({"mine": booblord}), str(tmp_path / "variant.json"))) == [
-        "mine"]   # her own recipe as a user's reads (and the reader is warm)
+    assert list(_player_variants.load_variants(json.dumps({"mine": booblord}), str(tmp_path / "variant.json"), tuple(
+        _player_variants.builtins()))) == ["mine"]   # her own recipe as a user's reads (the reader and built-ins warm)
     slow = {}
     for row, (call, why) in rows.items():
         tracemalloc.start()
