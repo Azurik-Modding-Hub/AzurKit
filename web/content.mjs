@@ -155,10 +155,12 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
       if (files && installed) handoff(files, installed);
     });
 
-  // Each entry with its state against what is kept: install, installed (at its version) or update (an older one).
+  // Each entry with its state against what is kept: install, installed (at its version or a newer one: no Update goes
+  // down, SEC-8, as the engine's content.states says) or update (an older one).
   const states = () => (s.manifest?.entries ?? []).map((e) => {
     const held = s.installed[e.id]?.version ?? null;
-    return { ...e, installed: held, state: held === null ? "install" : held === e.version ? "installed" : "update" };
+    return { ...e, installed: held, state: held === null ? "install"
+      : Number.isInteger(held) && held >= e.version ? "installed" : "update" };
   });
 
   // The source's list: the app's engine reads it (a URL or a folder), the site fetches it (where's address: any https

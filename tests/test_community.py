@@ -417,6 +417,39 @@ def test_the_pages_content_install_fetches_each_entry_once_keeps_nothing_it_refu
     assert out["later"]["rule"] == [True, False, False, False, False]
 
 
+NEWER = r"""
+const { content } = await import(process.argv[2]);
+const list = JSON.stringify({ format: "azurik-custom-content", schema_version: 1, entries: [
+  { id: "a", kind: "pack", title: "a", version: 1, requires: [], files: [] },
+  { id: "b", kind: "pack", title: "b", version: 3, requires: [], files: [] }] });
+const store = new Map([["installed", { a: { version: 2, source: "content/", files: {} },
+                                       b: { version: 2, source: "content/", files: {} } }]]);
+const kept = { get: async (key) => store.get(key), put: async (kv) => kv.forEach(([k, v]) => store.set(k, v)) };
+const fetched = [];
+const fetch = async (url) => (fetched.push(new URL(url).pathname), { ok: true, status: 200, text: async () => list });
+const c = content({ call: async (_, given) => ({ manifest: JSON.parse(given.manifest) }), app: false,
+                    fallback: "content/", kept, fetch, storage: { getItem: () => null },
+                    location: { href: "http://site.test/", origin: "http://site.test" } });
+await c.read();
+console.log(JSON.stringify([c.state.entries.map((e) => [e.id, e.state, e.installed]), fetched]));
+"""
+
+
+@pytest.mark.web
+def test_the_pages_content_list_offers_no_update_below_the_version_installed(tmp_path):
+    """web/content.mjs on Node: an entry installed at a newer version than
+    the source lists (a source rolled back, or another one picked) is
+    installed, as the engine's ``content.states`` says (no Update goes
+    down, SEC-8), not offered as an "Update to" the engine refuses; an
+    older one is still an update (Step 4.42c)."""
+    driver = tmp_path / "newer.mjs"
+    driver.write_text(NEWER, encoding="utf-8")
+    done = subprocess.run(["node", str(driver), (ROOT / "web" / "content.mjs").as_uri()], capture_output=True,
+                          text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert json.loads(done.stdout) == [[["a", "installed", 2], ["b", "update", 2]], ["/content/manifest.json"]]
+
+
 OVERTAKEN = r"""
 const { content } = await import(process.argv[2]);
 const [GH, MINE] = process.argv.slice(3);
