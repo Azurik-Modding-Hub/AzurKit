@@ -1993,7 +1993,11 @@ are the Characters section's.
     runs on, each file it asks for kept again, checked; the next load is
     the network's release, registered anew: kept, it came from the cleared
     release's `sw.js`, which answers 503 to each file of a release deployed
-    since, and no reload mended it). Another origin's content (the community
+    since, and no reload mended it), but while another page `sw.js`
+    controls is open (its `release` answer's `controls`) Clear keeps the
+    release and says so: Chromium hands the registration it keeps for that
+    page back to the reloaded page's `register()`, the cleared `sw.js` with
+    it (the 4.46c review's F2). Another origin's content (the community
     source on raw.githubusercontent.com) is a CORS fetch, which
     cross-origin isolation allows as its host sends
     `Access-Control-Allow-Origin: *`; sw.js handles only its own scope's

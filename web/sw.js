@@ -15,12 +15,14 @@
 // - The activation deletes the older releases' caches of this scope (never another site's on this origin).
 // - Each GET in the scope of a listed file (a navigation to the scope or index.html is index.html) is answered from
 //   this release's cache as kept (never rewrapped: the browser reads it from the cache itself); one gone from it
-//   (Storage's Clear, which unregisters this worker too) is downloaded again and kept only if its sha256 is the list's, else answered 503: a page never
-//   gets another release's bytes. Any other GET goes to the network.
-// - The page's messages, each answered on its port: "release" (this release's name, files and bytes, and how many are
-//   kept), "check" (the registration looks for a new release, a new sw.js, which carries a new release's whole list:
-//   one found installs and waits; the answer says whether one is installing or waiting), "reload" (to the waiting
-//   release: it takes over when the asking page is the scope's only one, else it says how many others are open).
+//   (Storage's Clear, which unregisters this worker too unless another page it controls is open) is downloaded again
+//   and kept only if its sha256 is the list's, else answered 503: a page never gets another release's bytes. Any other
+//   GET goes to the network.
+// - The page's messages, each answered on its port: "release" (this release's name, files and bytes, how many are kept
+//   and how many pages it controls besides the asking one), "check" (the registration looks for a new release, a new
+//   sw.js, which carries a new release's whole list: one found installs and waits; the answer says whether one is
+//   installing or waiting), "reload" (to the waiting release: it takes over when the asking page is the scope's only
+//   one, else it says how many others are open).
 // - The install posts to the scope's pages its outcome, "installed" or "failed" (with the file's fault), which a page may
 //   know before its registration shows it (Firefox shows a new worker after its updatefound).
 const RELEASE = null;
@@ -130,8 +132,9 @@ async function answer(data, source) {
   if (data?.type === "release") {
     const cached = NAME ? (await (await caches.open(NAME)).keys()).length : 0;
     const files = RELEASE ? Object.values(RELEASE.files) : [];
+    const controls = (await self.clients.matchAll({ type: "window" })).filter((page) => page.id !== source?.id).length;
     return { type: "release", name: RELEASE?.name ?? null, files: files.length, cached,
-             bytes: files.reduce((sum, f) => sum + f.size, 0) };
+             bytes: files.reduce((sum, f) => sum + f.size, 0), controls };
   }
   if (data?.type === "check") {   // the browser compares sw.js byte for byte: any served file's change is a new one
     try {

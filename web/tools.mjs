@@ -41,9 +41,9 @@
 
 import { listed, sweep } from "./outputs.mjs";
 
-// sw.js's release on a page it controls (D1013): {name, files, cached, bytes}; else null.
-const release = () => new Promise((done) => {
-  const sw = navigator.serviceWorker?.controller;
+// sw.js's release (D1013) on a page it controls, or a registration's ``sw``'s: {name, files, cached, bytes, controls};
+// else null.
+const release = (sw = navigator.serviceWorker?.controller) => new Promise((done) => {
   if (!sw) return done(null);
   const channel = new MessageChannel();
   channel.port1.onmessage = ({ data }) => done(data);
@@ -460,16 +460,24 @@ export function tools({ root, call, app, say, image, known = () => null, out, pi
     // The release's caches go, and sw.js's registration with them: this page runs on (sw.js keeps each file it asks
     // for again, checked), and the next load is the network's release, registered anew. Kept, the next load came from
     // the cleared release's sw.js, which refused every file a release deployed since serves (503: no reload mended it).
+    // Not while another page it controls is open: Chromium hands the registration it still keeps for that page back
+    // to the next register() (this page's, reloaded), the cleared release's sw.js with it, so it stays kept till those
+    // pages close.
     const reg = await navigator.serviceWorker?.getRegistration?.().catch(() => null);
-    await Promise.all((await releases()).map((key) => caches.delete(key)));
-    await reg?.unregister().catch(() => {});
+    const others = (await release(reg?.active))?.controls ?? 0;
+    if (!others) {
+      await Promise.all((await releases()).map((key) => caches.delete(key)));
+      await reg?.unregister().catch(() => {});
+    }
     const later = (await Promise.all(KEPT.databases.map(([name]) => new Promise((done) => {
       const request = indexedDB.deleteDatabase(name);
       request.onsuccess = request.onerror = () => done(false);
       request.onblocked = () => done(true);   // open in this page or another: deleted once those close
     })))).some(Boolean);
-    say(`Cleared what AzurKit kept in this browser${later ? " (the rest once the page reloads)" : ""}: reload the page `
-        + "to start fresh");
+    const open = others === 1 ? "its other page is" : `its ${others} other pages are`;
+    const stays = others ? ` but AzurKit itself, kept while ${open} open` : "";
+    say(`Cleared what AzurKit kept in this browser${stays}${later ? " (the rest once the page reloads)" : ""}: reload `
+        + "the page to start fresh");
     storage();
   }
 

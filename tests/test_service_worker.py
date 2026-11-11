@@ -283,6 +283,10 @@ def visited(context, host: Host):
 
 KEPT_ROW = """() => [...document.querySelectorAll("#tools-storage td")].map((td) => td.textContent)
   .includes("AzurKit itself, kept for offline use")"""
+ALONE = """async () => { const reg = await navigator.serviceWorker.getRegistration();
+  return await new Promise((done) => { const c = new MessageChannel(); c.port1.onmessage = ({ data }) => done(
+    data.controls === 0); reg.active.postMessage({ type: "release" }, [c.port2]); }); }"""
+"""Whether the page's registration's ``sw.js`` controls no other page (the ``release`` answer's ``controls``)."""
 REGISTRATION = """async () => {
   const reg = await navigator.serviceWorker.getRegistration();
   return reg ? Object.fromEntries(["installing", "waiting", "active"].map((k) => [k, reg[k]?.state ?? null])) : null;
@@ -349,26 +353,41 @@ def _next_release(site: Path, out: Path) -> Path:
 
 def test_a_reload_after_clear_runs_the_release_deployed_since_never_a_503(browser, site, tmp_path):
     """The Tools tab's Clear deletes the release kept and unregisters ``sw.js``, so the next load is the network's: with
-    the next release deployed meanwhile, the reload runs that release's page and engine and keeps it. Clear kept the
-    registration, so the reload came from the cleared release's ``sw.js``, which answered the next release's
-    ``index.html`` (or ``host.json``) 503 "isn't this release's: reload the page", and every reload did the same."""
+    the next release deployed meanwhile, the reload runs that release's page and engine and keeps it, and the reload
+    after runs on it. While another page ``sw.js`` controls is open, Clear keeps the release and says so, and the reload
+    runs on it: Chromium hands the registration it keeps for that page back to the reloaded page's ``register()``, the
+    cleared ``sw.js`` with it. Clear kept the registration, so the reload came from the cleared release's ``sw.js``,
+    which answered the next release's ``index.html`` (or ``host.json``) 503 "isn't this release's: reload the page", and
+    every reload did the same."""
     after = _next_release(site, tmp_path / "next")
-    with hosted(browser, site) as (host, context):
-        kept(visited(context, host), host, listed(site), 60)
-        page = visited(context, host)
-        assert page.evaluate("() => Boolean(navigator.serviceWorker.controller)")
+
+    def clear(page) -> str:
         page.evaluate("() => document.getElementById('tab-tools').click()")
         assert _page.until(page, KEPT_ROW, 60)
-        host.root = after
         page.evaluate("() => document.getElementById('tools-clear').click()")
-        _page.until(page, "() => document.getElementById('status').textContent.startsWith('Cleared what AzurKit kept')",
-                    60)
-        assert page.evaluate("async () => await navigator.serviceWorker.getRegistration() ?? null") is None
+        return _page.until(page, "() => { const said = document.getElementById('status').textContent; "
+                                 "return said.startsWith('Cleared what AzurKit kept') && said; }", 60)
+
+    def reloaded(page) -> list:
         _page.load(page, seconds=VISIT)
         ready(page)
-        assert page.evaluate("() => [document.documentElement.dataset.next, "
-                             "Boolean(navigator.serviceWorker.controller)]") == ["1", False]
+        return page.evaluate("() => [document.documentElement.dataset.next ?? null, "
+                             "Boolean(navigator.serviceWorker.controller)]")
+
+    with hosted(browser, site) as (host, context):
+        kept(visited(context, host), host, listed(site), 60)
+        page, other = visited(context, host), visited(context, host)
+        assert page.evaluate("() => Boolean(navigator.serviceWorker.controller)")
+        host.root = after
+        assert "but AzurKit itself, kept while its other page is open" in clear(page)
+        assert reloaded(page) == [None, True]
+        other.close()
+        _page.until(page, ALONE, 30)
+        assert "AzurKit itself" not in clear(page)
+        assert page.evaluate("async () => await navigator.serviceWorker.getRegistration() ?? null") is None
+        assert reloaded(page) == ["1", False]
         kept(page, host, listed(after), 60)
+        assert reloaded(page) == ["1", True]
 
 
 RELOADED = 60
@@ -434,7 +453,8 @@ def test_the_page_is_isolated_after_one_reload_and_every_later_page_at_once(brow
             "cross-origin-resource-policy": "same-origin", "content-security-policy": CSP}}
         assert page.evaluate("sw.release()") == {"type": "release", "name": listed(releases["one"])["name"], "files": 7,
                                                  "cached": 7, "bytes": sum(f["size"] for f in
-                                                                           listed(releases["one"])["files"].values())}
+                                                                           listed(releases["one"])["files"].values()),
+                                                 "controls": 0}
         assert opened(context, host, "index.html?again")[1]["loads"] == 1
 
 
