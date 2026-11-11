@@ -2640,20 +2640,26 @@ def test_a_chromium_page_starts_its_engine_while_its_gpu_helper_is_held(site):
     headless shell's prompt for the Documents folder stood unanswered on this Mac every test Chromium's GPU process
     started inside it waited in its own check, and each page of those browsers stopped answering at its engine's start
     (six flakes of one gate, no answer in 238 s). Chromium's ``--gpu-startup-dialog`` holds a GPU helper at its start
-    as the prompt did (on macOS until a SIGUSR1)."""
+    as the prompt did (on macOS until a SIGUSR1). Its Playwright runs in a thread of its own, since a module browser's
+    sync Playwright earlier on the worker holds this thread's loop."""
+    from concurrent.futures import ThreadPoolExecutor
+
     from playwright.sync_api import sync_playwright
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("PLAYWRIGHT_BROWSERS_PATH", str(web_tools.browsers_dir()))
+
+    def ready():
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True, args=["--gpu-startup-dialog"])
             try:
                 served = Site(browser, site)
                 try:
-                    assert _page.answer(served.open(), "() => globalThis.azurkit.ready") is True
+                    return _page.answer(served.open(), "() => globalThis.azurkit.ready")
                 finally:
                     served.close()
             finally:
                 conftest.close_browser(browser)
+    with pytest.MonkeyPatch.context() as mp, ThreadPoolExecutor(1) as pool:
+        mp.setenv("PLAYWRIGHT_BROWSERS_PATH", str(web_tools.browsers_dir()))
+        assert pool.submit(ready).result() is True
 
 
 HELD = """const made = [];
