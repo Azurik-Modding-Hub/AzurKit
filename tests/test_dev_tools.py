@@ -1785,7 +1785,8 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
         (repo / perf.CEILINGS).write_text(perf.render(lst), encoding="utf-8")
         _git(repo, "add", "scripts/perf.py", perf.CEILINGS)
         _git(repo, "commit", "-q", "-m", what)
-        _receipt(receipts, _git(repo, "rev-parse", "HEAD"), mode="changed", base=_git(repo, "rev-parse", "main"))
+        _receipt(receipts, _git(repo, "rev-parse", "HEAD"), mode="changed", base=_git(repo, "rev-parse", "main"),
+                 perf={"passed": True, "cases": {}, "memory": {}, "native_failures": [], "list": []})   # perf.py: timed
     on_main = {"ceilings": {"S05/webkit": 4.0}, "debts": [], "memory": {}, "untimed": {}}
     commit(("webkit", "chromium"), on_main, "main")
     asked = []
