@@ -2395,8 +2395,16 @@ are the Characters section's.
   (main 54ee900f passed here on the clone's v10 and failed CI on its pinned
   v11); the log's first line names the commit, and one it can't unpack or
   fetch ends the run `error`, its note naming the commit, no pytest run.
-  The perf stage installs its own (below).
-- **The perf gate (D980-D985):** once pytest passes, the same locked run times
+  The perf stage installs its own (below). Two locks (D1215's P2, adopted
+  by D1271):
+  pytest holds the suite lock (`<receipts>/lock`) alone; a run with a flake
+  or perf stage then takes the perf lock (`perf.lock`) and only then lets the
+  suite lock go, so the next run's pytest runs beside those stages, under
+  `taskpolicy -c utility` at nice 19 while another run holds the perf lock
+  (`fullsuite.beside`, the receipt's `beside`; nice 10 otherwise). Only a
+  holder of the suite lock takes the perf lock, so a pytest that starts
+  with it free keeps it free, and `window take` holds both.
+- **The perf gate (D980-D985):** once pytest passes, the same run, under the perf lock, times
   the player-facing operations the changes reach (`scripts/perf.py`; the
   registry, its ids and drivers in `tests/_perf.py`): a change under `src/`
   or `web/` times its area's ops (`perf.REACH`, each narrow row standing on

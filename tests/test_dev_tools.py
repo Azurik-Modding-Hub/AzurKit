@@ -426,7 +426,7 @@ def test_a_queued_run_whose_worktree_moves_before_it_gets_the_lock_ends_stale_ru
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     _git(lane, "commit", "-q", "--allow-empty", "-m", "b")
     ran = []
-    monkeypatch.setattr(fullsuite, "run", lambda meta, m: ran.append(meta.stem))
+    monkeypatch.setattr(fullsuite, "run", lambda meta, m, suite: ran.append(meta.stem))
     moves = {"held": lambda: None, "rebased": lambda: _git(lane, "commit", "-q", "--allow-empty", "-m", "c"),
              "edited": lambda: (lane / "x.txt").write_text("x", encoding="utf-8")}
     for name, move in moves.items():
@@ -442,6 +442,73 @@ def test_a_queued_run_whose_worktree_moves_before_it_gets_the_lock_ends_stale_ru
             assert m["note"].endswith(f"no pytest ran; run it again: scripts/fullsuite.py {lane} --changed --base {base}")
     assert ran == ["suite-held"]
     assert land.land(repo, "p2/x")[0] == 1   # the edited one's head is the branch's: stale, it lands nothing
+
+
+def test_a_runs_pytest_holds_the_suite_lock_alone_and_the_next_pytest_runs_niced_beside_its_flake_and_perf_stages(
+        tmp_path, monkeypatch):
+    """D1215's P2: a run holds the suite lock for its pytest; once that
+    passes, a run with stages takes the perf lock and only then lets the
+    suite lock go, holding the perf lock through its flake and perf stages,
+    so the next run's pytest starts at once, under macOS's utility clamp at
+    nice 19 (``fullsuite.beside``), while the first's stages hold it. A
+    stand-in fcntl fails the test if a run waits for a lock another holds."""
+    repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
+    _git(lane, "commit", "-q", "--allow-empty", "-m", "b")
+    said = []
+
+    class Flocks:   # one holder a lock file, a try (LOCK_NB) that gets it holds it too; a would-be wait raises
+        LOCK_EX, LOCK_NB, LOCK_UN = 2, 4, 8
+
+        def __init__(self):
+            self.held = {}
+
+        def flock(self, f, op):
+            name = Path(f.name).name
+            if op & self.LOCK_UN:   # a take let go at once is a try (took()'s free check, perf_busy's): it says nothing
+                if self.held.get(name) is f:
+                    del self.held[name]
+                    if said[-1:] == [("took", name)]:
+                        said.pop()
+                    else:
+                        said.append(("let go", name))
+            elif self.held.get(name) not in (None, f):
+                if op & self.LOCK_NB:
+                    raise BlockingIOError(name)
+                raise AssertionError(f"a run waited for {name}")
+            else:
+                said.append(("took", name))
+                self.held[name] = f
+    monkeypatch.setitem(sys.modules, "fcntl", Flocks())
+
+    class Pytest:
+        def __init__(self, cmd, stdout, **_):
+            said.append(("pytest", cmd[:cmd.index("uv")]))
+            stdout.write("vanilla: 1 run\neurope: 1 run\n===== 3 passed in 0.10s =====\n")
+            stdout.flush()
+
+        def wait(self, timeout=None):
+            return 0
+    popen = subprocess.Popen   # git's calls go on as they are
+    monkeypatch.setattr(fullsuite.subprocess, "Popen", lambda cmd, *a, **k: Pytest(cmd, **k) if "pytest" in cmd
+                        else popen(cmd, *a, **k))
+    first, second = receipts / "suite-first.meta", receipts / "suite-second.meta"
+
+    def stages(meta, m):
+        said.append(("stages", meta.stem))
+        if meta == first:   # the next run comes while these stages hold the perf lock
+            fullsuite.save(second, fullsuite.prepare(lane, True, base) | {"state": "queued", "runner_pid": os.getpid()})
+            assert fullsuite.runner(second) == 0
+        return m
+    monkeypatch.setattr(fullsuite, "stages", stages)
+    fullsuite.save(first, fullsuite.prepare(lane, True, base) | {"state": "queued", "runner_pid": os.getpid(),
+                                                                  "flake_tests": ["tests/test_x.py::test_x"]})
+    assert fullsuite.runner(first) == 0
+    assert said == [("took", "lock"), ("pytest", fullsuite.niced(10)), ("took", "perf.lock"), ("let go", "lock"),
+                    ("stages", "suite-first"), ("took", "lock"), ("pytest", fullsuite.beside()),
+                    ("stages", "suite-second")]
+    assert [fullsuite.load(meta)["beside"] for meta in (first, second)] == [False, True]
+    assert fullsuite.beside()[-3:] == fullsuite.niced(19) and (sys.platform != "darwin" or fullsuite.beside()[:3] == [
+        "taskpolicy", "-c", "utility"])
 
 
 def test_the_flake_stage_takes_the_tests_a_stack_added_or_edited_and_only_in_a_changed_run(tmp_path, monkeypatch):

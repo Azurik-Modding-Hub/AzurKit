@@ -7,9 +7,10 @@ background, with a receipt (the twin of Modkit's ``fullsuite``).
 
 It first runs the lint files (:data:`LINT`) in the foreground. A failure
 prints their output and queues nothing (no receipt, exit 1). The run then
-detaches: it waits for the lock (``<receipts>/lock``), runs ``nice -n 10 uv
+detaches: it waits for the suite lock (``<receipts>/lock``), runs ``nice -n 10 uv
 run --locked pytest`` in the worktree on :data:`WORKERS` workers (pytest-xdist's
-``--dist loadgroup``), killed after :func:`cap` seconds
+``--dist loadgroup``; beside another run's flake or perf stage under macOS's
+utility clamp at nice 19, :func:`beside`), killed after :func:`cap` seconds
 (:data:`CAP`, more on a loaded host), and writes ``<receipts>/suite-<key>.meta``
 (JSON) and ``.log``, whose tail lists the slowest tests. The script prints
 the key and the meta's path; Modkit's ``waitfor`` reads that path too.
@@ -34,8 +35,8 @@ whole one in every browser (D970); the meta's ``browsers`` says which.
 Once a changed-area run's pytest passes, its flake stage (Step 4.4dx2,
 :func:`flake_stage`) runs each test function the changes add or edit
 (:func:`edited_tests`: a changed ``def test*``, not a helper)
-:data:`FLAKE_RUNS` times slowed toward CI's runners' pace (:func:`slowed`), inside the
-same lock and within :data:`FLAKE_CAP`, copying the wheel and database the
+:data:`FLAKE_RUNS` times slowed toward CI's runners' pace (:func:`slowed`), under the
+perf lock and within :data:`FLAKE_CAP`, copying the wheel and database the
 run built (its build cache, ``<meta>.cache``): a test that reaches no
 module- or session-scoped fixture of the suite's own (the images' paths aside)
 all its runs in the first run's session (Step 4.4dx12,
@@ -44,7 +45,15 @@ with the test, the run and its output's tail, as does a case with no
 passing run by the cap, and the receipt's ``flake`` block keeps the tests,
 runs, each run's wall time and slowing. A whole run has none.
 
-Once pytest (and a flake stage) passes, the perf stage runs inside the same lock (D981,
+Two locks (D1215's P2): a run holds the suite lock for its pytest alone. Once
+pytest passes, a run with a flake or perf stage takes the perf lock
+(``<receipts>/perf.lock``, :data:`PERF_LOCK`; only a holder of the suite lock
+takes it, so a pytest that starts while it is free has it free to its end)
+and only then lets the suite lock go: the next run's pytest starts beside
+those stages, under macOS's utility clamp at nice 19 (nice 19 elsewhere) while
+another run holds the perf lock, so the measured stage keeps the cores.
+
+Once pytest (and a flake stage) passes, the perf stage runs under the perf lock (D981,
 ``scripts/perf.py``): the player-facing ops the changes reach (perf.py's
 ``select``) in the app and the site in WebKit, or on main's own head every
 op in every profile and browser; at nice 10, started once the
@@ -137,6 +146,7 @@ CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)
 WORKERS = 8   # pytest-xdist's workers; --dist loadgroup keeps a group (tests/conftest.py's) on one (D991)
 FINAL = {"done", "capped", "error", "stale"}   # stale: its tree moved while it waited for the lock (stale())
+PERF_LOCK = "perf.lock"   # the flake and perf stages' lock beside the suite's, "lock" (P2, D1215)
 PERF_CAP = 4 * 3600    # the perf stage's cap (main's full record times every op in every profile)
 PERF_STOP = 120        # how long perf.py, stopped at its cap, has to delete its scratch and quit what it started
 PERF_WAIT = 3 * 3600   # how long it waits for the load to fall under perf.LOAD_LINE
@@ -709,7 +719,8 @@ def describe(m: dict, meta: Path) -> str:
     elif m.get("summary") is not None or state(m) in FINAL:
         line += (f"\n  {m.get('summary') or 'no summary line'}; vanilla: {m.get('vanilla_run')} run; "
                  f"europe: {m.get('europe_run')} run; wall {m.get('wall_s')} s of its cap {m.get('cap_s')} s "
-                 f"(load {m.get('load')})")
+                 f"(load {m.get('load')}" + ("; beside another run's flake or perf stage, " + " ".join(beside())
+                                              if m.get("beside") else "") + ")")
     if m.get("flake_tests"):
         f = m.get("flake") or {}
         line += (f"\n  flake {len(m['flake_tests'])} tests x {f.get('runs', FLAKE_RUNS)} slowed: " + (
@@ -850,10 +861,47 @@ def lint(wt: Path) -> tuple[bool, str]:
 def command(m: dict) -> list[str]:
     """The run's pytest command: its selection (none: the whole suite), a
     changed-area run's browsers, on :data:`WORKERS` workers, and the slowest
-    tests at the log's end."""
+    tests at the log's end; at nice 10, or :func:`beside` another run's flake
+    or perf stage (the receipt's ``beside``)."""
     browsers = [f"--browsers={','.join(m['browsers'])}"] if isinstance(m.get("browsers"), list) else []
-    return [*niced(10), *PYTEST, *m["pytest_args"], *browsers,
+    return [*(beside() if m.get("beside") else niced(10)), *PYTEST, *m["pytest_args"], *browsers,
             f"--numprocesses={WORKERS}", "--dist=loadgroup", DURATIONS]
+
+
+def beside() -> list[str]:
+    """The prefix of a pytest that runs while another run's flake or perf stage holds the perf lock (P2, D1215):
+    macOS's utility clamp (``taskpolicy -c utility``) under nice 19, nice 19 elsewhere, so the measured stage keeps
+    the cores."""
+    return [*(["taskpolicy", "-c", "utility"] if sys.platform == "darwin" else []), *niced(19)]
+
+
+def perf_busy(folder: Path) -> bool:
+    """Whether another run holds the perf lock in ``folder`` (its flake or perf stage runs): a try at its flock that
+    would wait. Asked by a holder of the suite lock, the only one that may take the perf lock, so the answer holds
+    while the asker's pytest runs (or the lock only goes free)."""
+    import fcntl   # POSIX's, as runner()'s
+
+    with open(folder / PERF_LOCK, "a", encoding="utf-8") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(lock, fcntl.LOCK_UN)
+        return False
+
+
+def hand_over(meta: Path, m: dict, suite) -> object:
+    """The perf lock taken (it waits for another run's flake and perf stages), then the suite lock ``suite`` let go,
+    so the next run's pytest starts beside this run's stages (P2, D1215); the perf lock's open file, which the caller
+    closes once its stages are done."""
+    import fcntl
+
+    save(meta, m | {"waiting": "the perf lock"})
+    lock = open(meta.parent / PERF_LOCK, "a", encoding="utf-8")
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    fcntl.flock(suite, fcntl.LOCK_UN)
+    save(meta, m)
+    return lock
 
 
 def niced(level: int) -> list[str]:
@@ -1123,9 +1171,9 @@ def runner(meta: Path) -> int:
         elif moved:
             save(meta, m | {"state": "stale", "finished_at": now(), "note": moved})
         elif m.get("perf_now"):
-            perf_now(meta, m)
+            perf_now(meta, m, lock)
         else:
-            run(meta, m)
+            run(meta, m, lock)
     return 0
 
 
@@ -1146,15 +1194,19 @@ def stale(m: dict) -> str | None:
             f"scripts/fullsuite.py {wt} {' '.join(m.get('args') or [])}".rstrip())
 
 
-def run(meta: Path, m: dict) -> dict:
+def run(meta: Path, m: dict, suite=None) -> dict:
     """Run pytest, then its :func:`stages`, and write the receipt. The run
     and its flake stage share one build cache (``<meta>.cache``, removed
     after), so the stage's slowed runs copy the wheel and database the run
     built (``web_tools.kept``), and one content (:func:`content`,
     ``<meta>.content``, removed before and after); content it can't unpack
-    ends the run ``error``, with no pytest."""
+    ends the run ``error``, with no pytest. With ``suite`` (the runner's suite lock,
+    held), pytest runs :func:`beside` another run's stages when one holds the
+    perf lock, and stages to run take that lock and let ``suite`` go first
+    (:func:`hand_over`)."""
     load5 = os.getloadavg()[1] if hasattr(os, "getloadavg") else 0.0
-    m |= {"state": "running", "started_at": now(), "load": round(load5, 1), "cap_s": cap(load5)}
+    m |= {"state": "running", "started_at": now(), "load": round(load5, 1), "cap_s": cap(load5),
+          "beside": suite is not None and perf_busy(meta.parent)}
     save(meta, m)
     t0, capped, cache, unpacked = time.time(), False, meta.with_suffix(".cache"), meta.with_suffix(".content")
     (flakes := meta.with_suffix(".flakes")).unlink(missing_ok=True)
@@ -1183,7 +1235,13 @@ def run(meta: Path, m: dict) -> dict:
               "vanilla_run": int(tiers["vanilla"]) if "vanilla" in tiers else None,
               "europe_run": int(tiers["europe"]) if "europe" in tiers else None}
         if code == 0 and not capped:
-            m = stages(meta, m)
+            ahead = suite is not None and (m.get("flake_tests") or m.get("perf_args") and not m.get("perf_later"))
+            held = hand_over(meta, m, suite) if ahead else None
+            try:
+                m = stages(meta, m)
+            finally:
+                if held is not None:
+                    held.close()   # closing it lets the perf lock go
         m = ledger(meta, m)
     finally:
         shutil.rmtree(cache, ignore_errors=True)
@@ -1253,8 +1311,8 @@ def stages(meta: Path, m: dict) -> dict:
     return m
 
 
-def perf_now(meta: Path, m: dict) -> dict:
-    """A deferred receipt's perf stage, run alone (``--perf-later
+def perf_now(meta: Path, m: dict, suite=None) -> dict:
+    """A deferred receipt's perf stage, run alone under the perf lock (``--perf-later
     --perf-now``, D1215's P1: one perf stage a batch, on its last entry): its
     selection what the worktree's changes against main's head reach now
     (``perf_base``; none reached: a block of no cases), its debt rows
@@ -1265,8 +1323,13 @@ def perf_now(meta: Path, m: dict) -> dict:
     base = git(wt, "rev-parse", "--verify", "-q", "refs/heads/main^{commit}", check=False).strip() or None
     m |= {"state": "perf", "perf_started_at": now(), "perf_base": base, "perf_args": selected(wt, base, snapshot(wt)[2])}
     save(meta, m)
-    m["perf"] = (perf_stage(meta, m) if m["perf_args"] else
-                 {"passed": True, "cases": {}, "pairs": [], "note": "its changes against main reach no op"})
+    held = hand_over(meta, m, suite) if suite is not None else None   # P2's order: the suite lock first, as a run's
+    try:
+        m["perf"] = (perf_stage(meta, m) if m["perf_args"] else
+                     {"passed": True, "cases": {}, "pairs": [], "note": "its changes against main reach no op"})
+    finally:
+        if held is not None:
+            held.close()
     if "cases" not in m["perf"]:   # the stage never ran (the load, perf.py's crash): the receipt waits on, deferred
         m["perf"] = {"deferred": True, "note": "its --perf-now stage didn't run: " + "; ".join(
             m["perf"].get("failures") or ["no result"])}
