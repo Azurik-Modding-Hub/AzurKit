@@ -1868,7 +1868,10 @@ are the Characters section's.
   heap (w-reshape): a worker a job grew stays for the next heavy job (wasm memory
   never shrinks, and WebKit keeps a terminated worker's pages resident) until its
   heap reaches 3 GiB after a job (`GROWN`; else as after a cancel, "Preparing the
-  engine…", replaced, by an idle small B at once), answers as F whenever both
+  engine…", replaced, by an idle small B at once; a new F that doesn't
+  load loads again, its queue waiting, as a B does, until `LOADS` loads of
+  the visit failed, where one failure left the visit with no engine,
+  Step 4.46c), answers as F whenever both
   are idle, and no heavy job starts beside it. A reshape's exact pictures (D1011)
   are a heavy ask too, so they run in the worker the page grew, never in one of
   their own beside it (D1054: WebKit's own peak was 7.7-8.5 GiB so), the page's

@@ -5760,6 +5760,35 @@ def test_a_second_worker_that_doesnt_load_loads_again_until_three_loads_failed(b
                                 "AzurKit didn't load: RangeError", {"view": 6}, ["tracker"]]}
 
 
+def test_an_engine_that_replaces_one_and_doesnt_load_loads_again_and_answers_until_three_loads_failed(browser):
+    """An F that replaces one (its heap past GROWN after a build, here) and doesn't load is loaded again at once, the
+    page's asks waiting for it, as a B is: the next answers them; once ``LOADS`` loads of the visit have failed, an ask
+    gets the last failure. One failed load of a replacing F (a fetch, WebKit out of memory while the old heap's pages
+    stay resident) left the visit with no engine, every ask answered "AzurKit didn't load" (audit pass 2's C5)."""
+    got = _on_stubs(browser, """
+    {
+        const { LOADS } = await import("/workers.mjs");
+        const told = [];
+        const { pool, stubs } = make({ cores: 2, told: (data, role) => told.push([data.message, role]) });
+        const grow = async (stub) => {   // a build past GROWN: its F is replaced
+            const built = pool.ask(build(), { heavy: true });
+            stub.say({ type: "built", report: {}, heap: GROWN });
+            await built;
+        };
+        await grow(stubs[0]);
+        stubs[1].say({ type: "failed", message: "AzurKit didn't load: TypeError: Failed to fetch" });
+        const asked = pool.ask({ type: "tracker" });
+        stubs[2].say({ type: "ready", n: 3 });
+        stubs[2].say({ type: "reply", reply: { view: 1 } });
+        const again = [(await asked).reply, stubs.length, stubs[2].tags(), pool.state().lost];
+        await grow(stubs[2]);
+        for (let n = 3; n < LOADS + 2; n++) stubs[n].say({ type: "failed", message: `load ${n}` });
+        out.reloaded = [again, LOADS, await pool.ask({ type: "tracker" }), stubs.length, told];
+    }""")
+    assert got == {"reloaded": [[{"view": 1}, 3, ["tracker"], "AzurKit didn't load: TypeError: Failed to fetch"], 3,
+                                {"type": "failed", "message": "load 4"}, 5, [["load 4", "f"]]]}
+
+
 def test_the_worker_that_keeps_a_check_stays_f_so_the_colours_and_a_preview_reach_its_dress(browser):
     """The worker that ran Check with game data keeps its dress (``sdk._CHECKED``, per process), on which the Colours
     tab's recolour and the Shape tab's preview stand: with Build's build listed ahead and that worker's heap the bigger

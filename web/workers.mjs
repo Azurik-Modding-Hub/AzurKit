@@ -10,15 +10,17 @@
 // shrinks, and WebKit keeps a terminated worker's pages resident while a new worker's heap grows beside them, so the
 // worker a job grew stays and runs the next heavy job, a click's or one ahead (the two swap places for it: oneHeap()),
 // but never an F that keeps a Check (KEEPS: the asks after it stand on its dress), whose place B's heavy job ahead
-// waits for instead; only one whose heap reaches GROWN after a job (or reports none after a heavy one) is replaced. When F
-// must go (GROWN, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time, and B's
-// work ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead (an idle
-// B stays: terminated, its pages would stay resident in WebKit and its next load add its own, r1). B starts no
+// waits for instead; only one whose heap reaches GROWN after a job (or reports none after a heavy one) is replaced.
+// When F must go (GROWN, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time,
+// and B's work ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead (an
+// idle B stays: terminated, its pages would stay resident in WebKit and its next load add its own, r1). B starts no
 // job, and isn't kept, while the page's tally (both heaps, B's kept answers and the bytes the page holds) reaches
 // TALLY, and a new B loads only while the last B's heap when it loaded fits under the line too (or each B would cross
 // it, be retired and load again), nor on a computer with fewer than CORES cores. A B that doesn't load (a fetch or the
-// engine's start failed) is loaded again at once, until LOADS B loads of the visit have failed: one failed load left
-// the whole visit with no work ahead (Step 4.4ci39). A worker's priority has no web API: B runs at the page's (a known
+// engine's start failed) is loaded again at once, and so is an F that replaces one, its queue kept, until LOADS loads of
+// the visit have failed: one failed load left the whole visit with no work ahead (Step 4.4ci39), or, a replacing F's,
+// with no engine (Step 4.46c); only the visit's first F's ends it at once. A worker's priority has no web API: B runs
+// at the page's (a known
 // flaw, D835), held small by the rules above.
 //
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
@@ -49,7 +51,7 @@ export const TRAPS = 3;               // trapped workers a visit restarts (resta
 export const TALLY = 5 * 2 ** 30;     // the page's line (the plan's default): B starts no job at or past it
 export const SETTLE = 250;            // ms the page's list holds still before B starts on it (app.mjs's remember())
 export const CORES = 4;               // B only where navigator.hardwareConcurrency is at least this
-export const LOADS = 3;               // B's loads that may fail a visit before the page goes on without B
+export const LOADS = 3;               // loads of B, or of an F that replaces one, that may fail a visit
 // The asks whose worker keeps what they made for the page's asks after them, so it stays F: a Check's dress before its
 // colours (sdk's _CHECKED, per process), on which the Colours tab's recolour, the Shape tab's preview and the Check's
 // pictures stand (Step 4.46c: one heap swapped it to B for a build ahead, and those asks reached an F with none).
@@ -108,7 +110,8 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   let f = null, b = null, dead = null, noB = cores < CORES, closed = false, held = 0, list = [], changed = 0;
   let timer = null, clock = 0, base = 0, resting = 0;   // base: the last B's heap when it loaded; resting: want()'s rest
   let restAt = -Infinity;                // the last change with a rest, unless a click or a pick came after it
-  let lost = null;                       // the message of the last B load that failed (state()'s)
+  let lost = null;                       // the message of the last B or replacing F load that failed (state()'s)
+  let up = false;                        // an F of this visit has loaded: one that replaces it loads again (LOADS)
   const queue = [];                      // F's asks not yet sent, in order
   const kept = new Map();                // B's finished jobs by key: {messages, last, bytes, at}
   const taken = new Set();               // keys a click took, F runs, trim() freed or B failed on: B leaves them while
@@ -201,12 +204,17 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
         slot.ready = data;
         if (slot.role === "b") base = heapOf(slot);
         for (const message of shared.values()) slot.worker.postMessage(message);
-        if (slot === f) later(ready, data);
-      } else if (data?.type === "failed") {   // it didn't load: F's asks get its message, B loads again (LOADS)
-        kill(slot);
+        if (slot === f) {
+          up = true;
+          later(ready, data);
+        }
+      } else if (data?.type === "failed") {   // it didn't load: B, or an F that replaced one, loads again (LOADS);
+        kill(slot);                           // else F's asks get its message
         if (slot.role === "b") {
           lost = data.message ?? null;
           noB = ++counts.unloaded >= LOADS;
+        } else if (up && ++counts.unloaded < LOADS) {   // pump() loads the next F, the queue waiting for it
+          lost = data.message ?? null;
         } else {
           dead = data;
           noB = true;
