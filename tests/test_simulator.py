@@ -399,6 +399,24 @@ def test_a_cleanup_never_deletes_a_snapshot_the_reach_engine_a_running_run_or_a_
     assert os.path.join("lanes", "x.99", "") in capsys.readouterr().out
 
 
+def test_a_hold_check_holds_a_snapshot_under_any_spelling_of_its_path(tmp_path):
+    """Step 4.42d: the check compares paths by file identity, not spelling, so the store or a folder in it asked in
+    another letter case or through macOS's ``/System/Volumes/Data`` firmlink holds what its own spelling does (a
+    string compare answered 0 held, and deleting that path would lose them). One rule on every OS: a spelling that
+    names the folder (a case-blind disk, the firmlink) holds its snapshot, one that names nothing holds none."""
+    from pathlib import Path
+
+    from devkit.sim.l3_hold import blocking, held
+
+    store = tmp_path / "store"
+    (store / "reach-live").mkdir(parents=True)
+    (store / "reach-live" / "r1-w1-k0-1.l3snap").write_bytes(b"")
+    holds = held(store, (), [])
+    for spelling in (store, store / "reach-live", store / "Reach-Live", store.parent / "STORE" / "REACH-LIVE",
+                     Path("/System/Volumes/Data" + str(store.resolve()))):
+        assert len(blocking([spelling], holds)) == (1 if spelling.exists() else 0), spelling
+
+
 def test_l3_snapshot_reads_its_pages_from_one_physical_ram_dump_through_the_page_tables_it_holds(tmp_path):
     """Step X.22: ``ram_reader`` reads virtual memory out of a dump of guest RAM (the fork build's QMP
     xemu-dump-ram) through the page directory and tables in the dump itself: pages contiguous in VA but not in

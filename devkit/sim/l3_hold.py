@@ -95,12 +95,34 @@ def held(store: str | Path, checkouts=(), commands: list[str] | None = None) -> 
 
 
 def blocking(paths, holds: dict[Path, str]) -> list[tuple[Path, str]]:
-    """The held snapshots (``holds``, :func:`held`'s) at or under each of ``paths``: what deleting them would lose."""
-    real = [(h.resolve(), h, why) for h, why in holds.items()]
+    """The held snapshots (``holds``, :func:`held`'s) at or under each of ``paths``: what deleting them would lose.
+
+    A path is matched by file identity (``os.stat``), never by its spelling, so the store or a folder in it named
+    in another letter case (a case-blind disk) or through ``/System/Volumes/Data`` (macOS's firmlink) holds what
+    its own spelling does; a path with nothing there holds nothing, and so does a held snapshot gone since."""
+    stats: dict[Path, os.stat_result] = {}
+
+    def chain(h: Path) -> list[os.stat_result]:   # the snapshot's file and each folder above it, each stat once
+        out = []
+        for d in (r := h.resolve(), *r.parents):
+            if d not in stats:
+                stats[d] = os.stat(d)
+            out.append(stats[d])
+        return out
+
+    real = []
+    for h, why in holds.items():
+        try:
+            real.append((chain(h), h, why))
+        except OSError:
+            continue
     out = []
     for raw in paths:
-        p = Path(raw).resolve()
-        out += [(h, why) for r, h, why in real if r == p or p in r.parents]
+        try:
+            asked = os.stat(raw)
+        except OSError:
+            continue
+        out += [(h, why) for above, h, why in real if any(os.path.samestat(asked, s) for s in above)]
     return out
 
 
