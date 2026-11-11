@@ -66,7 +66,10 @@ receipts, and the run passes; one that fails twice fails it.
 
 The key is built from HEAD, a hash of the uncommitted diff and the untracked
 files, the base, the mode, the selection, a changed-area run's browsers and
-the perf stage's arguments.
+the perf stage's arguments. When the lock comes, the run checks HEAD and
+that hash again (:func:`stale`): a tree that moved while it waited (the
+landing queue rebased the lane, say) ends it ``stale``, with no pytest and
+exit 1; run the command again, on its new key.
 A passing receipt with the same key is reused; ``--force`` runs again.
 Receipts live in ``$AZURKIT_RECEIPTS``, else in ``azurkit-receipts/`` in the
 repository's common git dir, shared by its worktrees. ``scripts/land.py``
@@ -103,7 +106,7 @@ CAP = 1800        # a run's cap on a host whose load is at most its CPU count (c
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)
 WORKERS = 8   # pytest-xdist's workers; --dist loadgroup keeps a group (tests/conftest.py's) on one (D991)
-FINAL = {"done", "capped", "error"}
+FINAL = {"done", "capped", "error", "stale"}   # stale: its tree moved while it waited for the lock (stale())
 PERF_CAP = 4 * 3600    # the perf stage's cap (main's full record times every op in every profile)
 PERF_WAIT = 3 * 3600   # how long it waits for the load to fall under perf.LOAD_LINE
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
@@ -646,7 +649,9 @@ def describe(m: dict, meta: Path) -> str:
     line = f"fullsuite {m['key']}: {state(m)}" + (f", exit {m['exit_code']}" if m.get("exit_code") is not None else "")
     line += f" [{m['subject']}, {m['mode']}{', ' + str(len(m['pytest_args'])) + ' files' if m['pytest_args'] else ''}"
     line += f"{', ' + ' '.join(m['browsers']) if isinstance(m.get('browsers'), list) else ''}]"
-    if m.get("summary") is not None or state(m) in FINAL:
+    if state(m) == "stale":
+        line += f"\n  {m.get('note')}"
+    elif m.get("summary") is not None or state(m) in FINAL:
         line += (f"\n  {m.get('summary') or 'no summary line'}; vanilla: {m.get('vanilla_run')} run; "
                  f"europe: {m.get('europe_run')} run; wall {m.get('wall_s')} s of its cap {m.get('cap_s')} s "
                  f"(load {m.get('load')})")
@@ -678,14 +683,29 @@ def describe(m: dict, meta: Path) -> str:
     return line + f"\n  meta {meta}\n  log {meta.with_suffix('.log')}"
 
 
+def snapshot(wt: Path) -> tuple:
+    """The worktree's HEAD, uncommitted diff (``git diff HEAD --binary``),
+    untracked files and a hash of the two (each untracked file's path and
+    bytes): the tree a run's key names (:func:`prepare`) and its runner
+    checks again when the lock comes (:func:`stale`)."""
+    head = git(wt, "rev-parse", "HEAD").strip()
+    diff = subprocess.run(["git", "-C", str(wt), "diff", "HEAD", "--binary"], capture_output=True, check=True).stdout
+    untracked = sorted(filter(None, git(wt, "ls-files", "-z", "--others", "--exclude-standard").split("\0")))
+    digest = hashlib.sha256(diff)
+    for rel in untracked:
+        digest.update(rel.encode() + b"\0" + ((wt / rel).read_bytes() if (wt / rel).is_file() else b""))
+    return head, diff, untracked, digest
+
+
 def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
     """The run's receipt fields before it runs: its key, mode, pytest
     arguments, browsers (``"all"``: every one, ``tests/conftest.py``'s
-    default) and a changed-area run's flake stage's tests."""
-    head = git(wt, "rev-parse", "HEAD").strip()
+    default), a changed-area run's flake stage's tests, and the tree and
+    arguments its runner checks and names when the lock comes
+    (:func:`stale`)."""
+    head, diff, untracked, state_hash = snapshot(wt)
+    tree = state_hash.hexdigest()
     base = git(wt, "rev-parse", "--verify", "-q", f"{base_ref}^{{commit}}", check=False).strip() or None
-    diff = subprocess.run(["git", "-C", str(wt), "diff", "HEAD", "--binary"], capture_output=True, check=True).stdout
-    untracked = sorted(filter(None, git(wt, "ls-files", "-z", "--others", "--exclude-standard").split("\0")))
     selection = None
     changed = sorted(set(git(wt, "diff", "--no-renames", "--name-only", base).split() + untracked)) if base else []
     if changed_area and base:
@@ -698,16 +718,13 @@ def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
     else:
         pairs = perf.select(changed)
         perf_args = ["--select", ",".join(sorted(f"{h}:{g}" for h, g in pairs))] if pairs else []
-    state_hash = hashlib.sha256(diff)
-    for rel in untracked:
-        state_hash.update(rel.encode() + b"\0" + ((wt / rel).read_bytes() if (wt / rel).is_file() else b""))
     keyed = [mode, None, None] if selection is None else [mode, base, selection, browsers]   # a whole run's as before
     keyed += [{"flake": FLAKE_RUNS, "tests": flake}] if flake else []
     state_hash.update(json.dumps(keyed + ([perf_args] if perf_args else [])).encode())
     return {"key": f"{head[:12]}-{state_hash.hexdigest()[:12]}", "head": head, "base": base, "mode": mode,
             "pytest_args": selection or [], "browsers": browsers, "perf_args": perf_args, "flake_tests": flake,
-            "clean": not diff and not untracked,
-            "worktree": str(wt),
+            "clean": not diff and not untracked, "tree": tree,
+            "args": [*(["--changed"] if changed_area else []), "--base", base_ref], "worktree": str(wt),
             "branch": git(wt, "branch", "--show-current").strip(), "subject": git(wt, "log", "-1", "--format=%s").strip()}
 
 
@@ -861,7 +878,9 @@ def end(proc: subprocess.Popen) -> int:
 
 
 def runner(meta: Path) -> int:
-    """The detached run: wait for the lock, then :func:`run`."""
+    """The detached run: wait for the lock, then :func:`run`, or, when its
+    tree moved while it waited (:func:`stale`), end ``stale`` with no
+    pytest."""
     import fcntl   # POSIX's: only the run locks (the module loads on Windows)
 
     deadline = time.time() + 60
@@ -871,8 +890,28 @@ def runner(meta: Path) -> int:
         time.sleep(0.05)
     with open(meta.parent / "lock", "w", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        run(meta, m)
+        if moved := stale(m):
+            save(meta, m | {"state": "stale", "finished_at": now(), "note": moved})
+        else:
+            run(meta, m)
     return 0
+
+
+def stale(m: dict) -> str | None:
+    """Why a run's worktree is no longer the tree its key names, or None:
+    its HEAD or its tree (:func:`snapshot`) moved since :func:`prepare`, as
+    when the landing queue rebased the lane while the run waited for the
+    lock, so pytest would test one tree under another's key (Step 4.43a)."""
+    wt = Path(m["worktree"])
+    try:
+        head, _, _, digest = snapshot(wt)
+    except (OSError, subprocess.CalledProcessError):
+        return f"its worktree {wt} can't be read: no pytest ran"
+    if head == m["head"] and digest.hexdigest() == m.get("tree"):
+        return None
+    moved = f"its HEAD {m['head'][:12]} -> {head[:12]}" if head != m["head"] else "its uncommitted changes"
+    return (f"its worktree moved while it waited for the lock ({moved}): no pytest ran; run it again: "
+            f"scripts/fullsuite.py {wt} {' '.join(m.get('args') or [])}".rstrip())
 
 
 def run(meta: Path, m: dict) -> dict:

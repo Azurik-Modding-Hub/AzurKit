@@ -2198,7 +2198,11 @@ are the Characters section's.
   receipt's `flakes` and appended to `flakes.jsonl` beside the receipts. A
   run is killed past its cap, 1,800 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
-  it is still running, so issue the same command again.
+  it is still running, so issue the same command again. A queued run checks
+  its worktree's HEAD and tree (the diff and untracked files its key hashed)
+  again when the lock comes: one that moved while it waited (the landing
+  queue rebased the lane) ends `stale`, no pytest run and exit 1, its note
+  naming the command to run again (Step 4.43a).
 - **The perf gate (D980-D985):** once pytest passes, the same locked run times
   the player-facing operations the changes reach (`scripts/perf.py`; the
   registry, its ids and drivers in `tests/_perf.py`): a change under `src/`

@@ -330,6 +330,34 @@ def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
     assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [1800, 1800, 2700, 3600, 3600]
 
 
+def test_a_queued_run_whose_worktree_moves_before_it_gets_the_lock_ends_stale_runs_no_pytest_and_lands_nothing(
+        tmp_path, monkeypatch):
+    """A run checks its worktree's HEAD and tree (``fullsuite.snapshot``)
+    again once the lock comes: one that held runs; one the landing queue
+    rebased, or one edited, while it waited ends "stale" with no pytest,
+    status 1 (the queue runs it again), its note naming its command, and land
+    takes nothing from it (Step 4.43a). The lock is a stand-in that moves the
+    tree as the run waits on it, so a check before the wait would miss it."""
+    repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
+    _git(lane, "commit", "-q", "--allow-empty", "-m", "b")
+    ran = []
+    monkeypatch.setattr(fullsuite, "run", lambda meta, m: ran.append(meta.stem))
+    moves = {"held": lambda: None, "rebased": lambda: _git(lane, "commit", "-q", "--allow-empty", "-m", "c"),
+             "edited": lambda: (lane / "x.txt").write_text("x", encoding="utf-8")}
+    for name, move in moves.items():
+        meta = receipts / f"suite-{name}.meta"
+        fullsuite.save(meta, fullsuite.prepare(lane, True, base) | {"state": "queued", "runner_pid": os.getpid()})
+        lock = types.SimpleNamespace(LOCK_EX=2, flock=lambda fd, op, move=move: move())   # moved while it waits
+        monkeypatch.setitem(sys.modules, "fcntl", lock)
+        assert fullsuite.runner(meta) == 0
+        if name != "held":
+            m = fullsuite.load(meta)
+            assert (m["state"], fullsuite.status_code(m)) == ("stale", 1), name
+            assert m["note"].endswith(f"no pytest ran; run it again: scripts/fullsuite.py {lane} --changed --base {base}")
+    assert ran == ["suite-held"]
+    assert land.land(repo, "p2/x")[0] == 1   # the edited one's head is the branch's: stale, it lands nothing
+
+
 def test_the_flake_stage_takes_the_tests_a_stack_added_or_edited_and_only_in_a_changed_run(tmp_path, monkeypatch):
     """A changed-area run's flake stage takes each test function the stack
     adds or edits against its base (a new or renamed one, an edited body or
