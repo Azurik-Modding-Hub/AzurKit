@@ -2326,8 +2326,8 @@ def test_a_stalled_firefox_load_names_what_firefox_logged(monkeypatch, tmp_path)
         launched.append(env)
     monkeypatch.setattr(conftest, "FIREFOX_LOGS", True)
     monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
-    for name in ("firefox", "chromium"):
-        asyncio.run(conftest._logged(launch)(types.SimpleNamespace(name=name), env={"KEPT": "1"}, headless=True))
+    for name in ("firefox", "chromium"):   # on a loop of its own: a module's sync Playwright may hold this thread's
+        _apart(conftest._logged(launch)(types.SimpleNamespace(name=name), env={"KEPT": "1"}, headless=True))
     folder = tmp_path / f"azurkit-firefox-log-{driver}"
     file = Path(launched[0].pop("MOZ_LOG_FILE"))
     assert launched == [{"KEPT": "1", "MOZ_LOG": conftest.FIREFOX_LOG}, {"KEPT": "1"}] and file.parent == folder
