@@ -93,10 +93,12 @@ def _zip(method: int, *files: tuple[str, bytes]) -> bytes:
 def test_a_tar_or_zip_archive_is_refused_for_a_file_it_holds(tmp_path):
     """Each file a tar (also in a gzip file) or a zip (stored or deflated,
     also in a gzip file or in another archive) holds is checked by its name
-    in the archive and its bytes, behind a game file; archives of game files
-    pass."""
+    in the archive and its bytes, behind a game file, also in a zip over
+    :data:`MAX_TEXT` read with no seek (in a gzip file, or pushed); archives
+    of game files pass."""
     xbe, xbr = ("default.xbe", b"XBEH" + bytes(60)), ("config.xbr", b"xobx" + bytes(60))
     key = ("id", b"-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n")
+    big = _zip(zipfile.ZIP_STORED, ("pad.xbr", bytes(_leak_guard.MAX_TEXT)), ("xemu/eeprom.bin", bytes(256)))
     refused = {
         "fixtures.tar": (_tar(xbe, ("xemu/eeprom.bin", bytes(256))),
                          "inside its archive: xemu/eeprom.bin: EEPROM (eeprom*.bin name)"),
@@ -111,6 +113,8 @@ def test_a_tar_or_zip_archive_is_refused_for_a_file_it_holds(tmp_path):
         "nested.zip": (_zip(zipfile.ZIP_STORED, ("inner.tar.gz", gzip.compress(_tar(xbe, ("eeprom.bin", bytes(256)))))),
                        "inside its archive: inner.tar.gz: inside its gzip: inside its archive: eeprom.bin: "
                        "EEPROM (eeprom*.bin name)"),
+        "big.zip.gz": (gzip.compress(big, 1),
+                       "inside its gzip: inside its archive: xemu/eeprom.bin: EEPROM (eeprom*.bin name)"),
     }
     passed = {"game.tar": _tar(xbe, xbr),
               "game.zip": _zip(zipfile.ZIP_DEFLATED, xbe, ("level.xbr.gz", gzip.compress(xbr[1])))}
@@ -118,6 +122,8 @@ def test_a_tar_or_zip_archive_is_refused_for_a_file_it_holds(tmp_path):
         (tmp_path / name).write_bytes(data)
     assert {name: _leak_guard.check(tmp_path, name) for name in refused | passed} == {
         **{name: why for name, (_, why) in refused.items()}, **dict.fromkeys(passed)}
+    assert _leak_guard._check("big.zip", _leak_guard._Piece(io.BytesIO(big), len(big))) == (   # a pushed blob
+        "inside its archive: xemu/eeprom.bin: EEPROM (eeprom*.bin name)")
 
 
 class _Disc(io.RawIOBase):

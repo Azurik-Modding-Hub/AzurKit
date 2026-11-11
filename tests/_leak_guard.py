@@ -41,9 +41,10 @@ size and up to a damaged spot), named as the file without its ``.gz``, is
 checked by every rule here. So is each file a tar (``ustar`` at 257, also
 inside a gzip file) or a zip (``PK\\x03\\x04`` at 0) holds, by its name in
 the archive, up to a damaged spot: an encrypted zip member, or one in a
-method zipfile can't read, by its name alone, and a zip inside a gzip file
-or a tar only when it is at most :data:`MAX_TEXT`. Other archives (7z, rar,
-zstd, xz, bzip2) are checked as files.
+method zipfile can't read, by its name alone; a zip read with no seek (a
+pushed or staged one, or one in a gzip file or a tar) is copied first, held
+up to :data:`MAX_TEXT` and on disk past it. Other archives (7z, rar, zstd,
+xz, bzip2) are checked as files.
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ import re
 import subprocess
 import sys
 import tarfile
+import tempfile
 import zipfile
 import zlib
 from collections.abc import Iterator
@@ -65,7 +67,7 @@ ROOT = Path(__file__).resolve().parent.parent
 MAGIC_SPAN = 0x10020
 CHUNK = 1 << 16          # read at a time; a zlib call inflates at most 16 of them
 DEPTH = 3                # the most wrappings unwrapped (a tar in a gzip in a zip ...)
-MAX_TEXT = 16 << 20      # of a zip read with no seek (in a gzip file or a tar), the most held
+MAX_TEXT = 16 << 20      # of a zip read with no seek (a blob, in a gzip file or a tar), the most held in memory
 DISCS = (0x2080000, 0xFD90000, 0x18300000)   # a whole disc image's game partition (core/iso.py's)
 XISO = b"MICROSOFT*XBOX*MEDIA"
 GZIP = b"\x1f\x8b"
@@ -253,9 +255,16 @@ def _tar(src: _Reader, depth: int) -> str | None:
 
 def _zip(f: _Reader, head: bytes, depth: int) -> str | None:
     """Why a file of the zip archive ``f`` (``head`` read already) can't be
-    committed, or ``None``."""
+    committed, or ``None``; a zip ``f`` can't seek in is copied whole first
+    (its directory is at its end)."""
+    if not _seekable(f):
+        with tempfile.SpooledTemporaryFile(MAX_TEXT) as copy:
+            copy.write(head)
+            while more := f.read(CHUNK << 4):
+                copy.write(more)
+            return _zip(copy, head, depth)
     try:
-        with zipfile.ZipFile(f if _seekable(f) else io.BytesIO(head + _read(f, MAX_TEXT - len(head)))) as archive:
+        with zipfile.ZipFile(f) as archive:
             for info in archive.infolist():
                 if info.is_dir():
                     continue
@@ -266,7 +275,7 @@ def _zip(f: _Reader, head: bytes, depth: int) -> str | None:
                     why = check_blob(info.filename, b"")   # encrypted, its method unknown or damaged: by its name
                 if why:
                     return f"inside its archive: {info.filename}: {why}"
-    except (zipfile.BadZipFile, EOFError, OSError, ValueError):   # damaged, cut short or past MAX_TEXT
+    except (zipfile.BadZipFile, EOFError, OSError, ValueError):   # damaged or cut short
         pass
     return None
 
