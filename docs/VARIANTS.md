@@ -254,8 +254,9 @@ then. Lengths are model units (about a metre), in the body's frame: x right, y f
   - `subdivide` (`bone`, `radius`, `edge`; `smooth`, `apart`, `normals`): triangles split until no edge is longer
     than `edge`;
   - `thicken` (`bone`, `radius`, `depth`; `taper`): a two-sided layer (a sash) given thickness;
-  - `hem` (`bone`, `radius`, `edge`, `groups`; `relax`, `inset`, `width`): a layer's open edges split and hemmed;
-  - `relax` (`bone`, `radius`, `passes`; `open`): the surface smoothed;
+  - `hem` (`bone`, `radius`, `edge`, `groups`; `relax`, `inset`, `width`): a layer's open edges split and hemmed
+    (`relax` at most 100 passes);
+  - `relax` (`bone`, `radius`, `passes`; `open`): the surface smoothed (at most 100 passes);
   - `bind` (`bone`, `radius`, `groups`, `to`; `reach`, `fade`, `near`): a layer's skin weights taken from the
     nearest vertex of the `to` groups;
   - `reweight` (`bone`, `radius`, `take`, `into`, `share`; `z`, `x`): a share of the weight on `take` moved onto
@@ -264,7 +265,7 @@ then. Lengths are model units (about a metre), in the body's frame: x right, y f
     (`groups`, `rect`): UVs laid anew, which the material's texture then needs repainted (`textures`);
   - `tube` (`bone`, `path`, `radius`, `group`, `rect`; `sides`, `rings`, `flat`, `across`, `closed`, `follow`,
     `segments`, `fade`, `reach`, `facets`, `smooth`, `under`, `skip`, `hang`): a new tube along a path (a
-    ponytail);
+    ponytail), of at most 256 sides, 512 rings, (sides + 1) x rings 32,768 points and as many segments as rings;
   - `cut` (`bone`, `normal`, `radius`, `groups`; `under`, `press`, `trim`, `uv`, `snap`, `corner`): the mesh cut
     across a plane.
 - `shapes`: `{name: {"title", "ops"; "below", "value", "turns"}}`, a slider each, sizing the `round` and `scale`

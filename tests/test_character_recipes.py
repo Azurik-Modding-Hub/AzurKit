@@ -84,6 +84,13 @@ def _id(said: str) -> str:
 
 BLAST, NOVA = (builtins()["beamlord"].clips[c] for c in ("blast", "nova"))
 
+
+def _counted(name: str, key: str, value: int) -> dict:
+    """booblord's recipe with its mesh op ``name``'s count ``key`` at ``value``."""
+    recipe = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["booblord"]
+    recipe["mesh"]["ops"] = [op | {key: value} if op.get("name") == name else op for op in recipe["mesh"]["ops"]]
+    return recipe
+
 # a recipe file's refusals at load: (its recipes, its source, the built-in names taken, said)
 _LOAD_REFUSALS = [({n: r}, "test", taken, said) for r, n, taken, said in (
     (_with(colour=1), "booblord", (), "unknown key 'colour'"),
@@ -288,7 +295,16 @@ _LOAD_REFUSALS = [({n: r}, "test", taken, said) for r, n, taken, said in (
      "texture_ops[0]: a {row, ops} adding paint ops to a row 'low''s"),
     ({"low": RECIPE, "high": {"from": "low", "shapes": {"bust": {"value": 1.2}}}},
      "shapes.bust: a recipe from 'low' lays only a value over a shape it declares (none)"))] + [
-    ({"booblord": _with(mesh={"gltf": GLTF})}, "built-in", (), "mesh.gltf: a built-in takes no glTF")]
+    ({"booblord": _with(mesh={"gltf": GLTF})}, "built-in", (), "mesh.gltf: a built-in takes no glTF")] + [
+    ({"mine": _counted(name, key, value)}, "test", (), said) for name, key, value, said in (
+        ("upper chest", "passes", 10 ** 12, "passes 1,000,000,000,000 is past the 100 passes an op may run"),
+        ("top hem 2", "relax", 10 ** 12, "relax 1,000,000,000,000 is past the 100 passes an op may run"),
+        ("ponytail", "rings", 10 ** 6, "rings 1,000,000 is past the 512 a tube may have"),
+        ("ponytail", "sides", 2 ** 20, "sides 1,048,576 is past the 256 a tube may have"),
+        ("ponytail", "segments", 10 ** 9, "segments 1,000,000,000 is past the 72 its rings"),
+        ("necklace", "sides", 256, "256 sides and 192 rings are past the 32,768 points ((sides + 1) x rings)"))] + [
+    ({"mine": {"from": "booblord", "mesh_ops": [{"over": "ponytail", "rings": 10 ** 6}]}}, "test", (),
+     "rings 1,000,000 is past the 512 a tube may have")]
 
 
 @pytest.mark.parametrize("recipes, source, taken, said", _LOAD_REFUSALS,
@@ -299,7 +315,8 @@ def test_a_recipe_that_cant_build_fails_by_name(recipes, source, taken, said):
     the CLI can't take, a retired mode or unknown size, a number that isn't
     finite (D23: never clamped), a switch that isn't true or false, an
     unknown generator or a parameter of it missing, unknown, 0 or past its
-    cap (a whoosh's length past 60 s, which makes each sample), a hand
+    cap (a whoosh's length past 60 s, which makes each sample; a mesh op's
+    passes, a tube's sides, rings, points or segments), a hand
     spin's tilt or plant out of range, the roll in its columns, carry or
     held, mode garret4 with authored clips, a user's name a built-in has;
     an fx edit's inherit, anchor, blend or ramp; its sounds, WAVs, mesh ops,

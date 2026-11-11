@@ -313,6 +313,17 @@ squared is a sliver (a crack vanilla fills): ``subdivide`` leaves it."""
 SUBDIVIDE_MAX = 400_000
 """The most vertices the ``subdivide`` ops may add (a guard against an
 ``edge`` so short it never ends; D35 refuses past it)."""
+PASSES_MAX = 100
+"""The most passes a ``relax`` op (``passes``) or a ``hem`` (``relax``) may
+run; a recipe's loader refuses more by name (the shipped recipes run 20 and
+40; each pass is work over its region, so 10**12, ten bytes of a recipe,
+would be days)."""
+TUBE_SIDES_MAX, TUBE_RINGS_MAX, TUBE_POINTS_MAX = 256, 512, 32_768
+"""The most sides and rings a ``tube`` may have, and ``(sides + 1) x rings``
+(its points), each refused past by name at load, as its ``segments`` past
+its rings: the shipped tubes have at most 32 sides, 192 rings and 6,336
+points, and a tube's winding work grows as sides x rings squared (at the
+caps, seconds)."""
 MOVED = 1e-5
 """How far (model units) a vertex must end from vanilla's to be written:
 Blender's round trip leaves unmoved ones within 4.8e-7."""
@@ -5811,6 +5822,6 @@ def write(characters: bytearray, plan: MeshPlan, vanilla_xbr: bytes) -> None:
 
 
 __all__ = ["CARRIERS", "COPIES", "CutOp", "FRAME", "GltfEdit", "MOVED", "MeshPlan", "MeshSpec", "OPS", "PROFILES", "PushOp",
-           "AtlasOp", "IslandOp", "RelaxOp", "RoundOp", "SHIFT", "TubeOp", "SKIN_CHANGE", "SUBDIVIDE_MAX", "ScaleOp", "SubdivideOp", "TaperOp", "ThickenOp", "TuckOp", "UV_CHANGE", "UnwrapOp", "WELD",
+           "AtlasOp", "IslandOp", "RelaxOp", "RoundOp", "SHIFT", "TubeOp", "SKIN_CHANGE", "SUBDIVIDE_MAX", "PASSES_MAX", "TUBE_POINTS_MAX", "TUBE_RINGS_MAX", "TUBE_SIDES_MAX", "ScaleOp", "SubdivideOp", "TaperOp", "ThickenOp", "TuckOp", "UV_CHANGE", "UnwrapOp", "WELD",
            "SIZES", "SharesError", "assemble", "file_sha256", "plan", "shaped", "shares", "shares_each", "sized",
            "write"]

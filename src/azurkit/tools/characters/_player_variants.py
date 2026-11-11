@@ -163,7 +163,8 @@ from azurkit.tools.characters import jiggle_rt
 from azurkit.tools.characters import synth, textures
 from azurkit.tools.characters.characters import Body, body_at, bone_records, marker_records, read_body, track_value
 from azurkit.tools.characters.grades import load_grades
-from azurkit.tools.characters.mesh_edit import (OPS, PROFILES, SIZES, AtlasOp, BindOp, CutOp, HemOp, IslandOp, MeshSpec,
+from azurkit.tools.characters.mesh_edit import (OPS, PASSES_MAX, PROFILES, SIZES, TUBE_POINTS_MAX, TUBE_RINGS_MAX,
+                                         TUBE_SIDES_MAX, AtlasOp, BindOp, CutOp, HemOp, IslandOp, MeshSpec,
                                          PushOp, RelaxOp, ReweightOp, RoundOp, ScaleOp, TubeOp,
                                          SubdivideOp, TaperOp, ThickenOp, TuckOp, UnwrapOp, push_frame, shaped)
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records
@@ -2314,6 +2315,13 @@ def _mesh_op(at: str, op):
             if not isinstance(v, int) or isinstance(v, bool) or v < 0:
                 raise ValueError(f"{at}.{key} {v!r} is not a count")
             counts[key] = v
+        for key, most, what in (("sides", TUBE_SIDES_MAX, "a tube may have"), ("rings", TUBE_RINGS_MAX, "a tube may have"),
+                                ("segments", counts["rings"], "its rings")):
+            if counts[key] > most:
+                raise ValueError(f"{at}.{key} {counts[key]:,} is past the {most:,} {what}")
+        if (counts["sides"] + 1) * counts["rings"] > TUBE_POINTS_MAX:
+            raise ValueError(f"{at}: {counts['sides']:,} sides and {counts['rings']:,} rings are past the "
+                             f"{TUBE_POINTS_MAX:,} points ((sides + 1) x rings) a tube may have")
         group = op["group"]
         if not isinstance(group, int) or isinstance(group, bool) or group < 0:
             raise ValueError(f"{at}.group {group!r} is not a mesh group index")
@@ -2594,6 +2602,8 @@ def _mesh_op(at: str, op):
         passes, open_ = op["passes"], op.get("open", False)
         if not isinstance(passes, int) or isinstance(passes, bool) or passes < 0:
             raise ValueError(f"{at}.passes {passes!r} is not a count of passes")
+        if passes > PASSES_MAX:
+            raise ValueError(f"{at}.passes {passes:,} is past the {PASSES_MAX} passes an op may run")
         if not isinstance(open_, bool):
             raise ValueError(f"{at}.open {open_!r} is not true or false")
         return RelaxOp(radius=radius, passes=passes, open=open_, **common)
@@ -2622,6 +2632,8 @@ def _mesh_op(at: str, op):
         relax = op.get("relax", 0)
         if not isinstance(relax, int) or isinstance(relax, bool) or relax < 0:
             raise ValueError(f"{at}.relax {relax!r} is not a count of passes")
+        if relax > PASSES_MAX:
+            raise ValueError(f"{at}.relax {relax:,} is past the {PASSES_MAX} passes an op may run")
         inset, width = _num(f"{at}.inset", op.get("inset", 0.0)), _num(f"{at}.width", op.get("width", 0.0))
         if inset < 0 or width < 0 or (inset > 0) != (width > 0):
             raise ValueError(f"{at}: inset {inset:g} and width {width:g} are both above 0 or both 0")
