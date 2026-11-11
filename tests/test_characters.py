@@ -1548,6 +1548,29 @@ def test_an_update_only_goes_up_from_where_it_was_installed_and_a_url_source_is_
     assert (folder / path).read_bytes() == b"[3]"
 
 
+def test_an_install_over_a_file_another_installed_entry_holds_is_refused_naming_both(tmp_path, monkeypatch):
+    """An entry from another source that lists a file an installed entry holds (letter case aside: one file on
+    APFS and NTFS) at another sha256 is refused by name, naming both entries, before anything is fetched (the
+    app's Install) or kept (the site's check), so the installed entry's record still names its file; one that
+    lists the same bytes there installs beside it."""
+    home, other, third, folder = (tmp_path / name for name in ("home", "other", "third", "content"))
+    monkeypatch.setattr(content, "ROOT", folder)
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
+    _source(home, {"packs/a/pack.json": b"{}"}, [{"id": "a", "files": ["packs/a/pack.json"]}])
+    sdk.content_install({"id": "a", "source": str(home)})
+    record = content.installed()
+    beta = _source(other, {"packs/a/Pack.json": b"[2]"}, [{"id": "b", "files": ["packs/a/Pack.json"]}])
+    why = r"^b: packs/a/Pack\.json is installed entry 'a''s file, at another sha256: clear the installed content"
+    for name, refused in (("the app's", lambda: sdk.content_install({"id": "b", "source": str(other)})),
+                          ("the site's", lambda: sdk.content_check({"manifest": beta, "id": "b", "files": {
+                              "packs/a/Pack.json": b"[2]"}, "source": str(other)}))):
+        with pytest.raises(ValueError, match=why):
+            refused()
+        assert content.installed() == record and (folder / "packs/a/pack.json").read_bytes() == b"{}", name
+    _source(third, {"packs/a/pack.json": b"{}"}, [{"id": "c", "files": ["packs/a/pack.json"]}])
+    assert sorted(sdk.content_install({"id": "c", "source": str(third)})["installed"]) == ["a", "c"]
+
+
 def test_a_shipped_part_comes_from_its_installed_entrys_source_even_with_the_content_source_variable_set(
         tmp_path, monkeypatch):
     """Step 4.37c (SEC-8: an entry's files only from the source it came from): a file Install left for the Check that

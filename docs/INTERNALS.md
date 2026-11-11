@@ -1041,7 +1041,8 @@ are the Characters section's.
     winning): each file checked as it lands, then the host's `refusal`
     (a built-in variant's recipe by default), nothing written on a fault,
     `installed.json` last. An installed copy stays at its version until its
-    Update, which only goes up and only from the source it came from
+    Update, which only goes up and only from the source it came from,
+    and no install writes over a file another installed entry holds
     (`content.held_to`, SEC-8); a URL source is https, http only on this
     computer (`sdk._secure`, a redirect's end too). The engine opens no connection: the sdk's CPython calls fetch,
     and the site's page fetches and its worker checks

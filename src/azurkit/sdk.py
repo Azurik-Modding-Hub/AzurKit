@@ -2662,7 +2662,8 @@ def content_check(given: Mapping) -> dict:
     entry's id it writes, those required first]}``, or the refusal named: none
     it writes goes below its installed version or, with ``source`` (the
     page's Content from), comes from another source than the one it was
-    installed from (``tools.characters.content.held_to``, SEC-8)."""
+    installed from or writes over a file another installed entry holds
+    (``tools.characters.content.held_to``, SEC-8)."""
     from azurkit.tools.characters import content as kit
 
     if not isinstance(given, Mapping):

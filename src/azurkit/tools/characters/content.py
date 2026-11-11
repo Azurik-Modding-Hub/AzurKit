@@ -47,8 +47,9 @@ recipe, :func:`builtin_refusal`, unless the host names another), nothing
 written on a fault (D35), then the files moved into place and
 ``installed.json`` written last. An installed copy stays at its version
 (pinned) until its Update, the same install, which also removes the files
-the new version dropped, and goes only up, from the source it came from
-(:func:`held_to`, SEC-8). A manifest, a file and ``installed.json`` are
+the new version dropped, and goes only up, from the source it came from,
+and never over a file another installed entry holds (:func:`held_to`,
+SEC-8). A manifest, a file and ``installed.json`` are
 untrusted input (D992): each is capped and its paths held to the content
 folder. Nothing here opens a network connection."""
 
@@ -324,7 +325,14 @@ def held_to(chosen: Iterable[Mapping], record: Mapping, source: str | None = Non
     ``record`` (:func:`installed`) below its installed version or, with a
     ``source``, from another source than the one it came from (SEC-8): the
     manifest that lists the files is what names their checksums, so a fetched
-    manifest can't be let roll an entry back or move it elsewhere."""
+    manifest can't be let roll an entry back or move it elsewhere. So is one
+    that writes over a file another installed entry holds at another sha256
+    (letter case aside: one file on APFS and NTFS), naming both entries, so
+    an entry's record keeps naming what its files are."""
+    chosen = list(chosen)
+    ours = {e["id"] for e in chosen}
+    theirs = {path.lower(): (name, sha) for name in record if name not in ours
+              for path, sha in _files(_record(record, name)).items() if isinstance(path, str)}
     for e in chosen:
         held = _record(record, e["id"])
         version, origin = held.get("version"), held.get("source")
@@ -333,6 +341,11 @@ def held_to(chosen: Iterable[Mapping], record: Mapping, source: str | None = Non
         if source is not None and origin and origin != source:
             raise ValueError(f"{e['id']}: it was installed from {origin}, not {source}: an Update comes from where it "
                              "was installed (clear the installed content to take it from elsewhere)")
+        for f in e["files"]:
+            name, sha = theirs.get(f["path"].lower(), (None, None))
+            if name is not None and sha != f["sha256"]:
+                raise ValueError(f"{e['id']}: {f['path']} is installed entry {name!r}'s file, at another sha256: "
+                                 "clear the installed content to take it")
 
 
 def verify(manifest: Mapping, entry: str, files: Mapping[str, bytes], refusal: Refusal | None = None) -> list[dict]:
