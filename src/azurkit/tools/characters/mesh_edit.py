@@ -321,8 +321,8 @@ would be days)."""
 TUBE_SIDES_MAX, TUBE_RINGS_MAX, TUBE_POINTS_MAX = 256, 512, 32_768
 """The most sides and rings a ``tube`` may have, and ``(sides + 1) x rings``
 (its points), each refused past by name at load, as its ``segments`` past
-its rings: the shipped tubes have at most 32 sides, 192 rings and 6,336
-points, and a tube's winding work grows as sides x rings squared (at the
+its rings: the shipped tubes have at most 32 sides, 192 rings and 4,752
+points (booblord_high's ponytail), and a tube's winding work grows as sides x rings squared (at the
 caps, seconds)."""
 MOVED = 1e-5
 """How far (model units) a vertex must end from vanilla's to be written:
