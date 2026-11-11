@@ -5760,6 +5760,35 @@ def test_a_second_worker_that_doesnt_load_loads_again_until_three_loads_failed(b
                                 "AzurKit didn't load: RangeError", {"view": 6}, ["tracker"]]}
 
 
+def test_the_worker_that_keeps_a_check_stays_f_so_the_colours_and_a_preview_reach_its_dress(browser):
+    """The worker that ran Check with game data keeps its dress (``sdk._CHECKED``, per process), on which the Colours
+    tab's recolour and the Shape tab's preview stand: with Build's build listed ahead and that worker's heap the bigger
+    once a new B loads, it stays F (``KEEPS``), so they reach it, and the build ahead waits rather than grow a second heap
+    beside it; Build then builds in its heap. One heap swapped it to B for the build ahead, and they reached a fresh F,
+    which refused them ("Check with game data dresses it first"), each recheck swapped out again (audit pass 2's C1)."""
+    got = _on_stubs(browser, """
+    {
+        const { pool, stubs, f, b } = make();
+        const answered = (asked) => Promise.race([asked.then((data) => data.reply ?? data.report),
+                                                  new Promise((done) => setTimeout(done, 1000, "unanswered"))]);
+        pool.want([{ key: "build g", message: build("g"), heavy: true }]);
+        const checked = pool.ask({ type: "variant_check" }, { once: true, heavy: true });   // drops B's build ahead
+        f.say({ type: "reply", reply: { refusal: null }, heap: KEEP + 1 });   // the dress grew F's heap
+        await checked;
+        stubs[2].say({ type: "ready", n: 3, heap: 2 ** 25 });
+        const coloured = pool.ask({ type: "variant_colours" });
+        f.say({ type: "reply", reply: { colours: 1 } });
+        const previewed = pool.ask({ type: "variant_preview" });
+        f.say({ type: "reply", reply: { front: 1 } });
+        const asked = [await answered(coloured), await answered(previewed), stubs[2].tags(), pool.state().swapped];
+        const built = pool.ask(build("g"), { key: "build g", heavy: true });
+        f.say({ type: "built", report: { size: 2 }, heap: KEEP + 2 });
+        out.kept = [b.stopped, asked, await answered(built), f.tags(), stubs[2].tags(), pool.state().swapped];
+    }""")
+    assert got == {"kept": [True, [{"colours": 1}, {"front": 1}, [], 0], {"size": 2},
+                            ["variant_check", "variant_colours", "variant_preview", "build g"], [], 0]}
+
+
 def test_a_clicks_build_whose_key_the_list_drops_and_lists_again_before_its_answer_is_built_once(browser):
     """A click's build queued behind the image's read, whose key the page's list drops (an ahead() before the image is
     read lists no build) and lists again (the image read), is built once, by F: no worker is sent it again after its

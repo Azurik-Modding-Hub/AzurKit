@@ -8,8 +8,9 @@
 // at once, and a build it stops whose key the list still holds goes on as work ahead (the plan's D4: kept when it
 // ends, dropped by a change), so Build again waits only for its rest. Memory: one heap (w-reshape): wasm memory never
 // shrinks, and WebKit keeps a terminated worker's pages resident while a new worker's heap grows beside them, so the
-// worker a job grew stays and runs the next heavy job, a click's or one ahead (the two swap places for it: oneHeap());
-// only one whose heap reaches GROWN after a job (or reports none after a heavy one) is replaced. When F
+// worker a job grew stays and runs the next heavy job, a click's or one ahead (the two swap places for it: oneHeap()),
+// but never an F that keeps a Check (KEEPS: the asks after it stand on its dress), whose place B's heavy job ahead
+// waits for instead; only one whose heap reaches GROWN after a job (or reports none after a heavy one) is replaced. When F
 // must go (GROWN, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time, and B's
 // work ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead (an idle
 // B stays: terminated, its pages would stay resident in WebKit and its next load add its own, r1). B starts no
@@ -49,6 +50,10 @@ export const TALLY = 5 * 2 ** 30;     // the page's line (the plan's default): B
 export const SETTLE = 250;            // ms the page's list holds still before B starts on it (app.mjs's remember())
 export const CORES = 4;               // B only where navigator.hardwareConcurrency is at least this
 export const LOADS = 3;               // B's loads that may fail a visit before the page goes on without B
+// The asks whose worker keeps what they made for the page's asks after them, so it stays F: a Check's dress before its
+// colours (sdk's _CHECKED, per process), on which the Colours tab's recolour, the Shape tab's preview and the Check's
+// pictures stand (Step 4.46c: one heap swapped it to B for a build ahead, and those asks reached an F with none).
+export const KEEPS = new Set(["variant_check"]);
 
 // A value as one canonical JSON text: object keys sorted, so two recipes that differ only in their keys' order give
 // one key, and a property holding undefined left out, as JSON.stringify leaves it. Only JSON's values: anything else
@@ -234,6 +239,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const finish = (slot, job, data, failed) => {
     slot.job = null;
     slot.at = null;
+    if (!failed && KEEPS.has(job.message?.type)) slot.keeps = true;   // for the worker's life: oneHeap() leaves it F
     if (job.heavy && slot.heap === null) slot.heap = Infinity;
     if (job.ahead && !job.adopted) {
       if (!failed && listed(job.key)) {
@@ -317,11 +323,11 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   };
 
   // The next heavy job runs in the bigger heap, not in a second one: a click's as F (B swaps in), one ahead as B (F swaps
-  // out), while both are idle.
+  // out), while both are idle; never an F that keeps a Check (KEEPS), which a heavy job ahead waits for instead (pump).
   const bigger = (x, y) => Number.isFinite(x?.heap) && Number.isFinite(y?.heap) && x.heap > y.heap + SLACK;
   const next = () => list.find((i) => !kept.has(i.key) && !taken.has(i.key));
   const oneHeap = () => {
-    if (!f?.loaded || f.job || !b?.loaded || b.job) return;
+    if (!f?.loaded || f.job || f.keeps || !b?.loaded || b.job) return;
     const click = queue[0]?.heavy, ahead = !queue.length && next()?.heavy && !heavyF();
     if (!(click && bigger(b, f)) && !(ahead && bigger(f, b))) return;
     [f, b] = [b, f];
@@ -353,7 +359,8 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
       return;
     }
     const item = next();
-    if (item?.heavy && f?.job && bigger(f, b)) return;   // one heap: it waits for F to swap out, not beside F's
+    if (item?.heavy && (f?.job || f?.keeps) && bigger(f, b)) return;   // one heap: it waits for F to swap out (or a
+                                                                         // keeping F to go), not beside F's
     if (item) {
       run(b, { message: item.message, transfer: item.transfer, key: item.key, heavy: Boolean(item.heavy),
                ends: item.ends ?? last, kept: item.kept, ahead: true, adopted: false, messages: [], record: null,

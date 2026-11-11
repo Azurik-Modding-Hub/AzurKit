@@ -984,7 +984,12 @@ are the Characters section's.
     isn't heavy waiting behind it in F's queue, so the worker that
     dressed it draws it: Step 4.37b; one that keeps no Check, a worker
     that replaced a grown one, refuses it, and the page asks the Check
-    again with its pictures, once).
+    again with its pictures, once). The pool never swaps the worker that
+    keeps a Check out of F (`workers.mjs`'s `KEEPS`, Step 4.46c), so the
+    asks that stand on its dress reach it: one heap swapped it to B for
+    Build's build ahead, and the Colours tab and the Shape tab's preview
+    then asked a fresh F, which refused them; B's heavy job ahead waits
+    instead while that F's heap is the bigger.
     A Check of what it
     checked last, unchanged (`sdk._check_key`, by content), answers at
     once, and a dress kept before (`characters.cache_key`; the site's
