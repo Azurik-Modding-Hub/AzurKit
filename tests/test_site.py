@@ -6331,6 +6331,48 @@ def _variants_shown(page, *, status: str = "", name: str | None = None) -> dict:
                              f"&& ({json.dumps(name)} === null || s.name === {json.dumps(name)}) && s; }}", 120)
 
 
+def test_a_variant_another_site_tab_saved_survives_a_save_in_this_one(browser, site):
+    """The site keeps your variants in one record of this browser's
+    IndexedDB (azurkit-variants' folders): a Save in one tab puts its folder
+    into what the record holds as it writes, so a variant another tab saved
+    after this one opened (written straight into the record here, as that
+    tab's Save writes it) is kept beside it, not erased by this tab's copy
+    read at its load (Step 4.42c)."""
+    other = """(name) => new Promise((done, fail) => {   // another tab's Save of variant name
+        const open = indexedDB.open("azurkit-variants", 1);
+        open.onerror = () => fail(open.error);
+        open.onsuccess = () => {
+          const db = open.result, tx = db.transaction("kept", "readwrite"), store = tx.objectStore("kept");
+          const now = store.get("folders"), recipe = JSON.stringify({ [name]: { base: "keylord", mode: "own" } });
+          const files = { "recipe.json": new TextEncoder().encode(recipe) };
+          now.onsuccess = () => store.put({ ...now.result, [name]: files }, "folders");
+          tx.oncomplete = () => { db.close(); done(true); };
+          tx.onerror = () => fail(tx.error);
+        };
+      })"""
+    kept = """() => new Promise((done) => { const open = indexedDB.open("azurkit-variants", 1);
+        open.onsuccess = () => { const db = open.result;
+          const got = db.transaction("kept").objectStore("kept").get("folders");
+          got.onsuccess = () => { db.close(); done(Object.keys(got.result ?? {}).sort()); }; }; })"""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        page.evaluate(VARIANTS_ROW, "beamlord")
+        _variants_shown(page, status="built in")
+        assert page.evaluate(other, "theirs") is True
+        page.evaluate(VARIANTS_TYPE, ["var-title", "My beam"])
+        page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
+        _page.click(page, "var-save-as")
+        _variants_shown(page, status="· saved ·", name="mine")
+        assert [page.evaluate(kept), sorted(page.evaluate("() => Object.keys(azurkit.variants.state.folders)"))] == [
+            ["mine", "theirs"]] * 2
+    finally:
+        served.close()
+
+
 def test_the_sites_import_refuses_a_file_past_the_cap_unread(browser, site):
     """The site's Variants view: an Import of a picked file past the
     268,435,456 B a variant's file holds (``library.MOST``, the app's cap)

@@ -49,6 +49,8 @@ export const later = (path) => /^variants\/[^/]+\/shipped\/parts\/[^/]+$/.test(p
 // keeper(db, name): this browser's keeping of what the site installed (the last manifest read, installed.json's record
 // and the files), in IndexedDB's "azurkit-content" (the Characters tab's since Step 4.3d), opened on first use; with
 // name another database of one store, as the Variants view keeps your variants in "azurkit-variants" (Step 4.6c).
+// update(key, fn) puts fn(what key holds now) in one readwrite transaction and gives it back, so another tab's write
+// of key between the read and the put can't be lost (each tab's Save of a variant).
 export function keeper(db = globalThis.indexedDB, name = "azurkit-content") {
   let opened = null;
   const open = () => opened ??= new Promise((done, fail) => {
@@ -69,7 +71,16 @@ export function keeper(db = globalThis.indexedDB, name = "azurkit-content") {
     });
   };
   return { get: (key) => run("readonly", (s) => s.get(key)).catch(() => undefined),
-           put: (entries) => run("readwrite", (s) => { for (const [k, v] of entries) s.put(v, k); }) };
+           put: (entries) => run("readwrite", (s) => { for (const [k, v] of entries) s.put(v, k); }),
+           update: async (key, fn) => {
+             let value;
+             await run("readwrite", (s) => {
+               const now = s.get(key);
+               now.onsuccess = () => s.put(value = fn(now.result), key);
+               return null;
+             });
+             return value;
+           } };
 }
 
 // needs(entries, id): the ids an Install of id writes, those required first, each once (entries: a Map of id -> a

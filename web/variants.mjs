@@ -273,13 +273,24 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   const label = () => v.kind === "new" ? "(new, unsaved)" : v.kind === "built-in" && edited() ? `${v.name} (edited)` : v.name;
 
   // The site's library: what this browser keeps, by folder, handed to its engine (none: the app's engine reads its own).
-  // Why this browser refused to keep it (a quota, a Clear meanwhile), else null: the engine has it this visit only.
+  // Why this browser refused to keep it (a quota, a Clear meanwhile), else null: the engine has it this visit only. The
+  // folder goes into what this browser keeps now, read in the write's own transaction, so a variant another tab saved
+  // since this one read its copy stays, and this one has it too (its own folders as it holds them: the next keep of
+  // one builds on this one's).
   const keepFolder = async (name, files) => {
     if (app) return null;
-    v.folders = { ...(v.folders ?? {}), ...(files ? { [name]: files } : {}) };
-    if (!files) delete v.folders[name];
-    const lost = await kept.put([["folders", v.folders]]).then(() => null,
-      (error) => error?.message || error?.name || "it refused the write");
+    const into = (folders) => {
+      const out = { ...(folders ?? {}), ...(files ? { [name]: files } : {}) };
+      if (!files) delete out[name];
+      return out;
+    };
+    v.folders = into(v.folders);
+    const lost = await kept.update("folders", into).then((stored) => {
+      for (const [other, held] of Object.entries(stored)) {
+        if (other !== name && !(other in v.folders)) v.folders[other] = held;
+      }
+      return null;
+    }, (error) => error?.message || error?.name || "it refused the write");
     share(v.folders);
     return lost;
   };
