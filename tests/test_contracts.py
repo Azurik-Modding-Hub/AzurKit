@@ -577,6 +577,25 @@ def test_every_setup_uv_step_reads_its_manifest_inline_the_record_of_the_uv_it_i
     assert len(manifests) == 1
 
 
+def test_the_uv_the_workflows_install_meets_pyprojects_required_version_and_builds_with_its_own_uv_build():
+    """Step 4.44a (D1216): CI's uv moved with this Mac's to 0.13.7. The one
+    uv every workflow installs (the test above holds each step to its
+    record) is inside ``[tool.uv] required-version``, else every uv command
+    refuses the project, and inside the build-system's ``uv_build`` range, so
+    a build (``uv build``, a sync's install of the project) runs that uv's
+    own backend without the "does not contain the current uv version"
+    warning uv 0.13.7 printed against ``uv_build<0.13``."""
+    from packaging.requirements import Requirement
+    from packaging.specifiers import SpecifierSet
+    from packaging.utils import canonicalize_name
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    (backend,) = map(Requirement, project["build-system"]["requires"])
+    assert canonicalize_name(backend.name) == "uv-build" and project["build-system"]["build-backend"] == "uv_build"
+    (version,) = {found for path in WORKFLOWS.glob("*.yml") for found in re.findall(
+        r'data:application/x-ndjson,\{"version": "([^"]+)"', path.read_text(encoding="utf-8"))}
+    assert version in SpecifierSet(project["tool"]["uv"]["required-version"]) and version in backend.specifier
+
+
 def test_a_lane_branch_named_for_a_runner_runs_its_rows_and_linuxs_pure_tier_and_every_other_push_runs_every_row(
         monkeypatch, tmp_path, capsys):
     """Step 4.4dx9 (D1123's scope): two lanes' runs sat their 7 macOS jobs each on main's 5 slots, and one waited

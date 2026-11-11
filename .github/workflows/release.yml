@@ -47,19 +47,19 @@ env:
   UV_PYTHON_PREFERENCE: only-managed
   # Every setup-uv step's manifest-file, inline so setup-uv fetches no manifest (tests.yml's env says why).
   SETUP_UV_MANIFEST: >-
-    data:application/x-ndjson,{"version": "0.12.24", "artifacts": [
+    data:application/x-ndjson,{"version": "0.13.7", "artifacts": [
     {"platform": "aarch64-apple-darwin", "archive_format": "tar.gz", "sha256":
-    "0c4346de7abdb49495b393b9ec809fe387aa43e586be20fecb972216c1e71732",
-    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-aarch64-apple-darwin.tar.gz"},
+    "81b811b57e4624df7ed3aac148e0359100d9962f3d9dce00aec533dc2e086731",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-apple-darwin.tar.gz"},
     {"platform": "x86_64-apple-darwin", "archive_format": "tar.gz", "sha256":
-    "4fa82e37cb94767661f532b001e470b67a186c7260e305bd84ddb78fd545c0b6",
-    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-apple-darwin.tar.gz"},
+    "20c47e4c1f630b8abaff8c291fa9b9aa300fef92c4fbff95adf198b55287cda7",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-apple-darwin.tar.gz"},
     {"platform": "x86_64-pc-windows-msvc", "archive_format": "zip", "sha256":
-    "7c38608c8a18ee137d748a1773053b07ec8f3a30fab49aebaa6f4e4efeceb019",
-    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-pc-windows-msvc.zip"},
+    "0cdc5b38fe5a8168ed6a25814f5ba43c21d313dd3187314fccb37b7cec46e021",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-pc-windows-msvc.zip"},
     {"platform": "x86_64-unknown-linux-gnu", "archive_format": "tar.gz", "sha256":
-    "b4dfaef47d491a7296981f8374a4595f55dbf84e8937c8ecd2983574d8bb3da6",
-    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-unknown-linux-gnu.tar.gz"}]}
+    "c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-unknown-linux-gnu.tar.gz"}]}
 
 jobs:
   check:
@@ -86,7 +86,7 @@ jobs:
           fetch-depth: 0   # main's history, for the check below
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
-          version: "0.12.24"
+          version: "0.13.7"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
           enable-cache: false
       - id: version
@@ -136,7 +136,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
-          version: "0.12.24"
+          version: "0.13.7"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
           enable-cache: false
       - run: |
@@ -183,7 +183,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
-          version: "0.12.24"
+          version: "0.13.7"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
           enable-cache: false
       - run: |
@@ -223,7 +223,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
-          version: "0.12.24"
+          version: "0.13.7"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
           enable-cache: false
       - run: |

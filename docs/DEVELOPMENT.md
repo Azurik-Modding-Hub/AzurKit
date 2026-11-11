@@ -15,7 +15,7 @@ image's root, `/azurkit.json` and `/azurkit.bin`.
 
 ## Setup and commands
 
-You need [uv](https://docs.astral.sh/uv/) 0.12 or newer, which provides Python
+You need [uv](https://docs.astral.sh/uv/) 0.13 or newer, which provides Python
 3.14.
 
 ```bash

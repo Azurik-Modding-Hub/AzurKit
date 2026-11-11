@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.12.24,<0.13"]
+requires = ["uv_build>=0.13.7,<0.14"]
 build-backend = "uv_build"
 
 [project]
@@ -63,7 +63,7 @@ devkit = [
 ]
 
 [tool.uv]
-required-version = ">=0.12"
+required-version = ">=0.13"
 default-groups = ["dev", "app", "devkit"]
 # cryptography 49 and later ship no Intel Mac wheel, and every sync is --no-build (D1081: the Intel Mac app stays):
 # devkit's mcp needs it (pyjwt[crypto]); 48.0.1 is the last release with a universal2 wheel. The app never holds it

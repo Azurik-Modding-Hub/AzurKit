@@ -25,7 +25,7 @@ Ported from Modkit's skill (Step 4.16a2).
 
 ## 1. Python 3.14 through uv (D22)
 
-`pyproject.toml` requires Python 3.14 and uv 0.12 or newer, `.python-version` says 3.14, and
+`pyproject.toml` requires Python 3.14 and uv 0.13 or newer, `.python-version` says 3.14, and
 `uv.lock` is committed (protected). uv provides the interpreter; nothing is installed globally.
 
 | Group (`[dependency-groups]`) | Holds | Synced |
