@@ -8950,6 +8950,22 @@ def _parent_places(shared: tuple, _=None) -> dict:
     return {pl.bone.role: (pl.origin, pl.sides) for pl in rigged.bones}
 
 
+def _held_places(current: bytes, stored: bytes, body: str, parent, folder) -> dict | None:
+    """:func:`_parent_places`' answer where the part it would make is held
+    (Step 4.37e1), else ``None``: ``parent``'s own W29 part, keyed as a
+    build of a recipe with ``parent``'s mesh and jiggle and no places of
+    another (:func:`_body_keys`), is the rig ``_parent_places`` makes from
+    the same reads, so its bones are placed there (a shaped copy's at its
+    shapes' 1.0: what a Check of it there kept, or a built-in's copy ships)."""
+    from types import SimpleNamespace
+
+    from azurkit.tools.characters import parts
+
+    plain = SimpleNamespace(mesh=parent.mesh, jiggle=parent.jiggle, textures=(), texture_scale=1)
+    held = parts.get(_body_keys(current, stored, body, plain, folder)[1], "W29 places")
+    return None if held is None else {pl.bone.role: (pl.origin, pl.sides) for pl in parts.load(held[1]).bones}
+
+
 def _variant_body(current: bytes, stored: bytes, body: str, variant
                   ) -> tuple[bytes, "mesh_edit.MeshPlan | None", "jiggles.Rigged | None", list[str], str]:
     """``variant``'s W24 mesh (Step 2.142), W29 jiggle bones (Step 2.143,
@@ -8969,7 +8985,8 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     (Step 2.164b: her clips' rests hold), and an own copy of one from
     another, where its ``places`` say (Step 4.6r;
     :func:`~azurkit.tools.characters._player_variants.placing`); where a shipped row stands for
-    those places (:func:`~azurkit.tools.characters.shipped.places`) none is worked out.
+    those places (:func:`~azurkit.tools.characters.shipped.places`), or that recipe's own rig is a
+    part held (:func:`_held_places`, Step 4.37e1), none is worked out.
     :class:`ValueError` names the step that fails (that step keeps nothing)."""
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import paint, parts, pool, shipped
@@ -8989,10 +9006,16 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
         if paint_[2]:
             _progress.note("the paint")
         return parts.undelta(current, paint_[0]), reshaped, parts.load(rig[1]), list(paint_[1]), keys[2]
-    assembled = rigged = None
-    placing = None if parent is None or at is not None or rig is not None else pool.later(   # in a child while hers
-        pool.each, _parent_places, (current, stored, body, parent.mesh, parent.jiggle, folder), [None], None, 1)
-    if rig is not None:   # (is planned, Step 2.179)
+    assembled = rigged = placing = None
+    if parent is not None and at is None and rig is None:
+        at = _held_places(current, stored, body, parent, folder)
+        shared = (current, stored, body, parent.mesh, parent.jiggle, folder)
+        if at is None and pool.LATER is None:   # worked out here: first, so the preparation her plan leaves
+            at = pool.each(_parent_places, shared, [None], None, 1)[0]   # mesh_edit is the one her rig asks again
+            shipped.heard_places(current, stored, body, parent, at)   # (Step 4.37e1)
+        elif at is None:   # in a child while hers is planned (Step 2.179)
+            placing = pool.later(pool.each, _parent_places, shared, [None], None, 1)
+    if rig is not None:
         edited = None   # W29's file, below
     elif mesh is not None:   # a subdivided mesh's asset assembled again for W29 (not kept: 20 MB, most of the part)
         edited = bytearray(parts.undelta(current, mesh[0]))

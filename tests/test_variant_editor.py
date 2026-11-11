@@ -36,7 +36,7 @@ from azurkit import sdk
 from azurkit.app import engine
 from azurkit.core import iso
 from azurkit.tools import characters
-from azurkit.tools.characters import _player_variants, colour_preview, library, parts, retarget
+from azurkit.tools.characters import _player_variants, colour_preview, library, mesh_edit, parts, retarget
 from azurkit.tools.randomizer import art
 from tests import _hosts
 
@@ -324,6 +324,40 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
         sdk._CHECKED.clear()
         assert (sdk.variant_check(_given(usa_iso, tmp_path, recipe, name=name)),
                 _sha12(sdk._CHECKED["last"]["characters"])) == answers[name]
+
+
+def test_a_shaped_copys_check_takes_its_plain_bodys_places_from_its_parts_and_prepares_its_mesh_once(usa_iso, tmp_path,
+                                                                                                       monkeypatch):
+    """Step 4.37e1: a copy with a shape moved places its springs where its build at its shapes' 1.0 does
+    (``_player_variants.placing``), which is that build's own rig: PARTED with a shape over her glute, Checked at 1.0
+    and then at 1.2, takes those places from the first Check's W29 part and prepares its shaped mesh once (no plain
+    body planned to evict it), answering and dressing as a fresh Check (no part kept or taken) does, byte for byte;
+    fresh, with no host's ``pool.LATER`` (the site's), it works the places out before its plan, so its rig never
+    prepares that mesh again (one preparation of each mesh a dress)."""
+    plain = json.loads(json.dumps(PARTED)) | {"shapes": {"glute": {"title": "Glute", "ops": ["glute right"]}}}
+    shaped = json.loads(json.dumps(plain))
+    shaped["shapes"]["glute"]["value"] = 1.2
+    prepared, prepare = [], mesh_edit._prepare
+    monkeypatch.setattr(mesh_edit, "_prepare", lambda xbr, body, spec, base_dir: (
+        prepared.append(repr(spec)), prepare(xbr, body, spec, base_dir))[1])
+    monkeypatch.setattr(parts, "STORE", None)
+    monkeypatch.setattr(parts, "HEARD", {})
+    parts.clear()
+    checked = {}
+    for name, recipe in (("plain", plain), ("shaped", shaped), ("fresh", shaped)):
+        monkeypatch.setattr(parts, "OFF", name == "fresh")
+        monkeypatch.setattr(mesh_edit, "_LAST_PREPARED", [None, None])
+        sdk._CHECKED.clear()
+        parts.HEARD.clear()
+        prepared.clear()
+        checked[name] = (sdk.variant_check(_given(usa_iso, tmp_path, recipe, name=name.replace("fresh", "shaped"))),
+                         _sha12(sdk._CHECKED["last"]["characters"])), Counter(prepared), dict(parts.HEARD)
+    (answer, _), plains, _ = checked["plain"]
+    assert answer["refusal"] is None and len(plains) == 1
+    (answer, dressed), shapes, heard = checked["shaped"]
+    assert heard["W29 places"] == {"hit": 1, "miss": 0} and len(shapes) == 1 and set(shapes.values()) == {1}
+    assert not shapes.keys() & plains.keys() and (answer, dressed) == checked["fresh"][0]
+    assert checked["fresh"][1].keys() == plains.keys() | shapes.keys() and len(set(checked["fresh"][1].values())) == 1
 
 
 def _exact(a, b) -> bool:

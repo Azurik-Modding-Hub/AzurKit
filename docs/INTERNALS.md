@@ -1171,7 +1171,13 @@ are the Characters section's.
       body parts are keyed on its parent's specs, never on where its
       places came from (Step 4.6r): the recorder dresses fresh and a Check
       takes the places row, the same places by the pin, so the Check
-      takes the parts it shipped.
+      takes the parts it shipped. With no row (a shaped copy's places are
+      its own build's at its shapes' 1.0), a reshape takes them from its
+      parent's own W29 part where one is held (`_held_places`, Step
+      4.37e1: the rig `_parent_places` makes from the same reads), else
+      works them out, first where no host's `pool.LATER` runs them in a
+      child, so the preparation `mesh_edit` keeps is its own plan's, the
+      one its rig asks again.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload
