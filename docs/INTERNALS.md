@@ -1608,7 +1608,12 @@ are the Characters section's.
     `variant_export`, `variant_check`, `move_sources`, `variant_weapons`). Unsaved edits are asked about in
     the page's own dialog (`#var-ask`, on the body: a Build's question
     comes from any tab) before another opens and before a Build of that
-    variant, and the site's `beforeunload` asks before the page goes. The
+    variant, and the site's `beforeunload` asks before the page goes; in
+    the app the view tells its server whether it holds edits not saved
+    (`api/unsaved`, each told once the last is answered) and the window's
+    closing hook (`Server.closing`) asks Leave or Stay with pywebview's own
+    dialog, on a thread of its own: the hook holds the close, Leave quits
+    and closes the window, Stay keeps both (no `evaluate_js`). The
     app keeps your variants in its library (`api/variant_*`; Clear leaves
     them: they are your work, Modkit's folder too); the site keeps them
     in IndexedDB's `azurkit-variants` (`content.keeper`'s, which closes on
@@ -2007,7 +2012,8 @@ are the Characters section's.
   (remembered in platformdirs' config folder; the window adds file dialogs)
   and Save writes the build to a path, never over an existing file but one
   the save dialog chose. Closing the app (the window's close button, Cmd-Q,
-  `serve`'s input ending) cancels a build or a save: it never waits on a
+  `serve`'s input ending; the window asks first while the Variants view
+  holds edits not saved) cancels a build or a save: it never waits on a
   build, and waits for a save to remove its part file `app.QUIT_WAIT`
   (1.5 s) at most, then removes it itself (AZ-823, D35). The window sets
   pywebview's `text_select`, or pywebview injects a `<style>` the CSP

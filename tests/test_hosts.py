@@ -812,8 +812,52 @@ def test_the_apps_window_opens_on_the_remembered_themes_ground(monkeypatch):
     monkeypatch.setitem(sys.modules, "webview.errors", errors)
     for theme in app.THEMES:
         monkeypatch.setattr(app, "_kept", lambda: {"theme": theme})
-        assert app._window(types.SimpleNamespace(url="http://127.0.0.1:1/", quit=None, window=None))
+        assert app._window(types.SimpleNamespace(url="http://127.0.0.1:1/", closing=None, window=None))
     assert [window["background_color"] for window in opened] == grounds == ["#0d1117", "#e8ecf1"]
+
+
+@pytest.mark.parametrize(("unsaved", "answer", "shown"), [
+    pytest.param(True, True, (True, [app.LEAVE], True, True), id="leave_quits_and_closes_the_window"),
+    pytest.param(True, False, (True, [app.LEAVE], False, False), id="stay_keeps_the_window_and_quits_nothing"),
+    pytest.param(False, None, (False, [], True, False), id="nothing_unsaved_asks_nothing_and_closes_at_once")])
+def test_the_apps_window_asks_before_it_closes_on_a_variants_unsaved_edits(monkeypatch, tmp_path, unsaved, answer,
+                                                                            shown):
+    """Step 4.38a: the window's closing hook (its close button, and Cmd-Q) while the page says its Variants view holds
+    edits not saved (``api/unsaved``, which refuses anything but true or false by name) holds the close (pywebview's
+    ``False``) and asks ``app.LEAVE``, its buttons Leave and Stay: Leave quits (AZ-823's cancel) and closes the
+    window, Stay keeps both as they were and quits nothing; with nothing unsaved it asks nothing and quits, and the
+    window closes, as before. A stand-in pywebview runs the hook as its closing event does: no window opens (D839).
+    Each shown: (the close held, what was asked, quit, the window closed by the hook)."""
+    _home(monkeypatch, tmp_path / "home")
+    handlers, asked, closed, opened = [], [], [], []
+
+    class Closing:
+        def __iadd__(self, handler):
+            handlers.append(handler)
+            return self
+
+    window = types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()), destroy=lambda: closed.append(1),
+                                   create_confirmation_dialog=lambda *question: asked.append(question) or answer)
+    webview, errors = types.ModuleType("webview"), types.ModuleType("webview.errors")
+    errors.WebViewException = type("WebViewException", (Exception,), {})
+    webview.errors = errors
+    webview.create_window = lambda **options: opened.append(options) or window
+    webview.start = lambda **options: None
+    monkeypatch.setitem(sys.modules, "webview", webview)
+    monkeypatch.setitem(sys.modules, "webview.errors", errors)
+    server = app.serve()
+    try:
+        assert app._window(server) and opened[0]["localization"] == {"global.ok": "Leave", "global.cancel": "Stay"}
+        replies = []
+        for told in ("yes", unsaved):
+            _post(server.url, "api/unsaved", {"unsaved": told}, replies)
+        assert replies == [{"refused": "unsaved: unsaved is true or false"}, {}]
+        held = any(handler() is False for handler in handlers)   # pywebview's closing event: a False holds the close
+        if server.asking is not None:
+            server.asking.join(30)
+        assert (held, asked, server.quitting, bool(closed)) == shown
+    finally:
+        server.close()
 
 
 def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
@@ -1345,7 +1389,9 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
     app has no dialog and copies it into that folder as a take of its role. Check with game data waits for the image
     (D979); with one, it dresses the variant in the engine, answers, then draws it, and opening another variant
     meanwhile drops the Check, that one shown as it ships, unchecked; the Sounds tab then says keylord's own sounds
-    take no WAV. A Build of a variant with unsaved edits asks first, and a no starts nothing."""
+    take no WAV. A Build of a variant with unsaved edits asks first, and a no starts nothing. The page tells its
+    server whether the view holds edits not saved as they come and go (New, Save as, an edit, Undo), which the
+    window asks about as it closes (Step 4.38a)."""
     import wave
 
     from tests.test_site import VARIANTS_ASKED, VARIANTS_ROW, VARIANTS_TYPE, _variants_shown
@@ -1355,6 +1401,13 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
     monkeypatch.delenv("AZURKIT_ISO_EUROPE", raising=False)
     data = Path(platformdirs.user_data_dir("AzurKit", appauthor=False))
     server = app.serve(_page.WEB)
+
+    def told(unsaved: bool) -> None:   # what the page last told its server (api/unsaved)
+        end = time.monotonic() + 30
+        while server.unsaved is not unsaved and time.monotonic() < end:
+            time.sleep(0.05)
+        assert server.unsaved is unsaved
+
     try:
         page = browser.new_page()
         page.goto(server.url)
@@ -1366,11 +1419,13 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
         _page.until(page, "() => document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')")
         page.evaluate("() => document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]').click()")
         shown = _variants_shown(page, status="unsaved: Save as keeps it")
+        told(True)   # a New one's edits count
         assert shown["check"] == [True, "Choose your image first (1.)"] and shown["status"].endswith(
             "Choose your image first (1.) to check it")
         page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
         _page.click(page, "var-save-as")
         _variants_shown(page, status="· saved ·")
+        told(False)
         folder = data / "variants" / "mine"
         assert json.loads((folder / "recipe.json").read_text(encoding="utf-8")) == {"mine": {"base": "keylord",
                                                                                              "mode": "own"}}
@@ -1429,6 +1484,7 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
             return g.getImageData(0, 0, 160, 160).data.some((x, i) => i % 4 === 3 && x); }""")
         page.evaluate(VARIANTS_TYPE, ["var-scale", "1.5"])
         _variants_shown(page, status="unsaved edits")
+        told(True)
         _page.click(page, "char-view-model")
         page.evaluate("() => document.querySelector('#char-custom button[data-model=\"mine\"]').click()")
         _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'mine' && azurkit.characters.character()")
@@ -1437,6 +1493,10 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
                                                      "saved recipe. Build without them?")
         _page.click(page, "var-ask-no")
         assert page.evaluate("() => azurkit.building") is False
+        _page.click(page, "char-view-variants")
+        _page.click(page, "var-undo")
+        _variants_shown(page, status="· saved ·")
+        told(False)
         _page.check_csp(page)
     finally:
         server.close()

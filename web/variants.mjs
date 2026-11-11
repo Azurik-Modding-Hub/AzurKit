@@ -58,12 +58,14 @@ const TYPED = "input[type=text], input[type=search], textarea";   // a box with 
 // the app's path); packs() the Patches tab's ticks (a Check dresses over them); dialog(kind) the app's file dialog (null
 // without one); share(folders) hands the site's engine what this browser keeps; changed() runs when the library
 // changes (the Models view lists it again); shared the page's community content (web/content.mjs), whose manifest marks
-// the built-ins whose files are a community entry's, as the Models view marks them.
+// the built-ins whose files are a community entry's, as the Models view marks them; unsaved(yes) tells the app's server
+// whether edits would be lost (lost()), which its window asks about as it closes (the site's: none).
 export function variantsView({ root, call, app, say, image, packs, dialog = null, share = () => {}, changed = () => {},
-                               shared = null }) {
+                               shared = null, unsaved = () => {} }) {
   const v = { list: null, kind: "new", name: null, recipe: {}, saved: null, read: null, readFor: null, reading: false,
               again: false, checked: null, checking: null, ticket: 0, tab: "body", shown: "", folder: "", opened: false,
-              ships: null, folders: null, listed: 0, manifest: null, undo: [], now: "{}", editAt: -Infinity };
+              ships: null, folders: null, listed: 0, manifest: null, undo: [], now: "{}", editAt: -Infinity,
+              lostTold: false };
   const kept = app ? null : keeper(globalThis.indexedDB, "azurkit-variants");
 
   // The view, built once: the list, the pictures with the status, and the editor.
@@ -460,6 +462,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     ui.check.disabled = !image() || Boolean(v.checking);
     ui.check.title = image() ? "Dress it on your image as a build does, and draw it" : CHOOSE;
     status(r);
+    if (lost() !== v.lostTold) unsaved(v.lostTold = lost());   // as the status line says it: saved or not
     showJson();
     if (controls) fields(r);
     for (const t of tabs) t.load?.(r);   // each module's tab: its rows from the read (none: as they are)
@@ -832,7 +835,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   ui.check.addEventListener("click", check);
 
   // Unsaved edits: asked about before the page closes (the site's, a browser's own question), a New one's too, as
-  // leaving it in the page is (Modkit's AZ-792).
+  // leaving it in the page is (Modkit's AZ-792); the app's window asks its own (shown() tells its server).
   if (!app) {
     addEventListener("beforeunload", (event) => {
       if (lost()) event.preventDefault();

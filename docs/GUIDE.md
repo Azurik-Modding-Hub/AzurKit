@@ -167,9 +167,10 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   as a build would, answers, then draws it: a first Check of new content takes a while, with a bar, a copy of a
   variant checked before (New from this, under any name, on a later visit too) takes a few seconds, as does a first
   Check of a built-in or its own copy (it fetches its parts the first time), and checking it again unchanged answers
-  at once. Unsaved edits are asked about before you leave them or build that variant. The app keeps your variants
-  where Modkit does; the web page keeps them in your browser (Clear in the Tools tab removes them: Export one to keep
-  a copy). Yours show under the models too, as Yours, and Edit… opens a chosen variant here.
+  at once. Unsaved edits are asked about before you leave them, build that variant or close the page, and the app
+  asks too before its window closes. The app keeps your variants where Modkit does; the web page keeps them in your
+  browser (Clear in the Tools tab removes them: Export one to keep a copy). Yours show under the models too, as Yours,
+  and Edit… opens a chosen variant here.
   Writing a recipe by hand, or sharing one: [VARIANTS.md](VARIANTS.md).
 - **Colours (the Variants view's Colours tab):** pick a row of the body's textures (or all), then drag on the colour
   wheel to move its main colour, with a bar for brightness and boxes for the hex colour, hue, saturation and value;

@@ -567,7 +567,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
 // and in a browser. The page posts JSON to it, and a refusal comes back as {refused}. A build's reply that arrives
 // after Cancel is dropped; a save's is awaited, since the server says whether it wrote anything.
 function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened, shared, decoded, restored, rando }) {
-  let ticket = 0;
+  let ticket = 0, telling = Promise.resolve();
   const followed = (kind, asked) => {   // an ask's progress shown until it answers
     const id = asking(kind);
     return asked.finally(() => answered(id));
@@ -621,6 +621,9 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     library: () => {},   // and its library of your variants
     // remembering is a convenience; not keepalive: a plan and its marks may pass keepalive's 64 KiB
     tracked: (kept) => post("api/tracked", { tracker: kept }).catch(() => {}),
+    // whether the Variants view holds edits not saved, which the window asks about as it closes: each told once the
+    // last is answered, so the server holds the newest
+    unsaved: (yes) => (telling = telling.then(() => post("api/unsaved", { unsaved: yes })).catch(() => {})),
     cancel: () => {
       if (!state.saving) ticket++;
       post("api/cancel", {}).catch(() => {});
@@ -1169,7 +1172,7 @@ function ready(catalog, version, commit, platform) {
     state.variants = variantsView({ root: $("variants"), call: state.engine.call, app: state.app, say,
                                     image: () => state.file, packs: chosen, share: state.engine.library,
                                     dialog: state.dialogs ? (kind, path) => state.engine.choose(kind, path) : null,
-                                    changed: () => state.characters.relist(), shared });
+                                    changed: () => state.characters.relist(), shared, unsaved: state.engine.unsaved });
     state.community = communityGroup({ root: $("packs"), call: state.engine.call, shared, say, catalog,
                                        settled: () => { tally(); lock(); } });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,

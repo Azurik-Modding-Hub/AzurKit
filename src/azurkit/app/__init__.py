@@ -130,7 +130,9 @@ recipe.json, read by path) and ``api/variant_export`` ``{"name", "out"}``
 answer) and Step 4.6b's calls on the dress it keeps run in the engine
 (:data:`EDITED`), its bar in ``api/progress``; the Colours
 tab's ``api/add_png`` ``{"name", "path", "size"}`` copies an edited PNG
-into your variant's folder (Step 4.6e).
+into your variant's folder (Step 4.6e); ``api/unsaved`` ``{"unsaved"}``
+tells the server whether the view holds edits not saved, which the window
+asks about before it closes (:meth:`Server.closing`, Step 4.38a).
 The Tools tab's calls (Step 4.7c): ``POST api/info`` ``{"iso"}`` says what
 the image is (``sdk.image_info``), ``api/verify_all`` ``{"iso"}`` checks
 every file of it (``sdk.verify_all``: only what its kept check hasn't
@@ -153,7 +155,8 @@ logic meanwhile, for a plan file's spoiler.
 file dialog. A POST is JSON from the page's own origin. A refusal (the
 sdk's) comes back as ``{"refused": message}``; one build or save runs at a
 time. Closing the app cancels either (:meth:`Server.quit`, AZ-823) and
-never waits on a build (the app's engine process: it ends it).
+never waits on a build (the app's engine process: it ends it); the window
+asks first while the Variants view holds edits not saved.
 
 The app (:func:`main`) keeps the images it checked and the swap's answers
 across launches in platformdirs' cache folder (:mod:`.swapcache`), so an
@@ -225,6 +228,12 @@ WINDOW = {"title": "AzurKit", "width": 1100, "height": 820, "text_select": True}
 # (web/app.css's --bg), which the window shows until the page draws
 GROUNDS = {"dark": "#0d1117", "light": "#e8ecf1"}
 THEMES = tuple(GROUNDS)
+LEAVE = ("AzurKit", "Leave without saving? The Variants view's unsaved edits will be lost.")
+"""The window's question as it closes while the Variants view holds edits not saved (:meth:`Server.closing`), the
+site's ``beforeunload`` question in the app: its title and its text (macOS's shows the text alone)."""
+ASKED = {"global.ok": "Leave", "global.cancel": "Stay"}
+"""Its buttons, pywebview's localization on macOS (Windows' and Linux's are their own OK and Cancel); they name the
+buttons of a script's ``confirm()`` there too, which the page never calls (its questions are its own dialog's)."""
 QUIT_WAIT = 1.5   # seconds a close waits, in all, for a cancelled save to remove its part file (AZ-823)
 QUITTING = "AzurKit is quitting: nothing was written"
 CONTENT_TYPES = {".css": "text/css", ".glb": "model/gltf-binary", ".gltf": "model/gltf+json", ".html": "text/html",
@@ -590,6 +599,9 @@ class Server(http.server.ThreadingHTTPServer):
         self.drawing = pictures.Drawing()   # the tracker's maps and icons, shipped with the page
         self.picks: dict[str, Path] = {}    # the files picked this session to replace the image's, by its path
         self.slots = ahead.Ahead(kill=self._quiet)   # the work ahead, each click's way to it (D1007)
+        self.unsaved = False                # the Variants view holds edits not saved (api/unsaved): a close asks
+        self.asking: threading.Thread | None = None   # closing()'s question, while it asks
+        self.leaving = False                # its Leave: the close goes ahead
         if "setup" in (kept := _kept()) and _setup(kept) is None:   # AzurKit 1.0's, kept unasked: never restored
             _remember(setup=None)
         if warm.intent(_setup(kept), kept.get("tracker")):
@@ -598,8 +610,9 @@ class Server(http.server.ThreadingHTTPServer):
 
     def quit(self) -> None:
         """Cancel a build or a save in flight, within :data:`QUIT_WAIT`
-        (AZ-823): the window's closing hook (its close button, and Cmd-Q,
-        after which no ``finally`` runs) and :meth:`close`. A build writes
+        (AZ-823): the window's close, once it goes ahead (:meth:`closing`:
+        its close button, and Cmd-Q, after which no ``finally`` runs) and
+        :meth:`close`. A build writes
         nothing, so this never waits on one: its answer is refused (the
         app's engine process, which ends here, ends it). A save
         is waited on until it has removed its part file (D35), as its thread
@@ -620,6 +633,42 @@ class Server(http.server.ThreadingHTTPServer):
         self.engine.close()   # the app's engine process ends here, before a stalled save's part file goes
         if not saved and (out := self.out) is not None:
             _unpart(out)
+
+    def closing(self) -> bool | None:
+        """The window's closing hook (its close button, and Cmd-Q): it
+        quits (:meth:`quit`) and the window closes, but while the Variants
+        view holds edits not saved (``api/unsaved``) the close waits
+        (``False``, pywebview's cancel) and the window asks :data:`LEAVE`
+        on a thread of its own, as pywebview's dialog waits on the window's
+        thread, which runs this hook: Leave quits and closes the window,
+        Stay keeps both as they were. One question at a time."""
+        if not self.unsaved or self.leaving:
+            self.quit()
+            return None
+        if self.asking is None or not self.asking.is_alive():
+            self.asking = threading.Thread(target=self._leave, name="azurkit-leave", daemon=True)
+            self.asking.start()
+        return False
+
+    def _leave(self) -> None:
+        """Ask :data:`LEAVE`: Leave quits and closes the window; a window
+        that can't ask closes as it did before it asked, never stuck open."""
+        try:
+            leave = self.window.create_confirmation_dialog(*LEAVE)
+        except Exception:   # noqa: BLE001 (pywebview's WebViewException, or its backend's own)
+            leave = True
+        if leave:
+            self.leaving = True
+            self.quit()
+            self.window.destroy()
+
+    def set_unsaved(self, body: dict) -> dict:
+        """``api/unsaved``: whether the Variants view holds edits not
+        saved, as the page's status line says (``true`` or ``false``)."""
+        if not isinstance(unsaved := body.get("unsaved"), bool):
+            raise ValueError("unsaved: unsaved is true or false")
+        self.unsaved = unsaved
+        return {}
 
     def close(self) -> None:
         self.quit()
@@ -1346,7 +1395,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                    for name in VARIANT_CALLS},
                 **{f"/api/{job}": (lambda job: lambda body: self.server.edited(job, body))(job) for job in EDITED},
                 "/api/variant_import": self.server.variant_import, "/api/variant_export": self.server.variant_export,
-                "/api/add_png": self.server.add_png,
+                "/api/add_png": self.server.add_png, "/api/unsaved": self.server.set_unsaved,
                 "/api/cancel": lambda body: self.server.cancel()}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose
@@ -1449,8 +1498,9 @@ def _window(server: Server) -> bool:
     except ImportError:
         return False
     try:
-        server.window = webview.create_window(url=server.url, **WINDOW, background_color=GROUNDS[_theme()])
-        server.window.events.closing += server.quit
+        server.window = webview.create_window(url=server.url, **WINDOW, background_color=GROUNDS[_theme()],
+                                              localization=ASKED)
+        server.window.events.closing += server.closing
         webview.start(private_mode=True)
     except WebViewException:
         server.window = None
