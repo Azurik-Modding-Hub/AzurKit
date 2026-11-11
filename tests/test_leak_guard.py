@@ -211,6 +211,22 @@ def test_a_push_fails_on_a_refused_file_a_later_commit_deleted(tmp_path):
         f"hdd.img in {added[:12]}: qcow2 disk image (an xemu HDD) at 0"]
 
 
+def test_the_checkout_scan_refuses_a_staged_file_its_work_tree_copy_no_longer_holds(tmp_path):
+    """What the next commit takes is the index's copy: an image part staged
+    and then overwritten, and an .iso staged and then deleted, are refused
+    as staged; a clean staged file passes."""
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "game.bin").write_bytes(bytes(0x10000) + b"MICROSOFT*XBOX*MEDIA")
+    (tmp_path / "x.iso").write_bytes(bytes(64))
+    (tmp_path / "notes.txt").write_text("hello\n")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "game.bin", "x.iso", "notes.txt"], check=True)
+    (tmp_path / "game.bin").write_bytes(b"XBEH" + bytes(60))
+    (tmp_path / "x.iso").unlink()
+    (tmp_path / "notes.txt").write_text("hello again\n")
+    assert _leak_guard.scan(tmp_path) == ["game.bin (staged): XISO volume descriptor at 0x10000",
+                                          "x.iso (staged): ISO image or part (.iso/.xiso/.iso.NNN name)"]
+
+
 def test_bootstrap_writes_the_hook_the_global_hook_hands_a_push_to(tmp_path):
     """The owner's global pre-push hook hands a push on only to a hook holding
     this exact line: bootstrap writes it, executable, in the common git dir,

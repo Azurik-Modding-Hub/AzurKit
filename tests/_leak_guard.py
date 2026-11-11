@@ -9,10 +9,12 @@ runs directly::
     python3 -I tests/_leak_guard.py                 # exit 1 and one line per file on a hit
     python3 -I tests/_leak_guard.py --pre-push <remote> < <git's ref lines>
 
-The first reads every tracked and untracked, not ignored, file. The hook reads
-every file the pushed commits add or change, in the commits no remote-tracking
-ref of ``<remote>`` reaches (a new remote: the whole history), so a file
-committed and deleted again is caught too.
+The first reads every tracked and untracked, not ignored, file, and the
+staged copy of each whose work-tree file differs from it (changed or
+removed), which the next commit takes. The hook reads every file the pushed
+commits add or change, in the commits no remote-tracking ref of ``<remote>``
+reaches (a new remote: the whole history), so a file committed and deleted
+again is caught too.
 
 Game files and game bytes may be committed (D961): an XBE, an XBR, a clip, a
 texture, a save, a snippet, a byte literal, a disassembly listing. Refused:
@@ -305,7 +307,8 @@ def check(root: Path, rel: str) -> str | None:
 def scan(root: Path = ROOT) -> list[str]:
     """``"<path>: <why>"`` for every tracked or untracked, not ignored,
     regular file under ``root`` that :func:`check` refuses (a link's target
-    isn't committed)."""
+    isn't committed), then ``"<path> (staged): <why>"`` for each staged file
+    whose work-tree copy differs from it, or is gone, that it refuses."""
     listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
                             capture_output=True, check=True, timeout=60).stdout.decode()
     problems = []
@@ -318,6 +321,15 @@ def scan(root: Path = ROOT) -> list[str]:
             continue
         if why:
             problems.append(f"{rel}: {why}")
+    stale, staged = set(filter(None, _git(root, "diff-files", "-z", "--name-only").decode().split("\0"))), []
+    for entry in filter(None, _git(root, "ls-files", "-z", "--stage").decode().split("\0")) if stale else ():
+        meta, rel = entry.split("\t", 1)
+        mode, blob, _ = meta.split()
+        if rel in stale and mode in ("100644", "100755"):   # files; not links or submodules
+            staged.append((rel, blob))
+    for (rel, _), piece in zip(staged, _blobs(root, [blob for _, blob in staged]) if staged else (), strict=True):
+        if why := _check(rel, piece):
+            problems.append(f"{rel} (staged): {why}")
     return problems
 
 
@@ -344,21 +356,39 @@ def _added(root: Path, revs: list[str]) -> dict[tuple[str, str], str]:
     return first
 
 
-def _blobs(root: Path, blobs: list[str]) -> Iterator[bytes]:
-    """Each blob's content, in order."""
+class _Piece:
+    """``size`` bytes of ``f``, read forward (a blob, never held whole)."""
+
+    def __init__(self, f: _Reader, size: int) -> None:
+        self._f, self._left = f, size
+
+    def read(self, n: int) -> bytes:
+        out = self._f.read(min(n, self._left)) if self._left else b""
+        self._left -= len(out)
+        return out
+
+    def end(self) -> None:
+        while self.read(CHUNK << 4):
+            pass
+
+
+def _blobs(root: Path, blobs: list[str]) -> Iterator[_Piece]:
+    """Each blob's content, in order, each read to its end before the next."""
     with subprocess.Popen(["git", "-C", str(root), "cat-file", "--batch"], stdin=subprocess.PIPE,
                           stdout=subprocess.PIPE) as cat:
         for blob in blobs:
             cat.stdin.write(f"{blob}\n".encode())
             cat.stdin.flush()
-            size = int(cat.stdout.readline().split()[2])   # "<oid> blob <size>\n<content>\n"
-            yield cat.stdout.read(size + 1)[:size]
+            piece = _Piece(cat.stdout, int(cat.stdout.readline().split()[2]))   # "<oid> blob <size>\n<content>\n"
+            yield piece
+            piece.end()
+            cat.stdout.read(1)
         cat.stdin.close()
 
 
 def scan_push(root: Path, remote: str, updates: str) -> list[str]:
     """``"<path> in <commit>: <why>"`` for every file a commit being pushed
-    adds or changes that :func:`check_bytes` refuses, named with the first
+    adds or changes that :func:`_check` refuses, named with the first
     such commit. ``remote`` and ``updates`` are a ``pre-push`` hook's first
     argument and stdin; the commits are those the pushed oids reach and no
     ``refs/remotes/<remote>/`` ref does."""
@@ -367,8 +397,8 @@ def scan_push(root: Path, remote: str, updates: str) -> list[str]:
         return []
     added = list(_added(root, [*tips, "--not", f"--remotes={remote}"]).items())
     problems = []
-    for ((path, _), commit), data in zip(added, _blobs(root, [blob for (_, blob), _ in added]), strict=True):
-        if why := check_bytes(path, data):
+    for ((path, _), commit), piece in zip(added, _blobs(root, [blob for (_, blob), _ in added]), strict=True):
+        if why := _check(path, piece):
             problems.append(f"{path} in {commit[:12]}: {why}")
     return problems
 
