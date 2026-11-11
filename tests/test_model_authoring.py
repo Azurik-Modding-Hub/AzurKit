@@ -1644,7 +1644,7 @@ def test_a_preparation_is_kept_for_equal_bytes_in_a_new_object(monkeypatch):
     equal bytes reuse the last preparation (their own lists), other bytes or a mutable buffer prepare anew."""
     calls = []
     monkeypatch.setattr(mesh_edit, "_prepare", lambda c, *a: calls.append(1) or ("mesh", [1], None, None, {2}, 3))
-    monkeypatch.setattr(mesh_edit, "_LAST_PREPARED", [None, None])
+    monkeypatch.setattr(mesh_edit, "_LAST_PREPARED", [None])
     spec, data = mesh_edit.MeshSpec(), bytes(range(256)) * 64
     first = mesh_edit._prepared(data, "body", spec, None)
     again = mesh_edit._prepared(bytes(bytearray(data)), "body", spec, None)
@@ -1652,6 +1652,30 @@ def test_a_preparation_is_kept_for_equal_bytes_in_a_new_object(monkeypatch):
     mesh_edit._prepared(data[:-1] + b"x", "body", spec, None)
     mesh_edit._prepared(bytearray(data[:-1] + b"x"), "body", spec, None)
     assert len(calls) == 3
+
+def test_a_preparation_kept_while_another_is_looked_up_answers_only_the_spec_asked(monkeypatch):
+    """The app's engine runs a Check beside a preview, each on its own thread, so another call may keep its
+    preparation while this one compares the kept key to its spec (a recipe of yours is parsed anew each call,
+    an equal spec in another object: the dataclass's ``__eq__``, where the threads switch): the kept entry is
+    read once, so a call answers its own spec's preparation, never the one kept meanwhile."""
+    monkeypatch.setattr(mesh_edit, "_prepare", lambda c, body, spec, base: (f"mesh of {spec.keep[0]}", [], None, None,
+                                                                             set(), 0))
+    monkeypatch.setattr(mesh_edit, "_LAST_PREPARED", [None])
+    data, other = bytes(range(256)), mesh_edit.MeshSpec(keep=("B",))
+
+    class Kept(mesh_edit.MeshSpec):
+        """A's spec as kept, whose compare lets the other thread keep B's first."""
+
+        def __eq__(self, spec):
+            if not switched:
+                switched.append(None)
+                switched[0] = mesh_edit._prepared(data, "body", other, None)
+            return isinstance(spec, mesh_edit.MeshSpec) and self.keep == spec.keep
+        __hash__ = mesh_edit.MeshSpec.__hash__
+    switched = []
+    assert mesh_edit._prepared(data, "body", Kept(keep=("A",)), None)[0] == "mesh of A" and not switched
+    assert mesh_edit._prepared(bytes(bytearray(data)), "body", mesh_edit.MeshSpec(keep=("A",)), None)[0] == "mesh of A"
+    assert switched[0][0] == "mesh of B"   # the other call, mid-compare, kept its own
 
 def _new_joint(shape: dict, name: str, parent: int, origin) -> int:
     """A joint ``name`` added to the skin under node ``parent``, its bind at ``origin`` (the model's frame,

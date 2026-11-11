@@ -5319,7 +5319,11 @@ def _code_entry(code: int) -> int:
     return code_entry(code)
 
 
-_LAST_PREPARED: list = [None, None]
+_LAST_PREPARED: list = [None]
+"""The last preparation, ``(bytes, key, preparation)`` in one slot: a call
+reads it once, so the key it matches and what it hands back are one
+entry's while another thread (the app's engine runs a Check beside a
+preview) keeps its own."""
 
 
 def _prepared(characters_xbr: bytes, body: str, spec: MeshSpec, base_dir: Path | None):
@@ -5333,13 +5337,14 @@ def _prepared(characters_xbr: bytes, body: str, spec: MeshSpec, base_dir: Path |
     ask the same, each of a fresh copy of the staged file, Step X.63: a
     preparation is a minute); callers get their own lists."""
     key = (body, spec, str(base_dir))
-    if (type(characters_xbr) is bytes and _LAST_PREPARED[0] is not None and _LAST_PREPARED[1][0] == key
-            and (_LAST_PREPARED[0] is characters_xbr or _LAST_PREPARED[0] == characters_xbr)):
-        mesh, base, edit, imported, smooth, count = _LAST_PREPARED[1][1]
+    held = _LAST_PREPARED[0]
+    if (type(characters_xbr) is bytes and held is not None and held[1] == key
+            and (held[0] is characters_xbr or held[0] == characters_xbr)):
+        mesh, base, edit, imported, smooth, count = held[2]
         return mesh, list(base), edit, imported, set(smooth), count
     got = _prepare(characters_xbr, body, spec, base_dir)
     if type(characters_xbr) is bytes:
-        _LAST_PREPARED[:] = [characters_xbr, (key, got)]
+        _LAST_PREPARED[0] = (characters_xbr, key, got)
     mesh, base, edit, imported, smooth, count = got
     return mesh, list(base), edit, imported, set(smooth), count
 
