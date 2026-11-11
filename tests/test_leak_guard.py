@@ -24,9 +24,10 @@ def test_game_files_and_bytes_pass_and_images_disks_eeproms_snapshots_and_keys_a
     disassembly listing pass. Refused: an XISO first part (the volume
     descriptor at 0x10000), an .iso, .xiso or .iso.NNN name, a qcow2 disk,
     an EEPROM .bin, a private key and a guest RAM snapshot (AZL3SNAP); the
-    XISO part and the snapshot also inside a gzip file (the snapshot also
-    in one with a bad CRC and in one whose deflate data is damaged after
-    it), and an ISO part's name inside one named ``.GZ``."""
+    XISO part and the snapshot also inside a gzip file, each member on its
+    own (a later one, after a note or 17 MiB of zeros; the snapshot also in
+    one with a bad CRC and in one whose deflate data is damaged after it),
+    and an ISO part's name inside one named ``.GZ``."""
     snapshot = b"AZL3SNAP" + bytes(56)
     gz = gzip.compress(snapshot)
     deflate = zlib.compressobj(wbits=31)
@@ -35,6 +36,8 @@ def test_game_files_and_bytes_pass_and_images_disks_eeproms_snapshots_and_keys_a
     refused = {
         "part.000": (xiso_part, "XISO volume descriptor at 0x10000"),
         "part.001.gz": (gzip.compress(xiso_part), "inside its gzip: XISO volume descriptor at 0x10000"),
+        "notes.part.gz": (gzip.compress(b"note\n") + gzip.compress(xiso_part),
+                          "inside its gzip: XISO volume descriptor at 0x10000"),
         "AZURIK.ISO.007.GZ": (gzip.compress(bytes(64)),
                               "inside its gzip: ISO image or part (.iso/.xiso/.iso.NNN name)"),
         **{name: (bytes(64), "ISO image or part (.iso/.xiso/.iso.NNN name)")
@@ -44,6 +47,8 @@ def test_game_files_and_bytes_pass_and_images_disks_eeproms_snapshots_and_keys_a
         "deploy": (b"-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n", "private key at 0"),
         "w1.snap": (snapshot, "guest RAM snapshot (console keys) at 0"),
         "w1.snap.gz": (gz, "inside its gzip: guest RAM snapshot (console keys) at 0"),
+        **{name: (gzip.compress(first) + gz, "inside its gzip: guest RAM snapshot (console keys) at 0")
+           for name, first in (("two.snap.gz", b"note\n"), ("big.snap.gz", bytes(17 << 20)))},
         "crc.snap.gz": (gz[:-8] + bytes([gz[-8] ^ 0xFF]) + gz[-7:],
                         "inside its gzip: guest RAM snapshot (console keys) at 0"),
         "cut.snap.gz": (damaged, "inside its gzip: guest RAM snapshot (console keys) at 0"),

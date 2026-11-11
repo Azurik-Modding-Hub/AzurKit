@@ -25,14 +25,15 @@ texture, a save, a snippet, a byte literal, a disassembly listing. Refused:
   0, Modkit's L3 snapshots; console keys) or a private key (a ``-----BEGIN
   … PRIVATE KEY-----`` line at 0).
 
-A gzip file (``1f 8b`` at 0) is refused for what it holds as well: its inner
-bytes (:func:`gunzip`: every member, past a bad CRC or size and up to a
-damaged spot), named as the file without its ``.gz``, are checked by every
-rule here.
+A gzip file (``1f 8b`` at 0) is refused for what it holds as well: each
+member on its own (:class:`_Inflated`: read to its end, past a bad CRC or
+size and up to a damaged spot), named as the file without its ``.gz``, is
+checked by every rule here.
 """
 
 from __future__ import annotations
 
+import io
 import os
 import re
 import subprocess
@@ -40,10 +41,12 @@ import sys
 import zlib
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Protocol
 
 ROOT = Path(__file__).resolve().parent.parent
 MAGIC_SPAN = 0x10020
-MAX_TEXT = 16 << 20      # of a gzip file's inner bytes, the most kept
+CHUNK = 1 << 16          # read at a time; a zlib call inflates at most 16 of them
+DEPTH = 3                # the most wrappings unwrapped (a gzip in a gzip ...)
 GZIP = b"\x1f\x8b"
 _ISO_NAME = re.compile(r"\.x?iso(\.\d+)?$")   # an image or a part of one (azurik.iso.007)
 _PRIVATE_KEY = re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\r?\n")
@@ -82,54 +85,130 @@ def _deflate_at(data: bytes) -> int | None:
     return at if at <= len(data) else None
 
 
-def gunzip(data: bytes) -> bytes | None:
-    """The first :data:`MAX_TEXT` bytes of what the gzip file ``data``
-    holds, or ``None`` when ``data`` doesn't start with :data:`GZIP`. Every
-    member is read as raw deflate past its header, so no header or trailer
-    check (CRC or size) drops what it holds; a truncated member is read to
-    its end and a damaged one to the damaged spot (the zlib call that fails
-    is inflated again a byte at a time, as zlib drops the output of a call
-    that raises), where reading stops."""
-    if not data.startswith(GZIP):
-        return None
-    head = bytearray()
-    while data.startswith(GZIP) and (at := _deflate_at(data)) is not None and len(head) < MAX_TEXT:
-        member, data = zlib.decompressobj(-15), data[at:]
-        while not member.eof and len(head) < MAX_TEXT:
-            before = member.copy()
+class _Reader(Protocol):
+    def read(self, n: int, /) -> bytes: ...
+
+
+def _read(f: _Reader, n: int) -> bytes:
+    """``n`` bytes of ``f``, fewer only at its end."""
+    out = f.read(n)
+    while len(out) < n and (more := f.read(n - len(out))):
+        out += more
+    return out
+
+
+class _Chain:
+    """``head``, then the rest of ``f``."""
+
+    def __init__(self, head: bytes, f: _Reader) -> None:
+        self._head, self._f = head, f
+
+    def read(self, n: int) -> bytes:
+        if self._head:
+            out, self._head = self._head[:n], self._head[n:]
+            return out
+        return self._f.read(n)
+
+
+class _Inflated:
+    """One gzip member's inner bytes, read forward from ``src`` (``pending``
+    first): raw deflate past its header, so no header or trailer check (CRC
+    or size) drops what it holds; a truncated member reads to its end and a
+    damaged one to the damaged spot (the zlib call that fails is inflated
+    again a byte at a time, as zlib drops the output of a call that raises).
+    :meth:`end` reads the rest and gives what follows its deflate data, or
+    ``None`` when it was cut short or damaged."""
+
+    def __init__(self, src: _Reader, pending: bytes) -> None:
+        self._src, self._in, self._z = src, pending, zlib.decompressobj(-15)
+        self._out, self._done, self._rest = bytearray(), False, None
+
+    def _more(self) -> None:
+        self._in = self._in or self._src.read(CHUNK)
+        if not self._in:   # truncated
             try:
-                out = member.decompress(data, 1 << 20)
-            except zlib.error:   # damaged
-                for i in range(len(data)):
-                    try:
-                        head.extend(before.decompress(data[i:i + 1]))
-                    except zlib.error:
-                        break
-                return bytes(head[:MAX_TEXT])
-            data = member.unconsumed_tail
-            if not out and not data:   # truncated
-                break
-            head.extend(out)
-        data = member.unused_data[8:]   # past its trailer, unchecked
-    return bytes(head[:MAX_TEXT])
+                self._out += self._z.flush()
+            except zlib.error:
+                pass
+            self._done = True
+            return
+        before = self._z.copy()
+        try:
+            self._out += self._z.decompress(self._in, CHUNK << 4)
+        except zlib.error:   # damaged: what precedes the damage, then no more
+            for i in range(len(self._in)):
+                try:
+                    self._out += before.decompress(self._in[i:i + 1])
+                except zlib.error:
+                    break
+            self._done = True
+            return
+        self._in = self._z.unconsumed_tail
+        if self._z.eof:
+            self._done, self._rest = True, self._z.unused_data
+
+    def read(self, n: int) -> bytes:
+        while len(self._out) < n and not self._done:
+            self._more()
+        out = bytes(self._out[:n])
+        del self._out[:n]
+        return out
+
+    def end(self) -> bytes | None:
+        while not self._done:
+            self._more()
+            self._out.clear()
+        return self._rest
 
 
-def check_bytes(rel: str, data: bytes) -> str | None:
-    """:func:`check_blob` for a file's bytes (its head at least), and for a
-    gzip file's inner bytes (named ``rel`` without ``.gz``, in any case)."""
-    if why := check_blob(rel, data[:MAGIC_SPAN]):
+def _members(src: _Reader) -> Iterator[_Inflated]:
+    """Each member of the gzip file read from ``src``, in order, the next
+    once the last is read to its end (a damaged or cut-short member is the
+    last); a member's trailer is skipped unchecked."""
+    data = b""
+    while True:
+        while len(data) < len(GZIP) and (more := src.read(CHUNK)):
+            data += more
+        if not data.startswith(GZIP):
+            return
+        while (at := _deflate_at(data)) is None and (more := src.read(CHUNK)):
+            data += more
+        if at is None:
+            return
+        member = _Inflated(src, data[at:])
+        yield member
+        if (data := member.end()) is None:
+            return
+        while len(data) < 8 and (more := src.read(CHUNK)):
+            data += more
+        data = data[8:]
+
+
+def _check(rel: str, f: _Reader, depth: int = 0) -> str | None:
+    """:func:`check_blob` for the file ``rel`` read forward from ``f``, and
+    for each member of a gzip file (named ``rel`` without ``.gz``, in any
+    case), :data:`DEPTH` wrappings deep."""
+    head = _read(f, MAGIC_SPAN)
+    if why := check_blob(rel, head):
         return why
-    if (inner := gunzip(data)) is not None and (why := check_bytes(re.sub(r"\.gz\Z", "", rel, flags=re.I), inner)):
-        return f"inside its gzip: {why}"
+    if head.startswith(GZIP) and depth < DEPTH:
+        inner = re.sub(r"\.gz\Z", "", rel, flags=re.I)
+        for member in _members(_Chain(head, f)):
+            if why := _check(inner, member, depth + 1):
+                return f"inside its gzip: {why}"
     return None
 
 
+def check_bytes(rel: str, data: bytes) -> str | None:
+    """:func:`_check` for a file's bytes (its head at least)."""
+    return _check(rel, io.BytesIO(data))
+
+
 def check(root: Path, rel: str) -> str | None:
-    """Why ``root/rel`` can't be committed, or ``None`` (its head, and a gzip
-    file whole, as :func:`check_bytes` reads them)."""
+    """Why ``root/rel`` can't be committed, or ``None`` (as :func:`_check`
+    reads it)."""
     with open(root / rel, "rb") as f:
-        head = f.read(MAGIC_SPAN)
-        return check_bytes(rel, head + f.read() if head.startswith(GZIP) else head)
+        return _check(rel, f)
 
 
 def scan(root: Path = ROOT) -> list[str]:
