@@ -1276,6 +1276,40 @@ def test_the_apps_replace_files_holds_the_picked_file_and_refuses_a_share_or_an_
         server.close()
 
 
+def test_the_apps_add_wav_refuses_a_share_or_device_path_before_it_is_read(tmp_path, monkeypatch):
+    """The Sounds tab's Add WAV in the app (SEC-11, as Import PNG's):
+    ``api/add_wav`` refuses a network share, a device path and a path under
+    ``/net/`` before anything opens it (on Windows a share's open is an SMB
+    connection), the variant's folder untouched; a WAV on this computer is
+    copied in as before (Step 4.42c)."""
+    import wave
+
+    _home(monkeypatch, tmp_path / "home")
+    (page := tmp_path / "page").mkdir()
+    (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
+    folder, take = tmp_path / "mine", tmp_path / "take.wav"
+    with wave.open(str(take), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"\x01\x00" * 400)
+    opened = []
+    monkeypatch.setattr(sdk, "add_wav", lambda given, add=sdk.add_wav: opened.append(given["file"]) or add(given))
+    server = app.serve(page)
+
+    def call(file: str) -> dict:
+        replies = []
+        _post(server.url, "api/add_wav", {"given": {"folder": str(folder), "file": file}}, replies)
+        return replies[0]
+    try:
+        for given in ("//host/share/take.wav", "\\\\host\\share\\take.wav", "\\\\?\\C:\\take.wav", "/net/host/take.wav"):
+            assert "never read" in call(given)["refused"], given
+        assert (opened, folder.exists()) == ([], False)
+        assert call(str(take)) == {"name": "take.wav"} and (folder / "take.wav").read_bytes() == take.read_bytes()
+    finally:
+        server.close()
+
+
 def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_packs_locked(
         browser, tmp_path, monkeypatch, usa_iso):
     """The app's community group (Step 4.3k): an empty list says so; a folder source's pack lists with its tick greyed

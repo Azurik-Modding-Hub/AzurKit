@@ -130,7 +130,8 @@ recipe.json, read by path) and ``api/variant_export`` ``{"name", "out"}``
 answer) and Step 4.6b's calls on the dress it keeps run in the engine
 (:data:`EDITED`), its bar in ``api/progress``; the Colours
 tab's ``api/add_png`` ``{"name", "path", "size"}`` copies an edited PNG
-into your variant's folder (Step 4.6e); ``api/unsaved`` ``{"unsaved"}``
+into your variant's folder (Step 4.6e), and the Sounds tab's ``api/add_wav``
+``{"given"}`` a WAV (each picked path checked first); ``api/unsaved`` ``{"unsaved"}``
 tells the server whether the view holds edits not saved, which the window
 asks about before it closes (:meth:`Server.closing`, Step 4.38a).
 The Tools tab's calls (Step 4.7c): ``POST api/info`` ``{"iso"}`` says what
@@ -1164,6 +1165,16 @@ class Server(http.server.ThreadingHTTPServer):
         file = _path(replaced.source(str(body.get("path") or "")), "PNG")
         return sdk.add_png({"folder": str(library.root() / name), "file": str(file), "size": body.get("size")})
 
+    def add_wav(self, body: dict) -> dict:
+        """``api/add_wav``: ``{"given": {"folder", "file"}}``, a WAV the
+        player picked for a role, read (a share or device path refused
+        before it is opened, ``edits.files.source``, as ``api/add_png``'s)
+        and copied into the variant's folder (``sdk.add_wav``): ``{"name"}``."""
+        given = body.get("given")
+        given = dict(given) if isinstance(given, dict) else {}
+        given["file"] = str(_path(replaced.source(str(given.get("file") or "")), "WAV"))
+        return sdk.add_wav(given)
+
     def variant_export(self, body: dict) -> dict:
         """``api/variant_export``: ``{"name", "out"}``, the variant's zip
         (``sdk.variant_export``) written to ``out``, else under its name in
@@ -1396,7 +1407,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                    for name in VARIANT_CALLS},
                 **{f"/api/{job}": (lambda job: lambda body: self.server.edited(job, body))(job) for job in EDITED},
                 "/api/variant_import": self.server.variant_import, "/api/variant_export": self.server.variant_export,
-                "/api/add_png": self.server.add_png, "/api/unsaved": self.server.set_unsaved,
+                "/api/add_png": self.server.add_png, "/api/add_wav": self.server.add_wav,
+                "/api/unsaved": self.server.set_unsaved,
                 "/api/cancel": lambda body: self.server.cancel()}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose
@@ -1456,7 +1468,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
 
 VARIANT_CALLS = ("variants", "variant_open", "variant_read", "variant_save", "variant_delete", "base_bones",
-                 "own_sounds", "kit_throw", "move_sources", "variant_weapons", "add_wav")
+                 "own_sounds", "kit_throw", "move_sources", "variant_weapons")
 """The Variants view's calls the server answers itself (``api/<name>`` ``{"given"}``: ``sdk.<name>``)."""
 EDITED = ("variant_check", "variant_pictures", "variant_colours", "variant_preview", "variant_rows", "export_pngs")
 """Those the engine answers, the dress a Check keeps there serving the ones after it (:meth:`Server.edited`)."""
