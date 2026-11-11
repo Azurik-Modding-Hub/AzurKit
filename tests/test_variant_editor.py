@@ -337,6 +337,50 @@ def test_a_copy_under_another_name_checks_from_the_parts_a_check_kept_as_a_fresh
                 _sha12(sdk._CHECKED["last"]["characters"])) == answers[name]
 
 
+#: The exclusions' table (Step 4.37m1): an edit of PARTED (``("field", value)`` laid over it, ``None`` dropping a
+#: texture row), the stages whose keys leave that field out (the cut's ``LOD 0``: its mesh's; a cut is asked only where
+#: W39's part isn't taken) and so asks the keys a Check of PARTED kept, each over the same bytes.
+LEFT_OUT = {
+    "a colour (W38, after every part)": (("colours", HUMAN[:1]), ("W28 arms", "W28 springs", "bake", "W39")),
+    "the LODs' switch distance": (("lods", {"ratio": [0.5], "at": [12.0]}), ("W28 arms", "W28 springs", "bake", "W39")),
+    "a texture row dropped (W30's)": (None, ("cut", "LOD 0")),
+    "a spring's stiffness (the Jiggle tab's)": (("jiggle", {"frees": [], "bones": [
+        PARTED["jiggle"]["bones"][0] | {"spring": PARTED["jiggle"]["bones"][0]["spring"] | {"freq": 2.4}}]}),
+        ("W24", "W29", "W30", "W28 arms", "W28 springs", "bake", "W39")),
+}
+
+
+def test_a_field_a_part_leaves_out_moves_no_byte_its_stage_reads(usa_iso, tmp_path, monkeypatch):
+    """Step 4.37m1 (D1195): a part's key holds what its stage reads and leaves out what it doesn't (each row of
+    ``LEFT_OUT``), so an edit of a field a stage leaves out asks that stage's key a Check of PARTED kept, and takes
+    it, over the same bytes: W28's restyles their input file's, the LOD cut its LOD 0's pickle."""
+    from azurkit.tools.characters import decimate
+
+    asked, read = {}, {}
+    get, restyled, ahead = parts.get, _player_variants.restyled, decimate._ahead_key
+    monkeypatch.setattr(parts, "get", lambda name, stage=None: (
+        asked.setdefault(stage, set()).add(name), get(name, stage))[1])
+    monkeypatch.setattr(_player_variants, "restyled", lambda before, after, *a, arms=True, **k: (
+        read.setdefault("W28 arms" if arms else "W28 springs", set()).add(_sha12(after)),
+        restyled(before, after, *a, arms=arms, **k))[1])
+    monkeypatch.setattr(decimate, "_ahead_key", lambda *a: (made := ahead(*a), read.setdefault("LOD 0", set()).add(
+        _sha12(made)))[0])
+    monkeypatch.setattr(parts, "STORE", None)
+    parts.clear()
+    sdk.variant_check(_given(usa_iso, tmp_path, PARTED, name="mine"))
+    kept = ({stage: set(keys) for stage, keys in asked.items()}, {stage: set(shas) for stage, shas in read.items()})
+    for row, (edit, stages) in LEFT_OUT.items():
+        asked.clear(), read.clear()
+        recipe = json.loads(json.dumps(PARTED)) | ({edit[0]: edit[1]} if edit else {"textures": []})
+        sdk._CHECKED.clear()
+        assert sdk.variant_check(_given(usa_iso, tmp_path, recipe, name="mine"))["refusal"] is None, row
+        for stage in stages:   # each key it asked one the first Check kept, over the same bytes
+            held = kept[1] if stage == "LOD 0" else kept[0]
+            assert (asked if stage != "LOD 0" else read).get(stage) and (asked if stage != "LOD 0" else read)[
+                stage] <= held.get(stage, set()), (row, stage)
+            assert not stage.startswith("W28") or read[stage] <= kept[1][stage], (row, stage)
+
+
 def test_a_shaped_copys_check_takes_its_plain_bodys_places_from_its_parts_and_prepares_its_mesh_once(usa_iso, tmp_path,
                                                                                                        monkeypatch):
     """Step 4.37e1: a copy with a shape moved places its springs where its build at its shapes' 1.0 does

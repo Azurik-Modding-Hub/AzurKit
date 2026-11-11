@@ -2751,6 +2751,44 @@ def test_a_body_case_under_pyodide_is_its_goldens_file_for_file(usa_iso, pyodide
     assert got["report"]["result"] == {f: sha for f, sha in _golden(G3["usa"])[case].items() if f != "ISO"}
 
 
+_FRESH_UNDER_PYODIDE = """
+import json, os
+iso, installed, out = json.loads(ARGV)
+os.environ["AZURKIT_CONTENT"], os.environ["AZURKIT_VARIANTS"] = os.path.dirname(installed), "/tmp/variants"
+from azurkit import sdk
+from azurkit.tools import mods
+from azurkit.tools.characters import library, parts, shipped
+shipped.OFF, parts.STORE, shipped.SEEN = True, None, []
+name = "booblord_own"
+made = library.copy_as(name, dict(sdk.variant_open({"name": "booblord"})["recipe"]))
+answer = sdk.variant_check({"iso": iso, "name": name, "recipe": json.loads(made.read_text())[name], "folder":
+                            str(made.parent), "packs": {p.name: {} for p in mods.PACKS.values() if p.default_on}})
+with open(out, "wb") as f:
+    f.write(sdk._CHECKED["last"]["characters"])
+json.dumps({"refusal": answer["refusal"], "seen": sorted(s["part"]["part"] for s in shipped.SEEN if "part" in s)})
+"""
+
+
+def test_a_fresh_dress_under_pyodide_asks_every_key_its_shipped_parts_are_kept_under(usa_iso, pyodide, booblords,
+                                                                                    tmp_path):
+    """D1195 (Step 4.37m1) on the site's engine, whose floats aren't this host's: a fresh Check of booblord's own copy
+    under Pyodide on Node (no part shipped or kept taken) works out each part under a key a ``part`` row of
+    ``shipped.json`` holds, so a Check there takes them all from what the recording host shipped, and the
+    characters.xbr it dresses is her golden case's close enough (``record_goldens.apart``: sizes, layout and every
+    integer exact, the floats near)."""
+    case = "randomize-full:player-character=booblord,weapon=booblord_spin"
+    (out := tmp_path / "characters.xbr").write_bytes(b"")
+    got = pyodide(str(usa_iso), str(content.ROOT / content.INSTALLED), str(out), python=_FRESH_UNDER_PYODIDE,
+                  packages=(_pyodide.numpy(),))
+    assert got["refusal"] is None and got["seen"], got
+    rows = {row["part"] for row in shipped.table()["part"]}
+    assert sorted(key for key in got["seen"] if not key.startswith("size:") and key not in rows) == []
+    with iso.Reader(usa_iso) as r:
+        vanilla = r.read(CHARACTERS)
+    assert record_goldens.apart(CHARACTERS, {CHARACTERS: out.read_bytes()}, _golden(G3["usa"])[case][CHARACTERS],
+                                _resources("usa")[case][CHARACTERS], vanilla) == []
+
+
 # Step 4.28b: Modkit's unpinned index.xbr and grade table behaviours, ported lean.
 
 
