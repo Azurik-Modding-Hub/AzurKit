@@ -111,12 +111,15 @@ BROWSERS = ("webkit", "chromium", "firefox")   # the site's (D994: Firefox)
 #: tracker and the Randomizer tab's items show art/'s icons (randomizer). No build or characters op calls it.
 TRACKED = ("start", "image", "randomizer", "tracker")
 #: Which ops a changed path reaches (section 2.4 of round 1's plan): ``(prefix, hosts, groups)``, the first match;
-#: an unlisted path under ``src/`` or ``web/`` reaches every op; any other path none. A narrower row stands on what
+#: an unlisted path under ``src/`` or ``web/`` reaches every op, and so does the perf gate's own driver (``_perf``
+#: and the page calls it makes, ``_page``) and judge (this file), whose fault can reach any op (Step 4.46a); any other
+#: path none. A narrower row stands on what
 #: loads its path (Step 4.43a): ``_stacks.py`` is imported by the app's processes alone (``__main__``, ``app`` and
 #: ``app.engine``), and ``parts.mjs`` by the site's engine worker alone (worker.mjs: its start), whose Check with
 #: game data alone calls it. characters.mjs and variants.mjs stay every op: every build, the work ahead and each
 #: image chosen ask them.
-REACH = (("src/azurkit/app/", ("app",), None), ("src/azurkit/__main__.py", ("app",), None),
+REACH = (*((path, ("app", "site"), None) for path in ("tests/_perf.py", "tests/_page.py", "scripts/perf.py")),
+         ("src/azurkit/app/", ("app",), None), ("src/azurkit/__main__.py", ("app",), None),
          ("src/azurkit/_stacks.py", ("app",), None),
          ("src/azurkit/tools/randomizer/", ("app", "site"), ("randomizer", "tracker")),
          ("src/azurkit/tools/characters/", ("app", "site"), ("characters", "build")),

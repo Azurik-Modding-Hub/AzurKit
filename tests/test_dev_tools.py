@@ -766,10 +766,13 @@ def test_the_perf_gate_keeps_misses_as_debt_and_fails_only_a_regression_against_
     assert perf.listed(perf.render(main)) == main
 
 
-def test_a_changed_path_times_only_the_perf_ops_of_the_groups_that_load_it():
+def test_a_changed_path_times_only_the_perf_ops_of_the_groups_that_load_it_and_the_perf_tools_every_op():
     """``perf.select`` (``perf.REACH``): a path times the ops of the hosts
     and groups that load it, an unlisted path under ``src/`` or ``web/``
-    every op, a test or a doc none; each narrow row's loaders are still its
+    every op, and so does the perf gate's own driver or judge (Step 4.46a:
+    its change ran no perf stage, and land.py, which asks a perf block of
+    what ``perf.select`` times, asked none), a test or a doc none; each
+    narrow row's loaders are still its
     own (Step 4.43a: the app's stack dumps, the Tracker's modules and
     pictures, the site worker's Check parts), so an import that widens one
     fails here, not as a missed op."""
@@ -781,7 +784,8 @@ def test_a_changed_path_times_only_the_perf_ops_of_the_groups_that_load_it():
     for path in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs", "web/art/1-x/w1.png", "web/art/icons.css"):
         assert perf.select([path]) == pairs(both, ("start", "image", "randomizer", "tracker")), path
     assert perf.select(["web/parts.mjs"]) == pairs(("site",), ("start", "characters"))
-    for path in ("web/app.mjs", "web/worker.mjs", "web/characters.mjs", "web/variants.mjs", "src/azurkit/core/native.py"):
+    for path in ("web/app.mjs", "web/worker.mjs", "web/characters.mjs", "web/variants.mjs", "src/azurkit/core/native.py",
+                 "tests/_perf.py", "tests/_page.py", "scripts/perf.py"):
         assert perf.select([path]) == every, path
     assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set()
     imports = re.compile(r'^import [^;]*? from "\.{1,2}/([\w./]+\.mjs)";', re.M)

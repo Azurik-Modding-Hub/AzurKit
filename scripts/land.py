@@ -10,7 +10,7 @@ either a whole-suite run, or a changed-area run whose base is main's head
 and whose flake stage, when it has one (the tests the stack added or edited,
 run again and again slowed: ``fullsuite.flake_stage``), passed. A
 stack that changes a file under ``src/`` or ``web/``, or another path the
-perf stage times (``perf.select``: ``scripts/web_tools.py``), also needs the
+perf stage times (``perf.select``: ``scripts/web_tools.py``, the perf gate's own driver and judge), also needs the
 receipt's perf block (D981, ``scripts/perf.py``) with nothing blocking in it
 (D1170, ``perf.blocking``, read from its verdicts whichever perf.py wrote
 it): a clear regression against the last release's run, a memory peak, a
