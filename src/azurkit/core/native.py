@@ -48,7 +48,8 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
-           "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster", "spring", "clear")
+           "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster", "spring", "clear",
+           "strip", "regroup", "checks", "same")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -115,7 +116,11 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_dxt", [ctypes.c_char_p, i64, i64, i64, vp]), ("az_atan2", [vp, vp, i64, vp]),
                          ("az_raster", [vp, i64, i64, vp, vp]),
                          ("az_spring", [vp, vp, i64, i64, i64, vp, vp, i64, f64, i64, i64, i64, vp, vp, vp]),
-                         ("az_clear_need", [vp, vp]), ("az_clear", [vp] * 21)):
+                         ("az_clear_need", [vp, vp]), ("az_clear", [vp] * 21),
+                         ("az_strip_need", [i64]), ("az_strip", [vp, i64, vp, vp, vp]),
+                         ("az_regroup_need", [i64] * 3),
+                         ("az_regroup", [i64, vp, vp, vp, i64, vp, i64, vp, i64, i64, *[vp] * 8]),
+                         ("az_checks", [i64, vp, vp, i64, i64, i64, vp, vp, vp]), ("az_same", [vp, i64, vp, i64, vp])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
         return None, f"{name} doesn't load: {e}", None
@@ -1043,6 +1048,79 @@ def clear(sizes: Sequence[int], num: Sequence[float], slot: array, link: array, 
         return None
     return [[tuple(out[6 * (n_keys * c + j):6 * (n_keys * c + j) + 6]) for j in range(n_keys)] if turned[c] else None
             for c in range(links)]
+
+
+# ---- the body writes (native/body.c) --------------------------------------------------------------------------------
+def strip(tris: Sequence) -> tuple[int, ...] | None:
+    """``body_codec._stripped``'s strip of the triangles ``tris`` (three
+    corners each, ``az_strip``): its indices, or ``None`` without the
+    library or where the twin answers (a corner not an int64, a triangle
+    not three corners, one that repeats a vertex or a strip that doesn't
+    draw them, which it raises)."""
+    if (lib := library()) is None or not set(map(len, tris)) <= {3}:
+        return None
+    try:
+        flat = array("q", itertools.chain.from_iterable(tris))
+    except (TypeError, OverflowError):
+        return None
+    n = len(tris)
+    out, size, work = array("q", [0]) * (6 * n + 8), array("q", [0]), array("q", [0]) * lib.az_strip_need(n)
+    if lib.az_strip(_at(flat), n, _at(out), _at(size), _at(work)) != 0:
+        return None
+    return tuple(out[:size[0]])
+
+
+def regroup(w: array, s: array, pos: array, pal: array, t: array) -> tuple | None:
+    """``body_codec._split``'s parts of a group that doesn't fit
+    (``az_regroup``) from its vertices' weights ``w`` and slot codes ``s``
+    (four each) and positions ``pos`` (three), its palette ``pal`` and its
+    triangles ``t`` (three corners each): ``(count, ends, verts, local,
+    palette, codes)``, each part's three ends (``ends``) into its
+    triangles' (``local``: three corners each, in order, renumbered), its
+    vertices' (``verts``, ascending; ``codes`` four slot codes each) and its
+    palette entries' (``palette``); or ``None`` without the library or
+    where the twin answers (it raises, or a centre isn't finite)."""
+    if (lib := library()) is None:
+        return None
+    nv, nt, npal = len(s) // 4, len(t) // 3, len(pal)
+    work, dwork = array("q", [0]) * lib.az_regroup_need(nv, nt, npal), array("d", [0.0]) * (3 * nt)
+    verts, local, codes = (array("q", [0]) * (k * nt) for k in (3, 3, 12))
+    cap = 64
+    while True:   # each pass four times the parts, else the twin
+        ends, palette, count = array("q", [0]) * (3 * cap), array("q", [0]) * (31 * cap), array("q", [0])
+        code = lib.az_regroup(nv, _at(w), _at(s), _at(pos), npal, _at(pal), nt, _at(t), cap, 31 * cap, _at(count),
+                              _at(ends), _at(verts), _at(local), _at(palette), _at(codes), _at(dwork),
+                              _at(work))
+        if code == 1 and cap < nt:
+            cap *= 4
+            continue
+        return (count[0], ends, verts, local, palette, codes) if code == 0 else None
+
+
+def checks(f: array, s: array, npal: int, fixable: bool, t: array) -> tuple[int, int, float, int] | None:
+    """``body_codec.problems``' checks of one group (``az_checks``): its
+    vertices' 14 floats each ``f`` and four slot codes each ``s`` against a
+    palette of ``npal`` entries, its triangles ``t``: the first vertex
+    named (-1 none), what names it (1 a float not finite, 2 a negative
+    weight, 3 a slot code outside the palette, 4 its weights' sum not 1),
+    that sum, and the triangles that repeat a vertex or name one past the
+    group's; ``None`` without the library."""
+    if (lib := library()) is None:
+        return None
+    res, total = array("q", [0, 0, 0]), array("d", [0.0])
+    lib.az_checks(len(s) // 4, _at(f), _at(s), npal, int(fixable), len(t) // 3, _at(t), _at(res), _at(total))
+    return res[0], res[1], total[0], res[2]
+
+
+def same(a: array, b: array) -> bool | None:
+    """Whether triangles ``a`` and ``b`` (three corners each) are the same
+    once each is turned to lead with its least corner and both are sorted
+    (``az_same``, ``body_codec.write_asset``'s read-back); ``None`` without
+    the library."""
+    if (lib := library()) is None:
+        return None
+    work = array("q", [0]) * (len(a) + len(b))
+    return bool(lib.az_same(_at(a), len(a) // 3, _at(b), len(b) // 3, _at(work)))
 
 
 def _buf(b: bytearray) -> ctypes.c_void_p:

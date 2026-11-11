@@ -1293,7 +1293,19 @@ are the Characters section's.
   in buckets along the widest axis of the box, a bucket passed only where
   its nearest value is farther than the best so far, ties to the first
   point as numpy's `argmin` takes them (a box or skin not finite searches
-  every point in order).
+  every point in order). The ninth is the body writes' (`native/body.c`,
+  Step 4.37e4): `body_codec`'s stripify (`az_strip`: `_stripped`'s greedy
+  strips and its check that the strip draws its triangles; its twin
+  `_strip_twin`), regroup's split of a group that doesn't fit
+  (`az_regroup`: the bone clusters, the halving at the median, each part's
+  vertices, palette and slot codes and the fit of its strip; its twin
+  `_split`, the parts' groups built from its answer), `problems`' checks
+  of each vertex and triangle (`az_checks`; its twin `_checks_twin`) and
+  `write_asset`'s read-back compare of a group's triangles (`az_same`). On
+  integers but the centres (Python's `sum` of three floats), so a dict's
+  lists keep their order, a heap's unique keys pop in theirs and Python's
+  `min` its first; a vertex not a tuple of floats, a triangle not three
+  int64s, what the twin raises on and a centre not finite are the twin's.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

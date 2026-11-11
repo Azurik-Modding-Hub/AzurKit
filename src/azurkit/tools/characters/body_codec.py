@@ -72,10 +72,14 @@ from __future__ import annotations
 
 import functools
 import heapq
+import itertools
+import operator
 import struct
+from array import array
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 
+from azurkit.core import native
 from azurkit.core.xbr.append import NewResource, append_resources, rewrite_payloads
 from azurkit.core.xbr.nodes import named_resources, parse_toc
 
@@ -456,6 +460,14 @@ def stripify(triangles: Sequence[tuple[int, int, int]]) -> list[int]:
 
 @functools.lru_cache(maxsize=256)
 def _stripped(tris: tuple[tuple[int, int, int], ...]) -> tuple[int, ...]:
+    """:func:`stripify`'s strip by the compiled kernel (``core.native.strip``),
+    else its twin :func:`_strip_twin`, which raises where the kernel can't
+    answer."""
+    got = native.strip(tris)
+    return _strip_twin(tris) if got is None else got
+
+
+def _strip_twin(tris: tuple[tuple[int, int, int], ...]) -> tuple[int, ...]:
     for t in tris:
         if len(set(t)) != 3:
             raise ValueError(f"triangle {t} repeats a vertex")
@@ -624,6 +636,74 @@ def regroup(group: Group) -> list[Group]:
     clusters share is copied into each; each keeps its triangles' order."""
     if _fits(group) and all(b < 0x100 for v in group.vertices for b in v.slots):
         return [group]
+    got = _split_compiled(group)
+    return _split(group) if got is None else got
+
+
+def _doubles(vertices: Sequence[Vertex], fields: tuple[tuple[str, int], ...]) -> array | None:
+    """The vertices' ``fields`` (``(name, size)``, each a tuple of that many
+    floats) as one array, a vertex's in turn; ``None`` where one isn't (a
+    compiled kernel's caller then runs its twin)."""
+    try:
+        cols = [list(map(operator.attrgetter(name), vertices)) for name, _ in fields]
+        if any(set(map(len, col)) - {size} for col, (_, size) in zip(cols, fields)):
+            return None
+    except (AttributeError, TypeError):
+        return None
+    flat = list(itertools.chain.from_iterable(itertools.chain.from_iterable(zip(*cols))))
+    return array("d", flat) if set(map(type, flat)) <= {float} else None
+
+
+def _ints(rows: Sequence, size: int) -> array | None:
+    """``rows`` (each ``size`` ints: a triangle's corners) as one array of
+    int64, or ``None`` where one isn't."""
+    try:
+        if set(map(len, rows)) - {size}:
+            return None
+        return array("q", itertools.chain.from_iterable(rows))
+    except (TypeError, OverflowError):
+        return None
+
+
+def _slots(vertices: Sequence[Vertex]) -> array | None:
+    """The vertices' slot codes (four each) as :func:`_ints`'s."""
+    try:
+        return _ints(list(map(operator.attrgetter("slots"), vertices)), 4)
+    except AttributeError:
+        return None
+
+
+def _split_compiled(group: Group) -> list[Group] | None:
+    """:func:`_split`'s parts by the compiled kernel (``core.native.regroup``),
+    or ``None`` where its twin answers (no library, a vertex or triangle
+    not as the kernel takes it, what the twin raises on, a centre not
+    finite)."""
+    verts = group.vertices
+    w, pos = _doubles(verts, (("weights", 4),)), _doubles(verts, (("position", 3),))
+    s, t = _slots(verts), _ints(group.triangles, 3)
+    try:
+        pal = array("q", group.palette)
+    except (TypeError, OverflowError):
+        return None
+    if w is None or pos is None or s is None or t is None or \
+            (got := native.regroup(w, s, pos, pal, t)) is None:
+        return None
+    count, ends, used, local, palette, codes = got
+    parts, t0, v0, p0 = [], 0, 0, 0
+    for p in range(count):
+        t1, v1, p1 = ends[3 * p:3 * p + 3]
+        corners, slots = iter(local[3 * t0:3 * t1]), iter(codes[4 * v0:4 * v1])
+        made = [Vertex(old.position, old.weights, old.normal, old.uv, old.extra, code)
+                for old, code in zip(map(verts.__getitem__, used[v0:v1]), zip(slots, slots, slots, slots))]
+        parts.append(Group([group.palette[e] for e in palette[p0:p1]], made, list(zip(corners, corners, corners)),
+                           group.material, group.fvf, group.vb, group.pb))
+        t0, v0, p0 = t1, v1, p1
+    return parts
+
+
+def _split(group: Group) -> list[Group]:
+    """:func:`regroup`'s split of a group that doesn't fit: the compiled
+    kernel's twin."""
     skins = _bone_skin(group)
     tri_bones = [frozenset(b for v in t for b in skins[v]) for t in group.triangles]
     for k, bones in enumerate(tri_bones):
@@ -792,30 +872,68 @@ def problems(asset: BodyAsset, characters_xbr: bytes | None = None, *, fixable: 
                 if not (0 <= gshd < len(toc) and toc[gshd].tag == "gshd") or \
                         row >= struct.unpack_from("<I", characters_xbr, toc[gshd].file_offset)[0]:
                     out.append(f"{at}: material ({gshd}, {row}) is no gshd row of the file")
-            for j, v in enumerate(grp.vertices):
-                floats = (*v.position, *v.weights, *v.normal, *v.uv, *v.extra)
-                if not all(x == x and abs(x) != float("inf") for x in floats):
-                    out.append(f"{at} vertex {j}: a float isn't finite")
-                    break
-                if any(w < 0 for w in v.weights):
-                    out.append(f"{at} vertex {j}: a negative weight")
-                    break
-                live = [(w, b) for w, b in zip(v.weights, v.slots) if w > 0]
-                if any((b > 0xFF and fixable) or code_entry(b) is None or code_entry(b) >= len(grp.palette)
-                       for _, b in live):
-                    out.append(f"{at} vertex {j}: a weight's slot byte is outside the {len(grp.palette)}-entry palette")
-                    break
-                if live and abs(sum(w for w, _ in live) - 1.0) > 1e-5:
-                    out.append(f"{at} vertex {j}: its weights sum to {sum(w for w, _ in live):.6f}, not 1")
-                    break
-            bad = [t for t in grp.triangles if len(set(t)) != 3 or any(not 0 <= v < len(grp.vertices) for v in t)]
+            first, bad = _checks(grp, fixable)
+            if first is not None:
+                j, kind, total = first
+                out.append(f"{at} vertex {j}: " + ("a float isn't finite", "a negative weight",
+                                                    f"a weight's slot byte is outside the {len(grp.palette)}-entry "
+                                                    "palette", f"its weights sum to {total:.6f}, not 1")[kind - 1])
             if bad:
-                out.append(f"{at}: {len(bad)} triangles repeat a vertex or name one past its {len(grp.vertices)}")
+                out.append(f"{at}: {bad} triangles repeat a vertex or name one past its {len(grp.vertices)}")
             elif len(grp.palette) <= PALETTE_MAX and fixable:
                 size = _push_size(grp)
                 if size > PUSH_MAX:
                     out.append(f"{at}: a {size} B push buffer, past the {PUSH_MAX} B vanilla's largest holds")
     return out
+
+
+_CHECKED = (("position", 3), ("weights", 4), ("normal", 3), ("uv", 2), ("extra", 2))
+
+
+def _checks(grp: Group, fixable: bool) -> tuple[tuple[int, int, float] | None, int]:
+    """:func:`problems`' checks of ``grp``'s vertices and triangles: the
+    first vertex it names (its index, what it has: 1 a float not finite, 2
+    a negative weight, 3 a slot code outside the palette, 4 weights not
+    summing to 1, and that sum), else ``None``, and the triangles that
+    repeat a vertex or name one past its vertices; by the compiled kernel
+    (``core.native.checks``), else by its twin :func:`_checks_twin`."""
+    f, s = _doubles(grp.vertices, _CHECKED), _slots(grp.vertices)
+    t = _ints(grp.triangles, 3)
+    if f is None or s is None or t is None or (got := native.checks(f, s, len(grp.palette), fixable, t)) is None:
+        return _checks_twin(grp, fixable)
+    j, kind, total, bad = got
+    return (j, kind, total) if j >= 0 else None, bad
+
+
+def _checks_twin(grp: Group, fixable: bool) -> tuple[tuple[int, int, float] | None, int]:
+    first = None
+    for j, v in enumerate(grp.vertices):
+        floats = (*v.position, *v.weights, *v.normal, *v.uv, *v.extra)
+        if not all(x == x and abs(x) != float("inf") for x in floats):
+            first = (j, 1, 0.0)
+            break
+        if any(w < 0 for w in v.weights):
+            first = (j, 2, 0.0)
+            break
+        live = [(w, b) for w, b in zip(v.weights, v.slots) if w > 0]
+        if any((b > 0xFF and fixable) or code_entry(b) is None or code_entry(b) >= len(grp.palette)
+               for _, b in live):
+            first = (j, 3, 0.0)
+            break
+        if live and abs(sum(w for w, _ in live) - 1.0) > 1e-5:
+            first = (j, 4, sum(w for w, _ in live))
+            break
+    bad = [t for t in grp.triangles if len(set(t)) != 3 or any(not 0 <= v < len(grp.vertices) for v in t)]
+    return first, len(bad)
+
+
+def _same(a: Sequence[tuple[int, int, int]], b: Sequence[tuple[int, int, int]]) -> bool:
+    """Whether triangles ``a`` and ``b`` are the same, each turned to lead
+    with its least corner, both sorted (:func:`write_asset`'s read-back): by
+    the compiled kernel (``core.native.same``), else by its twin."""
+    x, y = _ints(a, 3), _ints(b, 3)
+    got = None if x is None or y is None else native.same(x, y)
+    return sorted(map(_canonical, a)) == sorted(map(_canonical, b)) if got is None else got
 
 
 def _users(characters_xbr: bytes, bmsh: int) -> list[str]:
@@ -923,7 +1041,7 @@ def write_asset(characters_xbr: bytes, asset: BodyAsset, *, regroup_groups: bool
     for n, (a, b) in enumerate(zip(asset.lods, back.lods)):
         for g, (ga, gb) in enumerate(zip(a.groups, b.groups)):
             if ga.vertices != gb.vertices or ga.palette != gb.palette or ga.material != gb.material or \
-                    sorted(map(_canonical, ga.triangles)) != sorted(map(_canonical, gb.triangles)):
+                    not _same(ga.triangles, gb.triangles):
                 raise ValueError(f"model write: {name} LOD {n} group {g} doesn't read back as written")
     if [len(lod.groups) for lod in back.lods] != [len(lod.groups) for lod in asset.lods] or \
             [(b.name, b.record[8:]) for b in back.bones] != [(b.name, b.record[8:]) for b in asset.bones] or \

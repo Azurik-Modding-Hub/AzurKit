@@ -135,7 +135,7 @@ def tup(x):
     return tuple(tup(v) for v in x) if isinstance(x, list) else x
 
 answers = []
-docs, dress, springs = json.load(open(json.loads(ARGV)[0]))
+docs, dress, springs, bodies = json.load(open(json.loads(ARGV)[0]))
 for doc, call in docs:
     graphs = tuple(native.Graph(*tup(g)) for g in doc.pop("graphs"))
     t = native.Tables(**{k: tup(v) for k, v in doc.items()} | {"discs": frozenset(doc["discs"])}, graphs=graphs)
@@ -145,7 +145,8 @@ from azurkit.tools.characters import decimate
 rng = random.Random(1407)
 cuts = [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
 json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answer(case) for case in dress],
-            "springs": [_spring_answer(case) for case in springs], "cuts": cuts})
+            "springs": [_spring_answer(case) for case in springs], "cuts": cuts,
+            "bodies": [_body_answer(case) for case in bodies]})
 """
 
 
@@ -318,12 +319,13 @@ def test_the_acceptance_kernels_play_keeps_every_stage_when_the_options_collect_
 def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path, monkeypatch):
     cases = list(_cases(1401, 40))
     cases += [(_monotone_of(t), call) for t, call in cases[:30]]
-    dress, springs = list(_dress_cases(1405, 60)), list(_spring_cases(1409, 12))
+    dress, springs, bodies = list(_dress_cases(1405, 60)), list(_spring_cases(1409, 12)), list(_body_cases(1411, 16))
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
-    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs]), encoding="utf-8")
+    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs, bodies]), encoding="utf-8")
     got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer)
-                  + inspect.getsource(_spring_answer) + inspect.getsource(_mesh) + _UNDER_PYODIDE,
+                  + inspect.getsource(_spring_answer) + inspect.getsource(_mesh) + inspect.getsource(_body_answer)
+                  + _UNDER_PYODIDE,
                   packages=(_pyodide.numpy(),))
     assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
     assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
@@ -331,6 +333,7 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     with numpy.errstate(all="ignore"):
         assert got["dress"] == json.loads(json.dumps([_dress_answer(case) for case in dress]))
         assert got["springs"] == json.loads(json.dumps([_spring_answer(case) for case in springs]))
+    assert got["bodies"] == [_body_answer(case) for case in bodies]
     from azurkit.tools.characters import decimate
     rng = random.Random(1407)
     assert got["cuts"] == [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
@@ -835,6 +838,119 @@ def test_the_spring_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):
         assert got == [_spring_answer(case) for case in cases]
+
+
+def _body_cases(seed: int, count: int):
+    """Seeded random groups of a body for the body writes' kernels
+    (``native/body.c``), as JSON: a grid's triangles (some dropped, some
+    turned, shuffled; now and then one twice, one beside its reverse, one
+    that repeats a corner or names a vertex past the group's), each vertex
+    weighed to 1-4 bones near it of a palette of up to 64 (one entry twice
+    now and then; past 31 a slot code past a byte), now and then a slot
+    code outside the palette, a NaN or negative weight, weights not
+    summing to 1 or a position not finite; the first two grids, sound, big
+    enough that their strip passes PUSH_MAX and is halved (the first's
+    before it is stripped, the second's, square, once it is)."""
+    rng = random.Random(seed)
+    for i in range(count):
+        w, h = ((80, 75), (75, 75))[i] if i < 2 else (rng.randint(1, 14), rng.randint(1, 14))
+        bones = rng.choice((3, 12, 31, 40, 64, 64)) if i >= 2 else rng.choice((3, 12, 31))
+        palette = list(range(bones))
+        rng.shuffle(palette)
+        if rng.random() < 0.2:
+            palette.insert(rng.randrange(len(palette) + 1), rng.choice(palette))
+        verts = []
+        for y in range(h + 1):
+            for x in range(w + 1):
+                near = sorted({min(bones - 1, (x * bones) // (w + 1) + d) for d in range(rng.randint(1, 4))})
+                ws = [rng.random() + 0.01 for _ in near]
+                ws = [v / sum(ws) for v in ws]
+                codes = [e + 1 if e <= 11 else e + 2 if e < 31 else 0x100 + e
+                         for e in (palette.index(b) for b in near)]
+                verts.append([[x * 0.1, y * 0.1, rng.uniform(-0.05, 0.05)], ws + [0.0] * (4 - len(ws)),
+                              [0.0, 0.0, 1.0], [x / (w + 1), y / (h + 1)], [0.0, 0.0], codes + [0] * (4 - len(codes))])
+        for _ in range(rng.randint(0, 2) if i >= 2 else 0):
+            v, odd = rng.choice(verts), rng.random()
+            if odd < 0.2:
+                v[5][0] = 13                      # a slot code naming no entry
+            elif odd < 0.35:
+                v[1][0] = float("nan")
+            elif odd < 0.5:
+                v[1][-1] = -0.25
+            elif odd < 0.7:
+                v[1][0] += 0.01                   # weights summing past 1
+            elif odd < 0.8:
+                v[0][rng.randrange(3)] = float("inf")
+        tris = []
+        for y in range(h):
+            for x in range(w):
+                a, b, c, d = y * (w + 1) + x, y * (w + 1) + x + 1, (y + 1) * (w + 1) + x, (y + 1) * (w + 1) + x + 1
+                for t in ((a, b, c), (b, d, c)):
+                    if rng.random() < 0.95:
+                        tris.append(list(t) if rng.random() < 0.95 else [t[0], t[2], t[1]])
+        rng.shuffle(tris)
+        odd = rng.random() if i >= 2 else 1.0
+        if odd < 0.15:
+            tris.append(list(rng.choice(tris)))
+        elif odd < 0.3:
+            t = rng.choice(tris)
+            tris.append([t[0], t[2], t[1]])
+        elif odd < 0.36:
+            tris.append([tris[0][0], tris[0][0], tris[0][1]])
+        elif odd < 0.42:
+            tris.append([0, 1, len(verts)])
+        turned = [t[k:] + t[:k] for t in tris for k in (rng.randrange(3),)]
+        rng.shuffle(turned)
+        if rng.random() < 0.3:
+            turned[0] = [turned[0][0], turned[0][2], turned[0][1]]
+        yield {"palette": palette, "vertices": verts, "triangles": tris, "turned": turned, "bones": bones}
+
+
+def _body_answer(case: dict) -> list:
+    """body_codec's stripify, regroup, problems (fixable and not) and the
+    read-back's compare on ``case`` (by the library when it's loaded, else
+    the twins): each answer's repr, or the error it raises."""
+    import struct
+
+    from azurkit.tools.characters import body_codec as bc
+
+    def group():
+        return bc.Group(list(case["palette"]), [bc.Vertex(*map(tuple, v)) for v in case["vertices"]],
+                        [tuple(t) for t in case["triangles"]], (0, 0))
+
+    bones = [bc.Bone(f"b{k}", bytes(8) + struct.pack("<h", k - 1) + bytes(150)) for k in range(case["bones"])]
+    asks = (lambda: bc.stripify(group().triangles), lambda: bc.regroup(group()),
+            lambda: bc.problems(bc.BodyAsset("x", 0, bytes(32), bones, [], [bc.Lod(None, [group()])])),
+            lambda: bc.problems(bc.BodyAsset("x", 0, bytes(32), bones, [], [bc.Lod(None, [group()])]), fixable=False),
+            lambda: bc._same(group().triangles, [tuple(t) for t in case["turned"]]))
+    out = []
+    for ask in asks:
+        bc._stripped.cache_clear()
+        try:
+            out.append(repr(ask()))
+        except (ValueError, IndexError) as exc:
+            out.append(f"{type(exc).__name__}: {exc}")
+    return out
+
+
+def test_the_body_write_kernels_give_their_twins_answers(monkeypatch):
+    """``native/body.c``'s kernels (``az_strip``: stripify's greedy strips
+    and their check; ``az_regroup``: regroup's clusters of bones, the
+    halving at the median and each part's vertices, palette and slot
+    codes; ``az_checks``: problems' checks of each vertex and triangle;
+    ``az_same``: the write's read-back compare of triangles) give their
+    twins' answers over seeded random groups, what the twins raise raised
+    alike."""
+    cases, ran = list(_body_cases(1410, 40)), collections.Counter()
+    for name in ("strip", "regroup", "checks", "same"):
+        monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name:
+                            ran.update([(name, (got := real(*a)) is not None)]) or got)
+    assert native.report()["loaded"]
+    got = [_body_answer(case) for case in cases]
+    assert min(ran[(name, True)] for name in ("strip", "regroup", "checks", "same")) > 8, ran   # most by the library
+    assert any("Error" in g[1] for g in got) and any(g[1].count("Group(") > 2 for g in got), got   # raised; split
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    assert got == [_body_answer(case) for case in cases]
 
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):
