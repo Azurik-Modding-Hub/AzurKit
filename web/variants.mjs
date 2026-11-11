@@ -32,6 +32,7 @@ import { soundsTab } from "./variants/sounds.mjs";
 
 const $ = (id) => document.getElementById(id);
 const CHOOSE = "Choose your image first (1.)";   // D979's line on what waits for an image
+const MOST = 256 * 1024 * 1024;   // library.MOST, the most a variant's file holds: Import refuses one past it unread
 const MODES = { own: "Balanced", garret4: "Skin only" };
 const SIZES = { own: "its own", garret4: "Garret's height" };
 const JSON_NOTE = "Every field, as the recipe file holds it.";
@@ -695,10 +696,21 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     if (await leave()) await open("yours", reply.name);
     told(`Imported ${reply.name}`, lost);
   };
-  ui.file?.addEventListener("change", async () => {
+  ui.file?.addEventListener("change", async () => {   // a file past MOST, or one that can't be read, refused by name
     const picked = ui.file.files[0];
     ui.file.value = "";
-    if (picked) await imported({ given: { files: true }, data: new Uint8Array(await picked.arrayBuffer()) });
+    if (!picked) return;
+    if (picked.size > MOST) {
+      return say(`Not imported: ${picked.name} is past the ${MOST.toLocaleString("en-US")} B a variant's file holds`,
+                 true);
+    }
+    let data;
+    try {
+      data = new Uint8Array(await picked.arrayBuffer());
+    } catch (error) {
+      return say(`Not imported: ${picked.name} can't be read (${error?.name || "its read failed"})`, true);
+    }
+    await imported({ given: { files: true }, data });
   });
   ui.importIt?.addEventListener("click", () => ui.path.value.trim()
     && imported({ path: ui.path.value.trim() }));

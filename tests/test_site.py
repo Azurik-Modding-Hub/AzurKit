@@ -6331,6 +6331,30 @@ def _variants_shown(page, *, status: str = "", name: str | None = None) -> dict:
                              f"&& ({json.dumps(name)} === null || s.name === {json.dumps(name)}) && s; }}", 120)
 
 
+def test_the_sites_import_refuses_a_file_past_the_cap_unread(browser, site):
+    """The site's Variants view: an Import of a picked file past the
+    268,435,456 B a variant's file holds (``library.MOST``, the app's cap)
+    is refused by its name before any of it is read; the page once read it
+    whole into itself and the engine's heap first, and a file past the
+    browser's limit failed unsaid (D992, Step 4.42c)."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        page.evaluate("""() => { const box = document.getElementById("var-import");
+            Object.defineProperty(box, "files", { value: [{ name: "big.iso", size: 2 ** 28 + 1,
+              arrayBuffer() { globalThis.importRead = true; return new Promise(() => {}); } }] });
+            box.dispatchEvent(new Event("change")); }""")
+        said = _page.until(page, "() => document.getElementById('status').textContent.startsWith('Not imported') "
+                                 "&& document.getElementById('status').textContent", 30)
+        assert [said, page.evaluate("() => globalThis.importRead ?? false")] == [
+            "Not imported: big.iso is past the 268,435,456 B a variant's file holds", False]
+    finally:
+        served.close()
+
+
 def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_and_asks_before_edits_go(
         browser, site, tmp_path):
     """Step 4.6c on the site (Modkit's Variants page; D372, D480, D1087), no image picked: the Variants view lists
