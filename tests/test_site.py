@@ -4429,8 +4429,11 @@ def test_a_saves_check_keeps_its_bar_through_a_later_build_cancelled_and_the_eng
         _page.until(page, "() => azurkit.ready", 300)
         with page.expect_download(timeout=600_000) as caught:   # every file hashed, as on a page that hashed none
             page.evaluate("() => { azurkit.vouched.clear(); document.querySelector('#save').click(); }")
-        page.evaluate("() => document.querySelector('#build').click()")
-        _page.click(page, "cancel")
+        # a recipe no work ahead holds (none is listed while a Save is checked), built and cancelled in one task, so
+        # no answer comes between: two round trips let a vanilla build's answer land first on Windows's Firefox, its
+        # Blob then made ready to save on the bar (Step 4.37t)
+        _page.tick(page, ["fps_unlock"])
+        page.evaluate("() => { document.querySelector('#build').click(); document.getElementById('cancel').click(); }")
         _page.until(page, "() => azurkit.ready", 300)
         assert page.evaluate("() => [azurkit.saveCheck, document.getElementById('progress-row').hidden, "
                              "document.getElementById('progress-line').textContent.startsWith('Saving')]") == [
