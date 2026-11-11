@@ -48,7 +48,7 @@ import pytest
 
 import azurkit
 from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
-from azurkit import app, cli, sdk
+from azurkit import _stacks, app, cli, sdk
 from azurkit.app import engine
 from azurkit.core import gate, iso, native, progress
 from azurkit.core.progress import record as progress_record
@@ -315,17 +315,18 @@ def test_a_closed_servers_late_write_lands_in_its_own_tests_home_not_the_next_on
 
 class Sandbox:
     """Where the frozen app runs: a fresh HOME and TMPDIR, an empty working
-    folder, no image variables and the tests' no-window mode (:attr:`env`;
-    this process's HOME too). :meth:`left` lists what was written there
-    outside platformdirs' folders."""
+    folder, no image variables, the tests' no-window mode and its processes'
+    stacks dumped in :attr:`stacks` (:attr:`env`; this process's HOME too).
+    :meth:`left` lists what was written there outside platformdirs' folders."""
 
     def __init__(self, tmp_path: Path, monkeypatch):
         self.home, self.tmp, self.cwd = tmp_path / "home", tmp_path / "tmp", tmp_path / "cwd"
-        for folder in (self.home, self.tmp, self.cwd):
+        self.stacks = tmp_path / "stacks"   # outside what left() reads
+        for folder in (self.home, self.tmp, self.cwd, self.stacks):
             folder.mkdir()
         _home(monkeypatch, self.home)
         self.env = {k: v for k, v in os.environ.items() if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE")}
-        self.env |= {"TMPDIR": str(self.tmp), app.NO_WINDOW: "1"}
+        self.env |= {"TMPDIR": str(self.tmp), app.NO_WINDOW: "1", _stacks.FOLDER: str(self.stacks)}
         monkeypatch.delenv("AZURKIT_ISO", raising=False)
         monkeypatch.delenv("AZURKIT_ISO_EUROPE", raising=False)
         self.dirs = platformdirs.PlatformDirs("AzurKit", appauthor=False)
@@ -347,10 +348,26 @@ class Sandbox:
                 assert url.startswith("http://127.0.0.1:"), served.stderr.read()
                 yield url
             except BaseException as exc:
-                _ended_with(served, exc)
+                self.noted(served, exc)
                 raise
             served.stdin.close()
             assert (served.wait(30), served.stderr.read()) == (0, "")
+
+    def noted(self, served: subprocess.Popen, exc: BaseException) -> None:
+        """Note on ``exc``, a failure while the app ``served`` served, what
+        names where it stood (Step 4.37i: its dress on Windows gave no answer
+        in 900 s, and nothing said why): its processes' memory while they
+        run (:func:`_memory`), :func:`_ended_with`'s note (it ends them),
+        then each one's last stacks (:func:`_last_stacks`) and its store's files
+        (:func:`_store`)."""
+        alive = None
+        with contextlib.suppress(Exception):   # a note, never the failure
+            alive = [served.pid, *_descendants(served.pid)]
+            exc.add_note(_memory(alive))
+        _ended_with(served, exc)
+        with contextlib.suppress(Exception):
+            exc.add_note(_last_stacks(self.stacks, served.pid, alive))
+            exc.add_note(_store(Path(self.dirs.user_cache_dir)))
 
     def left(self) -> list[Path]:
         kept = [Path(getattr(self.dirs, f"user_{kind}_dir")) for kind in ("data", "config", "cache", "state", "log")]
@@ -367,6 +384,63 @@ def _ended_with(served: subprocess.Popen, exc: BaseException) -> None:
     served.kill()
     with contextlib.suppress(subprocess.TimeoutExpired, ValueError, OSError):
         exc.add_note(f"the app {state}; its stderr:\n" + served.communicate(timeout=30)[1][-1000:])
+
+
+def _memory(pids: list[int]) -> str:
+    """``pids``' memory in MiB, a process each (Windows' private bytes, else the resident size), and on Windows the
+    physical memory free: a call that crawls while the machine pages reads apart from one that hangs."""
+    ids = ",".join(map(str, pids))
+    if os.name == "nt":
+        script = (f"Get-Process -Id {ids} -ErrorAction SilentlyContinue | ForEach-Object "   # no double quote to escape
+                  "{ '' + $_.Id + ' ' + [long]($_.PrivateMemorySize64 / 1MB) }; "
+                  "'free ' + [long]((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1KB)")
+        rows = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True,
+                              timeout=120).stdout.split()
+    else:
+        rows = [v if k % 2 == 0 else str(int(v) >> 10) for k, v in enumerate(subprocess.run(
+            ["ps", "-o", "pid=,rss=", "-p", ids], capture_output=True, text=True, timeout=60).stdout.split())]
+    return "the app's processes' memory (pid: MiB): " + ", ".join(f"{a}: {b}" for a, b in zip(rows[::2], rows[1::2]))
+
+
+def _last_stacks(folder: Path, app_pid: int, alive: list[int] | None = None) -> str:
+    """Each of the app's processes' last dump in ``folder`` (``azurkit._stacks``: a file each, headed ``pid P of Q``:
+    the app, its children, the engine and multiprocessing's resource tracker, and theirs, the pool's), a line a
+    thread, its innermost frame first and the standard ``threading`` frames past it left out, each line within the
+    240 characters CI keeps of it (``tests.yml``); a process not among ``alive`` (the app's tree at the failure) had
+    ended by then."""
+    def short(path: str) -> str:
+        *_, package, name = ["", *re.split(r"[\\/]", path)]
+        name = name.removesuffix(".py")
+        return f"{package}/{name}" if name == "__init__" else name
+    lines = ["each thread's stack, innermost first, at each of the app's processes' last dump:"]
+    for file in sorted(folder.glob("*.txt"), key=lambda f: f.stat().st_mtime_ns):
+        head, _, dumps = file.read_text(encoding="utf-8", errors="replace").partition("\n")
+        pid, parent = (int(n) for n in re.findall(r"\d+", head)[:2])
+        role = "the app" if pid == app_pid else "a child of the app" if parent == app_pid else f"a child of {parent}"
+        last = dumps.rpartition("Timeout (")[2].partition("\n")[2] if "Timeout (" in dumps else ""
+        gone = "" if alive is None or pid in alive else " (ended before the failure)"
+        lines.append(f"{role}, pid {pid}{gone}, " + (f"{time.time() - file.stat().st_mtime:.0f} s after its last dump:"
+                                                       if last else "no dump yet"))
+        threads: list[tuple[str, list[str]]] = []
+        for line in last.splitlines():
+            if m := re.match(r"(?:Current thread|Thread) (0x[0-9a-fA-F]+)(?: \[(.*)\])?", line):
+                threads.append((m[2] or m[1], []))
+            elif threads and (m := re.match(r'\s+File "(.+)", line (\d+) in (.+)', line)):
+                threads[-1][1].append(f"{short(m[1])}:{m[2]} {m[3]}")
+        for name, frames in threads:
+            kept = frames[:1] + [frame for frame in frames[1:] if not frame.startswith("threading:")]
+            lines.append(f"  {name}: {' < '.join(kept)}"[:236])
+    return "\n".join(lines)
+
+
+def _store(cache: Path) -> str:
+    """The app's store (``app.swapcache``, in ``cache``) as a failure left it: its files and their size, its part
+    files (writes not yet renamed into place) and how long since its newest was written."""
+    files = [(p.name, p.stat()) for p in cache.rglob("*") if p.is_file()]
+    newest = max((st.st_mtime for _, st in files), default=None)
+    return (f"the app's store: {len(files)} files, {sum(st.st_size for _, st in files) >> 20} MiB, "
+            f"{sum(name.endswith('.part') for name, _ in files)} part files"
+            + ("" if newest is None else f", the newest written {time.time() - newest:.0f} s before"))
 
 
 def _children(pid: int) -> list[int]:
@@ -1911,6 +1985,50 @@ def test_serves_engine_answers_while_serve_waits_on_its_input(tmp_path, monkeypa
             raise
         served.stdin.close()
         assert (served.wait(60), served.stderr.read()) == (0, "")
+
+
+def test_where_the_tests_ask_each_of_the_apps_processes_dumps_its_stacks_and_a_failure_notes_each_ones_last(
+        tmp_path, monkeypatch):
+    """Step 4.37i: where the tests set ``azurkit._stacks.FOLDER`` (the frozen app's :class:`Sandbox`), ``serve`` and
+    the engine it spawns (and the pool's children, ``engine.orphaned``) each dump every thread's stack to a file of
+    their own, headed ``pid P of Q``, each ``_stacks.EVERY`` s; :func:`_last_stacks` notes each one's last dump, a
+    line a thread, the call it waits in first: a call that never answers names where each process stood (the Windows
+    app's dress gave no answer in 900 s and nothing said why). A player sets nothing, and nothing is written."""
+    _home(monkeypatch, tmp_path / "home")
+    asked, dumped, replies = tmp_path / "asked", tmp_path / "dumped", []
+    asked.mkdir()
+    dumped.mkdir()
+    with subprocess.Popen([sys.executable, "-m", "azurkit", "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True, env=os.environ | {_stacks.FOLDER: str(asked)}) as served:
+        try:
+            _post(served.stdout.readline().strip(), "api/plan_spoiler", {"plan": {}}, replies)   # the engine's call
+        except BaseException as exc:
+            _ended_with(served, exc)
+            raise
+        served.stdin.close()
+        assert (served.wait(60), served.stderr.read()) == (0, "")
+    (a, of_a), (b, of_b) = (map(int, re.fullmatch(r"pid (\d+) of (\d+)", f.read_text(encoding="utf-8").partition(
+        "\n")[0]).groups()) for f in asked.iterdir())
+    assert "refused" in replies[0] and (of_b == a or of_a == b)   # the server's and its engine's
+    code = textwrap.dedent("""
+        import faulthandler, threading, time
+        from azurkit import _stacks
+        def held(event):
+            event.wait()
+        _stacks.EVERY = 0.1
+        _stacks.arm()
+        event = threading.Event()
+        threading.Thread(target=held, args=(event,), name="azurkit-image").start()
+        time.sleep(1)
+        faulthandler.cancel_dump_traceback_later()   # the last dump while both wait
+        event.set()
+        """)
+    subprocess.run([sys.executable, "-c", code], env=os.environ | {_stacks.FOLDER: str(dumped)}, timeout=60,
+                   check=True)
+    note = _last_stacks(dumped, 0).splitlines()
+    assert re.fullmatch(r"a child of \d+, pid \d+, \d+ s after its last dump:", note[1]), note
+    assert any(re.fullmatch(r"  .+: threading:\d+ wait < <string>:5 held", line) for line in note[2:]), note
+    assert any(re.fullmatch(r"  .+: <string>:10 <module>", line) for line in note[2:]), note
 
 
 def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monkeypatch, usa_iso):

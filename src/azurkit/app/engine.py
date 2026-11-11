@@ -53,7 +53,7 @@ import threading
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from azurkit import sdk
+from azurkit import _stacks, sdk
 from azurkit.core import gate, iso, native
 from azurkit.core.progress import Steps, noting, record
 from azurkit.edits import files as replaced
@@ -578,7 +578,9 @@ class Spawned:
 
 def orphaned() -> None:
     """End this process when its parent's ends (a thread that waits on the
-    parent's sentinel), and leave Ctrl-C to the parent: a spawned child's."""
+    parent's sentinel), and leave Ctrl-C to the parent: a spawned child's.
+    Its stacks are dumped where the tests ask (:mod:`azurkit._stacks`)."""
+    _stacks.arm()
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     if (parent := multiprocessing.parent_process()) is not None:
         threading.Thread(target=lambda: (multiprocessing.connection.wait([parent.sentinel]), os._exit(1)),

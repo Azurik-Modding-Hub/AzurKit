@@ -1993,7 +1993,12 @@ are the Characters section's.
   quit right after a reshape's Built never loses its dress (Step 4.4bc);
   `serve()` and `Spawned()` keep nothing past their process. In-process `app.serve()` (the tests') runs
   them on the request's thread (`engine.Here`), so a test's stand-in sdk
-  call takes. A script that calls `app.main` guards it with `if __name__ ==
+  call takes. Where the tests set `AZURKIT_STACKS` (`azurkit._stacks`, the
+  frozen app's sandbox: a player never does), the server, its engine and
+  the pool's children each dump every thread's stack to a file of their own
+  every 30 s (`faulthandler`, armed first thing in the frozen app's entry),
+  so a served call that never answers fails naming where each process stood
+  (Step 4.37i). A script that calls `app.main` guards it with `if __name__ ==
   "__main__"` (spawn imports the main script again). The page takes the image's path
   (remembered in platformdirs' config folder; the window adds file dialogs)
   and Save writes the build to a path, never over an existing file but one

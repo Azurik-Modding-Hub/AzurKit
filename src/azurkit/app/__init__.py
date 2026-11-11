@@ -187,7 +187,7 @@ import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 
-from azurkit import __version__, commit, platform, sdk
+from azurkit import __version__, _stacks, commit, platform, sdk
 from azurkit.core import gate
 from azurkit.core.progress import record
 from azurkit.edits import files as replaced
@@ -1486,6 +1486,7 @@ def main(argv: list[str] | None = None) -> int:
     if not (PAGE / "index.html").is_file():
         print(f"azurkit: {PAGE}: no index.html (the page)", file=sys.stderr)
         return 1
+    _stacks.arm()   # the tests' dumps of each thread's stack, when they ask (off for a player)
     swapcache.install()   # the images checked and the swap's answers, kept across launches (the engine's too)
     if argv:
         _input_kept_from_children()   # before the engine's spawn
