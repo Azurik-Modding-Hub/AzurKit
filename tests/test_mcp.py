@@ -167,6 +167,34 @@ def test_iso_repack_writes_no_image_beside_the_vanilla_ones(tmp_path, monkeypatc
     assert sorted(p.name for p in folder.iterdir()) == ["usa.iso"]
 
 
+def test_a_spoiler_naming_the_built_image_by_another_spelling_is_refused(tmp_path, monkeypatch):
+    """Step 4.42d: rando_build_iso's spoiler is checked against the built image by file identity, so out spelled
+    in another letter case (a case-blind disk) or through macOS's /System/Volumes/Data firmlink is refused and no
+    image is left (D35), where the spoiler replaced the image and the reply still said success. One rule on every
+    OS: a spelling that names out is refused, one that names another file gets the spoiler beside the image."""
+    def build(made, out):   # sdk.build's report, its image a stand-in (the guards under test are the tool's)
+        Path(out).write_bytes(b"image")
+        return {"out": str(out), "release": "usa", "sha256": "0" * 64, "layers": [], "result": {}, "size": 5,
+                "conflicts": [], "notes": [], "spoiler": "the spoiler"}
+
+    monkeypatch.setattr(tools, "_recipe", lambda *args: ({"packs": {}}, []))
+    monkeypatch.setattr(tools.sdk, "build", build)
+    for n, spelled in enumerate((lambda out: out.with_name("BUILD.ISO"),
+                                 lambda out: Path("/System/Volumes/Data" + str(out.resolve())))):
+        (folder := tmp_path / str(n)).mkdir()
+        out = folder / "build.iso"
+        out.write_bytes(b"")
+        aliased = (spoiler := spelled(out)).exists()
+        out.unlink()
+        reply = tools.rando_build_iso(str(tmp_path / "in.iso"), str(out), 1, {"spoiler": str(spoiler)})
+        if aliased:
+            assert not reply["success"] and "output image itself" in reply["error"], reply
+            assert list(folder.iterdir()) == []
+        else:
+            assert reply["success"], reply
+            assert (out.read_bytes(), spoiler.read_text(encoding="utf-8")) == (b"image", "the spoiler")
+
+
 # --- Step 4.28f: Modkit's unpinned MCP behaviours, ported -------------------------------------------------------
 
 

@@ -389,6 +389,10 @@ def rando_build_iso(iso: str, out: str, seed: str | int | None = None, options: 
     report, reply = _built(made, out, settled)
     if spoiler := options.get("spoiler"):
         try:
+            # out by another spelling (a case-blind disk, macOS's /System/Volumes/Data firmlink), which the
+            # string check before the build can't see: the spoiler would replace the image
+            if Path(spoiler).exists() and Path(spoiler).samefile(report["out"]):
+                raise ValueError(f"spoiler {spoiler}: it is the output image itself")
             _write(Path(spoiler), report["spoiler"].encode("utf-8"))
         except BaseException:   # D35: no image without its spoiler
             Path(report["out"]).unlink(missing_ok=True)
