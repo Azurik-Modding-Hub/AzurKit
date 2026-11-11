@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 import bootstrap
+from azurkit.core import iso
 from tests import _leak_guard
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -105,8 +106,9 @@ def test_a_tar_or_zip_archive_is_refused_for_a_file_it_holds(tmp_path):
                       "inside its archive: part.000: XISO volume descriptor at 0x10000"),
         "keys.zip.gz": (gzip.compress(_zip(zipfile.ZIP_DEFLATED, xbe, key)),
                         "inside its gzip: inside its archive: id: private key at 0"),
-        "nested.zip": (_zip(zipfile.ZIP_STORED, ("inner.tar.gz", gzip.compress(_tar(key)))),
-                       "inside its archive: inner.tar.gz: inside its gzip: inside its archive: id: private key at 0"),
+        "nested.zip": (_zip(zipfile.ZIP_STORED, ("inner.tar.gz", gzip.compress(_tar(xbe, ("eeprom.bin", bytes(256)))))),
+                       "inside its archive: inner.tar.gz: inside its gzip: inside its archive: eeprom.bin: "
+                       "EEPROM (eeprom*.bin name)"),
     }
     passed = {"game.tar": _tar(xbe, xbr),
               "game.zip": _zip(zipfile.ZIP_DEFLATED, xbe, ("level.xbr.gz", gzip.compress(xbr[1])))}
@@ -114,6 +116,53 @@ def test_a_tar_or_zip_archive_is_refused_for_a_file_it_holds(tmp_path):
         (tmp_path / name).write_bytes(data)
     assert {name: _leak_guard.check(tmp_path, name) for name in refused | passed} == {
         **{name: why for name, (_, why) in refused.items()}, **dict.fromkeys(passed)}
+
+
+class _Disc(io.RawIOBase):
+    """A whole disc image's stand-in, 1 MiB past ``at``: zeros, but the XISO
+    volume descriptor's magic at ``at`` (held as those bytes alone)."""
+
+    def __init__(self, at: int) -> None:
+        self.at, self.pos, self.size = at, 0, at + (1 << 20)
+
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def seek(self, pos: int, whence: int = 0) -> int:
+        self.pos = pos
+        return pos
+
+    def readinto(self, b) -> int:
+        n = max(0, min(len(b), self.size - self.pos))
+        b[:n] = bytes(n)
+        lo, hi = max(self.at, self.pos), min(self.at + len(_leak_guard.XISO), self.pos + n)
+        if lo < hi:
+            b[lo - self.pos:hi - self.pos] = _leak_guard.XISO[lo - self.at:hi - self.at]
+        self.pos += n
+        return n
+
+
+def test_a_key_past_a_files_start_and_a_whole_disc_images_descriptor_are_refused(tmp_path):
+    """A private key's BEGIN line after a certificate or ``openssl pkcs12
+    -nodes``'s attributes is refused where it starts, and a whole disc image
+    (any name) by its volume descriptor at 0x10000 past each game partition
+    core/iso.py opens; 64 KiB of zeros and a 1 MiB file pass."""
+    cert = b"-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+    keys = {"server.pem": cert + b"-----BEGIN PRIVATE KEY-----\nMIIE\n",
+            "bundle.txt": b"Bag Attributes\n    localKeyID: 01\n-----BEGIN RSA PRIVATE KEY-----\r\nMIIE\r\n"}
+    for name, data in keys.items():
+        (tmp_path / name).write_bytes(data)
+    (tmp_path / "zeros.bin").write_bytes(bytes(0x10000))
+    (tmp_path / "big.bin").write_bytes(bytes(1 << 20))
+    assert {name: _leak_guard.check(tmp_path, name) for name in (*keys, "zeros.bin", "big.bin")} == {
+        "server.pem": f"private key at {len(cert):#x}", "bundle.txt": "private key at 0x22",
+        "zeros.bin": None, "big.bin": None}
+    assert sorted(_leak_guard.DISCS) == list(_leak_guard.DISCS) == sorted(iso._PARTITIONS[1:])
+    assert [_leak_guard._check("game.img", _Disc(base + 0x10000)) for base in _leak_guard.DISCS] == [
+        f"XISO volume descriptor at {base + 0x10000:#x}" for base in _leak_guard.DISCS]
 
 
 def test_a_push_fails_on_a_refused_file_a_later_commit_deleted(tmp_path):

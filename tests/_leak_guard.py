@@ -18,12 +18,14 @@ Game files and game bytes may be committed (D961): an XBE, an XBR, a clip, a
 texture, a save, a snippet, a byte literal, a disassembly listing. Refused:
 
 - the ISO, whole or in parts: an XISO or its first part
-  (``MICROSOFT*XBOX*MEDIA`` at 0x10000, the volume descriptor), or an
-  ``.iso``/``.xiso``/``.iso.NNN`` name (the parts that rebuild one);
+  (``MICROSOFT*XBOX*MEDIA`` at 0x10000, the volume descriptor), a whole disc
+  image (the descriptor at 0x10000 past a game partition's start,
+  :data:`DISCS`), or an ``.iso``/``.xiso``/``.iso.NNN`` name (the parts that
+  rebuild one);
 - an xemu HDD image (qcow2, ``QFI\\xfb`` at 0), an EEPROM dump (an ``eeprom``
   name ending ``.bin``; console keys), a guest RAM snapshot (``AZL3SNAP`` at
   0, Modkit's L3 snapshots; console keys) or a private key (a ``-----BEGIN
-  … PRIVATE KEY-----`` line at 0).
+  … PRIVATE KEY-----`` line in its first :data:`MAGIC_SPAN` bytes).
 
 A gzip file (``1f 8b`` at 0) is refused for what it holds as well: each
 member on its own (:class:`_Inflated`: read to its end, past a bad CRC or
@@ -55,6 +57,8 @@ MAGIC_SPAN = 0x10020
 CHUNK = 1 << 16          # read at a time; a zlib call inflates at most 16 of them
 DEPTH = 3                # the most wrappings unwrapped (a tar in a gzip in a zip ...)
 MAX_TEXT = 16 << 20      # of a zip read with no seek (in a gzip file or a tar), the most held
+DISCS = (0x2080000, 0xFD90000, 0x18300000)   # a whole disc image's game partition (core/iso.py's)
+XISO = b"MICROSOFT*XBOX*MEDIA"
 GZIP = b"\x1f\x8b"
 _ISO_NAME = re.compile(r"\.x?iso(\.\d+)?$")   # an image or a part of one (azurik.iso.007)
 _PRIVATE_KEY = re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\r?\n")
@@ -64,7 +68,7 @@ def check_blob(rel: str, head: bytes) -> str | None:
     """Why a file ``rel`` whose first :data:`MAGIC_SPAN` bytes are ``head``
     can't be committed, or ``None``."""
     name = rel.lower().rsplit("/", 1)[-1]
-    if head[0x10000:0x10014] == b"MICROSOFT*XBOX*MEDIA":
+    if head[0x10000:0x10000 + len(XISO)] == XISO:
         return "XISO volume descriptor at 0x10000"
     if _ISO_NAME.search(name):
         return "ISO image or part (.iso/.xiso/.iso.NNN name)"
@@ -74,8 +78,8 @@ def check_blob(rel: str, head: bytes) -> str | None:
         return "EEPROM (eeprom*.bin name)"
     if head[:8] == b"AZL3SNAP":
         return "guest RAM snapshot (console keys) at 0"
-    if _PRIVATE_KEY.match(head):
-        return "private key at 0"
+    if key := _PRIVATE_KEY.search(head):
+        return f"private key at {key.start():#x}" if key.start() else "private key at 0"
     return None
 
 
@@ -192,6 +196,32 @@ def _members(src: _Reader) -> Iterator[_Inflated]:
         data = data[8:]
 
 
+def _seekable(f: _Reader) -> bool:
+    try:
+        return bool(f.seekable())
+    except AttributeError:   # a gzip member or a file in a tar
+        return False
+
+
+def _disc(f: _Reader) -> str | None:
+    """Why ``f``, read :data:`MAGIC_SPAN` bytes in, is a whole disc image,
+    or ``None``."""
+    seekable, at = _seekable(f), MAGIC_SPAN
+    for base in DISCS:
+        want = base + 0x10000
+        if seekable:
+            f.seek(want)
+        else:   # read forward to it
+            while at < want and (skipped := len(f.read(min(want - at, CHUNK << 4)))):
+                at += skipped
+        if (got := _read(f, len(XISO))) == XISO:
+            return f"XISO volume descriptor at {want:#x}"
+        if len(got) < len(XISO):
+            return None
+        at = want + len(XISO)
+    return None
+
+
 def _tar(src: _Reader, depth: int) -> str | None:
     """Why a file of the tar read from ``src`` can't be committed, or
     ``None``."""
@@ -209,11 +239,7 @@ def _zip(f: _Reader, head: bytes, depth: int) -> str | None:
     """Why a file of the zip archive ``f`` (``head`` read already) can't be
     committed, or ``None``."""
     try:
-        seekable = f.seekable()   # type: ignore[attr-defined]
-    except (AttributeError, OSError):   # a gzip member or a file in a tar
-        seekable = False
-    try:
-        with zipfile.ZipFile(f if seekable else io.BytesIO(head + _read(f, MAX_TEXT - len(head)))) as archive:
+        with zipfile.ZipFile(f if _seekable(f) else io.BytesIO(head + _read(f, MAX_TEXT - len(head)))) as archive:
             for info in archive.infolist():
                 if info.is_dir():
                     continue
@@ -233,22 +259,21 @@ def _check(rel: str, f: _Reader, depth: int = 0) -> str | None:
     """:func:`check_blob` for the file ``rel`` read forward from ``f``, and
     for each member of a gzip file (named ``rel`` without ``.gz``, in any
     case) and each file of a tar or a zip archive, :data:`DEPTH` wrappings
-    deep."""
+    deep; any other file past its head is a whole disc image or not."""
     head = _read(f, MAGIC_SPAN)
     if why := check_blob(rel, head):
         return why
-    if depth >= DEPTH:
-        return None
-    if head.startswith(GZIP):
+    if depth < DEPTH and head.startswith(GZIP):
         inner = re.sub(r"\.gz\Z", "", rel, flags=re.I)
         for member in _members(_Chain(head, f)):
             if why := _check(inner, member, depth + 1):
                 return f"inside its gzip: {why}"
-    elif head[257:262] == b"ustar":
+        return None
+    if depth < DEPTH and head[257:262] == b"ustar":
         return _tar(_Chain(head, f), depth)
-    elif head.startswith(b"PK\x03\x04"):
+    if depth < DEPTH and head.startswith(b"PK\x03\x04"):
         return _zip(f, head, depth)
-    return None
+    return _disc(f) if len(head) == MAGIC_SPAN else None
 
 
 def check_bytes(rel: str, data: bytes) -> str | None:
