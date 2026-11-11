@@ -50,7 +50,9 @@ export const later = (path) => /^variants\/[^/]+\/shipped\/parts\/[^/]+$/.test(p
 // and the files), in IndexedDB's "azurkit-content" (the Characters tab's since Step 4.3d), opened on first use; with
 // name another database of one store, as the Variants view keeps your variants in "azurkit-variants" (Step 4.6c).
 // update(key, fn) puts fn(what key holds now) in one readwrite transaction and gives it back, so another tab's write
-// of key between the read and the put can't be lost (each tab's Save of a variant).
+// of key between the read and the put can't be lost (each tab's Save of a variant); change(keys, fn) is the same over
+// several keys at once, fn given what each holds and giving each one's new value, in keys' order (an Install's files
+// and record: another tab's Install meanwhile stays).
 export function keeper(db = globalThis.indexedDB, name = "azurkit-content") {
   let opened = null;
   const open = () => opened ??= new Promise((done, fail) => {
@@ -70,17 +72,22 @@ export function keeper(db = globalThis.indexedDB, name = "azurkit-content") {
       tx.onerror = tx.onabort = () => fail(tx.error);
     });
   };
+  const change = async (keys, fn) => {
+    let values;
+    await run("readwrite", (s) => {
+      const now = keys.map((key) => s.get(key));   // one transaction's requests answer in order: the last, all
+      now.at(-1).onsuccess = () => {
+        values = fn(now.map((request) => request.result));
+        keys.forEach((key, i) => s.put(values[i], key));
+      };
+      return null;
+    });
+    return values;
+  };
   return { get: (key) => run("readonly", (s) => s.get(key)).catch(() => undefined),
            put: (entries) => run("readwrite", (s) => { for (const [k, v] of entries) s.put(v, k); }),
-           update: async (key, fn) => {
-             let value;
-             await run("readwrite", (s) => {
-               const now = s.get(key);
-               now.onsuccess = () => s.put(value = fn(now.result), key);
-               return null;
-             });
-             return value;
-           } };
+           update: async (key, fn) => (await change([key], ([now]) => [fn(now)]))[0],
+           change };
 }
 
 // needs(entries, id): the ids an Install of id writes, those required first, each once (entries: a Map of id -> a
@@ -258,19 +265,24 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
       const checked = await call("content_check", { manifest: JSON.stringify(s.manifest), id: entry.id,
                                                     files: { ...held, ...fetched }, source: s.source });
       if ("refused" in checked) throw new Error(checked.refused);
-      for (const id of todo) {
-        // A path another installed entry holds now stays (content.py's install keeps it too).
-        for (const path of Object.keys(record[id]?.files ?? {})) {
-          if (!Object.entries(record).some(([k, o]) => k !== id && path in (o?.files ?? {}))) delete files[path];
+      // Merged into what the store holds now, in one transaction: another tab's Install or Update since this one read
+      // it stays (written onto that read, it was lost).
+      const [stored, installed] = await kept.change(["files", "installed"], ([had, was]) => {
+        const into = { ...(had ?? {}) }, now = { ...(was ?? {}) };
+        for (const id of todo) {
+          // A path another installed entry holds now stays (content.py's install keeps it too).
+          for (const path of Object.keys(now[id]?.files ?? {})) {
+            if (!Object.entries(now).some(([k, o]) => k !== id && path in (o?.files ?? {}))) delete into[path];
+          }
+          now[id] = { version: ids.get(id).version, source: s.source,
+                      files: Object.fromEntries(ids.get(id).files.map((f) => [f.path, f.sha256])) };
+          for (const f of ids.get(id).files) if (!later(f.path)) into[f.path] = fetched[f.path];
         }
-        record[id] = { version: ids.get(id).version, source: s.source,
-                       files: Object.fromEntries(ids.get(id).files.map((f) => [f.path, f.sha256])) };
-        for (const f of ids.get(id).files) if (!later(f.path)) files[f.path] = fetched[f.path];
-      }
-      await kept.put([["files", files], ["installed", record]]);
-      s.installed = record;
+        return [into, now];
+      });
+      s.installed = installed;
       s.entries = states();
-      handoff(files, record);
+      handoff(stored, installed);
       return s;
     } finally {
       s.installing = null;

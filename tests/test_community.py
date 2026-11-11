@@ -291,7 +291,8 @@ const call = async (type, given) => {
                        : { manifest };
 };
 const kept = { get: async (key) => store.get(key),
-               put: async (entries) => entries.forEach(([k, v]) => store.set(k, v)) };
+               put: async (entries) => entries.forEach(([k, v]) => store.set(k, v)),
+               change: async (keys, fn) => fn(keys.map((k) => store.get(k))).map((v, i) => store.set(keys[i], v) && v) };
 const c = content({ call, app: false, fallback: "content/", kept, fetch,
                     handoff: (files) => handed.push(Object.keys(files)), storage: { getItem: () => null },
                     location: { href: "http://site.test/", origin: "http://site.test" } });
@@ -458,7 +459,8 @@ const list = JSON.stringify({ format: "azurik-custom-content", schema_version: 1
                                                                           sha256: "s@1" }] }] });
 let stall = true;
 const asked = [], store = new Map();
-const kept = { get: async (key) => store.get(key), put: async (kv) => kv.forEach(([k, v]) => store.set(k, v)) };
+const kept = { get: async (key) => store.get(key), put: async (kv) => kv.forEach(([k, v]) => store.set(k, v)),
+               change: async (keys, fn) => fn(keys.map((k) => store.get(k))).map((v, i) => store.set(keys[i], v) && v) };
 const fetch = (url, options) => {   // the file's reply never comes while it stalls: only its signal ends the wait
   const path = new URL(url).pathname;
   asked.push(path);
@@ -497,6 +499,70 @@ def test_the_pages_content_install_whose_file_never_answers_ends_in_its_time_and
     assert done.returncode == 0, done.stderr[-2000:]
     assert json.loads(done.stdout) == {"stalled": "packs/s/pack.json: no answer in 60 s",
                                        "after": [None, False, [60, 60]], "again": ["ss", "installed", 3]}
+
+
+TWO_TABS = r"""
+const { content } = await import(process.argv[2]);
+const enc = (text) => new TextEncoder().encode(text);
+const entry = (id, version) => ({ id, kind: "pack", title: id, version, requires: [],
+  files: [{ path: `packs/${id}/pack.json`, size: 2, sha256: `${id}@${version}` }] });
+let entries = [], held = null, began = null, letGo = null;
+const store = new Map();   // the browser's one store, both tabs': change() is one transaction
+const kept = { get: async (key) => store.get(key), put: async (kv) => kv.forEach(([k, v]) => store.set(k, v)),
+               change: async (keys, fn) => fn(keys.map((k) => store.get(k))).map((v, i) => store.set(keys[i], v) && v) };
+const fetch = async (url) => {   // a file's body is its id and version; the held one's waits until let go
+  const path = new URL(url).pathname.replace("/content/", "");
+  if (path === "manifest.json") {
+    const list = JSON.stringify({ format: "azurik-custom-content", schema_version: 1, entries });
+    return { ok: true, status: 200, text: async () => list };
+  }
+  if (path === held) await new Promise((done) => { letGo = done; began(); });
+  const { id, version } = entries.find((e) => e.files[0].path === path);
+  return { ok: true, status: 200, headers: { get: () => null }, arrayBuffer: async () => enc(`${id}${version}`) };
+};
+const tab = () => content({ call: async (_, given) => ({ manifest: JSON.parse(given.manifest) }), app: false,
+                            fallback: "content/", kept, fetch, storage: { getItem: () => null },
+                            location: { href: "http://site.test/", origin: "http://site.test" } });
+const keptNow = () => [Object.fromEntries(Object.entries(store.get("installed")).map(([id, r]) => [id, r.version])),
+                     Object.fromEntries(Object.entries(store.get("files"))
+                       .map(([path, data]) => [path, new TextDecoder().decode(data)]))];
+const out = {};
+for (const update of [false, true]) {
+  store.clear();
+  entries = [entry("x", 1), entry("y", 1)];
+  const a = tab(), b = tab();
+  if (update) await b.read().then(() => b.install(b.state.manifest.entries[1]));   // y 1, installed before
+  await a.read();
+  held = "packs/x/pack.json";
+  const fetching = new Promise((done) => { began = done; });
+  const first = a.install(a.state.manifest.entries[0]);   // tab A installs x, its file held
+  await fetching;
+  if (update) entries = [entry("x", 1), entry("y", 2)];
+  await b.read();
+  await b.install(b.state.manifest.entries[1]);   // tab B installs y (or updates it to 2) meanwhile, to its end
+  held = null;
+  letGo();
+  await first;
+  out[update ? "updated" : "installed"] = keptNow();
+}
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.mark.web
+def test_the_pages_content_install_keeps_an_entry_another_tab_installed_or_updated_meanwhile(tmp_path):
+    """web/content.mjs on Node, two tabs of one browser (two ``content()`` over one store): an Install whose files come
+    while another tab installs another entry, or updates one, to its end merges into what the store holds then, so
+    both entries stay installed, the other at its new version and files. Written onto what it read before its fetch,
+    it lost the other's Install, or put the Update's old version and files back (audit pass 2's F3)."""
+    driver = tmp_path / "two_tabs.mjs"
+    driver.write_text(TWO_TABS, encoding="utf-8")
+    done = subprocess.run(["node", str(driver), (ROOT / "web" / "content.mjs").as_uri()], capture_output=True,
+                          text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
+    files = "packs/{}/pack.json".format
+    assert json.loads(done.stdout) == {"installed": [{"x": 1, "y": 1}, {files("x"): "x1", files("y"): "y1"}],
+                                       "updated": [{"x": 1, "y": 2}, {files("x"): "x1", files("y"): "y2"}]}
 
 
 OVERTAKEN = r"""
