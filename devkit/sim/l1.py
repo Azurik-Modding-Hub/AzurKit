@@ -214,7 +214,7 @@ def check(vanilla: bytes, patched: bytes, float_vas=()) -> list[str]:
     while work:
         ins, owner = work.pop()
         a, ops, m = ins.address, ins.operands, ins.mnemonic
-        if lacks_on_pentium3(m, ins.groups):
+        if lacks_on_pentium3(m, ins.op_str, ins.groups):
             bad.append(f"0x{a:X}: {m} is not a Pentium III instruction")
         if ins.group(X.X86_GRP_RET):
             n = ops[0].imm if ops else 0

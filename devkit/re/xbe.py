@@ -61,7 +61,9 @@ _NOT_ON_PENTIUM3_MNEMONICS = frozenset({   # what capstone files under MMX, a no
     "sysret", "swapgs", "getsec", "encls", "enclu", "clac", "stac", "xtest", "clflushopt", "clwb", "invpcid",
     "monitorx", "mwaitx", "clzero", "prefetchw", "prefetchwt1", "rdpkru", "wrpkru", "ptwrite", "umonitor", "umwait",
     "tpause", "movdiri", "movdir64b", "setssbsy", "saveprevssp", "rstorssp", "wrssd", "wrussd", "incsspd",
-    "clrssbsy"})   # not rdsspd, endbr32, cldemote: hint NOPs, which a Pentium III runs as NOPs
+    "clrssbsy", "cvtsd2si", "phminposuw", "pcmpestrm", "pcmpistrm", "gf2p8affineqb", "gf2p8affineinvqb",
+    "gf2p8mulb", "xstore", "xcryptecb", "xcryptcbc", "xcryptctr", "xcryptcfb", "xcryptofb", "xsha1", "xsha256",
+    "montmul", "enclv", "pconfig"})   # not rdsspd, endbr32, cldemote: hint NOPs, which a Pentium III runs as NOPs
 _PATH_ENDS = frozenset({"ret", "retf", "iret", "iretd", "jmp", "ljmp", "hlt", "int3", "ud2"})
 _READS = {"f32": "<f", "f64": "<d", "i32": "<i", "u32": "<I", "u16": "<H", "u8": "<B", "ptr": "<I"}
 _TEXT = frozenset(range(0x20, 0x7F)) | {0x09, 0x0A, 0x0D}
@@ -612,19 +614,25 @@ def function(data: bytes, va: int) -> list[Insn]:
     return [seen[at] for at in sorted(seen)]
 
 
-def lacks_on_pentium3(mnemonic: str, groups: Iterable[int]) -> bool:
-    """Whether the Xbox's Pentium III lacks an instruction of this mnemonic
-    and these capstone groups: SSE2 and later, 3DNow!, AVX-512, VMX, TSX and
-    the later ones capstone files under MMX or no ISA group, by mnemonic
-    (SSE2's and SSSE3's mm forms, rdtscp, xsave, syscall, ...; AZ-021);
+def lacks_on_pentium3(mnemonic: str, operands: str, groups: Iterable[int]) -> bool:
+    """Whether the Xbox's Pentium III lacks an instruction of this mnemonic,
+    operand text and these capstone groups: SSE2 and later, 3DNow!, AVX-512,
+    VMX, TSX and the later ones capstone files under MMX or no ISA group, by
+    mnemonic (SSE2's and SSSE3's mm forms, cvtsd2si, rdtscp, xsave, syscall,
+    ...), every VEX, EVEX and XOP form (a ``v`` mnemonic but verr and verw)
+    and AVX-512's opmask ones (``k``), and a packed-integer one on an xmm
+    register (``pextrw eax, xmm1``: a Pentium III's are mm only; AZ-021);
     ``pause`` runs there as a NOP. Unicorn runs them all."""
     return mnemonic != "pause" and (mnemonic in _NOT_ON_PENTIUM3_MNEMONICS
+                                    or mnemonic.startswith("k")
+                                    or (mnemonic.startswith("v") and mnemonic not in ("verr", "verw"))
+                                    or (mnemonic.startswith("p") and "xmm" in operands)
                                     or bool(_NOT_ON_PENTIUM3.intersection(groups)))
 
 
 def not_on_pentium3(data: bytes, section: str | None = None) -> list[Insn]:
     """The instructions in the code sections (or ``section``) a Pentium III can't run."""
-    return [i for i, groups in _sweep(data, section, detail=True) if lacks_on_pentium3(i.mnemonic, groups)]
+    return [i for i, groups in _sweep(data, section, detail=True) if lacks_on_pentium3(i.mnemonic, i.operands, groups)]
 
 
 # The verb
