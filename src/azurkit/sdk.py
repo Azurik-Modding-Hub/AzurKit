@@ -1531,10 +1531,13 @@ def variant_save(given: Mapping) -> dict:
     """Save, Save as and New from this (Modkit's): ``{"name", "recipe"}``
     written again as your variant ``name`` (Save); with ``as``, a new
     folder of that name holding the recipe and copies of the files it names
-    from ``from``'s folder (yours, the one open), one ``from`` a built-in an
-    own copy (``library.copy_as``: every field its own). Each whole or
-    nothing, a refusal naming why (D35). ``{"name", "folder"}``, and the
-    folder's ``files`` when ``files`` is true."""
+    from ``from``'s folder (yours, the one open; ``None``: none), one
+    ``from`` a built-in an own copy (``library.copy_as``: every field its
+    own). Each whole or nothing, a refusal naming why (D35): a ``from``
+    that is no variant's name (a path), or none of yours, too.
+    ``{"name", "folder"}``, and the folder's ``files`` when ``files`` is
+    true."""
+    from azurkit.tools.characters import _player_variants as kinds
     from azurkit.tools.characters import library
 
     name = _named(given, "variant_save")
@@ -1547,7 +1550,13 @@ def variant_save(given: Mapping) -> dict:
     new, source = given["as"], given.get("from")
     if not isinstance(new, str):
         raise ValueError(f"{new!r}: a variant's name is a lower-case letter, then lower-case letters, digits and _")
-    files = library.root() / source if isinstance(source, str) and (library.root() / source).is_dir() else None
+    files = None
+    if source is not None:   # checked as a new name is: never a path out of the library
+        if not isinstance(source, str) or not kinds._NAME.match(source):
+            raise ValueError(f"from {source!r}: a variant's name is a lower-case letter, then lower-case letters, "
+                             "digits and _")
+        if not (files := library.root() / source).is_dir():
+            raise ValueError(f"from {source!r}: none of your variants has that name")
     library.copy_as(new, dict(recipe), files)
     return _saved(new, given)
 

@@ -932,10 +932,12 @@ def variant_save(given: 'Mapping') -> 'dict':
 Save, Save as and New from this (Modkit's): ``{"name", "recipe"}``
 written again as your variant ``name`` (Save); with ``as``, a new
 folder of that name holding the recipe and copies of the files it names
-from ``from``'s folder (yours, the one open), one ``from`` a built-in an
-own copy (``library.copy_as``: every field its own). Each whole or
-nothing, a refusal naming why (D35). ``{"name", "folder"}``, and the
-folder's ``files`` when ``files`` is true.
+from ``from``'s folder (yours, the one open; ``None``: none), one
+``from`` a built-in an own copy (``library.copy_as``: every field its
+own). Each whole or nothing, a refusal naming why (D35): a ``from``
+that is no variant's name (a path), or none of yours, too.
+``{"name", "folder"}``, and the folder's ``files`` when ``files`` is
+true.
 
 
 def variant_delete(given: 'Mapping') -> 'dict':

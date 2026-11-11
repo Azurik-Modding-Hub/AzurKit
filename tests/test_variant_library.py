@@ -235,6 +235,25 @@ def test_the_characters_tab_lists_your_variants_in_the_yours_group(lib):
     assert "it holds no recipe" in sdk.pickers({"iso": None, "character": {"species": "broken"}})["chosen"]["refused"]
 
 
+def test_save_as_copies_files_only_from_the_variant_its_from_names_and_refuses_any_other_from_by_name(lib):
+    """Save as and New from this copy the files a recipe names from ``from``'s folder, the variant open: ``from``
+    is checked as a new name is, so a path (out of the library), what is no name and a name none of your variants
+    has are each refused by name, nothing written."""
+    recipe = {"base": "keylord", "mode": "own", "wavs": {"hurt": ["ow.wav"]}}
+    _write(lib, "mine", json.dumps({"mine": recipe}))
+    (lib / "mine" / "ow.wav").write_bytes(b"RIFF")
+    (outside := lib.parent / "outside").mkdir()
+    (outside / "ow.wav").write_bytes(b"RIFF")
+    for source, why in (("../outside", r"from '\.\./outside': a variant's name is a lower-case letter"),
+                        (str(outside), r"from '.*outside': a variant's name is"), (7, r"from 7: a variant's name"),
+                        ("nobody", r"from 'nobody': none of your variants has that name")):
+        with pytest.raises(ValueError, match=why):
+            sdk.variant_save({"name": "unsaved", "recipe": recipe, "as": "copy", "from": source})
+        assert sorted(p.name for p in lib.iterdir()) == ["mine"]
+    assert sdk.variant_save({"name": "mine", "recipe": recipe, "as": "copy", "from": "mine"})["name"] == "copy"
+    assert (lib / "copy" / "ow.wav").read_bytes() == b"RIFF"
+
+
 def _zip(files: dict[str, bytes]) -> bytes:
     import io
     import zipfile
