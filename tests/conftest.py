@@ -198,7 +198,7 @@ def _chromium(launch):
     return chromium
 
 
-FIREFOX_LOG ="timestamp,sync,nsHttp:3,DocumentChannel:4,ProcessHangMonitor:4"
+FIREFOX_LOG = "timestamp,sync,nsHttp:3,DocumentChannel:4,ProcessHangMonitor:4"
 """What each Firefox the tests launch on Windows' CI logs (Firefox's ``MOZ_LOG``), each to files of its own in this
 process's folder (:func:`firefox_logs`), as it happens: its requests, its documents' loads and its hang monitor. On
 GitHub's Windows runner Firefox held a page's first request about 37 s, its host never asked, the cause unshown (runs
