@@ -128,6 +128,11 @@ SESSION = {"tests.conftest", "tests._byte_safe", "tests._rerun", "scripts.ci_sha
 CONFTEST = "tests.conftest"   # its fixtures run only for the tests that take them: graph()'s "tests.conftest::NAME"
 PY_DIRS = ("src", "scripts", "tests", "devkit", "nativekit", "shimkit", "assets")   # every tracked .py's but the root's
 WHEEL = "tests/test_wheel.py"                      # builds the wheel from every file under src/ and installs it
+#: Where a gitignored file on disk is one the run may read and HEAD lacks (a fixture whose folder ``git add`` staged
+#: nothing of: ``*.xbr``, ``*.sav``, ``gamedata/``), so its tree isn't clean (:func:`snapshot`), but what tools write.
+IGNORED_ROOTS = (*PY_DIRS, "web", "native")
+TOOL_WRITTEN = re.compile(r"(^|/)(__pycache__|\.pytest_cache|\.import_linter_cache)/|\.py[cod]$|(^|/)\.DS_Store$"
+                          r"|^src/azurkit/tools/randomizer/shipped/")   # .gitignore's: Python's, the tools', the db's
 #: The test files that run every module under src/ outside the import graph: the wheel's, and those whose tests
 #: take the pyodide, browser or frozen_app fixture (the wheel under Pyodide, the site in a browser, the frozen app).
 SRC_TESTS = (WHEEL, "tests/test_characters.py", "tests/test_hosts.py", "tests/test_native.py",
@@ -722,16 +727,23 @@ def describe(m: dict, meta: Path) -> str:
 
 def snapshot(wt: Path) -> tuple:
     """The worktree's HEAD, uncommitted diff (``git diff HEAD --binary``),
-    untracked files and a hash of the two (each untracked file's path and
-    bytes): the tree a run's key names (:func:`prepare`) and its runner
+    untracked files, a hash of them (each untracked file's path and bytes,
+    each ignored one's path, size and time) and the gitignored files under
+    :data:`IGNORED_ROOTS` but those tools write (:data:`TOOL_WRITTEN`,
+    Step 4.46a): the tree a run's key names (:func:`prepare`) and its runner
     checks again when the lock comes (:func:`stale`)."""
     head = git(wt, "rev-parse", "HEAD").strip()
     diff = subprocess.run(["git", "-C", str(wt), "diff", "HEAD", "--binary"], capture_output=True, check=True).stdout
     untracked = sorted(filter(None, git(wt, "ls-files", "-z", "--others", "--exclude-standard").split("\0")))
+    ignored = sorted(rel for rel in git(wt, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--",
+                                        *IGNORED_ROOTS).split("\0") if rel and not TOOL_WRITTEN.search(rel))
     digest = hashlib.sha256(diff)
     for rel in untracked:
         digest.update(rel.encode() + b"\0" + ((wt / rel).read_bytes() if (wt / rel).is_file() else b""))
-    return head, diff, untracked, digest
+    for rel in ignored:   # an extracted tree may be big: its size and time, not its bytes
+        st = (wt / rel).stat() if (wt / rel).is_file() else None
+        digest.update(f"{rel}\0{st and st.st_size}\0{st and st.st_mtime_ns}\0".encode())
+    return head, diff, untracked, digest, ignored
 
 
 def selected(wt: Path, base: str | None, untracked: list[str], changed: list[str] | None = None) -> list[str]:
@@ -751,7 +763,7 @@ def prepare(wt: Path, changed_area: bool, base_ref: str, perf_later: bool = Fals
     (``perf_base``: the base; with ``perf_later``, main, chosen again when the
     stage runs, so the key names no selection), and the tree and arguments
     its runner checks and names when the lock comes (:func:`stale`)."""
-    head, diff, untracked, state_hash = snapshot(wt)
+    head, diff, untracked, state_hash, ignored = snapshot(wt)
     tree = state_hash.hexdigest()
     base = git(wt, "rev-parse", "--verify", "-q", f"{base_ref}^{{commit}}", check=False).strip() or None
     selection = None
@@ -771,7 +783,8 @@ def prepare(wt: Path, changed_area: bool, base_ref: str, perf_later: bool = Fals
     state_hash.update(json.dumps(keyed + (["perf-later"] if perf_later else [perf_args] if perf_args else [])).encode())
     return {"key": f"{head[:12]}-{state_hash.hexdigest()[:12]}", "head": head, "base": base, "mode": mode,
             "pytest_args": selection or [], "browsers": browsers, "perf_args": perf_args, "flake_tests": flake,
-            "perf_base": perf_base, "perf_later": perf_later, "clean": not diff and not untracked, "tree": tree,
+            "perf_base": perf_base, "perf_later": perf_later, "clean": not diff and not untracked and not ignored,
+            **({"ignored": ignored[:20]} if ignored else {}), "tree": tree,
             "args": [*(["--changed"] if changed_area else []), "--base", base_ref,
                      *(["--perf-later"] if perf_later else [])], "worktree": str(wt),
             "branch": git(wt, "branch", "--show-current").strip(), "subject": git(wt, "log", "-1", "--format=%s").strip()}
@@ -957,7 +970,7 @@ def stale(m: dict) -> str | None:
     lock, so pytest would test one tree under another's key (Step 4.43a)."""
     wt = Path(m["worktree"])
     try:
-        head, _, _, digest = snapshot(wt)
+        head, _, _, digest, _ = snapshot(wt)
     except (OSError, subprocess.CalledProcessError):
         return f"its worktree {wt} can't be read: no pytest ran"
     if head == m["head"] and digest.hexdigest() == m.get("tree"):

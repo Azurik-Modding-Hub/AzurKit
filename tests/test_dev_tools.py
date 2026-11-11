@@ -1367,6 +1367,28 @@ def _receipt(receipts, head, **fields):
     (receipts / f"suite-{m['key']}.meta").write_text(json.dumps(m), encoding="utf-8")
 
 
+def test_a_gitignored_file_under_the_tree_leaves_the_receipt_unclean_and_moves_its_key(tmp_path, monkeypatch):
+    """Step 4.46a: a gitignored file on disk under the tree (a fixture
+    ``*.xbr`` whose folder ``git add`` staged nothing of) is one the run may
+    read and HEAD lacks: its receipt isn't clean, so land.py refuses it, its
+    key moves with the file and the receipt names it. What tools write
+    there (``__pycache__``, a ``.pyc``) leaves it clean."""
+    repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
+    (lane / ".gitignore").write_text("*.xbr\n__pycache__/\n*.py[cod]\n", encoding="utf-8")
+    _git(lane, "add", ".gitignore")
+    _git(lane, "commit", "-q", "-m", "ignore")
+    (lane / "tests" / "__pycache__").mkdir(parents=True)
+    (lane / "tests" / "__pycache__" / "a.cpython-314.pyc").write_bytes(b"x")
+    clean = fullsuite.prepare(lane, False, "main")
+    assert clean["clean"] and "ignored" not in clean
+    (lane / "tests" / "x.xbr").write_bytes(b"fixture")
+    _git(lane, "add", "tests")   # stages nothing: the file is ignored
+    held = fullsuite.prepare(lane, False, "main")
+    assert (held["clean"], held["ignored"]) == (False, ["tests/x.xbr"]) and held["key"] != clean["key"]
+    (lane / "tests" / "x.xbr").write_bytes(b"another")
+    assert fullsuite.prepare(lane, False, "main")["key"] != held["key"]
+
+
 def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lane(tmp_path, monkeypatch):
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     _git(lane, "commit", "-q", "--allow-empty", "-m", "b")
