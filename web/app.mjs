@@ -1676,12 +1676,14 @@ function randoStarved() {
 
 // What the page remembers of the tab with Remember settings ticked (D915, D1156): nothing at its defaults (off, D144's
 // settings, vanilla's cost). The settings' save_warp is the qol_save_warp pack's tick (D1155), which the setup's packs
-// keep: alone it leaves the tab at its defaults.
+// keep: alone it leaves the tab at its defaults. A seed past SEED_MAX characters (any one builds) is left out, the rest
+// kept: the engine remembers none longer (randomizer.remembered), and refused it would take the whole setup with it.
+const SEED_MAX = 256;
 function randoSetup() {
-  const settings = randoSettings(), cost = randoCost();
+  const settings = randoSettings(), cost = randoCost(), seed = R("seed").value;   // its characters, as Python counts
   const plain = !R("on").checked && !("obsidian_cost" in cost)
     && JSON.stringify({ ...settings, save_warp: undefined }) === JSON.stringify(randoOptions().defaults);
-  return plain ? null : { on: R("on").checked, seed: R("seed").value, settings,
+  return plain ? null : { on: R("on").checked, seed: [...seed].length <= SEED_MAX ? seed : "", settings,
                           ...(typeof cost.obsidian_cost === "number" ? cost : {}) };
 }
 

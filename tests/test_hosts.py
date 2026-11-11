@@ -855,6 +855,33 @@ def test_a_failed_restore_at_launch_still_readies_the_page(browser, tmp_path, mo
         server.close()
 
 
+def test_a_seed_past_256_characters_leaves_the_rest_of_the_setup_remembered(browser, tmp_path, monkeypatch):
+    """With Remember settings ticked, a typed or pasted seed past the 256
+    characters a remembered seed holds (any seed builds) is left out of the
+    setup the app keeps, and the rest kept (Randomize on, its settings);
+    the engine's refusal of that seed once kept nothing more of the setup
+    while it stood, unsaid (Step 4.42c)."""
+    _home(monkeypatch, tmp_path / "home")
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.route("**/api/vanilla", lambda route: route.fulfill(json={"packs": {}}))   # the start image unread
+        for path in ("speculate", "prefetch"):
+            page.route(f"**/api/{path}", lambda route: route.fulfill(json={"ahead": False}))
+        _page.load(page, server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "remember")
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-on")
+        kept = """(seed) => fetch('host.json').then((reply) => reply.json()).then(({ setup }) =>
+            setup?.randomizer?.on === true && setup.randomizer.seed === seed && setup.randomizer)"""
+        for typed, seed in (("short", "short"), ("s" * 257, "")):   # the long one kept as no seed, not refused
+            _page.fill(page, "rando-seed", typed)
+            assert isinstance(_page.until(page, f"() => ({kept})({json.dumps(seed)})", 60)["settings"], dict)
+    finally:
+        server.close()
+
+
 def test_the_apps_window_opens_on_the_remembered_themes_ground(monkeypatch):
     """The window shows the remembered theme's ground (``web/app.css``'s
     ``--bg``) until the page draws, so a player who picked light never
