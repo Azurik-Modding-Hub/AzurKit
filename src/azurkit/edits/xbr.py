@@ -36,6 +36,7 @@ import hashlib
 import math
 import re
 import struct
+from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 
 from azurkit.core.gate import Release
@@ -238,11 +239,15 @@ def _unread(changes: Sequence[Change], owners: Sequence[int], cells: Mapping[tup
         mine = [(k, c) for k, c in zip(owners, changes) if c.file == file]
         laid, conflicts = compose({file: base[file]}, [Layer(LAYER, TOOL, KIND, {}, tuple(c for _, c in mine))])
         data, dropped, now = bytes(laid.get(file, base[file])), {c.dropped for c in conflicts}, {}
-        for (held, name, col, row), (k, op, what) in cells.items():
-            was = documents[file].tables[name]
-            at = was.cell(col, row).at
-            if held != file or f"#{k} {what}" in dropped or any(
-                    j > k and c.offset < at + SIZE and at < c.offset + len(c.after) for j, c in mine):
+        tables = documents[file].tables
+        sets = [(name, col, row, k, op, what, tables[name], tables[name].cell(col, row).at)
+                for (held, name, col, row), (k, op, what) in cells.items() if held == file]
+        starts, latest = sorted({at for *_, at in sets}), {}   # a cell's start -> the last operation writing its 16 B
+        for j, c in mine:   # each change once, over the cells it reaches
+            for at in starts[bisect_left(starts, c.offset - SIZE + 1):bisect_left(starts, c.offset + len(c.after))]:
+                latest[at] = max(latest.get(at, 0), j)
+        for name, col, row, k, op, what, was, at in sets:
+            if f"#{k} {what}" in dropped or latest.get(at, 0) > k:
                 continue
             if name not in now:
                 try:
