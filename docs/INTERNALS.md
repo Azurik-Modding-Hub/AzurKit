@@ -1050,7 +1050,8 @@ are the Characters section's.
       (Europe's built for it). A change to the swap's bytes is red until
       `scripts/record_shipped.py --content <a clone of
       Azurik-Custom-Content>` re-records, and her entry then takes the new
-      files at a new version. `--check` re-derives every row (the release
+      files at a new version (and CI's `CONTENT_COMMIT`, tests.yml, that
+      entry's commit). `--check` re-derives every row (the release
       check's, and the only pin of the sizes no golden builds: a stale one
       fails that body's build by name, D35, its size not the folded one).
     - A reshape's parent (R3-CP1, X11): booblord's jiggle places at her
@@ -2337,7 +2338,11 @@ are the Characters section's.
   Windows x64, Linux x64; the web tier with Node 24 and
   `scripts/web_tools.py`'s Pyodide and browsers), and on a push to `main`
   or a lane branch in this repository alone (D1123) the vanilla and europe tiers on the same four:
-  each image rebuilt in the tier's folder, on the runner's roomiest disk
+  Azurik-Custom-Content at the commit the content step's `CONTENT_COMMIT`
+  pins (Step 4.46a: every part reads one content, whatever its main does
+  meanwhile; the commit whose `record_shipped.py --content` re-record needs a
+  newer entry moves it), each image rebuilt in the tier's folder (its tests'
+  temp folders there too), on the runner's roomiest disk
   (`scripts/ci_resources.py --room`: short of the two images, the most the
   tier's writes took and a margin, Linux's unused toolchains go first, and
   still short of the first two the job stops by name before the images), from

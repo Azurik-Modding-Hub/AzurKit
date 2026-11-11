@@ -578,6 +578,21 @@ def test_the_ci_vanilla_tier_keeps_its_temp_folder_in_the_tier_folder_on_every_r
     assert len(tiers) == 2 and all('TMPDIR="$TIER_ROOM/tmp" ' in tier for tier in tiers), tiers
 
 
+def test_every_vanilla_job_reads_the_content_commit_the_workflow_pins():
+    """Step 4.46a: each vanilla part cloned Azurik-Custom-Content's main as
+    it stood when that part started (one run's parts 146 min apart), so a
+    content push could test other content than the commit's, or two in one
+    run. The content step fetches the one commit ``CONTENT_COMMIT`` names
+    (a full sha) and no workflow clones a branch of it."""
+    text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    step, = [s for s in re.split(r"(?m)^      - ", _jobs(text)["vanilla"]) if s.startswith("name: Azurik-Custom-")]
+    assert re.search(r"(?m)^          CONTENT_COMMIT: [0-9a-f]{40}   # ", step), step
+    assert ('fetch --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$CONTENT_COMMIT"'
+            ' && git -C "$RUNNER_TEMP/content" checkout --quiet FETCH_HEAD; }') in step
+    assert not [p.name for p in (ROOT / ".github" / "workflows").glob("*.yml")
+                if re.search(r"git clone [^\n]*Azurik-Custom-Content", p.read_text(encoding="utf-8"))]
+
+
 def test_a_europe_mark_without_vanilla_stops_the_run_and_the_europe_fixture_marks_both(pytester, monkeypatch):
     """Modkit's Step RG.3 (D26 a release): a Europe test is a vanilla one
     too, so ``-m "not vanilla"`` leaves it out: a run that collects a test

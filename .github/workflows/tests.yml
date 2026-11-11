@@ -320,10 +320,15 @@ jobs:
                   --spare=ghc=/opt/ghc --spare=codeql=/opt/hostedtoolcache/CodeQL)
           fi
           uv run --locked python -I scripts/ci_resources.py --room --env="$GITHUB_ENV" "runner=$RUNNER_TEMP/tier" "${more[@]}"
-      - name: Azurik-Custom-Content, for booblord's tests
+      - name: Azurik-Custom-Content, for booblord's tests, at the commit this one is recorded against
+        # Step 4.46a: each part cloned its main's HEAD at its own time (one run's parts 146 min apart), so a content
+        # push ahead of AzurKit's re-record, or between two parts, tested other content than this commit's. The commit
+        # whose re-record needs a newer entry (scripts/record_shipped.py --content) moves the pin.
+        env:
+          CONTENT_COMMIT: 9a92177828e7ecde74b5aff3d93e2a268d29003f   # its main's on 2026-11-09: booblord v8, beamlord v1
         run: |
           . scripts/ci_retry.sh
-          content() { rm -rf "$RUNNER_TEMP/content" && git clone --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$RUNNER_TEMP/content"; }
+          content() { rm -rf "$RUNNER_TEMP/content" && git init --quiet "$RUNNER_TEMP/content" && git -C "$RUNNER_TEMP/content" fetch --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$CONTENT_COMMIT" && git -C "$RUNNER_TEMP/content" checkout --quiet FETCH_HEAD; }
           retry "Azurik-Custom-Content's clone" content
       - name: The USA and Europe images, from the game-data repository's parts, one release at a time, each part a fetch of its own
         env:
