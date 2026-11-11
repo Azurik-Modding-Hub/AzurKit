@@ -67,6 +67,9 @@ KEYED = ("set_keyed_double", "set_keyed_string", "point_keyed_string")
 BYTES = ("replace_bytes", "replace_string_at")
 PATCH = ("section", "entity", "property", "value")
 WHERE = "Modkit mod"
+#: the bytes a mod's byte edits may hold, all told (each is held a byte at a time): config.xbr's largest table
+#: (108,514 B) whole, where a real mod's are a few cells or strings
+MAX_HELD = 256 << 10
 
 Edit = tuple[str, dict | None, str | None]   # a label, its operation (None: nothing to do) and its refusal
 
@@ -225,6 +228,8 @@ def _entry(k: int, raw: object, chains: dict[str, _Chain], gid: int) -> Edit:
         after = value.encode("ascii").ljust(len(was), b"\0")
     elif file == CONFIG and offset + len(after) > len(chain.now):
         return label, None, f"0x{offset:X}+{len(after)} is past {CONFIG}'s {len(chain.now):,} B"
+    if len(after) + sum(len(c.holders) for c in chains.values()) > MAX_HELD:
+        return label, None, f"its {len(after):,} B take the mod's byte edits past the {MAX_HELD:,} B they may hold"
     return chain.replace(gid, label, file, offset, after, was)
 
 

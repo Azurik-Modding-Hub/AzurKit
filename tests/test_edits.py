@@ -682,6 +682,27 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
     assert "azurkit: Modkit mod: patches[0] damage/octo/damage: a retired" in capsys.readouterr().err
 
 
+def test_a_modkit_mods_byte_edits_past_what_they_may_hold_are_refused_by_name(monkeypatch):
+    """Step 4.42b (D992): a Modkit mod's byte edits are held a byte at a
+    time (what each edit left, checked against the next), about 360 B a
+    byte, so a 16 MiB mods file of one replace_string_at would take seconds and
+    gigabytes before anything was refused. Past ``modkit.MAX_HELD`` bytes
+    all told (config.xbr's largest table whole) the edit that takes them
+    there is refused, by its label, before it is held."""
+    from azurkit.edits import modkit
+
+    big = {"op": "replace_string_at", "file": "a1.xbr", "offset": 0, "value": "", "expected": "A" * modkit.MAX_HELD}
+    with pytest.raises(ValueError, match="^" + re.escape(
+            "Modkit mod: xbr_edits[0] (replace_string_at on a1.xbr): its 262,145 B take the mod's byte edits past "
+            "the 262,144 B they may hold")):
+        sdk.read_mods(json.dumps({"xbr_edits": [big]}))
+    monkeypatch.setattr(modkit, "MAX_HELD", 64)
+    edits = [big | {"offset": at, "expected": "A" * 39} for at in (0, 0x100)]   # 40 B each, NUL and all
+    assert len(sdk.read_mods(json.dumps({"xbr_edits": edits[:1]}))["xbr"]) == 1
+    with pytest.raises(ValueError, match=re.escape("xbr_edits[1] (replace_string_at on a1.xbr): its 40 B take")):
+        sdk.read_mods(json.dumps({"xbr_edits": edits}))
+
+
 def test_several_mods_files_build_in_order_and_each_later_overwrite_is_said(usa_iso, tmp_path, capsys):
     """Step 4.24a (Modkit's ``patch --mod`` repeated): ``azurkit build --mods A --mods B`` applies A's edits, then
     B's, each file's numbered; B's edit of a cell A set wins and the build names the conflict (D28), and the image
