@@ -827,6 +827,34 @@ def test_a_late_answer_for_the_image_picked_before_is_dropped(browser, tmp_path,
         server.close()
 
 
+def test_a_failed_restore_at_launch_still_readies_the_page(browser, tmp_path, monkeypatch):
+    """A remembered setup whose restore fails at launch (its ask refused or
+    its connection dropped) still leaves the page its own: Remember
+    settings works, Build waits on no "Preparing the engine…" and the
+    failure is said; it once stranded the page there for the launch (Step
+    4.42c)."""
+    _home(monkeypatch, tmp_path / "home")
+    server = app.serve(_page.WEB)
+    try:
+        replies = []
+        _post(server.url, "api/setup", {"remember": True, "setup": {"ticked": ["fps_unlock"], "values": {}, "xbr": []}},
+              replies)
+        assert replies == [{}]
+        page = browser.new_page()
+        page.route("**/api/restore", lambda route: route.abort())
+        page.route("**/api/vanilla", lambda route: route.fulfill(json={"packs": {}}))   # the start image unread
+        for path in ("speculate", "prefetch"):
+            page.route(f"**/api/{path}", lambda route: route.fulfill(json={"ahead": False}))
+        _page.load(page, server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready && !azurkit.restoring", 60)
+        assert page.evaluate("""() => [document.getElementById('remember').disabled,
+            document.getElementById('build-line').textContent === 'Preparing the engine…',
+            document.getElementById('status').textContent.startsWith("The app's engine didn't answer")]""") == [
+            False, False, True]
+    finally:
+        server.close()
+
+
 def test_the_apps_window_opens_on_the_remembered_themes_ground(monkeypatch):
     """The window shows the remembered theme's ground (``web/app.css``'s
     ``--bg``) until the page draws, so a player who picked light never

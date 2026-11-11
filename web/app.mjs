@@ -449,11 +449,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     back();
   });
   const waits = new Map();   // the newest Randomizer tab's ask and restore: their bar
-  const wait = (kind, message, options, done) => {
+  const wait = (kind, message, options, done) => {   // settled once answered, or failed
     answered(waits.get(kind));
     const id = asking(kind);
     waits.set(kind, id);
-    asked(message, options, done).finally(() => {
+    return asked(message, options, done).finally(() => {
       if (waits.get(kind) !== id) return;
       answered(id);
       waits.delete(kind);
@@ -1200,7 +1200,12 @@ function ready(catalog, version, commit, platform) {
     if (!state.pending && state.remembered != null) {
       state.restoring = true;   // a remembered community pack is read from what the site hands its engine first
       return Promise.all([state.remembered.community ? shared.ready : null, state.variants.ready])   // yours worn too
-        .then(() => state.engine.restore(state.remembered));
+        .then(() => state.engine.restore(state.remembered))
+        .finally(() => {   // a restore that failed (refused, or its engine stopped): the page is its own all the same
+          if (!state.restoring) return;   // restored() took it
+          state.restoring = false;
+          if (!state.ready) start();
+        });
     }
   }
   start();
