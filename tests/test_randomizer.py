@@ -1940,6 +1940,22 @@ def test_a_share_string_whose_toggle_varint_never_ends_is_refused_at_its_fifth_b
             share_decode("AZR-" + base64.b32encode(raw).decode().rstrip("="), skips)
 
 
+def test_a_settings_refusal_names_its_first_20_problems_and_counts_the_rest():
+    """Step 4.42b: a settings table refused for many reasons (a handed file
+    of a million unknown toggles) says the first 20 and how many more, as
+    the writer's refusals do, not a line as large as the table; its
+    ``problems`` keep every one."""
+    from azurkit.tools.randomizer.planner.settings import SettingsError
+
+    skips = {sid: s for sid, (_, s) in loader.load_database(TOYDB).skips.items()}
+    with pytest.raises(SettingsError) as refused:
+        settings_from_table(layer.settings_doc(Settings(0, "hard", {})) | {
+            "skip_override": {f"t1.none_{k:02}": True for k in range(25)}}, skips, "settings file")
+    said = str(refused.value)
+    assert (len(refused.value.problems), said.count("the database has no such skip"), said.endswith(
+        "; ... and 5 more"), "t1.none_19" in said, "t1.none_20" in said) == (25, 20, True, True, False), said
+
+
 def test_a_skip_batch_is_one_pick_and_a_variant_id_in_a_file_string_or_flag_stands_for_its_batch(tmp_path):
     """D275 (Step R1.31): skips that cross the same thing and differ only in
     kit are variants of one batch (``batch``, ``batch_name``). A settings

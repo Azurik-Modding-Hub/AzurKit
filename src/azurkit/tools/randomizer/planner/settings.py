@@ -122,11 +122,17 @@ D144_DEFAULTS = Settings(0, "standard", {})   # D186: standard movement (was har
 
 class SettingsError(ValueError):
     """A settings table or share string the rules refuse; ``problems`` holds
-    ``(code, key, detail)`` for each reason."""
+    ``(code, key, detail)`` for each reason, and the message names the first
+    :data:`SHOWN` and counts the rest (a table of a million unknown toggles
+    is refused in a line, not in a refusal as large as itself)."""
+
+    SHOWN = 20
 
     def __init__(self, where: str, problems: list[tuple[str, str, str]]):
         self.problems = problems
-        super().__init__(f"{where}: " + "; ".join(f"{key}: {detail}" for _, key, detail in problems))
+        more = len(problems) - self.SHOWN
+        super().__init__(f"{where}: " + "; ".join(f"{key}: {detail}" for _, key, detail in problems[:self.SHOWN])
+                         + (f"; ... and {more} more" if more > 0 else ""))
 
 
 def category_table(excluded: Iterable[str]) -> tuple[str, list[str]]:
