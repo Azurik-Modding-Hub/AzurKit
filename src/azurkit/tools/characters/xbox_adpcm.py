@@ -45,6 +45,12 @@ MIN_RATE = 1000
 real one, clears it): a sound at a lower rate is refused before it is
 resampled, as each Hz under the build's :data:`RATE` makes it longer
 (a 46-byte file at 1 Hz was 2 s of work, 10,000 frames at 1 Hz hours)."""
+LONGEST_WAV = 60.0
+"""The longest a WAV the build reads may last (s): about 10 x
+:data:`LONGEST_WAVE` and 100 x the shipped content's longest (0.561 s). A
+longer one is refused by name before it is decoded, as each second is
+22,050 samples worked out one by one (a 64 MiB file of 16-bit samples at
+8 kHz would be 92 million: minutes of work and GiBs held)."""
 BLOCK, FRAMES = 36, 64
 """A mono block's bytes and the samples it holds."""
 _STEP = tuple(int(v) for v in "7/8/9/10/11/12/13/14/16/17/19/21/23/25/28/31/34/37/41/45/50/55/60/66/73/80/88/97/107/118/130/143/157/173/190/209/230/253/279/307/337/371/408/449/494/544/598/658/724/796/876/963/1060/1166/1282/1411/1552/1707/1878/2066/2272/2499/2749/3024/3327/3660/4026/4428/4871/5358/5894/6484/7132/7845/8630/9493/10442/11487/12635/13899/15289/16818/18500/20350/22385/24623/27086/29794/32767".split("/"))
@@ -203,11 +209,12 @@ def read_wav(path: str | Path) -> tuple[list[int], WavInfo]:
     held: an uncompressed integer WAV of 8, 16, 24 or 32 bits, mono or
     stereo (downmixed, ``(left + right) >> 1``), at :data:`MIN_RATE` Hz or
     more (resampled with a windowed sinc to ``ceil(frames x RATE / rate)``
-    samples).  A file stdlib ``wave`` can't read (a float or compressed
-    WAV), more than two channels, a lower rate or no frames raise
-    :class:`ValueError` naming the file (D35).  There is no length limit.  A part kept by the file's
-    bytes (:mod:`~azurkit.tools.characters.parts`, Step 4.6q: a copy of a
-    variant reads its WAVs again), each call given its own list."""
+    samples), at most :data:`LONGEST_WAV` seconds.  A file stdlib ``wave``
+    can't read (a float or compressed WAV), more than two channels, a lower
+    rate, no frames or more than that raise :class:`ValueError` naming the
+    file (D35).  A part kept by the file's bytes
+    (:mod:`~azurkit.tools.characters.parts`, Step 4.6q: a copy of a variant
+    reads its WAVs again), each call given its own list."""
     from azurkit.tools.characters import parts
 
     data = Path(path).read_bytes()
@@ -239,6 +246,8 @@ def _read_wav(path: str | Path, data: bytes) -> tuple[list[int], WavInfo]:
     frames = len(raw) // (channels * width)
     if not frames or rate <= 0:
         raise ValueError(f"{path}: no sound (0 frames)")
+    if frames > LONGEST_WAV * rate:   # the frames it holds: a header's count may be a stream's 0xFFFFFFFF
+        raise ValueError(f"{path}: {frames:,} frames at {rate:,} Hz, past the {LONGEST_WAV:g} s a sound here may last")
     if width == 1:
         values = [(b - 128) * 256 for b in raw]
     else:
@@ -253,4 +262,4 @@ def _read_wav(path: str | Path, data: bytes) -> tuple[list[int], WavInfo]:
     return [_resampled(mono, k * rate / RATE, RATE / rate) for k in range(out)], info
 
 
-__all__ = ["BLOCK", "FRAMES", "LONGEST_WAVE", "MIN_RATE", "RATE", "WavInfo", "decode", "encode", "read_wav", "wave_entry"]
+__all__ = ["BLOCK", "FRAMES", "LONGEST_WAV", "LONGEST_WAVE", "MIN_RATE", "RATE", "WavInfo", "decode", "encode", "read_wav", "wave_entry"]

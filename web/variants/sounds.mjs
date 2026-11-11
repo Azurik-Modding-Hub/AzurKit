@@ -17,7 +17,7 @@ const ROLE_TIPS = { fall: "A long fall's landing.", climb: "Climbing a ledge or 
                     footstep: "Each step.", land: "A landing." };
 const WAV_CHARS = 18;   // a role's files as shown, characters (the whole list in its title)
 const TIP = "Sounds: its own or Garret's. Voice: its own or silent. WAVs: a file a take.";
-const WAV_TIP = "Copies a PCM WAV (8 to 32 bits, 1 kHz or more) into its folder.";
+const WAV_TIP = "Copies a PCM WAV (8 to 32 bits, 1 kHz or more, up to 60 s) into its folder.";
 const HINT = "Its sounds, voice and WAVs.";
 const OPTIONAL = { whoosh: [["takes", 1]] };   // a generator's numbers a recipe may leave out, and their defaults
 const BOXES = 8;   // the most number boxes a sound shows (the rest JSON work)

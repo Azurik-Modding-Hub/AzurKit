@@ -1600,7 +1600,8 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     answer (``shipped.py``, D995) whose file isn't its row's size and sha256, never inflated, or that inflates
     past the size its head lists, stopped there (SEC-5's rule); and a WAV whose header gives a rate under
     ``xbox_adpcm.MIN_RATE`` (refused before it is resampled: 2 bytes at 1 Hz were 22,050 samples, 2 s of work),
-    one at the floor read; and a glTF whose ``asset`` isn't an object or that nests deep (200,000 brackets: the
+    one at the floor read, and one past ``xbox_adpcm.LONGEST_WAV``'s 60 s (refused before it is decoded, at the
+    build's rate and at the floor's), one of 60 s read; and a glTF whose ``asset`` isn't an object or that nests deep (200,000 brackets: the
     parser's ``RecursionError`` on this Mac), refused by name where every key on a recipe's files reads it, so
     a recipe file naming one is stamped by its bytes; and a recipe file (``variant_file``, the CLI's) whose
     ``mode`` is a list or that nests deep, refused naming the file, not a ``TypeError`` or ``RecursionError``."""
@@ -1612,11 +1613,11 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     from azurkit.tools.characters import gltf, library, mesh_edit, textures, xbox_adpcm
     from azurkit.tools.randomizer import art
 
-    def wav(rate: int) -> Path:
-        """A WAV of one 16-bit mono frame whose header gives ``rate`` Hz."""
-        with wave.open(str(path := tmp_path / f"{rate}.wav"), "wb") as out:
-            out.setnchannels(1), out.setsampwidth(2), out.setframerate(rate)
-            out.writeframes(b"\x01\x00")
+    def wav(rate: int, frames: int = 0) -> Path:
+        """A WAV of one 16-bit mono frame whose header gives ``rate`` Hz, or of ``frames`` 8-bit ones."""
+        with wave.open(str(path := tmp_path / (f"{frames}-at-{rate}.wav" if frames else f"{rate}.wav")), "wb") as out:
+            out.setnchannels(1), out.setsampwidth(1 if frames else 2), out.setframerate(rate)
+            out.writeframes(bytes(frames) if frames else b"\x01\x00")
         return path
     bomb, wide = _png(64, 64, bytes(64 << 20)), _png(8192, 4096, bytes(4096 * (8192 * 4 + 1)))
     (stamped := tmp_path / "stamped").mkdir()
@@ -1722,6 +1723,9 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             ("whose mode is a list", "mode", "TypeError: "), ("of 200,000 brackets", "deep", "it nests deeper than 64\\)$"))},
         **{f"a WAV at {rate} Hz": (lambda rate=rate: xbox_adpcm.read_wav(wav(rate)),
                                    rf"{rate}\.wav: {rate} Hz; a sound here is at least 1,000 Hz$") for rate in (1, 999)},
+        **{f"a WAV of {frames:,} frames at {rate:,} Hz": (lambda rate=rate, frames=frames: xbox_adpcm.read_wav(wav(
+            rate, frames)), rf"{frames}-at-{rate}\.wav: {frames:,} frames at {rate:,} Hz, past the 60 s a sound here "
+            r"may last$") for rate, frames in ((22050, 1_323_001), (1000, 60_001))},
     }
     assert list(_player_variants.load_variants(json.dumps({"mine": booblord}), str(tmp_path / "variant.json"), tuple(
         _player_variants.builtins()))) == ["mine"]   # her own recipe as a user's reads (the reader and built-ins warm)
@@ -1767,6 +1771,7 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     assert set(content.installed(updated)["a"]["files"]) == set(news)   # an Update removes only its own (SEC-15)
     assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
     assert len(xbox_adpcm.read_wav(wav(1000))[0]) == 23   # the floor's one frame, at the build's 22,050 Hz
+    assert len(xbox_adpcm.read_wav(wav(22050, 1_323_000))[0]) == 1_323_000   # 60 s at the build's rate
     for name in ("list", "deep"):   # a recipe file naming the glTF is stamped by its bytes, as a dress refuses it
         (stamped / "variant.json").write_text(recipe("mesh", {"gltf": {"file": f"{name}.gltf", "sha256": "0" * 64}}))
         assert isinstance(library.file_stamp(stamped / "variant.json"), str), name
