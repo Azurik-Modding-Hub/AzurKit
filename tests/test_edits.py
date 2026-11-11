@@ -460,6 +460,23 @@ def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(t
     assert put.source(str(tmp_path / "mine.xbr")) == str(tmp_path / "mine.xbr")
 
 
+def test_a_build_that_replaced_a_file_whose_name_has_a_space_opens_with_its_recipe():
+    """Step 4.42b: Replace files takes any file of the image, and three of
+    USA's have a space in their names; a build that replaced one names it
+    in its manifest's result, which a preset's check refused ("result is
+    {file: sha256}"), so Open a build refused that build's own manifest and
+    it couldn't be read back as a mods file. It opens with its recipe."""
+    path = "XDemos/MunchTrial/Oddio/munch04 dls.dls"
+    entry = files.normalize([files.entry(path, b"mine")])
+    record = {"format": edits.FORMAT, "schema_version": edits.SCHEMA_VERSION,
+              "base": {"kind": "vanilla", "release": gate.USA.name, "iso_sha256": gate.USA.iso_sha256},
+              "layers": [{"tool": "files", "kind": "put", "recipe": {"files": entry}}],
+              "result": {path: _sha256(b"mine")}}
+    assert path in gate.USA.files
+    made = preset.from_manifest(record)
+    assert (made["layers"][-1]["recipe"], made["result"]) == ({"files": entry}, record["result"])
+
+
 def test_a_seed_builds_layout_and_read_back_report_each_file_and_a_raised_record_stops_the_build(usa_iso):
     """``edits.image``'s ``progress(done, total)`` hears each file composed,
     then each changed file hashed (``total``: the files the layers name,

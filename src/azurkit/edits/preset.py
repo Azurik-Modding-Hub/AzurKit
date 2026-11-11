@@ -52,7 +52,7 @@ KEYS = {"format", "schema_version", "azurkit", "base", "layers", "result"}
 LAYER_KEYS = {"tool", "kind", "recipe"}
 VERSION = re.compile(r"\d+\.\d+\.\d+[0-9A-Za-z.+-]{0,24}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
-FILE = re.compile(r"[0-9A-Za-z_.\-/]{1,255}")
+FILE = re.compile(r"[0-9A-Za-z_.\- /]{1,255}")   # three of USA's files have a space in their names
 BASE64URL = re.compile(r"[0-9A-Za-z_-]*")
 
 
