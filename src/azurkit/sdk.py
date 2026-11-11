@@ -1453,7 +1453,8 @@ def variant_open(given: Mapping) -> dict:
     its ``recipe.json`` holds it (``"yours"``; a refused folder's recipe as
     far as it reads, else ``{}``), an installed entry's own character as
     its entry holds it (``"community"``: its ``folder`` the entry's, where
-    its files are), with its ``folder`` and its ``read``
+    its files are; one ``from`` another of its entry laid whole, as it
+    builds, as yours is), with its ``folder`` and its ``read``
     (:func:`variant_read`'s answer)."""
     from azurkit.tools.characters import _player_variants as kinds
     from azurkit.tools.characters import content as kit
@@ -1462,7 +1463,13 @@ def variant_open(given: Mapping) -> dict:
     name = _named(given, "variant_open")
     held = None if name in kinds.builtins() or (library.root() / name).is_dir() else kit.variant(name)
     if held is not None:
-        recipe = json.loads(Path(held.source).read_text(encoding="utf-8"))[name]
+        doc = json.loads(Path(held.source).read_text(encoding="utf-8"))
+        recipe, parent = doc[name], held.files
+        if parent and parent not in kinds.builtins():   # from a recipe of its entry: laid whole, as it builds,
+            recipe = kinds.recipe_of(doc, name, held.source)[0]   # its springs where that one's build puts them
+            if (placed := kinds.placing(held)) is not None and placed.name == parent:   # (library.own_copy's)
+                recipe = {**recipe, "places": {"of": parent, "mesh": doc[parent]["mesh"],
+                                               "jiggle": doc[parent]["jiggle"]}}
         folder = str(Path(held.source).parent)
         shown = {"name": UNSAVED, "recipe": recipe, "folder": folder}
         return {"name": name, "kind": "community", "recipe": recipe, "folder": folder, "read": variant_read(shown)}

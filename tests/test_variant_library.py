@@ -288,7 +288,9 @@ def test_an_installed_community_only_character_is_worn_by_name_as_its_entry_afte
     entry's folder: a build and its options wear it by name, its Source and every line its dress logs name the
     entry and version (``community mine_lord v1``), never the folder; the Models view lists it under its entry,
     the Variants view lists and opens it (its folder the entry's) and its Check takes it by name, a share link
-    carries it by name and sha, and New from this copies it as yours."""
+    carries it by name and sha, and New from this copies it as yours. One ``from`` another of its entry (booblord
+    and booblord_high's layout) opens laid whole, as it builds, its springs where that one's build puts them, so
+    an edit of it Checks and New from this copies it."""
     installs("mine_lord", MINE)
     worn = variants.resolve("mine_lord")
     assert (worn.base, worn.scale, worn.source) == ("keylord", 1.2, str(installs.root / "variants/mine_lord/variant.json"))
@@ -312,6 +314,19 @@ def test_an_installed_community_only_character_is_worn_by_name_as_its_entry_afte
     sdk.variant_save({"name": "unsaved", "recipe": opened["recipe"], "as": "my_lord", "from": "mine_lord"})
     assert variants.resolve("my_lord").sha == worn.sha and variants.resolve("my_lord").source.startswith(
         str(library.root()))
+    boob = json.loads(variants.BUILTIN.read_text(encoding="utf-8"))
+    pair = {"pair": {k: v for k, v in boob["booblord"].items() if k not in ("wavs", "shouts")},   # no WAV in an entry
+            "pair_high": {**boob["booblord_high"], "from": "pair"}}
+    installs("pair", {"variants/pair/variant.json": json.dumps(pair).encode(),
+                      **{f"variants/pair/{f}": b"x" for f in library.named_files(pair)}})
+    opened = sdk.variant_open({"name": "pair_high"})
+    assert ("from" in opened["recipe"], opened["recipe"]["places"]["of"], opened["read"].get("refusal")) == (
+        False, "pair", None)
+    edited = sdk._editing({"name": "unsaved", "recipe": {**opened["recipe"], "title": "Mine"}, "folder": opened["folder"]},
+                          "variant_check", image=False)[1]
+    sdk.variant_save({"name": "unsaved", "recipe": opened["recipe"], "as": "my_high", "from": "pair_high"})
+    assert len({repr((p.name, p.mesh, p.jiggle)) for p in map(variants.placing, (
+        variants.resolve("pair_high"), edited, variants.resolve("my_high")))}) == 1
 
 
 def test_a_community_character_is_refused_by_name_where_its_files_arent_as_installed_or_its_name_is_taken(installs):

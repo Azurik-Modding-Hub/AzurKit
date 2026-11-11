@@ -905,7 +905,8 @@ it is ``from`` others, else one ``from`` it with its labels), yours as
 its ``recipe.json`` holds it (``"yours"``; a refused folder's recipe as
 far as it reads, else ``{}``), an installed entry's own character as
 its entry holds it (``"community"``: its ``folder`` the entry's, where
-its files are), with its ``folder`` and its ``read``
+its files are; one ``from`` another of its entry laid whole, as it
+builds, as yours is), with its ``folder`` and its ``read``
 (:func:`variant_read`'s answer).
 
 
