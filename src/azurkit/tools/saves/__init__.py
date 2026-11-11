@@ -39,7 +39,9 @@ def edit(slot: Slot, edits: Iterable[Mapping]) -> tuple[Slot, list[dict]]:
     made, and ``{file, line, old, new}`` per edit. ``ValueError`` names every
     edit that can't be made (a file the slot hasn't or no text save, a line
     past its last, a value with a line break, a NUL or a character latin-1
-    can't hold) before any is made. Its signature.sav is the old one:
+    can't hold, a file the edits leave reading as other lines or no text
+    save: a headerless one holds printable ASCII alone) before any is made.
+    Its signature.sav is the old one:
     :func:`resign` it."""
     texts: dict[str, Text] = {}
     bad, done = [], []
@@ -66,6 +68,12 @@ def edit(slot: Slot, edits: Iterable[Mapping]) -> tuple[Slot, list[dict]]:
         else:
             done.append({"file": path, "line": line, "old": text.lines[line], "new": value})
             text.lines[line] = value
+    for path, text in texts.items():   # a headerless one (options.sav) stays text only in printable ASCII
+        made = text.to_bytes()
+        back = Text.from_bytes(made) if is_text(made) else None
+        if back is None or (back.version, back.lines) != (text.version, text.lines):
+            bad.append(f"{path}: the edits wouldn't read back as its lines (a save with no fileversion line holds "
+                       "printable ASCII alone)")
     if bad:
         raise ValueError("can't make the edits: " + "; ".join(bad))
     files = dict(slot.files) | {path: text.to_bytes() for path, text in texts.items()}

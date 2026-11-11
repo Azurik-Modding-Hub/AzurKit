@@ -317,6 +317,21 @@ def _slot(id: str, tree: dict, rel: str = "") -> tuple[dict, set]:
     return files, folders
 
 
+def test_an_edit_a_headerless_text_save_couldnt_read_back_is_refused():
+    """Step 4.42b: options.sav has no fileversion line, so it reads as text
+    only while it holds printable ASCII; an edit to an accented letter or a
+    control character, which made it a binary save whose lines were gone
+    and no further edit took, or a line 0 of ``fileversion=3``, which became
+    its header, is refused naming the file; a plain value is still made."""
+    slot = saves.Slot(ID, {"options.sav": b"musicvol 1.0\r\nsfxvol 1.0\r\n"})
+    for line, value in ((0, "musicvol \xe9"), (0, "musicvol \x01"), (1, "sfxvol \x7f"), (0, "fileversion=3")):
+        with pytest.raises(ValueError, match=r"^can't make the edits: options\.sav: the edits wouldn't read back as "
+                                             r"its lines \(a save with no fileversion line holds printable ASCII"):
+            saves.edit(slot, [{"file": "options.sav", "line": line, "value": value}])
+    made = saves.edit(slot, [{"file": "options.sav", "line": 0, "value": "musicvol 0.5"}])[0]
+    assert made.files["options.sav"] == b"musicvol 0.5\r\nsfxvol 1.0\r\n"
+
+
 def test_the_sdks_saves_open_edit_sign_and_save_a_slot_and_the_cli_does_too(tmp_path, monkeypatch, capsys):
     """Step 4.7e's hub half: ``sdk.saves`` opens a folder (a host's own ``.DS_Store`` and ``._x`` left out) or files or
     an HDD image's slots, edits a line all or none, signs it with the player's BIOS files (a synthetic key, by its own
