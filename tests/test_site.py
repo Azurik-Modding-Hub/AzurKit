@@ -1964,7 +1964,9 @@ def test_kept_content_reaches_the_engine_only_at_a_content_path_holding_its_inst
     the engine's content folder file by file only where its path is one a manifest may list and installed.json holds
     its sha256: a planted ``../`` key never reaches Pyodide's file system (one once wrote over the engine's own
     packages), nor does a file whose bytes aren't the record's; each is left out with a line naming it, once in each
-    of the site's two workers."""
+    of the site's two workers, and the engine finds no file at either entry's recipes path (its one row refuses it as
+    not in the content folder, where a file written with the swapped bytes would be refused as not the one
+    installed)."""
     recipe = json.dumps({"beamlord": {}}).encode()   # lists beamlord under its entry wherever it is read
     planted = "../content/variants/planted/variant.json"   # variants/planted/variant.json, were it written
     escaped = "../../../lib/python3.14/site-packages/azurkit_planted/__init__.py"
@@ -1981,9 +1983,11 @@ def test_kept_content_reaches_the_engine_only_at_a_content_path_holding_its_inst
             azurkit.engine.content(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, new Uint8Array(v)])),
                                    installed);
             const reply = await azurkit.engine.call("pickers", {given: {iso: null}});
-            return Object.fromEntries(reply.community.map((e) => [e.id, e.variants.map((v) => v.name)]));
+            return Object.fromEntries(reply.community.map((e) => [e.id, e.variants.map((v) => v.refusal ?? v.name)]));
         }""", [{k: list(v) for k, v in files.items()}, installed])
-        assert listed == {"kept": ["beamlord"], "planted": [], "swapped": []}
+        gone = ("variant {0!r}: community entry {0!r}: variants/{0}/variant.json isn't in the content folder (moved or "
+                "deleted): Install it again").format
+        assert listed == {"kept": ["beamlord"], "planted": [gone("planted")], "swapped": [gone("swapped")]}
         want = sorted([f"AzurKit left out kept content: path {path!r} isn't a file under variants/, clips/, sounds/, "
                        f"fx/, packs/" for path in (planted, escaped)]
                       + ["AzurKit left out kept content: variants/swapped/variant.json's sha256 # isn't installed.json's"])
