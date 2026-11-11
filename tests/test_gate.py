@@ -94,6 +94,32 @@ def test_an_image_is_checked_once_until_it_changes_and_a_hosts_store_vouches_for
         sdk._stamp(str(src))
 
 
+def test_an_images_read_answers_its_own_files_when_another_images_read_clears_the_cache_meanwhile(monkeypatch):
+    """The app reads two images at once (a Check on one while the page
+    picks another): the other read's clear of the sdk's one-image caches
+    (``sdk._GAME``, ``sdk._STAMPS``), landing while this read closes its
+    image, costs this read nothing: it answers its own files, not a
+    ``KeyError`` that drops the page's connection (Step 4.42c)."""
+    monkeypatch.setattr(sdk, "_GAME", {})
+    stamp = types.SimpleNamespace(path="a.iso", size=1, mtime_ns=2, ctime_ns=3)
+    monkeypatch.setattr(sdk, "_stamp", lambda path: stamp)
+
+    class Reader:   # the image read; the other image's read clears the cache as this one closes
+        def __init__(self, path) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc) -> None:
+            sdk._GAME.clear()
+
+        def read(self, name: str) -> bytes:
+            return name.encode()
+    monkeypatch.setattr(sdk.iso, "Reader", Reader)
+    assert sdk._game("a.iso") == (stamp, sdk.characters.CONFIG.encode(), sdk.characters.FILES[0].encode())
+
+
 def test_verify_every_file_is_kept_by_the_stamp(tmp_path, monkeypatch):
     """Every file checked after a build's check of the image as it is now
     (``kept``: the image picked) hashes only the files that check left, its

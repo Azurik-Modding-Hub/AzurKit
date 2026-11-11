@@ -557,7 +557,7 @@ def _stamp(path: str, steps: Steps = Steps(), digests: Mapping[str, str] | None 
     bytes."""
     at = os.stat(path)
     key = _key(path, at)
-    if key not in _STAMPS:
+    if (stamp := _STAMPS.get(key)) is None:   # its own stamp returned, as :func:`_game`'s
         stamp = gate.vouched(path, whole=False, releases=gate.RELEASES, stat=at)
         if stamp is None:
             if digests is None and THREADS:
@@ -566,7 +566,7 @@ def _stamp(path: str, steps: Steps = Steps(), digests: Mapping[str, str] | None 
                                 digests=digests)
         _STAMPS.clear()
         _STAMPS[key] = stamp
-    return _STAMPS[key]
+    return stamp
 
 
 def _key(path: str, at: os.stat_result) -> tuple:
@@ -634,13 +634,14 @@ def _game(path: str, reading: Callable[[], object] | None = None) -> tuple[gate.
     (``reading()`` is called before a read)."""
     stamp = _stamp(path)
     key = (str(stamp.path), stamp.size, stamp.mtime_ns, stamp.ctime_ns)
-    if key not in _GAME:
+    if (game := _GAME.get(key)) is None:   # the call's own answer returned: another image's read may clear meanwhile
         if reading is not None:
             reading()
         with iso.Reader(stamp.path) as r:
-            _GAME.clear()
-            _GAME[key] = (stamp, r.read(characters.CONFIG), r.read(characters.FILES[0]))
-    return _GAME[key]
+            _GAME.clear()   # the last image's files go before this one's are read (one heap on the site)
+            game = (stamp, r.read(characters.CONFIG), r.read(characters.FILES[0]))
+        _GAME[key] = game
+    return game
 
 
 def pickers(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
