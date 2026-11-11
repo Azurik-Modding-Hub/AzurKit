@@ -480,7 +480,7 @@ def community(root: Path | None = None) -> list[Community]:
             why = f"community entries {', '.join(holders[r.name])} each hold it, so none is worn"
         else:
             why = None
-        out.append(r if why is None or r.refusal is not None
+        out.append(r if why is None or r.refusal is not None and variants._NAME.match(r.name)
                    else Community(r.name, r.entry, r.version, None, f"variant {r.name!r}: {why}"))
     return out
 
@@ -559,21 +559,22 @@ def _altered(root: Path, entry: str, path: str, sha: str) -> str | None:
 def _read_recipes(root: Path, entry: str, version, files: Mapping[str, str]) -> list[Community]:
     """:func:`_entry_recipes`' rows, read from the content folder ``root``
     (``files``: the installed sha256 of each file of the entry's folder);
-    a file not as installed is read only for the names its refusal goes
-    under, never as a recipe."""
+    a recipes file not as installed is never read (D992): one row, under
+    the entry's id, refuses it."""
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import library
 
     recipes = RECIPES.format(entry)
     file, built = root / recipes, variants.builtins()
     version = version if type(version) is int else 0
-    why = _altered(root, entry, recipes, files[recipes])
+    if (why := _altered(root, entry, recipes, files[recipes])) is not None:
+        return [Community(entry, entry, version, None, f"variant {entry!r}: {why}")]
     try:
-        text = file.read_text(encoding="utf-8") if why is None or file.stat().st_size <= MAX_FILE else "{}"
+        text = file.read_text(encoding="utf-8")
         doc = None if jsondepth.deeper(text, library.NESTING) else json.loads(text)
     except (OSError, UnicodeDecodeError, ValueError):
         doc = None
-    if why is None and not isinstance(doc, dict):
+    if not isinstance(doc, dict):
         why = f"community entry {entry!r}: {recipes} is no JSON object of recipes"
     names = [n for n in (doc if isinstance(doc, dict) else {entry: None}) if n not in built]
     if why is None and names:   # one it holds: every file of its folder as installed, before any is read

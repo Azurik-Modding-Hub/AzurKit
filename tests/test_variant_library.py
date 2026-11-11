@@ -331,7 +331,8 @@ def test_an_installed_community_only_character_is_worn_by_name_as_its_entry_afte
 
 def test_a_community_character_is_refused_by_name_where_its_files_arent_as_installed_or_its_name_is_taken(installs):
     """A community-only character is read only once its entry's files are those ``installed.json`` records (an
-    altered or moved file refused by name, its sha256s' first 12 digits beside it), names only files its entry
+    altered or moved file refused by name, its sha256s' first 12 digits beside it; an altered recipes file never
+    read, so none of its names reaches a view: one row under its entry's id refuses it), names only files its entry
     lists, and never stands in for a built-in or yours (what a link or a saved setup already names): an entry whose
     recipe has a built-in's name with another recipe is refused at Install, one holding the built-in's own recipe
     lists that built-in and the name is the built-in's (one from a built-in reads that one's files); one named as yours lists refused and yours is worn; one
@@ -341,7 +342,10 @@ def test_a_community_character_is_refused_by_name_where_its_files_arent_as_insta
     sha = variants.resolve("mine_lord").sha
     link = sdk.preset_encode({"iso": "/nowhere/usa.iso", "packs": {}, "character": {"species": "mine_lord"}})
     recipe = installs.root / "variants/mine_lord/variant.json"
-    recipe.write_bytes(json.dumps({"mine_lord": {"base": "keylord", "mode": "own", "scale": 3.0}}).encode())
+    recipe.write_bytes(json.dumps({"mine_lord": {"base": "keylord", "mode": "own", "scale": 3.0},
+                                   "<b>Odd</b> ../name": {}, "y" * 300: {}}).encode())
+    assert [(r["name"], "isn't the file installed" in r["refusal"]) for r in sdk.variants()["community"]] == [
+        ("mine_lord", True)]
     for why in (r"variant 'mine_lord': community entry 'mine_lord': variants/mine_lord/variant\.json isn't the file "
                 r"installed \(its sha256 [0-9a-f]{12}, installed [0-9a-f]{12}\): Install it again",):
         with pytest.raises(ValueError, match=why):
