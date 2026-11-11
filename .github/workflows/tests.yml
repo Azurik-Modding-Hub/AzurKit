@@ -291,7 +291,11 @@ jobs:
         # Step 4.4dx5: the pure job's step, on the pure tier's workers (the row's `pure`), here so a push's macOS jobs
         # are 5, the most GitHub runs here at once: its two macOS rows made 7, and two waited 20-33 min for a slot, on
         # the run's critical path (runs 42198913490, 42222637371, 42313664434). Its tests run behind the block above.
+        # Its failure fails the job in the last step, never before its vanilla part has run (Step 4.46a: one pure test
+        # hid 333 and 491 vanilla tests of each Mac in main's runs 42930149347, 42948266726 and 42961116313).
+        id: pure
         if: matrix.pure
+        continue-on-error: true
         env:
           AZURKIT_FLAKES: ${{ runner.temp }}/flakes.tsv   # tests/_rerun.py: each test that passed its one rerun
         run: |
@@ -358,6 +362,7 @@ jobs:
               git clone --quiet --depth 1 --filter=blob:none --no-checkout ssh://git@ssh.github.com:443/Azurik-Modding-Hub/AzurKit-gamedata.git "$gd" &&
               part .gitattributes reassemble.py manifest.json
           }
+          # shellcheck disable=SC2086   # $blobs: the blobs' shas, one word each
           part() {   # part <file>...: those files' blobs in one fetch, then their checkout from what it brought
             blobs="$(git -C "$gd" rev-parse "${@/#/HEAD:}")" &&
               git -C "$gd" -c fetch.negotiationAlgorithm=noop fetch --quiet --no-tags --no-write-fetch-head --recurse-submodules=no --filter=blob:none --no-auto-maintenance origin $blobs &&
@@ -456,3 +461,8 @@ jobs:
       - name: Delete the images and any parts left
         if: always()
         run: if [ -n "${TIER_ROOM:-}" ]; then rm -rf "$TIER_ROOM"; fi
+      - name: The pure tier's failure fails the job, its vanilla part run
+        if: ${{ !cancelled() && steps.pure.outcome == 'failure' }}
+        run: |
+          echo "::error::the pure tier failed in its step above"
+          exit 1

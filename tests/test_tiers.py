@@ -550,6 +550,23 @@ def test_ci_runs_the_pure_tier_once_on_each_runner_and_a_push_asks_for_at_most_5
 # Step 4.28b: Modkit's suite guards, ported lean.
 
 
+def test_a_macs_failed_pure_tier_still_runs_its_vanilla_part_and_fails_the_job():
+    """Step 4.46a: a Mac's part 1 folds the pure tier in ahead of its
+    vanilla part, whose steps skipped when it failed (one pure test hid
+    each Mac's part 1 in three of main's runs in a row). The folded step goes
+    on past a failure (``continue-on-error``), no step after it but those
+    that run whatever happened has an ``if:``, and the last fails the job
+    for it."""
+    steps = re.split(r"(?m)^      - ", _jobs((ROOT / ".github" / "workflows" / "tests.yml").read_text(
+        encoding="utf-8"))["vanilla"].split("    steps:\n", 1)[1])[1:]
+    folded, = [at for at, step in enumerate(steps) if "        if: matrix.pure\n" in step]
+    assert "        id: pure\n" in steps[folded] and "        continue-on-error: true\n" in steps[folded]
+    guards = [re.search(r"(?m)^        if: (.+)$", step) for step in steps[folded + 1:]]
+    assert {g[1] for g in guards[:-1] if g} == {"always()"}, guards
+    assert guards[-1][1] == "${{ !cancelled() && steps.pure.outcome == 'failure' }}" and steps[-1].endswith(
+        "exit 1\n")
+
+
 def test_a_europe_mark_without_vanilla_stops_the_run_and_the_europe_fixture_marks_both(pytester, monkeypatch):
     """Modkit's Step RG.3 (D26 a release): a Europe test is a vanilla one
     too, so ``-m "not vanilla"`` leaves it out: a run that collects a test
