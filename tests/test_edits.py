@@ -246,6 +246,24 @@ def test_a_build_over_views_writes_only_its_patches_and_is_the_whole_builds_imag
         run.send(None)
 
 
+def test_a_build_whose_bin_index_holds_more_than_its_bin_is_refused(tmp_path):
+    """Step 4.42b (D992): an image's /azurkit.json is untrusted, and each
+    blob its bin index names was hashed from scratch, so an index of many
+    overlapping spans made opening it hash far more than /azurkit.bin (at
+    the caps, tens of TiB). A build lays its blobs back to back, so they
+    hold the bin's bytes once: an index whose spans hold more is refused
+    before any is hashed."""
+    blob = fill("z", 4096)
+    record = {"format": edits.FORMAT, "schema_version": edits.SCHEMA_VERSION,
+              "base": {"kind": "vanilla", "release": gate.USA.name, "iso_sha256": gate.USA.iso_sha256},
+              "layers": [{"tool": "data", "kind": "xbr", "recipe": {}}], "result": {},
+              "bin": {_sha256(blob[:n]): [0, n] for n in (4096, 4095)}}
+    path = tmp_path / "crafted.iso"
+    path.write_bytes(image({edits.JSON: json.dumps(record).encode(), edits.BIN: blob}))
+    with pytest.raises(ValueError, match=r": its bin's blobs hold more than /azurkit\.bin's 4,096 B$"):
+        edits.load(path)
+
+
 def test_a_builds_image_gives_the_md5_its_layout_hashed_only_for_the_bytes_hashed(tmp_path):
     """The image a build makes keeps the md5 its layout hashed of each
     changed file (``iso.read``'s ``md5s``), so the randomizer's read-back

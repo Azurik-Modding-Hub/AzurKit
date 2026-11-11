@@ -286,10 +286,13 @@ def _checked(record: object, blob: bytes) -> dict:
         raise ValueError(f"its result names a file the {release.label} image doesn't have")
     if not isinstance(index, dict):
         raise ValueError("its bin is no {sha256: [offset, size]}")
+    held = 0   # a build lays its blobs back to back (root_files), so they hold the bin's bytes once at most
     for sha, where in index.items():
         if not (isinstance(where, list) and len(where) == 2 and all(type(n) is int and n >= 0 for n in where)
                 and where[0] + where[1] <= len(blob)):
             raise ValueError(f"its bin's blob {str(sha)[:12]} is outside /{BIN}")
+        if (held := held + where[1]) > len(blob):
+            raise ValueError(f"its bin's blobs hold more than /{BIN}'s {len(blob):,} B")
         if _sha256(blob[where[0]:where[0] + where[1]]) != sha:
             raise ValueError(f"/{BIN}'s blob {str(sha)[:12]} isn't the bytes its sha256 names")
     return record
