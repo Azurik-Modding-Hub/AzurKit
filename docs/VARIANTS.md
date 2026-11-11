@@ -51,7 +51,7 @@ attack column.
 - `voice`: `own` or `silent` (no hurt, death, idle or taunt voice; its WAVs still play).
 - `wavs`: a WAV per role, a file a take (up to 20): `{"hurt": ["ow.wav", "oof.wav"]}`. The roles are `hurt`, `death`,
   `idle`, `taunt`, `land`, `roll`, `jump`, `footstep`, `fall` (a long fall's landing) and `climb` (a ledge or a
-  ladder's top). A WAV is integer PCM of 8 to 32 bits, mono or stereo, at any rate.
+  ladder's top). A WAV is integer PCM of 8 to 32 bits, mono or stereo, at 1 kHz or more.
 - `sfx`: sounds made by a generator for attack columns: `{"whip": {"generator": "whoosh", "length": 0.8, "swells": 4,
   "seed": 5, "columns": ["basic1"]}}` (`takes`, how many, defaults to 1), or `"generator": "wav"` with `files`.
 - `shouts`: `{"files": [...]}`, its voice where Garret shouts under another weapon.

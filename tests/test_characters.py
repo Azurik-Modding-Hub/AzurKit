@@ -1547,15 +1547,23 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     picture in ``packs/``, a suffix-less file, a shipped answer outside ``variants/``; SEC-3's allow-list); a
     recipe whose clip or mesh file leaves the recipe's folder (``..``, an absolute path; SEC-14); and a shipped
     answer (``shipped.py``, D995) whose file isn't its row's size and sha256, never inflated, or that inflates
-    past the size its head lists, stopped there (SEC-5's rule)."""
+    past the size its head lists, stopped there (SEC-5's rule); and a WAV whose header gives a rate under
+    ``xbox_adpcm.MIN_RATE`` (refused before it is resampled: 2 bytes at 1 Hz were 22,050 samples, 2 s of work),
+    one at the floor read."""
     import time
     import tracemalloc
 
     from compression import zstd
 
-    from azurkit.tools.characters import gltf, textures
+    from azurkit.tools.characters import gltf, textures, xbox_adpcm
     from azurkit.tools.randomizer import art
 
+    def wav(rate: int) -> Path:
+        """A WAV of one 16-bit mono frame whose header gives ``rate`` Hz."""
+        with wave.open(str(path := tmp_path / f"{rate}.wav"), "wb") as out:
+            out.setnchannels(1), out.setsampwidth(2), out.setframerate(rate)
+            out.writeframes(b"\x01\x00")
+        return path
     bomb, wide = _png(64, 64, bytes(64 << 20)), _png(8192, 4096, bytes(4096 * (8192 * 4 + 1)))
     flood = zstd.compress(bytes(64 << 20), options={zstd.CompressionParameter.window_log: 20})
 
@@ -1646,6 +1654,8 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             {"id": "a", "files": [{"path": "packs/a/X.json", "sha256": "0" * 64, "size": 0}]},
             {"id": "b", "files": [{"path": "packs/a/x.json", "sha256": "0" * 64, "size": 0}]}])),
             r"^manifest: entry 'b': packs/a/x\.json is entry 'a''s too"),
+        **{f"a WAV at {rate} Hz": (lambda rate=rate: xbox_adpcm.read_wav(wav(rate)),
+                                   rf"{rate}\.wav: {rate} Hz; a sound here is at least 1,000 Hz$") for rate in (1, 999)},
     }
     assert list(_player_variants.load_variants(json.dumps({"mine": booblord}), str(tmp_path / "variant.json"))) == [
         "mine"]   # her own recipe as a user's reads (and the reader is warm)
@@ -1690,6 +1700,7 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     assert (updated / "packs/a/note.md").read_bytes() == news["packs/a/note.md"]   # a rename by letter case kept
     assert set(content.installed(updated)["a"]["files"]) == set(news)   # an Update removes only its own (SEC-15)
     assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
+    assert len(xbox_adpcm.read_wav(wav(1000))[0]) == 23   # the floor's one frame, at the build's 22,050 Hz
 
 
 def test_an_install_takes_its_hosts_refusal_and_an_entry_keeps_its_description(tmp_path):

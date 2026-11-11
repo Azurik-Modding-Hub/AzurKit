@@ -1234,7 +1234,7 @@ def add_png(given: Mapping) -> dict:
 
 def add_wav(given: Mapping) -> dict:
     """The Sounds tab's Add (Step 2.164b): ``file``, a WAV the build reads
-    (uncompressed integer PCM, mono or stereo, any rate), copied whole into
+    (uncompressed integer PCM, mono or stereo, 1 kHz or more), copied whole into
     the variant's ``folder`` under a name a recipe's ``wavs`` take (as
     :func:`add_png` names it): ``{"name"}``. With ``data``, the WAV's bytes
     and ``file`` the name it was picked as (the site's pick, Step 4.6g). A
