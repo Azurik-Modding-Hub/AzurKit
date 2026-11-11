@@ -1117,8 +1117,9 @@ are the Characters section's.
     share her body. A file a part left is named by that part's key, and
     one the glue between two parts left by the last part's key and DRESS
     (`_player_character._dress_key`: the image's and the packs' files,
-    the options and the recipe's fields but its body's and the late
-    stages', `_player_variants.dress_reads`), so the same inputs name
+    the options and the recipe's fields but its body's, its sounds' and
+    the late stages', `_player_variants.dress_reads`), so the same inputs
+    name
     the same file on every host; a LOD cut names its LOD 0 by W29's key
     and, after a prop's write, the file's name (`_mesh`). The glue's own reads are light: a
     body's bounds as numpy columns (`characters.mesh_bounds`), its bones
