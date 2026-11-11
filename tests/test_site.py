@@ -7176,8 +7176,8 @@ def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_t
 
 
 # The Variants view's engine as stubs (STUB_ENGINES' answer): booblord listed and opened; a Check that grows the other
-# worker's heap past this one's (the pool's next heavy ask runs there), and with ``grow`` its own past workers.GROWN
-# (the pool replaces it); pictures only from a worker that checked.
+# worker's heap past this one's (the pool's next heavy ask runs there once the Check's worker, which stays F, is gone),
+# and with ``grow`` its own past workers.GROWN (the pool replaces it); pictures only from a worker that checked.
 CHECK_STUB = """(() => {
     const { listed, opened, drawn } = %s, ours = /^(variant|move_sources$|kit_throw$|own_sounds$|base_bones$)/;
     const kept = "variant 'booblord': no Check of it is kept (none yet, or it changed since): "
@@ -7208,8 +7208,8 @@ def test_a_checks_pictures_are_drawn_by_the_worker_that_dressed_it_or_after_a_ch
     draws them, though the other worker's heap is the bigger (asked after the answer, a heavy ask, the pool ran them
     there, which keeps no Check: "Not drawn", the Shape tab held no pictures and a drag showed none marked Preview,
     and the WebKit perf rows S82 and S81 waited 600 s for it). A Check whose worker grew past its line (the pool
-    replaces it) has its pictures refused by the new one, which is asked the Check again with them. A drag of a shape
-    then shows them, marked Preview."""
+    replaces it) has its pictures refused by the new one, and the Check is asked again with them, drawn by the worker
+    it runs in. A drag of a shape then shows them, marked Preview."""
     from azurkit.tools.characters import _player_variants, editor, picker
 
     her = _player_variants.builtins()["booblord"]
@@ -7228,6 +7228,8 @@ def test_a_checks_pictures_are_drawn_by_the_worker_that_dressed_it_or_after_a_ch
                 $("var-front").parentElement.hasAttribute("data-preview")]; }"""
     asked = ("() => [sent.filter((m) => /^variant_(check|pictures)$/.test(m.type)).map((m) => m.type), "
              "made.map((w) => [Boolean(w.checked), w.stopped])]")
+    drew = ("() => made.map((w) => [Boolean(w.checked), w.stopped, "   # and the last Check or pictures it was asked
+            "w.got.filter((m) => /^variant_(check|pictures)$/.test(m.type)).at(-1)?.type ?? null])")
     built = "From the front and from behind, as it builds."
     try:
         page = served.open()
@@ -7244,8 +7246,11 @@ def test_a_checks_pictures_are_drawn_by_the_worker_that_dressed_it_or_after_a_ch
         page.evaluate("() => { globalThis.grow = true; }")   # Check again: its worker grows past its line
         _page.click(page, "var-check")
         _page.until(page, f"() => ({asked})()[0].length === 6 && ({shown})()[1] === {json.dumps(built)}", 60)
-        assert page.evaluate(asked) == [["variant_check", "variant_pictures"] * 3,
-                                        [[True, False], [True, True], [False, False]]]
+        assert page.evaluate(asked)[0] == ["variant_check", "variant_pictures"] * 3
+        # The grown worker stopped after its Check, a new one refused the pictures (asked no Check) and the worker the
+        # Check ran in again drew them; which of the first two grew is the pool's (KEEPS: the Check's worker stays F).
+        assert sorted(page.evaluate(drew)) == [[False, False, "variant_pictures"], [True, False, "variant_pictures"],
+                                               [True, True, "variant_check"]]
         page.evaluate("""() => { const track = document.getElementById("var-shape-bust").previousElementSibling;
             for (const x of [1.1, 1.2]) { track.value = String(x); track.dispatchEvent(new Event("input")); } }""")
         assert _page.until(page, f"() => {{ const s = ({shown})(); return s[2] && s.slice(1); }}", 60) == [
