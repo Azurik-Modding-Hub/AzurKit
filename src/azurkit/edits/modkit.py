@@ -228,7 +228,9 @@ def _entry(k: int, raw: object, chains: dict[str, _Chain], gid: int) -> Edit:
         after = value.encode("ascii").ljust(len(was), b"\0")
     elif file == CONFIG and offset + len(after) > len(chain.now):
         return label, None, f"0x{offset:X}+{len(after)} is past {CONFIG}'s {len(chain.now):,} B"
-    if len(after) + sum(len(c.holders) for c in chains.values()) > MAX_HELD:
+    # a level keeps each original byte it is given (van) once a later edit drops the one that gave it,
+    # config.xbr each byte an edit holds
+    if len(after) + sum(len(c.van) if c.vanilla is None else len(c.holders) for c in chains.values()) > MAX_HELD:
         return label, None, f"its {len(after):,} B take the mod's byte edits past the {MAX_HELD:,} B they may hold"
     return chain.replace(gid, label, file, offset, after, was)
 

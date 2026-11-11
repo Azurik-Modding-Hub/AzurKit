@@ -688,7 +688,8 @@ def test_a_modkit_mods_byte_edits_past_what_they_may_hold_are_refused_by_name(mo
     byte, so a 16 MiB mods file of one replace_string_at would take seconds and
     gigabytes before anything was refused. Past ``modkit.MAX_HELD`` bytes
     all told (config.xbr's largest table whole) the edit that takes them
-    there is refused, by its label, before it is held."""
+    there is refused, by its label, before it is held: a level's original
+    bytes count once a later edit drops the one that named them, too."""
     from azurkit.edits import modkit
 
     big = {"op": "replace_string_at", "file": "a1.xbr", "offset": 0, "value": "", "expected": "A" * modkit.MAX_HELD}
@@ -701,6 +702,12 @@ def test_a_modkit_mods_byte_edits_past_what_they_may_hold_are_refused_by_name(mo
     assert len(sdk.read_mods(json.dumps({"xbr_edits": edits[:1]}))["xbr"]) == 1
     with pytest.raises(ValueError, match=re.escape("xbr_edits[1] (replace_string_at on a1.xbr): its 40 B take")):
         sdk.read_mods(json.dumps({"xbr_edits": edits}))
+    # 30 B named in place, then a 2 B edit inside them that drops it (holding 2 B), at fresh offsets
+    dropped = [e for at in (0, 0x100, 0x200) for e in (
+        big | {"offset": at, "expected": "A" * 29, "value": "A" * 29},
+        big | {"offset": at + 28, "expected": "A", "value": "B"})]
+    with pytest.raises(ValueError, match=re.escape("xbr_edits[4] (replace_string_at on a1.xbr): its 30 B take")):
+        sdk.read_mods(json.dumps({"xbr_edits": dropped}))
 
 
 def test_several_mods_files_build_in_order_and_each_later_overwrite_is_said(usa_iso, tmp_path, capsys):
