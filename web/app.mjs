@@ -490,11 +490,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     },
     randomizer: (given, ticket, file) => wait("randomizer", { type: "randomizer", given, ticket, ...(file ? { file } : {}) },
                                               { anywhere: true }, (data) => rando(data.reply, data.ticket)),
-    vanilla: (file) => asked({ type: "vanilla", file }, {}, (data) => {
+    vanilla: (file) => asked({ type: "vanilla", file }, {}, (data) => {   // each answer with the file it is about
       if (data.type === "vanilla") {   // with the image's info for the Tools tab (worker.mjs's vanilla)
         const { info, ...read } = plain(data);
-        vanilla(read, info);
-      } else if (data.type === "opened") opened(data.preset);
+        vanilla(read, info, file);
+      } else if (data.type === "opened") opened(data.preset, file);
     }),
     preset: (recipe, report) => asked({ type: "preset", recipe, report }, { anywhere: true }, (data) => {
       if (data.type === "preset") shared(data.fragment);
@@ -602,7 +602,7 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
       .catch((error) => rando({ refused: `The app's engine didn't answer (${error.message})` }, ticket)),
     spoiler: (out) => ask("api/spoiler", { out }, (reply) => say(`Saved the spoiler: ${reply.spoiler.out}`)),
     vanilla: (iso) => followed("vanilla", post("api/vanilla", { iso })).then((read) => "refused" in read
-      || ("opened" in read ? opened(read.opened) : vanilla(read))).catch(() => {}),
+      || ("opened" in read ? opened(read.opened, iso) : vanilla(read, null, iso))).catch(() => {}),
     preset: (recipe, report) => ask("api/preset", { recipe, report }, (reply) => shared(reply.fragment)),
     decode: (text) => ask("api/decode", { text }, (reply) => decoded(reply.preset)),
     restore: (setup) => followed("restore", ask("api/restore", { setup }, restored)),
@@ -696,9 +696,9 @@ function sliderRow(pack, slider, flip) {
 
 // The picked image's own value of each slider at its XBE's sites (the catalog has none: the wheel holds no game
 // constant), shown beside it and held by its track (D42), and (the site's) the engine's info of it, which the Tools tab
-// shows with no ask of its own. A reply for an image no longer picked is dropped.
-function vanilla(read, info = null) {
-  if (state.asked !== state.file) return;
+// shows with no ask of its own. A reply for an image no longer picked (file, the one it was asked of) is dropped.
+function vanilla(read, info = null, file = state.file) {
+  if (file !== state.file) return;
   state.vanilla = read;
   state.imageInfo = info;
   state.read = state.file;
@@ -1114,9 +1114,10 @@ function decoded(preset) {
   load(preset, "the link");
 }
 
-// The picked image is an AzurKit build: offer its recipe (sdk.open_build checked the files it changed against it).
-function opened(preset) {
-  if (state.asked !== state.file) return;
+// The picked image is an AzurKit build: offer its recipe (sdk.open_build checked the files it changed against it). A
+// reply for an image no longer picked (file, the one it was asked of) is dropped, as vanilla()'s.
+function opened(preset, file = state.file) {
+  if (file !== state.file) return;
   state.opened = preset;
   const packs = Object.keys(preset.layers.find((layer) => layer.tool === "mods")?.recipe ?? {}).length;
   const label = preset.base?.release === "europe" ? "Europe" : "USA";

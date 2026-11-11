@@ -790,6 +790,43 @@ def test_the_trackers_spoiler_on_a_shaped_plan_takes_its_openers_from_the_engine
                 assert not thread.is_alive()
 
 
+def test_a_late_answer_for_the_image_picked_before_is_dropped(browser, tmp_path, monkeypatch):
+    """The app's image box asks the engine about each pick: the answer for
+    the one picked before (an AzurKit build's, late) landing after the next
+    pick's (a vanilla image's) is dropped, so the vanilla image stays the
+    one Build builds from, with no Load its recipe; that answer once took
+    the later pick for the build and greyed Build "this one is an AzurKit
+    build" (Step 4.42c)."""
+    _home(monkeypatch, tmp_path / "home")
+    held, build, plain = [], str(tmp_path / "build.iso"), str(tmp_path / "vanilla.iso")
+
+    def vanilla(route) -> None:   # the build's answer held; the vanilla image's at once
+        if route.request.post_data_json["iso"] == build:
+            held.append(route)
+        else:
+            route.fulfill(json={"packs": {}})
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.route("**/api/vanilla", vanilla)
+        for path in ("speculate", "prefetch"):
+            page.route(f"**/api/{path}", lambda route: route.fulfill(json={"ahead": False}))
+        _page.load(page, server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.fill(page, "iso-path", build)
+        while not held:   # Playwright's route runs inside this wait
+            page.wait_for_timeout(50)
+        _page.fill(page, "iso-path", plain)
+        _page.until(page, f"() => azurkit.read === {json.dumps(plain)}", 60)
+        held[0].fulfill(json={"opened": {"layers": [], "base": {"release": "usa"}}})
+        _page.until(page, "() => ![...azurkit.asks.values()].some((ask) => ask.kind === 'vanilla')", 60)
+        assert page.evaluate("""() => [azurkit.opened, document.getElementById('load-build').hidden,
+            document.getElementById('build').disabled, document.getElementById('picked').textContent
+            .includes('AzurKit build')]""") == [None, True, False, False]
+    finally:
+        server.close()
+
+
 def test_the_apps_window_opens_on_the_remembered_themes_ground(monkeypatch):
     """The window shows the remembered theme's ground (``web/app.css``'s
     ``--bg``) until the page draws, so a player who picked light never
