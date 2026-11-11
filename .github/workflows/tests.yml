@@ -395,7 +395,9 @@ jobs:
         # network namespace with only loopback up, back as this user with
         # sudo's and setpriv's environment reset, so only the variables named here reach them (no GITHUB_* file, no
         # runtime token); hence the venv's own python, since uv's cache and settings aren't in that environment. Its
-        # temp folder is on the tier's disk too, a test that passed leaves its folder to the next (the retention policy),
+        # temp folder is on the tier's disk too, on every runner (TMPDIR, which Python's tempfile reads first on Windows
+        # too; there the watcher's "temp" still reads the runner's own, where its Node writes), a test that passed leaves
+        # its folder to the next (the retention policy),
         # and a signal (the runner's shutdown) prints the log's tail, as pytest's own end would never come.
         # A hang names itself (run 41521288667: Windows' tier sat silent 3.5 h to the job's limit, its log never
         # printed): a test past 60 min puts each thread's stack in the log (faulthandler: the slowest legit one, the
@@ -416,9 +418,9 @@ jobs:
                 AZURKIT_CONTENT_SOURCE="$content" AZURKIT_FLAKES="$AZURKIT_FLAKES" .venv/bin/python -m pytest "$@"
             }
           else
-            tier() {
-              AZURKIT_ISO="$iso/usa.iso" AZURKIT_ISO_EUROPE="$iso/europe.iso" AZURKIT_CONTENT_SOURCE="$content" \
-                uv run --locked pytest "$@"
+            tier() {   # Windows' temp folder too (Step 4.46a: its tmp_path builds took C:'s %TEMP%, past the room check)
+              TMPDIR="$TIER_ROOM/tmp" AZURKIT_ISO="$iso/usa.iso" AZURKIT_ISO_EUROPE="$iso/europe.iso" \
+                AZURKIT_CONTENT_SOURCE="$content" uv run --locked pytest "$@"
             }
             # macOS's daily sweep (dirhelper, 03:35 on the runner's clock) deletes what looks 3 days old in its own temp
             # folder, under /var/folders, not here: a tier that crosses 03:35 UTC lost files a later test reads.

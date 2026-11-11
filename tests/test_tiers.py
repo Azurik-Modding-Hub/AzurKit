@@ -567,6 +567,17 @@ def test_a_macs_failed_pure_tier_still_runs_its_vanilla_part_and_fails_the_job()
         "exit 1\n")
 
 
+def test_the_ci_vanilla_tier_keeps_its_temp_folder_in_the_tier_folder_on_every_runner():
+    """Step 4.46a: the tier's tests write their builds to their temp
+    folders, which the room check and the last step's delete reach only in
+    the tier's folder: Windows' went to C:'s %TEMP% (12.1 GiB left of
+    27.6 in run 42629595161). Each runner's ``tier()`` gives pytest
+    ``TMPDIR`` there."""
+    text = _jobs((ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8"))["vanilla"]
+    tiers = re.findall(r"(?ms)^            tier\(\) \{.*?^            \}$", text)
+    assert len(tiers) == 2 and all('TMPDIR="$TIER_ROOM/tmp" ' in tier for tier in tiers), tiers
+
+
 def test_a_europe_mark_without_vanilla_stops_the_run_and_the_europe_fixture_marks_both(pytester, monkeypatch):
     """Modkit's Step RG.3 (D26 a release): a Europe test is a vanilla one
     too, so ``-m "not vanilla"`` leaves it out: a run that collects a test
