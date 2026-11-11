@@ -1925,6 +1925,21 @@ def test_settings_refuse_a_toggle_that_turns_on_a_held_or_manual_skip(tmp_path):
             share_decode(text, fewer)
 
 
+def test_a_share_string_whose_toggle_varint_never_ends_is_refused_at_its_fifth_byte():
+    """Step 4.42b: a share string's toggle varint ends by its fifth byte,
+    which holds any count or gap a registry has; a longer run (a crafted
+    string's, as long as the string) is refused there, so its decoding
+    stays linear in its length rather than quadratic, where it read on to
+    the string's end and only then said "truncated"."""
+    from azurkit.tools.randomizer.planner.settings import SettingsError, registry_tag
+
+    skips = {sid: s for sid, (_, s) in loader.load_database(TOYDB).skips.items()}
+    for run in (5, 200_000):
+        raw = bytes([0, 0x80]) + registry_tag(picks(skips)) + b"\xff" * run
+        with pytest.raises(SettingsError, match="share: a toggle index past the registry$"):
+            share_decode("AZR-" + base64.b32encode(raw).decode().rstrip("="), skips)
+
+
 def test_a_skip_batch_is_one_pick_and_a_variant_id_in_a_file_string_or_flag_stands_for_its_batch(tmp_path):
     """D275 (Step R1.31): skips that cross the same thing and differ only in
     kit are variants of one batch (``batch``, ``batch_name``). A settings

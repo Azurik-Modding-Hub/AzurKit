@@ -404,6 +404,8 @@ def share_decode(text: str, skips: Mapping[str, Mapping], told: list | None = No
                 shift += 7
                 if not byte & 0x80:
                     return n
+                if shift >= 35:   # 5 bytes hold any count or gap a registry has: a longer one is no toggle's
+                    fail("a toggle index past the registry")
         count, index = varint(), -1
         if count < 1:
             fail("the toggle flag is set with no toggle")
