@@ -408,7 +408,7 @@ def test_a_queued_run_takes_the_suite_lock_only_on_its_turn_and_never_waits_in_f
 
     monkeypatch.setitem(sys.modules, "fcntl", types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8, flock=flock))
     monkeypatch.setattr(fullsuite.time, "sleep", naps.append)
-    monkeypatch.setattr(fullsuite, "run", lambda meta, m: ran.append(meta.stem))
+    monkeypatch.setattr(fullsuite, "run", lambda meta, m, *_: ran.append(meta.stem))
     assert fullsuite.runner(meta) == 0
     assert (ran, naps, turns.read_text(encoding="utf-8")) == (["suite-r"], [fullsuite.POLL] * 2, f"gate {m['key']}\n")
     assert ops and all(op & 4 for op in ops if op != 8), ops   # every take a try: none waits in flock's line
