@@ -153,6 +153,20 @@ def test_a_refusal_names_what_it_refuses_and_writes_nothing(tmp_path):
         "colon.iso", "full/mine.txt", "in.iso", "tree/gamedata/new.xbr", "x.xbr"]
 
 
+def test_iso_repack_writes_no_image_beside_the_vanilla_ones(tmp_path, monkeypatch):
+    """Step 4.42d: iso_repack keeps D36's folder rule as sdk.build and sdk.save do (gate.require_new_output): an
+    out in the iso folder that holds the vanilla image is refused by name before anything is read or written (it
+    checked only that out wasn't the image itself)."""
+    (folder := tmp_path / "iso").mkdir()
+    (folder / "usa.iso").write_bytes(b"not read")
+    monkeypatch.setenv("AZURKIT_ISO", str(folder / "usa.iso"))
+    monkeypatch.setenv("AZURKIT_ISO_EUROPE", str(tmp_path / "none.iso"))
+    (tree := tmp_path / "tree").mkdir()
+    reply = tools.iso_repack(str(tree), str(folder / "x.iso"))
+    assert not reply["success"] and "which holds only the vanilla image" in reply["error"], reply
+    assert sorted(p.name for p in folder.iterdir()) == ["usa.iso"]
+
+
 # --- Step 4.28f: Modkit's unpinned MCP behaviours, ported -------------------------------------------------------
 
 

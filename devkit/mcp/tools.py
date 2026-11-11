@@ -452,7 +452,8 @@ def iso_repack(src: str, out: str, region: str | None = None) -> dict:
 
     Args:
         src: the folder.
-        out: the image to write: not inside src, not a vanilla image.
+        out: the image to write: not inside src, not a vanilla image nor
+            beside one (D36's folder rule, as every build's).
         region: the release whose vanilla image is packed (usa or europe;
             default USA's when it is found, else Europe's), its build files
             checked (D27).
@@ -482,7 +483,7 @@ def iso_repack(src: str, out: str, region: str | None = None) -> dict:
         raise ValueError(f"not files of the vanilla {release.label} image: {', '.join(extra)}")
     if (vanilla := gate.find(release)) is None:
         raise ValueError(f"no {release.label} image: {gate.missing(release)}")
-    _never_over(target, vanilla)
+    gate.require_new_output(target, tree, vanilla)   # D36 as sdk.build's: not beside a vanilla image either
     gate.verify(vanilla, whole=False, releases=(release,))
     sha256 = xiso.pack(xiso.read(vanilla, files=changed), target)
     return {"src": str(tree), "out": str(target), "region": release.name, "sha256": sha256,
