@@ -2526,10 +2526,11 @@ def test_a_big_one_lod_body_the_player_wears_casts_its_shadow_from_a_coarse_lod_
     his farClip keeps it off his screen and town_female_2's at 15 m is
     moved past hers (FLT_MAX), and the log line says what the load grew
     by; a load refusal the LOD alone causes names ``"lods": {"shadow":
-    false}``.  A cut started ahead of her LOD 0 in a worker process
-    (Step 2.179) is the one W36 takes, the same bytes; one at another
-    share isn't.  A body with LODs of its own (catalisk) refuses
-    ``lods.shadow``."""
+    false}``.  Named by its inputs (Step 4.37m1: a build's names of her
+    file and of her LOD 0), what W36 kept is what it takes again with no
+    cut made here (a cut started ahead of that LOD 0, Step 2.179, starts
+    none), the same bytes; one started at another share isn't taken.  A
+    body with LODs of its own (catalisk) refuses ``lods.shadow``."""
     from azurkit.tools.characters import decimate as dm
     from azurkit.tools.characters import model_inspect as mi
     from azurkit.tools.characters._player_character import _load_budget, write_shadow_lod
@@ -2550,7 +2551,8 @@ def test_a_big_one_lod_body_the_player_wears_casts_its_shadow_from_a_coarse_lod_
         assert bytes(doc.raw) == config
     monkeypatch.setattr(dm, "SHADOW_MIN", 5000)
     game, engine, doc = worn("town_female_2")
-    said, added = write_shadow_lod(game, engine, BODY)
+    named = {"known": "her file's name", "mesh": "her LOD 0's"}   # as the build names them by their inputs
+    said, added = write_shadow_lod(game, engine, BODY, **named)
     out = bytes(game["characters.xbr"])
     report = inspect(out, BODY, config_xbr=bytes(doc.raw))
     lod0, lod1 = report["lods"]
@@ -2569,14 +2571,14 @@ def test_a_big_one_lod_body_the_player_wears_casts_its_shadow_from_a_coarse_lod_
                     f"garret4's realtime shadow, {grew / 2 ** 20:.2f} MiB more own runs; town_female_2's "
                     "lodThreshold1 past its farClip, so no screen draws it"] and added == grew
     lod0_in = bc.read_asset(data, BODY).lods[0]   # Step 2.179: a cut started ahead of this LOD 0 is the one W36 takes
-    dm.cut_ahead(lod0_in, dm.SHADOW_RATIO)
+    assert dm.cut_ahead(lod0_in, dm.SHADOW_RATIO, mesh=named["mesh"]) and dm._AHEAD[0] is None   # kept: none starts
     with monkeypatch.context() as here:
         here.setattr(dm, "decimate", None)   # this process cuts nothing
         game, engine, _ = worn("town_female_2")
-        assert write_shadow_lod(game, engine, BODY) == (said, added) and game["characters.xbr"] == out
-    dm.cut_ahead(lod0_in, dm.SHADOW_RATIO / 2)   # one at another share isn't
+        assert write_shadow_lod(game, engine, BODY, **named) == (said, added) and game["characters.xbr"] == out
+    dm.cut_ahead(lod0_in, dm.SHADOW_RATIO / 2, mesh=named["mesh"])   # one at another share isn't
     game, engine, _ = worn("town_female_2")
-    assert write_shadow_lod(game, engine, BODY) == (said, added) and game["characters.xbr"] == out
+    assert write_shadow_lod(game, engine, BODY, **named) == (said, added) and game["characters.xbr"] == out
     monkeypatch.setattr(mi, "own_runs", lambda *_a, **_k: {"bytes": 15 * mi.MiB, "runs": 2, "largest": mi.MiB,
                                                             "by_tag": {}})
     monkeypatch.setattr(mi, "budget_of", lambda _xbe: mi.ROOM)
