@@ -350,6 +350,70 @@ def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
     assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [1800, 1800, 2700, 3600, 3600]
 
 
+def test_a_queued_run_takes_the_suite_lock_only_on_its_turn_and_never_waits_in_flocks_line(tmp_path, monkeypatch):
+    """D1222: macOS hands a released flock to its first waiter in the order
+    they blocked, so a run waiting in flock's line passed every later taker,
+    a seat's window too. A queued run tries the lock (each try LOCK_NB,
+    POLL apart) and takes it on its turn: no older queued run waits for it (a
+    stopped runner, or a stale meta whose pid another process took, holds
+    none back), and no seat's window waits for it (``lock.window``: a pid
+    that lives, rewritten in the last FRESH seconds) while a run took it last
+    (``lock.turn``, or a run that started since, as an older lane's, which
+    writes none). The run that takes it writes ``gate <key>``. Processes,
+    the window and the flock are stand-ins."""
+    repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
+    procs, live = {}, {4242}
+    monkeypatch.setattr(fullsuite, "processes", lambda pids: {p: procs[p] for p in pids if p in procs})
+    monkeypatch.setattr(fullsuite, "alive", lambda pid: pid in live)
+
+    def queued(name, second, pid):
+        meta = receipts / f"suite-{name}.meta"
+        fullsuite.save(meta, {"key": name, "state": "queued", "queued_at": f"2026-11-11T08:00:{second:02d}-08:00",
+                              "runner_pid": pid})
+        procs[pid] = ("S", f"python scripts/fullsuite.py --run {meta}")
+        return meta, fullsuite.load(meta)
+
+    g1, g2 = queued("g1", 1, 101), queued("g2", 2, 102)
+    turn, wants, turns = (lambda g: fullsuite.turn(*g)), receipts / "lock.window", receipts / "lock.turn"
+    assert (turn(g1), turn(g2)) == (True, False)   # the older first
+    for other in (("T", procs[101][1]), ("S", "sleep 60")):   # stopped; its pid another process's
+        procs[101] = other
+        assert turn(g2), other
+    procs[101] = ("S", f"python scripts/fullsuite.py --run {g1[0]}")
+    wants.write_text("window 7 pid 4242\n", encoding="utf-8")
+    seen = {}
+    for took in ("gate g0", "window 7"):
+        turns.write_text(took + "\n", encoding="utf-8")
+        seen[took] = (fullsuite.last(receipts), turn(g1))
+    old = time.time() - 60
+    os.utime(turns, (old, old))
+    fullsuite.save(receipts / "suite-old.meta", {"key": "old", "state": "done", "started_at": fullsuite.now()})
+    seen["an older lane's run since"] = (fullsuite.last(receipts), turn(g1))
+    os.utime(wants, (old, old))
+    seen["the window's wait not rewritten"] = (fullsuite.last(receipts), turn(g1))
+    assert seen == {"gate g0": ("gate", False), "window 7": ("window", True), "an older lane's run since":
+                    ("gate", False), "the window's wait not rewritten": ("gate", True)}
+
+    for g in (g1, g2):
+        fullsuite.save(g[0], g[1] | {"state": "done"})
+    meta = receipts / "suite-r.meta"
+    m = fullsuite.prepare(lane, True, base) | {"state": "queued", "queued_at": fullsuite.now(), "runner_pid": os.getpid()}
+    fullsuite.save(meta, m)
+    ops, naps, ran = [], [], []
+
+    def flock(fd, op):   # held by another for the first two tries
+        ops.append(op)
+        if op != 8 and sum(o != 8 for o in ops) <= 2:
+            raise BlockingIOError
+
+    monkeypatch.setitem(sys.modules, "fcntl", types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8, flock=flock))
+    monkeypatch.setattr(fullsuite.time, "sleep", naps.append)
+    monkeypatch.setattr(fullsuite, "run", lambda meta, m: ran.append(meta.stem))
+    assert fullsuite.runner(meta) == 0
+    assert (ran, naps, turns.read_text(encoding="utf-8")) == (["suite-r"], [fullsuite.POLL] * 2, f"gate {m['key']}\n")
+    assert ops and all(op & 4 for op in ops if op != 8), ops   # every take a try: none waits in flock's line
+
+
 def test_a_queued_run_whose_worktree_moves_before_it_gets_the_lock_ends_stale_runs_no_pytest_and_lands_nothing(
         tmp_path, monkeypatch):
     """A run checks its worktree's HEAD and tree (``fullsuite.snapshot``)
@@ -367,7 +431,8 @@ def test_a_queued_run_whose_worktree_moves_before_it_gets_the_lock_ends_stale_ru
     for name, move in moves.items():
         meta = receipts / f"suite-{name}.meta"
         fullsuite.save(meta, fullsuite.prepare(lane, True, base) | {"state": "queued", "runner_pid": os.getpid()})
-        lock = types.SimpleNamespace(LOCK_EX=2, flock=lambda fd, op, move=move: move())   # moved while it waits
+        lock = types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8,   # moved as the run tries it
+                                     flock=lambda fd, op, move=move: move())
         monkeypatch.setitem(sys.modules, "fcntl", lock)
         assert fullsuite.runner(meta) == 0
         if name != "held":
@@ -1485,7 +1550,8 @@ def test_a_batchs_last_receipt_runs_the_perf_stage_its_entries_deferred_and_its_
     assert "deferred to its batch's perf stage" in fullsuite.describe(m, receipts / "suite-a.meta")
     meta = receipts / "suite-a.meta"
     fullsuite.save(meta, m | {"state": "queued", "perf_now": True, "runner_pid": os.getpid(), "flakes": [{"test": "t"}]})
-    monkeypatch.setitem(sys.modules, "fcntl", types.SimpleNamespace(LOCK_EX=2, LOCK_UN=8, flock=lambda fd, op: None))
+    monkeypatch.setitem(sys.modules, "fcntl", types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8,
+                                                                    flock=lambda fd, op: None))
     timed, unrun = [], {"passed": False, "failures": ["the load stayed at 50.0"]}
     for block in (unrun, {"passed": True, "cases": {}, "debt": []}):
         monkeypatch.setattr(fullsuite, "perf_stage", lambda meta, m, block=block: timed.append(m["perf_args"]) or {

@@ -76,6 +76,15 @@ once (``tests/_rerun.py``, D1170): one that passes its rerun is flaky, kept
 in the receipt's ``flakes`` and appended to ``flakes.jsonl`` beside the
 receipts, and the run passes; one that fails twice fails it.
 
+No run waits in flock's line for the suite lock (D1222): macOS hands a
+released flock to its first waiter in the order they blocked, so a seat's
+window (``$EV/tools/window``) waited behind every run queued before it. A
+queued run tries the lock every :data:`POLL` seconds and takes a free one
+only on its turn (:func:`turn`): it is the oldest live queued run, and it
+yields to a window that waits for the lock (:data:`WANTS`) while a run took
+the lock last (:data:`TURN`, :func:`last`), so a gate and a window seat
+alternate; with none waiting on the other side either goes at once.
+
 The key is built from HEAD, a hash of the uncommitted diff and the untracked
 files, the base, the mode, the selection, a changed-area run's browsers and
 the perf stage's arguments. When the lock comes, the run checks HEAD and
@@ -939,20 +948,142 @@ def end(proc: subprocess.Popen) -> int:
     return proc.wait()
 
 
-def runner(meta: Path) -> int:
-    """The detached run: wait for the lock, then :func:`run`, or, when its
-    tree moved while it waited (:func:`stale`), end ``stale`` with no
-    pytest."""
+#: The suite lock's turns (D1222), beside it in the receipts folder: who took it last that ran, one line, ``gate <key>``
+#: (a run) or ``window <ticket n>`` (a seat's window); and a window waiting for it, ``window <ticket n> pid <pid>``,
+#: its holder rewriting the file as it polls.
+TURN, WANTS = "lock.turn", "lock.window"
+POLL = 0.5     # s between a queued run's tries at the suite lock
+FRESH = 10.0   # s: a window's wait (WANTS) its holder hasn't rewritten for this long, or whose pid is gone, is none
+
+
+def epoch(stamp: object) -> float | None:
+    """A receipt's ISO time (``now()``'s) as seconds since the epoch, or None."""
+    try:
+        return dt.datetime.fromisoformat(stamp).timestamp() if isinstance(stamp, str) else None
+    except ValueError:
+        return None
+
+
+def processes(pids) -> dict[int, tuple[str, str]]:
+    """Each of ``pids`` that runs: its state (``ps``'s ``stat``: ``T`` stopped) and command line, from one ``ps``
+    (none where it can't run)."""
+    pids = sorted({pid for pid in pids if isinstance(pid, int) and not isinstance(pid, bool) and pid > 0})
+    if not pids:
+        return {}
+    try:
+        out = subprocess.run(["ps", "-ww", "-o", "pid=,stat=,command=", "-p", ",".join(map(str, pids))],
+                             capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    procs = {}
+    for line in out.splitlines():
+        pid, stat, command = (line.split(None, 2) + ["", ""])[:3]
+        if pid.isdigit():
+            procs[int(pid)] = (stat, command)
+    return procs
+
+
+def waiting(meta: Path, m: dict, procs: dict) -> bool:
+    """Whether ``m`` is a queued run whose runner waits for the suite lock: it runs, not stopped, and its command
+    line names ``fullsuite.py`` and the meta (a stale meta whose pid another process took is no run)."""
+    stat, command = procs.get(m.get("runner_pid"), ("", ""))
+    return (m.get("state") == "queued" and stat[:1] not in ("", "T", "Z") and "fullsuite.py" in command
+            and meta.name in command)
+
+
+def place(meta: Path, m: dict) -> tuple[float, str]:
+    """A queued run's place among the runs (gates keep their queued order): when it was queued (``queued_at``; an
+    older lane's run has only ``created_at``), then its meta's name."""
+    return epoch(m.get("queued_at") or m.get("created_at")) or 0.0, meta.name
+
+
+def metas(folder: Path, since: float | None = None, states: tuple[str, ...] = ()):
+    """The receipts in ``folder`` as ``(meta, fields)``: those written since ``since`` alone when given, and those in
+    ``states`` alone when given, a look at the text first (each free lock reads the folder, and parsing every
+    receipt took most of a turn's time)."""
+    for meta in folder.glob("suite-*.meta"):
+        try:
+            if since is not None and meta.stat().st_mtime <= since:
+                continue
+            text = meta.read_text(encoding="utf-8")
+            if not states or any(f'"state": "{state}"' in text for state in states):
+                yield meta, json.loads(text)
+        except (OSError, ValueError):
+            continue
+
+
+def last(folder: Path) -> str | None:
+    """Which side took the suite lock last and ran, ``"gate"`` or ``"window"`` (None: no record): :data:`TURN`'s,
+    unless a run started after it was written (``started_at``, a deferred stage's ``perf_started_at``), as an
+    older lane's run, which writes no turn, does."""
+    try:
+        side, since = (folder / TURN).read_text(encoding="utf-8").split()[0], (folder / TURN).stat().st_mtime
+    except (OSError, IndexError):
+        side, since = None, None
+    starts = [t for _, m in metas(folder, since) for t in map(epoch, (m.get("started_at"), m.get("perf_started_at")))
+              if t is not None]
+    return "gate" if starts and (since is None or max(starts) > since) else side
+
+
+def window_waits(folder: Path) -> bool:
+    """Whether a seat's window waits for the suite lock: :data:`WANTS` names a pid that lives and its holder
+    rewrote it in the last :data:`FRESH` seconds."""
+    try:
+        text, age = (folder / WANTS).read_text(encoding="utf-8"), time.time() - (folder / WANTS).stat().st_mtime
+    except OSError:
+        return False
+    pid = re.search(r"\bpid (\d+)", text)
+    return age < FRESH and pid is not None and alive(int(pid[1]))
+
+
+def turn(meta: Path, m: dict) -> bool:
+    """Whether the free suite lock is this queued run's to take (D1222): no older queued run waits for it
+    (:func:`waiting`, :func:`place`), and no seat's window waits for it (:func:`window_waits`) while a run took it
+    last (:func:`last`). A window yields the same way to a waiting run when a window took it last, so they
+    alternate."""
+    ahead = [(other, o) for other, o in metas(meta.parent, states=("queued",))
+             if other != meta and o.get("state") == "queued" and place(other, o) < place(meta, m)]
+    procs = processes(o.get("runner_pid") for _, o in ahead)
+    if any(waiting(other, o, procs) for other, o in ahead):
+        return False
+    return not (window_waits(meta.parent) and last(meta.parent) == "gate")
+
+
+def took(lock, meta: Path, m: dict) -> str | None:
+    """The suite lock (``lock``, its open file) taken on this run's :func:`turn`, tried every :data:`POLL` seconds
+    and never waited for in flock's line, where a blocked waiter would pass every later taker (D1222); then why its
+    tree moved (:func:`stale`), or None, and :data:`TURN` this run's: a stale run takes no turn."""
     import fcntl   # POSIX's: only the run locks (the module loads on Windows)
 
+    while True:
+        try:   # free? (a try that would wait fails at once); then whose turn it is, read with the lock let go
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lock, fcntl.LOCK_UN)
+            if turn(meta, m):
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+        except BlockingIOError:
+            pass
+        time.sleep(POLL)
+    if moved := stale(m):
+        return moved
+    tmp = meta.parent / f".{TURN}.{os.getpid()}.tmp"
+    tmp.write_text(f"gate {m['key']}\n", encoding="utf-8")
+    tmp.replace(meta.parent / TURN)
+    return None
+
+
+def runner(meta: Path) -> int:
+    """The detached run: take the lock on its turn (:func:`took`), then
+    :func:`run`, or, when its tree moved while it waited (:func:`stale`),
+    end ``stale`` with no pytest."""
     deadline = time.time() + 60
     while (m := load(meta)) is None or m.get("runner_pid") != os.getpid():   # its queuer names it first
         if time.time() > deadline:
             return 1
         time.sleep(0.05)
     with open(meta.parent / "lock", "w", encoding="utf-8") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        if (moved := stale(m)) and m.get("perf_now"):   # its deferred stage waits on: the receipt stands as it was
+        if (moved := took(lock, meta, m)) and m.get("perf_now"):   # its deferred stage waits on: the receipt stands as it was
             save(meta, m | {"state": "done", "perf_now": False, "perf": m["perf"] | {"note": moved}})
         elif moved:
             save(meta, m | {"state": "stale", "finished_at": now(), "note": moved})
@@ -1283,7 +1414,7 @@ def main(argv: list[str] | None = None) -> int:
         proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--run", str(meta)],
                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 start_new_session=True)
-        save(meta, m := m | {"state": "queued", "perf_now": True, "runner_pid": proc.pid})
+        save(meta, m := m | {"state": "queued", "queued_at": now(), "perf_now": True, "runner_pid": proc.pid})
     elif m is None or (status_code(m) != 3 and (args.force or status_code(m) != 0)):
         ok, out = lint(wt)
         if not ok:
@@ -1296,7 +1427,8 @@ def main(argv: list[str] | None = None) -> int:
         proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--run", str(meta)],
                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 start_new_session=True)
-        save(meta, m := fields | {"state": "queued", "created_at": now(), "exit_code": None, "runner_pid": proc.pid})
+        save(meta, m := fields | {"state": "queued", "created_at": (stamp := now()), "queued_at": stamp, "exit_code": None,
+                                  "runner_pid": proc.pid})
     if args.wait is not None:
         m = wait(meta, args.wait)
     print(describe(m, meta))

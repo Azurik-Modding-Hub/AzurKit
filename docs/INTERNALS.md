@@ -2309,6 +2309,24 @@ are the Characters section's.
   (`--update-ceilings`, its ops as measured) may add its own ops and debts
   once (it lands a stack after the one that put `new_browsers` on main: the
   landing queue lands with main's `land.py`).
+- **The suite lock's turns (D1222):** macOS hands a released flock to its
+  first waiter in the order they blocked, stopped or not, and no later
+  taker or `LOCK_NB` try passes it (Step 4.47a's scratch run), so a seat's
+  window (`$EV/tools/window`) waited behind every gate queued before it. No
+  run waits in that line: a queued run tries the lock (`LOCK_EX|LOCK_NB`)
+  every 0.5 s (`fullsuite.POLL`) and takes a free one only on its turn
+  (`fullsuite.turn`): no older queued run waits for it (by `queued_at`, an
+  older lane's `created_at`; a runner that runs, not stopped, whose command
+  line names `fullsuite.py` and its meta), and no window waits for it
+  (`lock.window` beside the lock, `window <ticket n> pid <pid>`, which its
+  holder rewrites as it polls; gone past 10 s or once the pid is) while a
+  run took it last (`lock.turn`, `gate <key>` or `window <ticket n>`, written
+  by the taker while it holds the lock and runs; a run that started since,
+  as an older lane's, which writes none, makes it a gate's). The window
+  yields the same way while a window took it last, so a gate and a window
+  seat alternate; with none waiting on the other side either goes at once.
+  A gate from a lane without this still blocks in flock's line and passes
+  the pollers until its lane rebases.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that
