@@ -7249,8 +7249,9 @@ def test_a_checks_pictures_are_drawn_by_the_worker_that_dressed_it_or_after_a_ch
         assert page.evaluate(asked)[0] == ["variant_check", "variant_pictures"] * 3
         # The grown worker stopped after its Check, a new one refused the pictures (asked no Check) and the worker the
         # Check ran in again drew them; which of the first two grew is the pool's (KEEPS: the Check's worker stays F).
-        assert sorted(page.evaluate(drew)) == [[False, False, "variant_pictures"], [True, False, "variant_pictures"],
-                                               [True, True, "variant_check"]]
+        got = page.evaluate(drew)
+        assert got[2] == [False, False, "variant_pictures"]   # the replacement, made's last, refused them
+        assert sorted(got[:2]) == [[True, False, "variant_pictures"], [True, True, "variant_check"]]
         page.evaluate("""() => { const track = document.getElementById("var-shape-bust").previousElementSibling;
             for (const x of [1.1, 1.2]) { track.value = String(x); track.dispatchEvent(new Event("input")); } }""")
         assert _page.until(page, f"() => {{ const s = ({shown})(); return s[2] && s.slice(1); }}", 60) == [
