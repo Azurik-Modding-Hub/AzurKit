@@ -190,7 +190,10 @@ class _Behind:
             kept, body = item
             try:
                 if (data := body() if isinstance(body, _Made) else body) is not None:
-                    kept.write(at[1], at[2], data)
+                    with self.lock:
+                        dropped = at not in self.held   # cleared while it was made: never written
+                    if not dropped:
+                        kept.write(at[1], at[2], data)
             except Exception:   # a store that can't be written holds nothing; the next put is written as ever
                 pass
             with self.lock:
@@ -203,6 +206,17 @@ class _Behind:
 
 
 _BEHIND = _Behind()
+
+
+def clear() -> list[str]:
+    """Clear's work in this process (the app's Storage, its engine's
+    process first): the swap's entries this process's writer holds unwritten
+    dropped and the ``swap`` kind's files removed (one being written then
+    removed once written), so none lands after the app removes the folder;
+    the kinds that held one (``[]``: this process keeps none, :func:`install`)."""
+    from azurkit.tools import characters
+
+    return characters.CACHE.kept.clear(["swap"]) if isinstance(characters.CACHE, Folder) else []
 
 
 def settle(timeout: float | None = None) -> bool:

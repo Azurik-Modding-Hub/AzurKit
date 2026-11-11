@@ -1767,7 +1767,9 @@ are the Characters section's.
     answers, the installed content), removed file by file, never an
     `.iso` or `.xiso` and never the folder that may hold one (SEC-10: on
     macOS the config's folder is the user data folder, where an image may
-    be kept). What waits for an image is greyed with "Choose your image
+    be kept), a file it can't remove left and the rest removed; the engine's
+    process, then the server's, first drop the swap answers their writers
+    hold unwritten (`swapcache.clear`), so none lands after. What waits for an image is greyed with "Choose your image
     first (1.)" until one is picked, or with the engine's refusal of it
     (D979). The app's saves without a dialog go to the Downloads folder,
     through `writable` (SEC-16). `tests/test_site.py`, `test_hosts.py` and

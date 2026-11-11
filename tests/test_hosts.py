@@ -4992,6 +4992,53 @@ def test_the_apps_tools_open_a_build_extract_to_a_new_path_and_clear_only_what_t
         server.close()
 
 
+def test_clear_drops_the_engines_unwritten_swap_answers_and_clears_past_a_file_it_cant_remove(tmp_path, monkeypatch):
+    """Storage's Clear asks the engine first, whose writer makes and writes a
+    call's swap answers behind it (a dress's parts): one it holds then is
+    dropped, never written once the folder is gone; and a file Clear can't
+    remove (one the engine holds open on Windows, or renamed meanwhile) is
+    left, the rest of every entry cleared, not the whole Clear refused."""
+    from azurkit.app import swapcache
+    from azurkit.tools import characters
+
+    _home(monkeypatch, tmp_path / "home")
+    monkeypatch.setattr(characters, "CACHE", swapcache.Folder(swapcache.root(), key=tmp_path / "cache.key"))
+    making, made = threading.Event(), threading.Event()
+
+    def part() -> bytes:   # made by the writer, after the call that put it answered
+        making.set()
+        assert made.wait(30)
+        return b"part"
+    content = platformdirs.user_data_path("AzurKit", appauthor=False) / "content"
+    held = content / "v" / "held.glb"
+    for path in (held, content / "v" / "m.glb", app.logs.folder() / "build-1.log"):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+    unlink = Path.unlink
+
+    def in_use(self: Path, *args, **kwargs) -> None:
+        if self == held:
+            raise PermissionError(13, "in use by another process", str(self))
+        unlink(self, *args, **kwargs)
+    server, asked, replies = app.serve(_page.WEB), [], []
+    call = server.engine.call
+    server.engine.call = lambda job, *args, **kwargs: asked.append(job) or call(job, *args, **kwargs)
+    try:
+        characters.CACHE.put("a" * 64, part)
+        assert making.wait(30)
+        with monkeypatch.context() as m:
+            m.setattr(Path, "unlink", in_use)
+            _post(server.url, "api/storage", {"clear": True}, replies)
+        made.set()
+        assert swapcache.settle(30)
+        _post(server.url, "api/storage", {}, replies)
+    finally:
+        server.close()
+    assert asked == ["store_clear"] and replies[0]["cleared"] == ["content", "logs"]   # swap held none on disk yet
+    assert [e["name"] for e in replies[1]["entries"]] == ["content"] and not (swapcache.root() / "swap").exists()
+    assert [p for p in content.rglob("*") if p.is_file()] == [held] and not app.logs.folder().exists()
+
+
 def test_a_randomized_build_moves_the_tracker_to_its_exact_plan_and_each_plans_marks_stay_with_it(
         browser, tmp_path, monkeypatch, usa_iso):
     """D1043: after a randomized Build the tracker holds that build's own

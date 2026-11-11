@@ -516,19 +516,22 @@ def _size(path: Path) -> int:
 def _clear(path: Path) -> bool:
     """Remove ``path``, a :func:`kept` entry: a file, or a folder's files
     and then the folders they leave empty; never an image
-    (:data:`NEVER_CLEARED`), nor a folder still holding one (SEC-10).
-    Whether it held anything."""
+    (:data:`NEVER_CLEARED`), nor a folder still holding one (SEC-10); a
+    file it can't remove is left, the rest removed. Whether it held
+    anything."""
     if not (path.exists() or path.is_symlink()):
         return False
     if path.is_symlink() or not path.is_dir():
         if path.suffix.lower() in NEVER_CLEARED:
             return False
-        path.unlink()
+        with contextlib.suppress(OSError):   # one held open (Windows) or gone meanwhile: the other entries go
+            path.unlink()
         return True
     for root, folders, names in os.walk(path, topdown=False):
         for name in [*names, *(f for f in folders if (Path(root) / f).is_symlink())]:
             if Path(name).suffix.lower() not in NEVER_CLEARED:
-                (Path(root) / name).unlink()
+                with contextlib.suppress(OSError):   # one the engine holds open (Windows) or renamed meanwhile
+                    (Path(root) / name).unlink()
         with contextlib.suppress(OSError):   # it still holds an image
             Path(root).rmdir()
     return True
@@ -1272,9 +1275,15 @@ class Server(http.server.ThreadingHTTPServer):
     def storage(self, body: dict) -> dict:
         """``api/storage`` (:func:`_storage`), which the Tools tab asks as it
         opens: the engine builds the randomizer's logic meanwhile, for a plan
-        file's spoiler."""
+        file's spoiler. Its Clear asks the engine first, then this process,
+        to drop the swap's answers their writers hold unwritten
+        (:func:`.swapcache.clear`), so none is written once the folder goes."""
         if not body.get("clear"):
             self.engine.warm("randomizer")
+        else:
+            with contextlib.suppress(engines.Gone):   # an engine gone holds nothing unwritten
+                self.engine.call("store_clear")
+            swapcache.clear()
         return _storage(body)
 
     def plan_spoiler(self, body: dict) -> dict:

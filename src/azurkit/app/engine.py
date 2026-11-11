@@ -61,7 +61,7 @@ from azurkit.tools import characters, randomizer
 from azurkit.tools.characters import parts, pool
 from azurkit.tools.randomizer.planner import fill
 
-from . import procpool
+from . import procpool, swapcache
 
 
 class Cancelled(BaseException):
@@ -340,12 +340,13 @@ JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save), "
                              "variant_colours": _editor(sdk.variant_colours),
                              "variant_preview": _editor(sdk.variant_preview, bar=True),
                              "variant_rows": _editor(sdk.variant_rows, bar=True),
-                             "export_pngs": _editor(sdk.export_pngs, bar=True)}
+                             "export_pngs": _editor(sdk.export_pngs, bar=True),
+                             "store_clear": swapcache.clear}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,
 ``preview``, ``match``, ``spoiler``, ``plan_spoiler``, ``openers`` and the Variants editor's: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
 ``spoiler``: the last build's, which ``image`` leaves out; ``plan_spoiler``: a plan file's, the Tools tab's;
 ``variant_*`` and ``export_pngs``: the editor's Check and the calls that stand on the dress it keeps here, their
-pictures base64)."""
+pictures base64; ``store_clear``: Storage's Clear, here before the server's, :func:`.swapcache.clear`)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""
 
@@ -646,7 +647,7 @@ def _main(conn, stores: bool = False) -> None:
     and its save's progress sent back as they come; with ``stores``, what it
     works out kept across launches (:mod:`.swapcache`)."""
     global _BUILDS
-    from . import ahead, swapcache
+    from . import ahead
 
     orphaned()
     procpool.install()   # the swap's parallel work in children of this process
