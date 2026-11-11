@@ -173,6 +173,23 @@ def test_insns_calls_and_sse2_find_their_instructions_and_what_a_pentium3_lacks(
          "(3 found)"])
 
 
+def test_what_a_pentium3_lacks_counts_sse2s_and_ssse3s_mmx_forms_and_the_ungrouped_later_instructions():
+    """Step 4.42d (AZ-021): L1's and sse2's check goes by capstone's groups, which file SSE2's mm forms under MMX,
+    SSSE3's mm forms and palignr under none, and rdtscp, xsave, syscall and the like under none or a non-ISA group;
+    each is a Pentium III miss, as are VMX's and TSX's groups. What a Pentium III runs stays unflagged: SSE's mm
+    forms, MMX, sysenter, rdpmc and the hint NOPs (pause, endbr32, rdsspd)."""
+    from capstone import CS_ARCH_X86, CS_MODE_32, Cs
+
+    md = Cs(CS_ARCH_X86, CS_MODE_32)
+    md.detail = True
+    lacks = {code: xbe.lacks_on_pentium3(i.mnemonic, i.groups) for code in (
+        "0FD4C1", "0FF4C1", "0FFBC1", "0F3800C1", "0F3804C1", "0F3A0FC101", "660F3A0FC101", "0F01F9", "0F01D0",
+        "0FAE20", "0F05", "0F07", "0F01C1", "0F01D5", "0F01EE", "F30F01E8",   # lacks
+        "0F70C100", "0FE0C1", "0FFCC1", "0F34", "0F33", "F390", "F30F1EFB", "F30F1EC8")   # runs
+        for i in [next(md.disasm(bytes.fromhex(code), 0x1000))]}
+    assert [code for code, lacked in lacks.items() if lacked] == list(lacks)[:16]
+
+
 def test_dis_and_fn_list_each_instruction_without_its_bytes(tmp_path, capsys):
     """dis VA[:N] lists N instructions from VA, stopping at the section's end
     (a byte capstone can't decode, a cut-off one too, is ``(bad)``); fn VA

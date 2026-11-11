@@ -50,8 +50,18 @@ _NOT_ON_PENTIUM3 = frozenset({
     X.X86_GRP_SSE2, X.X86_GRP_SSE3, X.X86_GRP_SSSE3, X.X86_GRP_SSE41, X.X86_GRP_SSE42, X.X86_GRP_SSE4A,
     X.X86_GRP_AVX, X.X86_GRP_AVX2, X.X86_GRP_AVX512, X.X86_GRP_FMA, X.X86_GRP_FMA4, X.X86_GRP_F16C, X.X86_GRP_XOP,
     X.X86_GRP_3DNOW, X.X86_GRP_BMI, X.X86_GRP_BMI2, X.X86_GRP_TBM, X.X86_GRP_ADX, X.X86_GRP_AES, X.X86_GRP_PCLMUL,
-    X.X86_GRP_SHA})
-_NOT_ON_PENTIUM3_MNEMONICS = frozenset({"fisttp", "popcnt", "lzcnt", "movbe", "rdrand", "rdseed"})   # ungrouped
+    X.X86_GRP_SHA, X.X86_GRP_BWI, X.X86_GRP_CDI, X.X86_GRP_DQI, X.X86_GRP_ERI, X.X86_GRP_PFI, X.X86_GRP_VLX,
+    X.X86_GRP_VM, X.X86_GRP_RTM, X.X86_GRP_SGX, X.X86_GRP_SMAP, X.X86_GRP_FSGSBASE})
+_NOT_ON_PENTIUM3_MNEMONICS = frozenset({   # what capstone files under MMX, a non-ISA group (privilege, int) or none
+    "fisttp", "popcnt", "lzcnt", "movbe", "rdrand", "rdseed",
+    "paddq", "pmuludq", "psubq",   # SSE2 in every form, its mm ones grouped MMX
+    "pshufb", "phaddw", "phaddd", "phaddsw", "phsubw", "phsubd", "phsubsw", "pmaddubsw", "pmulhrsw", "psignb",
+    "psignw", "psignd", "pabsb", "pabsw", "pabsd", "palignr",   # SSSE3 in every form, some grouped, some not
+    "rdtscp", "rdpid", "xgetbv", "xsetbv", "xsave", "xsavec", "xsaves", "xsaveopt", "xrstor", "xrstors", "syscall",
+    "sysret", "swapgs", "getsec", "encls", "enclu", "clac", "stac", "xtest", "clflushopt", "clwb", "invpcid",
+    "monitorx", "mwaitx", "clzero", "prefetchw", "prefetchwt1", "rdpkru", "wrpkru", "ptwrite", "umonitor", "umwait",
+    "tpause", "movdiri", "movdir64b", "setssbsy", "saveprevssp", "rstorssp", "wrssd", "wrussd", "incsspd",
+    "clrssbsy"})   # not rdsspd, endbr32, cldemote: hint NOPs, which a Pentium III runs as NOPs
 _PATH_ENDS = frozenset({"ret", "retf", "iret", "iretd", "jmp", "ljmp", "hlt", "int3", "ud2"})
 _READS = {"f32": "<f", "f64": "<d", "i32": "<i", "u32": "<I", "u16": "<H", "u8": "<B", "ptr": "<I"}
 _TEXT = frozenset(range(0x20, 0x7F)) | {0x09, 0x0A, 0x0D}
@@ -604,8 +614,10 @@ def function(data: bytes, va: int) -> list[Insn]:
 
 def lacks_on_pentium3(mnemonic: str, groups: Iterable[int]) -> bool:
     """Whether the Xbox's Pentium III lacks an instruction of this mnemonic
-    and these capstone groups: SSE2 and later, 3DNow! and the ungrouped later
-    ones (AZ-021); ``pause`` runs there as a NOP. Unicorn runs them all."""
+    and these capstone groups: SSE2 and later, 3DNow!, AVX-512, VMX, TSX and
+    the later ones capstone files under MMX or no ISA group, by mnemonic
+    (SSE2's and SSSE3's mm forms, rdtscp, xsave, syscall, ...; AZ-021);
+    ``pause`` runs there as a NOP. Unicorn runs them all."""
     return mnemonic != "pause" and (mnemonic in _NOT_ON_PENTIUM3_MNEMONICS
                                     or bool(_NOT_ON_PENTIUM3.intersection(groups)))
 
