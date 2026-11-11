@@ -2690,6 +2690,24 @@ def test_a_kill_of_a_quiet_job_cancels_it_and_runs_the_call_the_player_waits_on_
         spawned.close()
 
 
+def test_a_randomizer_refusal_in_the_apps_engine_process_reaches_the_server_with_its_reason():
+    """A seed the planner refuses in the app's engine process (Obsidians
+    kept vanilla starve the fill: a ``fill.Starved``, whose class takes more
+    than its message, so no pickle gives it back) reaches the server as a
+    ``ValueError`` with its reason whole, which the page shows as the
+    refusal, not as an engine that didn't answer ("restart AzurKit", Step
+    4.42c)."""
+    starved = sdk.catalog()["randomizer"]["defaults"] | {"exclude_categories": ["obsidians"]}
+    why = sdk.randomizer_settings({"settings": starved})["preflight"]
+    spawned = engine.Spawned()
+    try:
+        with pytest.raises(ValueError) as refused:
+            spawned.call("plan", {"seed": "2", "settings": starved})
+    finally:
+        spawned.close()
+    assert str(refused.value) == f"no plan: {why}"
+
+
 def test_an_engine_that_ends_mid_call_says_how_it_ended(capfd):
     """An engine process that ends mid-call, killed from outside (as an OS
     out of memory or another process ends one), fails the call saying how:

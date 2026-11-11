@@ -624,6 +624,23 @@ def _warm_messages(warms: Mapping[str, tuple]) -> list[tuple]:
     return [("warm", what, args) for what, args in sorted(warms.items(), key=lambda warm: warm[0] != "randomizer")]
 
 
+def _crossing(exc: BaseException) -> BaseException:
+    """``exc`` as the server reads it back: itself where a pickle gives back
+    its type and message, else the first of ``ValueError`` and ``OSError``
+    its type is (else ``RuntimeError``) with its message, so a refusal whose
+    class takes more than its message (the planner's ``FillError``,
+    ``Starved``, ``SettingsError``) still reaches the page as one, its
+    reason whole, not as an engine that didn't answer."""
+    try:
+        back = pickle.loads(pickle.dumps(exc, pickle.HIGHEST_PROTOCOL))
+        if type(back) is type(exc) and str(back) == str(exc):
+            return exc
+    except Exception:
+        pass
+    kind = next((k for k in type(exc).__mro__ if k in (ValueError, OSError)), RuntimeError)
+    return kind(str(exc))
+
+
 def _main(conn, stores: bool = False) -> None:
     """The engine's process: each call on a thread of its own, its answers
     and its save's progress sent back as they come; with ``stores``, what it
@@ -645,7 +662,7 @@ def _main(conn, stores: bool = False) -> None:
     def send(kind: str, ident: int, value) -> None:
         if kind != "progress":
             try:
-                value = pickle.dumps(value, pickle.HIGHEST_PROTOCOL)
+                value = pickle.dumps(_crossing(value) if kind == "raised" else value, pickle.HIGHEST_PROTOCOL)
             except Exception as exc:   # a result or an error that doesn't pickle: its type and message
                 kind, value = "raised", pickle.dumps(RuntimeError(f"{type(value).__name__}: {value} ({exc})"))
         with sending:
