@@ -37,9 +37,9 @@ import struct
 import sys
 from pathlib import Path
 
-from azurkit.core import facts, gate, iso, xbe
-
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))   # this checkout's engine, whichever venv runs it
+from azurkit.core import facts, gate, iso, xbe  # noqa: E402
 
 ABOUT = ("The XBE half (the xbe's sha256, size, base and thunk table, the sections, each site's and each swap "
          "site's sha256 and each kernel slot) is written by scripts/gen_facts.py from the player's image; a site's "

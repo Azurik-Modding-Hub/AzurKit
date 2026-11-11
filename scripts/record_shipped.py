@@ -40,11 +40,13 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from azurkit import sdk
-from azurkit.core import gate, iso
-from azurkit.tools import characters, mods
-from azurkit.tools.characters import _player_variants as variants
-from azurkit.tools.characters import library, part_codec, parts, picker, ports, shipped
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))   # this checkout's engine, whichever venv runs it
+from azurkit import sdk  # noqa: E402
+from azurkit.core import gate, iso  # noqa: E402
+from azurkit.tools import characters, mods  # noqa: E402
+from azurkit.tools.characters import _player_variants as variants  # noqa: E402
+from azurkit.tools.characters import library, part_codec, parts, picker, ports, shipped  # noqa: E402
 
 shipped.OFF = True   # every dress fresh, in each process that imports this
 PART_LEVEL = 19

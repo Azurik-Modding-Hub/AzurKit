@@ -82,6 +82,38 @@ def test_the_sdk_api_is_its_snapshot():
     assert sdk_api.SNAPSHOT.read_text(encoding="utf-8") == sdk_api.text(), "run scripts/sdk_api.py"
 
 
+RECORDERS = ("gen_facts", "record_goldens", "record_shipped", "sdk_api", "slider_tiers", "spot_needs", "web_tables")
+"""The scripts that write this checkout's files from its engine (the facts, the goldens and shipped pictures, the
+shipped answers, the sdk's snapshot, the slider tiers, the spot tips, the site's table pages)."""
+OWN_VENV = ("ci_resources", "freeze", "perf", "web_tools")
+"""The scripts that import the engine and run in the worktree's own environment (CI's, the frozen app's build, the
+perf gate's ``uv run`` there, the wheel's), never a recorder of its files."""
+
+
+def test_each_recorder_imports_the_engine_of_its_own_checkout():
+    """Step 4.46a: a recorder run by its path from another checkout (a
+    seat's cwd resets to the main checkout, whose venv is main's) put that
+    venv's engine first and wrote, or held, this checkout's files from it.
+    Each :data:`RECORDERS` script puts its own ``src`` at ``sys.path[0]``
+    before any import of the engine, and every script that imports it is
+    one of them or of :data:`OWN_VENV`."""
+    insert = "sys.path.insert(0, str(ROOT / 'src'))"
+    users = set()
+    for path in sorted((ROOT / "scripts").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        engine = [node.lineno for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.level == 0
+                  and (node.module or "").partition(".")[0] == "azurkit" or isinstance(node, ast.Import)
+                  and any(alias.name.partition(".")[0] == "azurkit" for alias in node.names)]
+        if not engine:
+            continue
+        users.add(path.stem)
+        if path.stem in RECORDERS:
+            top = {ast.unparse(node): node.lineno for node in tree.body if isinstance(node, (ast.Expr, ast.Assign))}
+            assert top.get("ROOT = Path(__file__).resolve().parent.parent", 1e9) < top.get(insert, 0) < min(
+                engine), path.name
+    assert sorted(users) == sorted({*RECORDERS, *OWN_VENV})
+
+
 def test_the_developer_log_holds_no_bullet_twice():
     """Step 4.4dx1: ``docs/DEVLOG.md`` merges with git's union driver, which
     keeps a lane's edited bullet beside its old line; no release holds two

@@ -93,19 +93,20 @@ from collections.abc import Callable, Collection, Mapping
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path, PurePath
 
-import numpy as np
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))   # this checkout's engine, whichever venv runs it
+import numpy as np  # noqa: E402
 
-from azurkit import sdk
-from azurkit.core import coff, facts, filelist, gate, iso
-from azurkit.core.xbr import Document, edits
-from azurkit.edits.layer import compose
-from azurkit.edits.manifest import image
-from azurkit.tools import mods
-from azurkit.tools.characters import shipped
-from azurkit.tools.mods import engine
+from azurkit import sdk  # noqa: E402
+from azurkit.core import coff, facts, filelist, gate, iso  # noqa: E402
+from azurkit.core.xbr import Document, edits  # noqa: E402
+from azurkit.edits.layer import compose  # noqa: E402
+from azurkit.edits.manifest import image  # noqa: E402
+from azurkit.tools import mods  # noqa: E402
+from azurkit.tools.characters import shipped  # noqa: E402
+from azurkit.tools.mods import engine  # noqa: E402
 
 shipped.OFF = True   # every dress fresh, in each process that imports this: the shipped answers are held to them
-ROOT = Path(__file__).resolve().parent.parent
 GOLDENS = ROOT / "tests" / "goldens"
 CASES = GOLDENS / "cases.json"
 SHIMS = ROOT / "src" / "azurkit" / "tools" / "mods" / "shims"   # shimkit.SHIMS: the packs' shims and objects
