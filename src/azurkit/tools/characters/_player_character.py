@@ -9099,14 +9099,15 @@ def _dress_key(game, species: str, mode: str, missing_anims: str | None, size: s
     reads but the files the parts hand on, by its inputs alone: the image's
     files and the staged characters.xbr, config.xbr and index.xbr (the
     packs' bytes) by their sha256, :func:`_dress`'s options and the variant's
-    reads but its body's and the stages after the springs'
+    reads but its body's, its sounds' and the stages after the springs'
     (:func:`~azurkit.tools.characters._player_variants.dress_reads`), or a
     species' content; ``None`` (nothing named, so nothing after W30 kept)
     for a recipe file it can't read. Taken before the dress writes."""
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import parts, shipped
 
-    reads = variants.dress_reads(variant) if variant is not None else shipped.entries({"species": species})
+    reads = (variants.dress_reads(variant, variants.SOUND_READS) if variant is not None
+             else shipped.entries({"species": species}))
     if variant is not None and reads is None:
         return None
     image = {f: game.stored(f) for f in ("characters.xbr", "config.xbr", "index.xbr", "default.xbe", "fx.xbr")}
@@ -9959,8 +9960,9 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     if chain not in CHAINS:
         raise ValueError(f"character: chain {chain!r} is not one of {', '.join(map(repr, CHAINS))}")
     check_player_model(game, species)
-    # what the build reads past the dress's own options (DRESS's, Step 4.37m1); the jiggle sliders reach X41 alone
-    options = (repr(attack_reach), attack_ground, attack_balance, repr(attack_damage), repr(attack_speed), sounds, ram,
+    # what the build reads past the dress's own options (DRESS's, Step 4.37m1); the jiggle sliders reach X41 alone,
+    # the sounds their own stage (_player_variants.SOUND_READS)
+    options = (repr(attack_reach), attack_ground, attack_balance, repr(attack_damage), repr(attack_speed), ram,
                player_only, chain)
     drop = {}
     from azurkit.tools.characters import _player_variants as variants

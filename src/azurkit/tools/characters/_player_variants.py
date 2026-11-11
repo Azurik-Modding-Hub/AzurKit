@@ -2081,6 +2081,10 @@ BODY_READS = ("mesh", "plain", "shapes", "jiggle", "textures", "texture_scale", 
 """The fields W24-W30 read (``_player_character._body_keys``): each later stage reads them through those parts' keys."""
 LATE_READS = ("colours", "lods", "shadow")
 """The fields read only after W28's springs (W39, W36 and W38), each in that stage's own key."""
+SOUND_READS = ("sounds", "voice", "sfx", "shouts", "wavs")
+"""The fields its sounds' stage alone reads (the build's ``4 of 5``: config.xbr's sound cells, X14's and X15's
+default.xbe words, the waves fx.xbr and index.xbr gain last), never characters.xbr or what a part's stage reads, so
+a sound edit names no file of the dress anew (Step 4.37m1: a WAV picked for a role took W28 and W39 again, 16 s)."""
 _SECTION = {"plain": "mesh", "shadow": "lods"}
 """A field read from a recipe section of another name (the files it names are that section's)."""
 

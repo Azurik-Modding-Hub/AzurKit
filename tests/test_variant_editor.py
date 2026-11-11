@@ -344,6 +344,8 @@ LEFT_OUT = {
     "a colour (W38, after every part)": (("colours", HUMAN[:1]), ("W28 arms", "W28 springs", "bake", "W39")),
     "the LODs' switch distance": (("lods", {"ratio": [0.5], "at": [12.0]}), ("W28 arms", "W28 springs", "bake", "W39")),
     "a texture row dropped (W30's)": (None, ("cut", "LOD 0")),
+    "a sound (its own stage's alone)": (("sfx", {"spin": PARTED["sfx"]["spin"] | {"length": 0.3}}),
+                                        ("W28 arms", "W28 springs", "bake", "W39")),
     "a spring's stiffness (the Jiggle tab's)": (("jiggle", {"frees": [], "bones": [
         PARTED["jiggle"]["bones"][0] | {"spring": PARTED["jiggle"]["bones"][0]["spring"] | {"freq": 2.4}}]}),
         ("W24", "W29", "W30", "W28 arms", "W28 springs", "bake", "W39")),
