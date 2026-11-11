@@ -834,9 +834,10 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
   };
   ui.check.addEventListener("click", check);
 
-  // Unsaved edits: asked about before the page closes (the site's, a browser's own question), a New one's too, as
-  // leaving it in the page is (Modkit's AZ-792); the app's window asks its own (shown() tells its server).
-  if (!app) {
+  // Unsaved edits: asked about before the page closes (a browser's own question: the site's, and the app's page in a
+  // browser, which has no window and so no file dialog), a New one's too, as leaving it in the page is (Modkit's
+  // AZ-792); the app's window asks its own (shown() tells its server).
+  if (!dialog) {
     addEventListener("beforeunload", (event) => {
       if (lost()) event.preventDefault();
     });

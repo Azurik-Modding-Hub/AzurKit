@@ -1608,8 +1608,9 @@ are the Characters section's.
     `variant_export`, `variant_check`, `move_sources`, `variant_weapons`). Unsaved edits are asked about in
     the page's own dialog (`#var-ask`, on the body: a Build's question
     comes from any tab) before another opens and before a Build of that
-    variant, and the site's `beforeunload` asks before the page goes; in
-    the app the view tells its server whether it holds edits not saved
+    variant, and the page's `beforeunload` asks before it goes where no
+    window does (the site, and the app's page in a browser: no file
+    dialogs, `host.json`'s `dialogs`); in the app the view tells its server whether it holds edits not saved
     (`api/unsaved`, each told once the last is answered) and the window's
     closing hook (`Server.closing`) asks Leave or Stay with pywebview's own
     dialog, on a thread of its own: the hook holds the close, Leave quits

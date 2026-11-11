@@ -6233,6 +6233,8 @@ VARIANTS_TYPE = """([id, text]) => { const box = document.getElementById(id); bo
     box.dispatchEvent(new Event("input", { bubbles: true })); }"""
 VARIANTS_ROW = "(name) => document.querySelector(`#var-items button[data-name=\"${name}\"]`).click()"
 VARIANTS_ASKED = "() => document.getElementById('var-ask').open && document.getElementById('var-ask-text').textContent"
+VARIANTS_CLOSING = ("() => { const event = new Event('beforeunload', { cancelable: true }); "
+                    "dispatchEvent(event); return event.defaultPrevented; }")   # true: the browser asks
 # The Colours tab (Step 4.6e): its last answer once it is the edit's as it stands, and the recipe's colours.
 COLOURS_DRAWN = """() => { const c = azurkit.variants.colours, $ = (id) => document.getElementById(id);
     return c.current() && c.answer && { rows: c.rows, reference: c.reference, found: c.found, shown: c.shown,
@@ -6304,9 +6306,7 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         return out; }"""
     try:
         page = served.open()
-        closing = ("() => { const event = new Event('beforeunload', { cancelable: true }); dispatchEvent(event); "
-                   "return event.defaultPrevented; }")
-        assert page.evaluate(closing) is False   # no variant open yet: the page closes with no question
+        assert page.evaluate(VARIANTS_CLOSING) is False   # no variant open yet: the page closes with no question
         _page.click(page, "tab-characters")
         page.evaluate("(url) => { const box = document.getElementById('char-source'); box.value = url; "
                       "box.dispatchEvent(new Event('change')); }", "./content-test/")
@@ -6410,7 +6410,7 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
                           "&& !('mine_2' in azurkit.variants.state.folders)", 60)
         _page.pick(page, "#var-import", zipped)
         _variants_shown(page, status="· saved ·", name="mine_2")
-        assert page.evaluate(closing) is False   # saved: the page closes with no question
+        assert page.evaluate(VARIANTS_CLOSING) is False   # saved: the page closes with no question
         _page.click(page, "var-new")
         keylord = "document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')"
         _page.until(page, f"() => {keylord}", 60)
@@ -6427,7 +6427,7 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
                            f"keylord · {picker.GRADE_WORDS[green]}"]   # graded and counted, as the Models view lists them
         page.evaluate(f"() => {keylord}.click()")
         _variants_shown(page, name="(new, unsaved)")
-        assert page.evaluate(closing) is True   # a New's unsaved edits: asked about as the page closes
+        assert page.evaluate(VARIANTS_CLOSING) is True   # a New's unsaved edits: asked about as the page closes
         _page.check_csp(page)
         again = served.open()
         _page.click(again, "tab-characters")

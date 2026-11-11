@@ -1396,10 +1396,10 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
     meanwhile drops the Check, that one shown as it ships, unchecked; the Sounds tab then says keylord's own sounds
     take no WAV. A Build of a variant with unsaved edits asks first, and a no starts nothing. The page tells its
     server whether the view holds edits not saved as they come and go (New, Save as, an edit, Undo), which the
-    window asks about as it closes (Step 4.38a)."""
+    window asks about as it closes (Step 4.38a); with no window, as here, the browser asks as the page closes."""
     import wave
 
-    from tests.test_site import VARIANTS_ASKED, VARIANTS_ROW, VARIANTS_TYPE, _variants_shown
+    from tests.test_site import VARIANTS_ASKED, VARIANTS_CLOSING, VARIANTS_ROW, VARIANTS_TYPE, _variants_shown
 
     _home(monkeypatch, tmp_path / "home")
     monkeypatch.delenv("AZURKIT_ISO", raising=False)   # no image until the test picks one
@@ -1407,11 +1407,11 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
     data = Path(platformdirs.user_data_dir("AzurKit", appauthor=False))
     server = app.serve(_page.WEB)
 
-    def told(unsaved: bool) -> None:   # what the page last told its server (api/unsaved)
+    def told(unsaved: bool) -> None:   # what the page last told its server (api/unsaved), and its browser's question
         end = time.monotonic() + 30
         while server.unsaved is not unsaved and time.monotonic() < end:
             time.sleep(0.05)
-        assert server.unsaved is unsaved
+        assert (server.unsaved, page.evaluate(VARIANTS_CLOSING)) == (unsaved, unsaved)
 
     try:
         page = browser.new_page()
