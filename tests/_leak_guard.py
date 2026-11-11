@@ -28,7 +28,12 @@ texture, a save, a snippet, a byte literal, a disassembly listing. Refused:
 A gzip file (``1f 8b`` at 0) is refused for what it holds as well: each
 member on its own (:class:`_Inflated`: read to its end, past a bad CRC or
 size and up to a damaged spot), named as the file without its ``.gz``, is
-checked by every rule here.
+checked by every rule here. So is each file a tar (``ustar`` at 257, also
+inside a gzip file) or a zip (``PK\\x03\\x04`` at 0) holds, by its name in
+the archive, up to a damaged spot: an encrypted zip member, or one in a
+method zipfile can't read, by its name alone, and a zip inside a gzip file
+or a tar only when it is at most :data:`MAX_TEXT`. Other archives (7z, rar,
+zstd, xz, bzip2) are checked as files.
 """
 
 from __future__ import annotations
@@ -38,6 +43,8 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
+import zipfile
 import zlib
 from collections.abc import Iterator
 from pathlib import Path
@@ -46,7 +53,8 @@ from typing import Protocol
 ROOT = Path(__file__).resolve().parent.parent
 MAGIC_SPAN = 0x10020
 CHUNK = 1 << 16          # read at a time; a zlib call inflates at most 16 of them
-DEPTH = 3                # the most wrappings unwrapped (a gzip in a gzip ...)
+DEPTH = 3                # the most wrappings unwrapped (a tar in a gzip in a zip ...)
+MAX_TEXT = 16 << 20      # of a zip read with no seek (in a gzip file or a tar), the most held
 GZIP = b"\x1f\x8b"
 _ISO_NAME = re.compile(r"\.x?iso(\.\d+)?$")   # an image or a part of one (azurik.iso.007)
 _PRIVATE_KEY = re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\r?\n")
@@ -184,18 +192,62 @@ def _members(src: _Reader) -> Iterator[_Inflated]:
         data = data[8:]
 
 
+def _tar(src: _Reader, depth: int) -> str | None:
+    """Why a file of the tar read from ``src`` can't be committed, or
+    ``None``."""
+    try:
+        with tarfile.open(fileobj=src, mode="r|") as tar:   # forward only
+            for member in tar:
+                if member.isfile() and (why := _check(member.name, tar.extractfile(member), depth + 1)):
+                    return f"inside its archive: {member.name}: {why}"
+    except (tarfile.TarError, EOFError, OSError):   # damaged or cut short: its files before that were read
+        pass
+    return None
+
+
+def _zip(f: _Reader, head: bytes, depth: int) -> str | None:
+    """Why a file of the zip archive ``f`` (``head`` read already) can't be
+    committed, or ``None``."""
+    try:
+        seekable = f.seekable()   # type: ignore[attr-defined]
+    except (AttributeError, OSError):   # a gzip member or a file in a tar
+        seekable = False
+    try:
+        with zipfile.ZipFile(f if seekable else io.BytesIO(head + _read(f, MAX_TEXT - len(head)))) as archive:
+            for info in archive.infolist():
+                if info.is_dir():
+                    continue
+                try:
+                    with archive.open(info) as member:
+                        why = _check(info.filename, member, depth + 1)
+                except (RuntimeError, NotImplementedError, zipfile.BadZipFile, EOFError, zlib.error, OSError):
+                    why = check_blob(info.filename, b"")   # encrypted, its method unknown or damaged: by its name
+                if why:
+                    return f"inside its archive: {info.filename}: {why}"
+    except (zipfile.BadZipFile, EOFError, OSError, ValueError):   # damaged, cut short or past MAX_TEXT
+        pass
+    return None
+
+
 def _check(rel: str, f: _Reader, depth: int = 0) -> str | None:
     """:func:`check_blob` for the file ``rel`` read forward from ``f``, and
     for each member of a gzip file (named ``rel`` without ``.gz``, in any
-    case), :data:`DEPTH` wrappings deep."""
+    case) and each file of a tar or a zip archive, :data:`DEPTH` wrappings
+    deep."""
     head = _read(f, MAGIC_SPAN)
     if why := check_blob(rel, head):
         return why
-    if head.startswith(GZIP) and depth < DEPTH:
+    if depth >= DEPTH:
+        return None
+    if head.startswith(GZIP):
         inner = re.sub(r"\.gz\Z", "", rel, flags=re.I)
         for member in _members(_Chain(head, f)):
             if why := _check(inner, member, depth + 1):
                 return f"inside its gzip: {why}"
+    elif head[257:262] == b"ustar":
+        return _tar(_Chain(head, f), depth)
+    elif head.startswith(b"PK\x03\x04"):
+        return _zip(f, head, depth)
     return None
 
 

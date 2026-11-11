@@ -5,8 +5,11 @@ pushes; game files and game bytes may be committed."""
 from __future__ import annotations
 
 import gzip
+import io
 import os
 import subprocess
+import tarfile
+import zipfile
 import zlib
 from pathlib import Path
 
@@ -60,6 +63,53 @@ def test_game_files_and_bytes_pass_and_images_disks_eeproms_snapshots_and_keys_a
         "literal.py": b'X = bytes.fromhex("0102030405060708")\n',
         "listing.md": b"".join(f"0001234{i}  50  PUSH EAX\n".encode() for i in range(4)),
     }
+    for name, data in {**{n: d for n, (d, _) in refused.items()}, **passed}.items():
+        (tmp_path / name).write_bytes(data)
+    assert {name: _leak_guard.check(tmp_path, name) for name in refused | passed} == {
+        **{name: why for name, (_, why) in refused.items()}, **dict.fromkeys(passed)}
+
+
+def _tar(*files: tuple[str, bytes]) -> bytes:
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w") as tar:
+        for name, data in files:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return out.getvalue()
+
+
+def _zip(method: int, *files: tuple[str, bytes]) -> bytes:
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", method) as archive:
+        for name, data in files:
+            archive.writestr(name, data)
+    return out.getvalue()
+
+
+def test_a_tar_or_zip_archive_is_refused_for_a_file_it_holds(tmp_path):
+    """Each file a tar (also in a gzip file) or a zip (stored or deflated,
+    also in a gzip file or in another archive) holds is checked by its name
+    in the archive and its bytes, behind a game file; archives of game files
+    pass."""
+    xbe, xbr = ("default.xbe", b"XBEH" + bytes(60)), ("config.xbr", b"xobx" + bytes(60))
+    key = ("id", b"-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n")
+    refused = {
+        "fixtures.tar": (_tar(xbe, ("xemu/eeprom.bin", bytes(256))),
+                         "inside its archive: xemu/eeprom.bin: EEPROM (eeprom*.bin name)"),
+        "sandbox.tgz": (gzip.compress(_tar(xbe, ("xbox_hdd.qcow2", b"QFI\xfb" + bytes(60)))),
+                        "inside its gzip: inside its archive: xbox_hdd.qcow2: qcow2 disk image (an xemu HDD) at 0"),
+        "store.zip": (_zip(zipfile.ZIP_DEFLATED, xbr, ("w1.l3snap", b"AZL3SNAP" + bytes(56))),
+                      "inside its archive: w1.l3snap: guest RAM snapshot (console keys) at 0"),
+        "parts.zip": (_zip(zipfile.ZIP_STORED, ("part.000", bytes(0x10000) + b"MICROSOFT*XBOX*MEDIA")),
+                      "inside its archive: part.000: XISO volume descriptor at 0x10000"),
+        "keys.zip.gz": (gzip.compress(_zip(zipfile.ZIP_DEFLATED, xbe, key)),
+                        "inside its gzip: inside its archive: id: private key at 0"),
+        "nested.zip": (_zip(zipfile.ZIP_STORED, ("inner.tar.gz", gzip.compress(_tar(key)))),
+                       "inside its archive: inner.tar.gz: inside its gzip: inside its archive: id: private key at 0"),
+    }
+    passed = {"game.tar": _tar(xbe, xbr),
+              "game.zip": _zip(zipfile.ZIP_DEFLATED, xbe, ("level.xbr.gz", gzip.compress(xbr[1])))}
     for name, data in {**{n: d for n, (d, _) in refused.items()}, **passed}.items():
         (tmp_path / name).write_bytes(data)
     assert {name: _leak_guard.check(tmp_path, name) for name in refused | passed} == {

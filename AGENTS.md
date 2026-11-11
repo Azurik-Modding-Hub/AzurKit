@@ -120,7 +120,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   private key, an EEPROM dump, an xemu HDD (qcow2) image or a guest RAM
   snapshot (`AZL3SNAP`): the last three can hold console keys.
   `tests/_leak_guard.py` refuses them in the suite and on every push, also
-  inside a gzip file. Its rules have no allow-list; never weaken them to
+  inside a gzip, tar or zip file. Its rules have no allow-list; never weaken them to
   get green.
 - Saves keep no key: `tools/saves/sign.py` derives the console's signature
   key in memory from the player's own BIOS files, which are never kept, and
