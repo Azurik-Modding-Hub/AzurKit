@@ -189,6 +189,7 @@ import urllib.parse
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
+from typing import BinaryIO
 
 from azurkit import __version__, _stacks, commit, platform, sdk
 from azurkit.core import gate
@@ -1508,17 +1509,25 @@ def _window(server: Server) -> bool:
     return True
 
 
-def _input_kept_from_children() -> None:
-    """On Windows, keep this process's input from the processes it starts: each takes its parent's standard handles,
-    and a read blocked on a pipe holds that pipe's lock, so a child's Python stops at its first look at its own stdin
-    until the read ends. ``serve``'s read would hold the engine there for good: it never answers, and it dies at its
-    start when the app is killed. Its standard input becomes NUL; ``sys.stdin`` still reads the pipe."""
+def _input_kept_to_serve() -> BinaryIO:
+    """``serve``'s input, on a descriptor of its own that only its read holds (not inherited); this process's fd 0
+    holds NUL from here, and on Windows so does the standard input the processes it starts take. On Windows a read
+    blocked on a pipe holds that pipe's locks (the C runtime's on its descriptor, the system's on the file) until it
+    ends, which for ``serve`` is never, and anything that looks at fd 0 or the pipe meanwhile waits: the engine's
+    Python at its first look at its own stdin (Step 4.4ci5), and numpy's BLAS, whose Fortran runtime fstat(0)s as its
+    DLL loads on the request thread that first imports numpy (a Build with a character, which gave no answer in 900 s:
+    Step 4.37r). Called before any other thread of the app runs; the same on every OS."""
+    given = open(os.dup(0), "rb")
+    null = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(null, 0)
+    os.close(null)
     if os.name == "nt":
         import ctypes
         import msvcrt
         set_std_handle = ctypes.WinDLL("kernel32").SetStdHandle
         set_std_handle.argtypes = (ctypes.c_ulong, ctypes.c_void_p)
-        set_std_handle(-10 & 0xFFFFFFFF, msvcrt.get_osfhandle(os.open(os.devnull, os.O_RDONLY)))   # STD_INPUT_HANDLE
+        set_std_handle(-10 & 0xFFFFFFFF, msvcrt.get_osfhandle(0))   # STD_INPUT_HANDLE: NUL, fd 0's
+    return given
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1536,15 +1545,15 @@ def main(argv: list[str] | None = None) -> int:
     if not (PAGE / "index.html").is_file():
         print(f"azurkit: {PAGE}: no index.html (the page)", file=sys.stderr)
         return 1
+    given = _input_kept_to_serve() if argv else None   # first: before the server's, the engine's or any thread
     _stacks.arm()   # the tests' dumps of each thread's stack, when they ask (off for a player)
     swapcache.install()   # the images checked and the swap's answers, kept across launches (the engine's too)
-    if argv:
-        _input_kept_from_children()   # before the engine's spawn
     server = serve(engine=engines.Spawned(stores=True))
     try:
-        if argv:
+        if given is not None:
             print(server.url, flush=True)
-            sys.stdin.read()
+            with given:
+                given.read()
         elif not _window(server):
             print(f"AzurKit: the page is at {server.url} (Ctrl-C quits)", flush=True)
             webbrowser.open(server.url)

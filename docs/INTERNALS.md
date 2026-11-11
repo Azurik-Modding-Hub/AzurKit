@@ -2048,7 +2048,12 @@ are the Characters section's.
   the pool's children each dump every thread's stack to a file of their own
   every 30 s (`faulthandler`, armed first thing in the frozen app's entry),
   so a served call that never answers fails naming where each process stood
-  (Step 4.37i). A script that calls `app.main` guards it with `if __name__ ==
+  (Step 4.37i). `serve` reads its input on a descriptor of its own and
+  leaves fd 0 holding NUL (on Windows the standard input its children take
+  too) before any other thread starts: on Windows a read blocked on a pipe
+  holds that pipe's locks, which held the engine at its start (Step 4.4ci5)
+  and numpy's BLAS, whose Fortran runtime looks at fd 0 as its DLL loads on
+  the request thread of a Build with a character (Step 4.37r). A script that calls `app.main` guards it with `if __name__ ==
   "__main__"` (spawn imports the main script again). The page takes the image's path
   (remembered in platformdirs' config folder; the window adds file dialogs)
   and Save writes the build to a path, never over an existing file but one

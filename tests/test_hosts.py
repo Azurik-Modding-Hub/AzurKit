@@ -743,7 +743,7 @@ def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch, tmp_pat
         raise AssertionError("the window path ran under the tests")
     monkeypatch.setattr(app, "_window", opened)
     monkeypatch.setattr(app.webbrowser, "open", opened)
-    monkeypatch.setattr(sys, "stdin", io.StringIO(""))
+    monkeypatch.setattr(app, "_input_kept_to_serve", io.BytesIO)   # its input, at its end at once
     for mode in ({}, {app.NO_WINDOW: ""}):
         with monkeypatch.context() as m, contextlib.redirect_stdout(io.StringIO()) as out:
             m.setattr(os, "environ", os.environ | mode)
@@ -2035,21 +2035,44 @@ def test_a_tests_call_past_its_timeout_fails_naming_the_call_while_the_app_keeps
     assert replies == [] and 2 <= took < 6, (replies, took)
 
 
-def test_serves_engine_answers_while_serve_waits_on_its_input(tmp_path, monkeypatch):
-    """``serve``'s blocked read of its input (a pipe, here) doesn't hold the engine it spawns at that engine's start, as
-    it did on Windows (:func:`azurkit.app._input_kept_from_children`), and the input's end still ends it."""
+def test_serve_waits_on_its_input_on_a_descriptor_of_its_own_and_answers_its_engine_and_a_build_with_a_character(
+        tmp_path, monkeypatch):
+    """``serve``'s blocked read of its input (a pipe, here) holds nothing the app's other threads and processes look
+    at, and the input's end still ends it (:func:`azurkit.app._input_kept_to_serve`). On Windows a read blocked on a
+    pipe holds that pipe's locks: it held the engine at its start (Step 4.4ci5), and a Build with a character
+    (Step 4.37r), whose request thread is the app's first to import numpy, whose BLAS's Fortran runtime fstat(0)s as
+    its DLL loads. Here ``os.fstat(0)`` on that thread, as numpy's extension module loads, stands in for it: fd 0 is
+    NUL there, not the input, and the build answers (it names a missing image, which the engine refuses by name). The
+    lock itself is Windows' (POSIX has none on a pipe a read waits on): Windows' run of this test and of the frozen
+    app's dress (``test_the_frozen_app_dresses_the_player_in_a_species_body_as_its_golden``) shows it."""
     _home(monkeypatch, tmp_path)
-    replies: list = []
-    with subprocess.Popen([sys.executable, "-m", "azurkit", "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+    seen, replies = tmp_path / "seen.json", []
+    code = textwrap.dedent("""
+        import json, os, stat, sys, threading
+        from azurkit.app import main
+        def look(event, args, first=[]):
+            if event == "import" and args[0] == "numpy._core._multiarray_umath" and not first:
+                first.append([threading.current_thread().name, stat.filemode(os.fstat(0).st_mode)[0]])
+                with open(sys.argv[1], "w", encoding="utf-8") as file:
+                    json.dump(first[0], file)
+        if __name__ == "__main__":
+            sys.addaudithook(look)
+            sys.exit(main(["serve"]))
+        """)
+    with subprocess.Popen([sys.executable, "-c", code, str(seen)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE, text=True) as served:
         try:
-            _post(served.stdout.readline().strip(), "api/plan_spoiler", {"plan": {}}, replies)
-            assert "refused" in replies[0]   # by the engine, which read the logic first
+            url = served.stdout.readline().strip()
+            _post(url, "api/plan_spoiler", {"plan": {}}, replies)   # the engine's, which reads the logic first
+            _post(url, "api/build", {"iso": str(tmp_path / "none.iso"), "character": {"species": "keylord"}}, replies)
+            assert "refused" in replies[0] and "none.iso" in replies[1]["refused"], replies
         except BaseException as exc:
             _ended_with(served, exc)
             raise
         served.stdin.close()
         assert (served.wait(60), served.stderr.read()) == (0, "")
+    thread, fd_0 = json.loads(seen.read_text(encoding="utf-8"))
+    assert (thread != "MainThread", fd_0) == (True, "c"), thread   # a request thread's, NUL's: not the pipe's "p"
 
 
 def test_where_the_tests_ask_each_of_the_apps_processes_dumps_its_stacks_and_a_failure_notes_each_ones_last(
