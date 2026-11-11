@@ -355,6 +355,12 @@ _WAV_FILE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.wav\Z", re.IGNORECASE)
 TAKES = 20
 """A name's takes the binder tries: ``<name>`` and ``<name>_a`` ..
 ``_s`` (0x4B680, ``cmp ebx, 0x14`` at 0x4B71F)."""
+WHOOSH_LONGEST = 60.0
+"""The longest a ``whoosh`` may last (s): about 10 x the game's longest
+inline wave (``xbox_adpcm.LONGEST_WAVE``) and 40 x the longest a shipped
+recipe makes (1.4 s). It makes each sample in turn, so a longer one, ten
+bytes of a recipe, is refused by name before any work (10**6 s would be
+hours and hundreds of GiB a take)."""
 KEY_MAX = 255
 """The longest key 0x4B680 formats (``%s/%s_%c`` into a 256-byte stack
 buffer: ``sub esp, 0x118`` at 0x4B686, ``lea esi, [esp + 0x18]``
@@ -1574,6 +1580,8 @@ def _check_whoosh(where: str, p: dict) -> None:
     length = _positive(f"{where}.length", p["length"])
     if round(length * RATE) < 1:
         raise ValueError(f"{where}.length: {length:g} s makes no sample at {RATE} Hz")
+    if length > WHOOSH_LONGEST:
+        raise ValueError(f"{where}.length: {length:g} s is past the {WHOOSH_LONGEST:g} s a whoosh may last")
     _int(f"{where}.swells", p["swells"], 1, 2 ** 31)
     _int(f"{where}.seed", p["seed"], 0, 2 ** 32 - 1)
     _int(f"{where}.takes", p.get("takes", 1), 1, TAKES)
