@@ -100,13 +100,30 @@ def settings_from_args(args, db) -> Settings:
     return replace(settings_from_table({**table, "format": form}, skips, "options"), sliders=base.sliders)
 
 
+MAX_SETTINGS = 64 << 10   # a settings file's characters: one with every toggle of today's registry is about 1.4 KB
+
+
+def parse_settings(text: str, where: str) -> dict:
+    """A settings file's text as its TOML table; ``ValueError`` naming
+    ``where`` for one past :data:`MAX_SETTINGS` characters or that isn't
+    TOML, nested past the parser's stack too (D992)."""
+    if len(text) > MAX_SETTINGS:
+        raise ValueError(f"{where}: {len(text):,} characters, more than a settings file holds ({MAX_SETTINGS:,})")
+    try:
+        return tomllib.loads(text)
+    except (tomllib.TOMLDecodeError, RecursionError) as exc:
+        raise ValueError(f"{where}: not TOML ({'nested too deep' if isinstance(exc, RecursionError) else exc})"
+                         ) from None
+
+
 def read_settings(path: Path, skips: Mapping[str, Mapping]) -> Settings:
     """A settings file, checked (§7.2); raises :class:`SettingsError`
     naming the file and each refused key."""
     try:
-        table = tomllib.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError) as exc:
-        raise SettingsError(str(path), [("settings_unreadable", "settings", str(exc))]) from None
+        table = parse_settings(Path(path).read_text(encoding="utf-8"), str(path))
+    except (OSError, ValueError) as exc:
+        raise SettingsError(str(path), [("settings_unreadable", "settings", str(exc).removeprefix(f"{path}: "))]
+                            ) from None
     return settings_from_table(table, skips, str(path))
 
 
@@ -328,5 +345,6 @@ def spoiler_text(plan, logic, logic_verified: bool, why_not=()) -> str:
 
 
 __all__ = ["CATEGORIES", "LAYER", "LayerError", "LayerReport", "SIZE_FOLD", "SIZE_PACK", "SIZE_SLIDERS",
-           "checked_plan", "obsidian_reason", "plan_for", "plan_reasons", "roll_reasons", "read_settings", "size_params",
+           "MAX_SETTINGS", "checked_plan", "obsidian_reason", "parse_settings", "plan_for", "plan_reasons", "roll_reasons",
+           "read_settings", "size_params",
            "sliders_text", "settings_from_args", "settings_text", "spoiler_text"]

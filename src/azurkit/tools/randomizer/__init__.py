@@ -363,11 +363,7 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     elif "file" in given:
         if not isinstance(given["file"], str):
             raise ValueError("randomizer: file is a settings file's text")
-        try:
-            table = tomllib.loads(given["file"])
-        except tomllib.TOMLDecodeError as exc:
-            raise ValueError(f"settings file: not TOML ({exc})") from None
-        st = settings_from_table(table, skips, "settings file", older)
+        st = settings_from_table(layer.parse_settings(given["file"], "settings file"), skips, "settings file", older)
     elif isinstance(given["settings"], Mapping):
         st = settings_from_table(given["settings"], skips, "settings", older)
     else:

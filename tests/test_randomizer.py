@@ -1956,6 +1956,23 @@ def test_a_settings_refusal_names_its_first_20_problems_and_counts_the_rest():
         "; ... and 5 more"), "t1.none_19" in said, "t1.none_20" in said) == (25, 20, True, True, False), said
 
 
+def test_a_settings_file_nested_too_deep_or_too_large_is_refused_by_name(tmp_path, capsys):
+    """Step 4.42b (D992): a settings file nested past the TOML parser's
+    stack is refused as not TOML, by the file's name, where its
+    RecursionError reached no host as a refusal; one past
+    ``layer.MAX_SETTINGS`` characters (a file with every toggle is about
+    1.4 KB) is refused before it is parsed. The tab's Load settings and the
+    command line's --settings both."""
+    deep, large = "a = " + "[" * 5000 + "]" * 5000, "#" * (layer.MAX_SETTINGS + 1)
+    for text, why in ((deep, "not TOML (nested too deep)"), (large, "more than a settings file holds")):
+        with pytest.raises(ValueError, match=f"^settings file: .*{re.escape(why)}"):
+            sdk.randomizer_settings({"file": text})
+    path = tmp_path / "deep.toml"
+    path.write_text(deep, encoding="utf-8")
+    assert cli.main(["plan", "--seed", "2", "--settings", str(path)]) == 1
+    assert capsys.readouterr().err == f"azurkit: --settings {path}: not TOML (nested too deep)\n"
+
+
 def test_a_skip_batch_is_one_pick_and_a_variant_id_in_a_file_string_or_flag_stands_for_its_batch(tmp_path):
     """D275 (Step R1.31): skips that cross the same thing and differ only in
     kit are variants of one batch (``batch``, ``batch_name``). A settings

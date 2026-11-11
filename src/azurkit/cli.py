@@ -110,7 +110,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import tomllib
 from pathlib import Path
 
 from azurkit import __version__, sdk
@@ -118,6 +117,7 @@ from azurkit.core import gate
 from azurkit.core.xbr import Document
 from azurkit.edits import files as replaced
 from azurkit.tools.mods import settle, unknown
+from azurkit.tools.randomizer.layer import parse_settings
 
 
 def _verify(args: argparse.Namespace) -> int:
@@ -243,7 +243,8 @@ def _randomizer(args: argparse.Namespace) -> dict | None:
         except json.JSONDecodeError as exc:
             raise ValueError(f"--plan {args.plan}: not a plan file (not JSON: {exc})") from None
     if args.settings:
-        given["settings"] = tomllib.loads(Path(args.settings).read_text(encoding="utf-8"))
+        given["settings"] = parse_settings(Path(args.settings).read_text(encoding="utf-8"),
+                                           f"--settings {args.settings}")
     elif args.share:
         given["share"] = args.share
     return given | ({"obsidian_cost": args.obsidian_cost} if args.obsidian_cost is not None else {})
@@ -355,7 +356,7 @@ def _build(args: argparse.Namespace) -> int:
         except (OSError, ValueError):
             Path(built["out"]).unlink(missing_ok=True)   # D35: a spoiler or settings file not written keeps no image
             raise
-    except (OSError, ValueError) as exc:    # tomllib.TOMLDecodeError is a ValueError
+    except (OSError, ValueError) as exc:
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
     for layer in built["layers"]:
@@ -570,11 +571,12 @@ def _plan(args: argparse.Namespace) -> int:
     try:
         given = {"seed": args.seed}
         if args.settings:
-            given["settings"] = tomllib.loads(Path(args.settings).read_text(encoding="utf-8"))
+            given["settings"] = parse_settings(Path(args.settings).read_text(encoding="utf-8"),
+                                               f"--settings {args.settings}")
         elif args.share:
             given["share"] = args.share
         doc = sdk.plan(given)
-    except (OSError, ValueError) as exc:     # tomllib.TOMLDecodeError is a ValueError
+    except (OSError, ValueError) as exc:
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
     text = json.dumps(doc, indent=1, sort_keys=True) + "\n"    # Modkit's plan file, byte for byte
