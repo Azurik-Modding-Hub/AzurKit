@@ -826,8 +826,9 @@ def test_the_apps_window_asks_before_it_closes_on_a_variants_unsaved_edits(monke
     edits not saved (``api/unsaved``, which refuses anything but true or false by name) holds the close (pywebview's
     ``False``) and asks ``app.LEAVE``, its buttons Leave and Stay: Leave quits (AZ-823's cancel) and closes the
     window, Stay keeps both as they were and quits nothing; with nothing unsaved it asks nothing and quits, and the
-    window closes, as before. A stand-in pywebview runs the hook as its closing event does: no window opens (D839).
-    Each shown: (the close held, what was asked, quit, the window closed by the hook)."""
+    window closes, as before. A stand-in pywebview runs the hook as its closing event does, and its destroy runs it
+    again and closes only if the hook lets it, as Windows', GTK's and Qt's do: no window opens (D839). Each shown:
+    (the close held, what was asked, quit, the window closed by the hook)."""
     _home(monkeypatch, tmp_path / "home")
     handlers, asked, closed, opened = [], [], [], []
 
@@ -836,7 +837,11 @@ def test_the_apps_window_asks_before_it_closes_on_a_variants_unsaved_edits(monke
             handlers.append(handler)
             return self
 
-    window = types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()), destroy=lambda: closed.append(1),
+    def destroy() -> None:   # winforms' Close, GTK's close_window and Qt's closeEvent: the closing event again
+        if not any(handler() is False for handler in handlers):
+            closed.append(1)
+
+    window = types.SimpleNamespace(events=types.SimpleNamespace(closing=Closing()), destroy=destroy,
                                    create_confirmation_dialog=lambda *question: asked.append(question) or answer)
     webview, errors = types.ModuleType("webview"), types.ModuleType("webview.errors")
     errors.WebViewException = type("WebViewException", (Exception,), {})
