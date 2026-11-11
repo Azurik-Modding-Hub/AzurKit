@@ -2421,10 +2421,11 @@ def test_a_stall_names_a_privacy_prompt_pending_since_its_call_began(monkeypatch
     since the call began, a line each after the page's state: its id and service, its answer's time or that none came
     yet, when it was asked and how long ago, and the program it asks for (the home folder as ``~``, the path's end kept
     past ``ci_resources.SUBJECT``), read from tccd's lines in macOS's log from ``ci_resources.BACK`` s before the call
-    began. A prompt answered before the call began is left out. While another headless shell's prompt for the Documents
-    folder stood on this Mac, six test Chromiums' pages stopped answering at their engine's start and their failures
-    named nothing of it; the box's load (25.8) looked a cause and wasn't, so no line names the load. A stand-in page
-    that never answers, the log a stand-in's."""
+    began. A prompt answered before the call began is left out, and an answer logged before a prompt under its id (an
+    earlier process's: macOS reuses process ids) is never its own. While another headless shell's prompt for the
+    Documents folder stood on this Mac, six test Chromiums' pages stopped answering at their engine's start and their
+    failures named nothing of it; the box's load (25.8) looked a cause and wasn't, so no line names the load. A
+    stand-in page that never answers, the log a stand-in's."""
     from scripts import ci_resources
     driver, home, now = os.getpid(), Path.home(), time.time()
 
@@ -2432,7 +2433,8 @@ def test_a_stall_names_a_privacy_prompt_pending_since_its_call_began(monkeypatch
         return time.strftime("%Y-%m-%d %H:%M:%S.123", time.localtime(now - ago))
     shell = f"Sub:{{{home}/work/chrome/chrome-headless-shell}}Resp:{{TCCDProcess: identifier=headless_shell}}"
     long = "/opt/" + "x" * 100 + "/helper"
-    rows = ((400, "PROMPTING: msgID=400.1, service=kTCCServiceSystemPolicyDocumentsFolder, subject=" + shell),
+    rows = ((450, "RESULT: msgID=400.1, authValue=2, authReason=4, authVersion=1,"),   # an earlier process's
+            (400, "PROMPTING: msgID=400.1, service=kTCCServiceSystemPolicyDocumentsFolder, subject=" + shell),
             (300, "PROMPTING: msgID=400.2, service=kTCCServiceCamera, subject=Sub:{/Applications/A.app}Resp:{}"),
             (290, "RESULT: msgID=400.2, authValue=2, authReason=2, authVersion=1,"),   # answered before the call
             (200, "PROMPTING: msgID=400.3, service=kTCCServiceSystemPolicyDownloadsFolder, subject=Sub:{"

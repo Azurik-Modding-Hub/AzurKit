@@ -535,7 +535,9 @@ PROMPTING = re.compile(r"^(\S+ \S+?)\.\d+ .*?AUTHREQ_PROMPTING: msgID=([\d.]+), 
                        re.M)
 """A prompt tccd put to the user, in its line (``--style compact``): its time, id, service and subject."""
 RESULT = re.compile(r"^(\S+ \S+?)\.\d+ .*?AUTHREQ_RESULT: msgID=([\d.]+),", re.M)
-"""A request's answer, in its line: its time and id."""
+"""A request's answer, in its line: its time and id. tccd logs one for every request, a prompt's or not, and an id is
+its requester's process id and that process's count of its requests: macOS reuses process ids, so two hours of this
+Mac's log held 12902.1 and 36065.1 each answered twice, apart."""
 SUBJECT = 80
 """Characters of a prompt's subject :func:`privacy_asked` names at most, its end (the program's name) kept."""
 
@@ -543,8 +545,10 @@ SUBJECT = 80
 def privacy_asked(since: float, timeout: float = SAY_S) -> list[str]:
     """Each privacy prompt (TCC) macOS put to the user that stood at some time since ``since`` (seconds since the
     epoch): asked after ``since`` or in the :data:`BACK` s before it, with no answer before ``since`` (:data:`ASKED`),
-    one line each: its id and service, its answer's time or that none came yet, when it was asked and how long ago,
-    and its subject (the home folder as ``~``, cut to :data:`SUBJECT`); the log read in ``timeout`` s."""
+    its answer the first logged under its id after it, never one logged before it (another process's of that id,
+    :data:`RESULT`), one line each: its id and service, its answer's time or that none came yet, when it was asked
+    and how long ago, and its subject (the home folder as ``~``, cut to :data:`SUBJECT`); the log read in ``timeout``
+    s. A request of a later process under its id may still read as its answer."""
     try:
         out = subprocess.run(["log", "show", "--style", "compact", "--start",
                               time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since - BACK)), "--predicate", ASKED],
@@ -554,10 +558,12 @@ def privacy_asked(since: float, timeout: float = SAY_S) -> list[str]:
 
     def at(stamp: str) -> float:
         return time.mktime(time.strptime(stamp, "%Y-%m-%d %H:%M:%S"))
-    answers = {msg: stamp for stamp, msg in reversed(RESULT.findall(out))}   # each request's first answer
+    results = [(result.start(), result[1], result[2]) for result in RESULT.finditer(out)]   # in the log's order
     said, now, home = [], time.time(), f"{Path.home()}/"   # the log's paths are POSIX
-    for stamp, msg, service, subject in PROMPTING.findall(out):
-        if (answered := answers.get(msg)) is not None and at(answered) < since:
+    for prompt in PROMPTING.finditer(out):
+        stamp, msg, service, subject = prompt.groups()
+        answered = next((when for place, when, of in results if of == msg and place > prompt.start()), None)
+        if answered is not None and at(answered) < since:
             continue
         subject = f"~/{subject[len(home):]}" if subject.startswith(home) else subject
         subject = subject if len(subject) <= SUBJECT else f"…{subject[-SUBJECT:]}"
