@@ -21,9 +21,13 @@ the image's XBR files, planned against the vanilla files into one layer
 
 The operations apply in list order: one that gives a byte an earlier one
 wrote another value wins, and the earlier one is dropped whole and reported
-(D28, ``layer.compose``). Every refusal names the operation (by its number,
-from 1) and why, never game bytes; an unknown key or operation is refused by
-name (Q46, Q223). A share link carries ``set`` alone (Q174).
+(D28, ``layer.compose``). Each is planned against the vanilla file, so a
+``set`` whose cell the others leave reading another value (its string one
+a later rewrite in place changes, or the text an earlier one rewrote) is
+refused (:class:`Unread`), but where a later operation writes its cell or
+drops it whole. Every refusal names the operation (by its number, from 1)
+and why, never game bytes; an unknown key or operation is refused by name
+(Q46, Q223). A share link carries ``set`` alone (Q174).
 """
 
 from __future__ import annotations
@@ -31,12 +35,13 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+import struct
 from collections.abc import Mapping, Sequence
 
 from azurkit.core.gate import Release
 from azurkit.core.xbr import Document, edits
-from azurkit.core.xbr.keyed import Table
-from azurkit.edits.layer import Change, Layer
+from azurkit.core.xbr.keyed import NUMBER, SIZE, STRING, Table
+from azurkit.edits.layer import Change, Layer, compose
 
 TOOL, KIND, LAYER = "data", "xbr", "data xbr"
 KEYS = {"set": ("op", "file", "table", "entity", "prop", "value"),
@@ -65,6 +70,11 @@ CONFIG = "gamedata/config.xbr"   # the file whose cells INT32 names
 BY_COLUMN = "settings_foo"   # the one table whose cells are named by their column (a setting each), not their row
 WHOLE = {"round": (round, "rounded"), "trunc": (math.trunc, "truncated")}
 RANGE = (-2**31, 2**31 - 1)
+
+
+class Unread(ValueError):
+    """A plan's ``set`` whose cell reads another value once every
+    operation is laid (D35): each names its operation."""
 
 
 def _digest(data: bytes) -> str:
@@ -157,7 +167,7 @@ def int32(table: str, entity: str, prop: str) -> str | None:
     return INT32.get((table, entity if table == BY_COLUMN else prop))
 
 
-def _set(table: Table, data: bytes, op: Mapping) -> tuple[str, list[tuple[int, bytes]]]:
+def _set(table: Table, data: bytes, op: Mapping) -> tuple[str, list[tuple[int, bytes]], tuple[str, int, int]]:
     where = f"{op['file']} table {table.name}"
     entity = _spelled([c for c in table.cols if c], op["entity"], "entity", where)
     prop = _spelled(table.rows, op["prop"], "prop", where, _COLOR)
@@ -172,7 +182,8 @@ def _set(table: Table, data: bytes, op: Mapping) -> tuple[str, list[tuple[int, b
                                  f"32-bit integer once {made} ({RANGE[0]}..{RANGE[1]})")
         writes = edits.set_number(table, entity, prop, value, col=col, fill=fill)
     column = f" (column {table.column(entity, col)})" if table.cols.count(entity) > 1 else ""
-    return f"set {table.name}/{entity}/{prop}{column}", writes
+    cell = (table.name, table.column(entity, col), table.row(prop))
+    return f"set {table.name}/{entity}/{prop}{column}", writes, cell
 
 
 def writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents: dict | None = None
@@ -181,6 +192,12 @@ def writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents: 
     vanilla file (``base``): its description and its writes ``[(offset,
     bytes)]``; ``LookupError`` or ``ValueError`` says why it can't apply.
     ``documents`` keeps each file's parse across calls."""
+    return _writes(op, release, base, documents)[:2]
+
+
+def _writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents: dict | None = None
+            ) -> tuple[str, list[tuple[int, bytes]], tuple[str, int, int] | None]:
+    """:func:`writes`, and a ``set``'s cell (its table, column and row)."""
     file = op["file"]
     if file not in release.files:
         raise LookupError(f"the {release.label} image has no {file}")
@@ -200,24 +217,64 @@ def writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents: 
     if (held.hex() != expected.lower() if isinstance(expected, str)
             else hashlib.sha256(held).hexdigest() != expected["sha256"]):
         raise ValueError(f"{file} holds {_digest(held)} at 0x{at:X}, not the bytes it expects")
-    return f"replace_bytes {file} 0x{at:X}", [(at, after)]
+    return f"replace_bytes {file} 0x{at:X}", [(at, after)], None
+
+
+def _reads(cell, value: object) -> bool:
+    if isinstance(value, str):
+        return cell.kind == STRING and cell.value == value
+    return cell.kind == NUMBER and struct.pack("<d", cell.value) == struct.pack("<d", float(value))
+
+
+def _unread(changes: Sequence[Change], owners: Sequence[int], cells: Mapping[tuple, tuple[int, Mapping, str]],
+            base: Mapping[str, bytes], documents: Mapping[str, Document]) -> list[str]:
+    """Each ``set`` of ``cells`` (the last of its cell, ``(file, table, col,
+    row)``: its number, operation and description) whose cell reads another
+    value in the file ``changes`` (operation ``owners[i]``'s each) leave, as
+    ``layer.compose`` lays them (a later group's bytes drop an earlier one
+    whole, D28), but one dropped so or whose 16 B cell a later one writes."""
+    out = []
+    for file in dict.fromkeys(key[0] for key in cells):
+        mine = [(k, c) for k, c in zip(owners, changes) if c.file == file]
+        laid, conflicts = compose({file: base[file]}, [Layer(LAYER, TOOL, KIND, {}, tuple(c for _, c in mine))])
+        data, dropped, now = bytes(laid.get(file, base[file])), {c.dropped for c in conflicts}, {}
+        for (held, name, col, row), (k, op, what) in cells.items():
+            was = documents[file].tables[name]
+            at = was.cell(col, row).at
+            if held != file or f"#{k} {what}" in dropped or any(
+                    j > k and c.offset < at + SIZE and at < c.offset + len(c.after) for j, c in mine):
+                continue
+            if name not in now:
+                try:
+                    now[name] = Table.parse(data, name, was.start, was.size)
+                except ValueError:   # a later byte edit broke its table
+                    now[name] = None
+            if now[name] is None or not _reads(now[name].cell(col, row), op["value"]):
+                out.append((k, f"xbr op {k} (set): {what.removeprefix('set ')}: its cell reads another value once "
+                               "every operation is laid (its string is one another operation points at or rewrote)"))
+    return [line for _, line in sorted(out)]
 
 
 def plan(ops: Sequence[Mapping], release: Release, base: Mapping[str, bytes]) -> Layer:
     """The layer ``ops`` (:func:`normalize` d) make of ``release``'s vanilla
     files (``base``: each of :func:`files`); ``ValueError`` names every
     operation that can't apply, and why (D35)."""
-    changes, failed, documents = [], [], {}
+    changes, failed, documents, owners, cells = [], [], {}, [], {}
     for k, op in enumerate(ops, 1):
         where, file = f"xbr op {k} ({op['op']})", op["file"]
         try:
-            what, made = writes(op, release, base, documents)
+            what, made, cell = _writes(op, release, base, documents)
         except (LookupError, ValueError) as exc:
             failed.append(f"{where}: {str(exc).removeprefix(f'{where}: ')}")
             continue
         data = base[file]
         changes += [Change(file, at, hashlib.sha256(data[at:at + len(after)]).hexdigest(), after, f"#{k} {what}")
                     for at, after in made]
+        owners += [k] * len(made)
+        if cell is not None:
+            cells[(file, *cell)] = (k, op, what)   # the last set of a cell is the one held to it
     if failed:
         raise ValueError("; ".join(failed))
+    if unread := _unread(changes, owners, cells, base, documents):
+        raise Unread("; ".join(unread))
     return Layer(LAYER, TOOL, KIND, {"ops": [dict(op) for op in ops]}, tuple(changes))

@@ -198,6 +198,44 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
                    "value": 2147483647.5}], gate.USA, {data.FILE: data.vanilla()})
 
 
+def test_a_set_whose_string_another_set_rewrote_or_points_at_is_refused_in_either_order():
+    """Step 4.42b: each ``set`` is planned against vanilla, so a recipe that
+    rewrites cell A's string in place and points cell B at A's old text
+    (in either order: a mods file's or a link's, which the Data tab's own
+    editor never makes) left B reading A's new text, with no conflict and
+    no refusal. ``xbr.plan`` now holds each set's cell to its value as the
+    operations lay (``xbr.Unread``, naming the set B), and a later set of a
+    cell still drops an earlier one whole (D28): A pointed at C's text,
+    then rewritten, reads its new text."""
+    from azurkit.core.xbr.keyed import STRING
+    from azurkit.edits.layer import compose
+
+    base = data.vanilla()
+    t = Document(base).tables["armor_properties"]
+    strings = [(c, r) for c in range(len(t.cols)) for r in range(1, len(t.rows)) if t.cell(c, r).kind == STRING
+               and t.cols.count(t.cols[c]) == 1]
+    texts = Counter(t.cell(c, r).value for c, r in strings)
+    a = next((c, r) for c, r in strings if texts[t.cell(c, r).value] == 1 and len(t.cell(c, r).value) >= 3)
+    b = next(x for x in strings if t.cell(*x).value != t.cell(*a).value)
+    c = next(x for x in strings if t.cell(*x).value not in (t.cell(*a).value, t.cell(*b).value)
+             and len(t.cell(*x).value) != 2)
+
+    def put(cell: tuple[int, int], value: str) -> dict:
+        return {"op": "set", "file": data.FILE, "table": t.name, "entity": t.cols[cell[0]], "prop": t.rows[cell[1]],
+                "value": value}
+
+    new, old = put(a, "qq"), put(b, t.cell(*a).value)
+    for ops, k in (([new, old], 2), ([old, new], 1)):
+        with pytest.raises(xbr.Unread, match=f"^xbr op {k} \\(set\\): {t.name}/{re.escape(t.cols[b[0]])}/"
+                                             f"{re.escape(t.rows[b[1]])}: its cell reads another value once"):
+            xbr.plan(xbr.normalize(ops), gate.USA, {data.FILE: base})
+        with pytest.raises(ValueError, match=f"^xbr op {k} \\(set\\)"):
+            sdk.data({"what": "table", "table": t.name, "ops": ops})
+    files, conflicts = compose({data.FILE: base}, [xbr.plan([put(a, t.cell(*c).value), new], gate.USA,
+                                                            {data.FILE: base})])
+    assert (Document(bytes(files[data.FILE])).tables[t.name].cell(*a).value, len(conflicts)) == ("qq", 1)
+
+
 def test_a_byte_edit_that_breaks_a_config_table_is_refused_by_name():
     """Step 4.42b (D992): a handed mods file's ``replace_bytes`` (raw bytes)
     that leaves a table's number cell no finite number (a NaN, which broke

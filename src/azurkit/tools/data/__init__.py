@@ -614,9 +614,14 @@ def check(edit: Mapping, ops: object = (), base: bytes | None = None, release: g
     op = _op(t, col, row, given, file, base)
     if op is None:
         return {"op": None, "ops": kept}
-    before, after = _state(kept, file, base, release), _state([*kept, op], file, base, release)
-    made = after.now[name].cell(col, row)
-    if made.value != op["value"] or _differs(after.now[name], before.now[name], after.data, after.base, skip=made.at):
+    before = _state(kept, file, base, release)
+    try:
+        after = _state([*kept, op], file, base, release)
+    except xbr.Unread:   # a set the edit leaves reading another value (this one, or one its string serves)
+        after = None
+    made = None if after is None else after.now[name].cell(col, row)
+    if made is None or made.value != op["value"] or _differs(after.now[name], before.now[name], after.data,
+                                                             after.base, skip=made.at):
         raise ValueError(f"{t.cols[col]} / {t.rows[row]}: its string is one another edit points at or rewrote, so "
                          "it takes only a text another cell of this table holds")
     return {"op": op, "ops": [*kept, op]}
