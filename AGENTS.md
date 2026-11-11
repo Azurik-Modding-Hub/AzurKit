@@ -520,8 +520,9 @@ The how-to is [`docs/SHIMS.md`](docs/SHIMS.md).
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that
-  changes `src/` or `web/`, a perf block in which nothing blocks; it refuses
-  any stack whose perf list grows main's. Landing never waits for a release
+  changes `src/` or `web/`, a perf block in which nothing blocks (its own, or
+  for a deferred one, `--perf-later`, a later receipt's of its batch covering
+  it, D1215); it refuses any stack whose perf list grows main's. Landing never waits for a release
   (D1170): a release is a tag on a commit that is on `main`, cut from main
   whenever its tests pass.
 - **CI (D1022-D1024):** `tests.yml` runs the pure tier on every push and

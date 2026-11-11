@@ -14,7 +14,12 @@ receipt's perf block (D981, ``scripts/perf.py``) with nothing blocking in it
 (D1170, ``perf.blocking``, read from its verdicts whichever perf.py wrote
 it): a clear regression against the last release's run, a memory peak, a
 native failure or a list that grows; its debt rows (an op over its budget,
-or new to the release and erring) block nothing. Every stack's
+or new to the release and erring) block nothing. A receipt whose perf stage
+was deferred (``fullsuite.py --perf-later``, the landing queue's: one perf
+stage a batch, D1215's P1) takes that block from a later receipt of the batch
+(:func:`cover_for`): a passing clean one whose head holds this one, whose
+perf stage ran against main or a commit main holds (its ``perf_base``) and
+timed every op this stack's changes reach, with nothing blocking. Every stack's
 ``tests/perf_ceilings.toml`` only shrinks: it refuses one that adds an op, a
 debt, a memory peak or an untimed op, or raises a ceiling, against main's
 (``perf.check_list``; main without the file takes any, the first record, and
@@ -39,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -51,19 +57,43 @@ import perf  # noqa: E402
 PERF_PATHS = ("src/", "web/")   # a stack touching these lands only with a perf block blocking nothing (D981, D1170)
 
 
-def receipt_for(folder: Path, head: str, main: str | None, perf_block: bool = False) -> dict | None:
-    """The newest passing receipt that lets ``head`` land on ``main`` (with
-    ``perf_block``, one with a perf block that blocks nothing, D1170)."""
-    found = []
+def passing(folder: Path):
+    """Each passing clean receipt in ``folder`` with vanilla and europe tests run (D26) and its flake stage, when
+    it has one (the tests the stack added or edited, slowed), passed."""
     for meta in folder.glob("suite-*.meta"):
         m = json.loads(meta.read_text(encoding="utf-8"))
-        if (m["head"] == head and m["clean"] and fs.status_code(m) == 0
-                and (m.get("vanilla_run") or 0) >= 1 and (m.get("europe_run") or 0) >= 1
-                and (m["mode"] == "full" or (main is not None and m["base"] == main))
-                and fs.flake_passed(m)   # a changed run's flake stage (the tests the stack added or edited, slowed)
-                and (not perf_block or not perf.blocking(m.get("perf")))):
-            found.append(m)
+        if (m["clean"] and fs.status_code(m) == 0 and (m.get("vanilla_run") or 0) >= 1
+                and (m.get("europe_run") or 0) >= 1 and fs.flake_passed(m)):
+            yield m
+
+
+def receipt_for(folder: Path, head: str, main: str | None, perf_block: bool = False,
+                deferred: bool = False) -> dict | None:
+    """The newest passing receipt that lets ``head`` land on ``main`` (with
+    ``perf_block``, one with a perf block that blocks nothing, D1170; with
+    ``deferred``, one whose perf stage waits for its batch's, D1215)."""
+    found = [m for m in passing(folder) if m["head"] == head
+             and (m["mode"] == "full" or (main is not None and m["base"] == main))
+             and (not perf_block or not perf.blocking(m.get("perf"))) and (not deferred or fs.deferred(m))]
     return max(found, key=lambda m: m.get("finished_at") or "", default=None)
+
+
+def _holds(repo: Path, older: str, newer: str) -> bool:
+    """Whether ``newer``'s history holds ``older`` (git merge-base --is-ancestor)."""
+    return subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", older, newer],
+                          capture_output=True).returncode == 0
+
+
+def cover_for(folder: Path, repo: Path, head: str, main: str, pairs: set[tuple[str, str]]) -> dict | None:
+    """The newest receipt whose perf block covers ``head``'s landing on ``main`` (D1215's P1): a passing clean
+    receipt of a later head that holds ``head``, its perf stage run (not deferred) against main or a commit main
+    holds (``perf_base``), timing every ``(host, group)`` of ``pairs`` (what ``head``'s changes reach), and nothing
+    in it blocking (``perf.blocking``)."""
+    found = [m for m in passing(folder) if m["head"] != head and not fs.deferred(m) and m.get("perf_base")
+             and isinstance((m.get("perf") or {}).get("cases"), dict) and not perf.blocking(m["perf"])
+             and {f"{h}:{g}" for h, g in pairs} <= set(m["perf"].get("pairs") or [])
+             and _holds(repo, m["perf_base"], main) and _holds(repo, head, m["head"])]
+    return max(found, key=lambda m: m.get("perf_finished_at") or m.get("finished_at") or "", default=None)
 
 
 def worktrees(repo: Path) -> list[tuple[Path, str | None]]:
@@ -101,11 +131,17 @@ def land(repo: Path, branch: str, dry_run: bool = False) -> tuple[int, str]:
     folder = fs.receipts(repo)
     paths = fs.git(repo, "diff", "--name-only", main, top) if main else fs.git(repo, "ls-tree", "-r", "--name-only", top)
     timed = any(rel.startswith(PERF_PATHS) for rel in paths.split())
-    if (m := receipt_for(folder, top, main, timed)) is None:
+    m, cover = receipt_for(folder, top, main, timed), None
+    if m is None and timed and main and (own := receipt_for(folder, top, main, deferred=True)) is not None:
+        if cover := cover_for(folder, repo, top, main, perf.select(paths.split())):
+            m = own
+    if m is None:
         return 1, (f"land: no passing clean receipt with vanilla and europe tests run"
-                   f"{' and a perf block blocking nothing (it changes src/ or web/: D981, D1170)' if timed else ''} "
+                   f"{' and a perf block blocking nothing (it changes src/ or web/: D981, D1170), its own or, for '
+                      'a deferred one (--perf-later), a later receipt of its batch covering it (D1215)' if timed else ''} "
                    f"for {branch} ({top[:12]}): run scripts/fullsuite.py on its worktree (receipts in {folder})")
-    did = f"main {main[:12] if main else '(unborn)'} -> {top[:12]} ({branch}; receipt {m['key']}, {m['mode']})"
+    did = (f"main {main[:12] if main else '(unborn)'} -> {top[:12]} ({branch}; receipt {m['key']}, {m['mode']}"
+           + (f"; its perf deferred, covered by receipt {cover['key']}'s" if cover else "") + ")")
     if dry_run:
         return 0, f"land --dry-run: would move {did}"
     trees = worktrees(repo)

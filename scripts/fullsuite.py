@@ -1,8 +1,9 @@
 """fullsuite: AzurKit's suite for one worktree, under a lock, in the
 background, with a receipt (the twin of Modkit's ``fullsuite``).
 
-    uv run --locked python scripts/fullsuite.py WORKTREE [--changed] [--base REF] [--wait SECS] [--force]
-    uv run --locked python scripts/fullsuite.py WORKTREE --status [--changed] [--base REF]
+    uv run --locked python scripts/fullsuite.py WORKTREE [--changed] [--base REF] [--perf-later [--perf-now]]
+                                                [--wait SECS] [--force]
+    uv run --locked python scripts/fullsuite.py WORKTREE --status [--changed] [--base REF] [--perf-later]
 
 It first runs the lint files (:data:`LINT`) in the foreground. A failure
 prints their output and queues nothing (no receipt, exit 1). The run then
@@ -58,6 +59,17 @@ block fails only on a clear regression against the last release's run
 and slower than there, or one it measured that errs), a memory peak, a
 native failure or a list that grows (``perf.blocking``, which the receipt's
 status and ``scripts/land.py`` read).
+
+``--perf-later`` (the landing queue's, D1215's P1: one perf stage a batch)
+runs pytest and the flake stage and leaves the perf stage ``deferred`` (the
+receipt's ``perf``): its key names no selection, which is made against
+``main`` when the stage runs, so a batch's entries share one perf stage.
+``--perf-later --perf-now`` on the same tree runs that receipt's deferred
+stage alone, its selection what the changes against main's head reach then
+(``perf_base``, :func:`perf_now`); its block then covers each receipt of the
+batch whose head it holds (``scripts/land.py``'s ``cover_for``). A deferred
+receipt's status is 0, but ``land.py`` lands a ``src/`` or ``web/`` stack on it
+only with a later receipt's perf block covering it.
 
 Every pytest run (the gate's and the flake stage's) reruns a failed test
 once (``tests/_rerun.py``, D1170): one that passes its rerun is flaky, kept
@@ -635,13 +647,25 @@ def flake_passed(m: dict) -> bool:
     return not m.get("flake_tests") or (m.get("flake") or {}).get("passed") is True
 
 
+def deferred(m: dict) -> bool:
+    """Whether the receipt's perf stage waits for its batch's (``--perf-later``, D1215: :func:`perf_now`)."""
+    return (m.get("perf") or {}).get("deferred") is True
+
+
+def waits(m: dict) -> bool:
+    """Whether the receipt's deferred perf stage can run now (``--perf-now``): its pytest and flake stage passed,
+    and it is done, or a ``--perf-now`` runner died on it."""
+    return (deferred(m) and m.get("exit_code") == 0 and flake_passed(m)
+            and (state(m) == "done" or state(m) == "orphaned" and bool(m.get("perf_now"))))
+
+
 def status_code(m: dict | None) -> int:
     if m is None:
         return 2
     st = state(m)
     if st in ("queued", "running", "flake", "perf"):
         return 3
-    perf_ok = not m.get("perf_args") or not perf.blocking(m.get("perf"))   # D1170: debt rows fail nothing
+    perf_ok = not m.get("perf_args") or deferred(m) or not perf.blocking(m.get("perf"))   # D1170: debt fails nothing
     return 0 if st == "done" and m["exit_code"] == 0 and flake_passed(m) and perf_ok else 1
 
 
@@ -671,9 +695,14 @@ def describe(m: dict, meta: Path) -> str:
     if m.get("flakes"):
         line += f"\n  flaky: {len(m['flakes'])} passed on their one rerun (recorded in {FLAKE_LEDGER}, D1170)"
         line += "".join(f"\n    {f['test']}: {f['why']}" for f in m["flakes"][:12])
-    if m.get("perf_args"):
+    if m.get("perf_args") and deferred(m):
+        line += (f"\n  perf {' '.join(m['perf_args'])} (against main then): deferred to its batch's perf stage "
+                 f"(--perf-later, D1215); land.py takes it with a later receipt's perf block that covers it"
+                 + (f"\n    {m['perf']['note']}" if m["perf"].get("note") else ""))
+    elif m.get("perf_args"):
         p = m.get("perf") or {}
-        line += (f"\n  perf {' '.join(m['perf_args'])}: " + ("not run" if not p else
+        line += (f"\n  perf {' '.join(m['perf_args'])}" + (f" against {m['perf_base'][:12]}" if m.get("perf_later")
+                                                         and m.get("perf_base") else "") + ": " + ("not run" if not p else
                  f"{'failed' if perf.blocking(p) else 'passed'}, {len(p.get('cases', {}))} cases in {p.get('wall_s')} s "
                  f"after {p.get('load_wait_s')} s waiting for the load"
                  + (f", {len(p['one_sample'])} on one sample under 1 s (D1215)" if p.get("one_sample") else ""))
@@ -698,12 +727,23 @@ def snapshot(wt: Path) -> tuple:
     return head, diff, untracked, digest
 
 
-def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
+def selected(wt: Path, base: str | None, untracked: list[str], changed: list[str] | None = None) -> list[str]:
+    """The perf stage's arguments for the worktree's changes against ``base`` (``changed``, else read): the ops
+    their paths reach (``perf.select``), none when they reach none or there is no base."""
+    if changed is None:
+        changed = sorted(set(git(wt, "diff", "--no-renames", "--name-only", base).split() + untracked)) if base else []
+    pairs = perf.select(changed)
+    return ["--select", ",".join(sorted(f"{h}:{g}" for h, g in pairs))] if pairs else []
+
+
+def prepare(wt: Path, changed_area: bool, base_ref: str, perf_later: bool = False) -> dict:
     """The run's receipt fields before it runs: its key, mode, pytest
     arguments, browsers (``"all"``: every one, ``tests/conftest.py``'s
-    default), a changed-area run's flake stage's tests, and the tree and
-    arguments its runner checks and names when the lock comes
-    (:func:`stale`)."""
+    default), a changed-area run's flake stage's tests, the perf stage's
+    arguments and the commit its selection's changes are against
+    (``perf_base``: the base; with ``perf_later``, main, chosen again when the
+    stage runs, so the key names no selection), and the tree and arguments
+    its runner checks and names when the lock comes (:func:`stale`)."""
     head, diff, untracked, state_hash = snapshot(wt)
     tree = state_hash.hexdigest()
     base = git(wt, "rev-parse", "--verify", "-q", f"{base_ref}^{{commit}}", check=False).strip() or None
@@ -714,18 +754,19 @@ def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
     mode, browsers = ("full", "all") if selection is None else ("changed", list(CHANGED_BROWSERS))
     flake = edited_tests(wt, base, changed) if mode == "changed" else []   # a whole run has no flake stage
     main = git(wt, "rev-parse", "--verify", "-q", "refs/heads/main", check=False).strip()
+    perf_base = (main or None) if perf_later else base
     if mode == "full" and head == main and not diff and not untracked:
-        perf_args = ["--all"]   # main's full run: every op, every profile and browser
+        perf_args, perf_base = ["--all"], head   # main's full run: every op, every profile and browser
     else:
-        pairs = perf.select(changed)
-        perf_args = ["--select", ",".join(sorted(f"{h}:{g}" for h, g in pairs))] if pairs else []
+        perf_args = selected(wt, perf_base, untracked) if perf_later else selected(wt, base, untracked, changed)
     keyed = [mode, None, None] if selection is None else [mode, base, selection, browsers]   # a whole run's as before
     keyed += [{"flake": FLAKE_RUNS, "tests": flake}] if flake else []
-    state_hash.update(json.dumps(keyed + ([perf_args] if perf_args else [])).encode())
+    state_hash.update(json.dumps(keyed + (["perf-later"] if perf_later else [perf_args] if perf_args else [])).encode())
     return {"key": f"{head[:12]}-{state_hash.hexdigest()[:12]}", "head": head, "base": base, "mode": mode,
             "pytest_args": selection or [], "browsers": browsers, "perf_args": perf_args, "flake_tests": flake,
-            "clean": not diff and not untracked, "tree": tree,
-            "args": [*(["--changed"] if changed_area else []), "--base", base_ref], "worktree": str(wt),
+            "perf_base": perf_base, "perf_later": perf_later, "clean": not diff and not untracked, "tree": tree,
+            "args": [*(["--changed"] if changed_area else []), "--base", base_ref,
+                     *(["--perf-later"] if perf_later else [])], "worktree": str(wt),
             "branch": git(wt, "branch", "--show-current").strip(), "subject": git(wt, "log", "-1", "--format=%s").strip()}
 
 
@@ -891,8 +932,12 @@ def runner(meta: Path) -> int:
         time.sleep(0.05)
     with open(meta.parent / "lock", "w", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        if moved := stale(m):
+        if (moved := stale(m)) and m.get("perf_now"):   # its deferred stage waits on: the receipt stands as it was
+            save(meta, m | {"state": "done", "perf_now": False, "perf": m["perf"] | {"note": moved}})
+        elif moved:
             save(meta, m | {"state": "stale", "finished_at": now(), "note": moved})
+        elif m.get("perf_now"):
+            perf_now(meta, m)
         else:
             run(meta, m)
     return 0
@@ -991,13 +1036,42 @@ def release_reference(folder: Path, wt: Path) -> Path | None:
 
 def stages(meta: Path, m: dict) -> dict:
     """The receipt after the stages that follow a passing pytest: the flake
-    stage, then, once it passed (or with none), the perf stage."""
+    stage, then, once it passed (or with none), the perf stage, or with
+    ``--perf-later`` its place: ``deferred`` (D1215, :func:`perf_now`)."""
     if m.get("flake_tests"):
         save(meta, m := m | {"state": "flake"})
         m["flake"] = flake_stage(meta, m)
-    if m.get("perf_args") and flake_passed(m):
+    if m.get("perf_args") and flake_passed(m) and m.get("perf_later"):
+        m["perf"] = {"deferred": True}
+    elif m.get("perf_args") and flake_passed(m):
         save(meta, m := m | {"state": "perf"})
         m["perf"] = perf_stage(meta, m)
+    return m
+
+
+def perf_now(meta: Path, m: dict) -> dict:
+    """A deferred receipt's perf stage, run alone (``--perf-later
+    --perf-now``, D1215's P1: one perf stage a batch, on its last entry): its
+    selection what the worktree's changes against main's head reach now
+    (``perf_base``; none reached: a block of no cases), its debt rows
+    appended to the ledger, the receipt's pytest and flake fields kept; a
+    stage that never ran (the load, perf.py's crash) leaves it deferred,
+    with a note, so it can run again."""
+    wt = Path(m["worktree"])
+    base = git(wt, "rev-parse", "--verify", "-q", "refs/heads/main^{commit}", check=False).strip() or None
+    m |= {"state": "perf", "perf_started_at": now(), "perf_base": base, "perf_args": selected(wt, base, snapshot(wt)[2])}
+    save(meta, m)
+    m["perf"] = (perf_stage(meta, m) if m["perf_args"] else
+                 {"passed": True, "cases": {}, "pairs": [], "note": "its changes against main reach no op"})
+    if "cases" not in m["perf"]:   # the stage never ran (the load, perf.py's crash): the receipt waits on, deferred
+        m["perf"] = {"deferred": True, "note": "its --perf-now stage didn't run: " + "; ".join(
+            m["perf"].get("failures") or ["no result"])}
+    whose = {"at": now(), "key": m.get("key"), "head": m.get("head"), "branch": m.get("branch"), "mode": m.get("mode")}
+    if rows := m["perf"].get("debt", []):
+        with open(meta.parent / DEBT_LEDGER, "a", encoding="utf-8") as out:
+            out.writelines(json.dumps(whose | row, sort_keys=True) + "\n" for row in rows)
+    m |= {"state": "done", "perf_now": False, "perf_finished_at": now()}
+    save(meta, m)
     return m
 
 
@@ -1155,14 +1229,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--wait", type=float, metavar="SECS", help="wait up to SECS for the result")
     ap.add_argument("--status", action="store_true", help="print the receipt for this tree and mode, run nothing")
     ap.add_argument("--force", action="store_true", help="run again even when a passing receipt has the key")
+    ap.add_argument("--perf-later", action="store_true",
+                    help="pytest and the flake stage now; the perf stage deferred to its batch's (D1215)")
+    ap.add_argument("--perf-now", action="store_true",
+                    help="with --perf-later: run this tree's deferred perf stage now, against main")
     ap.add_argument("--run", type=Path, help=argparse.SUPPRESS)   # the detached runner
     args = ap.parse_args(argv)
     if args.run:
         return runner(args.run)
     if args.worktree is None:
         ap.error("WORKTREE is required")
+    if args.perf_now and not args.perf_later:
+        ap.error("--perf-now runs a --perf-later receipt's deferred perf stage: give both")
     wt = args.worktree.resolve()
-    fields = prepare(wt, args.changed, args.base)
+    fields = prepare(wt, args.changed, args.base, args.perf_later)
     folder = receipts(wt)
     folder.mkdir(parents=True, exist_ok=True)
     meta = folder / f"suite-{fields['key']}.meta"
@@ -1170,7 +1250,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.status:
         print(describe(m, meta) if m else f"fullsuite {fields['key']}: no receipt")
         return status_code(m)
-    if m is None or (status_code(m) != 3 and (args.force or status_code(m) != 0)):
+    if args.perf_now and (m is None or status_code(m) != 3 and not waits(m)):
+        print(describe(m, meta) if m else f"fullsuite {fields['key']}: no receipt: gate it with --perf-later first")
+        return status_code(m) if m else 2
+    if args.perf_now and status_code(m) != 3:   # its deferred perf stage, alone, under the lock
+        proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--run", str(meta)],
+                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                start_new_session=True)
+        save(meta, m := m | {"state": "queued", "perf_now": True, "runner_pid": proc.pid})
+    elif m is None or (status_code(m) != 3 and (args.force or status_code(m) != 0)):
         ok, out = lint(wt)
         if not ok:
             print(out[-6000:], end="")

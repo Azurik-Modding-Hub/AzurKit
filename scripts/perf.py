@@ -228,6 +228,8 @@ def blocking(block: dict | None) -> list[str]:
     debt (:func:`debt_rows`)."""
     if not block:
         return ["no perf block"]
+    if block.get("deferred"):
+        return ["its perf stage is deferred to its batch's (fullsuite.py --perf-later, D1215)"]
     if "cases" not in block:
         return [] if block.get("passed") is True else list(block.get("failures") or ["no perf verdicts"])
     out = [f"{k}: slower than the release's {r['reference']} s ({r['median']} s, over its {r['budget']} s budget "

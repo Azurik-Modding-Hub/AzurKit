@@ -2299,7 +2299,17 @@ are the Characters section's.
   changes `src/` or `web/`, a perf block in which nothing blocks
   (`perf.blocking`, read from its verdicts, as the receipt's status is: its
   debt rows never do); it refuses any stack whose
-  perf list grows main's (one that changes only the list too). Landing never
+  perf list grows main's (one that changes only the list too). The landing
+  queue runs one perf stage a batch (D1215's P1): it gates each entry with
+  `fullsuite.py --perf-later` (pytest and the flake stage; the receipt's perf
+  `deferred`, its key naming no selection), then the batch's last green entry
+  with `--perf-later --perf-now` (that receipt's stage alone, its selection
+  what its changes against main's head reach, `perf_base`), and `land.py`
+  lands a deferred receipt's stack on a later receipt's block (`cover_for`:
+  a passing clean receipt whose head holds the stack's, whose perf ran
+  against main or a commit main holds, timed every op the stack's changes
+  reach and blocks nothing); a block that blocks is bisected by the queue on
+  the batch's middle entries. Landing never
   waits for a release (D1170): a release is a tag on a commit that is on
   `main` (`release.yml` checks that), cut from main whenever its tests pass.
 - **CI (Step 4.4ci; D1022-D1024):** AzurKit is public in Azurik-Modding-Hub

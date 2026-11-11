@@ -1319,6 +1319,68 @@ def test_land_needs_a_perf_block_blocking_nothing_for_src_or_web_and_a_list_that
             _git(repo, "reset", "-q", "--hard", "main")
 
 
+def test_a_batchs_last_receipt_runs_the_perf_stage_its_entries_deferred_and_its_block_covers_each_landing(
+        tmp_path, monkeypatch):
+    """D1215's P1: ``--perf-later`` runs pytest and the flake stage and
+    leaves the perf stage ``deferred`` (status 0; a key that names no
+    selection, so main moving keeps it); ``--perf-later --perf-now`` runs
+    it alone, its selection made against main's head then (``perf_base``),
+    the receipt's pytest fields kept (one that never ran leaves it deferred
+    to run again). land.py lands a deferred ``src/``
+    stack only on a later receipt's perf block that covers it: its head
+    holds the stack's, its perf ran against main or a commit main holds,
+    timed every op the stack's changes reach and blocks nothing."""
+    repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
+    (lane / "src").mkdir()
+    (lane / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
+    _git(lane, "add", "src/a.py")
+    _git(lane, "commit", "-q", "-m", "a")
+    a = _git(lane, "rev-parse", "HEAD")
+    later = fullsuite.prepare(lane, True, a, perf_later=True)
+    _git(repo, "update-ref", "refs/heads/main", a)   # main moves (a batch ahead landed): the key holds
+    assert fullsuite.prepare(lane, True, a, perf_later=True)["key"] == later["key"] != fullsuite.prepare(
+        lane, True, a)["key"]
+    assert (later["perf_base"], later["perf_args"][0], later["args"][-1]) == (base, "--select", "--perf-later")
+    _git(repo, "update-ref", "refs/heads/main", base)
+    m = fullsuite.stages(receipts / "suite-a.meta", later | {"exit_code": 0, "state": "running"}) | {"state": "done"}
+    assert m["perf"] == {"deferred": True} and fullsuite.status_code(m) == 0 and fullsuite.waits(m)
+    assert "deferred to its batch's perf stage" in fullsuite.describe(m, receipts / "suite-a.meta")
+    meta = receipts / "suite-a.meta"
+    fullsuite.save(meta, m | {"state": "queued", "perf_now": True, "runner_pid": os.getpid(), "flakes": [{"test": "t"}]})
+    monkeypatch.setitem(sys.modules, "fcntl", types.SimpleNamespace(LOCK_EX=2, LOCK_UN=8, flock=lambda fd, op: None))
+    timed, unrun = [], {"passed": False, "failures": ["the load stayed at 50.0"]}
+    for block in (unrun, {"passed": True, "cases": {}, "debt": []}):
+        monkeypatch.setattr(fullsuite, "perf_stage", lambda meta, m, block=block: timed.append(m["perf_args"]) or {
+            "pairs": m["perf_args"][1].split(","), **block})
+        assert fullsuite.runner(meta) == 0
+        m = fullsuite.load(meta)
+        if block is unrun:   # a stage that never ran leaves the receipt deferred, to run again
+            assert fullsuite.waits(m) and m["perf"]["note"].endswith("didn't run: the load stayed at 50.0")
+            fullsuite.save(meta, m | {"state": "queued", "perf_now": True, "runner_pid": os.getpid()})
+    assert (timed, m["perf_base"], m["state"], m["flakes"], fullsuite.deferred(m)) == (
+        [later["perf_args"]] * 2, base, "done", [{"test": "t"}], False)
+    every = sorted(f"{h}:{g}" for h, g in perf.select(["src/a.py"]))
+    _git(lane, "switch", "-q", "-c", "p2/y")
+    _git(lane, "commit", "-q", "--allow-empty", "-m", "b")
+    b = _git(lane, "rev-parse", "HEAD")
+    _git(lane, "switch", "-q", "p2/x")
+    _receipt(receipts, a, mode="changed", base=base, perf_args=["--select", ",".join(every)], perf={"deferred": True})
+    batch = {"mode": "changed", "base": a, "perf_args": ["--select", ",".join(every)]}
+    ok = {"passed": True, "cases": {}, "memory": {}, "native_failures": [], "list": [], "pairs": every}
+    code, why = land.land(repo, "p2/x", dry_run=True)
+    assert code == 1 and "a later receipt of its batch covering it" in why, why
+    for refused in ({"perf_base": base, "perf": ok | {"list": ["S01/webkit: added to the list"]}},   # it blocks
+                    {"perf_base": a, "perf": ok},                       # its perf ran against a commit main lacks
+                    {"perf_base": base, "perf": ok | {"pairs": every[1:]}},   # it timed less than a reaches
+                    {"perf_base": base, "perf": {"deferred": True}}):   # deferred too
+        _receipt(receipts, b, **batch | refused)
+        assert land.land(repo, "p2/x", dry_run=True)[0] == 1, refused
+    _receipt(receipts, b, **batch | {"perf_base": base, "perf": ok})
+    assert land.land(repo, "p2/x") == (0, f"land: moved main {base[:12]} -> {a[:12]} (p2/x; receipt {a[:12]}-0, "
+                                          f"changed; its perf deferred, covered by receipt {b[:12]}-0's)")
+    assert land.land(repo, "p2/y")[0] == 0 and _git(repo, "rev-parse", "main") == b   # b on its own block
+
+
 def test_lanes_devlog_bullets_merge_once_each_and_land_refuses_the_stale_copy_of_one_a_lane_edited(tmp_path):
     """Step 4.4dx1: with the repository's ``.gitattributes`` (git's union
     driver on ``docs/DEVLOG.md``), two lanes' bullets at the 1.0.0 section's
