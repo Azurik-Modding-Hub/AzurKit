@@ -727,16 +727,33 @@ def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mappi
     return found
 
 
+def _matched(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mapping | None) -> str:
+    """:data:`_MATCHES`' key for ``kind`` (a G4 match, or a reshape's
+    pictures) of ``character`` on ``stamp``'s image over ``packs``, holding
+    what the dress reads besides the image (D35), as
+    ``characters.cache_key`` does: the content folder's installed entries
+    (a Content Update, a community character's new version), and what a
+    recipe file holds (``library.file_stamp``) or a variant of yours'
+    build reads (``library.stamp``), so the engine's store never keeps an
+    older dress's answer under the new key."""
+    from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import library
+
+    recipes = character.get("variant_file")
+    own = library.file_stamp(recipes) if recipes else library.stamp(character["species"])
+    return json.dumps([kind, str(stamp.path), stamp.release.name, character, packs, kit.installed(), own],
+                      sort_keys=True)
+
+
 def _reshaped(recipe: Mapping, character: Mapping) -> dict:
     """A reshaped variant's two pictures: from the dress a build of it makes
     (its layers to ``characters.plan``'s, which the app keeps for that
     build, and :func:`_reshape_kept` for this process), kept for this
     process."""
-    from azurkit.tools.characters import library, picker, ports
+    from azurkit.tools.characters import picker, ports
 
     packs, stamp = _packs(recipe), _stamp(recipe["iso"])
-    key = json.dumps(["reshaped", str(stamp.path), stamp.release.name, character, packs,
-                      library.stamp(character["species"])], sort_keys=True)
+    key = _matched("reshaped", stamp, character, packs)
     if key not in _MATCHES:
         stamp, _, layers, _, _ = _plan({"iso": recipe["iso"], "packs": packs, "character": dict(character)})
         files = characters.worn_by(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), layers)
@@ -750,7 +767,7 @@ def _dress(recipe: Mapping) -> dict:
     """:func:`match`'s answer for ``recipe`` and, for a variant, its
     dress's ``preview`` (``picker.dressed``), kept for this process."""
     from azurkit.tools.characters import _player_variants as variants
-    from azurkit.tools.characters import library, picker, ports
+    from azurkit.tools.characters import picker, ports
 
     packs = _packs(recipe)
     if "character" not in recipe:
@@ -759,8 +776,7 @@ def _dress(recipe: Mapping) -> dict:
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
     stamp = _stamp(recipe["iso"])
-    key = json.dumps([str(stamp.path), stamp.release.name, character, packs, library.stamp(character["species"])],
-                     sort_keys=True)
+    key = _matched("match", stamp, character, packs)
     if key not in _MATCHES:
         vanilla, layers = _under_a_dress(stamp, packs)
         found, staging = characters.match(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))

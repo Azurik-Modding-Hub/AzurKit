@@ -878,6 +878,41 @@ def test_a_reshapes_kept_dress_dresses_again_once_a_wav_is_edited_in_place_or_th
     assert sdk._reshape_kept("plan", stamp, character, {}, lambda: b"updated") == b"updated"
 
 
+def test_a_g4_match_dresses_again_once_the_content_is_updated_or_its_recipe_file_edited(monkeypatch, tmp_path):
+    """D35: a G4 match kept in this process (``sdk._MATCHES``) stands on
+    what its dress reads: after a Content Update (the content folder's
+    installed entries) or an edit of the recipe file it wears, the next
+    match dresses again and answers the new values, not the kept ones, so
+    the app's engine never seals an older dress's answer under the new key
+    (Step 4.42c)."""
+    monkeypatch.setattr(sdk, "_MATCHES", {})
+    stamp = SimpleNamespace(path=Path("usa.iso"), release=SimpleNamespace(name="usa"))
+    monkeypatch.setattr(sdk, "_stamp", lambda path, *a, **k: stamp)
+    monkeypatch.setattr(sdk, "_under_a_dress", lambda stamp, packs: (None, []))
+    monkeypatch.setattr(characters, "packs_view", lambda release, packs: {})
+    monkeypatch.setattr(_player_variants, "resolve", lambda species, recipes=None: None)
+    dressed = []
+
+    def match(character, vanilla, layers, packs):   # each dress reads the version installed and the file's bytes
+        dressed.append(1)
+        held = recipes.read_bytes() if "variant_file" in character else b""
+        return {"values": {"scale": 1000 * content.installed()["e"]["version"] + len(held)}, "why": {}}, None
+    monkeypatch.setattr(characters, "match", match)
+    recipes = tmp_path / "probe.json"
+    recipes.write_text(json.dumps({"probe": {"base": "keylord"}}), encoding="utf-8")
+    for character in ({"species": "keylord"}, {"species": "probe", "variant_file": str(recipes)}):
+        recipe = {"iso": "usa.iso", "packs": {}, "character": character}
+        dressed.clear()
+        monkeypatch.setattr(content, "installed", lambda root=None: {"e": {"version": 1}})
+        first = sdk.match(recipe)["values"]["scale"]
+        assert sdk.match(recipe)["values"]["scale"] == first and len(dressed) == 1   # kept
+        monkeypatch.setattr(content, "installed", lambda root=None: {"e": {"version": 2}})   # a Content Update
+        assert sdk.match(recipe)["values"]["scale"] == first + 1000 and len(dressed) == 2
+        if "variant_file" in character:   # the file edited in place
+            recipes.write_text(json.dumps({"probe": {"base": "keylord", "scale": 1.25}}), encoding="utf-8")
+            assert sdk.match(recipe)["values"]["scale"] > first + 1000 and len(dressed) == 3
+
+
 def test_a_turned_clips_grid_time_is_as_far_from_its_keys_as_the_nearest_of_every_key_says():
     """A clip's grid time is kept beside its keys only 2 ms from each
     (``retarget.turned_over``, ``_sampled``): its distance from the nearest
