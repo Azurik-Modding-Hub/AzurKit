@@ -472,6 +472,24 @@ def test_a_remembered_setup_keeps_what_still_normalizes_and_names_each_part_it_d
 # page, test_legacy_pack_migration, test_cli_dispatch, test_goldens' golden write), ported leanly.
 
 
+def test_a_slider_whose_product_passes_a_doubles_range_is_refused_by_name():
+    """Step 4.42b (D45): a finite value ``mods.normalize`` keeps (D23)
+    whose product the encoding takes passes a double's range (the load
+    budget's 1e303 MiB, a damage x1e306) is refused by its slider as one
+    the encoding can't hold, as a smaller one past it is, not an
+    OverflowError no host takes as a refusal."""
+    from azurkit.tools.mods.packs import enemy_scaling, qol_memory
+
+    for mib in (5000.0, 1e303):
+        with pytest.raises(ValueError, match="MiB is outside the limit's u32 of bytes"):
+            qol_memory._budget(mib)
+    ones = {spec.name: 1.0 for spec in enemy_scaling.PACK.sites}
+    for spec in (enemy_scaling.DAMAGE_DEALT, enemy_scaling.BOSS_DAMAGE_DEALT):
+        for k in (1e10, 1e306, -1e306):
+            with pytest.raises(ValueError, match=f"^{re.escape(spec.label)}: x.* doesn't fit the game's 32-bit"):
+                enemy_scaling.apply(None, **ones | {spec.name: k})
+
+
 def test_a_flag_typed_short_is_refused_and_nothing_starts(monkeypatch, capsys):
     """Modkit's Q100 (test_cli_dispatch): argparse took any unique prefix of
     a flag, so ``--no-def`` meant ``--no-defaults``. ``azurkit`` and each of

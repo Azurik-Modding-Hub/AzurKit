@@ -36,6 +36,7 @@ whose READMEs and docstrings hold the evidence.
 
 from __future__ import annotations
 
+import math
 import struct
 
 from azurkit.tools.mods.engine import Pack, ParametricPatch, PatchSpec, TrampolinePatch
@@ -45,7 +46,7 @@ MiB = 1 << 20
 
 def _budget(mib: float) -> bytes:
     """``mib`` MiB as the limit's u32 of bytes; ``ValueError`` past what it holds (D45)."""
-    n = round(mib * MiB)
+    n = round(x) if math.isfinite(x := mib * MiB) else -1   # past a double's range: no u32 holds it either
     if not 0 <= n <= 0xFFFFFFFF:
         raise ValueError(f"{mib:g} MiB is outside the limit's u32 of bytes (0 to under 4096 MiB)")
     return struct.pack("<I", n)

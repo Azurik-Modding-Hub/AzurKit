@@ -213,7 +213,7 @@ def apply(xbe: Xbe, enemy_health_scale: float, enemy_damage_dealt_scale: float, 
     for either size; and boss size's constants. A damage k whose product
     with the largest record no int32 holds is refused (D45)."""
     for name, k in ((DAMAGE_DEALT.label, enemy_damage_dealt_scale), (BOSS_DAMAGE_DEALT.label, boss_damage_dealt_scale)):
-        if not -2**31 <= math.trunc(k * MAX_RECORD_DAMAGE) <= 2**31 - 1:
+        if not (math.isfinite(hit := k * MAX_RECORD_DAMAGE) and -2**31 <= math.trunc(hit) <= 2**31 - 1):
             raise ValueError(f"{name}: x{k:g} of a {MAX_RECORD_DAMAGE} HP hit doesn't fit the game's 32-bit integer "
                              f"({-2**31}..{2**31 - 1})")
     if boss_size_scale != 1.0:
