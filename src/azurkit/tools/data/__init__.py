@@ -129,7 +129,7 @@ def _state(ops: object = (), file: str = FILE, base: bytes | None = None, releas
         for change in xbr.plan(list(mine), release, {file: base}).changes:
             out[change.offset:change.offset + len(change.after)] = change.after
         data = bytes(out)
-        now = Document(data).tables
+        now = _laid(Document(data).tables, was, data, base, file)
     else:
         data, now = base, was
     state = _State(mine, data, now, was, Views(now, functools.partial(_default, now)) if config else None, file, base)
@@ -137,6 +137,28 @@ def _state(ops: object = (), file: str = FILE, base: bytes | None = None, releas
         _LAST.pop(next(iter(_LAST)))
     _LAST[key] = state
     return state
+
+
+def _laid(now: Mapping[str, Table], was: Mapping[str, Table], data: bytes, base: bytes, file: str
+          ) -> Mapping[str, Table]:
+    """``now``, the tables a recipe's operations leave, if each keeps its
+    vanilla layout and its numbers finite (a ``replace_bytes`` is raw
+    bytes, which a handed mods file may make anything: D992); else
+    ``ValueError`` naming the table, so no view or edit stands on it."""
+    if set(now) != set(was):
+        raise ValueError(f"{file}: a byte edit changes which keyed tables it holds")
+    for name, w in was.items():
+        t, span = now[name], slice(w.start, w.start + w.size)
+        if (t.start, t.size) == (w.start, w.size) and data[span] == base[span]:
+            continue
+        if (t.start, t.size, len(t.rows), len(t.cols), len(t.cells)) != (
+                w.start, w.size, len(w.rows), len(w.cols), len(w.cells)):
+            raise ValueError(f"{file}: a byte edit changes table {name}'s layout")
+        for k, cell in enumerate(t.cells):
+            if cell.kind == NUMBER and not math.isfinite(cell.value):
+                raise ValueError(f"{file}: a byte edit leaves table {name} {w.cols[k // len(w.rows)]}/"
+                                 f"{w.rows[k % len(w.rows)]} no finite number")
+    return now
 
 
 @functools.cache

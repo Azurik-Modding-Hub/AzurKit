@@ -198,6 +198,28 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
                    "value": 2147483647.5}], gate.USA, {data.FILE: data.vanilla()})
 
 
+def test_a_byte_edit_that_breaks_a_config_table_is_refused_by_name():
+    """Step 4.42b (D992): a handed mods file's ``replace_bytes`` (raw bytes)
+    that leaves a table's number cell no finite number (a NaN, which broke
+    the app's JSON answer) or changes a table's layout (a column fewer,
+    which raised an IndexError no host took as a refusal) is refused naming
+    the table in every Data tab call, as a ``set`` past its encoding is."""
+    import struct
+
+    base = data.vanilla()
+    foo = Document(base).tables["settings_foo"]
+    at = foo.find("initial hp", "Value").at + 8
+    words = struct.pack("<5I", *foo.words[:2], foo.words[2] - 1, foo.words[0] * (foo.words[2] - 1), foo.words[4])
+    for edit, why in ((struct.pack("<d", math.nan), "leaves table settings_foo initial hp/Value no finite number"),
+                      (words, "changes table settings_foo's layout")):
+        where = at if len(edit) == 8 else foo.start
+        ops = [{"op": "replace_bytes", "file": data.FILE, "offset": where,
+                "expected": base[where:where + len(edit)].hex(), "value": edit.hex()}]
+        for given in ({"what": "view", "kind": "player"}, {"what": "table", "table": "settings_foo"}):
+            with pytest.raises(ValueError, match=f"^{re.escape(data.FILE)}: a byte edit {re.escape(why)}$"):
+                sdk.data(given | {"ops": ops})
+
+
 def test_the_texts_a_cell_cant_take_yet_are_named_with_what_they_need_as_its_editor_greys_them():
     """D1171's census row G38 (Modkit's greyed values, Step 2.100): asked
     with texts, the Data tab's edit names each the cell can't take yet. The
