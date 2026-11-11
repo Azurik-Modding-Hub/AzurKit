@@ -853,6 +853,45 @@ def test_a_reshapes_kept_dress_is_its_own_shapes_when_another_shape_is_dressed_b
     assert sdk._reshape_kept("plan", stamp, second, {}, lambda: "dress 1.4") == "dress 1.4"
 
 
+def test_a_reshapes_pictures_and_its_build_at_once_make_one_dress(monkeypatch):
+    """The app runs each call on a thread of its own: a shape's build asked while its pictures dress waits on
+    that dress, telling notes (cancel points), and takes its answer, so the dress is worked out once; a waiter
+    whose dress raised dresses it again itself."""
+    stamp = SimpleNamespace(path=Path("usa.iso"), release=SimpleNamespace(name="usa"))
+    shape = {"species": "booblord", "shapes": {"bust": 1.25}}
+    dressing, told = threading.Event(), threading.Event()
+    monkeypatch.setattr(progress, "note", lambda text: told.set())
+    for fails in (False, True):
+        monkeypatch.setattr(sdk, "_DRESSED", {})
+        dressing.clear(), told.clear()
+        dresses, answers = [], []
+
+        def pictures(fails: bool = fails) -> str:   # held until the build's thread waits on it
+            dresses.append("pictures")
+            dressing.set()
+            assert told.wait(10)
+            if fails:
+                raise ValueError("cancelled")
+            return "pictures"
+
+        def build() -> str:
+            dresses.append("build")
+            return "build"
+
+        def first() -> None:
+            try:
+                answers.append(sdk._reshape_kept("plan", stamp, shape, {}, pictures))
+            except ValueError:
+                pass
+        t = threading.Thread(target=first)
+        t.start()
+        assert dressing.wait(10)
+        answers.append(sdk._reshape_kept("plan", stamp, shape, {}, build))
+        t.join(10)
+        assert (dresses, answers) == ((["pictures", "build"], ["build"]) if fails else
+                                      (["pictures"], ["pictures", "pictures"])), fails
+
+
 def test_a_reshapes_kept_dress_dresses_again_once_a_wav_is_edited_in_place_or_the_content_updated(monkeypatch,
                                                                                                    tmp_path):
     """D35: a WAV a recipe file names (not pinned by its sha256 there)

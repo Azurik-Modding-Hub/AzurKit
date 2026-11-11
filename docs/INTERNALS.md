@@ -1879,7 +1879,8 @@ are the Characters section's.
   their own beside it (D1054: WebKit's own peak was 7.7-8.5 GiB so), the page's
   small asks answered by B meanwhile, and the engine keeps the last reshape's
   size and dress (`sdk._reshape_kept`, no seed), so its pictures and its build
-  make one dress between them, whichever comes first. A character's build writes its pieces into an OPFS file of its
+  make one dress between them, whichever comes first (in the app, where they
+  can run at once, the second waits on the first's dress). A character's build writes its pieces into an OPFS file of its
   own (`web/outputs.mjs`, P7, X10): a Web Lock per file, shared by the worker and
   the page; removed only unlocked, at a build's forget (30 minutes past its Save,
   whose end a page can't see) or a page's load (a crashed page's); the Tools

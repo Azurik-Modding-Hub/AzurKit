@@ -695,6 +695,10 @@ def _under_a_dress(stamp: gate.Stamp, packs: Mapping) -> tuple[object, list[Laye
 
 
 _DRESSED: dict[str, tuple[str, object]] = {}   # each kind's last reshape: its key and answer (:func:`_reshape_kept`)
+# each reshape being dressed, by kind and key: [its end, whether it answered, its answer]; a setdefault is atomic, so
+# one thread a key dresses and the others wait on it (the app's pictures beside its build), telling a note each _TELL s
+_DRESSING: dict[tuple[str, str], list] = {}
+_TELL = 0.1
 
 
 def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mapping | None,
@@ -710,7 +714,10 @@ def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mappi
     leave as it was; its glTF, PNG and clip files are pinned by their sha256
     in it; a variant of yours by what its build reads (``library.stamp``).
     Each call keeps and returns its own key's answer, so the app's threads
-    (a shape's pictures beside another's build) never cross theirs."""
+    (a shape's pictures beside another's build) never cross theirs; a call
+    while another thread dresses its key waits for that dress and takes its
+    answer (or, if it raised, dresses it again), each note a cancel point."""
+    from azurkit.core import progress
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content as kit
     from azurkit.tools.characters import library
@@ -721,12 +728,27 @@ def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mappi
     key = json.dumps([str(stamp.path), stamp.release.name, character, packs, kit.installed(),
                       [p.is_file() and hashlib.sha256(p.read_bytes()).hexdigest() for p in read],
                       None if recipes else library.stamp(character["species"])], sort_keys=True)
-    if (kept := _DRESSED.get(kind)) is not None and kept[0] == key:
+    while (kept := _DRESSED.get(kind)) is None or kept[0] != key:
+        if (busy := _DRESSING.setdefault((kind, key), mine := [threading.Event(), False, None])) is mine:
+            break
+        while not busy[0].wait(_TELL):   # another thread's dress of this key: its answer once it ends
+            progress.note("dressing")
+        if busy[1]:
+            return busy[2]
+    else:
         return kept[1]
-    _DRESSED.pop(kind, None)   # the last one's dress goes before this one is worked out (one heap)
-    found = work()
-    _DRESSED[kind] = (key, found)
-    return found
+    try:
+        if (kept := _DRESSED.get(kind)) is not None and kept[0] == key:   # kept since the first look
+            found = kept[1]
+        else:
+            _DRESSED.pop(kind, None)   # the last one's dress goes before this one is worked out (one heap)
+            found = work()
+            _DRESSED[kind] = (key, found)
+        mine[1:] = True, found
+        return found
+    finally:
+        del _DRESSING[(kind, key)]
+        mine[0].set()
 
 
 def _matched(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mapping | None) -> str:
