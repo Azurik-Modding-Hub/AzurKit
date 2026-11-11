@@ -20,8 +20,7 @@
 // engine's start failed) is loaded again at once, and so is an F that replaces one, its queue kept, until LOADS loads of
 // the visit have failed: one failed load left the whole visit with no work ahead (Step 4.4ci39), or, a replacing F's,
 // with no engine (Step 4.46c); only the visit's first F's ends it at once. A worker's priority has no web API: B runs
-// at the page's (a known
-// flaw, D835), held small by the rules above.
+// at the page's (a known flaw, D835), held small by the rules above.
 //
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
 // job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "at"} says the await it is in
@@ -33,7 +32,8 @@
 // job's message, which each later message with that File brings (as id: the File's ends read once a pick, not once a
 // message, each a read Safari answers 200 ms late). A shared message (share(): what this
 // browser keeps installed, the table pages F read) goes to every worker, and to each new one before its first job;
-// it gets no answer. An ask resolves with its job's last message, or {type: "cancelled"} (Cancel), or
+// it gets no answer, and its failure ({type: "failed", shared}) is told, ending no job. An ask resolves with its
+// job's last message, or {type: "cancelled"} (Cancel), or
 // {type: "stopped", message} (its worker stopped: a once or heavy ask, or one stopped twice); answer() hears each of
 // its other messages first, progress() its records.
 //
@@ -230,6 +230,9 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     if (data?.type === "failed" && data.trapped && traps < TRAPS && !(slot.job && shown(slot.job) && slot.job.tries)) {
       return restart(slot, data);
     }
+    // A shared message's failure (worker.mjs's shared: the warm-up's, say) is no job's: the page is told, and the job the
+    // worker runs, sent after it, goes on (it ended that job and replaced F, Step 4.46c).
+    if (data?.type === "failed" && data.shared) return later(told, data, slot.role);
     const job = slot.job;
     if (!job) return later(told, data, slot.role);
     if (data?.type === "progress") {

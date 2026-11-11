@@ -4439,6 +4439,49 @@ def test_a_tabs_ask_whose_engine_traps_starts_the_engine_again_and_is_answered(b
         served.close()
 
 
+def test_a_shared_messages_failure_ends_no_ask_and_keeps_its_worker(browser, site):
+    """A shared message (the warm-up, the content, the library: ``share()``, which no ask waits on) that fails untrapped
+    says so (worker.mjs's ``shared``): the page is told, and the ask its worker runs next, sent after it, gets its own
+    answer from the same worker. Its failure ended that ask (the page's "The engine stopped before it answered") and
+    replaced F (audit pass 2's C3). On stub workers, and on the page (no B) whose engine's warm-up raises: the seed's
+    plan asked after it is answered, by the first engine."""
+    got = _on_stubs(browser, """
+    {
+        const told = [];
+        const { pool, stubs, f } = make({ cores: 2, told: (data, role) => told.push([data.message, data.shared, role]) });
+        pool.share({ type: "warm" });
+        const planned = pool.ask(plan("w"));   // sent at once: the worker runs it after the warm-up
+        f.say({ type: "failed", message: "ModuleNotFoundError: No module named 'numpy'", shared: "warm" });
+        f.say({ type: "reply", reply: { plan: "pw" } });
+        out.shared = [f.tags(), (await planned).reply ?? null, f.stopped, stubs.length, told];
+    }""")
+    assert got == {"shared": [["warm", "plan w"], {"plan": "pw"}, False, 1,
+                              [["ModuleNotFoundError: No module named 'numpy'", "warm", "f"]]]}
+    served = Site(browser, site)
+    try:
+        plain = (site / "worker.mjs").read_text(encoding="utf-8")
+        warm = '    if request.type == "warm":'
+        assert plain.count(warm) == 1
+        faulty = plain.replace(warm, f'{warm}\n        raise RuntimeError("the warm-up\'s own fault")')
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(body=faulty, content_type="text/javascript",
+                                                                          headers={"cache-control": "no-store"}))
+        served.context.add_init_script(TWO_CORES)
+        page = served.open()
+        page.evaluate("""() => { const s = document.querySelector("#status");
+            window.said = [];
+            new MutationObserver(() => said.push(s.textContent)).observe(s, { childList: true, subtree: true });
+            (async () => {
+                azurkit.engine.warm();
+                const plan = await azurkit.engine.call("plan", { recipe: { seed: "azurkit" } });
+                window.answered = [plan.refused ?? plan.plan.seed, azurkit.pool.state().started];
+            })(); }""")
+        assert _page.until(page, "() => window.answered", 300) == ["azurkit", 1]
+        said, fault = page.evaluate("() => said"), "RuntimeError: the warm-up's own fault · in the engine's warm call"
+        assert any(line.startswith(fault) for line in said), said
+    finally:
+        served.close()
+
+
 def test_an_engines_numpy_load_in_webkit_waits_on_no_async_wasm_instantiate(browser, site):
     """Step 4.5k: numpy's load (Pyodide's loadPackage) instantiates its 13 shared libraries with WebAssembly.instantiate,
     whose promise WebKit's worker bug 208368 (GTK) can leave unsettled for good (CI's Linux WebKit engine sat at numpy

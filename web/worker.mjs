@@ -38,8 +38,8 @@
 //      walk), {type: "at", where} (the await the job is in: awaiting()), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
 //      "spoiled", text | refused} brings next: the build shows sooner),
 //      {type: "refused", message, heap}
-//      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message, trapped?}
-//      (trapped: the engine's wasm trapped, failure()),
+//      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message, trapped?, shared?}
+//      (trapped: the engine's wasm trapped; shared: a shared message's, no ask's; failure()),
 //      {type: "vanilla", release, label, packs, info} (the image's own value of each slider at a site of its XBE, and
 //      sdk.image_info's answer, which the Tools tab shows with no ask of its own),
 //      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
@@ -104,7 +104,11 @@ function located(error, call) {
   return parts.join(" · ");
 }
 // A call's failure, as posted: after a trap, marked so (trapped), and the pool starts the engine again (workers.mjs).
-const failure = (error) => ({ type: "failed", message: lastLine(error), ...(dead ? { trapped: true } : {}) });
+// A shared message's (workers.mjs's share(): the warm-up, the content and the library, which no ask waits on) says its
+// type (shared), so the pool tells the page and ends no ask with it: it ended the job sent next (Step 4.46c).
+const SHARED = ["warm", "content", "library"];
+const failure = (error, data = null) => ({ type: "failed", message: lastLine(error), ...(dead ? { trapped: true } : {}),
+                                           ...(SHARED.includes(data?.type) ? { shared: data.type } : {}) });
 // A tab's ask is answered whatever happens (the Characters, Tools, Tracker and Data tabs wait on it), its failure as a
 // refusal; but a trapped engine's is thrown on, to be posted as failure() is, so the pool starts the engine again and
 // sends the ask to the next once, as a build's (a refusal there left the engine dead, every later ask refused so).
@@ -1364,7 +1368,7 @@ try {
         const rest = loaded.rest;
         loaded.rest = null;
         return rest?.().catch(() => {});
-      }).catch((error) => post(failure(error)));
+      }).catch((error) => post(failure(error, data)));
   };
   const handle = (data) => {
     try {
@@ -1409,7 +1413,7 @@ try {
         throw error;
       });
     } catch (error) {
-      post(failure(error));
+      post(failure(error, data));
     }
   };
   post({ type: "ready", start: loaded.start, ...(loaded.cold ? { cold: loaded.cold } : {}),

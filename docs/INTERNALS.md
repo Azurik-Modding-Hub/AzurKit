@@ -1909,7 +1909,9 @@ are the Characters section's.
   by which the pool keeps the worker or replaces it. A worker whose engine's wasm traps (Pyodide's fatal error: each
   later call of it fails) says so in each failure it posts (a tab's ask's too, whose other failures are refusals),
   naming the call and Python's innermost frames, and the pool replaces it at once, its job or none, and sends the page's job to the next engine once, the page saying so
-  (D1126: the arm64 WebKit golden's trap, whose cause isn't found; `TRAPS` a visit). It joins the Blob itself, off the page's main thread, and returns the build
+  (D1126: the arm64 WebKit golden's trap, whose cause isn't found; `TRAPS` a visit). A shared message's
+  untrapped failure (the warm-up's, the content's, the library's) says so (`shared`): the page is told and no ask
+  ends with it (Step 4.46c: it ended the job sent next and replaced F). It joins the Blob itself, off the page's main thread, and returns the build
   as segments
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes (Blobs from the worker on, so
