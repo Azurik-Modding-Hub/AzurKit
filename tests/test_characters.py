@@ -1772,6 +1772,30 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
         assert isinstance(library.file_stamp(stamped / "variant.json"), str), name
 
 
+def test_a_png_of_many_one_byte_idat_chunks_reads_in_linear_time():
+    """A valid 1x1 RGBA PNG whose zlib stream, and 480,000 bytes after it, are 480,000 one-byte IDAT chunks
+    (6.2 MB, as a handed picture may be) reads as its one pixel in the textures' reader and in a glTF folder's
+    read-back in under a second of its own work (``_speed``'s host scale): joining the chunks with ``bytes +=``
+    copied all before each one, about 4 s here, and the content cap's 64 MiB minutes."""
+    import time
+    import zlib
+
+    from azurkit.tools.characters import gltf, textures
+
+    def chunk(tag: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
+    data = zlib.compress(b"\x00\x01\x02\x03\x04") + bytes(480_000)
+    blob = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0))
+            + b"".join(chunk(b"IDAT", data[at:at + 1]) for at in range(len(data))) + chunk(b"IEND", b""))
+    took = {}
+    for read in (textures.read_png, gltf._read_png):
+        start = time.thread_time()
+        assert read(blob).tolist() == [[[1, 2, 3, 4]]], read.__module__
+        took[read.__module__] = time.thread_time() - start
+    bound = 1.0 * _speed.factor() if max(took.values()) >= 1.0 else 1.0
+    assert max(took.values()) < bound, (took, bound)
+
+
 def test_an_install_takes_its_hosts_refusal_and_an_entry_keeps_its_description(tmp_path):
     """An entry's optional ``description`` (one line of plain text, at most 200 characters) is kept by
     ``content.check`` and in the entry's state; another is refused by name. A host's ``refusal`` (Step 4.3k:

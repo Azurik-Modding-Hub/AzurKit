@@ -277,7 +277,7 @@ def read_png(blob: bytes) -> np.ndarray:
     opaque); any other kind is refused by name."""
     if blob[:8] != (b"\x89PNG" + "\r\n\x1a\n".encode("latin-1")):
         raise ValueError("not a PNG")
-    at, idat, head = 8, b"", None
+    at, idat, head = 8, bytearray(), None   # grown in place: bytes += copies all before it
     while at + 12 <= len(blob):
         n, tag = struct.unpack_from(">I4s", blob, at)
         chunk = blob[at + 8:at + 8 + n]
