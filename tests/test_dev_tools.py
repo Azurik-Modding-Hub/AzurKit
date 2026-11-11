@@ -1112,6 +1112,66 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_marks_a_sample_whose_page_f
     assert len(made) == 1 and one != two and (two / "a").read_text() == "x"
 
 
+def test_the_perf_gates_check_after_an_edit_rows_click_3_s_after_it_at_new_values_and_s88_finds_no_part(tmp_path):
+    """Step 4.37e0 (D1194, D1201) over a stub clock: S84-S87 click Check D1014's 3 s after their edit (a Shape
+    slider's let go, once S82's and S81's samples are taken; Scale; the Jiggle tab's stiffness; the Colours tab's
+    wheel), each sample at a value no Check held. S88's source, the site's ``./content-unparted/``, serves the clone's
+    files but refuses each shipped Check part, and A106's Content from (``_unparted``) holds none of them."""
+    log = []
+
+    class Logged(_Stub):
+        def do(self, action, arg=None):
+            log.append((action, arg, self.t))
+            return super().do(action, arg)
+    check = _perf.click("var-check")
+    p = Logged({_perf.SHAPE_DRAG: {_perf.SHAPE_NEAREST: 100}, _perf.SHAPE_LET_GO: {_perf.SHAPE_PREVIEWED: 1000},
+                check: {_perf.VAR_CHECKED: 5000, _perf.VAR_AGAIN: 5000}, _perf.SCALE_TYPED: {_perf.VAR_EDITED: 200},
+                _perf.STIFFNESS_TYPED: {_perf.VAR_EDITED: 200}, _perf.WHEEL_DRAG: {_perf.COLOURS: 300}})
+    ops = ("S82", "S81", "S84", "S85", "S86", "S87")
+    d = _perf.Driver(_perf.RUNS["webkit"], dict.fromkeys(ops, 3), tmp_path, tmp_path / "usa.iso", None)
+    d.sleep = lambda seconds: setattr(p, "t", p.t + seconds * 1000)
+    d.fresh(p)
+    _perf._variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", *ops), pytest.fail, pytest.fail, lambda: None)
+    named = {_perf.SHAPE_DRAG: "drag", _perf.SHAPE_LET_GO: "let go", _perf.SCALE_TYPED: "scale",
+             _perf.STIFFNESS_TYPED: "stiffness", _perf.WHEEL_DRAG: "wheel", check: "check"}
+    seen = [(named[action], arg, t) for action, arg, t in log if action in named]
+    edits = [(edit, x) for edit, values in (("scale", (1.1, 1.2, 1.3)), ("stiffness", (3.1, 3.2, 3.3)),
+                                            ("wheel", (37, 74, 111))) for x in values]
+    assert [(name, arg) for name, arg, _ in seen] == [   # the copy's own Check first
+        ("check", None), ("drag", 1.4), ("let go", None), ("drag", 0.6), ("let go", None),
+        *[step for end in (1.3, 0.7, 1.2) for step in (("drag", end), ("let go", None), ("check", None))],
+        *[step for edit in edits for step in (edit, ("check", None))]]
+    assert [t - before for (_, _, before), (name, _, t) in zip(seen, seen[1:]) if name == "check"] == [3000] * 12
+    assert {op: [s["s"] for s in d.samples[op]] for op in ops} == {
+        "S82": [0.1] * 3, "S81": [1.0] * 3, "S84": [5.0] * 3, "S85": [5.0] * 3, "S86": [5.0] * 3, "S87": [5.0] * 3}
+
+    import urllib.error
+    import urllib.request
+    clone, site = tmp_path / "clone", tmp_path / "site"
+    for rel in (".git/HEAD", "manifest.json", "variants/booblord/shipped/usa.azks",
+                "variants/booblord/shipped/parts/a.azkp"):
+        for root in (clone, site / "content-source"):
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(rel)
+
+    def status(url):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as reply:
+                return reply.status, reply.read().decode()
+        except urllib.error.HTTPError as error:
+            return error.code, None
+    with _perf.served(site) as url:
+        assert [status(url + rel) for rel in (
+            "content-unparted/manifest.json", "content-unparted/variants/booblord/shipped/usa.azks",
+            "content-unparted/variants/booblord/shipped/parts/a.azkp", "content-source/variants/booblord/shipped/parts/"
+            "a.azkp")] == [(200, "manifest.json"), (200, "variants/booblord/shipped/usa.azks"), (404, None),
+                           (200, "variants/booblord/shipped/parts/a.azkp")]
+    d.content = clone
+    unparted = _perf._unparted(d)
+    assert sorted(f.relative_to(unparted).as_posix() for f in unparted.rglob("*") if f.is_file()) == [
+        "manifest.json", "variants/booblord/shipped/usa.azks"]
+
+
 def test_a_gap_whose_page_froze_says_how_much_cpu_the_browser_ran_in_it(tmp_path, monkeypatch):
     """A frozen gap's mark (``froze``) names the CPU the browser's processes (their
     whole tree) used across it, read from the run's sampler either side of it

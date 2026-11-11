@@ -60,6 +60,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -171,6 +172,18 @@ OPS = {op.id: op for op in (
        "characters", first=False, content=True),   # Step 4.6d: the Shape tab (D1011's rough first)
     Op("A95", "let go -> its quick preview (the Check's dress, its vertices moved)", "characters", first=False, bar=True,
        content=True),   # D999's kind: a new shape's first picture
+    # Step 4.37e0 (D1194, D1201): a Check after each edit the page makes, each at a value no Check held, and one with
+    # her shipped parts out of reach: bar ops, so the orchestrator reads their medians against D1194's 30 s
+    Op("A98", "Check after a Shape slider's let go (a bust value no Check held)", "characters", first=False, bar=True,
+       content=True, head_start=True),
+    Op("A99", "Check after Scale (a value not checked yet)", "characters", first=False, bar=True, content=True,
+       head_start=True),
+    Op("A104", "Check after a Jiggle-tab stiffness (a value not checked yet)", "characters", first=False, bar=True,
+       content=True, head_start=True),
+    Op("A105", "Check after a colour (the Colours tab's wheel)", "characters", first=False, bar=True, content=True,
+       head_start=True),
+    Op("A106", "Check booblord's own copy with her parts out of reach (worked out)", "characters", bar=True,
+       content=True, head_start=True),   # each sample a fresh HOME whose Content from holds no part
     Op("A100", "the Colours tab, another of yours opened on it (its body read, its rows, palette and views drawn)",
        "characters", first=False),   # Step 4.6e: the Variants view's Colours tab
     Op("A101", "a drag on the colour wheel (30 pointer moves) -> its views drawn at its last value", "characters",
@@ -257,6 +270,16 @@ OPS = {op.id: op for op in (
        "characters", first=False, content=True),   # Step 4.6d: the Shape tab (D1011's rough first)
     Op("S81", "let go -> its quick preview (the Check's dress, its vertices moved)", "characters", first=False, bar=True,
        content=True),   # D999's kind: a new shape's first picture
+    Op("S84", "Check after a Shape slider's let go (a bust value no Check held)", "characters", first=False, bar=True,
+       content=True, head_start=True),   # Step 4.37e0: A98-A106's
+    Op("S85", "Check after Scale (a value not checked yet)", "characters", first=False, bar=True, content=True,
+       head_start=True),
+    Op("S86", "Check after a Jiggle-tab stiffness (a value not checked yet)", "characters", first=False, bar=True,
+       content=True, head_start=True),
+    Op("S87", "Check after a colour (the Colours tab's wheel)", "characters", first=False, bar=True, content=True,
+       head_start=True),
+    Op("S88", "Check booblord's own copy with her parts out of reach (worked out)", "characters", bar=True,
+       content=True, head_start=True),   # each sample a fresh profile whose server refuses every part
     Op("S100", "the Colours tab, another of yours opened on it (its body read, its rows, palette and views drawn)",
        "characters", first=False),   # Step 4.6e: the Variants view's Colours tab
     Op("S101", "a drag on the colour wheel (30 pointer moves) -> its views drawn at its last value", "characters",
@@ -1146,6 +1169,16 @@ class App:
         return [self.proc.pid] if self.proc and self.proc.poll() is None else []
 
 
+#: The site's ``./content-unparted/`` (S88's Content from): ``content-source/``'s files, but a shipped Check part
+#: (``content.later``'s) refused as a 404, so a Check of booblord's copy works each part out (4.37e's F1, P2S).
+UNPARTED = "/content-unparted/"
+
+
+def _later(rel: str) -> bool:
+    from azurkit.tools.characters import content
+    return content.later(rel)
+
+
 class _Quiet(_page.Static):
     late: dict[str, str] = {}   # the lag model's worker.mjs and hasher.mjs, by path, served in place of the files
 
@@ -1153,6 +1186,12 @@ class _Quiet(_page.Static):
         pass
 
     def do_GET(self):
+        if self.path.startswith(UNPARTED):   # :data:`UNPARTED`
+            if _later(urllib.parse.unquote(self.path.split("?")[0].removeprefix(UNPARTED))):
+                with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+                    self.send_error(404)
+                return
+            self.path = "/content-source/" + self.path.removeprefix(UNPARTED)
         if (text := self.late.get(self.path.split("?")[0])) is not None:
             body = text.encode()
             self.send_response(200)
@@ -2286,6 +2325,13 @@ SHAPE_NEAREST = (f"() => {VAR_READ} && azurkit.variants.state.readFor === JSON.s
 SHAPE_PREVIEWED = f"() => {SHAPE_NOTE}.startsWith('A quick preview') || {SHAPE_NOTE}.startsWith('The preview failed')"
 #: Each sample's drag ends at a value no sample held before (the track's 0.05 steps, its checked 1 left out).
 SHAPE_ENDS = (1.4, 0.6, 1.3, 0.7, 1.2, 0.8, 1.35, 0.65, 1.25, 0.75, 1.15, 0.85, 1.1, 0.9, 1.05, 0.95)
+# Step 4.37e0's other edits before a Check (each value the page function's argument): Scale typed, the Jiggle tab's
+# first row's stiffness typed, the Colours tab's first row picked for its wheel's drag (WHEEL_DRAG)
+SCALE_TYPED = """(x) => { const b = document.getElementById("var-scale"); b.value = String(x);
+  b.dispatchEvent(new Event("input")); }"""
+STIFFNESS = "document.querySelector('#var-springs input')"
+STIFFNESS_TYPED = f"""(x) => {{ const b = {STIFFNESS}; b.value = String(x); b.dispatchEvent(new Event("change")); }}"""
+FIRST_ROW = "document.querySelector('#var-rows button[data-row]:not([data-row=\"\"])')"
 YOURS = (("mine_a", "keylord"), ("mine_b", "golem"), ("mine_c", "town_female_2"))
 
 
@@ -2302,8 +2348,9 @@ def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], obje
     """The Variants view's ops after its open, on one of yours: Save after a Body edit; Import (``imported``: a new
     name's recipe.json each sample) and Export (``exported``, the op timed by it); New from this on booblord (her files
     copied, once ``booblord()`` installed her) and Check of each copy (the image picked), each a new copy, then the
-    same copy checked again, unchanged."""
-    save, new_from, imported_op, exported_op, check, again, drag, let_go = ops
+    same copy checked again, unchanged; on the copy checked last, the Shape tab's drag and let go, then (Step 4.37e0)
+    a Check after each edit (:func:`_edit_checks`)."""
+    save, new_from, imported_op, exported_op, check, again, drag, let_go, *edits = ops
     n = 0
     while d.need(save):
         n += 1
@@ -2315,18 +2362,14 @@ def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], obje
         d.act(p, imported_op, lambda: imported(file), VAR_SAVED + f" && azurkit.variants.state.name === 'imported_{n}'", 600)
     while d.need(exported_op):
         exported(exported_op)
-    if not d.needed((new_from, check, again, drag, let_go)):
+    if not d.needed((new_from, check, again, drag, let_go, *edits)):
         return
     booblord()
     p.wait("() => document.querySelector('#var-items button[data-name=\"booblord\"]')", 600)
     checked = False
-    while d.needed((new_from, check, again)) or not checked and d.needed((drag, let_go)):
-        d.act(p, None, "() => document.querySelector('#var-items button[data-name=\"booblord\"]').click()",
-              "() => azurkit.variants.state.name === 'booblord' && " + VAR_READ, 600)
-        d.act(p, None, click("var-from"), VAR_ASKED, 60)
-        d.act(p, new_from, click("var-ask-yes"), VAR_SAVED + " && azurkit.variants.state.name.startsWith('booblord_')",
-              1800)
-        if d.needed((check, again, drag, let_go)):
+    while d.needed((new_from, check, again)) or not checked and d.needed((drag, let_go, *edits)):
+        _new_from(d, p, new_from)
+        if d.needed((check, again, drag, let_go, *edits)):
             p.wait("() => !document.getElementById('var-check').disabled", 600)
             d.act(p, check, click("var-check"), VAR_CHECKED, 3600)
             checked = True
@@ -2334,17 +2377,108 @@ def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], obje
             p.wait("() => !document.getElementById('var-check').disabled", 600)
             p.js("() => { self.azurkitChecked = azurkit.variants.state.checked; }")
             d.act(p, again, click("var-check"), VAR_AGAIN, 600)
+    _edit_checks(d, p, (drag, let_go, *edits))
+
+
+def _new_from(d: Driver, p: Page, op: str | None, change: bool = False) -> None:
+    """booblord opened, then New from this (``op``): her own copy, saved under a name of its own."""
+    d.act(p, None, "() => document.querySelector('#var-items button[data-name=\"booblord\"]').click()",
+          "() => azurkit.variants.state.name === 'booblord' && " + VAR_READ, 600)
+    d.act(p, None, click("var-from"), VAR_ASKED, 60)
+    d.act(p, op, click("var-ask-yes"), VAR_SAVED + " && azurkit.variants.state.name.startsWith('booblord_')", 1800,
+          change=change)
+
+
+def _checked_again(d: Driver, p: Page, op: str) -> None:
+    """Check with game data clicked as ``op`` (D1014: :data:`HEAD_START` after the edit before it), to its new answer."""
+    p.wait("() => !document.getElementById('var-check').disabled", 600)
+    p.js("() => { self.azurkitChecked = azurkit.variants.state.checked; }")
+    d.act(p, op, click("var-check"), VAR_AGAIN, 3600)
+
+
+def _edit_checks(d: Driver, p: Page, ops: tuple) -> None:
+    """On the copy checked last, at her values: the Shape tab's drag (``drag``) and let go (``let_go``), each sample to
+    a value no sample held; once those have their samples, each let go Checked (``shaped``: D1201's Shape edit). Then,
+    each on the copy as the edits before it left it (edit, Check, as a player goes), a Check after each other edit the
+    page makes, each sample at a value no Check held: Scale (``scaled``), the Jiggle tab's first stiffness
+    (``jiggled``), a drag on the Colours tab's wheel on its first row (``coloured``). Each Check comes D1014's head
+    start after its edit: 4.37e's section 5 (D1194, D1201)."""
+    drag, let_go, shaped, scaled, jiggled, coloured = ops
     p.js(click("var-tab-shape"))
-    for end in SHAPE_ENDS:   # the copy checked last, at her values: each drag to a value not held yet
-        if not d.needed((drag, let_go)):
+    for end in SHAPE_ENDS:
+        if not d.needed((drag, let_go, shaped)):
             break
         d.act(p, drag, SHAPE_DRAG, SHAPE_NEAREST, 600, arg=end, change=True)
-        d.act(p, let_go, SHAPE_LET_GO, SHAPE_PREVIEWED, 1800)
+        d.act(p, let_go, SHAPE_LET_GO, SHAPE_PREVIEWED, 1800, change=True)
+        if d.need(shaped) and not d.needed((drag, let_go)):
+            _checked_again(d, p, shaped)
+    for k in range(1, 9):
+        if not d.need(scaled):
+            break
+        d.act(p, None, SCALE_TYPED, VAR_EDITED, 600, arg=round(1 + k / 10, 2), change=True)
+        _checked_again(d, p, scaled)
+    if d.need(jiggled):
+        d.act(p, None, click("var-tab-jiggle"), f"() => {STIFFNESS} && {VAR_READ}", 600)
+    for k in range(1, 9):
+        if not d.need(jiggled):
+            break
+        d.act(p, None, STIFFNESS_TYPED, VAR_EDITED, 600, arg=round(3 + k / 10, 2), change=True)
+        _checked_again(d, p, jiggled)
+    if d.need(coloured):
+        d.act(p, None, click("var-tab-colours"), COLOURS, 600)
+        d.act(p, None, f"() => {FIRST_ROW}.click()", f"() => azurkit.variants.colours.row !== null && ({COLOURS})()",
+              600)
+    for k in range(1, 9):
+        if not d.need(coloured):
+            break
+        d.act(p, None, WHEEL_DRAG, COLOURS, 600, arg=37 * k % 360, change=True)
+        _checked_again(d, p, coloured)
+
+
+def _app_booblord(d: Driver, p: Page) -> None:
+    """booblord installed on the Characters tab (the app's Content from), the Variants view shown again."""
+    p.js(click("char-view-model"))
+    p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
+    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
+          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 1800)
+    p.js(click("char-view-variants"))
+
+
+def _site_booblord(d: Driver, p: Page) -> None:
+    """booblord installed on the Characters tab (the site's Content from), the Variants view shown again."""
+    p.js(click("char-view-model"))
+    p.wait("() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
+    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
+          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')
+               && !azurkit.characters.state.installing""", 1800)
+    p.js(click("char-view-variants"))
+
+
+def _unparted_check(d: Driver, p: Page, op: str, booblord: Callable[[], None]) -> None:
+    """``op`` (4.37e's F1, P2S): booblord installed from a Content from that holds none of her shipped Check parts,
+    her own copy made (the change its Check's head start counts from) and Checked, each part worked out."""
+    booblord()
+    p.wait("() => document.querySelector('#var-items button[data-name=\"booblord\"]')", 600)
+    _new_from(d, p, None, change=True)
+    p.wait("() => !document.getElementById('var-check').disabled", 600)
+    d.act(p, op, click("var-check"), VAR_CHECKED, 3600)
+
+
+def _unparted(d: Driver) -> Path:
+    """The clone (``perf.py --content``) with no shipped Check part (``content.later``'s files) and no ``.git``: A106's
+    Content from, at whose entry's source her Check finds none (the site's is :data:`UNPARTED`)."""
+    def make(folder: Path) -> None:
+        def left(where: str, names: list[str]) -> list[str]:
+            rel = Path(where).relative_to(d.content).as_posix()
+            return [name for name in names if rel == "." and name == ".git"
+                    or _later(name if rel == "." else f"{rel}/{name}")]
+        shutil.copytree(d.content, folder, ignore=left, dirs_exist_ok=True)
+    return d.state("content-unparted", make)
 
 
 def app_variants(d: Driver, app: App, ctx) -> None:
     """The Variants view in the app (Step 4.6c): three of yours in its library, as a Modkit player keeps them (A87);
-    then A88-A93 (:func:`_variant_ops`): Import by path, Export into the Downloads folder."""
+    then A88-A105 (:func:`_variant_ops`): Import by path, Export into the Downloads folder."""
     library = app.home / "Library" / "Application Support" / "AzurKit" / "variants"
     for name, base in YOURS:
         (library / name).mkdir(parents=True, exist_ok=True)
@@ -2365,14 +2499,23 @@ def app_variants(d: Driver, app: App, ctx) -> None:
         d.act(p, op, click("var-export"), "() => /^Saved /.test(document.getElementById('status').textContent)", 600)
         out.unlink(missing_ok=True)
 
-    def booblord() -> None:
-        p.js(click("char-view-model"))
-        p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
-        d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
-              """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 1800)
-        p.js(click("char-view-variants"))
+    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95", "A98", "A99", "A104", "A105"),
+                 imported, exported, lambda: _app_booblord(d, p))
+    app.quit(p)
 
-    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95"), imported, exported, booblord)
+
+def app_variants_unparted(d: Driver, app: App, ctx) -> None:
+    """A106 (:func:`_unparted_check`) in a fresh HOME whose Content from is :func:`_unparted`'s."""
+    if not d.need("A106"):   # no clone: its op has that error
+        return
+    app.content = _unparted(d)
+    app.first_time()
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA, 900)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES)
+    d.act(p, None, click("char-view-variants"), f"() => {VAR_READ}", 600)
+    _unparted_check(d, p, "A106", lambda: _app_booblord(d, p))
     app.quit(p)
 
 
@@ -2380,7 +2523,7 @@ def site_variants(d: Driver, ctx, url: str) -> None:
     """The Variants view on the site (Step 4.6c): three of yours imported, then a later visit opens it, the browser
     opened again on its profile as S02's is (:meth:`Driver.reopen`: a page beside the closed one would carry that one's
     process, 1.5 GiB of capped-site's peak), S73: the library this browser keeps, handed to its engine as the page
-    starts; S74-S79 (:func:`_variant_ops`): Import picks a
+    starts; S74-S87 (:func:`_variant_ops`): Import picks a
     file, Export is the browser's download (its page part to the download's start)."""
     p = _site_page(d, ctx, url, None)
     p.js(click("tab-characters"))
@@ -2409,16 +2552,27 @@ def site_variants(d: Driver, ctx, url: str) -> None:
         d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, None, (started - t0) / 1000)
         caught.value.delete()
 
-    def booblord() -> None:
-        p.js(click("char-view-model"))
-        p.wait("() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
-        d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
-              """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')
-                   && !azurkit.characters.state.installing""", 1800)
-        p.js(click("char-view-variants"))
+    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81", "S84", "S85", "S86", "S87"),
+                 lambda file: p.page.set_input_files("#var-import", str(file)), exported, lambda: _site_booblord(d, p))
+    d.leave(p)
 
-    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81"),
-                 lambda file: p.page.set_input_files("#var-import", str(file)), exported, booblord)
+
+def site_variants_unparted(d: Driver, ctx, url: str) -> None:
+    """S88 (:func:`_unparted_check`) in a fresh profile whose Content from is the site's :data:`UNPARTED`."""
+    if not d.need("S88"):   # no clone: its op has that error
+        return
+    page = ctx.new_page()   # Content from, as clean_storage sets it, before the page reads it
+    try:
+        page.goto(url + "theme.js")
+        page.evaluate(f"() => localStorage.setItem('azurkit.content_source', '.{UNPARTED}')")
+    finally:
+        page.close()
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES_LISTED, 600)
+    d.act(p, None, click("char-view-variants"), f"() => {VAR_READ}", 600)
+    _unparted_check(d, p, "S88", lambda: _site_booblord(d, p))
     d.leave(p)
 
 
@@ -2633,7 +2787,9 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-plan": ("app", ("A97",), app_plan),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A120", "A121", "A94"), app_data),
-    "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95"), app_variants),
+    "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95", "A98", "A99", "A104",
+                             "A105"), app_variants),
+    "app-variants-unparted": ("app", ("A106",), app_variants_unparted),
     "app-colours": ("app", ("A100", "A101", "A102", "A103"), app_colours),
     "app-variant-moves": ("app", ("A110", "A111", "A112", "A113"), app_variant_moves),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
@@ -2656,7 +2812,9 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-plan": ("site", ("S83",), site_plan),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S120", "S121", "S80"), site_data),
-    "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81"), site_variants),
+    "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81", "S84", "S85", "S86",
+                               "S87"), site_variants),
+    "site-variants-unparted": ("site", ("S88",), site_variants_unparted),
     "site-colours": ("site", ("S100", "S101", "S102", "S103"), site_colours),
     "site-variant-moves": ("site", ("S110", "S111", "S112", "S113"), site_variant_moves),
 }

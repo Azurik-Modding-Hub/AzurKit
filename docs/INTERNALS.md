@@ -1711,7 +1711,15 @@ are the Characters section's.
     `tests/test_variant_library.py`, `test_variant_editor.py` (the Moves
     and Attacks tabs' logic under Node), `test_site.py` and `test_hosts.py`
     hold it; `tests/_perf.py`'s A87-A93, A95, A96, S73-S79, S81, S82,
-    A110-A113 and S110-S113 time it.
+    A110-A113 and S110-S113 time it. Its A98, A99, A104, A105 and S84-S87
+    time a Check of booblord's copy after each edit the page makes (a Shape
+    slider's let go, Scale, a Jiggle stiffness, a colour on the wheel; each
+    a value no Check held, clicked the head start after it), and A106 and
+    S88 one whose Content from holds none of her shipped Check parts (the
+    site's `./content-unparted/`, which the perf's server answers as
+    `content-source/` but each part a 404): bar ops, so they pass at any
+    length while the bar moves and their medians are read against the
+    first Check's 30 s (D1194, D1201).
     Its tabs are modules of their own under `web/variants/`, so each tab's
     lane edits its own file. The Colours tab (Step 4.6e,
     `web/variants/colours.mjs`; Modkit's, D772, D809 (a)) draws on
