@@ -121,6 +121,25 @@ def test_the_page_picks_the_site_app_and_icon_tests_and_the_docs_they_restate_pi
     assert sorted({fullsuite.WHEEL, *runs}) == sorted(fullsuite.SRC_TESTS)
 
 
+def test_a_shipped_picture_or_the_page_hasher_picks_the_test_that_checks_it_against_a_fresh_build():
+    """Step 4.46a: a change to the Tracker's shipped maps, the Characters
+    tab's shipped pictures or ``web/md5.wasm`` alone picks, beside the
+    page's tests (every RULES row a path matches), the test that holds those
+    files to what a fresh draw or ``nativekit`` makes of them, so a lane
+    that re-records them alone is checked; any other page file only the
+    page's."""
+    deps = {"tests.test_site": {"json"}}
+    page = ["tests/test_hosts.py", "tests/test_icon.py", "tests/test_service_worker.py", "tests/test_site.py"]
+    for path, holder in (("web/art/1-x/w1.png", "tests/test_art.py::test_the_shipped_maps_are_what_the_tracker_draws"
+                                               "_from_each_image"),
+                         ("web/characters/index.json", "tests/test_characters.py::test_the_shipped_species_and_"
+                                                       "pictures_are_what_each_image_gives"),
+                         ("web/md5.wasm", "tests/test_native.py::test_nativekit_rebuilds_each_committed_library_"
+                                          "to_its_bytes")):
+        assert fullsuite.plan([path], deps) == sorted({*SMOKE, *page, holder}), path
+    assert fullsuite.plan(["web/app.mjs"], deps) == sorted({*SMOKE, *page})
+
+
 def test_what_every_session_runs_is_whole_and_what_only_a_fixture_runs_picks_its_takers():
     """Step 4.4dx3: a module conftest's hooks or top level reach, through any
     function they name however deep, is the whole suite, as is a change to

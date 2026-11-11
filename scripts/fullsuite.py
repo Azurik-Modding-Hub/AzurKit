@@ -133,11 +133,17 @@ SRC_TESTS = (WHEEL, "tests/test_characters.py", "tests/test_hosts.py", "tests/te
              "tests/test_randomizer.py", "tests/test_service_worker.py", "tests/test_site.py")
 DOCS = (".md", ".txt")
 ABOUT = "tests/test_site.py::test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_always_in_view"
-#: A path's own tests (a folder's ends in "/"), what reads it outside the import graph: the page (web/) is the
-#: site's, its service worker's, the app's (it serves it and freezes it in) and the favicons'; the About tab restates
-#: LICENSE and NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme). A module run
-#: as a program by its path (``tests/_static.py``, the site tests' file server) is read by graph() as an import.
+#: A path's own tests (a folder's ends in "/"), what reads it outside the import graph, every rule it matches: the
+#: page (web/) is the site's, its service worker's, the app's (it serves it and freezes it in) and the favicons'; the
+#: shipped pictures and the page's hasher are also the test that holds each to a fresh build of it (the Tracker's
+#: maps, the Characters tab's pictures, ``nativekit``'s md5.wasm); the About tab restates LICENSE and NOTICE.md, and
+#: the wheel carries them and README.md (pyproject's license-files and readme). A module run as a program by its path
+#: (``tests/_static.py``, the site tests' file server) is read by graph() as an import.
 RULES = (("web/", ("tests/test_site.py", "tests/test_service_worker.py", "tests/test_hosts.py", "tests/test_icon.py")),
+         ("web/art/", ("tests/test_art.py::test_the_shipped_maps_are_what_the_tracker_draws_from_each_image",)),
+         ("web/characters/",
+          ("tests/test_characters.py::test_the_shipped_species_and_pictures_are_what_each_image_gives",)),
+         ("web/md5.wasm", ("tests/test_native.py::test_nativekit_rebuilds_each_committed_library_to_its_bytes",)),
          ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)))
 #: The folders the tests read by path, not by import: AzurKit's goldens, the workflows, the kernels' C sources
 #: (``nativekit`` builds them) and the libraries built from them (``azurkit.core.native`` loads them). Each is named
@@ -515,8 +521,8 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     users still name it; one under ``devkit/<area>/`` is that package's, which
     reads its data by ``__file__``: ``devkit/re/data/x.toml`` picks what
     reaches ``devkit.re``, a module in it or one naming ``x.toml``, as
-    ``bootstrap.py`` names ``tools.toml``), :data:`SRC_TESTS` for a change under src/, a path's
-    :data:`RULES` tests, and :data:`SMOKE`; nothing more for other docs. A
+    ``bootstrap.py`` names ``tools.toml``), :data:`SRC_TESTS` for a change under src/, the tests of each
+    :data:`RULES` row a path matches, and :data:`SMOKE`; nothing more for other docs. A
     change to the suite's configuration, to what every session runs
     (``deps.every_run``, a file one of its modules names too; for a plain
     dict, :data:`SESSION` and all it imports), to a path no rule covers that
@@ -541,8 +547,8 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
             continue
         if rel in WHOLE or rel.endswith(".py") and "/" in rel and rel.partition("/")[0] not in PY_DIRS:
             return None   # a Python file graph() doesn't read: what it imports and what runs it are unknown
-        if own := next((tests for path, tests in RULES
-                        if rel == path or path.endswith("/") and rel.startswith(path)), ()):
+        if own := {test for path, tests in RULES if rel == path or path.endswith("/") and rel.startswith(path)
+                   for test in tests}:
             picked.update(own)
             continue
         if folder := next((folder for folder in DATA if rel.startswith(folder)), None):

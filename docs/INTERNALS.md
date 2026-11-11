@@ -2150,7 +2150,9 @@ are the Characters section's.
   run by its path, as `tests/_page.py` runs `tests/_static.py`); every change under `src/` adds the
   files that run the whole package (the wheel's, and those taking the
   `pyodide`, `browser` or `frozen_app` fixture), a change under `web/` the
-  site's, the app's and the icon's, `LICENSE` and `NOTICE.md` the About
+  site's, the app's and the icon's (and one to `web/art/`, `web/characters/`
+  or `web/md5.wasm` the test that holds those files to a fresh draw or
+  build), `LICENSE` and `NOTICE.md` the About
   tab's test and the wheel's, `README.md` the wheel's, a change in
   `tests/goldens/`, `.github/`, `native/` or `src/azurkit/core/_native/` the test files that read it (read by path: those
   reaching a module that names the folder, `record_goldens.GOLDENS`),
