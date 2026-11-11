@@ -14,76 +14,99 @@ Step, D, AZ and Q ids are the private ledger's. When an item is done, drop
 it in the commit that does it, and add new items to the group they fit.
 Nothing waits on the owner except the owner-only acts in group 12 (D115).
 
+Step 4.47c brought it up to date on 2026-11-11, against the landing
+queue's tail (09564439; `main` 7a4bab60, 1.0.3's release commit), after
+the 11-10 session's steps 4.37-4.47. A done item is struck to one line
+naming what closed it, so the numbers that tests and decisions cite still
+point; a new item takes the next free number in its group. Groups 4 and 5
+were left as they were.
+
 ## 1. First: the Variants editor's first Check (D1181, D1192)
 
 The next session starts here (D1192), so 1.1 can follow.
 
-1. **The target** (D1167, D1181): a first Check with game data takes well
-   under a minute on the site. It is measured on the busy box, beside other
-   projects' load (D1107): no idle rerun and no budget change. Optimization
-   rounds go on until it holds with margin.
-2. **Where it stands:** 60 s in the app (A92) and 113 s in WebKit (S78) at
-   load ~67, in `main`'s full run before stack 2. Stack 2's full run read
-   97 s and 102 s. Both runs read the content repo as published (booblord
-   v5), which ships no Check parts.
-3. **What the shipped parts do:** with booblord's Check parts installed
-   (content v7, 2.2), the 4.6p lane measured S78 at 9-16 s in WebKit,
-   Chromium and Firefox (medians 10-13 s), A92 at 4.7 s and the capped site
-   at 5.16 GiB. So D1167 was met for her. A first Check with no parts is
-   nearly a full dress (about 103 s native), and beamlord, community
-   variants and every own copy but booblord_high's get no parts. Recommended first round (D115): push
-   the parts with 1.0.2 (2.2), measure S78 and A92 with them on the busy
-   box, then cut the no-part path.
+1. **The target** (D1194, D1201, D1204; from D1167, D1181): every first
+   Check a player meets takes 30 s at most in each of WebKit, Chromium and
+   Firefox, a Check after a Shape edit too, and the app well under. It is
+   measured on this Mac, busy, beside other projects' load (D1107): no idle
+   rerun and no budget change; on CI's runners the tests keep their bounds.
+   Rounds go on until every path holds it with margin; then one real-Safari
+   first Check, in one window (D1089, D1202).
+2. **Where it stands** (4.37a, 11-10, with booblord v8's parts installed):
+   S78, her own copy, 5.25 s in WebKit, 5.70 s in Chromium and 11.74 s in
+   Firefox; A92 5.44 s in the app. On the site's engine (Pyodide on Node) a
+   first Check with no parts takes about 100 s, after Scale x1.2 29.9 s, a
+   texture row 37.1 s, a colour row 7.0 s and a Shape slider 233.0 s. Two of
+   round 6's kernels have landed: the springs (4.37e3) and the body writes
+   (4.37e4).
+3. **The plan** (4.37e's design): round 6's other lanes: A, a shaped copy's
+   places from its plain body (4.37e1, built, its site A/B and goldens pin
+   owed); B2, a Jiggle-tab edit keeps every part (6); the mesh plan, rig
+   and paint kernels (D1, D2, E, G), work ahead (H) and the clip import
+   (K). After round 6 every path is under 30 s in each browser but a Shape
+   edit (about 72, 76 and 94-144 s in WebKit, Chromium and Firefox) and
+   heavy content with no parts (about 40, 43 and 52-80 s), estimated.
+   Round 7 (R7a-c: whole-function ports of the plan and the rig, the glue,
+   the site's helper workers) is designed on azurik-judge (D1207) once
+   round 6 is measured.
 4. **Levers named so far:**
-   - round 6's kernels: an edit's first Check is nearly a full dress (a
-     Scale x1.2 edit takes 31.5 s in the app, an estimated 75-90 s on the
-     site);
    - a narrower key for a texture or colour edit, which redoes both
-     restyles and the LODs (about 15 s, 4.6n);
-   - beamlord's Check parts in a later content version (12-14 s native
-     now; optional);
-   - no perf row times a Check after an edit: add one.
+     restyles and the LODs (about 15 s, 4.6n): 4.37m's second lane, after
+     round 6, owing a content release first;
+   - beamlord has no Check parts: her Check reaches only `size`, so D1197
+     published nothing (4.37m). Her own copy's first Check does the whole
+     work: 2.2 s native, 5.3 s on the site's engine (4.37a);
+   - perf rows that time a Check after a Shape, Scale, Jiggle or colour edit
+     and one with no parts (A98, A99, A104-A106, S84-S88): 4.37e0, built,
+     not yet queued.
 5. **The parts' download:** a first Check's 24.5 MB of parts come with no
    bar, and no pytest drives a real browser through a shipped fetch (S78 is
    the only proof).
+6. **Parts keyed by their inputs** (D1195): Step 4.37m1 keys every Check
+   part on its stage's inputs alone, so the recording host's parts serve
+   every platform, close enough off it (D1016); its first commit is the
+   jiggle half (B2). Built, in flight: its re-record, `record_goldens.py
+   --check` and two heavy pins haven't run (no window). Until it lands, the
+   Intel Mac, Windows and Linux apps miss the shipped parts (4.37f's C.3;
+   the site takes them), and the Intel app's first Check passes 120 s on CI
+   (C.12).
+7. **A variant's pictures, dressed** (4.45's S6, Step 4.46a1): held until
+   4.37m1 lands, then keyed on `parts.VERSION` instead of on what draws
+   them, which as built makes every later `tools/characters` edit owe a
+   characters re-record.
+8. **The Firefox Shape-edit gap** (D1209): 4.37e's design finds no lane in
+   reach that brings a Firefox Shape-edit first Check to 30 s (about
+   35-75 s after round 7, estimated). Rounds 6 and 7 land every lane in
+   reach and measure it; then its number goes under group 9's known flaws
+   (D835), with no full engine port.
 
 ## 2. Releases and content
 
-1. **1.0.2, if it didn't go out this session** (D1180, D1186): it ships
-   from `main` with the Variants editor as it is. Its conditions are met:
-   stack 2 and 4.27-4.29 are on `main`, and stack 2's full run passed every
-   test (1,993; vanilla 887, europe 66). Its perf stage failed only A31 and
-   A60 against the release (3.2).
-   - Steps: the version commit, then
-     `scripts/devlog.py --release TITLE --remove`. Run CI on four OSes
-     (D1170: a test that passes its one rerun is a flake). Then the
-     runbook's scripts, the tag, the publish, and showing the owner the
-     notes (D1132). The security checklist is a quick look (D1162).
-   - After any rebase, re-check the developer log's union merge.
-   - This CI is the first on the port's code (D1176 waived CI before the
-     delete). Read the Windows proof rows there: 4.5w, the 4.6k review's
-     F1, and 4.13a's D1 and D2.
-2. **The content push** (4.6p, 4.6r): the published content `main` is still
-   v5. The content clone's local branch `p2/stack2` (f68aa69) holds v7:
-   booblord's 84 Check parts, 117 MB of her entry's 133. Push it once a
-   released site and app read `content.later` (1.0.2); before that,
-   v1.0.1's apps would fetch parts they don't read. Push by the
-   Azurik-Modding-Hub URL: the clone's `origin` still names the old
-   Azurik-Testing archive, and changing it is a git config change, so
-   leave it. Its `p2/next-stack` (v6) and the 4.6p and 4.6r content
-   worktrees are superseded. The clone also holds an untracked
-   `scripts/__pycache__`.
-3. **1.1** follows once group 1's target holds (D1192).
+1. ~~1.0.2~~: out on 2026-11-09 (tag `v1.0.2`, 15c16383).
+2. ~~The content push~~: booblord v8 is the content repo's `main`
+   (9a92177, the commit CI pins), past v7. The clone's superseded branches
+   and worktrees go with 11.2.
+3. **1.1** (D1203, D1210): the release where group 1's 30 s holds, with the
+   Variants editor's gaps: Undo (there since 4.6e), the app's window asking
+   about unsaved edits on close (4.38a, landed) and community-only
+   characters resolving (9.32).
+4. **1.0.3** (D1196, D1198, D1210, D1218, D1221): the release that fixes
+   the Windows app's Build with a character. Its fixes: the hang (`serve`
+   read its input on fd 0, where numpy's OpenBLAS waits at load: 4.37r,
+   85cc0426, seen passing on Windows CI); pywin32 out of the Windows bundle
+   (4.37h, fb135f4c); and the Windows Firefox save-bar test's race (4.37t,
+   e2a93f07, a test fix, queued). Step 4.47b's release commit (7a4bab60:
+   the version and the developer log's 1.0.3 section) is on `main`, its
+   full gate green. It is pushed to `main` alone, and main's CI decides:
+   green, or red only on the Windows Firefox save-check test and green on
+   one rerun of that job, then tag `v1.0.3` there and publish at once, the
+   notes shown to the owner after; red again, the tag waits for 4.37t on
+   `main`. 4.38b's community-only characters, its two red tests under a fix
+   seat, move to 1.1 (D1203).
 
 ## 3. Stack 3 and 4.31's outcome
 
-1. **Stack 3**, if not landed: `p2/stack3` is 4.31's perf.py fix, then
-   4.30's port leftovers (the drop-in WAV folder deleted, Modkit's
-   dead-code guard, the resolver's reach refusal, the spot-need tips), on
-   `main`. Its gate is changed-area: its `src/` and `web/` changes pull in
-   the wheel, Pyodide, browser and frozen-app files and the perf gate's
-   characters, randomizer and tracker groups. This list (4.32) lands after
-   it.
+1. ~~Stack 3~~: landed (5a3b0954); 4.31 and 4.30 are in 1.0.2.
 2. **A31 and A60 were load, not code** (4.31): stack 2's receipt failed
    D1170's release rule on them (A31 166.5 s against the release's 118.8 s,
    A60 199.5 s against 115.0 s). 4.31's paired runs in one window put stack
@@ -223,7 +246,9 @@ rewrite and link were done.
 
 ## 7. The open issues from Modkit's ledger
 
-The private ledger (D952) holds Modkit's 29 open issues.
+The private ledger (D952) holds Modkit's 29 open issues. After 1.1 the
+work comes here and to group 9's known flaws and editor leftovers, reach
+staying frozen (D1212); 4.40b's triage readies their lanes.
 
 - Inherited by AzurKit (3):
   - AZ-009: level patches address entities by their current name, not
@@ -271,33 +296,37 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 1. `test_characters.py::test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resource[usa]`:
    "usa.iso: it changed after it was checked (D27)", in the 11-08 20:08
-   run. That run overlapped the images' move to their own folder, the
-   likely cause [unsure].
-2. `test_randomizer.py::test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_them_at_their_next_note`:
-   "DID NOT RAISE Gone", in the same run; it passed alone and at 8 at once.
-3. `test_site.py::test_the_variants_sounds_and_effects_tabs_write_the_rows_and_wavs_the_build_reads_and_grey_what_it_refuses[webkit]`:
-   a KeyError on the projectile row's label, in aecdedf9's full run.
-4. `test_two_real_engine_workers_plan_a_seed_alike_and_a_change_drops_bs_plan_mid_way[webkit]`
-   (D1163).
-5. `test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending`
-   (D1163).
-6. The site's Variants test in Chromium: the second page's view wasn't read
-   within 120 s (the third 4.6c review).
-7. The frozen app's page saves CPython's image `[firefox]`: the Windows
-   frozen app's first load (ci30's B).
-8. Chromium site tests that failed only when slowed, with no error recorded
-   (ci36): save-hashes (367 s), images-rest-walked (130 s) and the seed built
-   from the Randomizer tab (297 s). They need a slowed rerun that records
-   the errors. Also unfinished: saving while the rest of the image is being
-   hashed.
-9. Pure-tier tests that failed only when slowed (ci27): test_hosts'
-   collected-spot `[chromium]`, the track-this-seed bar `[firefox]`, the
-   plan-file spoiler bar `[firefox]` (300 s), and the site's
-   call-left-unanswered `[firefox]`.
-10. Windows Firefox holds its first request for about 37 s (4.5l, 4.5w): the
-    cause isn't shown, and DIRECT isn't shown to prevent the hold.
-11. test_dev_tools' flake-stage test went red once beside 4.5d's CI run.
-    Name it if it fails again.
+   run. Cause shown (4.37f): the images' move to their own folder, at
+   19:44:08, fell inside the test, and D27 refused rightly. An outside
+   event: no lane, unless an image moves during a run again.
+2. ~~The shaped fills' cancel test~~: fixed by 4.37h (e74be8b2).
+3. ~~The Variants Sounds and Effects tabs test `[webkit]`'s KeyError~~:
+   fixed by 4.37g (09547c20); its other error is 35.
+4. ~~The two-engine-workers test `[webkit]`~~: fixed by 4.37g (a67c3c4f).
+5. ~~The WebKit-ending test's stand-in ids~~: fixed by 4.37k (3cd387c5).
+6. ~~The Variants test's second page in Chromium~~: fixed by 4.6d
+   (e7ef87a0).
+7. The frozen app's page saves CPython's image `[firefox]` (the Windows
+   frozen app's first load, ci30's B): not seen in four Windows runs since,
+   the same shape as 10, tracked there (4.37f).
+8. Chromium site tests that stalled with no error (ci36's slowed sweep):
+   4.37f's slowed rerun and six "no answer in 237-238 s: azurkit.ready"
+   flakes in 4.37d's gate met a macOS privacy (TCC) prompt, not starvation
+   (4.37o). Another project's headless Chromium asked for the Documents
+   folder on the owner's screen, and every Chromium GPU helper launched
+   while the prompt stood waited behind it. Step 4.37p runs Chromium's GPU
+   in the browser's process and names a standing prompt in a stalled call:
+   built and reviewed, not yet queued. ci36's own run can't be rechecked
+   (the privacy log isn't kept that long). Also unfinished: saving while
+   the rest of the image is being hashed.
+9. ~~The pure-tier tests that failed only when slowed (ci27)~~: fixed by
+   4.4ci36 (625c2878, ede40526, 537eeb47, 0511ce67, 1bc9e663).
+10. Windows Firefox holds its first request for about 37 s (4.5l, 4.5w),
+    and 7 is likely the same: DIRECT isn't shown to prevent it. Windows
+    CI's Firefox now logs its requests and loads, and a stalled call prints
+    the log's end (4.37k, 34f9e248), so the next hold names its cause.
+11. ~~test_dev_tools' flake-stage tests on Windows~~: fixed by 4.5c
+    (e9f137bb) and 4.5i (f9cddb6a).
 
 ### The watch list: name the cause the next time each one fails
 
@@ -313,30 +342,32 @@ memory peaks stay strict. The gate writes both kinds of row to
     ending still costs 120 s); why WebKit leaves the page's process (ci18);
     what triggers the zero-headed message (4.5s: if it recurs, the call
     fails at once naming it and D1170's rerun records it; 4.37k retired
-    `_page.past_refusal`'s unrecorded redo); ci31's Characters stall.
+    `_page.past_refusal`'s unrecorded redo); ci31's Characters stall; the
+    parts test's closed page `[webkit]` on macOS arm64 (4.37f's C.13).
 16. Others: ci17's three; what held ci27's GIL; ci37's CI ValueError;
     4.5m's second failure; 4.5n's frozen capped A32; S59 under 20 extra
     threads (4.4bf); WebKit's GPU threads on a 4-core runner; ps under
     `taskpolicy -b` taking 8-12 s while the efficiency cores are busy
-    (ci36).
+    (ci36); the app's Live marks test `[webkit]` on Windows (C.14: a
+    flake's first try's error lines are kept now, 4.37k); the collected-spot
+    test's hand click `[firefox]` on Windows (8a3128b; its failure now names
+    Show collected and the fresh pickups, 4.37k).
 
 ### Test-harness follow-ups
 
-17. `_page`: `load` re-raises an Ended as a plain AssertionError, so an
-    ending during a load gets no redo (4.5s, N1). An ending 1-2 s before
-    the next call isn't named (N2). The redo keys on the reason alone (N3).
-    `within` raises a crashed WebKit page's TargetClosedError without naming
-    the cause (4.5p).
+17. ~~`_page`'s load, ending and redo gaps (N1-N3, 4.5p)~~: fixed by 4.37k
+    (062dac4e, 3540afb1, 6aac6518; 2d1f3ebf retired the redo).
 18. Silent waits:
     - `Site.__init__`'s new_context, add_init_script and route, and
       `_bare_page`'s new_page (ci14).
     - `_bare_page` callers' unbounded close (ci15).
     - 15 `page.goto` calls that keep Playwright's 30 s (ci16).
     - 372 unbounded evaluates (ci14).
-    - 24 bare `page.goto(server.url)` calls in test_hosts.
-    - App tests that fetch through an in-process server (37 uses, ci31).
-19. AGENTS.md says a load of the site's page has `_page.STALL`, but
-    test_site's two loads of a fresh page at ACT don't (4.5w).
+    - App tests that fetch through an in-process server (37 uses, ci31); a
+      call past its timeout now fails naming the call (4.37i, 323414cf).
+    test_hosts' 24 bare `page.goto(server.url)` calls load through
+    `_page.load` now (4.37k, 41e39159).
+19. ~~test_site's two fresh-page loads at ACT~~: fixed by 4.37k (1f016297).
 20. `tests/ci_durations.json` still names the old private-window test id.
     Refresh the shard table from a full run's log, with Apple Silicon and
     Intel times (4.5u, ci35); the port's tests added many minutes to the
@@ -344,10 +375,12 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 ### Perf debt
 
-21. Rows the gate recorded: A110 in the app at 3.18 s, over its 3 s, and
-    S64 in WebKit froze 423 ms in the head start (stack 2's run); A02
-    (1.10 s) and A73 (1.52 s) in the app run past 1 s with no progress shown
-    (D980; aecdedf9's run).
+21. Rows the gate recorded: S64 in WebKit froze 423 ms in the head start
+    (stack 2's run); A02 (1.10 s) and A73 (1.52 s) in the app run past 1 s
+    with no progress shown (D980; aecdedf9's run); A95 in the app at
+    5.2-5.7 s in the gates since 4.37d's, 1.0.3's full run too; Firefox's
+    S81 at 42.3 s (4.37b's measure). A110 is fixed (4.37d, 4db4feb3:
+    0.17 s).
 22. **Round 5 never started** (D1103): ROUND-5-PLAN's ten levers r5a-r5j,
     with r5a (the SND resampler) and r5c (the mesh kernels) first. On their
     bar in stack 2's run: A31 166.5 s, A60 199.5 s, A92 97.5 s, A95 45.0 s,
@@ -390,6 +423,15 @@ memory peaks stay strict. The gate writes both kinds of row to
     (4.5e). ci19's CI times were inferred, not measured.
 33. The perf gate reads RSS, not footprint (4.4n's Q2, kept for 1.0.0).
     Revisit it with 9.35.
+
+### Flakes found since, each owed a triage
+
+34. `test_site.py::test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_the_build_reads[chromium]`
+    on macOS arm64 (4.37i's CI run 42933579021).
+35. The Variants Sounds and Effects tabs test `[webkit]` (3) failed on
+    c053b9f6's CI (linux-x86_64) with another error: an AssertionError on
+    the Effects list, not the KeyError. [unsure] It is the same race:
+    c053b9f6 predates 4.37g's fix.
 
 ## 9. Product follow-ups and known flaws
 
@@ -490,15 +532,19 @@ memory peaks stay strict. The gate writes both kinds of row to
     - Live's tab, not the editor's: at 1100 px, 4.6k's Attach… button
       wraps Live's bar onto a second line (39 px). With 4.20's 16 px
       difficulty line it leaves the map room about 35 px shorter (4.25).
-31. 4.6c's leftovers:
-    - Undo is missing, and closing the app's window doesn't ask about
-      unsaved edits.
-    - The page sends `variants()` no manifest, so a built-in shows under
-      Community only once it is installed.
-    - `variant_save`'s `from` isn't checked as a name.
-32. Community-only characters: `resolve()` has no third source, so
-    installed recipes that aren't in `variants.json` don't resolve. Resolve
-    them third, each held to its sha, and refuse a built-in's name.
+31. 4.6c's leftovers: `variant_save`'s `from` isn't checked as a name.
+    Only a crafted call reaches it, so it gets no lane of its own (D1219);
+    4.38b checks it (32). Done: Undo (since 4.6e, c0f65767), the page's
+    `variants()` manifest (`web/variants.mjs` sends it) and the app's window
+    asking about unsaved edits on close (4.38a, fd1695a0).
+32. Community-only characters (a 1.1 item, D1203): `resolve()` has no
+    third source, so installed recipes that aren't in `variants.json` don't
+    resolve. Step 4.38b resolves them third, each held to its sha, and
+    refuses a built-in's name: built and reviewed, its gate red on two tests
+    (the editor's refusal words, the site's kept-content `[chromium]`); a
+    fix seat committed both fixes, and its browser rerun waits for the
+    window. It then rebases over 4.46d's `content._files` (dropping its own)
+    and the guide's line, and queues again.
 
 ### Data, mods and the randomizer
 
@@ -527,23 +573,31 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 ### Ideas the session ranked (after the port, D1131)
 
-38. Support plumbing: About links to Issues and Releases, a "Copy details
-    for a bug report" button, a "report it" link on D1126's restart notice,
-    and an `$EV/tools/inbox` for D1075's read.
+38. ~~Support plumbing~~: dropped, not built (D1206).
 39. "Play it in xemu" help after a Save: Machine > Load Disc, and 128 MiB
     for big bodies.
 40. Play and Attach have never met a real xemu or the real admin prompt
-    (4.6k). Offer the owner a demo (D205).
+    (4.6k). The owner's demo (D205) waits for a session when the owner has
+    time (D1205).
 41. A headline randomizer mode and a speedrun kit (the session's idea
     ranking). When features open again, the open death realm (D201) comes
     first.
 
+### Known flaws found since (D835)
+
+42. **Audit pass 2's hostile-input findings** (4.45) get no lane (D1219):
+    the site's manifest read has no size cap for a hostile Content from
+    address (U5); two entries' paths that differ only by Unicode form or a
+    trailing dot or space share a file in the content folder, and one entry
+    listing both spellings fails its install part way (U3); an entry's
+    `variant.json` is parsed with no depth guard (U6) and `installed.json`
+    read with no cap or value check (U7); and on Windows a zip unpacked into
+    the app's data folder can replace the install's key file (store F2).
+
 ## 10. Dev tools, tests and port notes
 
-1. **A src import cycle** (4.13c, 4.13d1): importing
-   `azurkit.tools.randomizer.levels` or `draft.geometry` first raises
-   ImportError (`art.maps` imports both while they are half loaded).
-   devkit's tests dodge it by their import order. Fix it with one test.
+1. ~~A src import cycle~~: fixed by 4.37l (610da473), its test in
+   `test_contracts.py`.
 2. **The real Blender:** `python -m devkit models blender-check` (4.15a4)
    and `model edit`'s Blender session (4.15a5) have never run on Blender
    5.2.2. lldb can't attach to the hardened Blender.app, so run it under a
@@ -589,20 +643,35 @@ memory peaks stay strict. The gate writes both kinds of row to
     onboarding (D107); Q236 (ghidra-sync's variable renames) and Q77/V15
     (Dependabot for `uv.lock`); V21 (the HDD cache) and V22 (a boot hang)
     as unresolved facts.
+12. **The suite lock's order** (D1222): macOS's flock hands a released
+    lock to its first blocked waiter, even a stopped one, so a window seat
+    waited hours behind every queued gate. Step 4.47a, queued last, makes
+    gates and the window poll and take turns. Owed: `$EV/tools/window`
+    takes its .4.47a version at a quiet moment (the line empty, no holder),
+    then its self-test; `land --selftest` once 4.47a is on `main`. Until
+    every queued lane carries 4.47a, an older lane's gate still passes a
+    window seat in flock's line.
+13. **The gate's P2** (D1215, two locks): its commit (8102f56e on
+    `p2/4.43b-gate-cuts-p2-p1-p4`) waits for a drained queue and its trial
+    pair (about an hour of window), adopted only if no perf verdict turns
+    slower and the starved count doesn't grow. Rebased over 4.47a, it owes
+    the test patch 4.47a's report gives. `$EV/tools/landq.py` takes its
+    .4.43b version once 4.43b1 (P4 and P1) is on `main`.
 
 ## 11. This Mac and infrastructure
 
 1. **Disk:** 179 GiB free at writing. ModMG's batches in `/private/tmp`
    are the owner's: never touch them (D1140).
-2. **Ours to remove after landing:** the AzurKit worktrees 4.30, 4.31,
-   4.32, 4.6r, stack2 and stack3, the content worktrees 4.6p-content and
-   4.6r-content, the 128 local `p2/*` branches, and ModelKit's 4.15a8 lane
-   once pushed.
+2. **Ours to remove after landing:** the 11-10 session's lanes and their
+   `p2/*` branches, each once it lands; the content worktrees 4.6p-content
+   and 4.6r-content and ModelKit's 4.15a8 lane, if still there. Done: the
+   worktrees 4.30, 4.31, 4.32, 4.6r, stack2 and stack3 and the 128 old
+   branches (the six kept were read and deleted, D1200).
 3. **Our `/tmp` leftovers:** the 4.6e home folder and the 4.6f take log.
    An empty `/private/tmp/rp411` (11-06) has an unknown owner: leave it
    (D147).
-4. **Six landed lane branches on the public AzurKit repo** (D1123's lane
-   CI: 4.4ci36, ci37, ci39, ci41, 4.4dx5 and 4.5h): delete them.
+4. ~~Six landed lane branches on the public AzurKit repo~~: deleted; the
+   public repo holds only `main`.
 5. **The game-data repo's environment allows `p2/*` branches** (D1123):
    keep that while lanes get CI. Its revert is in the handoff log.
 6. **nativekit writes each library in place,** so a process that has the
@@ -618,7 +687,7 @@ memory peaks stay strict. The gate writes both kinds of row to
    - mcp brings in anyio, whose pytest plugin loads in every session
      (4.11f).
    - pypi.org:443 may no longer be needed in the harden-runner allow
-     lists (ci55; low under D1162).
+     lists (ci55): a security-only item, so no lane (D1162, D1219).
 9. **Content size:** shipped parts carry the recording host's floats
    (D1016), so a swap change that moves a part needs a re-record. Each
    heavy built-in's own copy adds about 8.6 MB a release to the content
@@ -649,14 +718,13 @@ Standing asks:
    requests (gh, read-only), reproduces each, fixes what reproduces in a
    lane and reports a summary. No public reply, label, close or merge from
    the owner's account.
-8. **D1076, D1084:** a short Discord announcement draft in the owner's
-   voice for a release (1.0.2's, with the Variants editor, if it ships);
-   nothing is posted.
+8. ~~D1076, D1084's announcement drafts~~: retired; none is drafted or
+   suggested again (D1208).
 
 What only the owner does:
 
 9. File the Chromium bug from its draft (D1111).
-10. Post the announcements (D1084).
+10. ~~Post the announcements~~: none is drafted (D1208).
 11. The hub notes, only when the owner says (D134).
 12. ModMG's disk use in `/private/tmp` (D1140).
 13. Remove the empty Modkit folder after closing the session (D1189).
