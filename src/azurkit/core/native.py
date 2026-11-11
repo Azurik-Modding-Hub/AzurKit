@@ -48,7 +48,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
-           "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster")
+           "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster", "spring", "clear")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -113,7 +113,9 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64]),
                          ("az_thin", [vp, i64, f64, f64, vp, vp]), ("az_smooth", [vp, i64, i64, vp, i64, vp]),
                          ("az_dxt", [ctypes.c_char_p, i64, i64, i64, vp]), ("az_atan2", [vp, vp, i64, vp]),
-                         ("az_raster", [vp, i64, i64, vp, vp])):
+                         ("az_raster", [vp, i64, i64, vp, vp]),
+                         ("az_spring", [vp, vp, i64, i64, i64, vp, vp, i64, f64, i64, i64, i64, vp, vp, vp]),
+                         ("az_clear_need", [vp, vp]), ("az_clear", [vp] * 21)):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
         return None, f"{name} doesn't load: {e}", None
@@ -981,6 +983,66 @@ def decimate(pos: array, flags: bytes, vpoint: array, twin: array, so: array, sb
         else:
             return None
     return None
+
+
+# ---- the springs (native/spring.c) ----------------------------------------------------------------------------------
+def spring(world: array, origin: array, stride: int, col: int, n: int, num: Sequence[float], kernel: Sequence[int],
+           loop: bool, sub: int, n_keys: int) -> tuple[list, tuple] | None:
+    """``jiggle.keyed``'s spring of one placed bone past its parent's pose
+    (``az_spring``): at each of ``n`` steps the parent's rotation and
+    origin (``world`` and ``origin``, ``stride`` bones a step, the parent
+    ``col``), its numbers ``num`` (``jiggle._spring_numbers``) and its
+    drive's integer weights ``kernel`` (each, and their sum, a double as
+    Python's arithmetic rounds it); its ``n_keys`` keys' five numbers (each
+    ``sub``-th step's) and its peaks, or ``None`` without the library or
+    where the twin answers (a division by zero or a weight past a double,
+    which it raises)."""
+    if (lib := library()) is None or not all(type(c) is int for c in kernel) or len(world) < 4 * stride * n or \
+            len(origin) < 3 * stride * n:
+        return None
+    try:
+        nums, weights, total = array("d", num), array("d", kernel), float(sum(kernel))
+    except (TypeError, OverflowError):   # a number the twin's own arithmetic takes or refuses
+        return None
+    flat, peaks, work = array("d", bytes(40 * n_keys)), array("d", bytes(16)), array("d", bytes(144 * n))
+    if lib.az_spring(_at(world), _at(origin), stride, col, n, _at(nums), _at(weights), len(weights), total, int(loop),
+                     sub, n_keys, _at(flat), _at(peaks), _at(work)) != 0:
+        return None
+    return [tuple(flat[5 * j:5 * j + 5]) for j in range(n_keys)], (peaks[0], peaks[1])
+
+
+CLEAR_SIZES = 14                          # spring.c's Z_* and N_* counts
+CLEAR_NUMBERS = 12
+
+
+def clear(sizes: Sequence[int], num: Sequence[float], slot: array, link: array, bone: array, world: array,
+          origin: array, skin: tuple, tail: tuple, keys: array) -> list | None:
+    """``jiggle._clear`` of one clip past its glue (``az_clear``): ``sizes``
+    and ``num`` (spring.c's Z_* and N_*), each rig bone's ``slot`` among
+    the posed ones, the ``link`` bones, their ``bone`` numbers (jo, ra and
+    the parent's bind rotation), the posed bones' ``world`` and ``origin``
+    at each frame, the collider's ``skin`` (B, W, U, UN) and ``tail`` (B, W,
+    U, target, owner) as C-contiguous numpy buffers' addresses, and each
+    link's ``keys`` (five numbers a key): each link's keys' six numbers
+    where it turned, else ``None``, or ``None`` without the library or
+    where the twin answers (it raises, or a turn is past the kernel)."""
+    if (lib := library()) is None:
+        return None
+    try:
+        z, nums = array("q", sizes), array("d", num)
+    except (TypeError, OverflowError):
+        return None
+    need = array("q", bytes(16))
+    lib.az_clear_need(_at(z), _at(need))
+    links, n_keys = sizes[0], sizes[1]
+    out, turned = array("d", bytes(48 * links * n_keys)), array("q", bytes(8 * links))
+    work, iwork = array("d", [0.0]) * need[0], array("q", [0]) * need[1]   # made once (no bytes to copy: a frame's skin
+    #                                                                          is most of a clip's buffers)
+    if lib.az_clear(_at(z), _at(nums), _at(slot), _at(link), _at(bone), _at(world), _at(origin), *skin, *tail,
+                    _at(keys), _at(out), _at(turned), _at(work), _at(iwork)) != 0:
+        return None
+    return [[tuple(out[6 * (n_keys * c + j):6 * (n_keys * c + j) + 6]) for j in range(n_keys)] if turned[c] else None
+            for c in range(links)]
 
 
 def _buf(b: bytearray) -> ctypes.c_void_p:

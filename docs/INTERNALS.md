@@ -1275,7 +1275,23 @@ are the Characters section's.
   paint's (`native/paint.c`): `textures._dxt`'s BC1 and BC2 blocks
   (integers only), `paint._raster`'s texels (a corner not finite, past
   2**40 or -0.0 the twin's) and `fdlibm.atan2` over a texture's points
-  (`paint._atan2`, `_hsv`'s hue; fdlibm's constants by their bits).
+  (`paint._atan2`, `_hsv`'s hue; fdlibm's constants by their bits). The
+  eighth is the springs' (`native/spring.c`, Step 4.37e3): `jiggle.keyed`'s
+  spring of each placed bone of a clip past its parent's pose (`az_spring`:
+  the anchors' smoothed path, the drive, the Euler steps, the fit to its
+  travel and turn, `pose_at` and the keyed numbers; its twin `_spring`) and
+  the clear's (`az_clear`: `_clear`'s frames, each link's search of its
+  least turns, their ease, a held clip's drape and the keys it rewrites,
+  one call a clip; its twin `_clear`'s own loop), its glue (the poses, the
+  constants, the point sets) `jiggle`'s. A division by zero, which the twin
+  raises, a point set numpy refuses, a turn past fdlibm's kernels and a
+  pose the engine model can't take are the twin's; the drive's integer
+  weights are doubles as Python's arithmetic rounds them; a skin's normals
+  are worked out only for the points found nearest, and each point's
+  nearest skin point within reach is found in buckets along the widest
+  axis of the points' box, a bucket passed only where its nearest value
+  is farther than the best so far, ties to the first point as numpy's
+  `argmin` takes them (a box not finite searches every point in order).
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

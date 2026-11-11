@@ -135,7 +135,7 @@ def tup(x):
     return tuple(tup(v) for v in x) if isinstance(x, list) else x
 
 answers = []
-docs, dress = json.load(open(json.loads(ARGV)[0]))
+docs, dress, springs = json.load(open(json.loads(ARGV)[0]))
 for doc, call in docs:
     graphs = tuple(native.Graph(*tup(g)) for g in doc.pop("graphs"))
     t = native.Tables(**{k: tup(v) for k, v in doc.items()} | {"discs": frozenset(doc["discs"])}, graphs=graphs)
@@ -145,7 +145,7 @@ from azurkit.tools.characters import decimate
 rng = random.Random(1407)
 cuts = [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
 json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answer(case) for case in dress],
-            "cuts": cuts})
+            "springs": [_spring_answer(case) for case in springs], "cuts": cuts})
 """
 
 
@@ -318,17 +318,19 @@ def test_the_acceptance_kernels_play_keeps_every_stage_when_the_options_collect_
 def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path, monkeypatch):
     cases = list(_cases(1401, 40))
     cases += [(_monotone_of(t), call) for t, call in cases[:30]]
-    dress = list(_dress_cases(1405, 60))
+    dress, springs = list(_dress_cases(1405, 60)), list(_spring_cases(1409, 12))
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
-    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress]), encoding="utf-8")
+    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs]), encoding="utf-8")
     got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer)
-                  + inspect.getsource(_mesh) + _UNDER_PYODIDE, packages=(_pyodide.numpy(),))
+                  + inspect.getsource(_spring_answer) + inspect.getsource(_mesh) + _UNDER_PYODIDE,
+                  packages=(_pyodide.numpy(),))
     assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
     assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):
         assert got["dress"] == json.loads(json.dumps([_dress_answer(case) for case in dress]))
+        assert got["springs"] == json.loads(json.dumps([_spring_answer(case) for case in springs]))
     from azurkit.tools.characters import decimate
     rng = random.Random(1407)
     assert got["cuts"] == [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
@@ -693,6 +695,146 @@ def test_the_decimators_collapses_cut_its_twins_lod_bit_for_bit(monkeypatch):
     want = [decimate.decimate(lod, ratio, max_error=error) for lod, (ratio, error) in cases]
     assert [repr(lod) for lod in got] == [repr(lod) for lod in want]
     assert any(decimate.drawn(a) < decimate.drawn(lod) for a, (lod, _) in zip(got, cases))
+
+
+def _spring_cases(seed: int, count: int):
+    """Seeded random inputs of the springs' kernels (``native/spring.c``),
+    as JSON: a rig (a body and a chain of 2-4 baked jiggle links under it,
+    and one more jiggle bone), a clip keying the body, each jiggle bone's
+    spring (a drive capped or not, a travel or turn small enough to fit,
+    now and then one of zero: the twin's division by zero; a link's other
+    freq: the clear's refusal), a loop, a one-shot or a set of loops, and a
+    collider (tail and skin points near the chain, some skin points
+    twice with their own normals, now and then a held clip's, a NaN target
+    or an infinite point)."""
+    rng = random.Random(seed)
+
+    def u(lo=-1.0, hi=1.0):
+        return rng.uniform(lo, hi)
+
+    def quat():
+        q = [rng.gauss(0.0, 1.0) for _ in range(4)]
+        n = math.sqrt(sum(c * c for c in q))
+        return [c / n for c in q]
+
+    def keys(lo, hi, length):
+        ts = sorted({0.0, length, *(rng.uniform(0.0, length) for _ in range(rng.randint(0, 4)))})
+        return [[t, u(lo, hi), u(-2.0, 2.0), u(-2.0, 2.0)] for t in ts]
+
+    for i in range(count):
+        body = rng.randint(2, 5)
+        bones = [[-1, quat(), quat(), quat(), [u(-0.2, 0.2) for _ in range(3)]]]
+        for k in range(1, body):
+            bones.append([rng.randrange(k), quat(), quat(), quat(), [u(-0.2, 0.2) for _ in range(3)]])
+        links = rng.randint(2, 4)
+        first = rng.randrange(body)
+        for c in range(links):
+            bones.append([first if c == 0 else len(bones) - 1, quat(), [0.0, 0.0, 0.0, 1.0], quat(),
+                          [u(-0.08, 0.08) for _ in range(3)]])
+        bones.append([rng.randrange(body), quat(), [0.0, 0.0, 0.0, 1.0], quat(), [u(-0.1, 0.1) for _ in range(3)]])
+        length = rng.uniform(0.25, 0.9)
+        tracks = [[k, c, keys(-1.0, 1.0, length) if c >= 3 else keys(-0.05, 0.05, length)]
+                  for k in range(body) for c in range(7) if rng.random() < 0.5]
+        freq = rng.uniform(1.5, 4.0)
+        placed = []
+        for k in range(body, len(bones)):
+            odd = rng.random()
+            placed.append([k, freq if k < body + links and odd > 0.03 else rng.uniform(1.5, 4.0), u(0.1, 0.7),
+                           0.0 if odd > 0.97 else rng.choice((u(0.001, 0.01), u(0.02, 0.3))),
+                           0.0 if 0.94 < odd < 0.95 else rng.choice((u(0.02, 0.1), u(0.2, 1.0))), u(0.0, 1.5),
+                           u(0.5, 1.5), None if rng.random() < 0.5 else 0.0 if 0.92 < odd < 0.93 else u(1.0, 40.0),
+                           [u(-0.2, 0.2) for _ in range(3)], rng.choice((0.0, u(0.0, 0.05))),
+                           [u(-0.08, 0.08) for _ in range(3)]])
+        chain = list(range(body, body + links))
+        near = [first, *(rng.randrange(body) for _ in range(2))]
+
+        def point(own: list[int], weights: int):
+            ws = [rng.random() for _ in range(weights)] + [0.0] * (4 - weights)
+            total = sum(ws)
+            return ([rng.choice(own) for _ in range(weights)] + [0] * (4 - weights), [w / total for w in ws],
+                    [[u(-0.08, 0.08) for _ in range(3)] for _ in range(4)])
+        tail = [point(chain, rng.randint(1, 3)) for _ in range(rng.randint(6, 24))]
+        skin = [point(near, rng.randint(1, 4)) for _ in range(rng.randint(8, 50))]
+        skin += [skin[rng.randrange(len(skin))] for _ in range(rng.randint(0, 6))]   # a seam's twins: a tie's normal
+        target = [u(-0.02, 0.06) for _ in tail]
+        if rng.random() < 0.05:
+            target[0] = float("nan")
+        if rng.random() < 0.05:
+            tail[0][2][0][0] = float("inf")
+        yield {"bones": bones, "world": [quat() for _ in bones], "tracks": tracks, "length": length,
+               "placed": placed, "keys": 15.0, "rate": rng.choice((0.6, 1.0, 1.7)), "drawn": u(0.8, 1.3),
+               "loop": rng.choice((True, False, [k for k in range(body, len(bones)) if rng.random() < 0.5])),
+               "clear": None if rng.random() < 0.1 else
+               {"links": chain, "pivot": [first, [u(-0.05, 0.05) for _ in range(3)]],
+                "tail": [[p[0] for p in tail], [p[1] for p in tail], [p[2] for p in tail], target,
+                         [rng.randrange(links) for _ in tail]],
+                "skin": [[p[0] for p in skin], [p[1] for p in skin], [p[2] for p in skin],
+                         [[[u() for _ in range(3)] for _ in range(4)] for _ in skin]],
+                "held": rng.random() < 0.4}}
+
+
+def _spring_answer(case: dict):
+    """jiggle.keyed's answer to ``case`` (by the library when it's loaded,
+    else the twins): each track it keys and the peaks, every float its
+    bits in hex and NaN as such, or the error it raises."""
+    import struct
+
+    import numpy as np
+
+    from azurkit.tools.characters import jiggle
+    from azurkit.tools.characters import retarget as rt
+    from azurkit.tools.characters.characters import BoneRecord
+
+    def bits(x):
+        if isinstance(x, (list, tuple)):
+            return [bits(v) for v in x]
+        return "nan" if x != x else struct.pack("<d", x).hex()
+
+    bones = tuple(BoneRecord(f"b{k}", p, False, tuple(ra), tuple(jo), tuple(t), tuple(q), (1.0, 1.0, 1.0))
+                  for k, (p, jo, q, ra, t) in enumerate(case["bones"]))
+    rig = rt.Rig("r", bones, tuple((0.0, 0.0, 0.0) for _ in bones), tuple(map(tuple, case["world"])), ())
+    clip = rt.Clip(case["length"], tuple(rt.Track(k, c, tuple(map(tuple, ks))) for k, c, ks in case["tracks"]), ())
+    placed = tuple(jiggle.Placed(jiggle.Bone(f"r{k}", f"b{k}", f"b{bones[k].parent}", (), (), (), 1.0, freq, damping,
+                                             travel, turn, hang, gain, drive), k, bones[k].parent, tuple(origin), sides,
+                                 tuple(rest), {}, 0.0)
+                   for k, freq, damping, travel, turn, hang, gain, drive, origin, sides, rest in case["placed"])
+    col = None
+    if (c := case["clear"]) is not None:
+        tb, tw, tu, target, owner = c["tail"]
+        sb, sw, su, sun = c["skin"]
+        col = jiggle.Collider(tuple(c["links"]), (c["pivot"][0], tuple(c["pivot"][1])),
+                              {"B": np.array(tb, dtype=np.int64), "W": np.array(tw), "U": np.array(tu),
+                               "target": np.array(target), "owner": np.array(owner, dtype=np.int64)},
+                              {"B": np.array(sb, dtype=np.int64), "W": np.array(sw), "U": np.array(su),
+                               "UN": np.array(sun)}, c["held"])
+    loop = case["loop"] if isinstance(case["loop"], bool) else set(case["loop"])
+    try:
+        made, peaks = jiggle.keyed(rig, clip, placed, case["keys"], case["rate"], case["drawn"], loop, col)
+    except (ValueError, ZeroDivisionError) as exc:
+        return f"{type(exc).__name__}: {exc}"
+    return [[[tr.target, tr.comp, bits([x for key in tr.keys for x in key])] for tr in made.bones[len(clip.bones):]],
+            {role: bits(list(v)) for role, v in sorted(peaks.items())}]
+
+
+def test_the_spring_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
+    """jiggle.keyed's springs and its clear (``native/spring.c``'s
+    ``az_spring`` and ``az_clear``: the drive, the Euler steps, the fit,
+    the keys; the frames, each link's search, its ease, a held clip's drape
+    and the keys it rewrites) give their twins' answers bit for bit over
+    seeded random rigs, clips and colliders, a division by zero and a
+    clear's refusal raised alike, every NaN a NaN."""
+    cases, ran = list(_spring_cases(1408, 40)), collections.Counter()
+    for name in ("spring", "clear"):
+        monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
+                            ran.update([(name, (got := real(*a, **k)) is not None)]) or got)
+    assert native.report()["loaded"]
+    with numpy.errstate(all="ignore"):
+        got = [_spring_answer(case) for case in cases]
+    assert ran[("spring", True)] > 100 and ran[("clear", True)] > 20, ran   # most by the library
+    assert 0 < sum(isinstance(g, str) for g in got) < len(cases) / 4, got   # some raise
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    with numpy.errstate(all="ignore"):
+        assert got == [_spring_answer(case) for case in cases]
 
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):

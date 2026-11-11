@@ -1021,6 +1021,23 @@ def _posed_at(rig: Rig, clip: Clip, ks: list[int], times: list[float]) -> list[d
     engine model (retarget's ``core.native.origins``) on those bones alone,
     or ``None`` where its twins answer (no library, a bone or key it can't
     take)."""
+    got = _posed_flat(rig, clip, ks, times)
+    return None if got is None else _posed_dicts(got, ks, len(times))
+
+
+def _posed_dicts(got: tuple, ks: list[int], count: int) -> list[dict]:
+    """:func:`_posed_flat`'s poses at each of ``count`` times as
+    {k: (world rotation, origin)} in ``ks``' order."""
+    world, origin = got
+    n = len(ks)
+    return [{k: (tuple(world[4 * (i * n + j):4 * (i * n + j) + 4]), tuple(origin[3 * (i * n + j):3 * (i * n + j) + 3]))
+             for j, k in enumerate(ks)} for i in range(count)]
+
+
+def _posed_flat(rig: Rig, clip: Clip, ks: list[int], times: list[float]):
+    """:func:`_posed_at`'s poses as the compiled engine model gives them:
+    the bones ``ks``' world rotations (times x bones x 4) and origins (x 3),
+    flat, or ``None`` where its twins answer."""
     from azurkit.tools.characters import retarget
 
     at = {k: i for i, k in enumerate(ks)}
@@ -1030,13 +1047,7 @@ def _posed_at(rig: Rig, clip: Clip, ks: list[int], times: list[float]) -> list[d
     except KeyError:   # an ancestor left out: the twins'
         return None
     tracks = tuple(replace(tr, target=at[tr.target]) for tr in clip.bones if tr.target in at and 0 <= tr.comp <= 6)
-    got = retarget._engine(sub, Clip(clip.length, tracks, ()), times, True)
-    if got is None:
-        return None
-    world, origin = got
-    n = len(ks)
-    return [{k: (tuple(world[4 * (i * n + j):4 * (i * n + j) + 4]), tuple(origin[3 * (i * n + j):3 * (i * n + j) + 3]))
-             for j, k in enumerate(ks)} for i in range(len(times))]
+    return retarget._engine(sub, Clip(clip.length, tracks, ()), times, True)
 
 
 def _binomial(n: int) -> list[int]:
@@ -1123,97 +1134,32 @@ def keyed(rig: Rig, clip: Clip, placed: tuple[Placed, ...], keys: float, rate: f
         n = (n_keys - 1) * sub + 1
         chain = _chain(rig, pl.parent)
         times = [dtau * i for i in range(n)]
-        if (posed := _posed_at(rig, clip, chain, times)) is not None:
-            posed = [got[pl.parent] for got in posed]
-        else:
+        posed, flat_posed = None, _posed_flat(rig, clip, chain, times)
+        if flat_posed is None:
             at = _posed(rig, clip, chain)
             posed = [at(t) for t in times]
         bind = rig.world[pl.parent]
         sides = [_turn(qinv(bind), (pl.origin[0] + sign * pl.sides - home[pl.parent][0],
                                     pl.origin[1] - home[pl.parent][1], pl.origin[2] - home[pl.parent][2]))
                  for sign in (-1.0, 1.0)]
-        rel, anchors = [], ([], [])
-        for i in range(n):
-            w, o = posed[i]
-            rel.append(qmul(w, qinv(bind)))   # the parent turned from its bind, in the model
-            for s in range(2):
-                anchors[s].append(tuple(a + b for a, b in zip(o, _turn(w, sides[s]))))
         sigma = 1.0 / (2.0 * math.pi * SMOOTH_HZ * dt)
         kernel = _binomial(max(2, round(4.0 * sigma * sigma)))
-        drives = []
-        for s in range(2):
-            path_s = anchors[s]
-            if loop:   # close the seam by a line (no acceleration of its own), so it kicks the spring nowhere
-                gap = tuple(b - a for a, b in zip(path_s[0], path_s[-1]))
-                path_s = [tuple(c - gap[k] * i / (n - 1) for k, c in enumerate(q)) for i, q in enumerate(path_s)]
-            pts = _smooth(path_s, loop, kernel)
-            d = []
-            for i in range(n):
-                if loop:
-                    a0, a2 = pts[(i - 1) % (n - 1)], pts[(i + 1) % (n - 1)]
-                else:
-                    a0, a2 = pts[max(i - 1, 0)], pts[min(i + 1, n - 1)]
-                if not loop and (i == 0 or i == n - 1):
-                    acc = None
-                else:
-                    acc = tuple((x + z - 2.0 * y) / (dtau * dtau) for x, y, z in zip(a0, pts[i], a2))
-                d.append(acc)
-            if not loop:   # the ends hold their neighbours' (one-sided)
-                d[0], d[-1] = d[1] if n > 2 else (0.0, 0.0, 0.0), d[-2] if n > 2 else (0.0, 0.0, 0.0)
-            # in the parent's frame against its bind: gravity less the anchor's acceleration, less rest's sag
-            drive = []
-            for i in range(n):
-                acc = d[i] or (0.0, 0.0, 0.0)
-                inv = qinv(rel[i])
-                f = _turn(inv, (-jb.gain * acc[0], -jb.gain * acc[1], -jb.gain * acc[2]))
-                down = _turn(inv, (0.0, 0.0, -g))
-                u = (f[0] + jb.hang * down[0], f[1] + jb.hang * down[1], f[2] + jb.hang * (down[2] + g))
-                drive.append(u if jb.drive is None else _vlimit(u, jb.drive))
-            drives.append(drive)
-        state = [[(0.0, 0.0, 0.0), (0.0, 0.0, 0.0)] for _ in range(2)]
-        passes = 3 if loop else 1
-        path = [[None] * n for _ in range(2)]
-        for pas in range(passes):
-            for s in range(2):
-                x, v = state[s]
-                for i in range(n):
-                    if pas == passes - 1:
-                        path[s][i] = (x, v)
-                    if i == n - 1:
-                        break
-                    dv = tuple(drives[s][i][c] - omega * omega * x[c] - 2.0 * jb.damping * omega * v[c]
-                               for c in range(3))
-                    v = tuple(v[c] + dt * dv[c] for c in range(3))
-                    x = tuple(x[c] + dt * v[c] for c in range(3))
-                state[s] = [x, v]
-        if loop:   # the seam: the last pass's end is its start
-            for s in range(2):
-                path[s][-1] = path[s][0]
         span = 2.0 * pl.sides if pl.sides > 0 else 1.0
-        wide = max(math.sqrt(sum(fdlibm.sq((a + b) / 2.0) for a, b in zip(path[0][i][0], path[1][i][0])))
-                   for i in range(n))
-        turned = max(max(abs(path[0][i][0][2] - path[1][i][0][2]), abs(path[1][i][0][1] - path[0][i][0][1])) / span
-                     for i in range(n))
-        fit = min(1.0, jb.travel / wide if wide > jb.travel else 1.0, jb.turn / turned if turned > jb.turn else 1.0)
-        if fit < 1.0:   # the whole swing scaled to its stops, which the limits then cap at 1/sqrt(2) of them
-            path = [[(tuple(fit * c for c in x), v) for x, v in path[s]] for s in range(2)]
-
         release = 0.0 if loop else min(RELEASE * rate, 0.4 * length)
-
-        def pose_at(i: int):
-            (xl, _), (xr, _) = path[0][i], path[1][i]
-            k = 1.0
-            if release > 0.0 and dtau * i > length - release:   # a one-shot eases to rest by its end
-                u = (length - dtau * i) / release
-                k = u * u * (3.0 - 2.0 * u)
-            mean = tuple(k * c for c in _vlimit(tuple((a + b) / 2.0 for a, b in zip(xl, xr)), jb.travel))
-            roll = k * _limit((xl[2] - xr[2]) / span, jb.turn)
-            yaw = k * _limit((xr[1] - xl[1]) / span, jb.turn)
-            return mean, roll, yaw
-        values = [pose_at(i) for i in range(n)]
-        peaks[jb.role] = (max(math.sqrt(sum(c * c for c in m)) for m, _, _ in values),
-                          max(max(abs(r), abs(y)) for _, r, y in values))
-        flats.append((pl, [_flat(values[j * sub], pl, bind) for j in range(n_keys)], h, loop))
+        got = None if flat_posed is None else native.spring(
+            *flat_posed, len(chain), len(chain) - 1, n,
+            (*bind, *sides[0], *sides[1], *pl.rest, g, jb.gain, jb.hang, 0.0 if jb.drive is None else 1.0,
+             0.0 if jb.drive is None else jb.drive, omega, jb.damping, jb.travel, jb.turn, span, release, length,
+             dtau, dt), kernel, loop, sub, n_keys)   # the compiled kernel's (core.native); else its twin's
+        if got is None:
+            if posed is None:
+                world, origin, m = *flat_posed, len(chain)
+                posed = [(tuple(world[4 * (i * m + m - 1):4 * (i * m + m)]),
+                          tuple(origin[3 * (i * m + m - 1):3 * (i * m + m)])) for i in range(n)]
+            got = _spring(pl, posed, bind, sides, kernel, span, release, g, omega, loop, n, n_keys, sub, dtau, dt,
+                          length)
+        peaks[jb.role] = got[1]
+        flats.append((pl, got[0], h, loop))
     if clear is not None and set(clear.links) <= jiggles:
         _clear(rig, clip, clear, flats)
     for pl, flat, h, loop in flats:   # a turned link's sixth number its rotation's x (Step 2.154b)
@@ -1222,6 +1168,92 @@ def keyed(rig: Rig, clip: Clip, placed: tuple[Placed, ...], keys: float, rate: f
             made = _monotone([length * j / (n_keys - 1) for j in range(n_keys)], [f[c] for f in flat], h, loop)
             tracks.append(Track(pl.index, (0, 1, 2, 4, 5, 3)[c], made))
     return Clip(clip.length, (*clip.bones, *tracks), clip.markers), peaks
+
+
+def _spring(pl: Placed, posed: list, bind: Quat, sides: list, kernel: list[int], span: float, release: float,
+            g: float, omega: float, loop: bool, n: int, n_keys: int, sub: int, dtau: float, dt: float,
+            length: float) -> tuple[list, tuple]:
+    """:func:`keyed`'s spring of the placed bone ``pl`` past its parent's
+    pose at each step (``posed``): its keys' five numbers and its peaks
+    (``core.native.spring``'s twin)."""
+    jb = pl.bone
+    rel, anchors = [], ([], [])
+    for i in range(n):
+        w, o = posed[i]
+        rel.append(qmul(w, qinv(bind)))   # the parent turned from its bind, in the model
+        for s in range(2):
+            anchors[s].append(tuple(a + b for a, b in zip(o, _turn(w, sides[s]))))
+    drives = []
+    for s in range(2):
+        path_s = anchors[s]
+        if loop:   # close the seam by a line (no acceleration of its own), so it kicks the spring nowhere
+            gap = tuple(b - a for a, b in zip(path_s[0], path_s[-1]))
+            path_s = [tuple(c - gap[k] * i / (n - 1) for k, c in enumerate(q)) for i, q in enumerate(path_s)]
+        pts = _smooth(path_s, loop, kernel)
+        d = []
+        for i in range(n):
+            if loop:
+                a0, a2 = pts[(i - 1) % (n - 1)], pts[(i + 1) % (n - 1)]
+            else:
+                a0, a2 = pts[max(i - 1, 0)], pts[min(i + 1, n - 1)]
+            if not loop and (i == 0 or i == n - 1):
+                acc = None
+            else:
+                acc = tuple((x + z - 2.0 * y) / (dtau * dtau) for x, y, z in zip(a0, pts[i], a2))
+            d.append(acc)
+        if not loop:   # the ends hold their neighbours' (one-sided)
+            d[0], d[-1] = d[1] if n > 2 else (0.0, 0.0, 0.0), d[-2] if n > 2 else (0.0, 0.0, 0.0)
+        # in the parent's frame against its bind: gravity less the anchor's acceleration, less rest's sag
+        drive = []
+        for i in range(n):
+            acc = d[i] or (0.0, 0.0, 0.0)
+            inv = qinv(rel[i])
+            f = _turn(inv, (-jb.gain * acc[0], -jb.gain * acc[1], -jb.gain * acc[2]))
+            down = _turn(inv, (0.0, 0.0, -g))
+            u = (f[0] + jb.hang * down[0], f[1] + jb.hang * down[1], f[2] + jb.hang * (down[2] + g))
+            drive.append(u if jb.drive is None else _vlimit(u, jb.drive))
+        drives.append(drive)
+    state = [[(0.0, 0.0, 0.0), (0.0, 0.0, 0.0)] for _ in range(2)]
+    passes = 3 if loop else 1
+    path = [[None] * n for _ in range(2)]
+    for pas in range(passes):
+        for s in range(2):
+            x, v = state[s]
+            for i in range(n):
+                if pas == passes - 1:
+                    path[s][i] = (x, v)
+                if i == n - 1:
+                    break
+                dv = tuple(drives[s][i][c] - omega * omega * x[c] - 2.0 * jb.damping * omega * v[c]
+                           for c in range(3))
+                v = tuple(v[c] + dt * dv[c] for c in range(3))
+                x = tuple(x[c] + dt * v[c] for c in range(3))
+            state[s] = [x, v]
+    if loop:   # the seam: the last pass's end is its start
+        for s in range(2):
+            path[s][-1] = path[s][0]
+    wide = max(math.sqrt(sum(fdlibm.sq((a + b) / 2.0) for a, b in zip(path[0][i][0], path[1][i][0])))
+               for i in range(n))
+    turned = max(max(abs(path[0][i][0][2] - path[1][i][0][2]), abs(path[1][i][0][1] - path[0][i][0][1])) / span
+                 for i in range(n))
+    fit = min(1.0, jb.travel / wide if wide > jb.travel else 1.0, jb.turn / turned if turned > jb.turn else 1.0)
+    if fit < 1.0:   # the whole swing scaled to its stops, which the limits then cap at 1/sqrt(2) of them
+        path = [[(tuple(fit * c for c in x), v) for x, v in path[s]] for s in range(2)]
+
+    def pose_at(i: int):
+        (xl, _), (xr, _) = path[0][i], path[1][i]
+        k = 1.0
+        if release > 0.0 and dtau * i > length - release:   # a one-shot eases to rest by its end
+            u = (length - dtau * i) / release
+            k = u * u * (3.0 - 2.0 * u)
+        mean = tuple(k * c for c in _vlimit(tuple((a + b) / 2.0 for a, b in zip(xl, xr)), jb.travel))
+        roll = k * _limit((xl[2] - xr[2]) / span, jb.turn)
+        yaw = k * _limit((xr[1] - xl[1]) / span, jb.turn)
+        return mean, roll, yaw
+    values = [pose_at(i) for i in range(n)]
+    return ([_flat(values[j * sub], pl, bind) for j in range(n_keys)],
+            (max(math.sqrt(sum(c * c for c in m)) for m, _, _ in values),
+             max(max(abs(r), abs(y)) for _, r, y in values)))
 
 
 def _keyed_one(shared: tuple, job: tuple):
@@ -1378,7 +1410,14 @@ def _clear(rig: Rig, clip: Clip, col: Collider, flats: list) -> None:
     frames = []        # CLEAR_SUB a key's span: the body, its skin and the chain on its springs alone (their keys lerped)
     spans = [divmod(f, CLEAR_SUB) for f in range((n_keys - 1) * CLEAR_SUB + (0 if loop else 1))]
     times = [clip.length * (j + q / CLEAR_SUB) / (n_keys - 1) for j, q in spans]
-    every = _posed_at(rig, clip, at.order, times)   # each frame's body at once, compiled
+    every = _posed_flat(rig, clip, at.order, times)   # each frame's body at once, compiled
+    if every is not None and (got := _clear_compiled(rig, clip, col, flats, chain, at.order, every)) is not None:
+        for c, i in enumerate(chain):   # the compiled kernel's (core.native); else its twin's
+            if got[c] is not None:
+                pl, _, h, lp = flats[i]
+                flats[i] = (pl, got[c], h, lp)
+        return
+    every = None if every is None else _posed_dicts(every, at.order, len(times))
     for f, (j, q) in enumerate(spans):
         u = q / CLEAR_SUB
         posed = every[f] if every is not None else at(times[f])
@@ -1603,6 +1642,48 @@ def _clear(rig: Rig, clip: Clip, col: Collider, flats: list) -> None:
             new[-1], xs[-1] = new[0], xs[0]
         pl, _, h, lp = flats[i]
         flats[i] = (pl, [(*f, x) for f, x in zip(new, xs)], h, lp)
+
+
+def _clear_compiled(rig: Rig, clip: Clip, col: Collider, flats: list, chain: list[int], ks: list[int],
+                    posed: tuple) -> list | None:
+    """:func:`_clear`'s turned keys by the compiled kernel
+    (``core.native.clear``) from the body's bones ``ks`` posed at each
+    frame (:func:`_posed_flat`'s ``posed``): each link's keys' six numbers
+    where it turned, else ``None``; or ``None`` where its twin answers (no
+    library, a point set not as the kernel takes it, a bone it can't
+    pose, a number it raises on)."""
+    import numpy as np
+    from array import array
+
+    skin, tail = col.skin, col.tail
+    ns, nt = len(skin["B"]), len(tail["B"])
+    if not _fits((skin["B"], np.int64, (ns, 4)), (skin["W"], np.float64, (ns, 4)), (skin["U"], np.float64, (ns, 4, 3)),
+                 (skin["UN"], np.float64, (ns, 4, 3)), (tail["B"], np.int64, (nt, 4)), (tail["W"], np.float64, (nt, 4)),
+                 (tail["U"], np.float64, (nt, 4, 3)), (tail["target"], np.float64, (nt,)),
+                 (tail["owner"], np.int64, (nt,))):
+        return None
+    held = [np.ascontiguousarray(a) for a in (skin["B"], skin["W"], skin["U"], skin["UN"], tail["B"], tail["W"],
+                                              tail["U"], tail["target"], tail["owner"])]
+    links, n_keys, loop = col.links, len(flats[chain[0]][1]), flats[chain[0]][3]
+    at = {k: i for i, k in enumerate(ks)}
+    parent, pivot = rig.bones[links[0]].parent, col.pivot[0]
+    if parent not in at or pivot not in at:   # a bone it doesn't pose: the twin's KeyError
+        return None
+    slot = array("q", [at.get(k, -1) for k in range(len(rig.bones))])
+    try:
+        keys = array("d", [x for i in chain for key in flats[i][1] for x in key])
+        bone = array("d", [x for k in links for x in (*rig.bones[k].jo, *rig.bones[k].ra,
+                                                         *rig.world[rig.bones[k].parent])])
+        link = array("q", links)
+    except (TypeError, OverflowError):
+        return None
+    if len(keys) != 5 * n_keys * len(links) or len(bone) != 12 * len(links) or len(col.pivot[1]) != 3:
+        return None
+    return native.clear((len(links), n_keys, int(bool(loop)), int(bool(col.held)), len(ks), ns, nt, len(rig.bones),
+                         at[parent], at[pivot], CLEAR_SUB, CLEAR_STEPS, CLEAR_EASE, CLEAR_HOLD),
+                        (CLEAR_TURN, CLEAR_TOL, CLEAR_NEAR, CLEAR_DRAPE, CLEAR_DRAPE_RATE, CLEAR_REST, SKIN_REACH,
+                         SKIN_CELL, clip.length, *col.pivot[1]), slot, link, bone, *posed,
+                        tuple(_at(a) for a in held[:4]), tuple(_at(a) for a in held[4:]), keys)
 
 
 def _monotone(times: list[float], values: list[float], h: float, loop: bool) -> tuple:
