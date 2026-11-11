@@ -212,6 +212,17 @@ def browsers_dir(root: Path = ROOT) -> Path:
     return _tools(root) / "playwright"
 
 
+CHROMIUM = ("--in-process-gpu",)
+"""The arguments after its own of each Chromium the tests (``tests/conftest.py``) and the perf gate
+(``tests/_perf.py``) launch: its GPU runs in the browser's own process, so no GPU helper of its can be held apart from
+it. macOS's privacy checks (TCC) judge Chromium's GPU process on its own, as the program its folder holds, and these
+browsers live in the checkout's folder (``browsers_dir``), in the protected Documents folder here: while macOS's
+prompt for another headless shell of the same name stood unanswered on this Mac (6 min 43 s; 4 h 22 min), each test
+Chromium's GPU process launched inside it waited in its own Documents check until the prompt's answer, and every page
+of those browsers stopped answering at its engine's start (Step 4.37o). The browser's own process is judged as the
+program that started the tests, which may read the folder."""
+
+
 def _mac_host() -> str:
     """Playwright's host key on macOS 11 and later (its ``hostPlatform.ts``):
     ``mac<major>``, the major ``Darwin - 9`` up to Darwin 24 and

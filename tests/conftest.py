@@ -46,7 +46,10 @@
   under the launch's own prefs), so a request to a test's host never waits
   on the system's proxy settings, and on Windows' CI logs its requests,
   loads and hangs to a file (:data:`FIREFOX_LOG`), whose end a stalled call
-  prints (``tests/_page.py``'s ``stalled``).
+  prints (``tests/_page.py``'s ``stalled``). Every Chromium it launches runs
+  its GPU in the browser's own process (``scripts/web_tools.py``'s
+  ``CHROMIUM``), so no macOS privacy prompt standing for another program
+  holds a GPU helper of its apart.
 - Git finds a repository by the cwd alone: the variables that point it at
   one (``GIT_DIR``, which ``git rebase -x`` exports, and the rest of ``git
   rev-parse --local-env-vars``) are dropped, so a test's scratch repo is its
@@ -180,7 +183,22 @@ def _direct(launch):
     return direct
 
 
-FIREFOX_LOG = "timestamp,sync,nsHttp:3,DocumentChannel:4,ProcessHangMonitor:4"
+def _chromium(launch):
+    """Playwright's ``launch``, a Chromium one's arguments followed by those of :data:`web_tools.CHROMIUM` it lacks:
+    its GPU in the browser's own process, which no privacy prompt standing for another program holds apart."""
+    signature = inspect.signature(launch)
+
+    @functools.wraps(launch)
+    def chromium(*args, **kwargs):
+        bound = signature.bind(*args, **kwargs)
+        if getattr(bound.arguments["self"], "name", None) == "chromium":
+            given = list(bound.arguments.get("args") or ())
+            bound.arguments["args"] = [*given, *(arg for arg in web_tools.CHROMIUM if arg not in given)]
+        return launch(*bound.args, **bound.kwargs)
+    return chromium
+
+
+FIREFOX_LOG ="timestamp,sync,nsHttp:3,DocumentChannel:4,ProcessHangMonitor:4"
 """What each Firefox the tests launch on Windows' CI logs (Firefox's ``MOZ_LOG``), each to files of its own in this
 process's folder (:func:`firefox_logs`), as it happens: its requests, its documents' loads and its hang monitor. On
 GitHub's Windows runner Firefox held a page's first request about 37 s, its host never asked, the cause unshown (runs
@@ -216,7 +234,7 @@ def _logged(launch):
 
 
 for _name in ("launch", "launch_persistent_context"):   # the impl's: the sync and async APIs both call it
-    setattr(_BrowserType, _name, _headless_only(_direct(_logged(getattr(_BrowserType, _name)))))
+    setattr(_BrowserType, _name, _headless_only(_direct(_chromium(_logged(getattr(_BrowserType, _name))))))
 
 
 def pytest_sessionstart(session):

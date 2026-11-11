@@ -2574,10 +2574,12 @@ def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(m
 
 STOPPED = """import asyncio, json, sys, time
 from playwright.sync_api import sync_playwright
+from scripts import web_tools
 from tests import _page
 _page.HEAR = _page.PROBE = 1
-with sync_playwright() as playwright:
-    browser = getattr(playwright, sys.argv[1]).launch(headless=True)
+with sync_playwright() as playwright:   # a Chromium's GPU in its process, as conftest's launches have it
+    own = {"args": list(web_tools.CHROMIUM)} if sys.argv[1] == "chromium" else {}
+    browser = getattr(playwright, sys.argv[1]).launch(headless=True, **own)
     page = browser.new_page()
     page.context._impl_obj.cookies = lambda: asyncio.sleep(600)   # its browser answers nothing either
     said, at = [], [time.monotonic()]
@@ -2629,6 +2631,29 @@ def test_each_firefox_a_test_launches_takes_no_proxy_under_its_own_prefs():
     assert prefs("firefox", "launch_persistent_context", "profile", firefoxUserPrefs=own) == conftest.DIRECT | own
     assert [prefs("chromium"), prefs("webkit", firefoxUserPrefs=own)] == [None, own]
 
+
+@pytest.mark.web
+def test_a_chromium_page_starts_its_engine_while_its_gpu_helper_is_held(site):
+    """Step 4.37p (4.37o): a site page in a Chromium the tests launch starts its engine while a GPU helper process of
+    that Chromium is held at its start: each one runs its GPU in the browser's own process (``web_tools.CHROMIUM``),
+    so there is no helper to hold. macOS's privacy checks judge Chromium's GPU process on its own, and while another
+    headless shell's prompt for the Documents folder stood unanswered on this Mac every test Chromium's GPU process
+    started inside it waited in its own check, and each page of those browsers stopped answering at its engine's start
+    (six flakes of one gate, no answer in 238 s). Chromium's ``--gpu-startup-dialog`` holds a GPU helper at its start
+    as the prompt did (on macOS until a SIGUSR1)."""
+    from playwright.sync_api import sync_playwright
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("PLAYWRIGHT_BROWSERS_PATH", str(web_tools.browsers_dir()))
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True, args=["--gpu-startup-dialog"])
+            try:
+                served = Site(browser, site)
+                try:
+                    assert _page.answer(served.open(), "() => globalThis.azurkit.ready") is True
+                finally:
+                    served.close()
+            finally:
+                conftest.close_browser(browser)
 
 
 HELD = """const made = [];

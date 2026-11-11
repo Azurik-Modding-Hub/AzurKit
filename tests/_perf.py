@@ -2747,11 +2747,12 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
             d.memory = None if run.lag else memory   # the lag run's reads wait by design: not a busy machine's waits
             d.watch = memory
             engine = getattr(pw, run.browser)
-            browser = engine.launch(headless=True, downloads_path=str(scratch)) if run.host == "app" else None
+            own = {"args": list(web_tools.CHROMIUM)} if run.browser == "chromium" else {}   # its GPU in its process
+            browser = engine.launch(headless=True, downloads_path=str(scratch), **own) if run.host == "app" else None
 
             def launched(profile):   # the site's in a persistent context on a folder: an ephemeral one is WebKit's
                 made = engine.launch_persistent_context(str(profile), headless=True, accept_downloads=True,   # 1 GiB
-                                                        downloads_path=str(scratch))                        # no OPFS
+                                                        downloads_path=str(scratch), **own)                 # no OPFS
                 bounded(made, made._impl_obj.add_init_script(INIT), "the context's init script")
                 return made
 

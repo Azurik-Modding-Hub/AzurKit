@@ -88,6 +88,18 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Playwright keeps 127.0.0.1 in Firefox's proxy lookup, which on Windows
     asks WinINet before each request starts, and a page's first load there
     went unanswered past its 30 s with its request not yet sent.
+  - Each Chromium a test or the perf gate launches runs its GPU in the
+    browser's own process (`scripts/web_tools.py`'s `CHROMIUM`,
+    `--in-process-gpu`; `tests/conftest.py` adds it to every launch):
+    macOS's privacy checks (TCC) judge Chromium's GPU helper on its own, as
+    the headless shell the checkout's `.tools/` holds in the protected
+    Documents folder, and while macOS's prompt for another program of that
+    name stood unanswered, every test Chromium whose GPU helper started
+    inside it waited in that helper's own check, its pages stopped
+    answering at their engine's start (no answer in 238 s), and nothing
+    said why. On macOS a stalled call now names each privacy prompt that
+    stood since it began (`tests/_page.py`'s `stalled`,
+    `scripts/ci_resources.py`'s `privacy_asked`).
   - On Windows' CI each Firefox a test launches logs its requests, loads
     and hangs to files of its own in the runner's temporary folder
     (`tests/conftest.py`'s `FIREFOX_LOG`, Firefox's `MOZ_LOG`), and a
