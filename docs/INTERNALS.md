@@ -989,7 +989,8 @@ are the Characters section's.
     asks that stand on its dress reach it: one heap swapped it to B for
     Build's build ahead, and the Colours tab and the Shape tab's preview
     then asked a fresh F, which refused them; B's heavy job ahead waits
-    instead while that F's heap is the bigger.
+    instead while that F's heap is the bigger, and the light ones listed
+    after it (the seed's plan) go on.
     A Check of what it
     checked last, unchanged (`sdk._check_key`, by content), answers at
     once, and a dress kept before (`characters.cache_key`; the site's

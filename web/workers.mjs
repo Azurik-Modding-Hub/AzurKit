@@ -10,7 +10,8 @@
 // shrinks, and WebKit keeps a terminated worker's pages resident while a new worker's heap grows beside them, so the
 // worker a job grew stays and runs the next heavy job, a click's or one ahead (the two swap places for it: oneHeap()),
 // but never an F that keeps a Check (KEEPS: the asks after it stand on its dress), whose place B's heavy job ahead
-// waits for instead; only one whose heap reaches GROWN after a job (or reports none after a heavy one) is replaced.
+// waits for instead (its light ones go on); only one whose heap reaches GROWN after a job (or reports none after a
+// heavy one) is replaced.
 // When F must go (GROWN, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time,
 // and B's work ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead (an
 // idle B stays: terminated, its pages would stay resident in WebKit and its next load add its own, r1). B starts no
@@ -363,15 +364,17 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     if (total() >= tally && b && !b.job) dropB("retired");
     if (!b && !noB && f?.loaded && !heavyF() && total() + base < tally) b = spawn("b");
     if (!b?.loaded || b.job || heavyF() || total() >= tally) return;
-    const wait = changed + Math.max(settle, next()?.heavy ? resting : 0) - now();
+    // One heap: B's heavy job ahead waits for F to swap out, not beside F's; while F keeps a Check in the bigger heap it
+    // waits for that F to go, and the light items listed after it (the seed's plan) go on meanwhile.
+    const hold = f?.keeps && bigger(f, b);
+    const item = hold ? list.find((i) => !i.heavy && !kept.has(i.key) && !taken.has(i.key)) : next();
+    const wait = changed + Math.max(settle, item?.heavy ? resting : 0) - now();
     if (wait > 0) {
       clearTimeout(timer);
       timer = setTimeout(pump, wait);
       return;
     }
-    const item = next();
-    if (item?.heavy && (f?.job || f?.keeps) && bigger(f, b)) return;   // one heap: it waits for F to swap out (or a
-                                                                         // keeping F to go), not beside F's
+    if (item?.heavy && f?.job && bigger(f, b)) return;
     if (item) {
       run(b, { message: item.message, transfer: item.transfer, key: item.key, heavy: Boolean(item.heavy),
                ends: item.ends ?? last, kept: item.kept, ahead: true, adopted: false, messages: [], record: null,
