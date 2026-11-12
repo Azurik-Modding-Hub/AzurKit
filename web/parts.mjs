@@ -36,6 +36,19 @@ const parted = (mode, fn) => new Promise((resolve) => {
   };
 });
 
+// Each Uint8Array among values (an object's) let go of in this thread now, not at a GC: once IndexedDB holds its clone
+// (put() clones a value as it is called) or the engine its copy. The worker, idle between Checks, gets a GC late or not
+// at all, and WebKit keeps a freed copy's pages resident: a Check's dress and parts, kept and offered, left about
+// 0.35 GiB a Check in the capped WebKit Variants pass, past its 6 GiB line (Step 4.37e5). Only a view of its whole
+// buffer is let go (never one of wasm's heap); a browser without ArrayBuffer's transfer() leaves them to a GC.
+export const freed = (values) => {
+  for (const bytes of Object.values(values ?? {})) {
+    try {
+      if (bytes?.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) bytes.buffer.transfer?.(0);
+    } catch {}   // a buffer that can't be let go of is a GC's
+  }
+};
+
 // {key: bytes} kept for hint (none: {}).
 export const partsOf = (hint) => parted("readonly", (hints, stored) => {
   const found = {}, listed = hints.get(hint);
@@ -48,10 +61,11 @@ export const partsOf = (hint) => parted("readonly", (hints, stored) => {
   return found;
 });
 
-// hint's Check took the parts keyed taken (each kept already) and worked out made ({key: bytes}): those its record
-// lists from now on, it the most recently kept.
+// hint's Check took the parts keyed taken (each kept already) and worked out made ({key: bytes}, each let go of here
+// once kept): those its record lists from now on, it the most recently kept.
 export const keepParts = (hint, made, taken) => parted("readwrite", (hints, stored) => {
   for (const [key, bytes] of Object.entries(made)) stored.put(bytes, key);
+  freed(made);   // IndexedDB holds their clones
   const kept = [], walk = hints.openCursor();
   walk.onsuccess = () => {
     if (walk.result) {

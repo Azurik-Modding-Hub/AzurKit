@@ -61,10 +61,12 @@ function md5(bytes) {
 // of the HASHERS is: the run whose read it awaits (its number and offset), its digests or done, so a check that stalls
 // says which await it waits on (Step 4.3r4t). A hash no ask waits on (worker.mjs's rest of an image) gives way
 // (yields: an async () => > 0 to wait, dressed() in a browser): while it says so, no lane starts a read, each
-// digests what it has in flight and then waits; once it gave way it goes on with one run in flight (one lane's, none
-// ahead), as the page then holds what it gave way to (a dress's heap, which wasm never gives back): its runs never sit
-// on top of a dress, during it or after (Step 4.4ci25). Once an ask waits on it (yields says < 0: a Save, WAITED) it
-// reads as that ask's own hash would, every lane again (widen()), and gives way no more while it does.
+// digests what it has in flight and then waits; it reads with one run in flight (one lane's, none ahead) from its
+// start, not only once it gave way, as the page holds or will hold what it gives way to (a dress's heap, which wasm
+// never gives back): its runs never sit on top of a dress, during it or after (Step 4.4ci25), and WebKit keeps what
+// its reads held at once resident (the capped Variants pass 0.15 GiB lower, Step 4.37e5). Once an ask waits on it
+// (yields says < 0: a Save, WAITED) it reads as that ask's own hash would, every lane again (widen()), and gives way
+// no more while it does.
 export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}, ahead = 0,
                              yields = null) {
   const runs = [];
@@ -93,7 +95,7 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
     reading.catch(() => {});   // awaited in its turn; a lane that throws first leaves its next one unawaited
     mine.push({ run, k: count - runs.length, reading });
   };
-  let narrow = false;   // it gave way: one run in flight from then on, lane 0's, until an ask waits on it
+  let narrow = false;   // one run in flight, lane 0's (a hash no ask waits on, or one that gave way), till an ask waits
   const given = async (lane) => {   // once nothing it gives way to runs; its last say
     narrow = true;
     let say;
@@ -151,7 +153,11 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
     going.catch(() => {});   // awaited below, but one may throw while an earlier one is awaited
     pumps.push(going);
   };
-  if (yields && await yields() > 0 && await given(0) < 0) narrow = false;
+  if (yields) {   // a hash no ask waits on: one run in flight from its start, every lane once an ask waits on it
+    let say = await yields();
+    if (say > 0) say = await given(0);
+    narrow = !(say < 0);
+  }
   if (narrow) take(taken[0]);
   else for (let k = 0; k <= ahead; k++) taken.forEach(take);   // runs 1..HASHERS first, one a lane
   taken.forEach((_, lane) => pump(lane));

@@ -51,7 +51,7 @@
 //      carries the engine's heap then (undefined where Pyodide hides it), which the page's two workers count (workers.mjs).
 import { DRESSING, hashed, hashedApart, md5Ready } from "./hasher.mjs";
 import { text } from "./memo.mjs";
-import { keepParts, partsHint, partsOf } from "./parts.mjs";
+import { freed, keepParts, partsHint, partsOf } from "./parts.mjs";
 import { PREFIX } from "./outputs.mjs";
 
 const base = new URL("./", import.meta.url);
@@ -159,6 +159,10 @@ BARRED = ("variant_check", "variant_preview", "variant_rows", "export_pngs")   #
 
 def handed(value):
     if isinstance(value, (bytes, bytearray, memoryview)):
+        # a bytes object's (or a view of a whole one's) one copy, read from the heap where it lies (placed()): written
+        # to a file and read back, each piece of a Check's kept dress was two copies left to a GC (Step 4.37e5)
+        if (at := placed(value)) is not None and hasattr(browser, "azurkitCopy"):
+            return browser.azurkitCopy(at, len(value) if type(value) is bytes else value.nbytes)
         with open(PIECE, "wb") as f:
             f.write(value)
         try:
@@ -603,7 +607,11 @@ function readInBlocks(FS) {
         } catch {
           throw unread();
         }
-        if (cache.size >= keep) cache.delete(cache.keys().next().value);
+        if (cache.size >= keep) {
+          const oldest = cache.keys().next().value, gone = cache.get(oldest);
+          cache.delete(oldest);
+          if (unit === BLOCK) freed([gone]);   // this cache's alone: let go of now, not at a GC (Step 4.37e5)
+        }
       }
       cache.set(index, data);
       const from = at - index * unit, n = Math.min(end - at, data.length - from);
@@ -1048,8 +1056,8 @@ function vouched(loaded, file, id, kept) {
       if (last?.id === id && last.rest) return;   // another hashed it first
       const told = (done, total) => self.postMessage({ type: "resting", id, done, total });
       told(0, rest.files.reduce((n, [, , size]) => n + size, 0));
-      try {
-        const digests = await hashedApart(file, rest.files, told, undefined, undefined, true);   // gives way
+      try {   // in the check's runs, one in flight till a Save waits on it: the page 0.4-0.5 GiB lower (Step 4.37e5)
+        const digests = await hashedApart(file, rest.files, told, CHECK_RUN, undefined, true);   // gives way
         await stamps("readwrite", (store) => {
           const last = store.get("last");
           last.onsuccess = () => last.result?.id === id && store.put({ ...last.result, rest: digests }, "last");
@@ -1135,6 +1143,8 @@ async function checked({ py, engine }, data) {
     parted && partsOf(parted).catch(() => null)]);
   const reply = mounted(py, data.file, (iso) => engine({ ...data, iso, ...(offered ? { kept: offered } : {}),
                                                          ...(parts && Object.keys(parts).length ? { parts } : {}) }));
+  freed(offered);   // the engine copied what it was offered into its heap as the call began (Step 4.37e5)
+  freed(parts);
   post({ type: "reply", call: data.call, reply });
   try {
     const { made, taken } = engine({ type: "parts" });
@@ -1270,6 +1280,7 @@ const keep = (hint, kept) => dresses("readwrite", (store) => {   // kept null: a
     for (const old of hints.splice(0, Math.max(0, hints.length - DRESSES))) store.delete(old);
     store.put(hints, ORDER);
     if (kept) store.put(kept, hint);
+    freed(kept);   // IndexedDB holds its clone (Step 4.37e5)
   };
   return order;
 });
@@ -1296,6 +1307,7 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
       ...(files ? { files } : {}),
       ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}),
       ...(community ? { community } : {}) } });
+    freed(offered);   // the engine copied the dress offered into its heap as the call began (Step 4.37e5)
     while (composed.ahead) {
       await reads.spans(file, ids.get(file) ?? file, composed.ahead).catch(() => null);   // a hint: a failed read is the engine's
       composed = engine({ type: "ahead" });
@@ -1342,6 +1354,7 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
 try {
   const loaded = await load();
   heap = () => loaded.py._module?.HEAPU8?.length;
+  self.azurkitCopy = (at, size) => loaded.py._module.HEAPU8.slice(at, at + size);   // handed()'s one copy
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   // The Characters tab's asks that stand on no image overtake an image's check (a player's Install lists its variants
   // now): the check's waits are the File's and WebCrypto's, the engine idle. They keep their own order (behind: those

@@ -2802,10 +2802,11 @@ const source = { slice: (start, end) => ({ arrayBuffer: async () => {
     return blob.slice(start, end).arrayBuffer();
 } }) };
 const seen = [];
-for (const [yields, save] of [[true, false], [false, false], [true, true]]) {   // the rest of an image (worker.mjs's
-    reads = whileDressed = most = steps.length = 0;   // vouched()); an image's check, a Save's; the rest a Save waits on
-    saving = save;
-    dressedFor(200);   // and one before it starts
+for (const [yields, save, before] of [[true, false, true], [false, false, true], [true, true, true],
+                                      [true, false, false]]) {   // the rest of an image (worker.mjs's vouched()); an
+    reads = whileDressed = most = steps.length = 0;   // image's check, a Save's; the rest a Save waits on; the rest
+    saving = save;                                    // with no dress before it starts
+    if (before) dressedFor(200);   // and one before it starts
     const { digests } = await new Promise((answer) => {
         settle = answer;
         self.onmessage({ data: { source, rows: files, longest: 1 << 10, yields } });
@@ -2824,18 +2825,21 @@ def test_an_images_rest_hashed_in_the_background_gives_way_to_a_dress_until_a_sa
     """Step 4.4ci25: ``web/hashworker.mjs`` under Node, as in Safari, over a slow source. The rest of an image, hashed
     after its pick for a later Save (``worker.mjs``'s vouched()), gives way to a character's dress (an ask that carries
     one holds ``DRESSING``, which ``navigator.locks`` shows): it starts no read while one is held, before it starts or
-    once it has begun, and from then on keeps one read in flight, as the page holds the dress's heap after it (wasm's
-    never shrinks). Its six runs in flight on top of keylord's build took the kept-dress test's WebKit page from
-    1.7-1.8 to 2.7-2.9 GiB at its peak (Chromium's 2.0-2.3 to 2.5-2.6), and given way to the build only, to 2.3-2.4
-    GiB as it went on after it. An image's check (the pick, Verify, a Save's) never waits and reads six at once. Once a
-    Save waits on the rest (``app.mjs`` holds ``WAITED``, Step 4.4stack2) it is that Save's hash: it reads beside a dress
-    and six at once again, its lanes that ended started again. The digests are the same."""
+    once it has begun, and keeps one read in flight, as the page holds the dress's heap after it (wasm's never
+    shrinks); so it does from its start where no dress came before it, as WebKit keeps what its reads held at once
+    resident (Step 4.37e5: the capped WebKit Variants pass 0.15 GiB lower). Its six runs in flight on top of keylord's
+    build took the kept-dress test's WebKit page from 1.7-1.8 to 2.7-2.9 GiB at its peak (Chromium's 2.0-2.3 to
+    2.5-2.6), and given way to the build only, to 2.3-2.4 GiB as it went on after it. An image's check (the pick,
+    Verify, a Save's) never waits and reads six at once. Once a Save waits on the rest (``app.mjs`` holds ``WAITED``,
+    Step 4.4stack2) it is that Save's hash: it reads beside a dress and six at once again, its lanes that ended started
+    again. The digests are the same."""
     run = subprocess.run(["node", "--input-type=module", "--eval", GIVES_WAY % json.dumps(
         (site / "hashworker.mjs").as_uri())], capture_output=True, text=True, timeout=120)
     assert run.returncode == 0, run.stderr[-2000:]
-    rest, check, waited = json.loads(run.stdout)
+    rest, check, waited, undressed = json.loads(run.stdout)
     assert rest == [0, True, 1, True] and check[0] > 0 and check[1:] == [False, 6, True], (rest, check)
     assert waited == [12, True, 6, True], waited
+    assert undressed == [0, True, 1, True], undressed
 
 
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
@@ -6279,6 +6283,36 @@ def test_a_browser_keeps_a_checks_parts_by_its_recipes_content_and_offers_them_t
         page = served.open()
         assert page.evaluate(PARTS_KEPT) == [True, False, ["a", "b"], [["a", [1]], ["c", [3]]], [],
                                              [f"k{k}" for k in range(8)]]
+    finally:
+        served.close()
+
+
+PARTS_FREED = """async () => {   // parts.mjs: a Check's parts kept, offered back and taken; freed() on views of a heap
+    const { freed, keepParts, partsHint, partsOf } = await import("/parts.mjs");
+    const hint = partsHint("usa", { name: "freed" }), made = { a: new Uint8Array([1, 2]), b: new Uint8Array([3]) };
+    await keepParts(hint, made, []);
+    const sizes = (held) => Object.values(held).map((bytes) => bytes.byteLength);
+    const kept = sizes(made), offered = await partsOf(hint);
+    const back = Object.entries(offered).map(([key, bytes]) => [key, [...bytes]]).sort();
+    freed(offered);   // the engine took its copies (checked())
+    const heap = new Uint8Array(new WebAssembly.Memory({ initial: 1 }).buffer), other = new Uint8Array([4, 5, 6]);
+    heap[0] = 7;
+    freed({ heap, part: other.subarray(1) });
+    return [kept, back, sizes(offered), [heap.byteLength, heap[0], [...other]]];
+}"""
+
+
+def test_what_a_check_keeps_in_this_browser_is_let_go_of_once_indexeddb_holds_it_and_comes_back_whole(browser, site):
+    """Step 4.37e5: ``web/parts.mjs``'s freed(), which the engine's worker calls on a Check's parts and dress once
+    IndexedDB holds their clones, on the dress and parts offered once the engine copied them into its heap, and on each
+    16 MiB block of the image its read cache lets go: each copy's memory is let go of then, not at a GC, which the
+    worker, idle between Checks, gets late or never, WebKit keeping a freed copy's pages resident (about 0.35 GiB a
+    Check: the capped WebKit Variants pass at 6.6-9.1 GiB, over its 6 GiB line). Parts kept are let go of and come
+    back whole; a view of a heap (wasm's, or part of another's buffer) is never let go of."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        assert page.evaluate(PARTS_FREED) == [[0, 0], [["a", [1, 2]], ["b", [3]]], [0, 0], [65536, 7, [4, 5, 6]]]
     finally:
         served.close()
 
