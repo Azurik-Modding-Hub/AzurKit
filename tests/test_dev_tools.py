@@ -1788,6 +1788,82 @@ def test_the_perf_gate_judges_a_pages_first_sample_against_the_releases_first_an
     assert run([28.0, 18.9, 18.8]) == ([3, 6, 9], {"median": 18.9, "reference": 18.877, "slower": False})
 
 
+def test_the_perf_gate_times_the_releases_tree_beside_an_op_that_reads_slower_and_judges_it_against_that(
+        tmp_path, monkeypatch):
+    """The release's tree beside (Step 4.47e): an op slower than the
+    release's receipt has the release's commit (a git archive of the
+    receipt's head, built as the worktree's) timed beside it, page for page,
+    the sides alternating, and D1170's line holds the head's pages there to
+    the release's there, each place to its own: a busy box that slows both
+    passes, the case holding both sides; a head slower than the release
+    beside it takes a second round and blocks by name; an op not slower
+    than the receipt drives no release page; a release side that errs
+    leaves the receipt's verdict, after today's re-run, and says so."""
+    from azurkit.core import gate
+    from scripts import web_tools
+
+    monkeypatch.setattr(perf.signal, "signal", lambda *_: None)
+    monkeypatch.setattr(perf, "R", perf.R)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    repo = tmp_path / "repo"
+    (repo / "tests").mkdir(parents=True)
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    (repo / perf.CEILINGS).write_text(perf.render(perf.listed(None)), encoding="utf-8")
+    for name in perf.RELEASE_TREE:
+        (repo / name / "x" if "." not in name and name != "LICENSE" else repo / name).parent.mkdir(exist_ok=True)
+        (repo / name / "x" if "." not in name and name != "LICENSE" else repo / name).write_text("1.0", "utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "the release")
+    released = _git(repo, "rev-parse", "HEAD")
+    (repo / "README.md").write_text("main", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "main")
+    image = types.SimpleNamespace(stat=lambda: types.SimpleNamespace(st_size=gate.USA.iso_size))
+    monkeypatch.setattr(gate, "find", lambda release: image)
+    monkeypatch.setattr(web_tools, "wheel", lambda out, root: root / "wheel")
+    monkeypatch.setattr(_perf, "venv", lambda wt, folder, wheel: f"{wheel.parent.name}'s python")
+    monkeypatch.setattr(perf, "native_failures", lambda *_: [])
+    seconds = {"head": {"A12": 8.0, "A13": 2.5, "A14": 4.0, "A21": 4.0},   # A21: a busy box slows both sides
+               "release": {"A12": 4.0, "A13": 2.5, "A14": None, "A21": 3.9}}   # A14: the release's can't drive it
+    asked, trees = [], set()
+
+    def drive(wt, spec, todo, iso, content, site, python):   # as _perf.Driver: one page a call, its first first
+        side = "release" if wt.name == "tree" else "head"
+        trees.add((side, (wt / "README.md").read_text(encoding="utf-8"), python))
+        asked.append((side, dict(todo)))
+        return {"samples": {op: [{"s": seconds[side][op] or 0.0, "bar": 2, "progress": True, "first_on_page": i == 0}
+                                 | ({"error": "its page never came"} if seconds[side][op] is None else {})
+                                 for i in range(n)] for op, n in todo.items()}, "log": []}
+    monkeypatch.setattr(_perf, "drive", drive)
+    receipt = tmp_path / "suite-release.meta"
+    receipt.write_text(json.dumps({"head": released, "perf": {"cases": {
+        f"{op}/app": {"samples": [2.0] * 3, "median": 2.0} for op in ("A12", "A13", "A14", "A21")}}}), encoding="utf-8")
+    assert perf.main([str(repo), "--select", "app:build", "--ops", "A12,A13,A14,A21", "--profiles", "app",
+                      "--reference", str(receipt), "--json", str(tmp_path / "perf.json")]) == 1
+    block = json.loads((tmp_path / "perf.json").read_text(encoding="utf-8"))
+    pages = [{"A12": 1, "A21": 3}] * 3
+    assert asked == [("head", dict.fromkeys(("A12", "A13", "A14", "A21"), 1)),
+                     ("head", dict.fromkeys(("A12", "A13", "A14", "A21"), 2)),
+                     ("release", {"A12": 1, "A14": 1, "A21": 3}), ("head", pages[0]),
+                     ("head", pages[1]), ("release", pages[1]), ("release", pages[2]), ("head", pages[2]),
+                     *[(side, {"A12": 1}) for side in ("head", "release", "release", "head", "head", "release")],
+                     ("head", {"A14": 3})]
+    assert trees == {("head", "main", "repo's python"), ("release", "1.0", "tree's python")}
+    cases = block["cases"]
+    assert "beside" not in cases["A13/app"] and cases["A13/app"]["verdict"] == "pass"
+    assert (cases["A21/app"]["slower"], cases["A21/app"]["verdict"], cases["A21/app"]["beside"]) == (False, "over", {
+        "head": {"first": [4.0] * 3, "later": [4.0] * 6}, "release": {"first": [3.9] * 3, "later": [3.9] * 6},
+        "places": {"first": {"head": 4.0, "release": 3.9, "slower": False},
+                   "later": {"head": 4.0, "release": 3.9, "slower": False}}, "slower": False})
+    assert cases["A21/app"]["places"]["first"]["slower"] is True   # the receipt alone would have blocked it
+    assert cases["A12/app"]["beside"]["head"] == {"first": [8.0] * 6} and cases["A14/app"]["samples"] == [4.0] * 6
+    assert block["failures"] == [
+        "A12/app: slower than the release's tree timed beside it (8.0 s against 4.0 s at its first sample on a page, "
+        "over its 3.0 s budget and the release's by 25% and 0.5 s: D1170; its receipt: 2.0 s)",
+        "A14/app: slower than the release's 2.0 s at its first sample on a page (4.0 s, over its 3.0 s budget and the "
+        "release's by 25% and 0.5 s: D1170); the release's tree beside it: the release's tree: its page never came"]
+    assert block["reference"]["beside"] is True and land.perf.blocks(cases["A12/app"])
+
+
 def test_a_changed_areas_perf_run_times_an_op_once_under_1_s_and_mains_run_of_every_op_three_times(tmp_path,
                                                                                                     monkeypatch):
     """P4 (D1215): a changed area's perf run (``--select``) takes one sample

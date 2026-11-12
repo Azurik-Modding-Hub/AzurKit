@@ -438,7 +438,8 @@ def _ship_database(out: Path, path: Path | None = None, planner: bool = True) ->
     return Path(done.stdout.strip())
 
 
-def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path | None = None) -> Path:
+def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path | None = None,
+         tools: Path | None = None) -> Path:
     """The site in the new folder ``out``: ``web/``'s files, Pyodide's
     core in ``pyodide/``, the wheel (``built``, else built now) and
     ``host.json``, which tells the page its engine is the site's and names
@@ -457,7 +458,9 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     :func:`release` on its :data:`RELEASE_LINE`, and the page's CSP, from
     ``web/index.html``, in it, each checked first too. Each file is new here, with today's time, not its source's: the
     site is often in a temp folder, and macOS's daily sweep (dirhelper, 03:35) deletes what looks 3 days old there, which
-    would be Pyodide's core, its release's times, under a page still being served (run 41372636477's 42 failures)."""
+    would be Pyodide's core, its release's times, under a page still being served (run 41372636477's 42 failures).
+    Pyodide's core comes from the ``.tools`` of the checkout ``tools`` is in (default ``root``): a tree
+    that is no checkout, the perf gate's release beside its worktree (Step 4.47e), names its worktree."""
     published = {} if content is None else content_files(content)
     worker, page = root / "web" / WORKER, root / "web" / "index.html"
     if (lines := (worker := worker.read_text(encoding="utf-8")).count(RELEASE_LINE)) != 1:
@@ -468,9 +471,9 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     if lost := [rel for rel in published if not (shelf / rel).resolve().is_relative_to(shelf)]:
         raise SystemExit(f"content {content}: {lost[0]} would land outside {shelf}")
     shutil.copytree(root / "web", out, copy_function=shutil.copy)
-    if lost := missing(root):
+    if lost := missing(tools or root):
         raise SystemExit(f"Pyodide {VERSION} lacks {', '.join(lost)}: run `uv run bootstrap.py`")
-    shutil.copytree(pyodide_dir(root), out / "pyodide", copy_function=shutil.copy)
+    shutil.copytree(pyodide_dir(tools or root), out / "pyodide", copy_function=shutil.copy)
     with tempfile.TemporaryDirectory(prefix="azurkit-site.") as tmp:   # not in out: uv build leaves a .gitignore beside
         built = shutil.copy(built or wheel(Path(tmp), root), out)      # the wheel, and Pages' artifact drops dotfiles
     digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()

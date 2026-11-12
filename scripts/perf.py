@@ -49,6 +49,21 @@ Check is, or a later one there), and each place is judged against the
 release's same place (:func:`reference_of` reads an untagged release's as it
 took them), so how many of an op's samples were a page's first moves no
 verdict; the re-run then leaves each place :data:`R` samples at least.
+The release's tree beside (Step 4.47e): an op that reads slower than that run
+has the release's own commit (the receipt's ``head``: a ``git archive`` of
+it, its wheel, site and app built as the worktree's) timed beside it in the
+same stage, page for page, the two sides alternating (:func:`pair`, in
+place of the re-run), and its regression verdict holds the head's samples
+taken there to the release's taken there, each place to its own (the
+case's ``beside``), the same line: over its budget and over the release's
+by more than both :data:`REGRESSION` and :data:`REGRESSION_S`; one still
+slower after :data:`R` pages a side takes R more, and is judged on all of
+them. The receipt's verdict stands where the release's tree can't be built
+or driven (its ``beside`` says why). The box a gate runs on moves through
+an hour (a Save's sample is the browser's write of a 2.8 GB download; a
+Check's, the cores a nice-10 process gets), so only the release timed in
+the same minutes tells a slower product from a busier box; nothing of the
+release's side enters the native check, a memory peak or ``--keep``.
 D982's first-time ops
 (an image's first identity check, the site's first engine load) may pass
 their budget only with a moving bar (the progress element seen at 2 or more
@@ -139,6 +154,9 @@ REACH = (*((path, ("app", "site"), None) for path in ("tests/_perf.py", "tests/_
 GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")   # tests/_perf.py's
 NATIVE = "src/azurkit/core/_native"   # the compiled kernels' libraries a worktree ships (core/native.py)
 SIDE_MODULE = "emscripten-wasm32.so"  # the site's (its Pyodide's); the app's is this machine's, core.native.target()
+#: What of the release's commit its tree beside is made from (Step 4.47e): the wheel's inputs (``web_tools.wheel``'s
+#: key), the site's ``web/`` and the lock its app's venv installs from
+RELEASE_TREE = ("src", "web", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "NOTICE.md")
 
 
 def select(paths: list[str]) -> set[tuple[str, str]]:
@@ -205,7 +223,8 @@ def regression(median: float, reference: float | None, budget: float) -> bool:
 
 
 def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt: bool = False,
-          bar: bool = False, browser_bar: bool = False, reference: float | dict | None = None) -> dict:
+          bar: bool = False, browser_bar: bool = False, reference: float | dict | None = None,
+          beside: dict | None = None) -> dict:
     """One op's verdict in one context from its samples (``{"s", "bar",
     "progress"[, "page"][, "froze"][, "error"]}``): ``pass``, ``listed`` (over its
     budget, within its ceiling), ``bar`` (D982: over 3 s with a moving bar), ``over``
@@ -223,6 +242,15 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     (:func:`placed`), each place both hold is judged so on its own median
     (the case's ``places``), and the op is ``slower`` when one is, so how
     many of its samples were a page's first can't move the verdict.
+    The release's tree beside (Step 4.47e): with ``beside`` (:func:`pair`:
+    ``{"head": {place: seconds}, "release": {place: seconds}}``, the two
+    sides' samples taken page for page in one stage), ``slower`` is
+    :func:`regression` of the head's median there against the release's
+    there, each place both hold on its own (the case's ``beside`` gains
+    their ``places`` and ``slower``); everything else, ``places`` against
+    the stored reference too, is judged on all the samples as before. A
+    ``beside`` of ``{"error"}`` (the release's tree unbuilt or undriven)
+    leaves the stored reference's verdict standing, and the case says why.
     A ``browser_bar`` op's sample (a download) shows progress when
     its page part, ``"page"``, is within 1 s: the browser's own bar shows its
     write; the case keeps the page parts. A sample the driver tagged
@@ -265,6 +293,15 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
         slower = any(v["slower"] for v in out["places"].values())
     else:
         slower = regression(median, whole, budget)
+    if beside is not None:
+        out["beside"] = dict(beside)
+        both = [p for p in (*PLACES, "all") if beside.get("head", {}).get(p) and beside.get("release", {}).get(p)]
+        if both and "error" not in beside:
+            out["beside"]["places"] = {p: {"head": round(statistics.median(beside["head"][p]), 3),
+                                           "release": round(statistics.median(beside["release"][p]), 3)} for p in both}
+            for v in out["beside"]["places"].values():
+                v["slower"] = regression(v["head"], v["release"], budget)
+            slower = out["beside"]["slower"] = any(v["slower"] for v in out["beside"]["places"].values())
     return out | {"verdict": verdict, "ok": not slower, "slower": slower, "debt": verdict in DEBTS or bool(froze)}
 
 
@@ -286,10 +323,19 @@ def blocking(block: dict | None) -> list[str]:
         return ["its perf stage is deferred to its batch's (fullsuite.py --perf-later, D1215)"]
     if "cases" not in block:
         return [] if block.get("passed") is True else list(block.get("failures") or ["no perf verdicts"])
-    out = ["; ".join(f"{k}: slower than the release's {v['reference']} s" + (f" at {PLACES[p]}" if p else "")
-                     + f" ({v['median']} s, over its {r['budget']} s budget and the release's by {REGRESSION:.0%} and "
-                     f"{REGRESSION_S} s: D1170)"
-                     for p, v in [(p, v) for p, v in r.get("places", {}).items() if v["slower"]] or [(None, r)])
+    def stored(r: dict, p: str) -> float | None:   # the receipt's figure for a place
+        return r.get("places", {}).get(p, {}).get("reference", r.get("reference"))
+    out = ["; ".join(f"{k}: slower than the release's tree timed beside it ({v['head']} s against {v['release']} s"
+                     f" at {PLACES.get(p, 'every sample')}, over its {r['budget']} s budget and the release's by "
+                     f"{REGRESSION:.0%} and {REGRESSION_S} s: D1170; its receipt: {stored(r, p)} s)"
+                     for p, v in r["beside"]["places"].items() if v["slower"])
+           if r.get("slower") and (r.get("beside") or {}).get("slower")
+           else "; ".join(f"{k}: slower than the release's {v['reference']} s" + (f" at {PLACES[p]}" if p else "")
+                          + f" ({v['median']} s, over its {r['budget']} s budget and the release's by {REGRESSION:.0%}"
+                          f" and {REGRESSION_S} s: D1170)"
+                          + (f"; the release's tree beside it: {r['beside']['error']}"
+                             if (r.get("beside") or {}).get("error") else "")
+                          for p, v in [(p, v) for p, v in r.get("places", {}).items() if v["slower"]] or [(None, r)])
            if r.get("slower")
            else f"{k}: error ({r.get('error')}), " + (f"an op the release measured ({r['reference']} s)"
                                                        if "reference" in r else "judged by an older perf.py")
@@ -460,13 +506,81 @@ def rerun(results: dict, samples: list[dict], again: bool = False) -> int:
 
 
 def verdicts(cases: list[tuple[str, str]], samples: dict, lst: dict, bars=frozenset(),
-             browser_bars=frozenset(), reference: dict | None = None) -> dict:
+             browser_bars=frozenset(), reference: dict | None = None, beside: dict | None = None) -> dict:
     """``{key: verdict}`` for ``cases`` from ``{(run, op): samples}`` against the list ``lst`` and the ``reference``
-    (``{key: s}`` or :func:`reference_of`'s, the last release's run's); Firefox's whole Save passes 3 s on its moving
-    bar (D1053: its download writer alone takes that), never its page part."""
+    (``{key: s}`` or :func:`reference_of`'s, the last release's run's) and, for a key ``beside`` holds, the release's
+    tree timed beside it (:func:`pair`); Firefox's whole Save passes 3 s on its moving bar (D1053: its download writer
+    alone takes that), never its page part."""
     return {key(op, c): judge(samples.get((run_of(op, c), op), []), budget_of(c), lst["ceilings"].get(key(op, c)),
                               key(op, c) in lst["debts"], op in bars or op in browser_bars and c == "firefox",
-                              op in browser_bars, (reference or {}).get(key(op, c))) for op, c in cases}
+                              op in browser_bars, (reference or {}).get(key(op, c)), (beside or {}).get(key(op, c)))
+            for op, c in cases}
+
+
+def sides(samples: list[dict]) -> dict[str, list[float]]:
+    """A side's seconds by place (:func:`placed`; an untagged driver's all under ``"all"``)."""
+    return placed(samples) or {"all": [s["s"] for s in samples]}
+
+
+def pair(slow: list[tuple[str, str]], samples: dict, go, beside, repeat=frozenset(), judged=None) -> dict:
+    """The release's tree timed beside the head for the ``slow`` cases (Step 4.47e): ``{key: {"head": {place:
+    seconds}, "release": {place: seconds}}}``, or ``{key: {"error": why}}`` where the release's side can't be had.
+    Per run, a page at a time, the two sides alternate (the release, the head; the head, the release; ...: one
+    ``go({run: targets})`` of the head's, one ``beside(run, targets)`` of the release's, its every sample so far as
+    ``drive`` returns them), until each side holds :data:`R` pages of each op (an op of fresh states one sample a
+    page, one repeated in one state, ``repeat``, R there, a first and its later ones; an op past 30 s one page a
+    side); the cases still ``slower`` by ``judged(record)`` (:func:`verdicts` on these) take one more round. A head
+    sample that errs ends its op's pages (its verdict is the error's); a release side that errs or raises ends its
+    op's, or its run's, with ``error``."""
+    ops: dict[str, dict[str, list[str]]] = {}   # run: {op: its cases' keys}
+    for op, c in slow:
+        ops.setdefault(run_of(op, c), {}).setdefault(op, []).append(key(op, c))
+    head = {(run, op): [] for run, m in ops.items() for op in m}
+    theirs = {k: [] for k in head}
+    broken: dict[tuple[str, str], str] = {}
+    done: set[tuple[str, str]] = set()   # a head sample erred
+
+    def record() -> dict:
+        return {k: {"error": broken[(run, op)]} if (run, op) in broken
+                else {"head": sides(head[(run, op)]), "release": sides(theirs[(run, op)])}
+                for run, m in ops.items() for op, keys in m.items() for k in keys}
+    page, live = dict.fromkeys(ops, 0), {run: list(m) for run, m in ops.items()}   # each run's pages so far
+    for rnd in range(2):
+        if rnd:
+            now = judged(record()) if judged else {}
+            live = {run: [op for op in names if any(now.get(k, {}).get("slower") for k in ops[run][op])]
+                    for run, names in live.items()}
+        for run, names in live.items():
+            longs = {op for op in names if any(s["s"] > LONG for s in samples.get((run, op), []))}
+            for i in range(R):
+                want = [op for op in names if (run, op) not in broken and (run, op) not in done
+                        and (i == 0 or op not in longs)]
+                if not want:
+                    break
+                unit = {op: R if op in repeat and op not in longs else 1 for op in want}
+                for side in ("release", "head") if page[run] % 2 == 0 else ("head", "release"):
+                    want = [op for op in want if (run, op) not in broken]
+                    if side == "head" and want:
+                        seen = {op: {id(s) for s in samples.get((run, op), [])} for op in want}
+                        go({run: {op: taken(samples.get((run, op), [])) + unit[op] for op in want}})
+                        for op in want:
+                            new = [s for s in samples.get((run, op), []) if id(s) not in seen[op]]
+                            head[(run, op)] += [s for s in new if not s.get("error")]
+                            if any(s.get("error") for s in new):
+                                done.add((run, op))
+                    elif want:
+                        try:
+                            got = beside(run, {op: taken(theirs[(run, op)]) + unit[op] for op in want})["samples"]
+                        except (Exception, SystemExit) as error:   # unbuilt or undriven: the receipt's verdict stands
+                            why = f"the release's tree: {type(error).__name__}: {str(error)[:300]}"
+                            broken |= {(run, op): why for op in names if (run, op) not in broken}
+                            continue
+                        for op in want:
+                            theirs[(run, op)] = [s for s in got.get(op, []) if not s.get("error")]
+                            if err := next((s["error"] for s in got.get(op, []) if s.get("error")), None):
+                                broken[(run, op)] = f"the release's tree: {err}"
+                page[run] += 1
+    return record()
 
 
 def debt_rows(results: dict, saves=frozenset(), free: dict | None = None) -> list[dict]:
@@ -498,7 +612,7 @@ def debt_line(row: dict) -> str:
 
 def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(), bars=frozenset(),
             fresh=frozenset(), browser_bars=frozenset(), reference: dict | None = None,
-            once: bool = False) -> tuple[dict, dict, dict]:
+            once: bool = False, beside=None, repeat=frozenset()) -> tuple[dict, dict, dict]:
     """``({key: verdict}, {run: memory peak}, {(run, op): samples})`` for ``cases`` (``(op,
     context)``): ``drive(run, {op: target})`` returns that run's ``{"samples":
     {op: every sample so far}, "memory_peak"}`` once each op has
@@ -508,7 +622,11 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
     ``reference``) drives its op again, R more and then R more while a place
     holds fewer than R
     (:func:`rerun`; not in a context of ``fresh``: a first record lists every
-    over-budget op as it is) and is judged on all its samples."""
+    over-budget op as it is) and is judged on all its samples. With ``beside``
+    (the release's tree's ``drive``, Step 4.47e) a slower op is timed beside
+    the release's instead (:func:`pair`; ``repeat``: the ops repeated in one
+    state) and judged against it; one whose release side errs re-runs as
+    before, against the reference."""
     timed = [(op, c) for op, c in cases if op not in untimed]
     samples: dict[tuple[str, str], list[dict]] = {}
     peaks: dict[str, int | None] = {}
@@ -534,10 +652,17 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
     if rest:
         go(rest)
     judged = verdicts(timed, samples, lst, bars, browser_bars, reference)
+    paired = {} if beside is None else pair(
+        [(op, c) for op, c in timed if c not in fresh and judged[key(op, c)].get("slower")], samples, go, beside,
+        repeat, lambda record: verdicts(timed, samples, lst, bars, browser_bars, reference, record))
+    if paired:
+        judged = verdicts(timed, samples, lst, bars, browser_bars, reference, paired)
     for again in (False, *[True] * (R - 1)):   # R more, then R more while a place holds fewer (:func:`rerun`)
         more: dict[str, dict[str, int]] = {}
         for op, c in timed:
             got = samples.get((run_of(op, c), op), [])
+            if "head" in paired.get(key(op, c), {}):   # timed beside the release's tree: judged on those pages
+                continue
             if c not in fresh and (n := rerun(judged[key(op, c)], got, again)):
                 targets = more.setdefault(run_of(op, c), {})
                 targets[op] = max(targets.get(op, 0), taken(got) + n)
@@ -545,7 +670,7 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
             break
         go(more)
     peaks_of = {run: (peak, shared.get(run, False)) for run, peak in peaks.items()}
-    return verdicts(timed, samples, lst, bars, browser_bars, reference), peaks_of, samples
+    return verdicts(timed, samples, lst, bars, browser_bars, reference, paired), peaks_of, samples
 
 
 def normal_load(samples: int = 8, span: float = 4.0) -> float:
@@ -632,11 +757,15 @@ def main(argv: list[str] | None = None) -> int:
              "cases": {}, "memory": {}, "list": check_list(mine, main_list, new), "untimed": {}, "new": sorted(new),
              "tree_peaks": {}}
     reference, free = None, {}   # the last release's run's medians; the free disk each run left (a Save's debt)
+    release = None   # the release's commit, whose tree is timed beside an op that reads slower (Step 4.47e)
     if args.reference:
         against = json.loads(args.reference.read_text(encoding="utf-8"))
         reference = {k: reference_of(r, _perf.OPS.get(k.partition("/")[0]))
                      for k, r in against["perf"]["cases"].items() if "median" in r}
         block["reference"] = {"receipt": args.reference.name, "head": against.get("head", "")[:12]}
+        if (commit := against.get("head")) and _git(wt, "cat-file", "-e", f"{commit}^{{commit}}") is not None:
+            release = commit
+        block["reference"]["beside"] = bool(release)
     untimed = {op.id for op in ops if op.untimed}
     block["untimed"] = {op.id: op.untimed for op in ops if op.untimed}
     if cases:
@@ -649,32 +778,65 @@ def main(argv: list[str] | None = None) -> int:
         import tempfile
         # Not macOS's $TMPDIR, which a daily sweep empties of what looks 3 days old (this venv keeps uv's cache's times).
         scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site.", dir=None if os.name == "nt" else "/tmp"))
-        built: dict[str, Path | str] = {}
+        built: dict = {}   # (tree, what): made; ("failed", what): the error the release's failed with
         natives: dict[str, list] = {}
         held: dict[str, dict] = {}   # each run's record so far: a re-run's samples join its first ones (measure)
 
-        def made(what: str) -> Path | str:   # each made once, the first time a run needs it: one wheel for both hosts
-            if what not in built:
+        def made(what: str, tree: Path = wt, into: Path = scratch) -> Path | str:   # each made once, as a run needs it:
+            if (tree, what) not in built:                                         # one wheel for both hosts
                 from scripts import web_tools
-                built[what] = (web_tools.wheel(scratch / "wheel", wt) if what == "wheel"
-                               else web_tools.site(scratch / "site", root=wt, built=made("wheel"), content=content)
-                               if what == "site" else _perf.venv(wt, scratch / "app", made("wheel")))
-            return built[what]
+                built[(tree, what)] = (web_tools.wheel(into / "wheel", tree) if what == "wheel"
+                                       else web_tools.site(into / "site", root=tree, built=made("wheel", tree, into),
+                                                           content=content, tools=wt)
+                                       if what == "site" else _perf.venv(tree, into / "app", made("wheel", tree, into)))
+            return built[(tree, what)]
+
+        def made_release(what: str) -> Path | str:   # the release's tree beside (Step 4.47e): its commit's files,
+            if (failed := built.get(("failed", what))) is not None:   # built as the worktree's are
+                raise failed
+            tree = scratch / "release" / "tree"
+            try:
+                if not tree.is_dir():
+                    import tarfile
+                    (part := scratch / "release" / "tree.part").mkdir(parents=True, exist_ok=True)
+                    tar = scratch / "release" / "tree.tar"
+                    subprocess.run(["git", "-C", str(wt), "archive", "--format=tar", "-o", str(tar), release,
+                                    *RELEASE_TREE], check=True, capture_output=True, timeout=600)
+                    with tarfile.open(tar) as archive:
+                        archive.extractall(part, filter="data")
+                    tar.unlink()
+                    part.rename(tree)
+                return made(what, tree, scratch / "release")
+            except (Exception, SystemExit) as error:   # unbuilt: its ops slower than the receipt are judged by it
+                built[("failed", what)] = error
+                raise
         try:
-            def drive(run: str, targets: dict[str, int]) -> dict:
+            def drive_on(tree: Path, maker, store: dict, run: str, targets: dict[str, int], kept: Path | None = None):
+                """``run``'s record on ``tree`` (the worktree, or the release's beside it) after its ``targets``."""
                 spec = _perf.RUNS[run]
                 if run == "firefox" or run == "webkit" and "capped" in profiles:
                     spec = dataclasses.replace(spec, memory=True)
-                kept = args.keep / f"{run}.json" if args.keep else None
-                old = held.get(run) or (json.loads(kept.read_text(encoding="utf-8")) if kept and kept.is_file()
-                                        else {"samples": {}})
+                old = store.get(run) or (json.loads(kept.read_text(encoding="utf-8")) if kept and kept.is_file()
+                                         else {"samples": {}})
                 have = {op: [s for s in got if not s.get("error")] for op, got in old["samples"].items()}
                 todo = {op: n - taken(have.get(op, [])) for op, n in targets.items() if n > taken(have.get(op, []))}
-                got = (_perf.drive(wt, spec, todo, iso, content, made("site") if spec.host == "site" else None,
-                                   made("app") if spec.host == "app" else None) if todo
+                got = (_perf.drive(tree, spec, todo, iso, content, maker("site") if spec.host == "site" else None,
+                                   maker("app") if spec.host == "app" else None) if todo
                        else {"samples": {}, "log": []})
                 for op, more in got["samples"].items():
                     have.setdefault(op, []).extend(more)
+                return old, got, have
+
+            theirs: dict[str, dict] = {}   # the release's runs' records (none of it kept, checked or peaked)
+
+            def beside(run: str, targets: dict[str, int]) -> dict:
+                _, got, have = drive_on(scratch / "release" / "tree", made_release, theirs, run, targets)
+                theirs[run] = {"samples": have, "log": got.get("log", [])}
+                return {"samples": {op: have.get(op, []) for op in targets}}
+
+            def drive(run: str, targets: dict[str, int]) -> dict:
+                kept = args.keep / f"{run}.json" if args.keep else None
+                old, got, have = drive_on(wt, made, held, run, targets, kept)
                 free[run] = shutil.disk_usage(scratch).free
                 seen = natives.setdefault(run, [])
                 seen += [r for r in old.get("native", []) + got.get("native", []) if r not in seen]
@@ -691,7 +853,8 @@ def main(argv: list[str] | None = None) -> int:
             bars, browser_bars = {op.id for op in ops if op.bar}, {op.id for op in ops if op.browser_bar}
             fresh = (set(contexts(profiles, browsers)) if main_list is None else new) if args.update_ceilings else ()
             block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh, browser_bars, reference,
-                                                     once=not args.all)
+                                                     once=not args.all, beside=beside if release else None,
+                                                     repeat={op.id for op in ops if not op.first})
             if not args.all:   # D1215: the cases whose one sample stood (under 1 s, clean)
                 block["one_sample"] = sorted(k for k, r in block["cases"].items()
                                              if r["n"] == 1 and r.get("median") is not None and r["median"] < PROGRESS)
@@ -718,7 +881,9 @@ def main(argv: list[str] | None = None) -> int:
         block["list"] = check_list(lst, main_list, new)
         if cases:   # judged again against the list it wrote
             block["cases"] = verdicts([oc for oc in cases if oc[0] not in untimed], samples, lst, bars, browser_bars,
-                                      reference)
+                                      reference, {k: {f: v for f, v in r["beside"].items() if f in ("head", "release",
+                                                                                                     "error")}
+                                                  for k, r in block["cases"].items() if "beside" in r})
             for name, mem in block["memory"].items():
                 mem |= {"ceiling": lst["memory"].get(name), "ok": mem["peak"] <= max(MEMORY, lst["memory"].get(name, 0))}
     block["failures"] = blocking(block)
@@ -730,6 +895,9 @@ def main(argv: list[str] | None = None) -> int:
               + (f"  ceiling {r['ceiling']}" if r["ceiling"] else "")
               + (f"  release's {r['reference']}" if r.get("reference") is not None else "")
               + "".join(f"  {p} {v['median']} ({v['reference']})" for p, v in r.get("places", {}).items())
+              + "".join(f"  beside {p} {v['head']} (the release's {v['release']})"
+                        for p, v in (r.get("beside") or {}).get("places", {}).items())
+              + (f"  beside: {r['beside']['error']}" if (r.get("beside") or {}).get("error") else "")
               + ("  debt" if r.get("debt") else "") + ("  SLOWER" if r.get("slower") else "")
               + (f"  starved {r['starved']}" if r.get("starved") else ""))
     for run, peak in block["tree_peaks"].items():

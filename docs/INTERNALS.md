@@ -2278,7 +2278,21 @@ are the Characters section's.
   `slower` when one place is, so a changed area's samples, spread over more
   pages than the release's, never read as a regression, and a cold or a warm
   path that really slowed still does. Its three more samples then go on, a
-  page at a time, until each place holds three. An image's first check and the site's first engine load may pass
+  page at a time, until each place holds three. The release's tree beside
+  (Step 4.47e): an op that reads slower than that receipt has the release's
+  own commit (the receipt's `head`, a `git archive` of its `src`, `web` and
+  lock, its wheel, site and app built as the worktree's) timed beside it in
+  the same stage instead, page for page, the two sides alternating
+  (`perf.pair`): three pages a side (an op of fresh states one sample a
+  page, one repeated in one state a first and its later ones, one past 30 s
+  one page), and three more for one still slower. Its regression verdict
+  then holds the head's samples taken there to the release's taken there,
+  place by place, by the same line (the case's `beside`); the receipt's
+  verdict stands where the release's tree can't be built or driven. A busy
+  box moves within an hour (a Save's sample is the browser's write of a
+  2.8 GB download, a Check's the cores a nice-10 process gets: the release's
+  own tree read 1.5-2.6x its receipt's Saves on 11-12), so only the release
+  timed in the same minutes tells a slower product from a busier box. An image's first check and the site's first engine load may pass
   3 s only with a moving bar (D982), and so may a character's first build
   in a browser (`S14`, D1067; the same build at a later visit, over its
   kept dress, `S64`, may not); past 1 s an op shows progress unless the
