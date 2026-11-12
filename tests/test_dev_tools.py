@@ -1209,7 +1209,9 @@ def test_a_perf_pass_whose_page_call_never_answers_ends_by_name_and_the_run_goes
     WebKit processes (none a page's) and whether its browser still answers, the whole failure in the run's log, and
     the run goes on. A row a call kind: a WebKit page's evaluate in S60's pass whose log names its page's ending; a
     page's evaluate past its bound (the storage's clean a site pass starts with); a context's new page past its bound;
-    then a browser's close past its bound. Stand-in Playwright objects, process listings and log."""
+    then a browser's close past its bound. Stand-in Playwright objects, process listings and logs: macOS's privacy
+    prompts' too, whose real read (an hour of macOS's log, 4-10 s) each stall's failure made, past the bound alone on
+    a loaded box (Step 4.47f)."""
     from scripts import ci_resources
     driver = os.getpid()   # the stand-ins' ids from it, so none is the worker's own
     ui, network = driver + 1, driver + 2
@@ -1217,6 +1219,7 @@ def test_a_perf_pass_whose_page_call_never_answers_ends_by_name_and_the_run_goes
     monkeypatch.setattr(ci_resources, "table", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20),
                                                                   (ui, driver, 90, "Playwright", "", 1 << 20)])
     monkeypatch.setattr(ci_resources, "webkit_said", lambda since, browsers: said if ui in browsers else [])
+    monkeypatch.setattr(ci_resources, "privacy_asked", lambda since, timeout: [])   # no prompt
     webkit = "/x/.tools/playwright/webkit-2370/Playwright.app/Contents"
     monkeypatch.setattr(_perf.Memory, "rows", staticmethod(lambda rss=None, cpu=None: [
         (driver, os.getpid(), "node", "t0"), (ui, driver, f"{webkit}/MacOS/Playwright", "t0"),
