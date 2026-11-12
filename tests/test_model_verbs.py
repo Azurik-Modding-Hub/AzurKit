@@ -14,7 +14,9 @@ they run, in ``tests/test_model_authoring.py``). ``python -m devkit models
 fx LEAF`` (Modkit's ``azurik-mod fx``) reads, plans and clones the fx
 graphs. ``python -m devkit models weapon-fit`` (Modkit's
 ``scripts/weapon_fit.py``) picks each clip's arm turn and writes
-``weapons.json``'s ``fits``. Each reads the USA image but weapon-fit's test."""
+``weapons.json``'s ``fits``; ``python -m devkit models clip-rest`` re-rests a
+variant's clip files on the bones its own build places. Each reads the USA
+image but weapon-fit's and clip-rest's tests."""
 
 from __future__ import annotations
 
@@ -578,4 +580,89 @@ def test_weapon_fit_turns_each_clip_to_its_fewest_excess_ticks_above_the_floor_a
     assert path.read_text(encoding="utf-8") == text
     with pytest.raises(SystemExit) as usage:
         devkit(["models", "weapon-fit"])
+    assert usage.value.code == 2
+
+
+def test_clip_rest_moves_each_jiggle_bones_rest_and_its_keyed_places_by_as_much_and_nothing_else():
+    """``python -m devkit models clip-rest`` (the booblord pass's E3):
+    ``rerest`` puts each named node at its new rest and moves its
+    translation keys by as much (a CUBICSPLINE's values, its tangents kept;
+    each LINEAR key) with their accessor's bounds, and leaves every other
+    accessor's bytes (rotations, another node's keys, the times) as they
+    were; a rest that would turn, a keys accessor two nodes share and a
+    file that isn't a .glb are refused by name. ``compare`` names the other
+    bones whose tracks differ. Its dress runs W24 and W29 twice for
+    minutes, so the verb was run by hand: on booblord's clips for the
+    pass's pick, every other bone's tracks equal in all 13."""
+    from types import SimpleNamespace
+
+    from azurkit.tools.characters.retarget import Track
+    from devkit.__main__ import main as devkit
+    from devkit.models import clip_rest
+
+    arrays = [[0.0, 0.5],                                                                # 0: the times
+              [0.1, 0.0, 0.0, 0.1, 0.2, 0.3, 0.2, 0.0, 0.0] * 2,                     # 1: breast's CUBICSPLINE places
+              [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0] * 2,      # 2: breast's turns
+              [0.0, 0.0, 0.0, 1.0] * 2,                                              # 3: spine's turns
+              [0.0, 0.4, 0.0, 0.0, 0.5, 0.0]]                                        # 4: squish's LINEAR places
+    blob, views, accessors = b"", [], []
+    for i, a in enumerate(arrays):
+        width = (1, 3, 4, 4, 3)[i]
+        views.append({"buffer": 0, "byteOffset": len(blob), "byteLength": 4 * len(a)})
+        accessors.append({"bufferView": i, "componentType": 5126, "count": len(a) // width,
+                          "type": ("SCALAR", "VEC3", "VEC4", "VEC4", "VEC3")[i]})
+        blob += struct.pack(f"<{len(a)}f", *a)
+    accessors[4] |= {"min": [0.0, 0.4, 0.0], "max": [0.0, 0.5, 0.0]}
+    doc = {"asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": [0]}],
+           "nodes": [{"name": "spine", "translation": [0.0, 0.0, 1.0], "children": [1, 2]},
+                     {"name": "breast", "translation": [0.1, 0.2, 0.3], "rotation": [0.0, 0.0, 0.0, 1.0],
+                      "scale": [1.0, 1.0, 1.0]},
+                     {"name": "squish", "translation": [0.0, 0.4, 0.0]}],
+           "buffers": [{"byteLength": len(blob)}], "bufferViews": views, "accessors": accessors,
+           "animations": [{"name": "a", "samplers": [{"input": 0, "output": o, "interpolation": how}
+                                                     for o, how in ((1, "CUBICSPLINE"), (2, "CUBICSPLINE"),
+                                                                    (3, "LINEAR"), (4, "LINEAR"))],
+                           "channels": [{"sampler": s, "target": {"node": n, "path": p}}
+                                        for s, n, p in ((0, 1, "translation"), (1, 1, "rotation"),
+                                                        (2, 0, "rotation"), (3, 2, "translation"))]}]}
+    data = clip_rest.write_glb(doc, blob)
+    rests = {"breast": ((0.15, 0.2, 0.25), (0.0, 0.0, 0.0, 1.0), (1.0, 1.0, 1.0)),
+             "squish": ((0.0, 0.41, 0.0), (0.0, 0.0, 0.0, 1.0), (1.0, 1.0, 1.0)), "no_such_node": ((0,) * 3,) * 3}
+    new, moves, keyed = clip_rest.rerest(data, rests)
+    got, chunk = clip_rest.read_glb(new)
+
+    def values(i):
+        v = got["bufferViews"][i]
+        return list(struct.unpack_from(f"<{v['byteLength'] // 4}f", chunk, v["byteOffset"]))
+
+    f32 = clip_rest._f32
+    assert keyed == ("breast", "squish") and set(moves) == {"breast", "squish"}
+    assert got["nodes"][1]["translation"] == f32((0.15, 0.2, 0.25)) and got["nodes"][2]["translation"] == f32(
+        (0.0, 0.41, 0.0)) and got["nodes"][0] == doc["nodes"][0]
+    move = [b - a for a, b in zip(f32((0.1, 0.2, 0.3)), f32((0.15, 0.2, 0.25)))]
+    places = f32(arrays[1])
+    for key in (1, 4):   # a CUBICSPLINE's value (the middle of in, value, out), its tangents as they were
+        places[3 * key:3 * key + 3] = f32(x + d for x, d in zip(places[3 * key:3 * key + 3], move))
+    assert values(1) == places
+    assert values(4) == f32([0.0, 0.4 + (f32([0.41])[0] - f32([0.4])[0]), 0.0, 0.0, 0.5 + (f32([0.41])[0] - f32(
+        [0.4])[0]), 0.0]) and got["accessors"][4]["min"][1] == values(4)[1]
+    assert [values(i) for i in (0, 2, 3)] == [f32(arrays[i]) for i in (0, 2, 3)]
+
+    turned = {"breast": ((0.1, 0.2, 0.3), (0.0, 0.0, 0.38268343, 0.9238795), (1.0, 1.0, 1.0))}
+    with pytest.raises(ValueError, match="node breast: its rest would turn"):
+        clip_rest.rerest(data, turned)
+    doc["animations"][0]["samplers"][3]["output"] = 1
+    with pytest.raises(ValueError, match="accessor 1 is another channel's too"):
+        clip_rest.rerest(clip_rest.write_glb(doc, blob), rests)
+    with pytest.raises(ValueError, match="not a .glb"):
+        clip_rest.rerest(json.dumps(doc).encode(), rests)
+
+    def clip(*tracks):
+        return SimpleNamespace(clip=SimpleNamespace(bones=tuple(Track(b, c, ((0.0, v, 0.0, 0.0),)) for b, c, v in
+                                                                tracks)))
+    c = clip_rest.compare(clip((0, 3, 1.0), (1, 0, 0.1), (2, 0, 0.4)), clip((0, 3, 1.0), (1, 0, 0.15), (2, 0, 0.5)),
+                          {1}, ["spine", "breast", "squish"])
+    assert (c.others, c.placed, c.differ) == ((1, 2), (0, 1), ("squish",))
+    with pytest.raises(SystemExit) as usage:
+        devkit(["models", "clip-rest"])
     assert usage.value.code == 2

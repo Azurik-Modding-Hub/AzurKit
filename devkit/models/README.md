@@ -7,7 +7,8 @@ Modkit's `azurik-mod model`, ported leaf by leaf: `dress`, `inspect`,
 below). Beside it, `fx` (Modkit's
 `azurik-mod fx`, whole) reads, plans and clones the fx graphs, and
 `weapon-fit` (Modkit's `scripts/weapon_fit.py`) measures the arm turns that
-keep a held prop out of a body's chest. What they call is the shipped
+keep a held prop out of a body's chest, and `clip-rest` re-rests a variant's
+clip files on the bones its own build places. What they call is the shipped
 engine's (`src/azurkit/tools/characters/`); none of it ships.
 
 This page is the authors' how-to as well: a variant made in Blender
@@ -423,6 +424,41 @@ mesh, a built-in variant's recipe (its row's `sha` goes stale, and a stale
 row turns nothing) or Garret's staff moves. garret4's own reference holds
 the hoe as his build does, on its carriers; Modkit's last script copied it
 without them and stopped at "garret4 has no bone 'wpn_tip'".
+
+## `clip-rest`: a variant's clips re-rested on its own build
+
+```bash
+uv run --locked python -m devkit models clip-rest booblord --recipe pick.json --out DIR [--variant-file PATH] [--iso PATH]
+```
+
+A clip file holds every bone's rest, and a build reads it only where each
+node's rest is the dressed body's within 1e-5. A variant's jiggle bones sit
+where the vertices they take sit, so a reshaped mesh moves them and its clips
+stop holding; a recipe's `places` pins them where another mesh's build put
+them (booblord_high's are booblord's). `clip-rest` takes VARIANT (a
+built-in, or one of `--variant-file`'s, with `--recipe`'s fields laid over
+it, `null` dropping one, as `model dress` does) and runs its build's first
+stages (W24's mesh, W29's jiggle bones; no paint) twice on the vanilla body:
+as its recipe places the bones (where its files hold today) and with no
+`places` (where its own build puts them). Then each `.glb` its `gltf` clip
+rows name, from its clip folder (a built-in's in the content folder,
+`AZURKIT_CONTENT`), gets each jiggle bone's node at its new rest and that
+bone's translation keys moved by as much: a key is the bone's place, so its
+motion about its rest stays, and a rotation or a scale key is the same at
+any rest. A rest that would turn, or a keys accessor another channel
+shares, is refused by name.
+
+Before it writes, it reads every animation of each new file on the new body
+(the build's own read, with its 1e-5 check) and of the old file on the old
+body, and compares them track by track: every bone that isn't a jiggle bone
+must keep the old clip's tracks, or it names the clip and bone and writes
+nothing (exit 1). It prints each jiggle bone's move (mm), each clip's
+tracks compared, each new file's size and sha256 and the `clips` rows that
+take them; with them in the content entry, the recipe drops `places`. A
+contact clip's hands don't follow the moved bones: a clip whose hand
+touches a jiggle bone (booblord's `bust_bounce`, `sash_fix`, `look_back`,
+`sit_cross`) keeps its motion, not its contact. On booblord's two files it
+takes about two of her body's builds.
 
 ## Sculpt rounds (ModelKit)
 

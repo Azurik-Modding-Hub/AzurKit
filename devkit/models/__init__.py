@@ -1,6 +1,7 @@
 """the model verbs ModelKit's adapter calls: a variant dressed as a build dresses it, a body inspected,
 exported as glTF, its edits checked and imported, previewed in headless Blender or edited in Blender through
-to a built image; the fx graphs read, planned and cloned; the arm turns that keep a held prop out of a body's chest
+to a built image; the fx graphs read, planned and cloned; the arm turns that keep a held prop out of a body's chest;
+a variant's clip files re-rested on the bones its own build places
 
 Each verb's reference is ``devkit/models/README.md``."""
 
@@ -13,4 +14,6 @@ VERBS = {
     "blender-check": "the Blender batch on the real Blender (headless, a made-up body, no game data)",
     "weapon-fit": "W35's arm fit: the turn of both arms in each of Garret's staff moves that keeps a body's prop out "
                   "of its chest, as weapons.json's fits rows (--write)",
+    "clip-rest": "a variant's clip files re-rested on the jiggle bones its own build places, their keyed places "
+                 "moved with them and every other bone's tracks checked equal, so its recipe needs no places",
 }
