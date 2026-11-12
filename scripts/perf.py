@@ -127,6 +127,7 @@ DEBTS = ("listed", "over", "regressed", "no progress")   # D1170: the verdicts t
 #: an app run: a cold Check, a first preview) or a later one there; the regression verdict judges each against its own
 PLACES = {"first": "its first sample on a page", "later": "its later samples there"}
 LOAD_LINE = 40.0      # D926/D975: the gate's perf stage starts under this normal-priority load
+STOPPED = 143         # the exit a SIGTERM gives (main's handler): a stopped run still deletes its scratch
 PROFILES = ("app", "site", "lag", "capped")
 BROWSERS = ("webkit", "chromium", "firefox")   # the site's (D994: Firefox)
 #: The groups the Tracker's modules and pictures reach: app.mjs imports tracker.mjs (and through it art.mjs and
@@ -522,6 +523,11 @@ def sides(samples: list[dict]) -> dict[str, list[float]]:
     return placed(samples) or {"all": [s["s"] for s in samples]}
 
 
+def stopped(error: BaseException) -> bool:
+    """Whether ``error`` is a SIGTERM's (:data:`STOPPED`), which no catch of the release's side may keep."""
+    return isinstance(error, SystemExit) and error.code == STOPPED
+
+
 def pair(slow: list[tuple[str, str]], samples: dict, go, beside, repeat=frozenset(), judged=None) -> dict:
     """The release's tree timed beside the head for the ``slow`` cases (Step 4.47e): ``{key: {"head": {place:
     seconds}, "release": {place: seconds}}}``, or ``{key: {"error": why}}`` where the release's side can't be had.
@@ -531,7 +537,7 @@ def pair(slow: list[tuple[str, str]], samples: dict, go, beside, repeat=frozense
     page, one repeated in one state, ``repeat``, R there, a first and its later ones; an op past 30 s one page a
     side); the cases still ``slower`` by ``judged(record)`` (:func:`verdicts` on these) take one more round. A head
     sample that errs ends its op's pages (its verdict is the error's); a release side that errs or raises ends its
-    op's, or its run's, with ``error``."""
+    op's, or its run's, with ``error``, but a SIGTERM's exit (:func:`stopped`) ends the run."""
     ops: dict[str, dict[str, list[str]]] = {}   # run: {op: its cases' keys}
     for op, c in slow:
         ops.setdefault(run_of(op, c), {}).setdefault(op, []).append(key(op, c))
@@ -572,6 +578,8 @@ def pair(slow: list[tuple[str, str]], samples: dict, go, beside, repeat=frozense
                         try:
                             got = beside(run, {op: taken(theirs[(run, op)]) + unit[op] for op in want})["samples"]
                         except (Exception, SystemExit) as error:   # unbuilt or undriven: the receipt's verdict stands
+                            if stopped(error):   # a SIGTERM, not the release's fault: the run ends
+                                raise
                             why = f"the release's tree: {type(error).__name__}: {str(error)[:300]}"
                             broken |= {(run, op): why for op in names if (run, op) not in broken}
                             continue
@@ -729,7 +737,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="a receipt of the last release's run: an op slower than its there, or erring, fails (D1170)")
     args = ap.parse_args(argv)
     globals()["R"] = args.repeats
-    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))   # a stopped run still deletes its scratch
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(STOPPED))   # a stopped run still deletes its scratch
     wt = args.worktree.resolve()
     sys.path[:0] = [str(ROOT)]
     from tests import _perf
@@ -808,7 +816,8 @@ def main(argv: list[str] | None = None) -> int:
                     part.rename(tree)
                 return made(what, tree, scratch / "release")
             except (Exception, SystemExit) as error:   # unbuilt: its ops slower than the receipt are judged by it
-                built[("failed", what)] = error
+                if not stopped(error):
+                    built[("failed", what)] = error
                 raise
         try:
             def drive_on(tree: Path, maker, store: dict, run: str, targets: dict[str, int], kept: Path | None = None):

@@ -1851,17 +1851,11 @@ def test_the_perf_gate_judges_a_pages_first_sample_against_the_releases_first_an
     assert run([28.0, 18.9, 18.8]) == ([3, 6, 9], {"median": 18.9, "reference": 18.877, "slower": False})
 
 
-def test_the_perf_gate_times_the_releases_tree_beside_an_op_that_reads_slower_and_judges_it_against_that(
-        tmp_path, monkeypatch):
-    """The release's tree beside (Step 4.47e): an op slower than the
-    release's receipt has the release's commit (a git archive of the
-    receipt's head, built as the worktree's) timed beside it, page for page,
-    the sides alternating, and D1170's line holds the head's pages there to
-    the release's there, each place to its own: a busy box that slows both
-    passes, the case holding both sides; a head slower than the release
-    beside it takes a second round and blocks by name; an op not slower
-    than the receipt drives no release page; a release side that errs
-    leaves the receipt's verdict, after today's re-run, and says so."""
+def _a_release_beside(tmp_path, monkeypatch, ops):
+    """The perf gate's release beside, staged (Step 4.47e): a repo whose
+    release commit (``README.md`` "1.0") is the receipt's ``head``, each of
+    ``ops`` at 2.0 s on the app there, and main after it ("main"), the image
+    found and the builds stubbed. ``(repo, receipt)``."""
     from azurkit.core import gate
     from scripts import web_tools
 
@@ -1885,6 +1879,24 @@ def test_the_perf_gate_times_the_releases_tree_beside_an_op_that_reads_slower_an
     monkeypatch.setattr(web_tools, "wheel", lambda out, root: root / "wheel")
     monkeypatch.setattr(_perf, "venv", lambda wt, folder, wheel: f"{wheel.parent.name}'s python")
     monkeypatch.setattr(perf, "native_failures", lambda *_: [])
+    receipt = tmp_path / "suite-release.meta"
+    receipt.write_text(json.dumps({"head": released, "perf": {"cases": {
+        f"{op}/app": {"samples": [2.0] * 3, "median": 2.0} for op in ops}}}), encoding="utf-8")
+    return repo, receipt
+
+
+def test_the_perf_gate_times_the_releases_tree_beside_an_op_that_reads_slower_and_judges_it_against_that(
+        tmp_path, monkeypatch):
+    """The release's tree beside (Step 4.47e): an op slower than the
+    release's receipt has the release's commit (a git archive of the
+    receipt's head, built as the worktree's) timed beside it, page for page,
+    the sides alternating, and D1170's line holds the head's pages there to
+    the release's there, each place to its own: a busy box that slows both
+    passes, the case holding both sides; a head slower than the release
+    beside it takes a second round and blocks by name; an op not slower
+    than the receipt drives no release page; a release side that errs
+    leaves the receipt's verdict, after today's re-run, and says so."""
+    repo, receipt = _a_release_beside(tmp_path, monkeypatch, ("A12", "A13", "A14", "A21"))
     seconds = {"head": {"A12": 8.0, "A13": 2.5, "A14": 4.0, "A21": 4.0},   # A21: a busy box slows both sides
                "release": {"A12": 4.0, "A13": 2.5, "A14": None, "A21": 3.9}}   # A14: the release's can't drive it
     asked, trees = [], set()
@@ -1897,9 +1909,6 @@ def test_the_perf_gate_times_the_releases_tree_beside_an_op_that_reads_slower_an
                                  | ({"error": "its page never came"} if seconds[side][op] is None else {})
                                  for i in range(n)] for op, n in todo.items()}, "log": []}
     monkeypatch.setattr(_perf, "drive", drive)
-    receipt = tmp_path / "suite-release.meta"
-    receipt.write_text(json.dumps({"head": released, "perf": {"cases": {
-        f"{op}/app": {"samples": [2.0] * 3, "median": 2.0} for op in ("A12", "A13", "A14", "A21")}}}), encoding="utf-8")
     assert perf.main([str(repo), "--select", "app:build", "--ops", "A12,A13,A14,A21", "--profiles", "app",
                       "--reference", str(receipt), "--json", str(tmp_path / "perf.json")]) == 1
     block = json.loads((tmp_path / "perf.json").read_text(encoding="utf-8"))
@@ -1925,6 +1934,35 @@ def test_the_perf_gate_times_the_releases_tree_beside_an_op_that_reads_slower_an
         "A14/app: slower than the release's 2.0 s at its first sample on a page (4.0 s, over its 3.0 s budget and the "
         "release's by 25% and 0.5 s: D1170); the release's tree beside it: the release's tree: its page never came"]
     assert block["reference"]["beside"] is True and land.perf.blocks(cases["A12/app"])
+
+
+def test_a_perf_run_stopped_while_it_drives_the_releases_tree_beside_exits_143_with_its_scratch_gone(tmp_path,
+                                                                                                    monkeypatch):
+    """A SIGTERM (the perf stage's cap, a queue's stop) that lands while the
+    release's tree beside is built or driven ends perf.py with its exit 143,
+    its scratch deleted: no catch of the release's side keeps it as that
+    side's error and goes on to judge the head against the receipt."""
+    real, old = signal.signal, signal.getsignal(signal.SIGTERM)
+    repo, receipt = _a_release_beside(tmp_path, monkeypatch, ("A12",))
+    monkeypatch.setattr(perf.signal, "signal", real)   # perf.main's own handler
+    asked, trees = [], []
+
+    def drive(wt, spec, todo, *_):
+        asked.append(("release" if wt.name == "tree" else "head", dict(todo)))
+        if wt.name == "tree":
+            trees.append(wt)
+            signal.raise_signal(signal.SIGTERM)
+        return {"samples": {op: [{"s": 8.0, "bar": 2, "progress": True}] * n for op, n in todo.items()}, "log": []}
+    monkeypatch.setattr(_perf, "drive", drive)
+    try:
+        with pytest.raises(SystemExit) as stop:
+            perf.main([str(repo), "--select", "app:build", "--ops", "A12", "--profiles", "app",
+                       "--reference", str(receipt), "--json", str(tmp_path / "perf.json")])
+    finally:
+        real(signal.SIGTERM, old)
+    assert stop.value.code == perf.STOPPED == 143
+    assert asked == [("head", {"A12": 1}), ("head", {"A12": 2}), ("release", {"A12": 1})]
+    assert not trees[0].exists() and not (tmp_path / "perf.json").exists()
 
 
 def test_a_changed_areas_perf_run_times_an_op_once_under_1_s_and_mains_run_of_every_op_three_times(tmp_path,
