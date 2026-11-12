@@ -656,7 +656,12 @@ class Driver:
     :func:`starved` sample (it waited for a core: a busy machine) is recorded
     as it was taken, with its tag (``starved``), and counts in its op's
     verdict as any other: never taken again, never discounted (D1107,
-    Step 4.46a)."""
+    Step 4.46a).
+
+    The sample's place (``first_on_page``, Step 4.47d): whether it is its
+    op's first on its page (:meth:`fresh`: a site page or an app run), as a
+    Check's cold dress is, or a later one there; ``perf.judge`` holds each
+    place to the release's same place."""
 
     sleep = staticmethod(time.sleep)   # a stub clock's in the tests
 
@@ -667,6 +672,7 @@ class Driver:
         self.native: list[dict | None] = []   # each engine report its pages gave (:meth:`engine`)
         self.ev: list = []
         self.p: Page | None = None           # the page the pass drives
+        self.on_page: set[str] = set()       # the ops that took a sample on it (each sample's ``first_on_page``)
         self.changed: float | None = None    # the page's time of the pass's last change
         self.gap: tuple[float, str, float | None] | None = None   # the worst gap since the last sample: its ms,
         #                                                           where, and the change a head start counted from
@@ -760,8 +766,8 @@ class Driver:
         p.close()
 
     def fresh(self, p: Page) -> None:
-        """A new page (its own clock): the events it has logged, no change pending."""
-        self.p, self.changed = p, None
+        """A new page (its own clock): the events it has logged, no change pending, no op's sample on it yet."""
+        self.p, self.changed, self.on_page = p, None, set()
         self.ev = p.events()
 
     def record(self, op: str | None, seconds: float, events: list, t0: float, t1: float, error: str | None = None,
@@ -777,7 +783,8 @@ class Driver:
                 seconds = (t1 - gap[2]) / 1000
         bar, shown = progress_of(events, t0, t1)
         sample = {"s": round(seconds, 3), "bar": bar, "progress": shown,
-                  "late_ms": round(self.p.worst(t0, t1)) if self.p else 0}
+                  "late_ms": round(self.p.worst(t0, t1)) if self.p else 0, "first_on_page": op not in self.on_page}
+        self.on_page.add(op)   # Step 4.47d: a page's first Check is cold, a later one warm; perf.judge keeps them apart
         if page is not None:
             sample["page"] = round(page, 3)
         if gap:
@@ -2707,8 +2714,8 @@ def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
 def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path | None, site: Path | None,
           python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
-    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "froze"][, "error"][, "cpu"][, "starved"]
-    [, "steady", "resident"]}]},
+    {op: [{"s", "bar", "progress", "late_ms", "first_on_page"[, "page"][, "gap_ms"][, "froze"][, "error"][, "cpu"]
+    [, "starved"][, "steady", "resident"]}]},
     "native" (the engine reports its
     pages gave, :meth:`Driver.engine`), "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh
@@ -2754,7 +2761,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                 for n in range(passes):
                     if not d.needed(ops):
                         break
-                    d.ev, d.p, d.changed, d.gap = [], None, None, None
+                    d.ev, d.p, d.changed, d.gap, d.on_page = [], None, None, None, set()
                     if content is None and (missing := [op for op in ops if OPS[op].content and d.need(op)]):
                         for op in missing:
                             d.record(op, 0.0, [], 0, 0, "needs a clone of Azurik-Custom-Content (perf.py --content)")

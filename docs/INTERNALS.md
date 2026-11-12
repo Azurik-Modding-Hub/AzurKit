@@ -2268,7 +2268,17 @@ are the Characters section's.
   the release's before; `perf.py --reference`) by more than 25 % and 0.5 s
   (`perf.REGRESSION`, `REGRESSION_S`), taken three more times first, or an op
   that run measured that errs; and on a memory peak, a native failure or a
-  list that grows, as before. An image's first check and the site's first engine load may pass
+  list that grows, as before. That verdict compares like with like (Step
+  4.47d): a page's first Check is cold and a later one warm, so the driver
+  tags each sample with its place (`first_on_page`: its op's first on its
+  site page or app run, or a later one there), and each place's median is
+  held to the release's same place (`perf.reference_of` reads a release
+  whose samples carry no tag as it took them: three to a page, the first
+  there first, an op of fresh states each on its own page); an op is
+  `slower` when one place is, so a changed area's samples, spread over more
+  pages than the release's, never read as a regression, and a cold or a warm
+  path that really slowed still does. Its three more samples then go on, a
+  page at a time, until each place holds three. An image's first check and the site's first engine load may pass
   3 s only with a moving bar (D982), and so may a character's first build
   in a browser (`S14`, D1067; the same build at a later visit, over its
   kept dress, `S64`, may not); past 1 s an op shows progress unless the

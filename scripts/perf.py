@@ -43,7 +43,13 @@ its budget and over that run's for the same op and context by more than both
 (one more past 30 s) and fails (``slower``) if the median of all of them still
 is (an op within its budget never fails on time), and an op that run measured
 that errors; and on a memory peak, a native failure or a list that grows, as
-before. D982's first-time ops
+before. Like with like (Step 4.47d): the driver tags each sample with its
+place (``first_on_page``: its op's first on its page or app run, as a cold
+Check is, or a later one there), and each place is judged against the
+release's same place (:func:`reference_of` reads an untagged release's as it
+took them), so how many of an op's samples were a page's first moves no
+verdict; the re-run then leaves each place :data:`R` samples at least.
+D982's first-time ops
 (an image's first identity check, the site's first engine load) may pass
 their budget only with a moving bar (the progress element seen at 2 or more
 values). An op whose median passes 1 s shows progress (a bar or a
@@ -102,6 +108,9 @@ MARGIN = 1.15         # a ceiling is the median times this, rounded up to 0.1 s
 REGRESSION = 0.25     # D1170: a clear regression: the median over the last release's run's by more than this share of it
 REGRESSION_S = 0.5    # and by more than these seconds (both)
 DEBTS = ("listed", "over", "regressed", "no progress")   # D1170: the verdicts that are perf-debt rows, failing nothing
+#: A sample's place (Step 4.47d), as the driver tags it (``first_on_page``): its op's first on its page (a site page or
+#: an app run: a cold Check, a first preview) or a later one there; the regression verdict judges each against its own
+PLACES = {"first": "its first sample on a page", "later": "its later samples there"}
 LOAD_LINE = 40.0      # D926/D975: the gate's perf stage starts under this normal-priority load
 PROFILES = ("app", "site", "lag", "capped")
 BROWSERS = ("webkit", "chromium", "firefox")   # the site's (D994: Firefox)
@@ -166,8 +175,37 @@ def ceil(seconds: float) -> float:
     return math.ceil(round(seconds * MARGIN * 10, 6)) / 10
 
 
+def placed(samples: list[dict]) -> dict[str, list[float]] | None:
+    """Each place's seconds (:data:`PLACES`) from the driver's ``first_on_page`` tags, or None when a sample has none
+    (an older driver's)."""
+    if not samples or any("first_on_page" not in s for s in samples):
+        return None
+    out: dict[str, list[float]] = {}
+    for s in samples:
+        out.setdefault("first" if s["first_on_page"] else "later", []).append(s["s"])
+    return out
+
+
+def reference_of(case: dict, op=None) -> dict:
+    """An op's reference from the last release's case (Step 4.47d): its median and each place's
+    (:data:`PLACES`); a case whose samples carry no place (an older perf.py's) is read as the release took them,
+    :data:`R` to a page with the first there first, and each its own page's for an op of fresh states
+    (``_perf.Op.first``)."""
+    seconds = case.get("samples") or []
+    firsts = case.get("first_on_page") or [op is None or op.first or i % R == 0 for i in range(len(seconds))]
+    at = placed([{"s": s, "first_on_page": f} for s, f in zip(seconds, firsts)]) or {}
+    return {"median": case["median"], "places": {p: round(statistics.median(v), 3) for p, v in at.items()}}
+
+
+def regression(median: float, reference: float | None, budget: float) -> bool:
+    """D1170's clear regression: ``median`` over its ``budget`` and over ``reference`` by more than both
+    :data:`REGRESSION` of it and :data:`REGRESSION_S`."""
+    return (reference is not None and median > budget and median > reference * (1 + REGRESSION)
+            and median - reference > REGRESSION_S)
+
+
 def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt: bool = False,
-          bar: bool = False, browser_bar: bool = False, reference: float | None = None) -> dict:
+          bar: bool = False, browser_bar: bool = False, reference: float | dict | None = None) -> dict:
     """One op's verdict in one context from its samples (``{"s", "bar",
     "progress"[, "page"][, "froze"][, "error"]}``): ``pass``, ``listed`` (over its
     budget, within its ceiling), ``bar`` (D982: over 3 s with a moving bar), ``over``
@@ -179,18 +217,26 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     that fails nothing; ``ok`` is false only as :func:`blocks` says: an error
     on an op with a ``reference`` median (the last release's run's), or
     ``slower``: its median over its ``budget`` and over that one by more
-    than both :data:`REGRESSION` of it and :data:`REGRESSION_S`.
+    than both :data:`REGRESSION` of it and :data:`REGRESSION_S`
+    (:func:`regression`). Like with like (Step 4.47d): with a ``reference``
+    of places (:func:`reference_of`) and samples the driver placed
+    (:func:`placed`), each place both hold is judged so on its own median
+    (the case's ``places``), and the op is ``slower`` when one is, so how
+    many of its samples were a page's first can't move the verdict.
     A ``browser_bar`` op's sample (a download) shows progress when
     its page part, ``"page"``, is within 1 s: the browser's own bar shows its
     write; the case keeps the page parts. A sample the driver tagged
     ``starved`` (it waited for a core, ``_perf.starved``) is named in the
     case; no verdict reads it."""
     seconds = [s["s"] for s in samples]
-    out = {"n": len(samples), "budget": budget, "ceiling": ceiling, "samples": seconds, "reference": reference}
+    whole = reference.get("median") if isinstance(reference, dict) else reference
+    out = {"n": len(samples), "budget": budget, "ceiling": ceiling, "samples": seconds, "reference": whole}
+    if (at := placed(samples)) is not None:
+        out["first_on_page"] = [s["first_on_page"] for s in samples]
     if browser_bar:
         out["page"] = [s.get("page") for s in samples]
     if (errors := [s["error"] for s in samples if s.get("error")]) or not samples:
-        out |= {"verdict": "error", "slower": False, "debt": reference is None,
+        out |= {"verdict": "error", "slower": False, "debt": whole is None,
                 "error": errors[-1] if errors else "no sample"}
         return out | {"ok": not blocks(out)}
     median = statistics.median(seconds)
@@ -212,8 +258,13 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
         verdict = "no progress"
     if froze := [s["froze"] for s in samples if s.get("froze")]:
         out["froze"] = froze
-    slower = (reference is not None and median > budget and median > reference * (1 + REGRESSION)
-              and median - reference > REGRESSION_S)
+    theirs = reference.get("places") if isinstance(reference, dict) else None
+    if at and theirs and (both := [p for p in PLACES if p in at and p in theirs]):
+        out["places"] = {p: {"median": round(statistics.median(at[p]), 3), "reference": theirs[p],
+                             "slower": regression(statistics.median(at[p]), theirs[p], budget)} for p in both}
+        slower = any(v["slower"] for v in out["places"].values())
+    else:
+        slower = regression(median, whole, budget)
     return out | {"verdict": verdict, "ok": not slower, "slower": slower, "debt": verdict in DEBTS or bool(froze)}
 
 
@@ -235,8 +286,11 @@ def blocking(block: dict | None) -> list[str]:
         return ["its perf stage is deferred to its batch's (fullsuite.py --perf-later, D1215)"]
     if "cases" not in block:
         return [] if block.get("passed") is True else list(block.get("failures") or ["no perf verdicts"])
-    out = [f"{k}: slower than the release's {r['reference']} s ({r['median']} s, over its {r['budget']} s budget "
-           f"and the release's by {REGRESSION:.0%} and {REGRESSION_S} s: D1170)" if r.get("slower")
+    out = ["; ".join(f"{k}: slower than the release's {v['reference']} s" + (f" at {PLACES[p]}" if p else "")
+                     + f" ({v['median']} s, over its {r['budget']} s budget and the release's by {REGRESSION:.0%} and "
+                     f"{REGRESSION_S} s: D1170)"
+                     for p, v in [(p, v) for p, v in r.get("places", {}).items() if v["slower"]] or [(None, r)])
+           if r.get("slower")
            else f"{k}: error ({r.get('error')}), " + (f"an op the release measured ({r['reference']} s)"
                                                        if "reference" in r else "judged by an older perf.py")
            for k, r in block["cases"].items() if blocks(r)]
@@ -394,19 +448,22 @@ def alone(samples: list[dict]) -> bool:
             or all(s["s"] < PROGRESS and not s.get("froze") for s in samples))
 
 
-def rerun(results: dict, samples: list[dict]) -> int:
+def rerun(results: dict, samples: list[dict], again: bool = False) -> int:
     """How many more samples a failing time verdict (``slower``, D1170) takes (a spike can't fail it): :data:`R`,
-    one past 30 s."""
+    one past 30 s; ``again`` (its R taken), R more while a place of its samples (:func:`placed`) holds fewer than R
+    (a page adds one to its first place, Step 4.47d), none past 30 s."""
     if not results.get("slower"):
         return 0
-    return 1 if max(s["s"] for s in samples) > LONG else R
+    if max(s["s"] for s in samples) > LONG:
+        return 0 if again else 1
+    return R if not again or min(map(len, (placed(samples) or {"": samples}).values())) < R else 0
 
 
 def verdicts(cases: list[tuple[str, str]], samples: dict, lst: dict, bars=frozenset(),
              browser_bars=frozenset(), reference: dict | None = None) -> dict:
     """``{key: verdict}`` for ``cases`` from ``{(run, op): samples}`` against the list ``lst`` and the ``reference``
-    medians (``{key: s}``, the last release's run's); Firefox's whole Save passes 3 s on its moving bar (D1053:
-    its download writer alone takes that), never its page part."""
+    (``{key: s}`` or :func:`reference_of`'s, the last release's run's); Firefox's whole Save passes 3 s on its moving
+    bar (D1053: its download writer alone takes that), never its page part."""
     return {key(op, c): judge(samples.get((run_of(op, c), op), []), budget_of(c), lst["ceilings"].get(key(op, c)),
                               key(op, c) in lst["debts"], op in bars or op in browser_bars and c == "firefox",
                               op in browser_bars, (reference or {}).get(key(op, c))) for op, c in cases}
@@ -448,7 +505,8 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
     :func:`taken` its target; with ``once`` (a changed area's run, D1215) each
     op's target is one sample, then :data:`R` for each op not :func:`alone`; a
     failing time verdict (``slower`` than its
-    ``reference`` median) drives its op again
+    ``reference``) drives its op again, R more and then R more while a place
+    holds fewer than R
     (:func:`rerun`; not in a context of ``fresh``: a first record lists every
     over-budget op as it is) and is judged on all its samples."""
     timed = [(op, c) for op, c in cases if op not in untimed]
@@ -475,14 +533,16 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
             rest.setdefault(run_of(op, c), {})[op] = R
     if rest:
         go(rest)
-    more: dict[str, dict[str, int]] = {}
     judged = verdicts(timed, samples, lst, bars, browser_bars, reference)
-    for op, c in timed:
-        got = samples.get((run_of(op, c), op), [])
-        if c not in fresh and (n := rerun(judged[key(op, c)], got)):
-            targets = more.setdefault(run_of(op, c), {})
-            targets[op] = max(targets.get(op, 0), taken(got) + n)
-    if more:
+    for again in (False, *[True] * (R - 1)):   # R more, then R more while a place holds fewer (:func:`rerun`)
+        more: dict[str, dict[str, int]] = {}
+        for op, c in timed:
+            got = samples.get((run_of(op, c), op), [])
+            if c not in fresh and (n := rerun(judged[key(op, c)], got, again)):
+                targets = more.setdefault(run_of(op, c), {})
+                targets[op] = max(targets.get(op, 0), taken(got) + n)
+        if not more:
+            break
         go(more)
     peaks_of = {run: (peak, shared.get(run, False)) for run, peak in peaks.items()}
     return verdicts(timed, samples, lst, bars, browser_bars, reference), peaks_of, samples
@@ -574,7 +634,8 @@ def main(argv: list[str] | None = None) -> int:
     reference, free = None, {}   # the last release's run's medians; the free disk each run left (a Save's debt)
     if args.reference:
         against = json.loads(args.reference.read_text(encoding="utf-8"))
-        reference = {k: r["median"] for k, r in against["perf"]["cases"].items() if "median" in r}
+        reference = {k: reference_of(r, _perf.OPS.get(k.partition("/")[0]))
+                     for k, r in against["perf"]["cases"].items() if "median" in r}
         block["reference"] = {"receipt": args.reference.name, "head": against.get("head", "")[:12]}
     untimed = {op.id for op in ops if op.untimed}
     block["untimed"] = {op.id: op.untimed for op in ops if op.untimed}
@@ -668,6 +729,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{k:16} {r['verdict']:12} {r.get('median', '-')!s:>8} s  n {r['n']}  budget {r['budget']}"
               + (f"  ceiling {r['ceiling']}" if r["ceiling"] else "")
               + (f"  release's {r['reference']}" if r.get("reference") is not None else "")
+              + "".join(f"  {p} {v['median']} ({v['reference']})" for p, v in r.get("places", {}).items())
               + ("  debt" if r.get("debt") else "") + ("  SLOWER" if r.get("slower") else "")
               + (f"  starved {r['starved']}" if r.get("starved") else ""))
     for run, peak in block["tree_peaks"].items():

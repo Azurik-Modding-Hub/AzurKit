@@ -1040,7 +1040,8 @@ def test_the_perf_gate_keeps_a_starved_sample_as_taken_names_it_and_counts_a_chi
     d = _perf.Driver(_perf.RUNS["app"], {}, tmp_path, tmp_path, None)
     d.memory = meter
     timed(2000)   # starved: recorded at once, as taken
-    assert d.samples["A12"] == [{"s": 2.0, "bar": 0, "progress": False, "late_ms": 0, "cpu": 1.0, "starved": True}]
+    assert d.samples["A12"] == [{"s": 2.0, "bar": 0, "progress": False, "late_ms": 0, "first_on_page": True,
+                                 "cpu": 1.0, "starved": True}]
     timed(2000)
     timed(900)     # under 1 s: never named
     timed(40000)   # past 30 s: it runs once
@@ -1734,6 +1735,57 @@ def test_the_perf_gates_rerun_of_a_slower_op_adds_its_samples_to_the_first_and_j
     assert asked == [{"A31": 1, "A21": 1}, {"A21": 2}, {"A31": 1, "A21": 3}]
     assert {k: (r["samples"], r["median"], r["slower"]) for k, r in cases.items()} == {
         "A31/app": ([200.0, 100.0], 150.0, True), "A21/app": ([4.0] * 6, 4.0, True)}
+
+
+def test_the_perf_gate_judges_a_pages_first_sample_against_the_releases_first_and_a_later_one_against_its_later():
+    """Like with like (Step 4.47d): a page's first Check is cold and a later
+    one warm, so the regression verdict holds each place to the release's
+    same place, read from an untagged release as it took them (R to a page,
+    each its own page's for an op of fresh states): a changed area's samples,
+    taken over three pages (4.46c's A95), aren't slower than the release's
+    one page, and a cold or a warm path 2x slower still is, by name. Its
+    re-run leaves each place R samples, so one cold spike can't fail it.
+    The driver tags each sample's place as it takes it."""
+    d = _perf.Driver(_perf.RUNS["app"], {"A95": 4}, Path(perf.ROOT), Path(perf.ROOT), None)
+    for _ in range(2):   # the driver's tag: a page's first sample, then a later one there; a new page starts again
+        d.fresh(page := _Stub({"go": {"done": 2000}}))
+        d.act(page, "A95", "go", "done")
+        d.act(page, "A95", "go", "done")
+    assert [s["first_on_page"] for s in d.samples["A95"]] == [True, False, True, False]
+    release = {"samples": [18.877, 5.471, 5.473], "median": 5.473}
+    ref = perf.reference_of(release, _perf.OPS["A95"])
+    assert ref == {"median": 5.473, "places": {"first": 18.877, "later": 5.472}}
+    assert perf.reference_of(release, _perf.OPS["A01"])["places"] == {"first": 5.473}
+
+    def placed(seconds, firsts):
+        return [{"s": s, "bar": 2, "progress": True, "first_on_page": f} for s, f in zip(seconds, firsts)]
+    pages = [True, True, False, True, False, False]   # one sample, then R, then the re-run's R, each on a new page
+    taken = [18.891, 17.205, 5.437, 17.633, 5.252, 5.028]
+    cold, warm = ([s * (2 if f == hot else 1) for s, f in zip(taken, pages)] for hot in (True, False))
+    got = {name: perf.judge(placed(seconds, firsts), 3.0, reference=ref) for name, seconds, firsts in (
+        ("4.46c", taken, pages), ("release", release["samples"], [True, False, False]),
+        ("cold", cold, pages), ("warm", warm, pages))}
+    assert {name: (r["median"], r["slower"]) for name, r in got.items()} == {
+        "4.46c": (11.321, False), "release": (5.473, False), "cold": (19.923, True), "warm": (14.04, True)}
+    assert got["4.46c"]["places"] == {"first": {"median": 17.633, "reference": 18.877, "slower": False},
+                                      "later": {"median": 5.252, "reference": 5.472, "slower": False}}
+    both = {"cases": {"A95/app": got["cold"], "A96/app": got["warm"]}}
+    assert [line.split(" (")[0] for line in perf.blocking(both)] == [
+        "A95/app: slower than the release's 18.877 s at its first sample on a page",
+        "A96/app: slower than the release's 5.472 s at its later samples there"]
+
+    def run(first):   # every page R samples: its first ``first`` (a cold one), the rest 5.5 s
+        asked, kept = [], []
+
+        def drive(_, targets):
+            asked.append(targets["A95"])
+            kept.extend(placed([first.pop(0)] + [5.5] * (targets["A95"] - len(kept) - 1), [True, False, False]))
+            return {"samples": {"A95": list(kept)}}
+        cases, _, _ = perf.measure([("A95", "app")], drive, {"ceilings": {}, "debts": set()},
+                                   reference={"A95/app": ref})
+        return asked, cases["A95/app"]["places"]["first"]
+    assert run([28.0, 28.0, 28.0]) == ([3, 6, 9], {"median": 28.0, "reference": 18.877, "slower": True})
+    assert run([28.0, 18.9, 18.8]) == ([3, 6, 9], {"median": 18.9, "reference": 18.877, "slower": False})
 
 
 def test_a_changed_areas_perf_run_times_an_op_once_under_1_s_and_mains_run_of_every_op_three_times(tmp_path,
