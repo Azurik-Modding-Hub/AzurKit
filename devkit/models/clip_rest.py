@@ -121,7 +121,7 @@ def rerest(data: bytes, rests: dict[str, tuple], tolerance: float = 1e-5
         move = tuple(b - a for a, b in zip(old_t, new_t))
         moves[named[name]] = out[name] = move
     uses: dict[int, set] = {}
-    for ai, anim in enumerate(doc.get("animations", [])):
+    for anim in doc.get("animations", []):
         for c in anim["channels"]:
             s = anim["samplers"][c["sampler"]]
             uses.setdefault(s["input"], set()).add(("input",))
