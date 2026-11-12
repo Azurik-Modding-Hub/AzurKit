@@ -19,7 +19,8 @@ queue's tail (09564439, behind 1.0.3's release commit 7a4bab60), after
 the 11-10 session's steps 4.37-4.47. A done item is struck to one line
 naming what closed it, so the numbers that tests and decisions cite still
 point; a new item takes the next free number in its group. Groups 4 and 5
-were left as they were.
+were left as they were. Step 4.47g added the 2026-11-12 session's items
+(2.5, 9.43, 10.14) and brought 10.12 up to date.
 
 ## 1. First: the Variants editor's first Check (D1181, D1192)
 
@@ -103,6 +104,22 @@ The next session starts here (D1192), so 1.1 can follow.
    notes shown to the owner after; red again, the tag waits for 4.37t on
    `main`. 4.38b's community-only characters, its two red tests under a fix
    seat, move to 1.1 (D1203).
+5. **booblord's rework** (D1224-D1242): a refinement and optimization
+   pass of booblord, booblord_high and both human variants, Fable
+   designing and judging and Opus building, the owner picking each round.
+   Round 1 took look A at today's coverage; round 2 the full high ponytail
+   (its "cleft fine" op out), sat once in xemu (its frame cost 20.2 MB
+   against shipped booblord's 31.4 MB, the cost model's line held). Round 3
+   converges on one candidate: the hair one even colour with no streaks,
+   drawn red irises, the back tail narrower and the backpack shallower
+   (D1235-D1239), and the staff out of her body in 79 of her 81 clips.
+   Then the hand-off: she is dressed as the built-in in `variants.json`,
+   sat once in xemu with model_kit rows (the springs on open ground) and a
+   skeptic, graded from that sitting, her goldens recorded, and a new
+   content version replaces booblord in place (D1240, after 4.37m1's).
+   booblord_high carries the same changes and is judged once (D1241); the
+   human variants get their colour check; fixes round 3's judges owe go
+   into the hand-off (D1242).
 
 ## 3. Stack 3 and 4.31's outcome
 
@@ -593,6 +610,12 @@ memory peaks stay strict. The gate writes both kinds of row to
     `variant.json` is parsed with no depth guard (U6) and `installed.json`
     read with no cap or value check (U7); and on Windows a zip unpacked into
     the app's data folder can replace the install's key file (store F2).
+43. **Covered faces removed** (E1, D1237): no Shape op removes faces
+    (`docs/VARIANTS.md`), so a model's faces its clothes always cover are
+    drawn and Checked anyway. A lane that adds one (about 8-10 hours)
+    would take booblord from about 1.49x to about 1.33x vanilla's heaviest
+    vertex cost and a Check about 9 s faster in the app and 14 s on the
+    site (estimates). It follows booblord's rework (2.5).
 
 ## 10. Dev tools, tests and port notes
 
@@ -647,16 +670,24 @@ memory peaks stay strict. The gate writes both kinds of row to
     lock to its first blocked waiter, even a stopped one, so a window seat
     waited hours behind every queued gate. Step 4.47a, queued last, makes
     gates and the window poll and take turns. Owed: `$EV/tools/window`
-    takes its .4.47a version at a quiet moment (the line empty, no holder),
-    then its self-test; `land --selftest` once 4.47a is on `main`. Until
-    every queued lane carries 4.47a, an older lane's gate still passes a
-    window seat in flock's line.
+    took its .4.47a version, and every queued lane now carries 4.47a.
+    Owed: `land --selftest` on `main`.
 13. **The gate's P2** (D1215, two locks): its commit (8102f56e on
     `p2/4.43b-gate-cuts-p2-p1-p4`) waits for a drained queue and its trial
     pair (about an hour of window), adopted only if no perf verdict turns
     slower and the starved count doesn't grow. Rebased over 4.47a, it owes
     the test patch 4.47a's report gives. `$EV/tools/landq.py` takes its
     .4.43b version once 4.43b1 (P4 and P1) is on `main`.
+14. **The landing queue's loose ends** (`$EV/tools/landq.py`, seen
+    2026-11-12): a queued or running gate of an entry that was rebased,
+    moved or dropped keeps its place and takes turns at the suite lock,
+    and landq never ends it (the orchestrator killed each by its pid);
+    landq doesn't check an entry's tip and liveness again just before it
+    rebases or gates it; its runner held about 790 MB after 13 hours, and
+    each poll costs CPU; one rebase stopped with "Could not execute the
+    todo command" and no conflict named, where the same rebase by hand
+    went clean (4.37m1); and no command holds an entry already queued
+    (D1238's pause stopped the gates' runners with SIGSTOP instead).
 
 ## 11. This Mac and infrastructure
 
