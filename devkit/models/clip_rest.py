@@ -9,7 +9,7 @@ variant's jiggle bones are placed where the vertices they take sit
 a recipe's ``places`` pins them where another mesh's build put them
 (booblord_high's are booblord's). This verb dresses the variant's mesh and
 jiggle twice on the vanilla body, as a build's first stages do
-(``_player_character._variant_body``, W24 and W29; no paint): as its recipe
+(``_player_character._variant_body``: W24, W29 and W30): as its recipe
 places them (the body its files hold on today) and with no ``places`` (its
 own build's), then writes each ``.glb`` its ``gltf`` clip rows name (in its
 clip folder: the content folder's for a built-in) with each jiggle bone's
@@ -21,7 +21,10 @@ keys accessor another channel shares, is refused by name.
 Before it writes, it reads every animation of each new file on the new body
 (the build's own read and 1e-5 check) and of the old file on the old one, and
 compares the clips: every track of a bone that isn't a jiggle bone must be
-the old clip's, else it prints the clip and bone and writes nothing (exit 1).
+the old clip's, or (the build thins a bone's turns by how far its farthest
+child sits, which a moved jiggle bone under it changes) pose that bone within
+twice the thinning's tolerance of the old clip, else it prints the clip and
+bone and writes nothing (exit 1).
 It prints each clip's tracks compared, each jiggle bone's move (mm), each new
 file's size and sha256, and the ``clips`` rows that take them. Names, counts
 and hashes only (the files are game assets: never commit or share them but
@@ -182,6 +185,24 @@ class Compared:
     differ: tuple[str, ...]
 
 
+def drift(old_info, old, new_info, new, bones) -> float:
+    """The most (a world matrix entry) ``bones`` (indices) sit apart when the
+    clips ``old`` on ``old_info`` and ``new`` on ``new_info`` (``gltf._read``
+    bodies) play, at each key time of their tracks and the export's
+    evenly spread samples."""
+    from azurkit.tools.characters import gltf
+
+    if not bones:
+        return 0.0
+    times = {old.length * i / (gltf.POSE_SAMPLES - 1) for i in range(gltf.POSE_SAMPLES)}
+    times |= {k[0] for c in (old, new) for t in c.bones if t.target in bones for k in t.keys}
+    most = 0.0
+    for t in sorted(x for x in times if x <= old.length + 1e-6):
+        a, b = gltf._engine(old_info, old, t), gltf._engine(new_info, new, t)
+        most = max(most, max(float(abs(a[k] - b[k]).max()) for k in bones))
+    return most
+
+
 def compare(old, new, placed: set[int], names) -> Compared:
     """The clip ``new`` (``clip_import.ImportedClip``) against ``old``,
     track by track ((bone, component)); ``placed`` the jiggle bones'
@@ -197,7 +218,7 @@ def compare(old, new, placed: set[int], names) -> Compared:
 
 
 def bodies(variant, iso: Path) -> tuple[bytes, bytes, str, float]:
-    """``variant``'s body on the vanilla ``iso`` after W24 and W29 as its
+    """``variant``'s body on the vanilla ``iso`` after W24, W29 and W30 as its
     recipe places its jiggle bones and as its own build does (no
     ``places``), the body's name and the seconds both took; ``ValueError``
     names a variant with no jiggle, one another recipe places even with no
@@ -217,8 +238,7 @@ def bodies(variant, iso: Path) -> tuple[bytes, bytes, str, float]:
         raise ValueError(f"{iso}'s characters.xbr isn't vanilla (D27)")
     body, _ = gltf.resolve_body(characters, config, variant.base)
     start, made = time.monotonic(), []
-    for v in (variant, own):   # no paint: W30 moves no bone
-        v = dataclasses.replace(v, textures=(), texture_scale=1)
+    for v in (variant, own):   # W30 too: a mesh that lays new UVs refuses a dress without its paint
         made.append(pc._variant_body(characters, characters, body, v)[0])
     return made[0], made[1], body, time.monotonic() - start
 
@@ -256,12 +276,14 @@ def run(variant, iso: Path, out: Path) -> tuple[list[str], int]:
     and 0, or 1 where a clip's other bones moved (then nothing is written)."""
     from azurkit.tools.characters import clip_import, gltf
 
+    bound = 2 * clip_import.THIN_TOLERANCE
     folder, shas = _files(variant)
     names = [b.bone for b in variant.jiggle.bones] if variant.jiggle is not None else []
     old_body, new_body, body, seconds = bodies(variant, iso)
     olds = rests(old_body, body, names)
     news = rests(new_body, body, names)
-    bone_names = [b.name for b in gltf._read(new_body, body).bones]
+    old_info, new_info = gltf._read(old_body, body), gltf._read(new_body, body)
+    bone_names = [b.name for b in new_info.bones]
     placed = {bone_names.index(n) for n in names}
     lines = [f"{variant.name} ({body}): {len(names)} jiggle bones placed as its recipe places them and as its own "
              f"build does, in {seconds:.0f} s"]
@@ -285,9 +307,14 @@ def run(variant, iso: Path, out: Path) -> tuple[list[str], int]:
                          + (f" ({', '.join(keyed)})" if keyed else ""))
             for name in sorted(got):
                 c = compare(was[name], got[name], placed, bone_names)
-                failed |= bool(c.differ)
+                apart = drift(old_info, was[name].clip, new_info, got[name].clip,
+                              {bone_names.index(n) for n in c.differ})
+                failed |= apart > bound
                 lines.append(f"    {name:16s} other bones' tracks {c.others[0]}/{c.others[1]} equal, jiggle bones' "
-                             f"{c.placed[0]}/{c.placed[1]}" + (f"; DIFFER: {', '.join(c.differ)}" if c.differ else ""))
+                             f"{c.placed[0]}/{c.placed[1]}" + (f"; thinned apart: {', '.join(c.differ)}, posed within "
+                                                              f"{apart:.1e}" + (f", past {bound:.0e}: DIFFER"
+                                                                                if apart > bound else "")
+                                                              if c.differ else ""))
             rows.update({n: {**r, "sha256": new_sha} for n, r in variant.clips.items()
                          if isinstance(r, dict) and r.get("generator") == "gltf" and r["file"] == file})
         if failed:

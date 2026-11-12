@@ -438,7 +438,7 @@ stop holding; a recipe's `places` pins them where another mesh's build put
 them (booblord_high's are booblord's). `clip-rest` takes VARIANT (a
 built-in, or one of `--variant-file`'s, with `--recipe`'s fields laid over
 it, `null` dropping one, as `model dress` does) and runs its build's first
-stages (W24's mesh, W29's jiggle bones; no paint) twice on the vanilla body:
+stages (W24's mesh, W29's jiggle bones, W30's paint) twice on the vanilla body:
 as its recipe places the bones (where its files hold today) and with no
 `places` (where its own build puts them). Then each `.glb` its `gltf` clip
 rows name, from its clip folder (a built-in's in the content folder,
@@ -451,14 +451,17 @@ shares, is refused by name.
 Before it writes, it reads every animation of each new file on the new body
 (the build's own read, with its 1e-5 check) and of the old file on the old
 body, and compares them track by track: every bone that isn't a jiggle bone
-must keep the old clip's tracks, or it names the clip and bone and writes
-nothing (exit 1). It prints each jiggle bone's move (mm), each clip's
+must keep the old clip's tracks or, where the build thinned them apart (it
+thins a bone's turns by how far its farthest child sits, so a jiggle bone
+moved under the head changes the head's), pose within twice the thinning's
+tolerance (4e-3) of the old clip; past that it names the clip and bone and
+writes nothing (exit 1). It prints each jiggle bone's move (mm), each clip's
 tracks compared, each new file's size and sha256 and the `clips` rows that
 take them; with them in the content entry, the recipe drops `places`. A
 contact clip's hands don't follow the moved bones: a clip whose hand
 touches a jiggle bone (booblord's `bust_bounce`, `sash_fix`, `look_back`,
-`sit_cross`) keeps its motion, not its contact. On booblord's two files it
-takes about two of her body's builds.
+`sit_cross`) keeps its motion, not its contact. On booblord's two files and
+13 clips it takes about 75 s, 60 of them her two bodies.
 
 ## Sculpt rounds (ModelKit)
 
