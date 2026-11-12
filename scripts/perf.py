@@ -156,8 +156,9 @@ GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")   # 
 NATIVE = "src/azurkit/core/_native"   # the compiled kernels' libraries a worktree ships (core/native.py)
 SIDE_MODULE = "emscripten-wasm32.so"  # the site's (its Pyodide's); the app's is this machine's, core.native.target()
 #: What of the release's commit its tree beside is made from (Step 4.47e): the wheel's inputs (``web_tools.wheel``'s
-#: key), the site's ``web/`` and the lock its app's venv installs from
-RELEASE_TREE = ("src", "web", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "NOTICE.md")
+#: key), the site's ``web/``, the lock its app's venv installs from and the ``web_tools.py`` that builds all three
+#: (:func:`tools_of`), so a lane's change there is timed as the head's alone
+RELEASE_TREE = ("src", "web", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "NOTICE.md", "scripts/web_tools.py")
 
 
 def select(paths: list[str]) -> set[tuple[str, str]]:
@@ -523,6 +524,19 @@ def sides(samples: list[dict]) -> dict[str, list[float]]:
     return placed(samples) or {"all": [s["s"] for s in samples]}
 
 
+def tools_of(tree: Path, where: Path):
+    """``tree``'s own ``scripts/web_tools.py`` as a module of its own (the release's tree beside, Step 4.47e), so its
+    wheel, site and app's venv are built as the release built them (its Pyodide, its wheel's steps, its site's
+    assembly, its install), Pyodide's core and the browsers read from the ``.tools`` folder ``where`` (the
+    worktree's: an archive is no checkout, whose lookup asks git)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("azurkit_release_web_tools", tree / "scripts" / "web_tools.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module._tools = lambda root: where
+    return module
+
+
 def stopped(error: BaseException) -> bool:
     """Whether ``error`` is a SIGTERM's (:data:`STOPPED`), which no catch of the release's side may keep."""
     return isinstance(error, SystemExit) and error.code == STOPPED
@@ -790,17 +804,19 @@ def main(argv: list[str] | None = None) -> int:
         natives: dict[str, list] = {}
         held: dict[str, dict] = {}   # each run's record so far: a re-run's samples join its first ones (measure)
 
-        def made(what: str, tree: Path = wt, into: Path = scratch) -> Path | str:   # each made once, as a run needs it:
-            if (tree, what) not in built:                                         # one wheel for both hosts
-                from scripts import web_tools
-                built[(tree, what)] = (web_tools.wheel(into / "wheel", tree) if what == "wheel"
-                                       else web_tools.site(into / "site", root=tree, built=made("wheel", tree, into),
-                                                           content=content, tools=wt)
-                                       if what == "site" else _perf.venv(tree, into / "app", made("wheel", tree, into)))
+        from scripts import web_tools
+
+        def made(what: str, tree: Path = wt, into: Path = scratch, tools=web_tools) -> Path | str:   # each made once,
+            if (tree, what) not in built:   # as a run needs it, by ``tools`` (a web_tools): one wheel for both hosts
+                built[(tree, what)] = (tools.wheel(into / "wheel", tree) if what == "wheel"
+                                       else tools.site(into / "site", root=tree, built=made("wheel", tree, into, tools),
+                                                       content=content)
+                                       if what == "site"
+                                       else _perf.venv(tree, into / "app", made("wheel", tree, into, tools), tools))
             return built[(tree, what)]
 
         def made_release(what: str) -> Path | str:   # the release's tree beside (Step 4.47e): its commit's files,
-            if (failed := built.get(("failed", what))) is not None:   # built as the worktree's are
+            if (failed := built.get(("failed", what))) is not None:   # built by its own web_tools
                 raise failed
             tree = scratch / "release" / "tree"
             try:
@@ -814,7 +830,9 @@ def main(argv: list[str] | None = None) -> int:
                         archive.extractall(part, filter="data")
                     tar.unlink()
                     part.rename(tree)
-                return made(what, tree, scratch / "release")
+                if (tree, "tools") not in built:
+                    built[(tree, "tools")] = tools_of(tree, web_tools._tools(wt))
+                return made(what, tree, scratch / "release", built[(tree, "tools")])
             except (Exception, SystemExit) as error:   # unbuilt: its ops slower than the receipt are judged by it
                 if not stopped(error):
                     built[("failed", what)] = error

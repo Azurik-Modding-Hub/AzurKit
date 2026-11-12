@@ -1851,11 +1851,27 @@ def test_the_perf_gate_judges_a_pages_first_sample_against_the_releases_first_an
     assert run([28.0, 18.9, 18.8]) == ([3, 6, 9], {"median": 18.9, "reference": 18.877, "slower": False})
 
 
+#: The release's own ``scripts/web_tools.py`` in :func:`_a_release_beside`'s repo: its wheel is its own build's,
+#: where its ``.tools`` folder is (its own lookup, git's, can't answer in an archive)
+RELEASE_WEB_TOOLS = """from pathlib import Path
+
+
+def _tools(root):
+    raise RuntimeError(f"{root} is no checkout")
+
+
+def wheel(out, root):
+    return _tools(root) / "the release's wheel"
+"""
+
+
 def _a_release_beside(tmp_path, monkeypatch, ops):
     """The perf gate's release beside, staged (Step 4.47e): a repo whose
-    release commit (``README.md`` "1.0") is the receipt's ``head``, each of
-    ``ops`` at 2.0 s on the app there, and main after it ("main"), the image
-    found and the builds stubbed. ``(repo, receipt)``."""
+    release commit (``README.md`` "1.0", its own web_tools'
+    :data:`RELEASE_WEB_TOOLS`) is the receipt's ``head``, each of ``ops`` at
+    2.0 s on the app there, and main after it ("main"), the image found and
+    the head's builds stubbed; an app's python names its wheel and the
+    web_tools that built it. ``(repo, receipt)``."""
     from azurkit.core import gate
     from scripts import web_tools
 
@@ -1869,6 +1885,7 @@ def _a_release_beside(tmp_path, monkeypatch, ops):
     for name in perf.RELEASE_TREE:
         (repo / name / "x" if "." not in name and name != "LICENSE" else repo / name).parent.mkdir(exist_ok=True)
         (repo / name / "x" if "." not in name and name != "LICENSE" else repo / name).write_text("1.0", "utf-8")
+    (repo / "scripts" / "web_tools.py").write_text(RELEASE_WEB_TOOLS, encoding="utf-8")
     _git(repo, "add", ".")
     _git(repo, "commit", "-q", "-m", "the release")
     released = _git(repo, "rev-parse", "HEAD")
@@ -1877,7 +1894,8 @@ def _a_release_beside(tmp_path, monkeypatch, ops):
     image = types.SimpleNamespace(stat=lambda: types.SimpleNamespace(st_size=gate.USA.iso_size))
     monkeypatch.setattr(gate, "find", lambda release: image)
     monkeypatch.setattr(web_tools, "wheel", lambda out, root: root / "wheel")
-    monkeypatch.setattr(_perf, "venv", lambda wt, folder, wheel: f"{wheel.parent.name}'s python")
+    monkeypatch.setattr(_perf, "venv", lambda wt, folder, wheel, tools: (
+        wheel.relative_to(repo).as_posix(), "the head's" if tools is web_tools else Path(tools.__file__).parent.parent.name))
     monkeypatch.setattr(perf, "native_failures", lambda *_: [])
     receipt = tmp_path / "suite-release.meta"
     receipt.write_text(json.dumps({"head": released, "perf": {"cases": {
@@ -1889,7 +1907,8 @@ def test_the_perf_gate_times_the_releases_tree_beside_an_op_that_reads_slower_an
         tmp_path, monkeypatch):
     """The release's tree beside (Step 4.47e): an op slower than the
     release's receipt has the release's commit (a git archive of the
-    receipt's head, built as the worktree's) timed beside it, page for page,
+    receipt's head, built by its own web_tools, never the head's, Pyodide and
+    the browsers from the worktree's tools) timed beside it, page for page,
     the sides alternating, and D1170's line holds the head's pages there to
     the release's there, each place to its own: a busy box that slows both
     passes, the case holding both sides; a head slower than the release
@@ -1919,7 +1938,7 @@ def test_the_perf_gate_times_the_releases_tree_beside_an_op_that_reads_slower_an
                      ("head", pages[1]), ("release", pages[1]), ("release", pages[2]), ("head", pages[2]),
                      *[(side, {"A12": 1}) for side in ("head", "release", "release", "head", "head", "release")],
                      ("head", {"A14": 3})]
-    assert trees == {("head", "main", "repo's python"), ("release", "1.0", "tree's python")}
+    assert trees == {("head", "main", ("wheel", "the head's")), ("release", "1.0", (".tools/the release's wheel", "tree"))}
     cases = block["cases"]
     assert "beside" not in cases["A13/app"] and cases["A13/app"]["verdict"] == "pass"
     assert (cases["A21/app"]["slower"], cases["A21/app"]["verdict"], cases["A21/app"]["beside"]) == (False, "over", {

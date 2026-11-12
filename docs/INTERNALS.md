@@ -2339,8 +2339,11 @@ are the Characters section's.
   path that really slowed still does. Its three more samples then go on, a
   page at a time, until each place holds three. The release's tree beside
   (Step 4.47e): an op that reads slower than that receipt has the release's
-  own commit (the receipt's `head`, a `git archive` of its `src`, `web` and
-  lock, its wheel, site and app built as the worktree's) timed beside it in
+  own commit (the receipt's `head`, a `git archive` of its `src`, `web`,
+  lock and `scripts/web_tools.py`, its wheel, site and app built by that
+  `web_tools.py`, as the release built them, so a lane's change there is
+  timed on the head's side alone; Pyodide's core and the browsers from the
+  worktree's `.tools`) timed beside it in
   the same stage instead, page for page, the two sides alternating
   (`perf.pair`): three pages a side (an op of fresh states one sample a
   page, one repeated in one state a first and its later ones, one past 30 s

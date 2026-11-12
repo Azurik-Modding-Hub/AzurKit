@@ -2851,18 +2851,21 @@ def clean_storage(ctx, url: str) -> None:
         page.close()
 
 
-def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
+def venv(wt: Path, folder: Path, wheel: Path | None = None, tools=None) -> str:
     """The app's Python as a player installs it: a venv in the new folder
     ``folder`` holding the worktree's wheel (``wheel``, else built now:
     ``web_tools.wheel``) and its declared dependencies, so the app reads the
     randomizer database the wheel ships (its RECORD lists it; a checkout
     checks it again, round 1's A06 7.8 s against the frozen app's 3.5 s), and
     a copy of the worktree's ``web/`` where the installed app looks for its
-    page (``azurkit.app.PAGE``: beside ``site-packages``). Its python."""
-    from scripts import web_tools
-    wheel = wheel or web_tools.wheel(folder / "dist", wt)
+    page (``azurkit.app.PAGE``: beside ``site-packages``). Its python.
+    ``tools`` is the ``web_tools`` that builds and installs it (the perf
+    gate's release beside passes the release's own, Step 4.47e)."""
+    if tools is None:
+        from scripts import web_tools as tools
+    wheel = wheel or tools.wheel(folder / "dist", wt)
     env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
-    python = web_tools.install(wheel, folder / "venv", wt, env)
+    python = tools.install(wheel, folder / "venv", wt, env)
     purelib = subprocess.run([python, "-I", "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"], env=env,
                              capture_output=True, text=True, check=True, timeout=600).stdout.strip()
     shutil.copytree(wt / "web", Path(purelib).parent / "web")
