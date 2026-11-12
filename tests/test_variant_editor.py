@@ -417,7 +417,9 @@ def test_a_part_kept_across_visits_reads_back_as_it_was_and_a_spoiled_stale_or_f
     the lists and dicts it held in two places one again, the objects it pickled (LODs, a mesh plan's runs of rows and
     dicts) too; bytes that aren't one, cut short, inflating past what they list or past the most a part may hold, or
     a class whose fields changed since (a stale part) or no part holds are refused by name, and a value no part holds
-    isn't kept. A WAV's part (Step 4.6q) is one it keeps."""
+    isn't kept. A WAV's part (Step 4.6q) is one it keeps. A part kept as pages over a file holds that file's frame in
+    its key (Step 4.37m1), so it is asked again over a file whose payloads alone differ (another host's floats) and
+    never over one whose layout does (a made-up archive's resource moved)."""
     from compression import zstd
 
     from azurkit.tools.characters import body_codec, part_codec, xbox_adpcm
@@ -457,6 +459,16 @@ def test_a_part_kept_across_visits_reads_back_as_it_was_and_a_spoiled_stale_or_f
             part_codec.decode(spoiled)
     with pytest.raises(ValueError, match="no codec for a builtins.object"):
         part_codec.encode((1, object()))
+    def archive(at: int, payload: bytes) -> bytes:   # a made-up XBR: two 16-byte resources, the second at ``at``
+        head = bytearray(b"xobx" + bytes(0x38))
+        struct.pack_into("<II", head, 0x0C, 2, 0x5C)
+        return bytes(head) + struct.pack("<II4sI", 0, 16, b"surf", 0) + struct.pack("<II4sI", at, 16, b"surf", 0) + \
+            payload
+    ref, nudged, moved = archive(16, b"\x01" * 48), archive(16, b"\x02" * 48), archive(32, b"\x01" * 48)
+    parts.clear()
+    parts.put(parts.key("W39", "a file's name", parts.frame(ref)), (parts.delta(ref, ref), parts.dump([])), 8)
+    assert [parts.get(parts.key("W39", "a file's name", parts.frame(f))) is not None for f in (ref, nudged, moved)
+            ] == [True, True, False]
     sound = tmp_path / "a.wav"
     with wave.open(str(sound), "wb") as w:
         w.setnchannels(1), w.setsampwidth(2), w.setframerate(xbox_adpcm.RATE), w.writeframes(b"\x01\x00" * 64)
@@ -474,8 +486,9 @@ def test_a_built_ins_shipped_part_is_fetched_only_when_a_check_asks_for_it_held_
     Check that asks for it fetches it from the source its entry came from (the sdk's fetch: a folder here), reads it
     back as it was, hears it fetched and hands it to the host's store as a part made there, so a later visit fetches
     none; one a content folder holds (a clone's) is taken there and never handed to the store. One whose fetched bytes
-    aren't its row's (a byte spoiled, another part's, gone), one no installed entry lists at its sha256, and any with
-    ``shipped.OFF`` are worked out, the source asked again for the next (one it can't reach is let be: the next
+    aren't its row's (a byte spoiled, another part's, gone), one no installed entry lists at its sha256, any in a
+    table of another code's keys (Step 4.37m1: ``keys``, ``parts.VERSION``) and any with ``shipped.OFF`` are worked
+    out, the source asked again for the next (one it can't reach is let be: the next
     test). A fresh part is
     heard (``shipped.SEEN``) by its digest, the row's answer, which a set of names doesn't move from one process to
     another (a str's hash does), so the re-record pin holds it to its row."""
@@ -501,7 +514,7 @@ def test_a_built_ins_shipped_part_is_fetched_only_when_a_check_asks_for_it_held_
     assert content.installed()["x"]["files"] == {f["path"]: f["sha256"] for f in files}
     assert sdk.content_check({"manifest": listed, "id": "x", "files": {note: b"x"}})["install"] == ["x"]
     row = {"part": "W24:k", "answer": part_codec.digest((held, 64)), "blob": files[0]}
-    table, put, used, fetches = {"part": [row], "host": shipped.host()}, [], [], []
+    table, put, used, fetches = {"part": [row], "host": shipped.host(), "keys": parts.VERSION}, [], [], []
     store = type("Store", (), {"get": lambda *_: None, "put": lambda _, key, data: put.append((key, data)),
                                "used": lambda _, key, make: used.append(key)})
     monkeypatch.setattr(shipped, "table", lambda: table)
@@ -525,13 +538,16 @@ def test_a_built_ins_shipped_part_is_fetched_only_when_a_check_asks_for_it_held_
                        "another part's": lambda: (source / at).write_bytes(other),
                        "listed by no entry at its sha256": lambda: (root / content.INSTALLED).write_text(
                            record.replace(files[0]["sha256"], "0" * 64), encoding="utf-8"),
-                       "gone": (source / at).unlink, "shipped.OFF": lambda: setattr(shipped, "OFF", True)}.items():
+                       "gone": (source / at).unlink, "shipped.OFF": lambda: setattr(shipped, "OFF", True),
+                       "another code's keys": lambda: monkeypatch.setattr(shipped, "table", lambda: table | {
+                           "keys": "1-another"})}.items():
         spoil()
         parts.clear()
         assert parts.get("W24:k") is None, why
         (source / at).write_bytes(blob)
         (root / content.INSTALLED).write_text(record, encoding="utf-8")
         shipped.OFF = False
+        monkeypatch.setattr(shipped, "table", lambda: table)
     assert fetches == [at] * 4 and _exact(parts.get("W24:k"), held) and fetches == [at] * 5   # gone: asked again
     monkeypatch.setattr(shipped, "SEEN", [])
     parts.put("W24:k", held, 64)
@@ -557,7 +573,8 @@ def test_a_parts_source_is_let_be_for_shipped_down_only_when_it_cant_be_reached_
     from azurkit.tools.characters import content, shipped
 
     want = {"path": "variants/x/shipped/parts/0.azkp", "sha256": hashlib.sha256(b"part").hexdigest(), "size": 4}
-    monkeypatch.setattr(shipped, "table", lambda: {"part": [{"part": "W24:k", "answer": "0" * 64, "blob": want}]})
+    monkeypatch.setattr(shipped, "table", lambda: {"part": [{"part": "W24:k", "answer": "0" * 64, "blob": want}],
+                                                   "keys": parts.VERSION})
     monkeypatch.setattr(shipped, "OFF", False)
     monkeypatch.setattr(shipped, "_DOWN", {})
     monkeypatch.setattr(content, "source_of", lambda *_: "https://source.test/")

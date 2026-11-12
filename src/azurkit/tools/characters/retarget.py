@@ -1294,23 +1294,27 @@ def bake_kept(characters_xbr: bytes, index_xbr: bytes, body: str, clips: Iterabl
               lift: float = 0.0, centre: Iterable[str] = (), lunges: Iterable[str] = (), lender: str = PLAYER,
               into: str = BAKED_DIR, quiet_markers: Iterable[str] = (),
               post: Callable[[str, Clip, Clip], Clip] | None = None,
-              given: dict[str, Clip] | None = None, known: str | None = None) -> tuple[bytes, bytes, str | None]:
-    """:func:`bake_body`, and the name by content of the ``characters.xbr``
+              given: dict[str, Clip] | None = None, known: str | None = None, drawn_by: object = None,
+              given_by: object = None) -> tuple[bytes, bytes, str | None]:
+    """:func:`bake_body`, and the name by its inputs of the ``characters.xbr``
     it gives: a part kept by what it reads
-    (:mod:`~azurkit.tools.characters.parts`, Step 4.6q) where ``known``
-    names ``characters_xbr`` by its content and no ``post`` changes a
-    clip: that name, its options by ``repr`` and ``given``'s clips by
-    their pickle (its ``index.xbr`` gains the records of the clips it
-    added, as worked out); else ``None`` and the bake each time."""
-    import pickle
-
+    (:mod:`~azurkit.tools.characters.parts`, Step 4.6q; Step 4.37m1, by its
+    inputs alone) where ``known`` names ``characters_xbr`` by its writer's
+    key, no ``post`` changes a clip, ``drawn_by`` says what ``drawn`` is
+    worked out from (where it isn't 1) and ``given_by`` what ``given``'s
+    clips are read from: those, the file's
+    :func:`~azurkit.tools.characters.parts.frame` and its options by
+    ``repr`` (its ``index.xbr`` gains the records of the clips it added, as
+    worked out); else ``None`` and the bake each time."""
     from azurkit.tools.characters import parts
 
     clips, centre, lunges, quiet_markers = sorted(set(clips)), sorted(set(centre)), sorted(set(lunges)), \
         tuple(quiet_markers)
-    named = None if known is None or post is not None else parts.key(
-        "bake", known, body, clips, grow, stand, repr(drawn), repr(lift), centre, lunges, lender, into,
-        quiet_markers, None if given is None else parts.pickled(given))
+    asks = (known is not None and post is None and (drawn_by is not None or drawn == 1.0)
+            and (given is None or given_by is not None))
+    named = None if not asks else parts.key(
+        "bake", known, body, clips, grow, stand, drawn_by, repr(lift), centre, lunges, lender, into,
+        quiet_markers, given_by, parts.frame(characters_xbr))
     if named is not None and (kept := parts.get(named, "bake")) is not None:
         records = [IndexRecord(name, "characters.xbr", "banm") for name in kept[1]]
         return parts.undelta(characters_xbr, kept[0]), add_index_records(index_xbr, records), named

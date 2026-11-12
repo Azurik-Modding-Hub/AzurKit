@@ -2210,11 +2210,10 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     file: USA's and Europe's ``characters.xbr`` are one) are too, a fresh
     ``_parent_places`` in booblord_high's case. And on USA each shipped part
     (Step 4.6p: a Check's of a built-in or of its own copy, :func:`_own_copies`
-    built for them) is the part a fresh dress works out under its key: on the
-    recording host (``tests/_hosts.py``) every one, on any other host every one
-    but those keyed on the file a fresh dress's clips went into (W28's
-    restyles, W39's LOD writes, the bakes), whose floats round otherwise there
-    (D1016), so their keys differ."""
+    built for them) is the part a fresh dress works out under its key, on every
+    host: a key is its stage's inputs alone, the same on each (Step 4.37m1,
+    D1195), the part's floats the recording host's (``shipped.agrees``: close
+    enough off it, D1016)."""
     cases = _variants(release, tmp_path)
     assert len(cases) == {"usa": 7, "europe": 1}[release.name]
     plans = [row for row in shipped.table().get("plan", ()) if row["release"] == release.iso_sha256]
@@ -2229,9 +2228,7 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     assert plans and {shipped.name("plan", row) for row in plans} <= held
     places = [row for row in shipped.table().get("places", ()) if row["release"] == release.iso_sha256]
     assert bool(places) == (release.name == "usa") and {shipped.name("places", row) for row in places} <= held
-    moved = set() if _hosts.recording() else {"W28", "W39", "bake"}   # keyed on the file fresh clips went into (D1016)
-    asked = {shipped.name("part", row) for row in shipped.table().get("part", ())
-             if row["part"].rpartition(":")[0] not in moved}
+    asked = {shipped.name("part", row) for row in shipped.table().get("part", ())}
     assert release.name != "usa" or asked and asked <= held, sorted(asked - held)
 
 
@@ -2595,6 +2592,55 @@ def test_a_shipped_answer_holds_to_a_fresh_one_exactly_on_its_recording_host_and
     assert shipped.same_size(1.5, 1.5) and not shipped.same_size(near, 1.5)
     monkeypatch.setattr(shipped, "table", lambda: there)
     assert shipped.same_size(near, 1.5) and not shipped.same_size(far, 1.5)
+
+
+def _imported(module: str, package: Path) -> set[str]:
+    """Every ``azurkit`` module ``module`` imports, at any depth (its functions' imports too), and their packages."""
+    import ast
+
+    def path_of(name: str) -> Path | None:
+        at = package.parent.joinpath(*name.split("."))
+        return next((p for p in (at / "__init__.py", at.with_suffix(".py")) if p.is_file()), None)
+    seen, todo = set(), [module]
+    while todo:
+        if (name := todo.pop()) in seen or (path := path_of(name)) is None:
+            continue
+        seen.add(name)
+        todo += [".".join(name.split(".")[:k]) for k in range(1, name.count(".") + 1)]
+        here = name if path.name == "__init__.py" else name.rpartition(".")[0]
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                todo += [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                base = ".".join([*here.split(".")[:len(here.split(".")) - node.level + 1], *filter(None, [node.module])]
+                                ) if node.level else node.module or ""
+                todo += [base, *(f"{base}.{a.name}" for a in node.names)]
+    return {name for name in seen if name.split(".")[0] == "azurkit"}
+
+
+def test_the_parts_version_moves_with_the_dress_sources():
+    """Step 4.37m1 (D1195): every part's key holds ``parts.VERSION``, the
+    digest of what a dress runs (``parts.SOURCES`` but ``NOT_SOURCES``, the
+    version's own line left out), as ``test_art`` holds ``ART_VERSION``, so a
+    change to any of it moves every key and ``scripts/record_shipped.py``
+    records again (the variant cases' pin is red until it has); and every
+    module the swap imports is one of them or one ``parts.OTHERS`` says no
+    part reads, so a new one can't slip out of the version."""
+    from fnmatch import fnmatch
+
+    package = Path(parts.__file__).resolve().parents[2]
+    found = {p for glob in parts.SOURCES for p in package.glob(glob) if p.is_file() and "__pycache__" not in p.parts}
+    files = sorted(p for p in found if not any(fnmatch(p.relative_to(package).as_posix(), n) for n in parts.NOT_SOURCES))
+    lines = "".join(f"{p.relative_to(package).as_posix()} " + hashlib.sha256(
+        re.sub(rb'(?m)^VERSION = "[^"\n]*"$', b'VERSION = ""', p.read_bytes()) if p.name == "parts.py" and
+        p.parent.name == "characters" else p.read_bytes()).hexdigest() + "\n" for p in files)
+    want = f"2-{hashlib.sha256(lines.encode()).hexdigest()[:12]}"
+    assert parts.VERSION == want, f"parts.VERSION = {want!r}: write it, then scripts/record_shipped.py"
+    named = {p.relative_to(package).with_suffix("").as_posix().removesuffix("/__init__").replace("/", ".")
+             for p in found}
+    assert sorted(m for m in _imported("azurkit.tools.characters._player_character", package)
+                  if m.removeprefix("azurkit.") not in named and m not in parts.OTHERS) == []
+    assert all(any(p.relative_to(package).match(n) for p in found) for n in parts.NOT_SOURCES)
 
 
 def test_record_shipped_check_names_a_part_whose_file_is_gone_missing_and_one_whose_bytes_changed_by_its_bytes(

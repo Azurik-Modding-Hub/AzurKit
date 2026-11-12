@@ -40,21 +40,25 @@ A fourth kind is a Check's part (``part`` rows, Step 4.6p, the Check
 design's L3): each part (:mod:`.parts`) a Check of a built-in variant and
 of its own copy (New from this) works out at the page's defaults, on each
 release, so a first Check of either takes it in place of its dress's
-minutes. A part's key is already what it stands on (the bytes and fields
-its stage reads, never a name or a folder), so a row is that key, the
-part's :func:`~.part_codec.digest` (its ``answer``) and its file
+minutes. A part's key is already what it stands on (its stage's inputs,
+never a name, a folder or a float a dress worked out, Step 4.37m1), so a
+row is that key, the part's :func:`~.part_codec.digest` (its ``answer``)
+and its file
 (:func:`part`): ``part_codec``'s bytes (no pickle) in the entry's
 ``shipped/parts/`` folder, named for their sha256 (a part a re-record
 leaves alone keeps its file), which Install leaves for the Check that asks
 for one (``content.later``: fetched then, :data:`FETCH`), read no further
-than its size and taken only when its sha256 is the row's.
+than its size and taken only when its sha256 is the row's. The table names
+the keys' version (``keys``, :data:`~.parts.VERSION`), and a table of
+another version gives no part (its rows were recorded by other code).
 
 Each row's floats are its recording host's (:data:`TABLE`'s ``host``,
 :func:`host`). Another host's maths may round otherwise and that's close
 enough (D1016), so there the pin holds a size and places within
 :data:`ULPS` and a plan to what it stands on (:func:`agrees`), and a build
 takes them as they are, a body's fresh size close to a shipped one
-(:func:`same_size`)."""
+(:func:`same_size`); a part's key is the same on every host (D1195), so
+the recording host's parts serve each, its answer close enough off it."""
 
 from __future__ import annotations
 
@@ -71,7 +75,8 @@ from pathlib import Path
 from azurkit.edits.layer import Change, Claim, Layer
 
 TABLE = Path(__file__).with_name("shipped.json")
-"""The rows, ``{"host": ..., "size": [...], "plan": [...], "places": [...], "part": [...]}`` (the recorder's)."""
+"""The rows, ``{"host": ..., "keys": ..., "size": [...], "plan": [...], "places": [...], "part": [...]}`` (the
+recorder's)."""
 MAGIC = b"AZKP1\0"
 CHARACTERS = "gamedata/characters.xbr"
 LEVEL = 19
@@ -210,11 +215,15 @@ _INDEX: list = [None, {}]
 
 
 def _part_rows(name: str) -> Sequence[Mapping]:
-    """:data:`TABLE`'s ``part`` rows of the part ``name``, by name (indexed once a table)."""
+    """:data:`TABLE`'s ``part`` rows of the part ``name``, by name (indexed
+    once a table); none from a table whose ``keys`` aren't this code's
+    (:data:`~.parts.VERSION`, Step 4.37m1)."""
+    from azurkit.tools.characters import parts
+
     held = table()
     if _INDEX[0] is not held:
         index: dict[str, list] = {}
-        for row in held.get("part", ()):
+        for row in held.get("part", ()) if held.get("keys") == parts.VERSION else ():
             index.setdefault(row["part"], []).append(row)
         _INDEX[:] = [held, index]
     return _INDEX[1].get(name, ())

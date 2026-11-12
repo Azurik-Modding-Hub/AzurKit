@@ -2075,6 +2075,75 @@ def overlay(species: str) -> Variant | None:
     return None if recipe is None else _variant(species, {"base": species, **recipe}, "overlay")
 
 
+LABELS = ("name", "source", "title", "notes", "sha", "unshaped", "files")
+"""A recipe's fields no dress reads as such: its labels, and where its files are (each file read by its bytes)."""
+BODY_READS = ("mesh", "plain", "shapes", "jiggle", "textures", "texture_scale", "places")
+"""The fields W24-W30 read (``_player_character._body_keys``): each later stage reads them through those parts' keys."""
+LATE_READS = ("colours", "lods", "shadow")
+"""The fields read only after W28's springs (W39, W36 and W38), each in that stage's own key."""
+_SECTION = {"plain": "mesh", "shadow": "lods"}
+"""A field read from a recipe section of another name (the files it names are that section's)."""
+
+
+def dress_reads(variant: Variant | None, left: tuple[str, ...] = ()) -> str | None:
+    """What the glue between a dress's parts reads of ``variant`` (Step
+    4.37m1, D1195: ``_player_character``'s DRESS): its fields but
+    :data:`LABELS`, :data:`BODY_READS`, :data:`LATE_READS` and ``left`` by
+    ``repr``, each file the rest of its recipe (and each it is ``from``)
+    names by its bytes in the folders a build reads one in, and the content
+    entries its files are in (but their answers and recipes, as
+    ``shipped.entries``); never its name, folder or path, so a copy under
+    any name, and a built-in's own copy, read as it does. ``None`` for
+    none, or a recipe file it can't read."""
+    import dataclasses
+
+    from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import parts
+
+    if variant is None:
+        return None
+    drop = {*LABELS, *BODY_READS, *LATE_READS, *left}
+    stamps = _named_stamps(variant, {_SECTION.get(name, name) for name in drop})
+    if stamps is None:
+        return None
+    fields = repr([(f.name, getattr(variant, f.name)) for f in dataclasses.fields(variant) if f.name not in drop])
+    held = kit.installed()
+    entries = {}
+    for name in sorted({variant.files or variant.name} if files_shipped(variant) else ()):
+        files = held.get(name, {}).get("files") if isinstance(held.get(name), dict) else None
+        if isinstance(files, dict):
+            entries[name] = {path: sha for path, sha in sorted(files.items())
+                             if "/shipped/" not in path and not path.endswith("/variant.json")}
+    return parts.key("dress reads", fields, stamps, entries)
+
+
+def _named_stamps(variant: Variant, sections: set[str]) -> tuple | None:
+    """Each file ``variant``'s recipe file names outside ``sections`` (and
+    each it is ``from``, its parent's after), by name and the sha256 of each
+    copy in the folders a build reads one in (:func:`clip_folder`,
+    :func:`sound_folder`, :func:`fx_folder`, :func:`colour_folder`, its
+    own); none for a built-in or an overlay, whose files are the content's
+    or AzurKit's; ``None`` for a recipe file it can't read."""
+    from azurkit.tools.characters import parts
+    from azurkit.tools.characters.library import named_files
+
+    if variant.source in ("built-in", "overlay"):
+        return ()
+    try:
+        source = Path(variant.source)
+        recipe = recipe_of(json.loads(source.read_text(encoding="utf-8")), variant.name, variant.source)[0]
+        parent = parent_of(variant)
+    except (OSError, ValueError, KeyError, TypeError, RecursionError):
+        return None
+    named = sorted(set(named_files({k: v for k, v in recipe.items() if k not in sections})))
+    folders = list(dict.fromkeys((source.parent, clip_folder(variant), sound_folder(variant), fx_folder(variant),
+                                  colour_folder(variant))))
+    held = [dict(parts.stamps(folder, named)) for folder in folders]
+    own = tuple((name, tuple(sorted({h[name] for h in held if h.get(name) is not None}))) for name in named)
+    above = () if parent is None else _named_stamps(parent, sections)
+    return None if above is None else ((own,) if own else ()) + above
+
+
 def content_key(variant: Variant | None) -> str | None:
     """What a dress reads of ``variant``, by content (:mod:`~azurkit.tools.characters.parts`,
     Step 4.6n): its fields but its name, labels, sha and source by ``repr``,
@@ -4244,7 +4313,7 @@ def bone_turn(rig: Rig, k: int, axis, degrees: float) -> tuple[float, float, flo
 
 def restyled(before: bytes, after: bytes, first: int, body: str, variant: Variant,
              rigged: jiggles.Rigged | None = None, rates: dict[str, float] | None = None, drawn: float = 1.0,
-             arms: bool = True, known: tuple = (None, None, None)) -> tuple[bytes, int, dict]:
+             arms: bool = True, known: tuple = (None, None, None, None)) -> tuple[bytes, int, dict, str | None]:
     """W28 (Step 2.143, D428): ``after`` (the dressed ``characters.xbr``)
     with every clip under ``body`` restyled by ``variant``'s ``arms``
     (with ``arms``; :func:`arm_turns`, :func:`~azurik_mod.assets.retarget.
@@ -4270,25 +4339,31 @@ def restyled(before: bytes, after: bytes, first: int, body: str, variant: Varian
     its bake, Step 2.168), a jiggle bone, a listed loop that doesn't close
     (:func:`~azurik_mod.assets.jiggle.closes`), and a ``still``,
     ``loops``, ``clear.clips`` or ``clear.held`` name no clip under the body has.
-    What it gives is a part kept by what it reads (:mod:`~azurkit.tools.characters.parts`,
-    Step 4.6n): both files by their sha256 (``known``: those of ``before``,
-    ``after`` and ``rigged`` where the caller has them), the recipe's arms,
-    poses and jiggle (its real-time springs only as there: X41 keys none,
-    Step 4.37m1), ``rigged``, ``rates``, ``drawn`` and ``arms``, never the
-    variant's name."""
+    What it gives, and its key (``None``: not kept), is a part kept by what
+    it reads (:mod:`~azurkit.tools.characters.parts`, Step 4.6n; by its
+    inputs alone, Step 4.37m1): ``known``, the names of ``before`` and
+    ``after`` by their writers' keys and DRESS (the caller's), ``rigged``'s
+    key (W29's) and what ``rates`` and ``drawn`` are worked out from (``None``:
+    none, ``drawn`` 1), and ``after``'s :func:`~azurkit.tools.characters.parts.frame`,
+    the recipe's arms, poses and jiggle (its real-time springs only as there:
+    X41 keys none), ``first``, ``body`` and ``arms``, never the variant's
+    name; with any of those names missing, none is kept."""
     from azurkit.tools.characters import parts
 
-    key = parts.key("W28", known[0] or parts.digest(before), known[1] or parts.digest(after), first, body,
+    before_key, after_key, rig_key, drawn_by = known
+    asks = (before_key is not None and after_key is not None and (rigged is None or rig_key is not None)
+            and (drawn_by is not None or drawn == 1.0 and not rates))
+    key = parts.key("W28", before_key, after_key, first, body,
                     repr((variant.arms, variant.arm_clips, variant.poses,
                           jiggles.unsprung(variant.jiggle) if rigged is not None else None)),
-                    known[2] or (parts.pickled(rigged) if rigged is not None else None),
-                    repr(sorted((rates or {}).items())), repr(drawn), arms)
-    if (kept := parts.get(key, "W28 arms" if arms else "W28 springs")) is not None:
-        return parts.undelta(after, kept[0]), kept[1], parts.load(kept[2])
+                    rig_key, drawn_by, arms, parts.frame(after)) if asks else None
+    if key is not None and (kept := parts.get(key, "W28 arms" if arms else "W28 springs")) is not None:
+        return parts.undelta(after, kept[0]), kept[1], parts.load(kept[2]), key
     grown, count, peaks = _restyled(before, after, first, body, variant, rigged, rates, drawn, arms)
-    kept = (parts.delta(after, grown), count, parts.dump(peaks))
-    parts.put(key, kept, parts.size_of(kept[0]) + len(kept[2]))
-    return grown, count, peaks
+    if key is not None:
+        kept = (parts.delta(after, grown), count, parts.dump(peaks))
+        parts.put(key, kept, parts.size_of(kept[0]) + len(kept[2]))
+    return grown, count, peaks, key
 
 
 def _restyled(before: bytes, after: bytes, first: int, body: str, variant: Variant, rigged, rates, drawn: float,

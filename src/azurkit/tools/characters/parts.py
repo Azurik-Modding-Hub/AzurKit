@@ -10,13 +10,20 @@ before: an edit to the paint keeps the mesh and the rig), the size a body
 is folded with (``size_shape``), W28's two restyles (the arms' and the
 springs', ``_player_variants.restyled``), the LOD and shadow cuts
 (``decimate._taken``) and their writes (``decimate.screen_lods`` and
-``shadow_lod``). Each key is name-free and path-free: the bytes a stage
-reads (a file by its sha256, :func:`digest`), the recipe fields it reads
-by ``repr`` (a zero's sign counts) and each file it reads in its folder by
-its bytes (:func:`stamps`), never the variant's name, its folder or its
-recipe file's path, which reach only its sounds and its log (the design's
-F5), and never its refusal: a stage that raises keeps nothing, so a
-refusal (which names the variant) is worked out again.
+``shadow_lod``). Each key is the stage's inputs alone (Step 4.37m1, D1195:
+so the parts one host recorded serve every host): the code's
+:data:`VERSION`, the recipe fields the stage reads by ``repr`` (a zero's
+sign counts; a recipe's floats are its JSON's, the same bits everywhere),
+each file it reads in its folder by its bytes (:func:`stamps`), a vanilla
+or a pack's file by its sha256 (:func:`digest`), the key of each earlier
+stage whose output it reads, and the :func:`frame` of the file it is handed
+(its layout, integers only); never a digest or a pickle of what an earlier
+stage wrote, a float the dress worked out, the variant's name, its folder
+or its recipe file's path (which reach only its sounds and its log), nor
+its refusal: a stage that raises keeps nothing, so a refusal (which names
+the variant) is worked out again. A file the dress hands on is named by
+the key of its last writer (``_player_character``'s DRESS and glue names
+the steps between two parts, from what they read).
 
 A part's file is kept as the pages where it differs from the file the dress
 handed the stage (:func:`delta`), so a kept part holds no second copy of
@@ -52,11 +59,42 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import io
 import pickle
 from collections import OrderedDict
 from pathlib import Path
 
+VERSION = "2-f2b1f4243403"
+"""The parts' scheme and code, in every key (:func:`key`) and the store's (:func:`_stored`): ``2-`` and the first 12
+hex digits of the sha256 of :data:`SOURCES` (``tests/test_characters.py`` holds it to them, as ``test_art`` holds
+``ART_VERSION``), so a change to what a dress runs moves every key and ``scripts/record_shipped.py`` records again."""
+SOURCES = ("core/coff.py", "core/facts.py", "core/facts.*.json", "core/fdlibm.py", "core/inflate.py",
+           "core/jsondepth.py", "core/native.py", "core/xbe.py", "core/_native/*", "core/xbr/*", "edits/layer.py",
+           "tools/characters/**/*")
+"""The files a dress's parts and glue come from (globs under the ``azurkit`` package), but :data:`NOT_SOURCES`: what
+:data:`VERSION` is the digest of (with its own line here left out)."""
+NOT_SOURCES = {
+    "tools/characters/shipped.json": "the rows recorded under VERSION",
+    "tools/characters/*_grades.json": "grades, which no part reads",
+    "tools/characters/grades.py": "grades, which no part reads",
+    "tools/characters/editor.py": "the Variants editor's answers around a Check",
+    "tools/characters/picker.py": "the Characters tab's pictures",
+    "tools/characters/colour_preview.py": "the colour views' pictures",
+    "tools/characters/draw.py": "pictures",
+    "tools/characters/render.py": "pictures",
+}
+"""Files under :data:`SOURCES` whose bytes no part or name holds, each with why."""
+OTHERS = {
+    "azurkit": "the package and its version, which no part reads",
+    "azurkit.core": "a package marker",
+    "azurkit.edits": "a package marker",
+    "azurkit.tools": "a package marker",
+    "azurkit.core.gate": "the releases, whose files a key reads by their digests",
+    "azurkit.core.iso": "the image's reading, each file a key reads by its digest",
+    "azurkit.core.filelist": "the HDD cache's lines, which no part reads",
+    "azurkit.core.progress": "the progress notes",
+}
+"""The modules a dress imports outside :data:`SOURCES`, each with why its bytes reach no part (the version pin holds
+every module the swap imports to one of the two)."""
 OFF = False
 """``True``: no part is kept or taken, so every stage is worked out (a fresh dress, the pin's)."""
 ROOM = 256 << 20
@@ -82,9 +120,10 @@ _SHIPPED: set[str] = set()   # the parts held here that were taken from what shi
 
 
 def key(stage: str, *reads: object) -> str:
-    """A part's key: ``stage`` and each of ``reads`` (digests, names, numbers,
-    specs) by ``repr``, so ``-0.0`` and ``0.0`` are two keys."""
-    h = hashlib.sha256(stage.encode())
+    """A part's key: :data:`VERSION`, ``stage`` and each of ``reads`` (keys,
+    digests, names, numbers, specs) by ``repr``, so ``-0.0`` and ``0.0`` are
+    two keys."""
+    h = hashlib.sha256(f"{VERSION}\0{stage}".encode())
     for read in reads:
         if isinstance(read, (bytes, bytearray, memoryview)):
             raise TypeError(f"parts.key({stage!r}): a file goes in by its digest")
@@ -125,32 +164,17 @@ def load(held: object) -> object:
     return pickle.loads(held)
 
 
-def since(ref: bytes, ref_key: str | None, out: bytes) -> str:
-    """``out``'s name by content with no hash of all of it (Step 4.6q, the
-    Check design's chained keys): ``ref_key`` (``ref``'s: a part's key, or
-    its digest) and the pages where ``out`` differs from ``ref``
-    (:func:`delta`'s runs), those hashed; a dress's later files share
-    most of their pages with the one its body's parts left, so two files
-    of one name are one file. Its sha256 (:func:`digest`) where most of it
-    differs, or ``ref_key`` is ``None``."""
-    if ref_key is None:
-        return digest(out)
-    size, spans, pages = delta(ref, out)
-    if size is None:
-        return digest(out)
-    return key("since", ref_key, size, tuple(spans), hashlib.sha256(pages).hexdigest())
+def frame(data: bytes) -> str:
+    """The layout of the XBR archive ``data``, integers only (Step 4.37m1):
+    its size, its header and each TOC entry's offset, size, tag and flags.
+    In the key of a part kept as pages over ``data``, so one asked over a
+    file of another layout (off its recording host, a count a float tie
+    moved) is worked out, never laid over resources that moved; the file's
+    floats a part's pages don't hold stay the taker's (D1016)."""
+    from azurkit.core.xbr.nodes import TOC_ROW_SIZE, TOC_START, _toc_header
 
-
-def pickled(obj: object) -> str:
-    """The sha256 of ``obj``'s pickle: an object a stage reads, by its
-    content. Pickled with no memo, so a value held in two places is written
-    each time: an object read back from :data:`STORE` (:mod:`.part_codec`
-    makes a tuple or a string held twice two) names as the one kept."""
-    out = io.BytesIO()
-    pickler = pickle.Pickler(out, pickle.HIGHEST_PROTOCOL)
-    pickler.fast = True
-    pickler.dump(obj)
-    return hashlib.sha256(out.getbuffer()).hexdigest()
+    count, _ = _toc_header(data)
+    return f"{len(data)}:{hashlib.sha256(bytes(data[:TOC_START + count * TOC_ROW_SIZE])).hexdigest()}"
 
 
 def stamps(folder: Path | None, files) -> tuple:
@@ -185,7 +209,7 @@ def _stored(name: str) -> str:
     """The key :data:`STORE` keeps the part named ``name`` under: with the code's digest, so another version misses."""
     from azurkit.tools import characters
 
-    return hashlib.sha256(f"part\0{characters._code()}\0{name}".encode()).hexdigest()
+    return hashlib.sha256(f"part\0{characters._code()}\0{VERSION}\0{name}".encode()).hexdigest()
 
 
 def _fetch(name: str) -> tuple[object, int, str] | None:
@@ -332,5 +356,6 @@ def size_of(part: tuple) -> int:
     return len(pages) + (0 if spans is None else spans.itemsize * len(spans))
 
 
-__all__ = ["HEARD", "LOCK", "OFF", "PAGE", "ROOM", "STORE", "Pickled", "clear", "delta", "digest", "dump", "get",
-           "held", "key", "load", "pickled", "put", "since", "size_of", "stamps", "undelta"]
+__all__ = ["HEARD", "LOCK", "NOT_SOURCES", "OFF", "OTHERS", "PAGE", "ROOM", "SOURCES", "STORE", "VERSION", "Pickled",
+           "clear", "delta", "digest", "dump", "frame", "get", "held", "key", "load", "put", "size_of", "stamps",
+           "undelta"]

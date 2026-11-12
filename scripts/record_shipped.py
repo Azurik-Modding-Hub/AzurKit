@@ -248,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
         files, part_rows = _files([f.result() for f in checked])
     sizes = [row for row, _ in done if row is not None]
     places = {_key(row): row for _, heard in done for row in heard}
-    made = {"host": shipped.host(), "places": sorted(places.values(), key=_key),
+    made = {"host": shipped.host(), "keys": parts.VERSION, "places": sorted(places.values(), key=_key),
             "plan": sorted((row for row, _ in plans), key=_key), "size": sorted(sizes, key=_key),
             "part": part_rows}
     held, drift = shipped.table(), []
@@ -257,6 +257,8 @@ def main(argv: list[str] | None = None) -> int:
         old = {_key(r): {k: v for k, v in r.items() if k != "blob"} for r in held.get(kind, ())}
         drift += [shipped.name(kind, (new.get(k) or old[k])) for k in sorted(new.keys() | old.keys())
                   if _differs(kind, old.get(k), new.get(k), held.get("host") == shipped.host())]
+    if held.get("keys") != parts.VERSION:   # rows of other code's keys (Step 4.37m1): none is asked
+        drift.append(f"{shipped.TABLE.name}'s keys {held.get('keys')!r}, not parts.VERSION {parts.VERSION!r}")
     if args.check:
         for row in held.get("plan", ()) if args.content else ():
             with iso.Reader(paths[next(r.name for r in gate.RELEASES if r.iso_sha256 == row["release"])]) as r:

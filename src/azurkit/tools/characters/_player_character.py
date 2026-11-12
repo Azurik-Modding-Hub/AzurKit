@@ -8261,14 +8261,14 @@ def _his_look(game, variant, who: str) -> tuple:
     reads them (:func:`_variant_body`); its mesh plan, rig and W30's log
     lines.  :class:`ValueError` names the step that fails (D35)."""
     try:
-        made, reshaped, rigged, painted, known = _variant_body(bytes(game["characters.xbr"]),
-                                                               game.stored("characters.xbr"), PLAYER, variant)
+        made, reshaped, rigged, painted, known, rig_key = _variant_body(bytes(game["characters.xbr"]),
+                                                                        game.stored("characters.xbr"), PLAYER, variant)
     except ValueError as exc:
         sized = ", ".join(f"{s.title} {s.value:g}" for s in variant.shapes if s.value != 1.0)
         raise ValueError(f"{who}" + (f" at {sized}" if sized else "") + f": {exc}") from None
     game["characters.xbr"] = bytearray(made)
-    if variant.lods is not None:   # W39's cuts (none of W36's)
-        _lods_ahead(made, PLAYER, variant.lods, known)
+    if variant.lods is not None:   # W39's cuts (none of W36's; his LODs' writes and cuts are worked out each time:
+        _lods_ahead(made, PLAYER, variant.lods, known)   # nothing names his files by their inputs, Step 4.37m1)
     else:
         engine = XbrDocument.from_bytes(game.stored("config.xbr")).keyed_section("critters_engine")
         _shadow_ahead(made, engine, PLAYER, PLAYER, variant.shadow, known)
@@ -8311,7 +8311,7 @@ def _his_moves(game, characters: bytes, body: Body, variant, worn, who: str, fir
     styled = 0
     if variant.arms or variant.arm_clips or variant.poses:   # W28 (Step 2.143, D428): his clips' arms and poses
         try:
-            grown, styled, _ = variants.restyled(dressed, bytes(game["characters.xbr"]), first, PLAYER, variant)
+            grown, styled, _, _ = variants.restyled(dressed, bytes(game["characters.xbr"]), first, PLAYER, variant)
         except ValueError as exc:
             raise ValueError(f"{who}: {exc}") from None
         game["characters.xbr"] = bytearray(grown)
@@ -8501,7 +8501,7 @@ def _his_recipe(game, recipe: _Recipe, who: str, characters: bytes, body: Body, 
                                                                     for i, col in enumerate(columns)],
                                model_scale, False)
         try:
-            grown, _, peaks = variants.restyled(dressed, built, first, PLAYER, variant, rigged, rates, model_scale,
+            grown, _, peaks, _ = variants.restyled(dressed, built, first, PLAYER, variant, rigged, rates, model_scale,
                                                 arms=False)
         except ValueError as exc:
             raise ValueError(f"{who}: {exc}") from None
@@ -8902,7 +8902,17 @@ class _Dressed:
     painted: tuple = ()
     """W30's log lines: the textures a variant repainted (Step 2.154)."""
     known: tuple[str | None, str | None] = (None, None)
-    """The keys (:mod:`.parts`) of :attr:`dressed` and of what W24-W30 left, the rig's (``None``: none worked out)."""
+    """The names (:mod:`.parts`) of :attr:`dressed` and of what W24-W30 left (``None``: none)."""
+    dress: str | None = None
+    """DRESS (:func:`_dress_key`, Step 4.37m1): what the glue between the parts read, by its inputs."""
+    named: str | None = None
+    """The key of the last part that wrote :attr:`characters` (the glue after it named by :func:`_glued`)."""
+    rig_key: str | None = None
+    """W29's key: the rig's name, the springs' restyle reads."""
+    mesh_key: str | None = None
+    """What wrote the body's mesh (W29's key, or the staged file's digest), for the LOD cuts' names (:func:`_mesh`)."""
+    meshed: bool = False
+    """Whether a prop's write (W26, W31) may have changed the body's LOD 0 since then."""
 
 
 def _body_keys(current: bytes, stored: bytes, body: str, variant, folder, parent=None) -> tuple[str, str, str]:
@@ -8983,12 +8993,12 @@ def _rig_of(part: tuple, spec) -> "jiggles.Rigged | None":
 
 
 def _variant_body(current: bytes, stored: bytes, body: str, variant
-                  ) -> tuple[bytes, "mesh_edit.MeshPlan | None", "jiggles.Rigged | None", list[str], str]:
+                  ) -> tuple[bytes, "mesh_edit.MeshPlan | None", "jiggles.Rigged | None", list[str], str, str]:
     """``variant``'s W24 mesh (Step 2.142), W29 jiggle bones (Step 2.143,
     D428) and W30 textures (Step 2.154) made on ``body`` in ``current``
     (the staged characters.xbr; ``stored``, the image's): the file they
-    leave, the mesh plan, the rig, W30's log lines and the key of what they
-    left (:func:`_body_keys`, the file's content).  Each of the three is a
+    leave, the mesh plan, the rig, W30's log lines, the key of what they
+    left (:func:`_body_keys`: its name) and the rig's (W29's: its mesh's).  Each of the three is a
     part kept by what it reads (:mod:`.parts`, Step 4.6n): a call that
     reads the same (each byte of both files, ``body``, the recipe's
     ``mesh``, ``jiggle``, ``textures`` and ``texture_scale``, and the
@@ -9021,7 +9031,8 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
             _progress.note("the springs")
         if paint_[2]:
             _progress.note("the paint")
-        return parts.undelta(current, paint_[0]), reshaped, _rig_of(rig, variant.jiggle), list(paint_[1]), keys[2]
+        return (parts.undelta(current, paint_[0]), reshaped, _rig_of(rig, variant.jiggle), list(paint_[1]), keys[2],
+                keys[1])
     assembled = rigged = placing = None
     if parent is not None and at is None and rig is None:
         at = _held_places(current, stored, body, parent, folder)
@@ -9079,7 +9090,50 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     made = bytes(edited)
     kept = (parts.delta(current, made), tuple(painted), baking is not None)
     parts.put(keys[2], kept, parts.size_of(kept[0]) + sum(len(line) for line in painted))
-    return made, reshaped, rigged, painted, keys[2]
+    return made, reshaped, rigged, painted, keys[2], keys[1]
+
+
+def _dress_key(game, species: str, mode: str, missing_anims: str | None, size: str, model_scale: float, variant,
+               weapon: str | None) -> str | None:
+    """DRESS (Step 4.37m1, D1195): what the glue between a dress's parts
+    reads but the files the parts hand on, by its inputs alone: the image's
+    files and the staged characters.xbr, config.xbr and index.xbr (the
+    packs' bytes) by their sha256, :func:`_dress`'s options and the variant's
+    reads but its body's and the stages after the springs'
+    (:func:`~azurkit.tools.characters._player_variants.dress_reads`), or a
+    species' content; ``None`` (nothing named, so nothing after W30 kept)
+    for a recipe file it can't read. Taken before the dress writes."""
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import parts, shipped
+
+    reads = variants.dress_reads(variant) if variant is not None else shipped.entries({"species": species})
+    if variant is not None and reads is None:
+        return None
+    image = {f: game.stored(f) for f in ("characters.xbr", "config.xbr", "index.xbr", "default.xbe", "fx.xbr")}
+    staged = [image[f] if game[f] == image[f] else bytes(game[f]) for f in ("characters.xbr", "config.xbr", "index.xbr")]
+    return parts.key("dress", tuple(parts.digest(data) for data in (*image.values(), *staged)), species, mode, size,
+                     missing_anims, weapon, repr(model_scale), reads)
+
+
+def _glued(writer: str | None, at: str, dress: str | None, *more: object) -> str | None:
+    """The name of the file a dress holds at ``at`` (Step 4.37m1): ``writer``
+    (the key of the last part that wrote it, or the staged file's digest)
+    and what the glue between read (``dress``, DRESS, and ``more``), so a
+    stage keyed on it reads the inputs, never the bytes, of the steps
+    between two parts; ``None`` where either is."""
+    from azurkit.tools.characters import parts
+
+    return None if writer is None or dress is None else parts.key("glue", writer, at, dress, *more)
+
+
+def _mesh(base: str | None, body: str, meshed: str | None = None) -> str | None:
+    """The name of ``body``'s LOD 0 a cut reads (Step 4.37m1): ``base``, the
+    key of what wrote its mesh (W29's, or the staged file's digest), and
+    ``meshed``, the file's name where a prop's write after them may have
+    changed it (W26, W31-W33)."""
+    from azurkit.tools.characters import parts
+
+    return None if base is None else parts.key("mesh", base, body, meshed)
 
 
 def _dress(game, species: str, mode: str, missing_anims: str | None, size: str = DEFAULT_SIZE,
@@ -9110,12 +9164,15 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
     mine, theirs = rows[PLAYER], rows[species]
     characters = game.stored("characters.xbr")
     body = read_body(characters, theirs["body"])
-    reshaped = rigged = known = None
+    from azurkit.tools.characters import parts
+    reshaped = rigged = known = rig_key = None
     painted = []
+    dress = _dress_key(game, species, mode, missing_anims, size, model_scale, variant, weapon)   # before any write
+    meshed = False   # a prop's write (W26, W31) on the body's LOD 0 since W24-W30
     if variant is not None and (variant.mesh is not None or variant.jiggle is not None or variant.textures):
         try:   # W24, W29 and W30: first, so every reader measures them
-            made, reshaped, rigged, painted, known = _variant_body(bytes(game["characters.xbr"]), characters,
-                                                                   body.name, variant)
+            made, reshaped, rigged, painted, known, rig_key = _variant_body(bytes(game["characters.xbr"]),
+                                                                            characters, body.name, variant)
         except ValueError as exc:   # the shapes it was built at named (Step 2.164b's review D1)
             sized = ", ".join(f"{s.title} {s.value:g}" for s in variant.shapes if s.value != 1.0)
             raise ValueError(f"--player-character {variant.name!r} (a variant of {species})"
@@ -9123,9 +9180,13 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
         game["characters.xbr"] = bytearray(made)
         characters = made
         if variant.lods is not None:   # W39's cuts (and none of W36's: its LODs leave the shadow nothing to cut)
-            _lods_ahead(made, body.name, variant.lods, known)
+            _lods_ahead(made, body.name, variant.lods, known, _mesh(rig_key, body.name))
         else:
-            _shadow_ahead(made, engine, mine["body"], body.name, variant.shadow, known)
+            _shadow_ahead(made, engine, mine["body"], body.name, variant.shadow, known, _mesh(rig_key, body.name))
+        start, mesh_key = known, rig_key   # the file's name, the last part's key, and its mesh's (W29's)
+    else:   # no body parts: the staged file (the packs') names itself
+        staged = game["characters.xbr"]
+        start = mesh_key = parts.digest(characters if staged == characters else bytes(staged))
     garret4 = read_body(characters, PLAYER)
     # the mode's rule (Step 2.73a); a clipless body's only clips are
     # garret4's, whatever is asked
@@ -9142,11 +9203,11 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
         if lo.carry == COPY:   # W31 (Step 2.161b): its prop's carriers under its grip, after W24's and W29's bones
             edited = add_carriers(characters, body, lo, Retarget(characters, body.name, grow=False))
             game["characters.xbr"] = bytearray(edited)
-            characters, body, filed = edited, read_body(edited, body.name), None
+            characters, body, filed, meshed = edited, read_body(edited, body.name), None, True
     except ValueError as exc:
         raise ValueError(f"--player-character {species!r}: {exc}") from None
     dressed, first = bytes(game["characters.xbr"]), len(parse_toc(characters))   # W28's start: the clips added after
-    dressed_key = filed
+    dressed_key = writer = filed if filed is not None else _glued(start, "dressed", dress)   # its name (Step 4.37m1)
     # the recipe the build plays: a variant's (Step 2.161g, D585: its moveset dropped under another weapon), a
     # moveset weapon's laid over the body (D592), or W23 (Step 2.140, D374) the species' own-build overlay, worn
     # only with its own weapon (the 2.161 design's L6)
@@ -9205,6 +9266,8 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
     # roll and lunges are drawn about its centre there (Step 2.133, AZ-608; Step 2.175, AZ-623)
     drawn = drawn_scale(size_scale(characters, body) if size == "garret4" else None, mode, theirs["scale"],
                         model_scale)
+    sized_at = _glued(dressed_key, "drawn", dress) if size == "garret4" else ""   # what drawn is worked out from
+    drawn_by = None if sized_at is None else ("drawn", size, mode, repr(theirs["scale"]), repr(model_scale), sized_at)
     # W17 (Step 2.75e, AZ-453): a pick that switches on its body's own
     # damage field plays a copy without that switch, W3 alone naming it;
     # own body plays the clip itself, X37 turning the field on its target (Step 2.135, D324);
@@ -9272,9 +9335,10 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
                                             lift=BAKED_LIFTS.get(body.name.casefold(), 0.0) if baked else 0.0,
                                             post=(carried(characters, body, lo) if lo.carry == IN_PLACE else
                                                   carried_copy(characters, body, lo, variant) if lo.carry == COPY
-                                                  else kept_on), known=filed)
+                                                  else kept_on), known=filed, drawn_by=drawn_by)
         except ValueError as exc:
             raise ValueError(f"--player-character {species!r}: {exc}") from None
+        writer = filed or writer
         game["characters.xbr"], game["index.xbr"] = bytearray(grown), bytearray(index)
         # every check below reads the grown body, the markers it gained
         # included: with m_grab it needs no X9
@@ -9302,9 +9366,11 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
             grown, index, filed = bake_kept(bytes(game["characters.xbr"]), bytes(game["index.xbr"]), body.name,
                                             styled_clips, grow=False, drawn=drawn, lender=style.source,
                                             into=style.dir, quiet_markers=DAMAGE_MARKERS,
-                                            given=style.clips(characters), post=styled_on, known=filed)
+                                            given=style.clips(characters), post=styled_on, known=filed,
+                                            drawn_by=drawn_by, given_by=_given_by(style))
         except ValueError as exc:
             raise ValueError(f"--player-character {species!r}: {exc}") from None
+        writer = filed or writer
         game["characters.xbr"], game["index.xbr"] = bytearray(grown), bytearray(index)
         characters, body = grown, read_body(grown, body.name, dirs=dirs)
     if spells is not None:   # W34: the player's clone of his graph, his own build's retune, a bone bind renamed
@@ -9405,7 +9471,7 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
     except ValueError as exc:
         raise ValueError(f"--player-character {species!r}: {exc}") from None
     if held:
-        characters = bytes(game["characters.xbr"])
+        characters, meshed = bytes(game["characters.xbr"]), True
     if rigged is not None and any(pl.bone.spring is None and not pl.bone.keyed for pl in rigged.bones):
         rated = rate_copies(body, fills)   # W28 (AZ-648): a clip a walk and a run slot both play, the run slots'
         # copy (X41's rows need none, nor a keyed bone)
@@ -9421,12 +9487,10 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
     styled, before = 0, dressed_key
     if variant is not None and (variant.arms or variant.arm_clips or variant.poses):   # W28 (Step 2.143, D428): every
         # clip's arms (and a recipe's poses, Step 2.154), each once
-        from azurkit.tools.characters import parts
-        before = before or parts.digest(dressed)   # the springs' pass reads it too
         after = bytes(game["characters.xbr"])
         try:
-            grown, styled, _ = variants.restyled(dressed, after, first, body.name, variant,
-                                                 known=(before, parts.since(dressed, before, after), None))
+            grown, styled, _, writer = variants.restyled(dressed, after, first, body.name, variant,
+                                                         known=(before, _glued(writer, "arms", dress), None, None))
         except ValueError as exc:
             raise ValueError(f"--player-character {who}: {exc}") from None
         game["characters.xbr"] = bytearray(grown)
@@ -9435,17 +9499,17 @@ def _dress(game, species: str, mode: str, missing_anims: str | None, size: str =
                     anims, columns, cells, clips, picks, copies, plan, timers, quiets, recipe_picks,
                     rows, reshaped, worn, swim, borrowed, surfaced, styled, rigged, dressed, first,
                     style if styled_clips else None, took.get("take"), lo, bool(owned), spells, cast, tuple(painted),
-                    (before, known))
+                    (before, known), dress, writer, rig_key, mesh_key, meshed)
 
 
-def _since(d: _Dressed, data: bytes) -> str | None:
-    """A file a dress made after ``d``'s dressed one, named by content from
-    that one's key (:func:`~azurkit.tools.characters.parts.since`: no hash
-    of all of it, Step 4.6q); ``None`` for a dress whose body no part left
-    (the stage hashes it)."""
-    from azurkit.tools.characters import parts
-
-    return None if d.known[0] is None else parts.since(d.dressed, d.known[0], data)
+def _given_by(style: Style) -> tuple:
+    """What a style's clips are read from but the file (Step 4.37m1): its
+    source body and how its clips load (its function and arguments, by name
+    and value)."""
+    load = style.load
+    func = getattr(load, "func", load)
+    return ("style", style.source, f"{func.__module__}.{func.__qualname__}", getattr(load, "args", ()),
+            tuple(sorted(getattr(load, "keywords", {}).items())))
 
 
 TWIN_SHARE = 0.05
@@ -9895,6 +9959,9 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     if chain not in CHAINS:
         raise ValueError(f"character: chain {chain!r} is not one of {', '.join(map(repr, CHAINS))}")
     check_player_model(game, species)
+    # what the build reads past the dress's own options (DRESS's, Step 4.37m1); the jiggle sliders reach X41 alone
+    options = (repr(attack_reach), attack_ground, attack_balance, repr(attack_damage), repr(attack_speed), sounds, ram,
+               player_only, chain)
     drop = {}
     from azurkit.tools.characters import _player_variants as variants
     if variant is not None and species == PLAYER:   # Step 2.170c (D748), Step 2.206 (D813): his own build and
@@ -9929,6 +9996,8 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
                    variants.status(variant, model_scale, attack_reach, attack_damage, attack_speed))
     _progress.note("the dress, 1 of 5")   # its serial steps, counted for a call that notes them (sdk.match)
     d = _dress(game, species, mode, missing_anims, size, model_scale, variant, weapon)
+    from azurkit.tools.characters import parts
+    dressing = None if d.dress is None else parts.key("dress apply", d.dress, *options)   # its glue's reads
     if plans is not None and d.reshaped is not None:
         plans.append(d.reshaped)
     doc, engine, mine, theirs, characters, body, garret4 = d.doc, d.engine, d.mine, d.theirs, d.characters, d.body, d.garret4
@@ -10643,8 +10712,9 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         try:
             _progress.note("the springs' clips")
             after = bytes(game["characters.xbr"])
-            grown, _, peaks = variants.restyled(d.dressed, after, d.first, body.name, variant, rigged, rates, drawn,
-                                                arms=False, known=(d.known[0], _since(d, after), d.known[1]))
+            grown, _, peaks, last = variants.restyled(   # its rates and drawn the build's glue worked out (its name)
+                d.dressed, after, d.first, body.name, variant, rigged, rates, drawn, arms=False,
+                known=(d.known[0], _glued(d.named, "springs", dressing), d.rig_key, _glued(d.named, "drawn", dressing)))
             after = None
         except ValueError as exc:
             raise ValueError(f"--player-character {variant.name!r} (a variant of {species}): {exc}") from None
@@ -10718,18 +10788,29 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
             raise ValueError(f"{_named(PLAYER)}: {exc}") from None
         game["characters.xbr"] = bytearray(grown)
     laid, lods_bytes = [], 0
-    if variant is not None and (variant.lods is not None or variant.mesh is not None):   # W39 (Step 2.166d): its
+    # the files W39 and W36 are handed, named by their inputs (Step 4.37m1), and the LOD 0 their cuts read: W29's
+    # mesh, or with a prop's write on it since (W26, W31-W33), the file's
+    last = last if rigged is not None else d.named
+    meshed = d.meshed or lo.carry in (RIGID, FLOAT) or bool(lo.copied) or bool(lo.cut)
+    lodded = variant is not None and (variant.lods is not None or variant.mesh is not None)
+    lods_at = _glued(last, "lods", dressing)
+    shadow_at = _glued(last, "shadow", dressing, None if variant is None else repr(variant.lods),
+                       variant is not None and variant.mesh is not None)
+    lods_mesh = _mesh(d.mesh_key, body.name, lods_at) if meshed else _mesh(d.mesh_key, body.name)
+    shadow_mesh = _mesh(d.mesh_key, body.name, shadow_at) if meshed or lodded else _mesh(d.mesh_key, body.name)
+    if lodded:   # W39 (Step 2.166d): its
         try:   # LODs cut from its final LOD 0 (after W33), before W36 (which then adds none) and W38's copy
             _progress.note("the LODs")
             laid, lods_bytes = write_lods(game, engine, body.name, variant.lods,
                                           game.stored("characters.xbr") if variant.mesh is not None else None,
-                                          named=lambda data: _since(d, data))
+                                          known=lods_at, mesh=lods_mesh if lods_at is not None or not meshed else None)
         except ValueError as exc:
             raise ValueError(f"--player-character {variant.name!r}: W39: {exc}") from None
     try:   # W36 (Step 2.166c): a big one-LOD body's shadow LOD, after every write of its LOD 0 (W32's prop in it)
         _progress.note("the shadow")
         shadowed, shadow_bytes = write_shadow_lod(game, engine, body.name, None if variant is None else variant.shadow,
-                                                  named=lambda data: _since(d, data))
+                                                  known=shadow_at, mesh=shadow_mesh if shadow_at is not None or not (
+                                                      meshed or lodded) else None)
     except ValueError as exc:
         raise ValueError(f"--player-character {variant.name if variant is not None else species!r}: W36: {exc}"
                          ) from None
@@ -11219,30 +11300,30 @@ def _shadow_ratio(body: str, lod0: list, cast: bool, shadow: bool | float | None
 
 
 def _ahead(characters: bytes, body: str, how: tuple, known: str | None, start) -> None:
-    """A cut of ``body``'s LOD 0 in ``characters`` (``known``: its key,
-    :func:`_variant_body`'s) started ahead by ``start()``, which returns its
+    """A cut of ``body``'s LOD 0 in ``characters`` (``known``: its name,
+    :func:`_variant_body`'s key) started ahead by ``start()``, which returns its
     part's key (:mod:`.parts`), unless the cut ``how`` of that file was
     started before and is kept or still runs: a dress of a body whose parts
     were kept (another copy of it, a Check after its size) starts none, nor
     reads its LOD 0 to ask (Step 4.6n)."""
     from azurkit.tools.characters import decimate, parts
 
-    asked = parts.key("ahead", known or parts.digest(characters), body, repr(how))
-    if (cut := parts.get(asked)) is not None and (parts.held(cut) or decimate.pending(cut)):
+    asked = None if known is None else parts.key("ahead", known, body, repr(how))
+    if asked is not None and (cut := parts.get(asked)) is not None and (parts.held(cut) or decimate.pending(cut)):
         return
-    if (cut := start()) is not None:
+    if (cut := start()) is not None and asked is not None:
         parts.put(asked, cut, len(cut))
 
 
 def _shadow_ahead(characters: bytes, engine, player_body: str, body: str, shadow: bool | float | None,
-                  known: str | None = None) -> None:
+                  known: str | None = None, mesh: str | None = None) -> None:
     """W36's cut of ``body`` as a variant's W24, W29 and W30 leave it in
     ``characters`` (the player's row still wearing ``player_body``), in a
     worker process while the build goes on (Step 2.179: booblord_high's
     was a sixth of her build; :func:`~azurik_mod.assets.decimate.cut_ahead`),
     where :func:`write_shadow_lod` would cut it: W36 takes it if its LOD 0
     is still this one, and refuses as it would.  Once a body
-    (:func:`_ahead`)."""
+    (:func:`_ahead`); ``mesh`` names its LOD 0 (:func:`_mesh`)."""
     from azurkit.tools.characters import decimate, lods
     from azurkit.tools.characters.body_codec import read_asset
 
@@ -11256,12 +11337,12 @@ def _shadow_ahead(characters: bytes, engine, player_body: str, body: str, shadow
             ratio = _shadow_ratio(body, lod0, cast, shadow)
         except ValueError:
             return None
-        return None if ratio is None else decimate.cut_ahead(lod0[0], ratio, source=characters)
+        return None if ratio is None else decimate.cut_ahead(lod0[0], ratio, source=characters, mesh=mesh)
     _ahead(characters, body, ("shadow", shadow, cast), known, start)
 
 
-def write_shadow_lod(game, engine, body: str, shadow: bool | float | None = None,
-                     named: Callable[[bytes], str | None] | None = None) -> tuple[list[str], int]:
+def write_shadow_lod(game, engine, body: str, shadow: bool | float | None = None, known: str | None = None,
+                     mesh: str | None = None) -> tuple[list[str], int]:
     """W36 (Step 2.166c, the X.68 audit's item 5): the body the player
     wears, ``body``, given a shadow LOD; its log line and the bytes its own
     runs grew by.  The player's
@@ -11279,7 +11360,9 @@ def write_shadow_lod(game, engine, body: str, shadow: bool | float | None = None
     ``True`` or a share, that cut on any one-LOD body, :class:`ValueError`
     for one with more LODs or with no realtime shadow to draw it.  The LOD
     adds its own runs to the load (:func:`_load_budget` counts them and
-    names ``"lods": {"shadow": false}`` when they alone pass its line)."""
+    names ``"lods": {"shadow": false}`` when they alone pass its line).
+    ``known`` names the file and ``mesh`` its LOD 0 by their inputs (Step
+    4.37m1: the parts', ``decimate.shadow_lod``'s; ``None``: not kept)."""
     from azurkit.tools.characters import decimate, lods
     from azurkit.tools.characters.body_codec import read_asset
     from azurkit.tools.characters.model_inspect import MiB, own_runs
@@ -11292,7 +11375,7 @@ def write_shadow_lod(game, engine, body: str, shadow: bool | float | None = None
     ratio = _shadow_ratio(body, lod0, any(w.shadow for w in worn if w.species == PLAYER), shadow)
     if ratio is None:
         return [], 0
-    grown, cut = decimate.shadow_lod(characters, body, ratio, known=named(characters) if named else None)
+    grown, cut = decimate.shadow_lod(characters, body, ratio, known=known, mesh=mesh)
     hidden = [w.species for w in worn if lods.spans(w.thresholds, w.far, 2)[1] is not None]
     for species in hidden:
         set_keyed_double(engine, species, "lodThreshold1", lods.FLT_MAX)
@@ -11315,7 +11398,7 @@ def _lod_errors(spec) -> list[float] | None:
     return None if spec.error_px is None else [lods.pixel_error(spec.error_px, d) for d in lods.thresholds(spec.at)]
 
 
-def _lods_ahead(characters: bytes, body: str, spec, known: str | None = None) -> None:
+def _lods_ahead(characters: bytes, body: str, spec, known: str | None = None, mesh: str | None = None) -> None:
     """W39's cuts of ``body``'s LOD 0 as a variant's W24, W29 and W30 leave
     it in ``characters``, started in a worker process while the build goes
     on (:func:`~azurik_mod.assets.decimate.chain_ahead`, as
@@ -11326,11 +11409,11 @@ def _lods_ahead(characters: bytes, body: str, spec, known: str | None = None) ->
 
     if spec.ratio and not decimate.ahead_of(characters):
         _ahead(characters, body, ("lods", spec.ratio, _lod_errors(spec)), known, lambda: decimate.chain_ahead(
-            read_asset(characters, body).lods[0], spec.ratio, _lod_errors(spec), source=characters))
+            read_asset(characters, body).lods[0], spec.ratio, _lod_errors(spec), source=characters, mesh=mesh))
 
 
-def write_lods(game, engine, body: str, spec, vanilla: bytes | None = None,
-               named: Callable[[bytes], str | None] | None = None) -> tuple[list[str], int]:
+def write_lods(game, engine, body: str, spec, vanilla: bytes | None = None, known: str | None = None,
+               mesh: str | None = None) -> tuple[list[str], int]:
     """W39 (Step 2.166d, D537's L4): the body the player wears, ``body``,
     with a variant's LODs (``spec``, its recipe's ``lods``:
     :class:`~azurik_mod.patches._player_variants.Lods`): its LODs past
@@ -11353,7 +11436,9 @@ def write_lods(game, engine, body: str, spec, vanilla: bytes | None = None,
     (:func:`~azurik_mod.assets.decimate.vanilla_shares`; D537's design
     0(b)), so its far LODs draw the edit too; every wearer's switch
     distances stay.  Its log line and the bytes its own runs grew by
-    (below 0 for a drop)."""
+    (below 0 for a drop).  ``known`` names the file and ``mesh`` its LOD 0
+    by their inputs (Step 4.37m1: the parts', ``decimate.screen_lods``';
+    ``None``: not kept)."""
     from azurkit.tools.characters import decimate, lods
     from azurkit.tools.characters.body_codec import read_asset
     from azurkit.tools.characters.model_inspect import MiB, own_runs
@@ -11369,7 +11454,7 @@ def write_lods(game, engine, body: str, spec, vanilla: bytes | None = None,
     else:
         ratios, errors = spec.ratio, _lod_errors(spec)
     worn = lods.wearers(bytes(engine.document.raw), body)
-    grown, cuts = decimate.screen_lods(characters, body, ratios, errors, known=named(characters) if named else None)
+    grown, cuts = decimate.screen_lods(characters, body, ratios, errors, known=known, mesh=mesh)
     added = own_runs(grown, body)["bytes"] - own_runs(characters, body)["bytes"]
     game["characters.xbr"] = bytearray(grown)
     if not cuts:

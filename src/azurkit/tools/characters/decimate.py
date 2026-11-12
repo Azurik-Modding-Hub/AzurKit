@@ -637,7 +637,7 @@ def by_material(lod: Lod, *, weld: bool = False) -> Lod:
 
 _AHEAD: list = [None]
 """The cut :func:`cut_ahead` or :func:`chain_ahead` started: its job and input's pickle, its future, its source and
-its part's key (:func:`_cut_key`)."""
+its part's key (:func:`_cut_key`; ``None``: not kept)."""
 
 
 def _cut(shared: tuple, lod: Lod) -> Lod:
@@ -656,66 +656,68 @@ def _ahead_key(job, lod: Lod, shared: tuple) -> bytes:
     return pickle.dumps((job.__name__, lod, shared), pickle.HIGHEST_PROTOCOL)
 
 
-def _cut_key(pickled: bytes) -> str:
-    """The key a cut is kept under (:mod:`.parts`, Step 4.6n): its job's name, its LOD and its numbers, by content."""
-    import hashlib
-
+def _cut_key(job, shared: tuple, mesh: str | None) -> str | None:
+    """The key a cut is kept under (:mod:`.parts`, Step 4.6n; by its inputs, Step 4.37m1): its job's name, its
+    numbers and ``mesh``, the caller's name of the LOD 0 it cuts by the keys of what wrote that mesh (the body's W24
+    and W29, and the props' writes after them where they ran); ``None`` (none given): not kept."""
     from azurkit.tools.characters import parts
 
-    return parts.key("cut", hashlib.sha256(pickled).hexdigest())
+    return None if mesh is None else parts.key("cut", job.__name__, repr(shared), mesh)
 
 
-def _start(job, shared: tuple, lod: Lod, source: object) -> str:
+def _start(job, shared: tuple, lod: Lod, source: object, mesh: str | None) -> str | None:
     """The cut's key, its work started in a worker process unless its part is kept or it runs already."""
     from azurkit.tools.characters import parts, pool
 
     pickled = _ahead_key(job, lod, shared)
-    key = _cut_key(pickled)
-    if not parts.held(key) and not pending(key):
+    key = _cut_key(job, shared, mesh)
+    if key is None or not parts.held(key) and not pending(key):
         _AHEAD[0] = (pickled, pool.later(pool.each, job, shared, [lod], None, 1), source, key)
     return key
 
 
-def pending(key: str) -> bool:
+def pending(key: str | None) -> bool:
     """Whether the cut kept under ``key`` (:func:`_cut_key`) was started and not yet taken."""
-    return _AHEAD[0] is not None and _AHEAD[0][3] == key
+    return key is not None and _AHEAD[0] is not None and _AHEAD[0][3] == key
 
 
-def _taken(job, shared: tuple, lod: Lod):
-    """The cut of ``lod`` by ``job`` at ``shared``: its kept part (:mod:`.parts`), else the one started ahead, else
-    ``job``'s own now, kept; the one started ahead is let go either way."""
+def _taken(job, shared: tuple, lod: Lod, mesh: str | None):
+    """The cut of ``lod`` by ``job`` at ``shared``: its kept part (:mod:`.parts`, under ``mesh``'s key), else the one
+    started ahead of the same LOD, else ``job``'s own now, kept; the one started ahead is let go either way."""
     from azurkit.tools.characters import parts
 
-    pickled = _ahead_key(job, lod, shared)
-    key = _cut_key(pickled)
+    key = _cut_key(job, shared, mesh)
     ahead, _AHEAD[0] = _AHEAD[0], None
-    if (kept := parts.get(key, "cut")) is not None:
+    if key is not None and (kept := parts.get(key, "cut")) is not None:
         return parts.load(kept)
-    got = ahead[1].result()[0] if ahead is not None and ahead[0] == pickled else job(shared, lod)
-    kept = parts.dump(got)
-    parts.put(key, kept, len(kept))
+    got = (ahead[1].result()[0] if ahead is not None and ahead[0] == _ahead_key(job, lod, shared)
+           else job(shared, lod))
+    if key is not None:
+        kept = parts.dump(got)
+        parts.put(key, kept, len(kept))
     return got
 
 
 def cut_ahead(lod0: Lod, ratio: float = SHADOW_RATIO, max_error: float | None = SHADOW_ERROR, *,
-              source: object = None) -> str:
+              source: object = None, mesh: str | None = None) -> str | None:
     """:func:`shadow_lod`'s cut of ``lod0`` started in a worker process
     (Step 2.179: booblord_high's was a sixth of her build), so the build
     works on while it runs: the next :func:`shadow_lod` of a LOD 0 that
     pickles as this one's at the same ``ratio`` and ``max_error`` takes it
     (any other cuts its own).  One is kept, with ``source`` (what the
-    caller read ``lod0`` from, :func:`ahead_of`).  Its key (:func:`_cut_key`); a cut kept already starts none."""
-    return _start(_cut, (ratio, max_error), by_material(lod0, weld=True), source)
+    caller read ``lod0`` from, :func:`ahead_of`).  Its key (:func:`_cut_key`, of ``mesh``); a cut kept already
+    starts none."""
+    return _start(_cut, (ratio, max_error), by_material(lod0, weld=True), source, mesh)
 
 
 def chain_ahead(lod0: Lod, ratios: Sequence[float], max_errors: Sequence[float | None] | None = None, *,
-                source: object = None) -> str:
+                source: object = None, mesh: str | None = None) -> str | None:
     """:func:`screen_lods`' cuts of ``lod0`` started in a worker process
     as :func:`cut_ahead` starts a shadow's (Step 2.166d: booblord_high's
     took 31-50 s): the next :func:`screen_lods` of a LOD 0 that pickles as
     this one's at the same ``ratios`` and ``max_errors`` takes them.  Their key, as :func:`cut_ahead`'s."""
     return _start(_chain, (tuple(ratios), None if max_errors is None else tuple(max_errors)), by_material(lod0),
-                  source)
+                  source, mesh)
 
 
 def ahead_of(source: object) -> bool:
@@ -724,7 +726,8 @@ def ahead_of(source: object) -> bool:
 
 
 def shadow_lod(characters_xbr: bytes, body: str, ratio: float = SHADOW_RATIO,
-               max_error: float | None = SHADOW_ERROR, *, known: str | None = None) -> tuple[bytes, Lod]:
+               max_error: float | None = SHADOW_ERROR, *, known: str | None = None,
+               mesh: str | None = None) -> tuple[bytes, Lod]:
     """``characters_xbr`` with the one-LOD body ``body``'s LOD 0, its
     groups joined by material and welded (:func:`by_material`: its seams'
     UVs and normals are no shadow's), cut to ``ratio`` of its triangles
@@ -735,26 +738,31 @@ def shadow_lod(characters_xbr: bytes, body: str, ratio: float = SHADOW_RATIO,
     regrouped), and that LOD: what a realtime shadow draws
     (:data:`~azurik_mod.assets.lods.SHADOW_LOD`) in LOD 0's place.
     :class:`ValueError` for a body with more LODs.  What it gives is a
-    part kept by what it reads (:mod:`.parts`, Step 4.6n): ``known``, the
-    file's name by content where the caller has it (else its sha256)."""
+    part kept by what it reads (:mod:`.parts`, Step 4.6n; by its inputs,
+    Step 4.37m1): ``known``, the file's name by its writers' keys where the
+    caller has it (else none is kept), and its
+    :func:`~azurkit.tools.characters.parts.frame`; ``mesh`` names its LOD
+    0 for the cut's (:func:`_cut_key`)."""
     from azurkit.tools.characters import parts
 
-    key = parts.key("W36", known or parts.digest(characters_xbr), body, repr((ratio, max_error)))
-    if (kept := parts.get(key, "W36")) is not None:
+    key = None if known is None else parts.key("W36", known, body, repr((ratio, max_error)),
+                                               parts.frame(characters_xbr))
+    if key is not None and (kept := parts.get(key, "W36")) is not None:
         return parts.undelta(characters_xbr, kept[0]), parts.load(kept[1])
     asset = read_asset(characters_xbr, body)
     if len(asset.lods) != 1:
         raise ValueError(f"shadow LOD: {asset.name} has {len(asset.lods)} LODs, and its shadow draws its own LOD 1")
-    asset.lods.append(_taken(_cut, (ratio, max_error), by_material(asset.lods[0], weld=True)))
+    asset.lods.append(_taken(_cut, (ratio, max_error), by_material(asset.lods[0], weld=True), mesh))
     grown = write_asset(characters_xbr, asset)
-    kept = (parts.delta(characters_xbr, grown), parts.dump(asset.lods[1]))
-    parts.put(key, kept, parts.size_of(kept[0]) + len(kept[1]))
+    if key is not None:
+        kept = (parts.delta(characters_xbr, grown), parts.dump(asset.lods[1]))
+        parts.put(key, kept, parts.size_of(kept[0]) + len(kept[1]))
     return grown, asset.lods[1]
 
 
 def screen_lods(characters_xbr: bytes, body: str, ratios: Sequence[float],
-                max_errors: Sequence[float | None] | None = None, *, known: str | None = None
-                ) -> tuple[bytes, list[Lod]]:
+                max_errors: Sequence[float | None] | None = None, *, known: str | None = None,
+                mesh: str | None = None) -> tuple[bytes, list[Lod]]:
     """``characters_xbr`` with the body ``body``'s LODs past LOD 0 cut anew
     from its LOD 0 (Step 2.166d, W39): its groups joined by material
     (:func:`by_material`, so no palette split locks a border; its seams,
@@ -765,20 +773,23 @@ def screen_lods(characters_xbr: bytes, body: str, ratios: Sequence[float],
     regrouped; the old ones stay in the file unreferenced); no ``ratios``
     drops them.  The cuts :func:`chain_ahead` started of the same LOD 0
     are taken.  The file and the new LODs: a part kept by what it reads
-    (:mod:`.parts`, Step 4.6n), ``known`` the file's name by content where
-    the caller has it (else its sha256)."""
+    (:mod:`.parts`, Step 4.6n; by its inputs, Step 4.37m1), ``known`` the
+    file's name by its writers' keys where the caller has it (else none is
+    kept), with its :func:`~azurkit.tools.characters.parts.frame`; ``mesh``
+    names its LOD 0 for the cuts' (:func:`_cut_key`)."""
     from azurkit.tools.characters import parts
 
     shared = (tuple(ratios), None if max_errors is None else tuple(max_errors))
-    key = parts.key("W39", known or parts.digest(characters_xbr), body, repr(shared))
-    if (kept := parts.get(key, "W39")) is not None:
+    key = None if known is None else parts.key("W39", known, body, repr(shared), parts.frame(characters_xbr))
+    if key is not None and (kept := parts.get(key, "W39")) is not None:
         return parts.undelta(characters_xbr, kept[0]), parts.load(kept[1])
     asset = read_asset(characters_xbr, body)
-    cuts = _taken(_chain, shared, by_material(asset.lods[0])) if ratios else []
+    cuts = _taken(_chain, shared, by_material(asset.lods[0]), mesh) if ratios else []
     asset.lods[1:] = cuts
     grown = write_asset(characters_xbr, asset)
-    kept = (parts.delta(characters_xbr, grown), parts.dump(cuts))
-    parts.put(key, kept, parts.size_of(kept[0]) + len(kept[1]))
+    if key is not None:
+        kept = (parts.delta(characters_xbr, grown), parts.dump(cuts))
+        parts.put(key, kept, parts.size_of(kept[0]) + len(kept[1]))
     return grown, cuts
 
 

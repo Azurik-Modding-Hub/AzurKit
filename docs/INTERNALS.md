@@ -1102,15 +1102,25 @@ are the Characters section's.
     `retarget.bake_kept`; W28's arms' and springs' restyles; the LOD and
     shadow cuts and their writes; each sound's ADPCM, `wave_entry`, by its
     samples, and each WAV's read, `read_wav`, by its bytes) are kept
-    in the process under a key of those reads (a file by its sha256, the
-    recipe fields by `repr`, each file read in its folder by its bytes),
-    never the variant's name, its folder or its recipe file's path, which
-    reach only its sounds and its log, and taken in place of the stage: a
-    copy under any name (New from this) dresses only the glue between
-    them, and booblord and her own copy share her body. A file a part
-    left is named by that part's key, and a later one by its pages that
-    differ from the dressed file (`parts.since`, Step 4.6q): no 70 MB
-    hash where the chain knows it. The glue's own reads are light: a
+    in the process under a key of its stage's inputs alone (Step 4.37m1,
+    D1195): `parts.VERSION` (the digest of `parts.SOURCES`, what a dress
+    runs, held to it as `ART_VERSION` is), the recipe fields by `repr`
+    (a jiggle's real-time springs only as there: their numbers reach X41's
+    table alone), each file read in its folder by its bytes, a vanilla or
+    a pack's file by its sha256, the keys of the earlier stages it reads
+    and the `parts.frame` (the layout, integers only) of the file it is
+    pages over; never a digest or pickle of what an earlier stage wrote,
+    a float the dress worked out, the variant's name, its folder or its
+    recipe file's path, which reach only its sounds and its log, and
+    taken in place of the stage: a copy under any name (New from this)
+    dresses only the glue between them, and booblord and her own copy
+    share her body. A file a part left is named by that part's key, and
+    one the glue between two parts left by the last part's key and DRESS
+    (`_player_character._dress_key`: the image's and the packs' files,
+    the options and the recipe's fields but its body's and the late
+    stages', `_player_variants.dress_reads`), so the same inputs name
+    the same file on every host; a LOD cut names its LOD 0 by W29's key
+    and, after a prop's write, the file's name (`_mesh`). The glue's own reads are light: a
     body's bounds as numpy columns (`characters.mesh_bounds`), its bones
     and triangle counts without its vertices
     (`read_asset(vertices=False)`). A part's file is
@@ -1142,7 +1152,9 @@ are the Characters section's.
       Check of each built-in variant and of its own copy (New from this)
       works out at the page's defaults, on each release, ships: a `part`
       row in `shipped.json` (its key, which is already what its stage
-      reads, its `part_codec.digest`, the answer, and its file) and its
+      reads, its `part_codec.digest`, the answer, and its file; the table's
+      `keys` is the `parts.VERSION` it was recorded at, and a table of
+      another gives no part) and its
       bytes (`part_codec`'s at zstd 19) a file in the entry's
       `variants/<entry>/shipped/parts/` in Azurik-Custom-Content, named for
       their sha256 (a re-record writes only the parts that moved), listed
