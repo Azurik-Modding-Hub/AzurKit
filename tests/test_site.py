@@ -2802,14 +2802,16 @@ const source = { slice: (start, end) => ({ arrayBuffer: async () => {
     return blob.slice(start, end).arrayBuffer();
 } }) };
 const seen = [];
-for (const [yields, save, before] of [[true, false, true], [false, false, true], [true, true, true],
-                                      [true, false, false]]) {   // the rest of an image (worker.mjs's vouched()); an
-    reads = whileDressed = most = steps.length = 0;   // image's check, a Save's; the rest a Save waits on; the rest
-    saving = save;                                    // with no dress before it starts
+// The rest of an image (worker.mjs's vouched()); an image's check, a Save's; the rest a Save waits on; the rest with no
+// dress before it starts; the rest a Save waits on, its runs joined up to wide (4 runs) once it waits
+for (const [yields, save, before, wide] of [[true, false, true], [false, false, true], [true, true, true],
+                                            [true, false, false], [true, true, true, 4 << 10]]) {
+    reads = whileDressed = most = steps.length = 0;
+    saving = save;
     if (before) dressedFor(200);   // and one before it starts
     const { digests } = await new Promise((answer) => {
         settle = answer;
-        self.onmessage({ data: { source, rows: files, longest: 1 << 10, yields } });
+        self.onmessage({ data: { source, rows: files, longest: 1 << 10, yields, wide } });
     });
     const same = files.every(([key, at, size]) =>
         digests?.[key] === createHash("sha256").update(bytes.subarray(at, at + size)).digest("hex"));
@@ -2832,14 +2834,16 @@ def test_an_images_rest_hashed_in_the_background_gives_way_to_a_dress_until_a_sa
     2.5-2.6), and given way to the build only, to 2.3-2.4 GiB as it went on after it. An image's check (the pick,
     Verify, a Save's) never waits and reads six at once. Once a Save waits on the rest (``app.mjs`` holds ``WAITED``,
     Step 4.4stack2) it is that Save's hash: it reads beside a dress and six at once again, its lanes that ended started
-    again. The digests are the same."""
+    again, its runs joined up to hashedApart's wide (a Save's own, RUN: in the check's runs, one in flight, the rest
+    left a Save soon after a build waiting 0.9 s longer in Safari's read model, S06/lag). The digests are the same."""
     run = subprocess.run(["node", "--input-type=module", "--eval", GIVES_WAY % json.dumps(
         (site / "hashworker.mjs").as_uri())], capture_output=True, text=True, timeout=120)
     assert run.returncode == 0, run.stderr[-2000:]
-    rest, check, waited, undressed = json.loads(run.stdout)
+    rest, check, waited, undressed, joined = json.loads(run.stdout)
     assert rest == [0, True, 1, True] and check[0] > 0 and check[1:] == [False, 6, True], (rest, check)
     assert waited == [12, True, 6, True], waited
     assert undressed == [0, True, 1, True], undressed
+    assert joined == [3, True, 3, True], joined   # its last 12 runs read as 3 once the Save waits
 
 
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],

@@ -65,10 +65,12 @@ function md5(bytes) {
 // start, not only once it gave way, as the page holds or will hold what it gives way to (a dress's heap, which wasm
 // never gives back): its runs never sit on top of a dress, during it or after (Step 4.4ci25), and WebKit keeps what
 // its reads held at once resident (the capped Variants pass 0.15 GiB lower, Step 4.37e5). Once an ask waits on it
-// (yields says < 0: a Save, WAITED) it reads as that ask's own hash would, every lane again (widen()), and gives way
-// no more while it does.
+// (yields says < 0: a Save, WAITED) it reads as that ask's own hash would, every lane again (widen()), its runs joined
+// up to wide (hashedApart's: RUN, a Save's own), and gives way no more while it does: the rest in the check's runs
+// (CHECK_RUN), one in flight, left a Save clicked soon after a build waiting 0.9 s longer in Safari's read model
+// (S06/lag 1.2 -> 2.1 s), its runs read four times as many (Step 4.37e5).
 export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}, ahead = 0,
-                             yields = null) {
+                             yields = null, wide = longest) {
   const runs = [];
   for (const entry of [...files].sort((a, b) => a[1] - b[1])) {
     const run = runs.at(-1), [, at, size] = entry;
@@ -91,7 +93,13 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
   const taken = Array.from({ length: HASHERS }, () => []);   // each lane's runs read or being read, oldest first
   const take = (mine) => {
     if (!runs.length) return;
-    const run = runs.shift(), reading = read(run);
+    let run = runs.shift();
+    while (yields && !narrow && runs.length && runs[0].end - run.start <= wide) {   // an ask waits: its runs joined
+      const next = runs.shift();
+      run = { start: run.start, end: next.end, files: [...run.files, ...next.files],
+              span: (run.span ?? run.end - run.start) + next.end - next.start };
+    }
+    const reading = read(run);
     reading.catch(() => {});   // awaited in its turn; a lane that throws first leaves its next one unawaited
     mine.push({ run, k: count - runs.length, reading });
   };
@@ -134,7 +142,7 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
           }
           bytes.buffer.transfer?.(0);   // its memory freed now, not at the next GC: WebCrypto and md5 copied what they read
           mine.shift();
-          done += run.end - run.start;
+          done += run.span ?? run.end - run.start;
           progress(done, total);
           const say = yields ? await yields() : 0;
           if (say > 0) {   // its read ahead digested first, then none until it may go on
@@ -175,9 +183,11 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
 // is held here (apart) until it settles: Firefox collects a Worker object that nothing holds (its own handlers don't),
 // and the messages its worker posted last, its digests among them, never came, so about one check in 100 never
 // settled (Step 4.3r4t: two full gates' characters tab waited 300 s for the USA image's answer).
-// yields: it gives way to a character's dress (dressed()), as a hash no ask waits on does.
+// yields: it gives way to a character's dress (dressed()), as a hash no ask waits on does, its runs joined up to wide
+// once an ask waits on it.
 const apart = new Set();
-export function hashedApart(source, rows, progress = () => {}, longest = RUN, at = () => {}, yields = false) {
+export function hashedApart(source, rows, progress = () => {}, longest = RUN, at = () => {}, yields = false,
+                            wide = RUN) {
   let worker, url;
   try {
     const entry = new URL("hashworker.mjs", import.meta.url).href;
@@ -186,7 +196,7 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN, at
     worker = new Worker(url, { type: "module" });
     apart.add(worker);
   } catch {
-    return hashed(source, rows, progress, longest, at, AHEAD, yields ? dressed : null);
+    return hashed(source, rows, progress, longest, at, AHEAD, yields ? dressed : null, wide);
   }
   return new Promise((resolve, reject) => {
     const over = (settle, value) => {
@@ -205,7 +215,7 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN, at
       e.preventDefault();
       over(reject, new Error(e.message || "the hash's worker stopped"));
     };
-    worker.postMessage({ source, rows, longest, yields });
+    worker.postMessage({ source, rows, longest, yields, wide });
     at("hash worker: started");
   });
 }

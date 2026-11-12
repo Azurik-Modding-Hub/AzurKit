@@ -1056,7 +1056,7 @@ function vouched(loaded, file, id, kept) {
       if (last?.id === id && last.rest) return;   // another hashed it first
       const told = (done, total) => self.postMessage({ type: "resting", id, done, total });
       told(0, rest.files.reduce((n, [, , size]) => n + size, 0));
-      try {   // in the check's runs, one in flight till a Save waits on it: the page 0.4-0.5 GiB lower (Step 4.37e5)
+      try {   // the check's runs, one in flight till a Save waits (then a Save's): the page 0.4-0.5 GiB lower, 4.37e5
         const digests = await hashedApart(file, rest.files, told, CHECK_RUN, undefined, true);   // gives way
         await stamps("readwrite", (store) => {
           const last = store.get("last");
