@@ -1610,9 +1610,9 @@ def test_an_installed_community_only_character_lists_opens_and_checks_in_the_var
 
 def test_a_check_asked_while_the_last_ones_dress_is_kept_and_drawn_shows_a_bar_that_moves(browser, site, usa_iso):
     """The site's worker keeps a Check's parts and dress and draws its pictures after its answer, and a Check asked
-    meanwhile waits behind them in its queue, though the engine answers it at once (unchanged): each of those steps is
-    posted as it starts, so the waiting Check's bar moves (D980; the perf row S79 showed one line with no percent for
-    up to 3.4 s)."""
+    meanwhile waits behind them (in the pool's queue for that worker, behind the pictures it holds), though the engine
+    answers it at once (unchanged): each of those steps is posted as it starts, so the waiting Check's bar moves (D980;
+    the perf row S79 showed one line with no percent for up to 3.4 s)."""
     again = """() => {   // Check asked again the moment its button is back, its bar logged until it answers
         const v = azurkit.variants.state, check = document.getElementById("var-check");
         const row = document.getElementById("progress-row"), seen = self.again = { asked: false, answered: false,

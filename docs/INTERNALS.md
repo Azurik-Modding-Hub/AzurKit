@@ -1988,7 +1988,8 @@ are the Characters section's.
   `edits.staged`), one at a time, each handed over only for its digest. It posts its start's steps, a kept image's walk and a build's, a
   plan's and a tracker's stages as `core/progress.py`'s record, a Check's four keeping steps after its answer
   (its parts and its dress, each worked out, then written to IndexedDB) and its pictures each as it starts, since a
-  Check asked meanwhile waits behind them in its queue, and its bar moves with them (Step 4.54e: S79), and each build's answer reports the heap,
+  Check asked meanwhile waits behind them (in the pool's queue for that worker, behind the pictures it holds), and its
+  bar moves with them (Step 4.54e: S79), and each build's answer reports the heap,
   by which the pool keeps the worker or replaces it. A worker whose engine's wasm traps (Pyodide's fatal error: each
   later call of it fails) says so in each failure it posts (a tab's ask's too, whose other failures are refusals),
   naming the call and Python's innermost frames, and the pool replaces it at once, its job or none, and sends the page's job to the next engine once, the page saying so

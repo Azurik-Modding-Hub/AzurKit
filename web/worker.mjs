@@ -1138,8 +1138,8 @@ function character(loaded, data) {
 // (Step 4.6o, parts.mjs): those kept for the recipe's content offered (no name: a copy's under any name), and the
 // ones it took and worked out kept after its answer, a refusal's too (a refusal itself is never a part). Those four
 // steps, then its pictures (character()), are each posted as they start (keeping()), since a Check asked meanwhile
-// waits behind them in this queue though the engine answers it at once: its bar moves with them (D980; S79 showed one
-// line with no percent for up to 3.4 s, Step 4.54e).
+// waits behind them (in the pool's queue for this worker, behind the pictures it holds) though the engine answers it
+// at once: its bar moves with them (D980; S79 showed one line with no percent for up to 3.4 s, Step 4.54e).
 const keeping = (done, label = "Keeping the Check") => stage("dress", label, done, 5);
 async function checked({ py, engine }, data) {
   let hint = null, parted = null;
