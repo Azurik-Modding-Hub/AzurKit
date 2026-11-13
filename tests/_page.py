@@ -407,8 +407,9 @@ def stalled(owner, what: str, seconds: float, ended: tuple[str, ...] = ()) -> st
     began, a line each (:func:`_asked`: while one for another headless shell stood, every test Chromium's GPU process
     started inside it waited on it, and its pages with it, Step 4.37o), whether its browser still answers a call of its
     own (its cookies, in :data:`PROBE` s) and the processes under its driver. A browser that answers nothing either has
-    stopped: its Playwright connection is closed naming ``what``, so every later call to it fails at once by name, its
-    module's next tests too, never a silent wait (D1072). A Firefox that logs (Windows' CI) adds the end of its newest
+    stopped: its Playwright connection is closed naming ``what``, so every later call to it fails at once by name, never
+    a silent wait (D1072), and the next test that takes it, this one's rerun too, launches its module's browser again
+    (``tests/conftest.py``'s ``pytest_runtest_setup``, D1260). A Firefox that logs (Windows' CI) adds the end of its newest
     log files after the state and the prompts (:func:`_firefox_said`)."""
     page = owner if hasattr(owner, "main_frame") else None
     context, since = page.context if page else owner, time.time() - seconds

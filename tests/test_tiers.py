@@ -271,6 +271,59 @@ def test_a_stopped_run_keeps_each_failed_trys_error_lines_and_a_finished_runs_lo
                                     f"    {whole[_rerun.WIDTH:]}"], lines[at:]
 
 
+def test_a_module_browser_that_stopped_answering_is_launched_again_for_its_rerun_and_the_next_test(
+        pytester, monkeypatch, tmp_path):
+    """D1260 (``tests/conftest.py``'s ``pytest_runtest_setup``): once a
+    module's ``browser`` stopped answering (``tests/_page.py``'s ``stalled``
+    closed its Playwright connection), the test whose call stalled still
+    fails its first try by name (D1072), and its rerun and the module's next
+    test each set up on the browser launched again, the stopped one's
+    teardown run first and a warning naming it: the test is flaky, never
+    failed twice, and the next one passes (on CI run 43431651205 both failed
+    twice at once, on the stopped browser)."""
+    pytester.makeconftest("from tests.conftest import pytest_runtest_setup  # noqa: F401\n\n"
+                          "pytest_plugins = ['tests._rerun']\n")
+    pytester.makepyfile(test_b="""
+        import os
+        import types
+
+        import pytest
+
+        def said(event):
+            with open(os.environ["EVENTS"], "a") as f:
+                f.write(event + "\\n")
+
+        @pytest.fixture(scope="module", params=["webkit"])
+        def browser(request):   # a stand-in for tests/conftest.py's, one a browser's name: on a connection of its own
+            connection = types.SimpleNamespace(_closed_error=None)
+            said("launch")
+            yield types.SimpleNamespace(_impl_obj=types.SimpleNamespace(_connection=connection))
+            said("close")
+
+        def test_stalls(browser):   # its first try's call stalls and _page.stalled closes the connection
+            assert browser._impl_obj._connection._closed_error is None, "a stopped browser"
+            said("try")
+            with open(os.environ["EVENTS"]) as f:
+                if f.read().split().count("try") == 1:
+                    stopped = RuntimeError("the browser stopped answering: the call")
+                    browser._impl_obj._connection._closed_error = stopped
+                    raise AssertionError("no answer in 120 s: the call")
+
+        def test_next(browser):
+            assert browser._impl_obj._connection._closed_error is None, "a stopped browser"
+    """)
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    monkeypatch.setenv("EVENTS", str(events := tmp_path / "events"))
+    run = pytester.runpytest_subprocess("-p", "no:cacheprovider", timeout=300)
+    out = run.stdout.str()
+    assert (run.ret, {k: n for k, n in run.parseoutcomes().items() if k != "warnings"}) == (
+        0, {"passed": 2, "rerun": 1}), out
+    assert events.read_text().split() == ["launch", "try", "close", "launch", "try", "close"], out
+    assert "test_b.py::test_stalls[webkit]: call: AssertionError: no answer in 120 s: the call" in out
+    assert out.count("the module's browser stopped answering (the browser stopped answering: the call): "
+                     "launched again") == 1, out
+
+
 def test_ci_reruns_a_failed_test_once_and_its_job_summary_lists_each_that_passed_its_rerun():
     """D1170 on CI: each tier's pytest (the pure job's, a macOS runner's
     folded pure tier, the vanilla tier, whose Linux run resets its

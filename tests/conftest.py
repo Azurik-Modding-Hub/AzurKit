@@ -434,7 +434,9 @@ def close_browser(browser, seconds: float = 120, downloads: Path | None = None) 
     ended and what it may wait on (``scripts/ci_resources.py``'s ``held``: the processes under the driver and those a
     parent that ended left running, with their memory, the crash handlers and the browser's temporary and
     ``downloads`` folders' sizes); the driver ends with the fixture's ``sync_playwright`` (its own 30 s after its pipe
-    closes)."""
+    closes). A browser that stopped answering (its connection closed by ``tests/_page.py``'s ``stalled``) has its close
+    return at once, so what a parent that ended left running is ended then, while its driver still runs (``left``
+    reads the driver's age), before the driver's exit."""
     import warnings
 
     from scripts import ci_resources
@@ -448,9 +450,42 @@ def close_browser(browser, seconds: float = 120, downloads: Path | None = None) 
             *([f"ended, left running by a parent that ended: {'; '.join(map(ci_resources.described, ended))}"]
               if ended else []),
             *ci_resources.held(driver, {"its downloads": downloads} if downloads else {})])) from None
+    if stopped := _stopped(browser):
+        ended.extend(ci_resources.end_left(driver))
     if ended:
-        warnings.warn(f"the {name} browser's close waited on what a parent that ended left running, out of its "
-                      f"driver's kill's reach, ended: {'; '.join(map(ci_resources.described, ended))}", stacklevel=2)
+        how = "on its closed connection found" if stopped else "waited on"
+        warnings.warn(f"the {name} browser's close {how} what a parent that ended left running, out of its driver's "
+                      f"kill's reach, ended: {'; '.join(map(ci_resources.described, ended))}", stacklevel=2)
+
+
+def _stopped(launched) -> str:
+    """Why ``launched``'s Playwright connection (a browser's) is closed (``tests/_page.py``'s ``stalled`` closes it,
+    naming the call its browser left unanswered), or ``""`` while it's open. (Its parameter isn't named ``browser``:
+    ``scripts/fullsuite.py``'s graph would read the fixture, and its close's imports, as every session's.)"""
+    error = getattr(getattr(getattr(launched, "_impl_obj", None), "_connection", None), "_closed_error", None)
+    return "" if error is None else str(error) or type(error).__name__
+
+
+@pytest.hookimpl(tryfirst=True)   # before pytest's own setup makes the test's fixtures
+def pytest_runtest_setup(item):
+    """A module's ``browser`` that stopped answering is launched again for the next test that takes it, the stalled
+    test's rerun too (D1260): ``tests/_page.py``'s ``stalled`` closes its Playwright connection naming the call, which
+    fails its try by name (D1072), and every later call to it would fail at once; ``tests/_rerun.py``'s rerun makes
+    again only a fixture whose setup raised, so the rerun and the module's later tests got that browser and each
+    failed at once (CI run 43431651205's Windows WebKit tests). So the setup first finishes it, as its module's end
+    would (its fixtures' teardowns, then :func:`close_browser`'s, then its driver's exit), and launches it again, a
+    warning naming it; an error its teardown raises on the closed connection is said there, never this setup's."""
+    import warnings
+
+    request = getattr(item, "_request", None)
+    for fixturedef in getattr(getattr(item, "_fixtureinfo", None), "name2fixturedefs", {}).get("browser", ()):
+        cached = fixturedef.cached_result
+        if request and cached is not None and cached[2] is None and (why := _stopped(cached[0])):
+            try:
+                fixturedef.finish(request)
+            except Exception as error:
+                why += f"; its teardown: {type(error).__name__}: {str(error)[:200]}"
+            warnings.warn(f"the module's browser stopped answering ({why}): launched again", stacklevel=1)
 
 
 def _fail_unlisted_skip(report):

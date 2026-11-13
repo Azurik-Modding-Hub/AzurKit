@@ -2614,8 +2614,9 @@ own: the calls after the stall, an evaluate and the browser's close, said and ti
 def test_a_browser_that_answers_nothing_fails_its_later_calls_at_once(browser):
     """D1072: a call left unanswered whose browser answers nothing either says so and closes that browser's Playwright
     connection naming the call, so the next call fails at once by that name and the browser's close returns at once:
-    a module's later tests on a browser that stopped fail fast, never a silent wait. In a Python of its own, as the
-    closed connection is its Playwright's, every browser's of it."""
+    never a silent wait, and the next test that takes the module's browser launches it again at once
+    (``tests/conftest.py``'s ``pytest_runtest_setup``, D1260). In a Python of its own, as the closed connection is its
+    Playwright's, every browser's of it."""
     done = subprocess.run([sys.executable, "-c", STOPPED, browser.browser_type.name], cwd=_page.WEB.parent,
                           capture_output=True, text=True, timeout=_page.STALL)
     assert done.returncode == 0, done.stderr[-2000:]
