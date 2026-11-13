@@ -396,15 +396,20 @@ memory peaks stay strict. The gate writes both kinds of row to
 17. ~~`_page`'s load, ending and redo gaps (N1-N3, 4.5p)~~: fixed by 4.37k
     (062dac4e, 3540afb1, 6aac6518; 2d1f3ebf retired the redo).
 18. Silent waits:
-    - `Site.__init__`'s new_context, add_init_script and route, and
-      `_bare_page`'s new_page (ci14).
-    - `_bare_page` callers' unbounded close (ci15).
-    - 15 `page.goto` calls that keep Playwright's 30 s (ci16).
-    - 372 unbounded evaluates (ci14).
+    - Four bare `browser.new_context()` calls (test_hosts, test_site and
+      two in test_service_worker) (ci14).
+    - `_bare_page` callers' unbounded `context.close()`, two in test_site
+      (ci15).
+    - Direct `route`, `add_init_script` and `new_page` calls (about 40,
+      30 and 50 grep hits) and the direct evaluates (ci14).
+    - Two `page.goto` calls that keep Playwright's 30 s, in test_hosts and
+      `_perf.py` (ci16).
     - App tests that fetch through an in-process server (37 uses, ci31); a
       call past its timeout now fails naming the call (4.37i, 323414cf).
     test_hosts' 24 bare `page.goto(server.url)` calls load through
-    `_page.load` now (4.37k, 41e39159).
+    `_page.load` now (4.37k, 41e39159), and `Site.__init__`'s and
+    `_bare_page`'s new context, init script, routes and new page are
+    bounded (4.54d).
 19. ~~test_site's two fresh-page loads at ACT~~: fixed by 4.37k (1f016297).
 20. `tests/ci_durations.json` still names the old private-window test id.
     Refresh the shard table from a full run's log, with Apple Silicon and
