@@ -110,7 +110,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     arms: text("var-arms", { inputMode: "decimal", size: 6 }),
     rotate: el("input", { id: "var-rotate", type: "checkbox" }),
     title: text("var-title", { size: 28 }),
-    notes: el("textarea", { id: "var-notes", rows: 3, spellcheck: true }),
+    notes: el("textarea", { id: "var-notes", rows: 5, spellcheck: true }),
     apply: button("var-apply", "Apply", "The recipe below in place of this one, once the engine takes it"),
     revert: button("var-revert", "Revert", "The recipe as it is, again"),
     jsonNote: el("span", { id: "var-json-note", className: "note", textContent: JSON_NOTE }),
@@ -238,10 +238,10 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
                "Import… ", ui.file)], ui.export)),
     el("div", { className: "chars-info" }, ui.previews, ui.pictureNote, ui.name, ui.status, ui.checkNote),
     el("div", { className: "chars-options" },
-       el("p", { className: "rando-row" }, ui.new, ui.from, ui.as, ui.saveAs, ui.delete),
+       el("p", { className: "rando-row" }, ui.new, ui.from, ui.save, ui.as, ui.saveAs, ui.delete),   // the file's row
        el("p", { className: "rando-row" }, ui.base, field("Gameplay", ui.mode), ui.reach),
        el("p", { className: "views", role: "tablist", ariaLabel: "The variant's fields" }, ...tabButtons),
-       ...tabs.map((t) => t.element), el("p", { className: "rando-row" }, ui.save, ui.check, ui.undo))));
+       ...tabs.map((t) => t.element), el("p", { className: "rando-row" }, ui.check, ui.undo))));
   document.body.append(ui.asked);   // asked from any tab (a Build's question too), so never inside a hidden one
 
   // A question in the page's own dialog (no window of the browser's): a yes or a no, or with value a name (null: no).
@@ -463,8 +463,8 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     ui.name.textContent = label();
     ui.base.textContent = `Base: ${base}`;
     if (r && !r.refusal || base === "garret4") {
-      ui.reach.textContent = base === "garret4" ? "his own body: only he wears it, so its look is made on him"
-        : r.mesh ? "its mesh: the player's own, NPCs keep theirs" : "colours: the player's own, NPCs keep theirs";
+      ui.reach.textContent = base === "garret4" ? "Only Garret wears this body, so its look is made on him."
+        : `Only the player's ${base} wears ${r.mesh ? "this mesh" : "these colours"}; NPCs keep theirs.`;
     }
     const fixed = base === "garret4" ? "garret4's own build: Skin only is his own already"
       : from ? "a recipe from another takes its mode" : "";

@@ -588,7 +588,9 @@ p.views { margin: 0; padding: 2px 10px; }
 @media (max-width: 760px) { .chars-cols { grid-template-columns: minmax(0, 1fr); } }
 .chars h3 { margin: 6px 0 2px; font-size: 11.5px; }
 .chars h3 .note { font-weight: 400; margin-left: 6px; }
-#char-filter { width: 14rem; }
+/* The search box, one place and size in the Models and Variants views: the list's width, at its left edge. */
+#char-filter, #var-filter { flex: 1 1 100%; min-width: 0; }
+.chars-list > .rando-row:first-child { padding: 3px 0; }
 .chars-list .field, #char-source { flex: 1 1 0; min-width: 0; }   /* Content from fills its row, Reset beside it */
 #char-species { max-height: 24rem; overflow: auto; border: 1px solid var(--soft); }
 .chars-list > .fold { margin-top: 4px; }
@@ -640,9 +642,8 @@ p.views { margin: 0; padding: 2px 10px; }
 /* The Characters tab's Variants view (Step 4.6c): the list, the pictures with the status line, and the editor's rows. */
 .var-cols .chars-list .picker-list { max-height: 26rem; }
 .chars .model.refused { color: var(--muted); font-style: italic; }
-#var-filter { flex: 1 1 0; min-width: 0; }
 #var-legend { margin: 0 0 3px; }
-#var-as { width: 9rem; }
+#var-as { width: 7rem; }   /* the file's row (New… to Delete, Save among them) on one line at 1280 px */
 #var-import-path { flex: 1 1 0; min-width: 0; }
 .var-cols #var-name { margin: 6px 0 2px; }
 #var-status, #var-check-note, #var-picture-note { margin: 2px 0; }
