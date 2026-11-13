@@ -3172,7 +3172,8 @@ def test_the_tools_tab_opened_after_the_pick_says_what_the_image_is_with_no_engi
 
 
 # The Data tab (Step 4.7a): a cell of the view by its table and name ([its text, its classes, its note]); an edit typed
-# into it and committed with Enter; one of the tab's bar buttons by its label.
+# into it and committed with Enter; one of the tab's bar buttons by its label, pressed only while enabled (whether it
+# was), none by that label failing by name.
 DATA_FIND = """const td = [...document.querySelectorAll("#data td.cell")].find((n) => {
     const c = JSON.parse(n.dataset.cell); return c.ref[0] === table && c.name === name; });"""
 DATA_CELL = f"""([table, name]) => {{ {DATA_FIND}
@@ -3180,7 +3181,10 @@ DATA_CELL = f"""([table, name]) => {{ {DATA_FIND}
 DATA_EDIT = f"""([table, name, text]) => {{ {DATA_FIND}
     td.click(); const box = td.querySelector("input"); box.value = text;
     box.dispatchEvent(new KeyboardEvent("keydown", {{ key: "Enter", bubbles: true }})); }}"""
-DATA_PRESS = """(label) => [...document.querySelectorAll("#data .data-bar button")].find((b) => b.textContent === label).click()"""
+DATA_PRESS = """(label) => { const button = [...document.querySelectorAll("#data .data-bar button")]
+    .find((b) => b.textContent === label);
+    if (!button) throw new Error(`the Data tab's bar has no ${label} button`);
+    return !button.disabled && (button.click(), true); }"""
 DATA_LINES = """() => [document.querySelector("#data .data-bar .note").textContent, azurkit.xbr,
     document.getElementById("xbr-note").textContent, document.querySelector("#data .data-builds").textContent]"""
 # All files… (Step 4.6h): one of the tab's views by its label; the section's class, line and rows as they read; a row
@@ -3191,6 +3195,13 @@ DATA_FILES = """() => { const f = document.querySelector("#data .data-files");
             [...f.querySelectorAll(".data-file-list > *")].map((n) => n.textContent)]; }"""
 DATA_FILE = """([file, table]) => [...document.querySelectorAll("#data .data-file-list button")].find((b) =>
     b.dataset.file === file && (b.dataset.name ?? null) === table).click()"""
+
+
+def _data_press(page, label: str) -> None:
+    """The Data tab's bar button ``label`` pressed once it is enabled: an edit's commit sets ``azurkit.xbr`` at once,
+    but the bar's buttons only once the tab's view is read again (``show()`` awaits the engine), and a press of a
+    disabled button is lost (Firefox's word-list Undo, then a 600 s wait for an edit that stayed)."""
+    _page.until(page, f"() => ({DATA_PRESS})({json.dumps(label)})", 120)
 
 
 def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, usa_iso):
@@ -3241,13 +3252,13 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
         assert _page.until(page, "() => document.querySelector('#data p.refused')?.textContent") == str(refused.value)
         assert page.evaluate(DATA_LINES) == edited
         for press, n, classes in (("Undo", 0, "cell written"), ("Redo", 1, "cell changed written")):
-            page.evaluate(DATA_PRESS, press)
+            _data_press(page, press)
             _page.until(page, f"() => azurkit.xbr.length === {n} && ({DATA_CELL})({json.dumps(cell)})[1] === '{classes}'")
         assert page.evaluate("() => azurkit.xbr") == [op]
         page.evaluate(f"""() => {{ const table = "settings_foo", name = "initial hp"; {DATA_FIND} td.click();
             [...td.querySelectorAll("button")].find((b) => b.textContent === "Revert").click(); }}""")
         _page.until(page, f"() => !azurkit.xbr.length && ({DATA_CELL})({json.dumps(cell)})[0] === '{hp['text']} ⚠'")
-        page.evaluate(DATA_PRESS, "Undo")
+        _data_press(page, "Undo")
         _page.until(page, "() => azurkit.xbr.length === 1")
         _page.tick(page, defaults)
         _page.click(page, "tab-data")
@@ -3278,7 +3289,7 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
             return _page.until(page, f"() => {after} && ({DATA_FILES})()[2].join('|') === {json.dumps('|'.join(want))}")
         page.evaluate(DATA_EDIT, ["armor_properties", "Level", "4321"])
         drawn([f"● {t}" if t == "armor_properties" else t for t in rows])
-        page.evaluate(DATA_PRESS, "Undo")
+        _data_press(page, "Undo")
         drawn(rows)
         listed = page.evaluate("() => azurkit.data.state.listing")
         page.set_input_files("#iso", [])   # unpicked first: Chromium's and WebKit's inputs fire no change for the same file
@@ -3418,7 +3429,7 @@ def test_a_word_list_cell_edits_as_a_checklist_and_a_dropdown_greys_the_values_t
         _page.until(page, "() => azurkit.xbr.length === 1")
         assert page.evaluate("() => azurkit.xbr") == [op(strong, "fire stem")]
         assert op(strong, "fire stem")["value"] == "stem fire"
-        page.evaluate(DATA_PRESS, "Undo")
+        _data_press(page, "Undo")
         _page.until(page, "() => !azurkit.xbr.length")
 
         page.evaluate(DATA_VIEW, "All tables")
@@ -7756,10 +7767,10 @@ def test_the_data_tabs_search_picks_by_name_its_grid_sorts_numbers_text_then_emp
             _page.until(page, f"() => ({DATA_CHANGED})()[2] === {k + 1}")
         edited = page.evaluate(DATA_CHANGED)
         assert edited[0] == ["settings_foo", "armor_properties", "armor_properties"]
-        page.evaluate(DATA_PRESS, "Reset table")
+        _data_press(page, "Reset table")
         assert _page.until(page, f"() => ({DATA_CHANGED})()[2] === 0 && ({DATA_CHANGED})()") == [
             ["settings_foo"], edited[1] + 1, 0]
-        page.evaluate(DATA_PRESS, "Undo")
+        _data_press(page, "Undo")
         assert _page.until(page, f"() => ({DATA_CHANGED})()[2] === 2 && ({DATA_CHANGED})()") == edited
 
         grid = [[None, 2.0], [None, None], [None, "x"], [None, -1.0], [None, 5.0]]   # Modkit's: entities a to e
