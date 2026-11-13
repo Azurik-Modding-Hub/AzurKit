@@ -287,7 +287,7 @@ from pathlib import Path
 
 import numpy as np
 
-from azurkit.core import fdlibm, jsondepth, native
+from azurkit.core import fdlibm, jsondepth, native, progress
 from azurkit.tools.characters.characters import (
     VERTEX_SIZE, MeshGroup, body_at, bone_records, inverse_binds, mesh_groups, read_body)
 from azurkit.tools.characters.gltf import HELPER
@@ -5567,14 +5567,28 @@ def positions(prepared: Prepared, spec: MeshSpec | None = None) -> tuple[Vec, ..
         if isinstance(was, _FROZEN) and was != now:
             raise ValueError(f"mesh.ops[{i}] ({was.name or type(was).__name__}): a number its preparation laid "
                              "changed (subdivide, hem, island, tube, a cut's but its press amounts): prepare it")
-    final, *_, late = _positions(prepared.mesh, list(prepared.base), spec)
+    final, *_, late = _positions(prepared.mesh, list(prepared.base), spec, told=True)
     return tuple(_written(prepared.mesh, _moved(final, late))[0])
 
 
-def _positions(mesh: _Mesh, base: list[Vec], spec: MeshSpec) -> tuple[list[Vec], int, float | None, int, int]:
+POSITION_STEPS = 9
+"""The steps :func:`positions` counts as it goes (``core.progress.note``,
+"k of n": the fields, the rounds, the relax, the hems, beneath, the
+press, the snap, the ride, then the tucks and thicken), so the quick
+preview's bar moves while its vertices do."""
+
+
+def _positions(mesh: _Mesh, base: list[Vec], spec: MeshSpec, told: bool = False
+               ) -> tuple[list[Vec], int, float | None, int, int]:
     """:func:`plan`'s position steps: every vertex's final position, the
     ops placed after mirrors, the least det J and how many vertices the
-    rounds and the tucks moved."""
+    rounds and the tucks moved; each step a note when ``told``
+    (:data:`POSITION_STEPS`; :func:`plan` tells none: in a dress's
+    uncounted stage a count would fill its bar in its first seconds)."""
+    def step(k: int) -> None:
+        if told:
+            progress.note(f"{k} of {POSITION_STEPS}")
+    step(1)
     placed = _place(mesh, spec)
     final = list(base)
     det_min = None
@@ -5601,6 +5615,7 @@ def _positions(mesh: _Mesh, base: list[Vec], spec: MeshSpec) -> tuple[list[Vec],
         det_min = min(dets) if dets else None
     for k in mesh.fixed:        # a tube's geometry: no op moves it
         final[k] = base[k]
+    step(2)
     rounds = _rounds(mesh, spec)
     rounded = 0
     if rounds:      # the round ops, after the fields, in recipe order (each a projection: no det J of its own)
@@ -5610,12 +5625,19 @@ def _positions(mesh: _Mesh, base: list[Vec], spec: MeshSpec) -> tuple[list[Vec],
             if q != final[k]:
                 final[k] = q
                 rounded += 1
+    step(3)
     _relax(mesh, spec, base, final)
+    step(4)
     _insets(mesh, spec, base, final)
+    step(5)
     _beneath(mesh, spec, final)
+    step(6)
     _press(mesh, spec, final)
+    step(7)
     _snap(mesh, spec, final)
+    step(8)
     _ride(mesh, final)
+    step(9)
     pushed = {k for k in range(len(base)) if final[k] != base[k]}
     fielded = list(final)
     for _label, op, frame, moves, cloth in _tucks(mesh, spec):

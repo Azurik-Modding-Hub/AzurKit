@@ -728,6 +728,24 @@ def test_the_quick_preview_puts_each_drawn_vertex_where_a_dress_at_those_values_
         sdk.variant_preview(given | {"recipe": other})
 
 
+def test_a_warm_quick_previews_bar_moves_while_its_vertices_move(usa_iso, tmp_path):
+    """A quick preview after the first (its mesh kept prepared: two steps, moving and drawing) counts the position
+    steps as it moves the vertices (``mesh_edit.POSITION_STEPS``), so its bar takes more than one value, never going
+    back, before "Drawing it" (A95's bar: the drawing alone is shorter than one poll of the app's page)."""
+    given = _given(usa_iso, tmp_path, HIPS)
+    sdk.variant_check(given)
+    wider = json.loads(json.dumps(HIPS))
+    for value in (1.3, 1.5):
+        records: list[dict] = []
+        wider["shapes"]["hips"]["value"] = value
+        sdk.variant_preview(given | {"recipe": wider}, progress=records.append)
+    drawing = next(i for i, r in enumerate(records) if r["label"] == "Drawing it")
+    moving = [r["percent"] for r in records[:drawing]]
+    assert records[0]["label"] == "Moving its vertices" and moving == sorted(moving) and len(set(moving)) > 2
+    assert records[drawing - 1]["label"] == f"Moving its vertices ({mesh_edit.POSITION_STEPS} of " \
+        f"{mesh_edit.POSITION_STEPS})" and records[drawing]["percent"] > moving[-1]
+
+
 def test_a_rows_png_exports_and_an_edited_one_comes_back_as_the_rows_texture(usa_iso, tmp_path):
     """The Colours tab's round trip (Step 2.203): Export writes each row's texture whole as its build recolours it
     (the site's: the same files in a zip); an edited one comes back (``add_png``: its name and sha256) as the row's
