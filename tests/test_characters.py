@@ -2090,6 +2090,18 @@ def test_the_shipped_sizes_are_each_listed_species_and_built_in_variant_on_both_
     assert len(want) == 2 * 183 and {record_shipped._key(row) for row in shipped.table()["size"]} == want
 
 
+def test_each_europe_shipped_part_row_is_a_usa_rows_file_and_answer():
+    """A part row's ``release`` is the recorder's and the pin's label (the first release whose Checks work it out),
+    never a key the readers serve by. The variant-case pin asks USA's rows on USA; Europe's, keyed on Europe's own
+    ``default.xbe`` and ``index.xbr``, are held here to a USA twin's file and answer, so the day Europe's glue output
+    parts from USA's is red with no dress (Step 4.37m1)."""
+    rows = shipped.table()["part"]
+    usa = {(row["blob"]["sha256"], row["answer"]) for row in rows if row["release"] == gate.USA.iso_sha256}
+    apart = [row["part"] for row in rows if row["release"] == gate.EUROPE.iso_sha256
+             and (row["blob"]["sha256"], row["answer"]) not in usa]
+    assert usa and {row["release"] for row in rows} <= {r.iso_sha256 for r in gate.RELEASES} and not apart, apart
+
+
 def test_each_booblords_notes_are_short_and_for_players():
     """The owner's review (D1061): at most 300 characters, and nothing of how she was made (a D, W, X or Step number, a
     quote of the owner, sculpting or triangles)."""

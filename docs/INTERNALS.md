@@ -1153,9 +1153,12 @@ are the Characters section's.
       Check of each built-in variant and of its own copy (New from this)
       works out at the page's defaults, on each release, ships: a `part`
       row in `shipped.json` (its key, which is already what its stage
-      reads, its `part_codec.digest`, the answer, and its file; the table's
-      `keys` is the `parts.VERSION` it was recorded at, and a table of
-      another gives no part) and its
+      reads, its `part_codec.digest`, the answer, its file, and its
+      `release`, the recorder's and the pin's label and never a key: the
+      first release whose Checks work the row out, which the readers that
+      serve parts ignore, so a Europe Check takes the rows it shares with
+      USA under USA's label; the table's `keys` is the `parts.VERSION` it
+      was recorded at, and a table of another gives no part) and its
       bytes (`part_codec`'s at zstd 19) a file in the entry's
       `variants/<entry>/shipped/parts/` in Azurik-Custom-Content, named for
       their sha256 (a re-record writes only the parts that moved), listed
@@ -1180,9 +1183,12 @@ are the Characters section's.
       `shipped.OFF` takes none; a fresh part is heard
       (`shipped.SEEN`) by its digest, a set's items in one order in every
       process, and the goldens' pin builds each own copy too
-      (`test_characters.py`'s `_own_copies`), so every part row is a fresh
-      dress's part under its key until `scripts/record_shipped.py`
-      re-records (`--check` names a row no Check works out). A reshape's
+      (`test_characters.py`'s `_own_copies`) and asks USA's part rows on
+      USA, so each is a fresh dress's part under its key until
+      `scripts/record_shipped.py` re-records; Europe's rows, keyed on
+      Europe's own `default.xbe` and `index.xbr`, are held to a USA twin's
+      file and answer by a pure test, and `--check` at a release names a
+      row no Check works out. A reshape's
       body parts are keyed on its parent's specs, never on where its
       places came from (Step 4.6r): the recorder dresses fresh and a Check
       takes the places row, the same places by the pin, so the Check
