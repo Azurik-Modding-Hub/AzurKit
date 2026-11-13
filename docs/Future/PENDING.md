@@ -291,9 +291,10 @@ staying frozen (D1212); 4.40b's triage readies their lanes.
   - AZ-009: level patches address entities by their current name, not
     their vanilla identity (AzurKit refuses a mod file's level patches by
     name).
-  - AZ-234: the D-pad field names in the struct header are swapped.
-  - AZ-247: the index structs describe 20-byte records, but the loader
-    strides 16-byte entries.
+  - ~~AZ-234: the D-pad field names in the struct header are swapped~~:
+    fixed by 4.41a (c0bc17bd).
+  - ~~AZ-247: the index structs describe 20-byte records~~: fixed by
+    4.41a (f766ffb2).
 - Reach, derive and L3 (20, now in devkit; v2, D609):
   - AZ-342: a touch teleport whose landing hangs in the air is dropped.
   - AZ-373: a gate's sides are misread around a sliver zone.
