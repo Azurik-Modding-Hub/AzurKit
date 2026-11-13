@@ -132,6 +132,14 @@ The next session starts here (D1192), so 1.1 can follow.
    booblord_high carries the same changes and is judged once (D1241); the
    human variants get their colour check; fixes round 3's judges owe go
    into the hand-off (D1242).
+6. **Content that fits the app it reaches** (the review of 4.48b, F3):
+   booblord v10 is the first built-in recipe change since 1.0.0, and
+   `content.builtin_refusal` holds a built-in's sha exact, so once the
+   content repo's `main` moves to v10 an AzurKit up to 1.1.0 can't newly
+   install her, and 1.1.1 can't install v9. Each later recipe change does
+   the same. A lane could let an entry name the AzurKit versions it fits
+   (or keep one entry a release line), so an app installs the newest
+   version it accepts; until then a recipe change ships with its release.
 
 ## 3. Stack 3 and 4.31's outcome
 
@@ -628,6 +636,11 @@ memory peaks stay strict. The gate writes both kinds of row to
     would take booblord from about 1.49x to about 1.33x vanilla's heaviest
     vertex cost and a Check about 9 s faster in the app and 14 s on the
     site (estimates). It follows booblord's rework (2.5).
+44. **booblord_human's eye-edge texel** (D1255): her rework's larger irises
+    (D1252) reach one texel at her eye island's edge, magenta on
+    booblord's page, that the human's +22 hue turns a dark maroon (hue
+    353.5) instead of brown; no iris radius moves it. It ships as a
+    known flaw: a human-only colour op for that texel would clear it.
 
 ## 10. Dev tools, tests and port notes
 
