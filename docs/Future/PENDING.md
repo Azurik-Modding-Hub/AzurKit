@@ -546,9 +546,8 @@ memory peaks stay strict. The gate writes both kinds of row to
     in-flight dress runs on (4.28d). After a drag during the Check, a
     pictures refusal's "Not drawn" note gives way to the nearest note
     (4.29).
-28. No test pins that a built-in variant's fits row sha is its recipe's, so
-    a stale row changes nothing silently; `garret4_reference`'s hoe fix is
-    unpinned too (4.15a7).
+28. ~~The fits row's sha and `garret4_reference`'s hoe, unpinned~~: pinned
+    by 4.27d (0d2873ec) and 4.52c (b3c874aa).
 29. Old own copies of booblord_high (saved before 4.6r, or by Modkit) have
     no places and refuse. The stores hold reshape parts under old keys, so
     each misses once. Both are accepted.
@@ -663,9 +662,8 @@ memory peaks stay strict. The gate writes both kinds of row to
    (4.17a's default; AzurKit's CI covers `main` today).
 6. ~~`ledger check`'s three ids allocated twice~~: D973's and D976's
    results and D1033's addendum are annotations of their decisions now.
-7. **The toydb settings tests** sit in `test_randomizer.py`, which a change
-   to only `generated/t1.json` doesn't pick; moving them into
-   `tests/test_rando_db.py` fixes that and drops the second TOYDB (4.28f).
+7. ~~The toydb settings tests in `test_randomizer.py`~~: moved into
+   `tests/test_rando_db.py` by 4.52c (a9a7ca07).
 8. **4.24c's span lists:** only X3's tick writes are pinned in the shim
    data test, not every player-model shim's span size (a D10 judgement).
 9. **4.15a2's nits:** the spacing in `model.py`'s `NO_SPRING =`, and the
