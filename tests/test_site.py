@@ -32,6 +32,7 @@ import functools
 import hashlib
 import http.client
 import http.server
+import inspect
 import json
 import os
 import pickle
@@ -232,10 +233,12 @@ class Site:
             if profile:
                 self.context = browser.browser_type.launch_persistent_context(str(profile), headless=True,
                                                                               accept_downloads=True, **options)
-            else:   # the options by the names Playwright's own call gives them (camelCase)
+            else:   # the options by the names Playwright's own call gives them, its call's own (ignore_https_errors
+                # its ignoreHTTPSErrors), their values plain data, as it passes them; a name it lacks it refuses
+                call = type(browser._impl_obj).new_context   # the class's: a test may hold the browser's own
+                names = {name.lower(): name for name in inspect.signature(call).parameters}
                 self.context = _perf.bounded(browser, browser._impl_obj.new_context(acceptDownloads=True, **{
-                    re.sub(r"_([a-z])", lambda m: m[1].upper(), k): v for k, v in options.items()}),
-                    "the browser's new context")
+                    names.get(k.replace("_", ""), k): v for k, v in options.items()}), "the browser's new context")
             _page.within(self.context, self.context._impl_obj.add_init_script(script=FOUR_CORES), _page.STALL,
                          "the context's init script")
             _routed(self.context, re.compile(rf"^(?!{re.escape(self.origin)}/)"), self._elsewhere)
@@ -2186,7 +2189,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     driver never answers (the ``browser`` fixture's, ``conftest.close_browser``) fails past its bound naming its
     browser and driver, and a new context its browser never answers (:class:`Site`'s, ``_bare_page``'s; their
     routes, init script and new page bounded as well) fails past ``_page.STALL`` naming it and its driver's
-    processes."""
+    processes, Site's asked for with its options by the names Playwright's own call gives them."""
     from playwright._impl._helper import DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS
 
     from scripts import ci_resources
@@ -2243,10 +2246,13 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert lines[1].startswith("state: {'asks': [") and lines[-2:-1] == ["its browser still answers"], lines
         assert 2 <= time.monotonic() - t3 < _page.ACT + reads(_page.HEAR)
         with monkeypatch.context() as held_new:   # a new context never answered: Site's is bounded, as its page's
-            held_new.setattr(browser._impl_obj, "new_context", lambda **_: asyncio.sleep(600))
+            asked = []   # by Playwright's names, two that aren't the options' camelCased
+            held_new.setattr(browser._impl_obj, "new_context",
+                             lambda **given: asked.append(sorted(given)) or asyncio.sleep(600))
             t5 = time.monotonic()
             with pytest.raises(AssertionError) as uncreated:
-                Site(browser, site)
+                Site(browser, site, ignore_https_errors=False, extra_http_headers={})
+            assert asked == [["acceptDownloads", "extraHTTPHeaders", "ignoreHTTPSErrors", "serviceWorkers"]], asked
             lines = str(uncreated.value).splitlines()
             assert lines[0] == "no answer in 2 s: the browser's new context", lines
             assert len(lines) == 2 and lines[1].startswith("under its driver: "), lines
