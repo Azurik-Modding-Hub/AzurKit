@@ -1662,8 +1662,10 @@ def _png(width: int, height: int, rows: bytes, channels: int = 4) -> bytes:
 def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     """What a community entry, a recipe or a picture a player is handed can hold (D992's threat model) is
     refused by name, as a ``ValueError``, in under 0.1 s of its own work (the CPU time of the thread that
-    refuses it, as a loaded host adds waiting, not work, AZ-231: Windows' runner took 0.444 s on the clock
-    for the Install below, whose writes it does 0.008 s slower than the Mac, run 42071325305; on a slower
+    refuses it, as a loaded host adds waiting, not work, with the collector held, as a collection of the heap
+    the worker's earlier tests left isn't the row's work: one row once took 0.622 s, about 150 times its own;
+    AZ-231: Windows' runner took 0.444 s on the clock for the Install below, whose writes it does 0.008 s
+    slower than the Mac, run 42071325305; on a slower
     host, its speed's share of that, and for the Install that writes files, the time this host's writes of
     them take past the Mac's: ``_speed``) and with under 16 MiB held, or, for a valid one, read as quickly: a PNG bomb (64 MiB of rows behind a 64x64 header, in the textures' reader, in a glTF
     folder's read-back and in the tracker's pictures' read-back) and a picture past 4096x4096 (refused before it inflates; SEC-5); a manifest whose
@@ -1684,6 +1686,7 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     parser's ``RecursionError`` on this Mac), refused by name where every key on a recipe's files reads it, so
     a recipe file naming one is stamped by its bytes; and a recipe file (``variant_file``, the CLI's) whose
     ``mode`` is a list or that nests deep, refused naming the file, not a ``TypeError`` or ``RecursionError``."""
+    import gc
     import time
     import tracemalloc
 
@@ -1808,9 +1811,11 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     }
     assert list(_player_variants.load_variants(json.dumps({"mine": booblord}), str(tmp_path / "variant.json"), tuple(
         _player_variants.builtins()))) == ["mine"]   # her own recipe as a user's reads (the reader and built-ins warm)
-    slow = {}
-    for row, (call, why) in rows.items():
+
+    def timed(call, why) -> tuple[float, float, int]:
+        """A row's thread time, clock time and peak bytes held, the collector held while it runs."""
         tracemalloc.start()
+        gc.disable()
         try:
             start, clock = time.thread_time(), time.perf_counter()   # each row's work is all on this thread
             if why is None:
@@ -1818,17 +1823,28 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             else:
                 with pytest.raises(ValueError, match=why):
                     call()
-            took, clock, held = (time.thread_time() - start, time.perf_counter() - clock,
-                                 tracemalloc.get_traced_memory()[1])
+            return time.thread_time() - start, time.perf_counter() - clock, tracemalloc.get_traced_memory()[1]
         finally:
+            gc.enable()
             tracemalloc.stop()
-        if took >= 0.1 or held >= 16 << 20:
-            slow[row] = (took, clock, held)
+
+    def again(row: str) -> str:
+        """One repeat's own work, for a slow row's message only: the verdict stands as measured."""
+        try:
+            return f"{timed(*rows[row])[0]:.3f} s"
+        except (Exception, pytest.fail.Exception) as exc:
+            return f"no time ({type(exc).__name__})"
+    gc.collect()   # what the earlier tests left, collected before the rows rather than inside one
+    slow = {}
+    for row, (call, why) in rows.items():
+        if (took := timed(call, why))[0] >= 0.1 or took[2] >= 16 << 20:
+            slow[row] = took
     speed = _speed.factor() if slow else 1.0
     writing = {"an Install of 4 x 5 MiB, the last file off"}   # writes three of them, then removes them
     bound = {row: 0.1 * speed + (_speed.slower_writes(tmp_path) if row in writing else 0.0) for row in slow}
     slow = {row: f"{took:.3f} s of its own work, {clock:.3f} s on the clock (this host, {speed:.1f} x slower, its "
-            f"writes {bound[row] - 0.1 * speed:.3f} s slower: under {bound[row]:.3f} s), {held:,} bytes held"
+            f"writes {bound[row] - 0.1 * speed:.3f} s slower: under {bound[row]:.3f} s), {held:,} bytes held, "
+            f"{again(row)} on one repeat"
             for row, (took, clock, held) in slow.items() if took >= bound[row] or held >= 16 << 20}
     assert not slow, slow
     assert seen == [(f"packs/a/{k}.json", [f"{j}.json" for j in range(k)]) for k in range(4)]   # each held alone
