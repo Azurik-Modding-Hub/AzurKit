@@ -506,12 +506,12 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 ### Known flaws (named under D835, listed until fixed)
 
-1. ~~Refusals name Modkit's commands~~: fixed by 4.52b (819ac2dc).
+1. ~~Refusals name Modkit's commands~~: fixed by 4.52b.
 2. **"WHITE cycles"** in the build's character log line and comments
    (4.18a): D1153 wants modern pad names (LB). Rewording moves the shipped
    plan answers' digests, so they need a re-record.
-3. ~~Beamlord's notes show decision ids~~: fixed by 4.52b (1e72520c); the
-   content repo's copy follows at his next content version.
+3. ~~Beamlord's notes show decision ids~~: fixed by 4.52b; the content
+   repo's copy follows at his next content version.
 4. **Booblord's own four spin picks** carry their grades across the vase
    drop ("her mesh, not her moves"); no sitting has watched them on the
    vase-less body (4.27d; D835, D856: the owner may want one).
@@ -667,8 +667,8 @@ memory peaks stay strict. The gate writes both kinds of row to
    undercount for a seed only that repair plans (4.25). A small lane.
 4. **Modkit names left as provenance:** src and devkit docstrings cite
    Modkit's module paths (about 530 lines name `azurik_mod` or
-   `azurik-mod`); the ones players see are 9.1. `OWNER_DEMO_WHO` still
-   reads "azurik-modkit" in `devkit/xemu/queue.py`.
+   `azurik-mod`); the refusals that named them are fixed (9.1, by 4.52b).
+   `OWNER_DEMO_WHO` still reads "azurik-modkit" in `devkit/xemu/queue.py`.
 5. **The gate's main runs:** AzurKit's `land.py` and `fullsuite.py` have no
    1-in-5 run on `main`, no session-end whole run and no main-red rule
    (4.17a's default; AzurKit's CI covers `main` today).
