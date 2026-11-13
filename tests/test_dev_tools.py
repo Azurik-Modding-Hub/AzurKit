@@ -1222,6 +1222,36 @@ def test_the_perf_gates_check_after_an_edit_rows_click_3_s_after_it_at_new_value
         "manifest.json", "variants/booblord/shipped/usa.azks"]
 
 
+def test_a_later_pages_scale_check_comes_after_an_untimed_check_of_its_let_go_so_it_carries_no_shape_edit(tmp_path):
+    """Step 4.49a (the tiers design's R4): on a later page of a changed area's run, S84 (the Shape Check) has its
+    sample from the first page while S81's let go takes more, so that page's Scale Check (S85) once carried the
+    unchecked Shape edit too (106.5 s against 16.1 s on the first page). Such a page Checks its last let go untimed
+    before the next edit, so S85 times Scale's Check alone, as on the first page; a page with no edit Check after it
+    takes no extra Check."""
+    check = _perf.click("var-check")
+    named = {_perf.SHAPE_DRAG: "drag", _perf.SHAPE_LET_GO: "let go", _perf.SCALE_TYPED: "scale", check: "check"}
+
+    def page(targets):
+        log = []
+
+        class Logged(_Stub):
+            def do(self, action, arg=None):
+                log.append((named.get(action), arg))
+                return super().do(action, arg)
+        p = Logged({_perf.SHAPE_DRAG: {_perf.SHAPE_NEAREST: 100}, _perf.SHAPE_LET_GO: {_perf.SHAPE_PREVIEWED: 1000},
+                    check: {_perf.VAR_AGAIN: 5000}, _perf.SCALE_TYPED: {_perf.VAR_EDITED: 200}})
+        d = _perf.Driver(_perf.RUNS["webkit"], targets, tmp_path, tmp_path / "usa.iso", None)
+        d.sleep = lambda seconds: setattr(p, "t", p.t + seconds * 1000)
+        d.fresh(p)
+        d.samples["S84"] = [{"s": 106.5, "bar": 5, "progress": True}]   # the first page's
+        _perf._edit_checks(d, p, ("S82", "S81", "S84", "S85", "S86", "S87"))
+        return [step for step in log if step[0]], {op: [x["s"] for x in got] for op, got in d.samples.items()}
+    assert page({"S82": 1, "S81": 1, "S84": 1, "S85": 1}) == (
+        [("drag", 1.4), ("let go", None), ("check", None), ("scale", 1.1), ("check", None)],
+        {"S84": [106.5], "S82": [0.1], "S81": [1.0], "S85": [5.0]})
+    assert page({"S82": 1, "S81": 1, "S84": 1})[0] == [("drag", 1.4), ("let go", None)]
+
+
 def test_a_gap_whose_page_froze_says_how_much_cpu_the_browser_ran_in_it(tmp_path, monkeypatch):
     """A frozen gap's mark (``froze``) names the CPU the browser's processes (their
     whole tree) used across it, read from the run's sampler either side of it

@@ -2424,16 +2424,23 @@ def _edit_checks(d: Driver, p: Page, ops: tuple) -> None:
     each on the copy as the edits before it left it (edit, Check, as a player goes), a Check after each other edit the
     page makes, each sample at a value no Check held: Scale (``scaled``), the Jiggle tab's first stiffness
     (``jiggled``), a drag on the Colours tab's wheel on its first row (``coloured``). Each Check comes D1014's head
-    start after its edit: 4.37e's section 5 (D1194, D1201)."""
+    start after its edit: 4.37e's section 5 (D1194, D1201). A page whose let go no ``shaped`` sample Checked (a
+    later page of a changed area's run, where ``shaped`` had its sample on the first, D1215) Checks it untimed before
+    the next edit, so each edit's Check carries its own edit alone, as on the first page (Step 4.49a)."""
     drag, let_go, shaped, scaled, jiggled, coloured = ops
     p.js(click("var-tab-shape"))
+    unchecked = False   # a let go no Check followed yet
     for end in SHAPE_ENDS:
         if not d.needed((drag, let_go, shaped)):
             break
         d.act(p, drag, SHAPE_DRAG, SHAPE_NEAREST, 600, arg=end, change=True)
         d.act(p, let_go, SHAPE_LET_GO, SHAPE_PREVIEWED, 1800, change=True)
+        unchecked = True
         if d.need(shaped) and not d.needed((drag, let_go)):
             _checked_again(d, p, shaped)
+            unchecked = False
+    if unchecked and d.needed((scaled, jiggled, coloured)):
+        _checked_again(d, p, None)
     for k in range(1, 9):
         if not d.need(scaled):
             break

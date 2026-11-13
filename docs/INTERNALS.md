@@ -1716,7 +1716,9 @@ are the Characters section's.
     A110-A113 and S110-S113 time it. Its A98, A99, A104, A105 and S84-S87
     time a Check of booblord's copy after each edit the page makes (a Shape
     slider's let go, Scale, a Jiggle stiffness, a colour on the wheel; each
-    a value no Check held, clicked the head start after it), and A106 and
+    a value no Check held, clicked the head start after it; a later page
+    whose let go took no Shape Check Checks it untimed before the next
+    edit, so each Check carries its own edit alone, Step 4.49a), and A106 and
     S88 one whose Content from holds none of her shipped Check parts (the
     site's `./content-unparted/`, which the perf's server answers as
     `content-source/` but each part a 404): heavy ops, each held to its
