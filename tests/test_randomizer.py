@@ -525,6 +525,7 @@ def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps
 @pytest.mark.parametrize("then, steps, stopped", [
     ("the same", "+first +second -first -second", None),
     ("another", "+first +second -first -second", "first"),
+    ("another", "+first +second -second -first", "first"),
     ("another", "+first -first +second -second", "second"),
 ])
 def test_two_openers_calls_keep_every_set_compiled_under_the_newer_calls_settings_so_another_settings_drops_them_all(
