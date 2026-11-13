@@ -1905,6 +1905,7 @@ def test_the_hosts_content_reads_stop_at_a_files_listed_size_and_a_too_deep_or_b
     site's, refuses it)."""
     source, folder = tmp_path / "source", tmp_path / "content"
     monkeypatch.setattr(content, "ROOT", folder)
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)   # set, it would win over the test's own source
     _source(source, {"packs/a/pack.json": b"{}"}, [{"id": "a", "files": ["packs/a/pack.json"]}])
     (source / "packs/a/pack.json").write_bytes(b"{}" + b" " * 64)
     with pytest.raises(OSError, match=r"packs[/\\]a[/\\]pack\.json: past the 2 bytes its manifest lists$"):
