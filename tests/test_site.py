@@ -1608,6 +1608,48 @@ def test_an_installed_community_only_character_lists_opens_and_checks_in_the_var
         served.close()
 
 
+def test_a_check_asked_while_the_last_ones_dress_is_kept_and_drawn_shows_a_bar_that_moves(browser, site, usa_iso):
+    """The site's worker keeps a Check's parts and dress and draws its pictures after its answer, and a Check asked
+    meanwhile waits behind them in its queue, though the engine answers it at once (unchanged): each of those steps is
+    posted as it starts, so the waiting Check's bar moves (D980; the perf row S79 showed one line with no percent for
+    up to 3.4 s)."""
+    again = """() => {   // Check asked again the moment its button is back, its bar logged until it answers
+        const v = azurkit.variants.state, check = document.getElementById("var-check");
+        const row = document.getElementById("progress-row"), seen = self.again = { asked: false, answered: false,
+                                                                                   lines: [] };
+        new MutationObserver(() => {
+          if (check.disabled) return;
+          if (seen.asked) seen.answered = true;
+          else if (v.checked) { seen.asked = true; check.click(); }
+        }).observe(check, { attributes: true, attributeFilter: ["disabled"] });
+        new MutationObserver(() => {
+          const line = document.getElementById("progress-line").textContent;
+          if (seen.asked && !seen.answered && !row.hidden && seen.lines.at(-1) !== line) seen.lines.push(line);
+        }).observe(row, { subtree: true, childList: true, characterData: true, attributes: true });
+    }"""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.pick(page, "#iso", usa_iso)
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.click(page, "var-new")
+        keylord = "document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')"
+        _page.until(page, f"() => {keylord}", 60)
+        page.evaluate(f"() => {keylord}.click()")
+        _variants_shown(page, status="unsaved: Save as keeps it")
+        _page.until(page, "() => !document.getElementById('var-check').disabled", 300)
+        page.evaluate(again)
+        _page.click(page, "var-check")
+        _page.until(page, "() => self.again.answered", 600)
+        assert page.evaluate("() => [azurkit.variants.state.checked[1].refusal, self.again.lines]") == [None, [
+            *(f"Keeping the Check… {percent} %" for percent in (0, 20, 40, 60, 80)), "Drawing the variant… 80 %"]]
+        _page.check_csp(page)
+    finally:
+        served.close()
+
+
 CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length,
     document.getElementById("char-count").textContent, ["char-front", "char-back"].map((id) => document.getElementById(id)
     .getContext("2d").getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0)),

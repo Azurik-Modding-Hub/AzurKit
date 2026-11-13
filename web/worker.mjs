@@ -1128,6 +1128,7 @@ function character(loaded, data) {
   const { py, engine } = loaded;
   if (!data.file) return post({ type: "reply", call: data.call, reply: engine(data) });
   if (data.type === "variant_check") return checked(loaded, data);
+  if (data.type === "variant_pictures") keeping(4, "Drawing the variant");   // the last of a Check's after its answer
   mounted(py, data.file, (iso) => post({ type: "reply", call: data.call, reply: engine({ ...data, iso }) }));
 }
 
@@ -1135,7 +1136,11 @@ function character(loaded, data) {
 // takes it only under its own key, by what the edit holds), and the one it works out kept after its answer, so a
 // Check of content dressed before, here or in a worker since, answers without dressing again. And its dress's parts
 // (Step 4.6o, parts.mjs): those kept for the recipe's content offered (no name: a copy's under any name), and the
-// ones it took and worked out kept after its answer, a refusal's too (a refusal itself is never a part).
+// ones it took and worked out kept after its answer, a refusal's too (a refusal itself is never a part). Those four
+// steps, then its pictures (character()), are each posted as they start (keeping()), since a Check asked meanwhile
+// waits behind them in this queue though the engine answers it at once: its bar moves with them (D980; S79 showed one
+// line with no percent for up to 3.4 s, Step 4.54e).
+const keeping = (done, label = "Keeping the Check") => stage("dress", label, done, 5);
 async function checked({ py, engine }, data) {
   let hint = null, parted = null;
   try {
@@ -1150,15 +1155,21 @@ async function checked({ py, engine }, data) {
   freed(offered);   // the engine copied what it was offered into its heap as the call began (Step 4.37e5)
   freed(parts);
   post({ type: "reply", call: data.call, reply });
+  keeping(0);
   try {
     const { made, taken } = engine({ type: "parts" });
+    keeping(1);
     if (parted && (taken.length || Object.keys(made).length)) await keepParts(parted, made, taken);
   } catch {}   // parts not kept are parts worked out again
-  if (!hint || "refused" in reply || reply.refusal) return;
-  try {
-    const kept = mounted(py, data.file, () => engine({ type: "kept" })), made = Object.keys(kept).length > 0;
-    if (made || offered) await keep(hint, made ? kept : null);
-  } catch {}   // a dress not kept is a dress made again
+  if (hint && !("refused" in reply || reply.refusal)) {
+    keeping(2);
+    try {
+      const kept = mounted(py, data.file, () => engine({ type: "kept" })), made = Object.keys(kept).length > 0;
+      keeping(3);
+      if (made || offered) await keep(hint, made ? kept : null);
+    } catch {}   // a dress not kept is a dress made again
+  }
+  keeping(4);
 }
 
 // A file picked to replace one of the image's, in memory for one ask or build, and its sha256 in WebCrypto.
