@@ -504,7 +504,8 @@ def kept() -> list[tuple[str, str, Path]]:
             ("swap", "The characters' dressed bodies, a Check's parts, pictures and G4 matches",
              swapcache.root() / "swap"),
             ("content", "Installed community content", user_data_path("AzurKit", appauthor=False) / "content"),
-            ("logs", "Each build's log (its recipe and report, or why it failed)", logs.folder())]
+            ("logs", "Each build's log (its recipe and report, or why it failed) and app.log, what the app printed",
+             logs.folder())]
 
 
 def _size(path: Path) -> int:

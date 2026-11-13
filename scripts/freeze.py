@@ -1,7 +1,9 @@
 """Freeze the app (D732): a PyInstaller onedir of ``python -m azurkit``
 (``src/azurkit/__main__.py``: the page with no arguments, ``serve``, else the
 ``azurkit`` command) with the page (``web/``), from this checkout's
-environment. On macOS the onedir is a windowed app, ``AzurKit.app``.
+environment. On macOS the onedir is a windowed app, ``AzurKit.app``; on Windows
+a windowed program too, so no console window opens beside it (:data:`WINDOWED`;
+``azurkit.__main__.settle`` says where what it prints goes).
 
     uv run --locked python scripts/freeze.py --dist DIR [--work DIR] [--check]
 
@@ -45,6 +47,10 @@ NAME = "AzurKit"
 BUNDLE_ID = "io.github.azurik-modding-hub.azurkit"
 MACOS = sys.platform == "darwin"
 ICON = ROOT / "assets" / "icon" / "AzurKit.icns"   # the .app's icon (its Info.plist's CFBundleIconFile)
+WINDOWED = ("darwin", "win32")
+"""The systems whose app is a windowed program (PyInstaller's ``--windowed``): a console program on Windows opens a
+console window beside the app, which closing quits it. PyInstaller ignores the flag on Linux, where a program opens no
+terminal of its own."""
 EXCLUDE = ("tkinter", "_tkinter", "unicorn", "capstone", "ziglang", "cryptography", "readline", "dbm", "_dbm",
            "_gdbm", "win32pdh", "win32api", "win32con", "win32job", "pywintypes", "pythoncom", "win32com")
 # cryptography: devkit's mcp brings it, and pywebview imports it when it is installed. pywin32's modules: mcp brings
@@ -74,7 +80,7 @@ def freeze(dist: Path, work: Path, check: bool = False) -> Path:
         stamped = ("--add-data", f"{stamp}{os.pathsep}azurkit")
 
     run(["--noconfirm", "--clean", "--onedir", "--name", NAME, "--log-level", "WARN",
-         *(("--windowed", "--osx-bundle-identifier", BUNDLE_ID, "--icon", str(ICON)) if MACOS else ()),
+         *kind(sys.platform),
          "--distpath", str(dist), "--workpath", str(work), "--specpath", str(work),
          "--paths", str(ROOT / "src"), "--collect-data", "azurkit", "--add-data", f"{ROOT / 'web'}{os.pathsep}web",
          "--add-data", f"{shipped}{os.pathsep}{web_tools.SHIPPED}", *stamped,
@@ -93,6 +99,13 @@ def freeze(dist: Path, work: Path, check: bool = False) -> Path:
     if check and not (loaded := report(app))["loaded"]:
         raise SystemExit(f"the app runs the Python twins, not its compiled library: {loaded['why']}")
     return app
+
+
+def kind(system: str) -> tuple[str, ...]:
+    """PyInstaller's options for the kind of app ``system`` (``sys.platform``'s) gets: windowed (:data:`WINDOWED`),
+    and on macOS a bundle with AzurKit's id and icon."""
+    return ((("--windowed",) if system in WINDOWED else ())
+            + (("--osx-bundle-identifier", BUNDLE_ID, "--icon", str(ICON)) if system == "darwin" else ()))
 
 
 def executable(app: Path) -> Path:

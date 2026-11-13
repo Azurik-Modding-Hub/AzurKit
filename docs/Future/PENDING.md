@@ -522,8 +522,7 @@ memory peaks stay strict. The gate writes both kinds of row to
     until the next load or a Clear (4.5q; accepted design).
 18. ~~The site's Update fetches every file of an entry~~: fixed by 4.53b.
 19. ~~The HTTPS content clone has no low-speed bound~~: fixed by 4.52a.
-20. **The Windows and Linux frozen apps are console builds:** `freeze.py`
-    passes `--windowed` on macOS only (ci5).
+20. ~~The Windows and Linux frozen apps are console builds~~: fixed by 4.53c.
 21. **The app's own server answers over HTTP/1.0** (ci42).
 22. **A player's image named usa.iso or europe.iso in Downloads** (or one
     `AZURKIT_ISO` names there) refuses the default Save beside it; the

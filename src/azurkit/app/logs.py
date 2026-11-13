@@ -7,7 +7,8 @@ share string, the whole recipe), then the build's report (the seed's plan left
 out) or why it failed, and each save of it. Nothing in a log is a game byte:
 the recipe's names and numbers, the report's sites, sizes and sha256s. The
 logs stay until Storage's Clear (``kept``'s ``logs``). The Tools tab opens the
-folder or the last log (:func:`reveal`)."""
+folder or the last log (:func:`reveal`). The folder also holds ``app.log``, what
+the Windows app prints with nowhere else to (``azurkit.__main__.settle``)."""
 
 from __future__ import annotations
 

@@ -296,6 +296,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.
+- **No console window on Windows:** the app opens its window alone; what it would print goes to `app.log` in its
+  log folder, which the Tools tab opens, and its commands print in the terminal you run them from.
 - **Unsigned apps:** CI builds the app for Apple Silicon and Intel Macs, Windows and Linux, unsigned, each with a
   checksum and a build attestation ([Download and check it](#download-and-check-it), below).
 - **Greyed until it can work:** Build, Save and the original values wait on your image (or a build) and say so.

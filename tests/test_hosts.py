@@ -14,6 +14,7 @@ import base64
 import collections
 import contextlib
 import dataclasses
+import faulthandler
 import hashlib
 import http.client
 import importlib.metadata
@@ -47,7 +48,7 @@ import platformdirs
 import pytest
 
 import azurkit
-from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
+from azurkit import __main__ as _entry  # the frozen app's entry (fullsuite picks this file for it)
 from azurkit import _stacks, app, cli, sdk
 from azurkit.app import engine
 from azurkit.core import gate, iso, native, progress
@@ -511,7 +512,9 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, t
     the one GNU licence, in numpy's Linux wheel; the runtime's readline is
     editline). On macOS its
     icon is AzurKit's: the .icns its Info.plist names is ``freeze.ICON``,
-    byte for byte. Run read-only, with a fresh HOME and TMPDIR from an empty
+    byte for byte; on Windows its program is a windowed one (:func:`_subsystem`:
+    no console window beside it), which still prints to the pipes it is
+    handed. Run read-only, with a fresh HOME and TMPDIR from an empty
     folder and the tests' no-window mode, its window path exits 1 at once,
     and it gives CPython's verdicts, finds the images' folder through
     platformdirs under that HOME, and leaves itself, that folder, HOME and
@@ -527,6 +530,7 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, t
         plist = plistlib.loads((app_path / "Contents" / "Info.plist").read_bytes())
         icon = app_path / "Contents" / "Resources" / plist["CFBundleIconFile"]
         assert (icon.name, icon.read_bytes() == freeze.ICON.read_bytes()) == (freeze.ICON.name, True)
+    assert _subsystem(freeze.executable(app_path)) == (WINDOWED if os.name == "nt" else None)
 
     box = Sandbox(tmp_path, monkeypatch)
     assert box.run(app_path, timeout=30) == {"code": 1, "stdout": "", "stderr": WINDOW_REFUSED}   # the window path
@@ -537,6 +541,67 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, t
     assert box.run(app_path, "verify") == none
     assert _tree(app_path) == before
     assert box.left() == []
+
+
+WINDOWED = 2
+"""A Windows program's subsystem that Windows starts with no console (3, a console program's, opens one)."""
+
+
+def _subsystem(program: Path) -> int | None:
+    """A Windows program's subsystem, read from its PE header (:data:`WINDOWED`, or 3: a console program); None for
+    another system's program."""
+    head = program.read_bytes()[:4096]
+    if head[:2] != b"MZ":
+        return None
+    pe = int.from_bytes(head[0x3C:0x40], "little")
+    return int.from_bytes(head[pe + 4 + 20 + 68:pe + 4 + 20 + 70], "little")   # past "PE\0\0" and the COFF header
+
+
+def test_the_windows_app_opens_no_console_and_what_it_prints_reaches_its_terminal_or_its_log(tmp_path, monkeypatch):
+    """Step 4.53c (PENDING's known flaw 20): the Windows app was a console program, so a console window opened beside
+    it, and closing that quit the app. ``freeze.py`` makes it windowed, as macOS's is (PyInstaller ignores the flag on
+    Linux, where a program opens no terminal), and Windows starts such a program with no standard streams unless it is
+    handed some, so ``__main__.settle`` gives it its own: a command prints to the console of the terminal it was typed
+    in, else, the window too, to app.log in the build logs' folder (which the Tools tab opens), where a crash's stack
+    goes too (``faulthandler``); the window's launch starts the log again once it is past ``KEEP``, and streams it
+    was handed (a pipe: the tests', ``freeze.py --check``'s) stay its own. The frozen app's verdicts test reads its
+    program's subsystem on Windows, its commands printing through the pipes it is handed."""
+    assert {system: freeze.kind(system)[:1] for system in ("win32", "darwin", "linux")} == {
+        "win32": ("--windowed",), "darwin": ("--windowed",), "linux": ()}
+    assert freeze.kind("win32") == ("--windowed",)   # no macOS bundle's id or icon
+    _home(monkeypatch, tmp_path / "home")
+    log, enabled, asked = app.logs.folder() / _entry.LOG, [], []
+    monkeypatch.setattr(faulthandler, "enable", enabled.append)
+
+    def terminal(there: bool):   # what attaching to the console of the terminal it was typed in gives
+        def attach():
+            asked.append(there)
+            return io.StringIO() if there else None
+        return attach
+
+    assert _entry.settle(["verify"], terminal(True)) is None and asked == []   # the tests' own streams: kept
+    for argv, there, logged in ((["verify"], True, False), (["verify"], False, True), ([], True, True)):
+        with monkeypatch.context() as m:
+            m.setattr(sys, "stdout", None)
+            m.setattr(sys, "stderr", None)
+            given = _entry.settle(argv, terminal(there))
+            print(f"said {argv}")
+            print("why", file=sys.stderr)
+            assert (sys.stdout, sys.stderr, enabled[-1:] == [given]) == (given, given, logged)
+            if not logged:
+                assert given.getvalue() == "said ['verify']\nwhy\n"
+            given.close()
+    assert asked == [True, False]   # the window asks for no terminal
+    assert log.read_text(encoding="utf-8") == "said ['verify']\nwhy\nsaid []\nwhy\n"
+    monkeypatch.setattr(_entry, "KEEP", 8)
+    for argv, kept in ((["verify"], "said ['verify']\nwhy\nsaid []\nwhy\n"), ([], "")):   # a command's process appends
+        with monkeypatch.context() as m:
+            m.setattr(sys, "stdout", None)
+            m.setattr(sys, "stderr", None)
+            given = _entry.settle(argv, terminal(False))
+            print("again")
+            given.close()
+        assert log.read_text(encoding="utf-8") == f"{kept}again\n"
 
 
 def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpythons_image(

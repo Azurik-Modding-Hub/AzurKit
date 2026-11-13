@@ -2173,7 +2173,11 @@ are the Characters section's.
   (1.5 s) at most, then removes it itself (AZ-823, D35). The window sets
   pywebview's `text_select`, or pywebview injects a `<style>` the CSP
   refuses. `scripts/freeze.py` builds
-  the app (`AzurKit.app` on macOS, a windowed onedir; with the shipped
+  the app (`AzurKit.app` on macOS, a windowed onedir; on Windows a windowed
+  program too, so no console window opens beside it, and `__main__.settle`
+  gives the streams Windows starts it without: a command's to the console
+  of the terminal it was typed in, else `app.log` in the build logs' folder,
+  with `faulthandler`'s stacks; with the shipped
   database, its key checked against the bundle's data); pyinstaller and
   pywebview are the `app` dependency group, never the wheel's. The bundle is
   read-only: every write goes through platformdirs, or to the path the
