@@ -1813,10 +1813,11 @@ there is no run, then 0xA5480, which starts the load and sets 0x2000
 payload, and 0 comes back only on a failed lookup or build (0xA5A79,
 0xA5A9D), a state other than 0x3000 after the wait (0xA6830) or a
 fourcc miss (0xA6845).
-`shims/include/azurik.h`'s `IndexEntry` is this descriptor and its
-20-byte `IndexRecord` no layout the engine reads here.  Their index.xbr
-names and types stay until AzurKit 4.2/4.3 (D68); since Step 2.17f
-their comments say what each offset holds (AZ-247).
+`devkit/re/data/structs.h` declares this descriptor as `XbrTocRun`,
+its 16-byte entries as `XbrTocEntry` and index.xbr's 20-byte record as
+`IndexXbrRecord`.  Until Step 4.41a they were Modkit's `IndexEntry` and
+`IndexRecord`, with index.xbr's names and, for the record, a layout the
+engine doesn't read here (AZ-247).
 
 ### Until AZ-218
 

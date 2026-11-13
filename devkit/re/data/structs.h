@@ -532,12 +532,31 @@ typedef struct ConfigCell {
 
 
 /* ==========================================================================
- * IndexEntry — a loaded run of an XBR's TOC entries (load_asset_by_fourcc)
+ * XbrTocEntry — one entry of an XBR's table of contents (16 bytes)
  * ==========================================================================
- * Not index.xbr's lookup machinery, whatever the names say (AZ-247).
- * This is the 28-byte descriptor of one loaded run of an archive's
- * 16-byte TOC entries: the array at [0x37BE50], stride 0x1C (0xA59F0's
- * ``imul 0x1c``; the run builder divides by 28 at 0xA4D55).
+ * Entry k is at header + 0x3C + 16k: 0xA5619 (in 0xA55F0) reads +0 as
+ * the offset and +4 as the size, the loop at 0xA5840 strides 0x10 and
+ * passes entry+8, the fourcc, on, and ``load_asset_by_fourcc`` strides a
+ * loaded run's entries the same way (``shl eax, 4`` at 0xA683C)
+ * (``docs/XBR_FORMAT.md`` § "Table of contents").
+ * [verified 2026-10-09 and 2026-10-11, capstone over the vanilla XBE]
+ */
+typedef struct XbrTocEntry {
+    u32  offset;              /* +0x00 — the payload's offset from the data area (header +0x10) */
+    u32  size;                /* +0x04 — the payload's length in bytes   */
+    char tag[4];              /* +0x08 — the fourcc (0xA6842 compares it) */
+    u32  align;               /* +0x0C — the payload's alignment: 8, 16 or 128 */
+} XbrTocEntry;
+
+
+/* ==========================================================================
+ * XbrTocRun — a loaded run of an XBR's TOC entries (load_asset_by_fourcc)
+ * ==========================================================================
+ * The 28-byte descriptor of one loaded run of an archive's 16-byte TOC
+ * entries (XbrTocEntry): the array at [0x37BE50], stride 0x1C (0xA59F0's
+ * ``imul 0x1c``; the run builder divides by 28 at 0xA4D55).  Not
+ * index.xbr's lookup machinery: until Step 4.41a it was ``IndexEntry``,
+ * with index.xbr's names (AZ-247).
  *
  * ``load_asset_by_fourcc`` (0xA67A0) takes a handle in EAX and a fourcc
  * on the stack.  A negative EAX returns ~EAX with no lookup (0xA67A8).
@@ -548,53 +567,47 @@ typedef struct ConfigCell {
  * handle with no run it builds one (0xA4C00), and for that run or one
  * still at 0x1000 it starts the load (0xA5480 sets 0x2000); 0xA67A0
  * then waits while 0x2000 (0xA67E1), so a call can block on a load.
- * At 0x3000, entry = records + 16 * (handle - first_record_idx)
+ * At 0x3000, entry = entries + (handle - first_handle)
  * (``shl eax, 4`` at 0xA683C); a hit on the fourcc at entry+8 (0xA6842)
- * returns file_base_offset - records[0].offset + entry.offset, a
- * pointer to the entry's loaded payload.  It returns 0 only on a failed
- * lookup or build, a state other than 0x3000 after the wait (0xA6830)
- * or a fourcc miss.
+ * returns payload - entries[0].offset + entry.offset, a pointer to the
+ * entry's loaded payload.  It returns 0 only on a failed lookup or
+ * build, a state other than 0x3000 after the wait (0xA6830) or a fourcc
+ * miss.
  * [verified 2026-10-11, capstone over the vanilla XBE]
- *
- * The types and field names stay until AzurKit 4.2/4.3 (D68): read each
- * field by its comment.
  */
-typedef struct IndexEntry {
-    u32 _reserved_00;         /* +0x00 — list link, next (0xA6205)       */
-    u32 _reserved_04;         /* +0x04 — list link, prev (0xA6205)       */
-    u32 first_record_idx;     /* +0x08 — handle of records[0] (slot << 20 | TOC index) */
-    struct IndexRecord *records; /* +0x0C — the run's 16-byte TOC entries, not IndexRecords */
-                              /* (offset, size, tag at +8, flags:        */
-                              /* docs/XBR_FORMAT.md § "Table of contents") */
-    u32 file_base_offset;     /* +0x10 — a pointer: records[0]'s loaded payload */
-    u8  _reserved_14[6];      /* +0x14 .. +0x19 — +0x14 holds [0x1BE36C]; +0x18 a u16 refcount */
-                              /* (+0x14 set at 0xA4DE8; +0x18 zeroed at  */
-                              /* 0xA4DE0, decremented at 0xA61F4)        */
-    u16 flags;                /* +0x1A — bits 0-6 entry count; 0x3000 state; bit 15 a flag */
-                              /*          (flags & 0x3000) == 0x1000 ⇒ built, not loaded */
-                              /*          (flags & 0x3000) == 0x2000 ⇒ loading */
-                              /*          (flags & 0x3000) == 0x3000 ⇒ loaded  */
+typedef struct XbrTocRun {
+    void *next;               /* +0x00 — list link, next (0xA6205)       */
+    void *prev;               /* +0x04 — list link, prev (0xA6205)       */
+    u32 first_handle;         /* +0x08 — handle of entries[0] (slot << 20 | TOC index) */
+    struct XbrTocEntry *entries; /* +0x0C — the run's first TOC entry; the builder counts (end - start) >> 4 */
+    void *payload;            /* +0x10 — where entries[0]'s payload was loaded */
+    u32 _reserved_14;         /* +0x14 — the value of [0x1BE36C] (set at 0xA4DE8, 0xA5A5E) */
+    u16 refcount;             /* +0x18 — 0 at 0xA4DE0, decremented at 0xA61F4 */
+    u16 state;                /* +0x1A — bits 0-6 entry count; 0x3000 state; bit 15 a flag */
+                              /*          (state & 0x3000) == 0x1000 ⇒ built, not loaded */
+                              /*          (state & 0x3000) == 0x2000 ⇒ loading */
+                              /*          (state & 0x3000) == 0x3000 ⇒ loaded  */
                               /*          (set at 0xA4DD9, waited on at  */
                               /*          0xA67E1, set at 0xA587C; bit   */
                               /*          15 set at 0xA4DED, cleared at  */
                               /*          0xA6251)                       */
     /* +0x1C: the end (the array's stride) */
-} IndexEntry;
+} XbrTocRun;
 
-/* Not a layout the engine reads here (AZ-247): ``load_asset_by_fourcc``
- * reads the 16-byte TOC entries IndexEntry describes.  It is 20 bytes,
- * the size of an index.xbr record, but these fields are the framing
- * AZ-218 disproved; each comment gives what that record really holds at
- * the offset (``docs/RE_DATA.md`` § index.xbr).  The type and its
- * fields stay until AzurKit 4.2/4.3 (D68). */
-typedef struct IndexRecord {
-    u32 length;               /* +0x00 — index.xbr: key length (no NUL)  */
-    u32 off1;                 /* +0x04 — key pointer, relative to itself */
-    char fourcc[4];           /* +0x08 — not the fourcc: the archive-name length */
-    u8  disc;                 /* +0x0C — the archive-name pointer's low byte */
-    u8  pad[3];               /* +0x0D .. +0x0F — the rest of that pointer */
-    u32 off2;                 /* +0x10 — the fourcc                      */
-} IndexRecord;
+/* IndexXbrRecord — one record of index.xbr's table (20 bytes).
+ * index.xbr's ``indx`` payload holds a count, a table pointer relative
+ * to its own field and that many records, sorted by key
+ * (``docs/RE_DATA.md`` § index.xbr; ``azurkit.tools.characters.index_xbr``
+ * reads and writes them).  ``load_asset_by_fourcc`` doesn't read them:
+ * until Step 4.41a this was ``IndexRecord``, with the fields of the
+ * framing AZ-218 disproved (AZ-247). */
+typedef struct IndexXbrRecord {
+    u32  key_len;             /* +0x00 — the key's length (no NUL)       */
+    i32  key_ref;             /* +0x04 — the key, relative to this field */
+    u32  archive_len;         /* +0x08 — the archive name's length       */
+    i32  archive_ref;         /* +0x0C — the archive name, relative to this field */
+    char fourcc[4];           /* +0x10 — the resource's tag              */
+} IndexXbrRecord;
 
 
 /* ==========================================================================
@@ -775,33 +788,33 @@ _Static_assert(sizeof(ConfigCell) == 0x10,
                "ConfigCell stride MUST be 16 bytes — the "
                "(*param_1 * row + col) * 0x10 arithmetic relies on it");
 
-/* IndexEntry (from FUN_000A67A0): piVar3 is the run descriptor, and
- * these four offsets hold for it (AZ-247; the struct's comments). */
-_Static_assert(__builtin_offsetof(IndexEntry, first_record_idx) == 0x08,
-               "IndexEntry.first_record_idx drifted — "
+/* XbrTocEntry (0xA5619, 0xA683C), XbrTocRun (from FUN_000A67A0:
+ * piVar3 is the run) and IndexXbrRecord (index.xbr's table): AZ-247. */
+_Static_assert(sizeof(XbrTocEntry) == 0x10,
+               "XbrTocEntry must be exactly 16 bytes — the TOC's and "
+               "load_asset_by_fourcc's stride (shl eax, 4 at 0xA683C)");
+_Static_assert(__builtin_offsetof(XbrTocEntry, tag) == 0x08,
+               "XbrTocEntry.tag drifted — 0xA6842 compares entry+8");
+_Static_assert(sizeof(XbrTocRun) == 0x1C,
+               "XbrTocRun must be exactly 28 bytes — 0xA59F0's "
+               "imul 0x1c");
+_Static_assert(__builtin_offsetof(XbrTocRun, first_handle) == 0x08,
+               "XbrTocRun.first_handle drifted — "
                "load_asset_by_fourcc uses piVar3[2]");
-_Static_assert(__builtin_offsetof(IndexEntry, records) == 0x0C,
-               "IndexEntry.records drifted — piVar3[3]");
-_Static_assert(__builtin_offsetof(IndexEntry, file_base_offset) == 0x10,
-               "IndexEntry.file_base_offset drifted — piVar3[4]");
-_Static_assert(__builtin_offsetof(IndexEntry, flags) == 0x1A,
-               "IndexEntry.flags drifted — *(ushort*)(piVar3 + 0x1A)");
-
-/* IndexRecord: these pin the declared layout only.  load_asset_by_fourcc
- * compares the fourcc at +8 of a 16-byte TOC entry, not of this record,
- * and an index.xbr record holds its fourcc at +0x10 (AZ-247, AZ-218).
- * The asserts stay with the type until AzurKit 4.2/4.3 (D68). */
-_Static_assert(sizeof(IndexRecord) == 0x14,
-               "IndexRecord must be exactly 20 bytes — the index.xbr "
-               "record table uses a 20-byte stride");
-_Static_assert(__builtin_offsetof(IndexRecord, off1) == 0x04,
-               "IndexRecord.off1 drifted");
-_Static_assert(__builtin_offsetof(IndexRecord, fourcc) == 0x08,
-               "IndexRecord.fourcc drifted — this pins the declared "
-               "layout only: load_asset_by_fourcc compares +8 of a "
-               "16-byte TOC entry, not of an IndexRecord (AZ-247)");
-_Static_assert(__builtin_offsetof(IndexRecord, off2) == 0x10,
-               "IndexRecord.off2 drifted");
+_Static_assert(__builtin_offsetof(XbrTocRun, entries) == 0x0C,
+               "XbrTocRun.entries drifted — piVar3[3]");
+_Static_assert(__builtin_offsetof(XbrTocRun, payload) == 0x10,
+               "XbrTocRun.payload drifted — piVar3[4]");
+_Static_assert(__builtin_offsetof(XbrTocRun, state) == 0x1A,
+               "XbrTocRun.state drifted — *(ushort*)(piVar3 + 0x1A)");
+_Static_assert(sizeof(IndexXbrRecord) == 0x14,
+               "IndexXbrRecord must be exactly 20 bytes — index.xbr's "
+               "record stride");
+_Static_assert(__builtin_offsetof(IndexXbrRecord, archive_len) == 0x08,
+               "IndexXbrRecord.archive_len drifted");
+_Static_assert(__builtin_offsetof(IndexXbrRecord, fourcc) == 0x10,
+               "IndexXbrRecord.fourcc drifted — an index.xbr record "
+               "holds its tag at +0x10");
 
 /* MovieContext (vtable-at-0 pattern; size not pinned — Bink-owned). */
 _Static_assert(__builtin_offsetof(MovieContext, vtable) == 0x00,

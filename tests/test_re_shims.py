@@ -371,8 +371,12 @@ STRUCTS = {
                     "range": 0xB8, "range_up": 0xBC, "range_down": 0xC0, "attack_range": 0xC4, "drop_1": 0xD4,
                     "drop_5": 0xE4, "drop_count_1": 0xE8, "drop_count_5": 0xF8, "drop_chance_1": 0xFC,
                     "drop_chance_5": 0x10C},
-    "ControllerState": CONTROLLER}
-"""The fields Ghidra placed (Modkit's test_shim_authoring; CritterData's ouch rows misnamed once)."""
+    "ControllerState": CONTROLLER,
+    "XbrTocEntry": {"tag": 0x08, "align": 0x0C},
+    "XbrTocRun": {"entries": 0x0C, "payload": 0x10, "state": 0x1A},
+    "IndexXbrRecord": {"archive_ref": 0x0C, "fourcc": 0x10}}
+"""The fields Ghidra placed (Modkit's test_shim_authoring; CritterData's ouch rows misnamed once), and the XBR
+loader's (0xA67A0 strides 16-byte TOC entries over a 28-byte run; index.xbr's records are 20 bytes: AZ-247)."""
 
 
 def test_the_structures_a_shim_or_the_re_data_declares_hold_each_field_at_ghidras_offset(tmp_path):
@@ -380,7 +384,8 @@ def test_the_structures_a_shim_or_the_re_data_declares_hold_each_field_at_ghidra
     ``_Static_assert`` a field (``__builtin_offsetof``) or a constant,
     apart from the headers' own asserts, compiles against devkit's RE
     structures (``structs.h``: PlayerInputState, CritterData,
-    ControllerState, and PLAYER_FLAG_RUNNING 0x40 and _FALLING 0x01, the
+    ControllerState, the XBR loader's XbrTocEntry and XbrTocRun,
+    IndexXbrRecord, and PLAYER_FLAG_RUNNING 0x40 and _FALLING 0x01, the
     bits 0x84940 tests) and against the ControllerState shimkit's
     ``azurik_vanilla.h`` gives every shim; a field moved fails by name."""
     def asserts(offsets: dict[str, dict[str, int]]) -> str:
