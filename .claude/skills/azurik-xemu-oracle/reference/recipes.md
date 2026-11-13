@@ -65,7 +65,7 @@ skill's (Step 2.216 moved this text here word for word).
 | +0x164 | peak_z, **written only on the jump tick**: input z + h, where the input's +0x54..+0x5C is the bbox centre. Flaps don't re-latch it and landing doesn't reset it, so a standing value is stale |
 | +0xD8, +0x140 | flap counter (+1 per flap, 0 at landing; armor_mgr keeps no counter), air control (9.0, or 12.0 with air power, written by 0x83F90 on the jump tick) |
 | Jump tick | +0x94 0 → 2, +0x9C → 0, +0x164 → input z + h, +0x140/+0x144 → 12.0/1.2 with air power, +0x150 0 → 1 (it stays 1), +0x30 → 0, +0x60 → 0xCC008000, the ControllerState+0x4B latch 0 → 1. At landing +0x30 becomes a pointer and +0x60 0xCC008050. +0x168 (the fall reference, once labelled prev_z) changes on ground ticks only |
-| ControllerState | 0x37BE98 + player_index × 0x54 (`AZURIK_CONTROLLER_STATE_VA` and `ControllerState` in `shims/include/azurik.h`); port 2 = index 1. Injected A shows at +0x18 two ticks later. Input flags (input+0x20 low byte): 0x80 with Y up, 0x86 on a fresh press, 0x82 held with the latch set |
+| ControllerState | 0x37BE98 + player_index × 0x54 (`AZURIK_CONTROLLER_STATE_VA` in `devkit/re/data/anchors.toml`, `ControllerState` in `devkit/re/data/structs.h`); port 2 = index 1. Injected A shows at +0x18 two ticks later. Input flags (input+0x20 low byte): 0x80 with Y up, 0x86 on a fresh press, 0x82 held with the latch set |
 
 **4.3 Differential RAM pokes.** Baseline, poke with read-back, re-capture,
 compare against the model's *ratio*. Pokes are RAM-only on a cloned HDD.

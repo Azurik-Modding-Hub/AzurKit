@@ -155,7 +155,7 @@ typedef double f64;
 
 typedef struct ControllerState {
     f32 left_stick_x, left_stick_y, right_stick_x, right_stick_y;   /* +0x00 */
-    f32 dpad_y, dpad_x;                                              /* +0x10: X at +0x10, Y at +0x14 */
+    f32 dpad_x, dpad_y;                                              /* +0x10: X, +0x14: Y */
     f32 button_a, button_b, button_x, button_y, button_black, button_white;   /* +0x18 */
     f32 trigger_left, trigger_right;                                 /* +0x30 */
     f32 stick_left_click, stick_right_click, start_button, back_button;   /* +0x38 */

@@ -79,6 +79,8 @@ GRAPH, VEC, ATTRS_AT = 0xDC, 0x24, 0x08   # [pd+0xDC] the level's main graph; +0
 GENERATOR_VT = 0x19D6B8   # a critterGenerator node's vtable (USA; the live tracker's ADDRESSES["generator"])
 NUM_DEAD = 0x20           # its numDead, an f32 attribute at [node+8]+0x20 (live.ATTR_COUNTS + 8)
 PAD_HANDLES = 0x1BE314                    # the game's four pad handles (X.27: slot 2 empties after such a load)
+# "dpy" (+0x10) is the D-pad's X axis and "dpx" (+0x14) its Y (structs.h's dpad_x, dpad_y; AZ-234): the keys stay
+# as kept traces hold them, so a replay rebuilds each pad as it was taken.
 PADF = {"lx": 0x00, "ly": 0x04, "rx": 0x08, "ry": 0x0C, "dpy": 0x10, "dpx": 0x14, "a": 0x18, "b": 0x1C, "x": 0x20,
         "y": 0x24, "blk": 0x28, "wht": 0x2C, "lt": 0x30, "rt": 0x34, "u38": 0x38, "u3c": 0x3C, "start": 0x40,
         "back": 0x44}

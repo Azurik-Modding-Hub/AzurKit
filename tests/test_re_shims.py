@@ -355,12 +355,12 @@ def test_the_kernel_catalogue_names_each_retail_export_once_and_each_releases_th
             "NtClose", "NtQueryDirectoryFile", "NtOpenFile", "RtlInitAnsiString"]
 
 
-CONTROLLER = {"left_stick_x": 0x00, "left_stick_y": 0x04, "right_stick_x": 0x08, "right_stick_y": 0x0C, "dpad_y": 0x10,
-              "dpad_x": 0x14, "button_a": 0x18, "button_y": 0x24, "trigger_left": 0x30, "trigger_right": 0x34,
+CONTROLLER = {"left_stick_x": 0x00, "left_stick_y": 0x04, "right_stick_x": 0x08, "right_stick_y": 0x0C, "dpad_x": 0x10,
+              "dpad_y": 0x14, "button_a": 0x18, "button_y": 0x24, "trigger_left": 0x30, "trigger_right": 0x34,
               "stick_left_click": 0x38, "stick_right_click": 0x3C, "start_button": 0x40, "back_button": 0x44,
               "edge_state": 0x48}
-"""ControllerState's fields at the offsets the game's XInput poll (0xA2880) writes (``dpad_y`` holds the X axis:
-AZ-234)."""
+"""ControllerState's fields at the offsets the game's XInput poll (0xA2880) writes (the D-pad's X axis at +0x10,
+0xA2B75, its Y at +0x14: AZ-234)."""
 STRUCTS = {
     "PlayerInputState": {"stick_magnitude": 0x1C, "flags": 0x20, "dead": 0x21, "ref_x": 0x24, "critter_data": 0x34,
                          "direction_angle": 0x120, "magnitude": 0x124, "direction_x": 0x128, "direction_y": 0x12C,

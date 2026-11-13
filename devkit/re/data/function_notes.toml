@@ -76,7 +76,7 @@ armor-state reverse-engineering pass).\n\nABI: __stdcall(4): the slot pointer on
 (RET 4; 11 call sites push it and never clean up)."""
 mark_armor_feature_used = """\
 Flips the ``used`` byte on the current player's armor feature slot if the slot is live (``fuel != 0``) and not \
-already marked.  Per-controller state lives in the ControllerState array at 0x37BE98 (``azurik.h`` \
+already marked.  Per-controller state lives in the ControllerState array at 0x37BE98 (``structs.h`` \
 ``ControllerState``; the Ghidra project and snapshot name it ``g_controller_state`` since 2026-10-11, D94/AZ-252, \
 formerly ``g_armor_state_per_controller``) — 0x15 DWORDs per controller indexed by ``g_active_controller_index`` (4 \
 = global fallback / preview).  The ``used`` byte is at ``slot + feature_idx + 0x48``.\n\nArguments: EDX = feature \

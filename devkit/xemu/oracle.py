@@ -292,7 +292,7 @@ ENT = {"vx": (0x24, "f"), "vy": (0x28, "f"), "vz": (0x2C, "f"),
        "bx": (0x19C, "f"), "by": (0x1A0, "f"), "bz": (0x1A4, "f")}
 ENT_SPAN = max(o + struct.calcsize(c) for o, c in ENT.values())   # 0x1A8: no read past the last field
 SAME = ("t", "x", "y", "z", "vz", "state")   # a hit equal on all of these is the same tick again
-PAD_FIELDS = {"lx": 0x00, "ly": 0x04, "rx": 0x08, "ry": 0x0C, "dpad_y": 0x10, "dpad_x": 0x14,
+PAD_FIELDS = {"lx": 0x00, "ly": 0x04, "rx": 0x08, "ry": 0x0C, "dpad_x": 0x10, "dpad_y": 0x14,
               "a": 0x18, "b": 0x1C, "x": 0x20, "y": 0x24, "black": 0x28, "white": 0x2C,
               "lt": 0x30, "rt": 0x34, "start": 0x40, "back": 0x44}   # ControllerState, f32
 

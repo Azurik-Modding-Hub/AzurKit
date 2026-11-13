@@ -1710,8 +1710,8 @@ normalises the raw XInput fields into floats:
 | 0x04 | f32 | left_stick_y |
 | 0x08 | f32 | right_stick_x |
 | 0x0C | f32 | right_stick_y |
-| 0x10 | f32 | dpad_y, which holds the D-pad **X** axis: +1 right (wButtons 0x08), -1 left (0x04), 0 |
-| 0x14 | f32 | dpad_x, which holds the D-pad **Y** axis: +1 up (0x01), -1 down (0x02), 0 |
+| 0x10 | f32 | dpad_x: +1 right (wButtons 0x08), -1 left (0x04), 0 |
+| 0x14 | f32 | dpad_y: +1 up (0x01), -1 down (0x02), 0 |
 | 0x18..0x34 | f32 × 8 | button_a, button_b, button_x, button_y, button_black, button_white, trigger_left, trigger_right (analog 0..1) |
 | 0x38 | f32 | stick_left_click (digital 0 / 1) |
 | 0x3C | f32 | stick_right_click |
@@ -1722,13 +1722,13 @@ normalises the raw XInput fields into floats:
 Active-player index at `DAT_001A7AE4` (0..3, or 4 = "no controller").
 Stick dead zone is raw-unit ±12000 of centre.  Analog-button dead zone is raw-unit 30.
 
-Exposed in `azurik.h` as `ControllerState` with `_Static_assert`s
-pinning every late field.  Its two D-pad names are swapped
-[verified 2026-10-11: capstone over 0xA2B75–0xA2BA9, AZ-234]; the
-rename waits for AzurKit 4.2/4.3 (D68), and since Step 2.17f the
-header's comments say which axis each field holds.  Compile-time
-regression guards in
-`tests/test_shim_authoring.py::test_controller_state_fields_resolve_to_expected_offsets`.
+Declared as `ControllerState` in `devkit/re/data/structs.h`, with
+`_Static_assert`s pinning every late field, and in the
+`azurik_vanilla.h` shimkit writes for every shim.  The D-pad axes are
+read off 0xA2B75–0xA2BA9 [verified 2026-10-11: capstone]; the two
+names were swapped until Step 4.41a (AZ-234).
+`tests/test_re_shims.py::test_the_structures_a_shim_or_the_re_data_declares_hold_each_field_at_ghidras_offset`
+compiles each field's offset by name against both headers.
 
 Reference: `FUN_000a2880` decomp (the XInput-write side of the
 polling loop) — each `DAT_0037be{9c,a0,a4,a8,ac,b0...}` target maps

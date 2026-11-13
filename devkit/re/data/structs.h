@@ -309,14 +309,12 @@ typedef struct ControllerState {
 
     /* --- D-pad (three-valued per axis: -1, 0, +1) ---
      * D-pad-X is derived from bits 0x04 (LEFT) / 0x08 (RIGHT);
-     * D-pad-Y from 0x01 (UP) / 0x02 (DOWN) of XINPUT_GAMEPAD.wButtons.
-     * The two names are swapped: +0x10 holds X and +0x14 holds Y
-     * (0xA2B75-0xA2BA9 [verified 2026-10-11, capstone]; AZ-234).  The
-     * rename waits for AzurKit 4.2/4.3 (D68): read the axis from the
-     * comments, not the names.
+     * D-pad-Y from 0x01 (UP) / 0x02 (DOWN) of XINPUT_GAMEPAD.wButtons:
+     * X at +0x10, Y at +0x14 (0xA2B75-0xA2BA9 [verified 2026-10-11,
+     * capstone]; the names were swapped until Step 4.41a, AZ-234).
      */
-    f32 dpad_y;                       /* +0x10 — D-pad X: +1 right, -1 left, 0 (misnamed, AZ-234) */
-    f32 dpad_x;                       /* +0x14 — D-pad Y: +1 up, -1 down, 0 (misnamed, AZ-234)    */
+    f32 dpad_x;                       /* +0x10 — D-pad X: +1 right, -1 left, 0 */
+    f32 dpad_y;                       /* +0x14 — D-pad Y: +1 up, -1 down, 0    */
 
     /* --- Analog buttons (pressure 0.0..1.0, from XINPUT analog bytes) ---
      * Dead-zone: raw < 30 reads as 0.0.
@@ -726,7 +724,10 @@ _Static_assert(__builtin_offsetof(ControllerState, left_stick_x) == 0x00,
                "ControllerState.left_stick_x drifted");
 _Static_assert(__builtin_offsetof(ControllerState, right_stick_y) == 0x0C,
                "ControllerState.right_stick_y drifted");
-_Static_assert(__builtin_offsetof(ControllerState, dpad_y) == 0x10,
+_Static_assert(__builtin_offsetof(ControllerState, dpad_x) == 0x10,
+               "ControllerState.dpad_x drifted — 0xA2B75 writes the "
+               "D-pad's X axis there");
+_Static_assert(__builtin_offsetof(ControllerState, dpad_y) == 0x14,
                "ControllerState.dpad_y drifted");
 _Static_assert(__builtin_offsetof(ControllerState, button_a) == 0x18,
                "ControllerState.button_a drifted");
