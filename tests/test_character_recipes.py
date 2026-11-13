@@ -1906,7 +1906,7 @@ def test_booblords_attacks_only_whoosh_and_her_other_sounds_are_the_owners_wavs(
         again, _ = _dress(image, variant)
         assert {k: bytes(v) for k, v in again.changed().items()} == {k: bytes(v) for k, v in game.changed().items()}
         assert l1.check(vanilla_xbe, xbe) == []
-    assert builtins()["booblord"].sha == "75d89c537286"   # the booblord pass's rework, places kept (Step 4.48b)
+    assert builtins()["booblord"].sha == "8748c9c1270c"   # the booblord pass's rework, places kept (Step 4.48b)
 
 
 def _vanilla_file(image, path: str) -> bytes:
