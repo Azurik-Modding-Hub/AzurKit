@@ -298,7 +298,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose
   (by default Downloads, or its AzurKit folder when your usa.iso or europe.iso is there).
 - **No console window on Windows:** the app opens its window alone; what it would print goes to `app.log` in its
-  log folder, which the Tools tab opens, and its commands print in the terminal you run them from.
+  log folder, which the Tools tab opens, and its commands print in the terminal you run them from (to wait for one
+  and get its exit code, run it with `start /wait` in cmd or `Start-Process -Wait -PassThru` in PowerShell).
 - **Unsigned apps:** CI builds the app for Apple Silicon and Intel Macs, Windows and Linux, unsigned, each with a
   checksum and a build attestation ([Download and check it](#download-and-check-it), below).
 - **Greyed until it can work:** Build, Save and the original values wait on your image (or a build) and say so.
