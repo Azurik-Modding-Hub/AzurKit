@@ -1,495 +1,425 @@
 {
  "host": "darwin-arm64-accelerate",
- "keys": "2-1b18454532ea",
+ "keys": "2-521f8caf26f1",
  "part": [
   {
-   "answer": "b7be3d1aaa2d0c1bcffde7e82aa935f588d02d7d2725f267fd2aaf20c760cd18",
+   "answer": "b6ddf946de770bf7504e36d6e10ab939ace97d76f3d7d40e8293b02c02bb1767",
    "blob": {
-    "path": "variants/booblord/shipped/parts/c1b9663126c6dd94.azkp",
-    "sha256": "c1b9663126c6dd94db40c01b22be8cff8d2f67a5fc371358e1adf7c711e1fc9f",
-    "size": 4187234
+    "path": "variants/booblord/shipped/parts/495fc258930bb4d7.azkp",
+    "sha256": "495fc258930bb4d711b399f3c9333001652eb4b7397d4d62caa5d0ff576d18b1",
+    "size": 2384178
    },
-   "part": "W24:630e5a0e36a4e136497c9b9865947aceeb691c4331a41f7016e7803cf3d0a17b",
+   "part": "W24:84340a3c506f3e2aab88db93a10bd6e4f6864aadbbaec45cf0a24e24551e155d",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "e89c63eb2d97ae99d491bec1565cfcc3a9d154e54685f5db0c7251db2f1ae5bb",
+   "answer": "b7f846764463ba5665025808c67ae9749dc77898a584686e862ded1066b03042",
    "blob": {
-    "path": "variants/booblord/shipped/parts/85b8a79a6d8d5c18.azkp",
-    "sha256": "85b8a79a6d8d5c1877afc95847833d5ca63326fa97fa6bb6f7628c1be82e1768",
-    "size": 10440483
+    "path": "variants/booblord/shipped/parts/cc81549b269fc6c7.azkp",
+    "sha256": "cc81549b269fc6c75644d71104c538dcb02acdf9999178ff406a0bd86c5d7f81",
+    "size": 2389307
    },
-   "part": "W24:b140ef820e6a49d271526473ae5bf258a32bb35761d6a4fe99e5148578f165f1",
+   "part": "W24:876390c250d87b685ea4f2431150974260bebec3bee4393cfce5454a507569a1",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "d7bd88624157d0529e763efb695ba2c5870d584d36735b1e53ff6d1f8a79f4f3",
+   "answer": "2f1481ec61fbe8a757986e0db4200564278babd7a7dc903a6084a2eab13fae25",
    "blob": {
-    "path": "variants/booblord/shipped/parts/46927a361bef869b.azkp",
-    "sha256": "46927a361bef869b5fbbaaa6911717e0af05d216c65d5ac99f32a414be2d43ad",
-    "size": 5161280
+    "path": "variants/booblord/shipped/parts/359115de9ec7f436.azkp",
+    "sha256": "359115de9ec7f4362c886b71a7cc2862d17cba0f69ee0b88f5ab75c4ea187772",
+    "size": 5368161
    },
-   "part": "W28:1fb425badca9d10c2c26293479c76124de9092bde9830f33cc5b06c757d0ce0f",
+   "part": "W28:09c3d149aea828d3a6520d9ed4f37be1e6ef7e4d2120761bf940731c2a5befa4",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "214fe077bacf9a564ccdc2c6c4ad47a9d461f620a3daf5085ea87b0fca468c1d",
+   "answer": "46859c868997a2caec80ecbd8e7b632ad71f9fcf1296535232da05995648d24b",
    "blob": {
-    "path": "variants/booblord/shipped/parts/7b28d3026e62cbb4.azkp",
-    "sha256": "7b28d3026e62cbb4852bd623129d119288b90161e846b63269e12407552cba3f",
-    "size": 4979806
+    "path": "variants/booblord/shipped/parts/ea884a7c47356dd4.azkp",
+    "sha256": "ea884a7c47356dd4f2d252b49537d76615ffba468829bf9b63d28b49af4c0642",
+    "size": 4839374
    },
-   "part": "W28:3198897fab3d2942440cf5341f140d488cbe2337bb92f540b73bb8861f508b4d",
+   "part": "W28:249508d8d09ef8145d3aa6f8da5605fa8eec44b2d1e35103c68e39e5efb79736",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "214fe077bacf9a564ccdc2c6c4ad47a9d461f620a3daf5085ea87b0fca468c1d",
+   "answer": "3f0d3d706001494a47970bdffd2545aab9b90089739492c38bbaf2e59b3af3ff",
    "blob": {
-    "path": "variants/booblord/shipped/parts/7b28d3026e62cbb4.azkp",
-    "sha256": "7b28d3026e62cbb4852bd623129d119288b90161e846b63269e12407552cba3f",
-    "size": 4979806
+    "path": "variants/booblord/shipped/parts/954850a77a99ec76.azkp",
+    "sha256": "954850a77a99ec76b7f6756f55957bd8f308638fe3cf37e249a94fca2c1eaf16",
+    "size": 3942870
    },
-   "part": "W28:6d216e09da0e2e7fff4c384119585f52b6a3cae72edce217bbe4dae965b49616",
+   "part": "W28:2b606cad1ee5a6e52e9740405697d72dd1bd8b3bcae7b08797bebd1653ea5f7d",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "01830e513976b19bd1af7a4d231bb1f00ed89557b22125953765518cb5532d4b",
+   "answer": "aba3ea727e7c1915edbf0a28f2770365499a5ef51a96725ba598537372531c13",
    "blob": {
-    "path": "variants/booblord/shipped/parts/49390bbda1ebe779.azkp",
-    "sha256": "49390bbda1ebe779e7b322ff2e55208d71df73ed551c10f16045709fbe494ca2",
-    "size": 4187705
+    "path": "variants/booblord/shipped/parts/11e8960a6061e940.azkp",
+    "sha256": "11e8960a6061e940b7c049d46ed384b316677bbe53f65141b0a361f0af96080d",
+    "size": 3743567
    },
-   "part": "W28:733499371fbf73102ae35c684a648a2149a5ae36a2400ecd18ebe1ed4e86254f",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "d7bd88624157d0529e763efb695ba2c5870d584d36735b1e53ff6d1f8a79f4f3",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/46927a361bef869b.azkp",
-    "sha256": "46927a361bef869b5fbbaaa6911717e0af05d216c65d5ac99f32a414be2d43ad",
-    "size": 5161280
-   },
-   "part": "W28:768114f0822a175fcea9d0f47837bae4f096afee59be1b168b661e367c26f9bf",
+   "part": "W28:35960a37033593bef3265f6b40677e2aba5e4a8502b0ff95dbea7b226a15e61f",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "54434862c7ca0fc0267015f1b4c0773ea40623a8a66cc97d9484fb04e54fcd39",
+   "answer": "2f1481ec61fbe8a757986e0db4200564278babd7a7dc903a6084a2eab13fae25",
    "blob": {
-    "path": "variants/booblord/shipped/parts/3ab75e16ccac7207.azkp",
-    "sha256": "3ab75e16ccac7207158e1f7326fcf0ddb714e15c34b2ef91d51a9dc678cbd888",
-    "size": 4630919
+    "path": "variants/booblord/shipped/parts/359115de9ec7f436.azkp",
+    "sha256": "359115de9ec7f4362c886b71a7cc2862d17cba0f69ee0b88f5ab75c4ea187772",
+    "size": 5368161
    },
-   "part": "W28:7a460dc7c2b7d4aed11863b0d32b5bc39e66302b7cce497f783ae1066662526e",
+   "part": "W28:4bc40503b0c14fdaf4282970ef46e8264ad192b15517072df926fb1d2fb1a868",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "584583d8c1226b662b561262ed53f1e672b7a49b74b17fcaca9446fe13be17d9",
+   "answer": "0140eea1653d5716998f68b4dc9ca1561b1571b35e549305b8178e4e4311a2df",
    "blob": {
-    "path": "variants/booblord/shipped/parts/6acc8fafe4d6e07f.azkp",
-    "sha256": "6acc8fafe4d6e07fde3207b9b7f0f3738e71c6820b0711b9cc7684cde9634293",
-    "size": 4004376
+    "path": "variants/booblord/shipped/parts/89e37a31d4b053f1.azkp",
+    "sha256": "89e37a31d4b053f14e7a66cd273bad74dd49ae4b61a7c09dcac273864fd7560d",
+    "size": 4642178
    },
-   "part": "W28:826a718363a4d116916b7ccbbb0f4721f2e6187ac0e1bd74ba726d1c0860aa2a",
+   "part": "W28:53bad90367d6007cdda167846c57a1378b8de0602bb2c3b739d55a3b77b32ed7",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "c2084e2ad479387e4a1da4e47046cbbee0efcdf6803176af88b95d5f97edb54f",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/2a8b7db11d840ba0.azkp",
+    "sha256": "2a8b7db11d840ba0e9920cfcc847568241b1ae4aa1b5f5351d85bb2cc6dff39a",
+    "size": 4839599
+   },
+   "part": "W28:5544dc7a56a2bcd5690c7b6549e6b99f4077fbce5815c9a3a45d5c3edc0825b5",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "dacbfbe6749b6ef81c4f283d82f0ab33f8715bf94ad21ba7dd37063eae637b42",
+   "answer": "0140eea1653d5716998f68b4dc9ca1561b1571b35e549305b8178e4e4311a2df",
    "blob": {
-    "path": "variants/booblord/shipped/parts/b9e2de11b8d3bda5.azkp",
-    "sha256": "b9e2de11b8d3bda58903f31eeffd015fe19c26430686e4857509e28e578194ad",
-    "size": 5162233
+    "path": "variants/booblord/shipped/parts/89e37a31d4b053f1.azkp",
+    "sha256": "89e37a31d4b053f14e7a66cd273bad74dd49ae4b61a7c09dcac273864fd7560d",
+    "size": 4642178
    },
-   "part": "W28:88b546347951041d7e56dcb00bbd565adc7770f7bece9af74184e9b36f1f0513",
+   "part": "W28:662c3e115697e0fa019d430619cc2694f2864746133b8c8e6d40bbb169677451",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "7b82da696de6b2d6c72c4f9717e218e8e8278aa2903bb6a5029190de7ab0a3a7",
+   "answer": "2e414854bee7bd37d7a666ee0cf70ea09bbd92501cfdabe3cdb79e314c20e4a5",
    "blob": {
-    "path": "variants/booblord/shipped/parts/ed7024e6f243b6a0.azkp",
-    "sha256": "ed7024e6f243b6a09203d1fdee6ce07d4bf08759d51254941812fe9903f1aa4a",
-    "size": 3563081
+    "path": "variants/booblord/shipped/parts/2aad634108572beb.azkp",
+    "sha256": "2aad634108572beb8d371f1c37b200d0a24adf0a9d145162f949a1d4d9e38606",
+    "size": 5368481
    },
-   "part": "W28:8ba30c443704e2dce87cbb076f0112cbd6bbaa1383159a58965bd6124e06e74b",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "7f9d25e2338c81f51f411449a525337a6a19c9fb018f33f1531da34576f1d420",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/a6e434789ac2e208.azkp",
-    "sha256": "a6e434789ac2e208b0835df406d67ddde552f6d9be909d93c0c05b5e6f3a8895",
-    "size": 4447958
-   },
-   "part": "W28:a57270e005c53b85f03789e1d249b9ddd1cc03d0ceb8ab50a7c95fb9c7fec6a6",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "dacbfbe6749b6ef81c4f283d82f0ab33f8715bf94ad21ba7dd37063eae637b42",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/b9e2de11b8d3bda5.azkp",
-    "sha256": "b9e2de11b8d3bda58903f31eeffd015fe19c26430686e4857509e28e578194ad",
-    "size": 5162233
-   },
-   "part": "W28:b05c502d0344ccabefdf2098999cda52047e026581c6f8a9b02fed243bfbe798",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "584583d8c1226b662b561262ed53f1e672b7a49b74b17fcaca9446fe13be17d9",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/6acc8fafe4d6e07f.azkp",
-    "sha256": "6acc8fafe4d6e07fde3207b9b7f0f3738e71c6820b0711b9cc7684cde9634293",
-    "size": 4004376
-   },
-   "part": "W28:b9af50f3e2c2535b5221140ee890b47491795cdb82b95334f6dd2cdce4b28741",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "e28ad6eae7a0275058e092953ee4742851f660fe063c5dbb05b0585eb946414e",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/cc83c35088c51ef1.azkp",
-    "sha256": "cc83c35088c51ef160f49db85fde2e20a3ba8685c88e9c5d6674a110175eacb6",
-    "size": 4629931
-   },
-   "part": "W28:baa9b9d55e2eaa945a9a34ec5d9995a8e2e9fff7cc30f73621e06b5bfd4d7054",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "01830e513976b19bd1af7a4d231bb1f00ed89557b22125953765518cb5532d4b",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/49390bbda1ebe779.azkp",
-    "sha256": "49390bbda1ebe779e7b322ff2e55208d71df73ed551c10f16045709fbe494ca2",
-    "size": 4187705
-   },
-   "part": "W28:bc2980aeac879d77a29d729fa255652076be614e0f508e12014c99000e2f4b56",
+   "part": "W28:6a667a85d684b1750b4f2e9e8ae2ba53c0b447e84d21df1a12b59c9d02235c43",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "54434862c7ca0fc0267015f1b4c0773ea40623a8a66cc97d9484fb04e54fcd39",
+   "answer": "f570d6eaa926f4af7290dd20755896997e1af2c9638d120f532567e13be473d9",
    "blob": {
-    "path": "variants/booblord/shipped/parts/3ab75e16ccac7207.azkp",
-    "sha256": "3ab75e16ccac7207158e1f7326fcf0ddb714e15c34b2ef91d51a9dc678cbd888",
-    "size": 4630919
+    "path": "variants/booblord/shipped/parts/a415674c4104c735.azkp",
+    "sha256": "a415674c4104c7358f15d2498da4124a598b62edacbafaa92ce28a7ff8ca5430",
+    "size": 5169741
    },
-   "part": "W28:bc850e776626254976a70d7c8491279cc6101074c7d635d995b2a465228ff595",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "e28ad6eae7a0275058e092953ee4742851f660fe063c5dbb05b0585eb946414e",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/cc83c35088c51ef1.azkp",
-    "sha256": "cc83c35088c51ef160f49db85fde2e20a3ba8685c88e9c5d6674a110175eacb6",
-    "size": 4629931
-   },
-   "part": "W28:c61a027a53f7b562bc54592e08dbfb6709ebdc562efdcc771bd3e3e3db8d23aa",
+   "part": "W28:7f0a75714c67d13af1d261908b6ccbefcda917d183f4c0b1508b03383be86751",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "44c114c815f89cb675679cb519a5eb5d9fb1d6e41fcd0e3e3f2221c6b5d14096",
+   "answer": "30578f40449e1e376a099be7e1ee02b35bc9f8ac1472c8485d712c7492219c39",
    "blob": {
-    "path": "variants/booblord/shipped/parts/9bda6228261b1bbd.azkp",
-    "sha256": "9bda6228261b1bbdc3f96ea3327f95ba33cc43e9bcb2d5fba2e9d0dba2a7377f",
-    "size": 3745814
+    "path": "variants/booblord/shipped/parts/ab96462b1087fed1.azkp",
+    "sha256": "ab96462b1087fed199e567be534acb24ff2acbcd34ff76d64f200b44efe0e6ec",
+    "size": 4381527
    },
-   "part": "W28:d1074ce54d7054574bf005fa0871dabdef350c5755ae11bd6231ac5512616f87",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "7f9d25e2338c81f51f411449a525337a6a19c9fb018f33f1531da34576f1d420",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/a6e434789ac2e208.azkp",
-    "sha256": "a6e434789ac2e208b0835df406d67ddde552f6d9be909d93c0c05b5e6f3a8895",
-    "size": 4447958
-   },
-   "part": "W28:d35a7aac2446d43c72ebb1105be5f9d1db0b96b844e31a7b246ae6ccf6d8e095",
+   "part": "W28:865e133d8ecb2d3f33dc2c3dcedf07160f6d2943203eb4a00f0014e2fa7546c6",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "44c114c815f89cb675679cb519a5eb5d9fb1d6e41fcd0e3e3f2221c6b5d14096",
+   "answer": "c2084e2ad479387e4a1da4e47046cbbee0efcdf6803176af88b95d5f97edb54f",
    "blob": {
-    "path": "variants/booblord/shipped/parts/9bda6228261b1bbd.azkp",
-    "sha256": "9bda6228261b1bbdc3f96ea3327f95ba33cc43e9bcb2d5fba2e9d0dba2a7377f",
-    "size": 3745814
+    "path": "variants/booblord/shipped/parts/2a8b7db11d840ba0.azkp",
+    "sha256": "2a8b7db11d840ba0e9920cfcc847568241b1ae4aa1b5f5351d85bb2cc6dff39a",
+    "size": 4839599
    },
-   "part": "W28:e56e771f92d60ff81af80bb52f55d8144b6d9b6e36278319a7a1330b9a194074",
+   "part": "W28:9046dfa18dbc621ac81ef92614f48aefa6fc4e69611b17d7e2d0bdb10fa74a13",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "f570d6eaa926f4af7290dd20755896997e1af2c9638d120f532567e13be473d9",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/a415674c4104c735.azkp",
+    "sha256": "a415674c4104c7358f15d2498da4124a598b62edacbafaa92ce28a7ff8ca5430",
+    "size": 5169741
+   },
+   "part": "W28:935342183cfa7d39536cbe744900975b22fb7ef53a4ac9d5664b2966cdebf39b",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "46859c868997a2caec80ecbd8e7b632ad71f9fcf1296535232da05995648d24b",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/ea884a7c47356dd4.azkp",
+    "sha256": "ea884a7c47356dd4f2d252b49537d76615ffba468829bf9b63d28b49af4c0642",
+    "size": 4839374
+   },
+   "part": "W28:a07c425e60ae7634a7a989efc6e99e8b2416e37119eaa434f448d2e3d8320234",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "9bf4ab30b96c676228311ab6502ea21864fea0a9b0f2b0b76e358d2bd8f537f2",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/0b96d9ad059d3b79.azkp",
+    "sha256": "0b96d9ad059d3b797252769fe86d08d21584ded783d1c011c91a1cfddf5c92c2",
+    "size": 4181569
+   },
+   "part": "W28:a354cf1bab9d3ecc881f6ede3690d244e593f8da043688aebc337b1620379b09",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "3f0d3d706001494a47970bdffd2545aab9b90089739492c38bbaf2e59b3af3ff",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/954850a77a99ec76.azkp",
+    "sha256": "954850a77a99ec76b7f6756f55957bd8f308638fe3cf37e249a94fca2c1eaf16",
+    "size": 3942870
+   },
+   "part": "W28:b305c42b63a9b2e62ead393d3a96c9fbd3038206d198ade07ac66d754abc31d6",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "7b82da696de6b2d6c72c4f9717e218e8e8278aa2903bb6a5029190de7ab0a3a7",
+   "answer": "aba3ea727e7c1915edbf0a28f2770365499a5ef51a96725ba598537372531c13",
    "blob": {
-    "path": "variants/booblord/shipped/parts/ed7024e6f243b6a0.azkp",
-    "sha256": "ed7024e6f243b6a09203d1fdee6ce07d4bf08759d51254941812fe9903f1aa4a",
-    "size": 3563081
+    "path": "variants/booblord/shipped/parts/11e8960a6061e940.azkp",
+    "sha256": "11e8960a6061e940b7c049d46ed384b316677bbe53f65141b0a361f0af96080d",
+    "size": 3743567
    },
-   "part": "W28:f162425eb81d8e33548e041c2a8746ad084567bcb386a8a369052285295f0b71",
+   "part": "W28:b45bdf2947fa3d2714bd5f765bde4a0cc2f6f0b80aa0d045865008749312035d",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "30578f40449e1e376a099be7e1ee02b35bc9f8ac1472c8485d712c7492219c39",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/ab96462b1087fed1.azkp",
+    "sha256": "ab96462b1087fed199e567be534acb24ff2acbcd34ff76d64f200b44efe0e6ec",
+    "size": 4381527
+   },
+   "part": "W28:c5b34c22d241e319565ee94799170b334abcd6db5cd4d72faec6bec30ad6354c",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "2e414854bee7bd37d7a666ee0cf70ea09bbd92501cfdabe3cdb79e314c20e4a5",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/2aad634108572beb.azkp",
+    "sha256": "2aad634108572beb8d371f1c37b200d0a24adf0a9d145162f949a1d4d9e38606",
+    "size": 5368481
+   },
+   "part": "W28:cea96ec5e9aeb674b90000dd30feb182c22420f1bcebe0b68025fdb6e2849718",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "9bf4ab30b96c676228311ab6502ea21864fea0a9b0f2b0b76e358d2bd8f537f2",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/0b96d9ad059d3b79.azkp",
+    "sha256": "0b96d9ad059d3b797252769fe86d08d21584ded783d1c011c91a1cfddf5c92c2",
+    "size": 4181569
+   },
+   "part": "W28:d76d3ee69429e66f218606216a5ec27f6368baec362a8f58eeb79a9739674acd",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "f5dda12f3ca7ee2d17b7a90ebbf3bb356cdbb3755e32949fec1f39f11117e8d7",
+   "answer": "fa2ffdd36d7156c913c41a2a6e7c7e3191a00f68c3008d67979eb3cdfaa70bcc",
    "blob": {
-    "path": "variants/booblord/shipped/parts/11282860d1373f8f.azkp",
-    "sha256": "11282860d1373f8f1a24b33b405cb422074b563f3186e28bc36e2a3659662c9e",
-    "size": 5647800
+    "path": "variants/booblord/shipped/parts/44b17e1026af6c3f.azkp",
+    "sha256": "44b17e1026af6c3ffae3386a3e5315b6fa4a479a354d9be15c0361976e549255",
+    "size": 2858376
    },
-   "part": "W29:e1141c6c4871e33cf37c2958934d7555992a2a4a3410918d0f7df94d0a5510a2",
+   "part": "W29:8f129a6b592c89f4f8e52080248b05bb68eb2ca8393b22a990e34608ca1a5593",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "66ba1f590547e4a8e94103a9c550579660e450ac79aca9072d5b56d9173e396c",
+   "answer": "9751016a5ab3560e3e3c566a414b61a097ebbc11adaf7168ac36e83dc987d694",
    "blob": {
-    "path": "variants/booblord/shipped/parts/13a76406e865d13e.azkp",
-    "sha256": "13a76406e865d13eace0441a26328116c36abad43b03bcf57e389ce528d8c287",
-    "size": 3511131
+    "path": "variants/booblord/shipped/parts/7aabb960194fdd24.azkp",
+    "sha256": "7aabb960194fdd248f054e89bf12b4bb6f24ef6d117d6c17aa626da4b5c46658",
+    "size": 2857415
    },
-   "part": "W29:eb69eaecb29b24111fbd25600ec76b5f0e978d7538f260c4aeb29d19ea81bb48",
+   "part": "W29:e223efce9f0354dfa5e0cc796a0145fc7c207aeb88e71b95f9d8b536054cf604",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "20136940d5330968c8c58eb3c2f73d39e778a540def591440408faa290f3b9cb",
+   "answer": "bf585d70455378efc364244d7a42d6f3c83a4e97b6ded9d9224e4f66ac6262b1",
    "blob": {
-    "path": "variants/booblord/shipped/parts/ba1ac8c797a06647.azkp",
-    "sha256": "ba1ac8c797a06647dd5ae1120e6a3b14aa408e8a2f7af0fdceb6a0bbd1275eb2",
-    "size": 2925093
+    "path": "variants/booblord/shipped/parts/d71ac8a8a5e76301.azkp",
+    "sha256": "d71ac8a8a5e76301d68bebca0a4b9d72f38fd4d4f88b72578e37a50769520ba5",
+    "size": 2513004
    },
-   "part": "W30:d069b19d76194aedd0ec74bd0d49e787726ee29b797581f293e7b22b97ad504b",
+   "part": "W30:05c65dabb161af6d02504382ce85abc0ee4553ba1730e020b2e2fd2b974b163d",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "0806c1a1b15fd24774e020f3cacd4d3d71a952a2dcc64ac046d71ed2c1381efb",
+   "answer": "7b78fb2e5d42a38dd783dc12a7185cb6b956d5ff797bed2809d50c0a2e2cc778",
    "blob": {
-    "path": "variants/booblord/shipped/parts/07411bcf20a9e573.azkp",
-    "sha256": "07411bcf20a9e573241f8481a4f612d1e77ec90b7949a954a8ec51f79626c433",
-    "size": 5193179
+    "path": "variants/booblord/shipped/parts/58d8b96891c1e75b.azkp",
+    "sha256": "58d8b96891c1e75b75a7c555f02f9eaee15ded1d7691685f4aec8497990549c9",
+    "size": 2311853
    },
-   "part": "W30:f8199cff9bbb3abe6ed246443d0eee65bbf66b38fe037eeef43db931b2f7507e",
+   "part": "W30:bac1f133a51657af01e148555d16c2e67b40512f7f76b754e12f5af1e40b2d2d",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "1d321ec8bdb4f919e03be791c5fa4a0ae3f58c375176016e1a4e84ab4bf7872f",
+   "answer": "1a6d4425b464e569a89da2428ad7c7040b88796f78c7cf1621a6dbe2d84ae4eb",
    "blob": {
-    "path": "variants/booblord/shipped/parts/9f389e1465203374.azkp",
-    "sha256": "9f389e14652033749e15df4205107b3d5cbf1aa09c4e9b1d7b8b8f81bd523e5f",
-    "size": 7954658
+    "path": "variants/booblord/shipped/parts/bb08c4e25d37dc27.azkp",
+    "sha256": "bb08c4e25d37dc2777a7de2e28e3c89029d14262db0a08acc0649bcba0c302e7",
+    "size": 4573358
    },
-   "part": "W39:07c44b0ba8250c6fd0436b88a54684cf5066af7cba19d773f26dcf2951fe8612",
+   "part": "W36:02ee607954d0d1ed6b0952f5335f1e3595ac4c7d41aff83ac0cd3a2367a46544",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "2b4d7061754171f173b5750682b1b0d3dca1dd2af0ef7cf204fdefd1544db03f",
+   "answer": "7aea225b65f7766b2651e537f88b4f2fb28b9c22b6930141a071c0c120e17151",
    "blob": {
-    "path": "variants/booblord/shipped/parts/87b9d8106b54b276.azkp",
-    "sha256": "87b9d8106b54b276ef86610d96e7628af8f7652132b6f56588aec95da711b7c4",
-    "size": 6902126
+    "path": "variants/booblord/shipped/parts/48b8e55072a2dab1.azkp",
+    "sha256": "48b8e55072a2dab13ba2db4b56fa6a72f0831f40dd38fa64bc27c0ad4cd15909",
+    "size": 5823327
    },
-   "part": "W39:0a1a6ea497189041c970016ee7577d34605835cd1bde1fa6faf41d1f5c4a6189",
+   "part": "W36:42143a77e632441e33999af04808979eb60f2227e410389f9b3208de4519e3df",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "a77810b51114f620b344307ba608e30fe38a9740a5205403e982d45fd4123aba",
+   "answer": "3c076b18465bd0cafb402a58e38ead7808ae748023f1372ceb14340576827069",
    "blob": {
-    "path": "variants/booblord/shipped/parts/8dfd29a3a9454dfb.azkp",
-    "sha256": "8dfd29a3a9454dfb263fb1a4b1a90d977dce0c37634ebaec83571d46395d5fe2",
-    "size": 6161700
+    "path": "variants/booblord/shipped/parts/51e35b93dc6853c1.azkp",
+    "sha256": "51e35b93dc6853c1c34eec227955b79a3d536e33eab821a16f63658df77df191",
+    "size": 4773856
    },
-   "part": "W39:0f543cb56550039250df70ab4baca055826c641ff62e12c0d1935e493eabc8a8",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "19e38b7733039f6abf6a73a05119f9104be8778a883920fbbf72e75dde9c15ef",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/7191e28dc2774be2.azkp",
-    "sha256": "7191e28dc2774be221b2cb814b3c0a91633d6e9366eba9302bff49295047dd73",
-    "size": 5123259
-   },
-   "part": "W39:2239fbeabaf5c89af8ba3cf7347bf359c6d3babfbd5fe6df9c1cbe81f43cdac4",
+   "part": "W36:853b93b52b362c1bb931e62e2fc3b8540ad44d26590948a60636de7a269d5899",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "1d321ec8bdb4f919e03be791c5fa4a0ae3f58c375176016e1a4e84ab4bf7872f",
+   "answer": "1a6d4425b464e569a89da2428ad7c7040b88796f78c7cf1621a6dbe2d84ae4eb",
    "blob": {
-    "path": "variants/booblord/shipped/parts/9f389e1465203374.azkp",
-    "sha256": "9f389e14652033749e15df4205107b3d5cbf1aa09c4e9b1d7b8b8f81bd523e5f",
-    "size": 7954658
+    "path": "variants/booblord/shipped/parts/bb08c4e25d37dc27.azkp",
+    "sha256": "bb08c4e25d37dc2777a7de2e28e3c89029d14262db0a08acc0649bcba0c302e7",
+    "size": 4573358
    },
-   "part": "W39:609ece9a1ffc0ac48407d5eecdfeb9ce3f839ac6d0af74165da59272f1387ec3",
+   "part": "W36:932fcb4798e0897b4ccee1ca9460f3959c1248cf3dce7cad48d5d42bd938960b",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "19e38b7733039f6abf6a73a05119f9104be8778a883920fbbf72e75dde9c15ef",
+   "answer": "7aea225b65f7766b2651e537f88b4f2fb28b9c22b6930141a071c0c120e17151",
    "blob": {
-    "path": "variants/booblord/shipped/parts/7191e28dc2774be2.azkp",
-    "sha256": "7191e28dc2774be221b2cb814b3c0a91633d6e9366eba9302bff49295047dd73",
-    "size": 5123259
+    "path": "variants/booblord/shipped/parts/48b8e55072a2dab1.azkp",
+    "sha256": "48b8e55072a2dab13ba2db4b56fa6a72f0831f40dd38fa64bc27c0ad4cd15909",
+    "size": 5823327
    },
-   "part": "W39:71fe6c173896f858ad1350c339ace87279fb3ad88e360a4b82794070c8da54f6",
+   "part": "W36:93658c5f03d886acae4c8463dc50a34b876ed714885e2dd70f9e1cf8a37bf5cd",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "dfb4e318c2ce5ce49137522f353c0e1d4abb51e454151c5c545439c96d7f8f5e",
+   "answer": "2f80508b284e59555daf8b8a1a4e904be83a38037f3acb67279b356aeee79f10",
    "blob": {
-    "path": "variants/booblord/shipped/parts/a89fe44bb4249e53.azkp",
-    "sha256": "a89fe44bb4249e53cd4e8e0664179a33412d87c3c3f0de1deb56d984bc530f47",
-    "size": 7953195
+    "path": "variants/booblord/shipped/parts/2e67ef48d8571d3e.azkp",
+    "sha256": "2e67ef48d8571d3ee975f55129454dd79bff14aec9870edcdb5daa558ec7a3ff",
+    "size": 5624396
    },
-   "part": "W39:754375def568561f8d032e2a3ec0881da409aeb97b50edc3d92970dcd4036886",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "2b4d7061754171f173b5750682b1b0d3dca1dd2af0ef7cf204fdefd1544db03f",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/87b9d8106b54b276.azkp",
-    "sha256": "87b9d8106b54b276ef86610d96e7628af8f7652132b6f56588aec95da711b7c4",
-    "size": 6902126
-   },
-   "part": "W39:9cf59bd2016657ab2121154198703bf9506bf73ba8869357e97dcd6118c17a39",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "dfb4e318c2ce5ce49137522f353c0e1d4abb51e454151c5c545439c96d7f8f5e",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/a89fe44bb4249e53.azkp",
-    "sha256": "a89fe44bb4249e53cd4e8e0664179a33412d87c3c3f0de1deb56d984bc530f47",
-    "size": 7953195
-   },
-   "part": "W39:9fe7fb5075d96623e741dc52ece5fa26c29ef8fec0d546f79572269b0b1162bd",
+   "part": "W36:a20264c5ac64dda6c5ae517f60d943673ebe430e3728fec70239a2bfbe72dc55",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "a77810b51114f620b344307ba608e30fe38a9740a5205403e982d45fd4123aba",
+   "answer": "2f80508b284e59555daf8b8a1a4e904be83a38037f3acb67279b356aeee79f10",
    "blob": {
-    "path": "variants/booblord/shipped/parts/8dfd29a3a9454dfb.azkp",
-    "sha256": "8dfd29a3a9454dfb263fb1a4b1a90d977dce0c37634ebaec83571d46395d5fe2",
-    "size": 6161700
+    "path": "variants/booblord/shipped/parts/2e67ef48d8571d3e.azkp",
+    "sha256": "2e67ef48d8571d3ee975f55129454dd79bff14aec9870edcdb5daa558ec7a3ff",
+    "size": 5624396
    },
-   "part": "W39:c56613ee1a664c3d1543e424042dc57d55414fef9bf624effcf2062838c32e62",
-   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
-  },
-  {
-   "answer": "a979d17cde8ae5162b08564b74f9d06ac87ef6c852427a98cca1459fe185d49f",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/fe79db901cb5a743.azkp",
-    "sha256": "fe79db901cb5a7435ba98b78383da13fa8f5318b8f6ade37f990701606df7f30",
-    "size": 120
-   },
-   "part": "ahead:0707f309342ca279fa92f05b5b09c601c6f6d68e3c2ff91c6e8f0dc5d550f9ed",
+   "part": "W36:a303062537cf6622bd4a48fc60217e697317746298d0d2660418d3e77ce8745b",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "b3092c38c21fa43978c4841f6b5d32a8a38d968804b705600daff415cc850b6b",
+   "answer": "3c076b18465bd0cafb402a58e38ead7808ae748023f1372ceb14340576827069",
    "blob": {
-    "path": "variants/booblord/shipped/parts/de4a8aa2b2ad1862.azkp",
-    "sha256": "de4a8aa2b2ad1862163796cded0c28e7e5842844d228d7996ffb8edc574f87b9",
+    "path": "variants/booblord/shipped/parts/51e35b93dc6853c1.azkp",
+    "sha256": "51e35b93dc6853c1c34eec227955b79a3d536e33eab821a16f63658df77df191",
+    "size": 4773856
+   },
+   "part": "W36:cd675f00c998ebd36b693b20138469cdf1951045369e6e65e5b2cf4c618ca3dd",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "46313427e7be63369ca41a31a4595d416b2659dda0ab467b52e1717d8866f94a",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/0043031e4b87a43a.azkp",
+    "sha256": "0043031e4b87a43a5220e4313da5dcec40f52b44c1c79e6197bc629ede10d1ec",
+    "size": 5823235
+   },
+   "part": "W36:e744d85879dddf3b1ffe8f253c26ef2136a55c36b727e8d9496585bdd10a0a22",
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
+  },
+  {
+   "answer": "46313427e7be63369ca41a31a4595d416b2659dda0ab467b52e1717d8866f94a",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/0043031e4b87a43a.azkp",
+    "sha256": "0043031e4b87a43a5220e4313da5dcec40f52b44c1c79e6197bc629ede10d1ec",
+    "size": 5823235
+   },
+   "part": "W36:fad661909a78b90d97974592295eca3d196a0862dbf3a1ff64b39b1a6bd0de4a",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "c62681bd8b0c01777281d91c5764f4c32dfd47b9dad925fcaa3a3fc43876d4b1",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/4cc014a70eced74a.azkp",
+    "sha256": "4cc014a70eced74ab786e54c131d652d5d5fdb6063111035a18a24b1a1b184aa",
     "size": 121
    },
-   "part": "ahead:5929ba56f12f58727c7313758f7e7d6e84b9bf1ebbaeb6c2c43ddc09cb457c30",
+   "part": "ahead:5e8b42f6c9a03ba7fefdd301c9f56114b9846ce8745a5423d5045ba0e25ee263",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "fd26b8eae76c993075ca3274094f413ca968acf7655b4b3005ff567aeb6284d4",
+   "answer": "d22faebbfde5d603dd72bdee0eff74bc18a3f18dc47b65665d72fbf5fd328222",
    "blob": {
-    "path": "variants/booblord/shipped/parts/f697fb856891bdc1.azkp",
-    "sha256": "f697fb856891bdc1c22c191e7dafbd2c602a806c0d343560e74cd700d038d459",
-    "size": 767828
+    "path": "variants/booblord/shipped/parts/5df7d5cd8b26a3ac.azkp",
+    "sha256": "5df7d5cd8b26a3ac6f6a13cb33181802f5eb12813c1cb4323bd724ec86295718",
+    "size": 121
    },
-   "part": "bake:12cd2e6967e3f04b0d908a1e5913b13508b31134dbf42b19bd134267193fc987",
+   "part": "ahead:d8741e4eacd185a343b2914871c8d093f95b56bb69741c9f1f8d33bc539c080f",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "88f412343c83180865dc6ef47408b7866f6ce4798f5cb66e7d0189007db1f35c",
+   "answer": "a09c54bcc488ad78b597718962a857c136897088a17fa5cd939e30c070521c00",
    "blob": {
-    "path": "variants/booblord/shipped/parts/586b5cf54585e4b4.azkp",
-    "sha256": "586b5cf54585e4b415b067f7174569aae84392542ec71e38cd3d6857b487cad0",
-    "size": 767400
+    "path": "variants/booblord/shipped/parts/ab3f1f063031245f.azkp",
+    "sha256": "ab3f1f063031245fa3c4b4d1546b8fdce57ceeb8a7531b3d5da9822405b093d2",
+    "size": 769062
    },
-   "part": "bake:1e3a33c0920ec9018154ee03ced7964e3bc2f7a526b0bcf06de6a21f4ac79ff8",
+   "part": "bake:44f7164acf717aab9891804c624d3f6c4973a78980548e8175c291b6d7a51dcc",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "bffd3d165de1847b801ef98dd766be34c372258f3a30738a3850745b2f19115c",
+   "answer": "eef343181b88328740d143556112da81a20c77b050b206a1415b1c15279d8d43",
    "blob": {
-    "path": "variants/booblord/shipped/parts/1d00485cc8491c99.azkp",
-    "sha256": "1d00485cc8491c99f9de17cedc53e1aa5739c67c99e026be492689665852cab9",
-    "size": 64033
+    "path": "variants/booblord/shipped/parts/daa0b7340d538bdc.azkp",
+    "sha256": "daa0b7340d538bdc97a9ef6502f2b70c3fb99c98f25270eb74fcbfc0a142a34c",
+    "size": 766473
    },
-   "part": "bake:419435402f791b297d76645f28680e056910262423d549aceb30b094928d7d7f",
+   "part": "bake:83fcf0b31f9b3155fb17fc67888e8a8c900087573900635217c0231c70ca7092",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "56692fce038d02de05a095e5632c694985e2c91584b9157ac206475ef6d59222",
+   "answer": "b948d55601321b39968b17a1e99955a8f897665fedb34d719adf339b58c9a72b",
    "blob": {
-    "path": "variants/booblord/shipped/parts/f2a7c8aeaad1f454.azkp",
-    "sha256": "f2a7c8aeaad1f454ac2a4244c9d0a71634f1da229a5b0de941a18c71bc1efe56",
-    "size": 64092
+    "path": "variants/booblord/shipped/parts/bb59964df7eaac51.azkp",
+    "sha256": "bb59964df7eaac510d764da8499723229bcdb93d5b450ae53615887f1c623ee4",
+    "size": 64027
    },
-   "part": "bake:71e321811e58a5f591988a66e8b064305e43c14de1bde438da46a0e517929bbf",
+   "part": "bake:9d0c313333affadd3d9b562e87565832266c73bf2bfbf1548154726d5a31f334",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "15ff3755327217dc1c831c5c4891c1d02a0f149c78cf4eae184fb3eafec4b9fd",
+   "answer": "5db0ace0243ed8fbff0dc7ca9ea68e9eb1c56f3c14e1fd89f40d9964cc52993e",
    "blob": {
-    "path": "variants/booblord/shipped/parts/248a9789edcb7ed1.azkp",
-    "sha256": "248a9789edcb7ed12a7da0be675df19a8bbbe44612e0df8e751c166081e3ad8b",
-    "size": 55344
+    "path": "variants/booblord/shipped/parts/c9a8441bb76650ba.azkp",
+    "sha256": "c9a8441bb76650bab7ff2b65bb2301fc8585934f82f8f5535f47d7fac4121268",
+    "size": 64024
    },
-   "part": "clip:0257e13fa39f4510deda056758696324c93e41b87927651caabc7e0262736de9",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "1edcce617fe53c611b1902fa90c203e7859e10d26edc4cc7910005d22118a095",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/e1424d28afff1cfc.azkp",
-    "sha256": "e1424d28afff1cfcdb5bb6c7e5af3e96d376feeb4344ef7bce412f98d9d28e17",
-    "size": 44802
-   },
-   "part": "clip:0b80383c50970e7aeccf91a1f624f498ee92c7af57ddf4385913f8f116611791",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "ed76caac19c8a57dde88400e7e7d9a545c603600df7a634339e53cf852d7e759",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/e64ce9ffd4b67502.azkp",
-    "sha256": "e64ce9ffd4b67502fcd662c89be529f42031adda7ec1dabee1767cd08fdef02b",
-    "size": 24206
-   },
-   "part": "clip:0f4e9b8514a3b0bd5d3407cbdc55c82d5de994b807c03b67c93d86b88a792ab7",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "4add92b2e95f5d0db2425e8ca1313829741bc1ced5e1210eee09aa543639b711",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/526f2849913d0c4d.azkp",
-    "sha256": "526f2849913d0c4df3b78edf3636e1ca2a0bc334039fd5dacf0e311012e8ec48",
-    "size": 4794
-   },
-   "part": "clip:1c6fccf52f07b6505481760385f8c91775289d23894db21a45cec31bf8b426e4",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "e01bf18fc8c136262ecc1c95671ffe6f5fa38b29559304c6266a69bc861736ed",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/3dd759fe906b090d.azkp",
-    "sha256": "3dd759fe906b090d8df68d85be03efd1fbc5733ece319e858906217058f27634",
-    "size": 48673
-   },
-   "part": "clip:24eaec5d5906247fb42cc468be90a44336f4fcbf17d7b8dcfa99b42ee86994a3",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "ae156f36b879dc15b4a0c775eafcf0ee8d7fdc0c310613f6d9a848197fa43bc5",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/a86ec69eafc1fa42.azkp",
-    "sha256": "a86ec69eafc1fa42f988bb0029987589ca3373ed666324b2615ad73325399b3d",
-    "size": 21763
-   },
-   "part": "clip:32271b467a1c56066ad25ef1a463006bee3bb821674e1ac71d94568c31df6e40",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "35175f0a2cc23ed2016d4442c3a97a19fe2d5e1a549550bc1065faa3f54e6b05",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/dd04494de1b814d8.azkp",
-    "sha256": "dd04494de1b814d87403e2a9015d2d41bacca84b4648d33dc160626c0a91321b",
-    "size": 44683
-   },
-   "part": "clip:389334555243592a2985cadfb0d45bfd1efcdaafdc998e62bfb28491bd12cd8e",
+   "part": "bake:cd9cb6ac866caee6399a966fa8c5c65cb1ccd0617f7388169f2386dbf185bf6f",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -499,97 +429,7 @@
     "sha256": "c7abfbc50a87d8354e84fe86c779eca93dea80d7e9a74bfeb41fb8761159e376",
     "size": 47662
    },
-   "part": "clip:3fbc3a4eac2256012337cc84a2868490fa9f938a0ff4c9fbb146da446504454e",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "5ef758adbb554805fe83761d6a63d1ed5209a1ba55b7cb77401920fd61e35283",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/2a6079abf9ad2af5.azkp",
-    "sha256": "2a6079abf9ad2af5a97506802eaf4b92e89fa81bfc5cc8e0f19f6fef2c0bf902",
-    "size": 166280
-   },
-   "part": "clip:461de5f27b199102ce511fae9a2778dfa7fb73aae51428bc5d64fd2b2ac71cd7",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "dd5a5ccad3931b7f4d3186e526628375744a27ab60dba19b2347be6a3bd25a01",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/76dc078fa0efa22f.azkp",
-    "sha256": "76dc078fa0efa22f093ab6250ec4543e3e7965eef03df6c44988c5fee7885fce",
-    "size": 21259
-   },
-   "part": "clip:4d75cd87272b4c9230ccb08663f225b1c67d03fb441ae9def74432256fd7a17a",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "af34be6bbb102786b8aa54bd3378addee8956a3350c18f9cc6ab35423b966305",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/32dd85ce220f0400.azkp",
-    "sha256": "32dd85ce220f0400f761e82963a766dbbba24ef2dcbcc2e174504015aaa40c64",
-    "size": 20253
-   },
-   "part": "clip:5098beed36afacfa4da6e3792124b0f77639fca6811dc9f66c0c4ab9ec59a43e",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "626867e9d8b037dd71762a84d8b5a15a10ac6d9d167878df31d58d95ec316e74",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/e14947293ecef101.azkp",
-    "sha256": "e14947293ecef10101d0f56313b2040d0f421c07f0e95cd666469f4978dea0f0",
-    "size": 4797
-   },
-   "part": "clip:51e89869280d65c2f1a85800532be55f98ad73d9e5d52b32b2c8c6d2c10634db",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "26e40a935460697bd40819d9ac4b085663cfd93479ddd7a2eaf3274ef1646f76",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/b6cd33dea25eac1f.azkp",
-    "sha256": "b6cd33dea25eac1f510b7a82be69e2a0967577feb87f51c84301672f3ed1ff90",
-    "size": 86092
-   },
-   "part": "clip:5ce60166de5308a3cc20c5e237450504ff2c0517455e70baf15ab86f024c3f27",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "112d2d782780aefd8fc6e1f44081707396ad9b0f44932ade889bba93e121030b",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/303168b160f7d8cd.azkp",
-    "sha256": "303168b160f7d8cdc2ac59f0e30638e38e0e2ea4bbdd279505490f4aee6c36fe",
-    "size": 37782
-   },
-   "part": "clip:6eed9a75442bd4c9ba26f5c050b8eebc51c9333a2bd28fc9fd43073ef24d4db6",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "1c7e9784f8219e49d0983416d7728def4a53be0b03cc692f59939e050a42979f",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/9f10b9ebf204d4be.azkp",
-    "sha256": "9f10b9ebf204d4be3a755058f0410674485014fa95714b502d17bfeffad285c7",
-    "size": 24323
-   },
-   "part": "clip:7151ce4787533d74ce2d833a9a2bd4a0ad6217c1c8780cff4943afaaa8873b0b",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "3d520b35edacc13c8ba15bac342362447afff797ccab13133517255043794e32",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/116f8e2fae48ef8c.azkp",
-    "sha256": "116f8e2fae48ef8cdcb420fe3e5c6026b02276d48d1ebeb0e4ac7d042f7343bb",
-    "size": 21792
-   },
-   "part": "clip:72819bb38eaf8c2cd3d4ba0f31cd109655b6606d929463fef73763325fe4cf88",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "8c86a3b9e8dfe2835690dc287d74f17da7b8ac8b58b06f92ae8f805e98aabbf7",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/510d84862c464aa5.azkp",
-    "sha256": "510d84862c464aa55be43f4729df48f47e12036e49ccce42aa8a7d5189d4e1c3",
-    "size": 164794
-   },
-   "part": "clip:742b37691c4da51b398e47331d2fd585a2837a371f5d8090647b4cbb425a65fc",
+   "part": "clip:1b3f759ab44017b0ca335e071106aad2d75b21daab245120e53a06793580514d",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -599,47 +439,27 @@
     "sha256": "25e7a032264c73df60a11657acda84787dc3054cefb788fc07ca384dc4ba8205",
     "size": 21233
    },
-   "part": "clip:796fbb657151d1adba3c4a2ff0d0cf960006c8144a7a77f4aaab500d59299622",
+   "part": "clip:2baaff0bceddbcb226810bff572483c92df669d8eafe5db0510d678cc9b383a1",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "0efd42e98788e2d3760c5e4e86b1eb1cf1c4d8d9cea6d9c9fc3505c53f87b73e",
+   "answer": "35175f0a2cc23ed2016d4442c3a97a19fe2d5e1a549550bc1065faa3f54e6b05",
    "blob": {
-    "path": "variants/booblord/shipped/parts/a7ccf9d37e037d2b.azkp",
-    "sha256": "a7ccf9d37e037d2b8bab4ea3f7d1964dbe0140c1a226dee41b3e47d73a7f29ff",
-    "size": 37575
+    "path": "variants/booblord/shipped/parts/dd04494de1b814d8.azkp",
+    "sha256": "dd04494de1b814d87403e2a9015d2d41bacca84b4648d33dc160626c0a91321b",
+    "size": 44683
    },
-   "part": "clip:7e35aac8f491d9d2e4244618d508ddc44853945bcb9ba3bdfa1fb479241acc37",
+   "part": "clip:31ffa3cec8fce5fc12b834090134919f43d92665a51174c72338ae60b97088e2",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "e09361ef4b6df56e8d2d2af545b933cacd333ab7ed5ebabfd45321bcb93a1c1c",
+   "answer": "4add92b2e95f5d0db2425e8ca1313829741bc1ced5e1210eee09aa543639b711",
    "blob": {
-    "path": "variants/booblord/shipped/parts/2d889eeed2c777d5.azkp",
-    "sha256": "2d889eeed2c777d5f5b7491848030d7bb06915872c1e0008aa7abc0aa24262be",
-    "size": 38504
+    "path": "variants/booblord/shipped/parts/526f2849913d0c4d.azkp",
+    "sha256": "526f2849913d0c4df3b78edf3636e1ca2a0bc334039fd5dacf0e311012e8ec48",
+    "size": 4794
    },
-   "part": "clip:a3dd1e5597ce6c51ae1a7e577813b8ed096d7d9d258111e172e5f412a5681212",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "9e33cd607c63bd5932cdcccf24b34f7cdb0e7bb801d9bf68e08ec0289c107844",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/a6808483038d2234.azkp",
-    "sha256": "a6808483038d2234917169628a60da3f7fa9e7f5c712c09f9880023593422fe3",
-    "size": 25905
-   },
-   "part": "clip:bb4526fc1b487cc481e024a987830ad93841b8175b4b1cedd05fec91bc870b76",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "e6da87a57607503811bbac377e6600280c18ff7e6184d7ab859f734963b6a9f9",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/b529a64d74343108.azkp",
-    "sha256": "b529a64d743431087eaacafea38d62b1985edec64ad606abce57447cfc22f72d",
-    "size": 24368
-   },
-   "part": "clip:c84fbdf6113b17be64ddc59e69ae8fd9b5fc8f49d8ae4ba265689f295b5befe7",
+   "part": "clip:3571a04a708340e6ac013b02e3bf85a5ca0613341af46a0b4491015a0b47d8a0",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -649,7 +469,37 @@
     "sha256": "9518097626e9589723d57e45c887551e35dc7e71dd3f5da0a4b0ab9a28391315",
     "size": 55492
    },
-   "part": "clip:ea4f1149e99ceb7a24050e30caa9e9085ce77854cfb327ed9a93e6fbe2435942",
+   "part": "clip:38ea52d115d7469ef19c3f7581e7915fb35c123892bd6fbe4563e13fb656e17e",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "dd5a5ccad3931b7f4d3186e526628375744a27ab60dba19b2347be6a3bd25a01",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/76dc078fa0efa22f.azkp",
+    "sha256": "76dc078fa0efa22f093ab6250ec4543e3e7965eef03df6c44988c5fee7885fce",
+    "size": 21259
+   },
+   "part": "clip:412fa092c352fc57f66f3c1a05a9fcbc8de29961f8aecf6a3ae26f522e6530e0",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "0efd42e98788e2d3760c5e4e86b1eb1cf1c4d8d9cea6d9c9fc3505c53f87b73e",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/a7ccf9d37e037d2b.azkp",
+    "sha256": "a7ccf9d37e037d2b8bab4ea3f7d1964dbe0140c1a226dee41b3e47d73a7f29ff",
+    "size": 37575
+   },
+   "part": "clip:4caa8745612b6336d4d67da4194b2a49d917e7af0793ec8c984ebee0be09b4b4",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "e6da87a57607503811bbac377e6600280c18ff7e6184d7ab859f734963b6a9f9",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/b529a64d74343108.azkp",
+    "sha256": "b529a64d743431087eaacafea38d62b1985edec64ad606abce57447cfc22f72d",
+    "size": 24368
+   },
+   "part": "clip:4eb93845b4b03298eeaeb8235bf597a14e6743d10c4c518d6d85919acf2856ff",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -659,7 +509,37 @@
     "sha256": "d08ab59abd55769d88ae43b9e1aa3d3409bc6073e4c4c3bd4aae83e7c7bf4426",
     "size": 25820
    },
-   "part": "clip:ef35f9a824af0776b07b3ba32c0aa69af3b0bfb867c3080606cd59e9473aa8bd",
+   "part": "clip:520d009b32ccfebea1a46ce02132af0fdfbdb99d58047437a182d25d3f171bdb",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "1edcce617fe53c611b1902fa90c203e7859e10d26edc4cc7910005d22118a095",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/e1424d28afff1cfc.azkp",
+    "sha256": "e1424d28afff1cfcdb5bb6c7e5af3e96d376feeb4344ef7bce412f98d9d28e17",
+    "size": 44802
+   },
+   "part": "clip:584e31b002e3529abdac090bf04f92235f13d199a5543201c8364302f10d95d9",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "5ef758adbb554805fe83761d6a63d1ed5209a1ba55b7cb77401920fd61e35283",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/2a6079abf9ad2af5.azkp",
+    "sha256": "2a6079abf9ad2af5a97506802eaf4b92e89fa81bfc5cc8e0f19f6fef2c0bf902",
+    "size": 166280
+   },
+   "part": "clip:6ce77ea2eb72e074484152113357048e923f47dd91853eee6ee7a3aae94959f8",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "ae156f36b879dc15b4a0c775eafcf0ee8d7fdc0c310613f6d9a848197fa43bc5",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/a86ec69eafc1fa42.azkp",
+    "sha256": "a86ec69eafc1fa42f988bb0029987589ca3373ed666324b2615ad73325399b3d",
+    "size": 21763
+   },
+   "part": "clip:7ef2b748761f1d6db401170a4770fc0cf3f9241e40fd42d4d94a8eec308b137b",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -669,87 +549,227 @@
     "sha256": "beb051247d37660a1c3b45c954444925265da1e5e1fbbc3fc7d20624afe972be",
     "size": 84711
    },
-   "part": "clip:f3c34eb0805629ee5454ddcb222233389a29d8d1ce370fbc793da2702806cdf7",
+   "part": "clip:9069527e5db300407d3c5f46e9b7ec13781ea79f00b61de067adc4e7a595b061",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "d772791b99e63c1e769ce7081abd471eddc1969dc366840995a493144e544a80",
+   "answer": "112d2d782780aefd8fc6e1f44081707396ad9b0f44932ade889bba93e121030b",
    "blob": {
-    "path": "variants/booblord/shipped/parts/f4e64344a67230c1.azkp",
-    "sha256": "f4e64344a67230c1a90fdf2b68fdfb34914ffc12260724aee491c45f1b443e19",
-    "size": 1176212
+    "path": "variants/booblord/shipped/parts/303168b160f7d8cd.azkp",
+    "sha256": "303168b160f7d8cdc2ac59f0e30638e38e0e2ea4bbdd279505490f4aee6c36fe",
+    "size": 37782
    },
-   "part": "cut:0198bad1e9008e90adb12074b9dca9de99b8723c7c3da1ea42af595d77cf374c",
+   "part": "clip:9b6a90689a5a0e81958cacdf241a78fa9a13d1fb7fbb79169360fb88084bed28",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "1c7e9784f8219e49d0983416d7728def4a53be0b03cc692f59939e050a42979f",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/9f10b9ebf204d4be.azkp",
+    "sha256": "9f10b9ebf204d4be3a755058f0410674485014fa95714b502d17bfeffad285c7",
+    "size": 24323
+   },
+   "part": "clip:a1e1fad2a9b796ceb3503dd0c62e54a7d6e017045684ce4d50b6ea41beb5641e",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "626867e9d8b037dd71762a84d8b5a15a10ac6d9d167878df31d58d95ec316e74",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/e14947293ecef101.azkp",
+    "sha256": "e14947293ecef10101d0f56313b2040d0f421c07f0e95cd666469f4978dea0f0",
+    "size": 4797
+   },
+   "part": "clip:aec1f2b4d68aafa94f0329e292619dea01cced2f262bf64cb468affe3172cc6d",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "8c86a3b9e8dfe2835690dc287d74f17da7b8ac8b58b06f92ae8f805e98aabbf7",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/510d84862c464aa5.azkp",
+    "sha256": "510d84862c464aa55be43f4729df48f47e12036e49ccce42aa8a7d5189d4e1c3",
+    "size": 164794
+   },
+   "part": "clip:b46482f8269b68b291fc013afce3bb78261f39c9ec6b5af7623cd731cd721bda",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "9e33cd607c63bd5932cdcccf24b34f7cdb0e7bb801d9bf68e08ec0289c107844",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/a6808483038d2234.azkp",
+    "sha256": "a6808483038d2234917169628a60da3f7fa9e7f5c712c09f9880023593422fe3",
+    "size": 25905
+   },
+   "part": "clip:c2587e960b84f77e50af360c24c6f91306416a68832854f7f0a0e781c3b278a7",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "26e40a935460697bd40819d9ac4b085663cfd93479ddd7a2eaf3274ef1646f76",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/b6cd33dea25eac1f.azkp",
+    "sha256": "b6cd33dea25eac1f510b7a82be69e2a0967577feb87f51c84301672f3ed1ff90",
+    "size": 86092
+   },
+   "part": "clip:c9b201401af5ba1345b2004809b11721d86fcb5aa8edeb9d85fb487d1f65f8e0",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "3d520b35edacc13c8ba15bac342362447afff797ccab13133517255043794e32",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/116f8e2fae48ef8c.azkp",
+    "sha256": "116f8e2fae48ef8cdcb420fe3e5c6026b02276d48d1ebeb0e4ac7d042f7343bb",
+    "size": 21792
+   },
+   "part": "clip:d24d38478bcba0d5290fde26fea140a05003b133eb89782168822c81d3242bc4",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "e09361ef4b6df56e8d2d2af545b933cacd333ab7ed5ebabfd45321bcb93a1c1c",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/2d889eeed2c777d5.azkp",
+    "sha256": "2d889eeed2c777d5f5b7491848030d7bb06915872c1e0008aa7abc0aa24262be",
+    "size": 38504
+   },
+   "part": "clip:df95e269a1f24cfb0a62df759970c77f77d7eeaf560c8bf8e8b488bd377a107c",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "e01bf18fc8c136262ecc1c95671ffe6f5fa38b29559304c6266a69bc861736ed",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/3dd759fe906b090d.azkp",
+    "sha256": "3dd759fe906b090d8df68d85be03efd1fbc5733ece319e858906217058f27634",
+    "size": 48673
+   },
+   "part": "clip:e1700d3f555f33f769531eedf6a33c44faef5a256c52faaf37e7d68e7a4818e2",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "af34be6bbb102786b8aa54bd3378addee8956a3350c18f9cc6ab35423b966305",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/32dd85ce220f0400.azkp",
+    "sha256": "32dd85ce220f0400f761e82963a766dbbba24ef2dcbcc2e174504015aaa40c64",
+    "size": 20253
+   },
+   "part": "clip:ed6ac920bb276ae9ce631b0eb85b29ad9782d68c8d6a644d59e2be8a35b4bdc1",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "15ff3755327217dc1c831c5c4891c1d02a0f149c78cf4eae184fb3eafec4b9fd",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/248a9789edcb7ed1.azkp",
+    "sha256": "248a9789edcb7ed12a7da0be675df19a8bbbe44612e0df8e751c166081e3ad8b",
+    "size": 55344
+   },
+   "part": "clip:f494b2628daa136c005395bf90c48d282bc28c35129d06d121bcce6f28ccbeb3",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "ed76caac19c8a57dde88400e7e7d9a545c603600df7a634339e53cf852d7e759",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/e64ce9ffd4b67502.azkp",
+    "sha256": "e64ce9ffd4b67502fcd662c89be529f42031adda7ec1dabee1767cd08fdef02b",
+    "size": 24206
+   },
+   "part": "clip:f85e01fb23bc8808703a4ab0f997aa9f8ce1b10ea1029449bf16b4b1e44a4c9e",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "5632b7fb59f3bd5fa65b3d6dce97ada306628c618e23038373d386a4bf838a88",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/c3b4461335d7bceb.azkp",
+    "sha256": "c3b4461335d7bcebd32f1dab4492f2b341c55ab0711875adde119763287904f1",
+    "size": 149330
+   },
+   "part": "cut:21c379cfd75a9197573f791d64dfd25fcdb2b67d41030b4faa115677fcc66949",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "5c408ffda4e475955be31e184c7ccc483d4ed86e62a9270d44d63c7a2eb6bf5d",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/806fc671b119c70f.azkp",
+    "sha256": "806fc671b119c70feb015882717f0163a5afa493fd259b17b1597768e4b90b02",
+    "size": 150306
+   },
+   "part": "cut:2c4212f014483f8272321827a8a0e994f7105534a5b01f4447e49c5b1e4ed86c",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "c397a602e95beada10adaf40bcb496895c0151846d46ec291a0a6715fe1e6137",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/fb0eed0d154c0072.azkp",
+    "sha256": "fb0eed0d154c0072840da157b89f3b6383f7fac018619a65ee514f395ff00b1b",
+    "size": 149528
+   },
+   "part": "cut:437f1096f2e33f834c981c753a11ef0a88158fbf033e5fd4113a196d1b7529a0",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "5c408ffda4e475955be31e184c7ccc483d4ed86e62a9270d44d63c7a2eb6bf5d",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/806fc671b119c70f.azkp",
+    "sha256": "806fc671b119c70feb015882717f0163a5afa493fd259b17b1597768e4b90b02",
+    "size": 150306
+   },
+   "part": "cut:5b1136e366a8af5fbf100babe70999c21f454ef436da5cde119ce8fdd0b76cbc",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "17bf0e823212d72dc47dfd407e7147f7cecbc0d141d99e10ca69192b307527a2",
+   "answer": "5c408ffda4e475955be31e184c7ccc483d4ed86e62a9270d44d63c7a2eb6bf5d",
    "blob": {
-    "path": "variants/booblord/shipped/parts/e103b9314794d8b2.azkp",
-    "sha256": "e103b9314794d8b2da11fdffea690a2de139fdce5745849e6d4d1f1a97065c9d",
-    "size": 500392
+    "path": "variants/booblord/shipped/parts/806fc671b119c70f.azkp",
+    "sha256": "806fc671b119c70feb015882717f0163a5afa493fd259b17b1597768e4b90b02",
+    "size": 150306
    },
-   "part": "cut:0d64fad27deaf1b75dd4f1fc8c26ec6ba80e36f34b41ac5f483ba52adf89184e",
+   "part": "cut:5b548d52af7d058a9755db8949f142e1849faa888b2b19d615bb01e6fd023263",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
-   "answer": "dc7424cdb24e29eb937dd2faf63911dcde290dccc08fa9d58a51a339aca9f90e",
+   "answer": "5c408ffda4e475955be31e184c7ccc483d4ed86e62a9270d44d63c7a2eb6bf5d",
    "blob": {
-    "path": "variants/booblord/shipped/parts/1c5d67aef603af44.azkp",
-    "sha256": "1c5d67aef603af44ee8299e7652172d73a1b42ed33f3900cfb4e0d333414feca",
-    "size": 1175491
+    "path": "variants/booblord/shipped/parts/806fc671b119c70f.azkp",
+    "sha256": "806fc671b119c70feb015882717f0163a5afa493fd259b17b1597768e4b90b02",
+    "size": 150306
    },
-   "part": "cut:1f431aba4b9932fc445bf34fca8fba2b361856b611c8cd1d0b4e8b7efb8b18fb",
+   "part": "cut:8b304f2cd2c7bbcac17e1ab9430a4c5de4172436a588fbd1e7f36d5d30793691",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "17bf0e823212d72dc47dfd407e7147f7cecbc0d141d99e10ca69192b307527a2",
+   "answer": "5632b7fb59f3bd5fa65b3d6dce97ada306628c618e23038373d386a4bf838a88",
    "blob": {
-    "path": "variants/booblord/shipped/parts/e103b9314794d8b2.azkp",
-    "sha256": "e103b9314794d8b2da11fdffea690a2de139fdce5745849e6d4d1f1a97065c9d",
-    "size": 500392
+    "path": "variants/booblord/shipped/parts/c3b4461335d7bceb.azkp",
+    "sha256": "c3b4461335d7bcebd32f1dab4492f2b341c55ab0711875adde119763287904f1",
+    "size": 149330
    },
-   "part": "cut:4d16be37d5a22b012d73d65f40686b0051b9b7accf69efa05faa2560851e2f72",
+   "part": "cut:af10b1d62f1e5ad203c744c3cb22e21e1e17bf5da277e34b4b8f2cb2e71a5a79",
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
+  },
+  {
+   "answer": "c397a602e95beada10adaf40bcb496895c0151846d46ec291a0a6715fe1e6137",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/fb0eed0d154c0072.azkp",
+    "sha256": "fb0eed0d154c0072840da157b89f3b6383f7fac018619a65ee514f395ff00b1b",
+    "size": 149528
+   },
+   "part": "cut:d5dd892faf95fa16a84b82d79a62a15f24e9973ac50e69ed44ebc9bfdd15d75b",
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
+  },
+  {
+   "answer": "e09077f43256016d0f2dcbfd770469b3292960b99b8bffcb466e85103cf83b7c",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/fb334d38b6c4d20c.azkp",
+    "sha256": "fb334d38b6c4d20ca8e64f4670d4a50ba063116e7a30748ea5bf980c71da6ac8",
+    "size": 150133
+   },
+   "part": "cut:ec9856863aaf54f6a52561e8add449b24713854dcc34dd8c584d29127ac123c3",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "d772791b99e63c1e769ce7081abd471eddc1969dc366840995a493144e544a80",
+   "answer": "e09077f43256016d0f2dcbfd770469b3292960b99b8bffcb466e85103cf83b7c",
    "blob": {
-    "path": "variants/booblord/shipped/parts/f4e64344a67230c1.azkp",
-    "sha256": "f4e64344a67230c1a90fdf2b68fdfb34914ffc12260724aee491c45f1b443e19",
-    "size": 1176212
+    "path": "variants/booblord/shipped/parts/fb334d38b6c4d20c.azkp",
+    "sha256": "fb334d38b6c4d20ca8e64f4670d4a50ba063116e7a30748ea5bf980c71da6ac8",
+    "size": 150133
    },
-   "part": "cut:a5ff8d137728dc686f69bc9bad44ad14f4036d8d32e4ac0e1172b9af6cf9ebbf",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "9ca0341c6649a1c91179a8a777773802c361f7ab02cf18f4d4c1eb06144ebb2f",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/f25d3a8eb04c8916.azkp",
-    "sha256": "f25d3a8eb04c8916e59438527038bfb971a64003d9ef9bb453c42cf21cf46aaf",
-    "size": 499388
-   },
-   "part": "cut:daa45990cafc67865c7740f710157168c76cd6fd3c59f022716e924273ac843f",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "d772791b99e63c1e769ce7081abd471eddc1969dc366840995a493144e544a80",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/f4e64344a67230c1.azkp",
-    "sha256": "f4e64344a67230c1a90fdf2b68fdfb34914ffc12260724aee491c45f1b443e19",
-    "size": 1176212
-   },
-   "part": "cut:e72bf42d05fb29ac434e1dc8be57cc62957474477eb0cf7cb10883d0d6d08d68",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "d772791b99e63c1e769ce7081abd471eddc1969dc366840995a493144e544a80",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/f4e64344a67230c1.azkp",
-    "sha256": "f4e64344a67230c1a90fdf2b68fdfb34914ffc12260724aee491c45f1b443e19",
-    "size": 1176212
-   },
-   "part": "cut:f7bb05ac9ec10a650223af3fe9d7ba8704ac8282a2be586d00e6df713f5b3f4f",
+   "part": "cut:f9285393ecc8384688f725dcd82c8ba3c670727e6299ce6a6f8ac3e598e2b419",
    "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99"
   },
   {
@@ -759,17 +779,7 @@
     "sha256": "eb58cedee9de621c613fb4a6662b6a9dda5c808210752ebdffaf36aaaf73d098",
     "size": 82578
    },
-   "part": "kit clips:02b0d09ee57c8cd25f306c4c66a8e18f9cb7b821e2a2978582db2c481f445e2c",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "5c387a44bb6542002b0e610d271e0a6622f91a3cf1d7f112e8e21600c6f4eb06",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/56667645d1196995.azkp",
-    "sha256": "56667645d1196995e6f753f4224bb60f4f61aff9e330a5578d08f4fc99a587d5",
-    "size": 7080
-   },
-   "part": "wav:545cc5422cd7e0af0bad12a34c34fc60ec30dda07e780d706339278747647af2",
+   "part": "kit clips:b7b36f310af85cdf244809425e99df37236ae9a52a8eff9e5098da7a54269929",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -779,37 +789,7 @@
     "sha256": "13c9683096072b9501b54e944294cc89694f528efb3f95efc8652e63e6008a56",
     "size": 7051
    },
-   "part": "wav:58f8a902f23b444a31cf451056001a06eb9d9e9655dfdebc22c2c0274fa8b8a7",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "f758acb53c0da5631bdc4a709e54fa6891df8a31d2579e5590d6e144d24bbc2a",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/7410c807625865db.azkp",
-    "sha256": "7410c807625865dba7ac3d167f392cd2abd9c30b26cedbe9cd89dac52b97a63d",
-    "size": 11355
-   },
-   "part": "wav:7ab961e4340999714baeb71e10992cd13f4aaa137cab30199b341215283557b7",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "53c4068faece47476da415a5fb408579be3519e6dce8ad7769f077b241094699",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/8aaf701c5cc222ce.azkp",
-    "sha256": "8aaf701c5cc222ce73c8e9d045044533a220fbe96da53b8afe658c4bbd25138f",
-    "size": 17477
-   },
-   "part": "wav:7e5dbbfd4238514d50e7989c66ff3855fcb6079f259293864e2ee71cf3d2ad02",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "eba0da5e74f21a42b13d23a59fa66c1d8e4e62cc725c67a43a96ff55552c3598",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/2bea45bb929a6f3f.azkp",
-    "sha256": "2bea45bb929a6f3f6e1bba4e4d25de463f8c6de77721ea46e89e4bef4ea3a61e",
-    "size": 20649
-   },
-   "part": "wav:cbb4d8779017b34c035dbfa464c03701a6060fa7769c67295441be0514689b05",
+   "part": "wav:2950675be59d461366539ef0a46b7bba38142e5d76744b49110ff9fb02c60ad1",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -819,7 +799,7 @@
     "sha256": "5a167d25521ace682740982bbc7bab62eb08430ce1b3a7440b1427c29c61366a",
     "size": 9883
    },
-   "part": "wav:d16c760c208999ea8311d79647975e06ed783d18db3ccee75dcaa1cdf489d84d",
+   "part": "wav:2ec1dd8193bd4d3438349ce4231a4138add5b3367190d2a6881ebd57f8e4f735",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -829,7 +809,27 @@
     "sha256": "e9dd7d52701db1cb91179b43a5c9a25b2b8351b063f2b646bb262d95b8ef9742",
     "size": 23099
    },
-   "part": "wav:d527263ac88dd32b136ad99a2c2abebaaf7a269c4822d7281a3d6f5fca1d468d",
+   "part": "wav:34d05b32e5c99e1de09dd3b3aa60ab7d5b45f240bbf4307dd6fd886aa69a3689",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "f758acb53c0da5631bdc4a709e54fa6891df8a31d2579e5590d6e144d24bbc2a",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/7410c807625865db.azkp",
+    "sha256": "7410c807625865dba7ac3d167f392cd2abd9c30b26cedbe9cd89dac52b97a63d",
+    "size": 11355
+   },
+   "part": "wav:38aa2d0ea85b4e3d1e176f335582291a5ac04ce427afd2229094bf5a2f4f53c8",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "eba0da5e74f21a42b13d23a59fa66c1d8e4e62cc725c67a43a96ff55552c3598",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/2bea45bb929a6f3f.azkp",
+    "sha256": "2bea45bb929a6f3f6e1bba4e4d25de463f8c6de77721ea46e89e4bef4ea3a61e",
+    "size": 20649
+   },
+   "part": "wav:48a5666741c8436b4b5ec6cb6634ef2a9a47fc08da56c19833869d1ad68b0909",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -839,27 +839,27 @@
     "sha256": "1b731c283f2dc4ef942a532d075f72c982fb7d6634218c8d0c0eb874538258b9",
     "size": 18216
    },
-   "part": "wav:d5ba7f4016b1bbe65156102916016b1bd31075f5b0d5250af501c179bf333fa9",
+   "part": "wav:7772ec0382444decd6efa26bcea4ce0dc5d23d98f6902b4b638ddb77bd6a11f2",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "3e3a4d564ef851e114f0f2d530f374d642c68c5aaebb2377fbff6ebac73a15e2",
+   "answer": "5c387a44bb6542002b0e610d271e0a6622f91a3cf1d7f112e8e21600c6f4eb06",
    "blob": {
-    "path": "variants/booblord/shipped/parts/e63913eb5d5089cc.azkp",
-    "sha256": "e63913eb5d5089cc6c64d523a039ea5846a28d6c529d55b5c3fd2d7feab54ad0",
-    "size": 16118
+    "path": "variants/booblord/shipped/parts/56667645d1196995.azkp",
+    "sha256": "56667645d1196995e6f753f4224bb60f4f61aff9e330a5578d08f4fc99a587d5",
+    "size": 7080
    },
-   "part": "wave:0870d72cae68c3136bf98dc09bab3cef0dbd069c937e81fb4dee51f0198e3144",
+   "part": "wav:86c850d63859dff2250e0c9bab18459b5e845cd8772240b12bdc675972e63b35",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "4e3a6634aea0318db8003be6a33dd972f5d158ea51202cfb363cd1d690b77c05",
+   "answer": "53c4068faece47476da415a5fb408579be3519e6dce8ad7769f077b241094699",
    "blob": {
-    "path": "variants/booblord/shipped/parts/a72233b39c414117.azkp",
-    "sha256": "a72233b39c4141177a8b3b5decf0d65b76491b60e99daa9ec34d3c9658316a80",
-    "size": 5764
+    "path": "variants/booblord/shipped/parts/8aaf701c5cc222ce.azkp",
+    "sha256": "8aaf701c5cc222ce73c8e9d045044533a220fbe96da53b8afe658c4bbd25138f",
+    "size": 17477
    },
-   "part": "wave:0af0892813287f83a156e13e9edce50e85ac2a0d4fa6400f1096526b2560de42",
+   "part": "wav:b48dff46fa681adf4f073fa8fbdc3327501a88b81f1f538debfba9473e7d72d4",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -869,127 +869,17 @@
     "sha256": "7eda569024cdebabb14ffeab4122e7ee09767f3985b7be4a60a88f29d12cc03c",
     "size": 9272
    },
-   "part": "wave:12b93b9dfb7e97297368e95f8fe21c53eba2b4c5f4aea82a27008dc62863cf50",
+   "part": "wave:1d6a945453b024daf9b523d3fb80ffe68908cc96fee73c21549d8521e6729f47",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "fce877c1531b0444b38c7cef8ee9a0a771bbbf7d08ad916edf960171a3c0cecf",
+   "answer": "3e3a4d564ef851e114f0f2d530f374d642c68c5aaebb2377fbff6ebac73a15e2",
    "blob": {
-    "path": "variants/booblord/shipped/parts/1d75ee957bb53df8.azkp",
-    "sha256": "1d75ee957bb53df8dc07dec18d03c892a320bbe3dd67e7863684521a32459edb",
-    "size": 9283
+    "path": "variants/booblord/shipped/parts/e63913eb5d5089cc.azkp",
+    "sha256": "e63913eb5d5089cc6c64d523a039ea5846a28d6c529d55b5c3fd2d7feab54ad0",
+    "size": 16118
    },
-   "part": "wave:19c731c205f17fc87e912715cc4d760d83e2563e401e507543485b8dda0f177f",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "ee8ec7fc819079b0b187521b5acdf3bbd2ae414695655279bf1804fcb7fc4d5a",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/f22870f2f10a2c0f.azkp",
-    "sha256": "f22870f2f10a2c0f38a3910c16daef8700ae4090376ad63e22ef44fc807317d1",
-    "size": 5749
-   },
-   "part": "wave:305a0aaa1ff6e237b83716b14c79ab83218426696d42083463a562e2e71563a8",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "362d1cd3f6238ef272d1344ea28339e160ab88ff4941f078df2a619bf0da5c83",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/e5a850e06fd222ab.azkp",
-    "sha256": "e5a850e06fd222ab355fc6d351e8e0dd567a05904eb743a1a82a021027d48256",
-    "size": 16154
-   },
-   "part": "wave:38b890a8abe9b62e06b70657c40bbcee084f254cf2eb99b6cd7b81bacb942ebf",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "abebdab76384612d45708f04cc2fcbbf8d47124755772f51f147afc08cbd212e",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/3469991eafe54e7d.azkp",
-    "sha256": "3469991eafe54e7dde9f0bf92dfb5b6a08e037e3d544147966ad73d481cdd05c",
-    "size": 4723
-   },
-   "part": "wave:612f7416739be284729e519f46614b0e8918a0e1ec7bc41663297ef1c0937478",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "1655a73aff8cfbdbd6b037bcb9df57653d227e24f302982008a6dc083b97a8e9",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/63f60a4a02dde763.azkp",
-    "sha256": "63f60a4a02dde763dab11e0f144f6561f7cb371083dd743385c707523a265d1c",
-    "size": 4710
-   },
-   "part": "wave:6824aad0488a5ed6e30aeedfcae29e4ccb4fe90c039f83732c55e12712bdbc35",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "25708e5ea9dd698f3c2bd36ede8de6a3aab90e8237975c9b9d40f64b02b14dcd",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/17724a93f2b2edad.azkp",
-    "sha256": "17724a93f2b2edadba8ca59fae75a19af60ef1f8abb4f6d3e72f5b814b4a24b0",
-    "size": 4688
-   },
-   "part": "wave:9109db63da5fbbdec7f06595b98816c0b648bb77d282c59a656c3af2c8671267",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "546fdc632fd21b5885161b484d875945331a0768b720b4542aa3e9e37d170f35",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/346b4479357dd344.azkp",
-    "sha256": "346b4479357dd34435928bcfa7d725e8ff7b5c7c85e1663379c5bf85d16735e8",
-    "size": 2457
-   },
-   "part": "wave:995a027b0d9eb8c29f24b724e0cb5a1a887d0d890b5b11b7ff90ede6028aa0f2",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "ae194e7be4fd8bc427cc08eb59ea1e8a78e3a9164d66a6322693587eb5840dd0",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/4f47c3208b2f5c2b.azkp",
-    "sha256": "4f47c3208b2f5c2b72bcd1db664d83a60b97708389cbde439abf45f8267ffa53",
-    "size": 2010
-   },
-   "part": "wave:9cd8f2ad007aae792c13d35274d8f0c21186533e0ec0944ee3317346aa352dcf",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "01f3b3bc8ed582a7cc4e9442a9be9de97951f534cfa96264a5b9531095e14ace",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/cb4db411a647ce0d.azkp",
-    "sha256": "cb4db411a647ce0d667f9a4e3590464b3b064800c9168a02e206d343b149380b",
-    "size": 3100
-   },
-   "part": "wave:afe9e1ac224953a11cbdff618b68ebd082429af47d53a45f3c56f6416b90b6c6",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "bd5eb0220c292a1c3cda444b084dcfb17d3310af563a09efa653d14ad378fcec",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/45cbd28f722d5b58.azkp",
-    "sha256": "45cbd28f722d5b5865efc8692c1713240daf8d5e6f8080d58a65e8ef15be4546",
-    "size": 2007
-   },
-   "part": "wave:b2ad2b8266811dabb75f796e0fb3cb28c4d89d68411b0ba5cb68fc126d50291d",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "1b224e7a843607c1eb80fbd93e6435722ed2dea4a22ce00447c4241e61571169",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/2400b977e6b35318.azkp",
-    "sha256": "2400b977e6b35318625b7326ee1a483c648e4bac3a8cd58f24d65b219d014685",
-    "size": 4728
-   },
-   "part": "wave:b6bb0d114bf4008f8e38b224fe30be34254fc4bd2e53643a21a85df12a63202e",
-   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
-  },
-  {
-   "answer": "3751c6dd27f4e61847a3ceb5a6c1f82a7781ddaa629b880bbaa5984c071d2379",
-   "blob": {
-    "path": "variants/booblord/shipped/parts/159b60a034b0d2c4.azkp",
-    "sha256": "159b60a034b0d2c4b36098feca8a591dd701e95a42ed74480ea089bf70090d44",
-    "size": 6983
-   },
-   "part": "wave:bc4cde0304487a9b91eaef607e13f4558473c8a7432287e8ca540ee147628041",
+   "part": "wave:1f0cb4d5a202d91167161f9ea31275db46ccdcc76365615a8876b84d5d42423c",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -999,17 +889,37 @@
     "sha256": "0715c949129eb894c7598286cbad243b8b37c0eba9f4c7798800669b087d5610",
     "size": 5007
    },
-   "part": "wave:d9d3a9c7b7abea1f109e88dcdee607564963c7ecf950570f953fec63d8e9092c",
+   "part": "wave:1f163cb34f82d15e8bd53464e1e7c29765d95ceb041bdbaaa351ae7e7a96fcb3",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
-   "answer": "b8468736f52e554a3eff95da3e9cbf7f43951f884a82ab7e81686f22f66509fd",
+   "answer": "ee8ec7fc819079b0b187521b5acdf3bbd2ae414695655279bf1804fcb7fc4d5a",
    "blob": {
-    "path": "variants/booblord/shipped/parts/8b79fa0349eaa009.azkp",
-    "sha256": "8b79fa0349eaa009d31e069c9d0466eb514424da9cef781712e0d174a74ded78",
-    "size": 11560
+    "path": "variants/booblord/shipped/parts/f22870f2f10a2c0f.azkp",
+    "sha256": "f22870f2f10a2c0f38a3910c16daef8700ae4090376ad63e22ef44fc807317d1",
+    "size": 5749
    },
-   "part": "wave:daec089677133344042036ddc3ad2593ca33906c3219c8fb98a22c48506e55fd",
+   "part": "wave:407abf878758e49696cc28421d67f067c3953252b5592a0c56e91e172da2efc1",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "546fdc632fd21b5885161b484d875945331a0768b720b4542aa3e9e37d170f35",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/346b4479357dd344.azkp",
+    "sha256": "346b4479357dd34435928bcfa7d725e8ff7b5c7c85e1663379c5bf85d16735e8",
+    "size": 2457
+   },
+   "part": "wave:48915ce2122f04052c3c3cf100f2663ad28208c26738dafc28bc5d46bf2de7c8",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "3751c6dd27f4e61847a3ceb5a6c1f82a7781ddaa629b880bbaa5984c071d2379",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/159b60a034b0d2c4.azkp",
+    "sha256": "159b60a034b0d2c4b36098feca8a591dd701e95a42ed74480ea089bf70090d44",
+    "size": 6983
+   },
+   "part": "wave:5210f65930cc8647d8e79696326cf7c1f1a8344af836f968c26d7a060c9da5d2",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -1019,7 +929,107 @@
     "sha256": "25c9c6f4ff4da81d2f1c6738eabc8eb0a46637087c5a4050b74a15d71844542e",
     "size": 11579
    },
-   "part": "wave:dbaff307f23b7c4294873678b9ef3662ab80abdc9f26d05e6952ffdd46e1ffe5",
+   "part": "wave:5a8e844bb98df4b0a3b284df20a999354126931183199058dd7b76b79cf708ae",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "abebdab76384612d45708f04cc2fcbbf8d47124755772f51f147afc08cbd212e",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/3469991eafe54e7d.azkp",
+    "sha256": "3469991eafe54e7dde9f0bf92dfb5b6a08e037e3d544147966ad73d481cdd05c",
+    "size": 4723
+   },
+   "part": "wave:5f403d0c4260c656188cda758b2531635b219a43a4c8b9a52f3889b333ac7496",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "bd5eb0220c292a1c3cda444b084dcfb17d3310af563a09efa653d14ad378fcec",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/45cbd28f722d5b58.azkp",
+    "sha256": "45cbd28f722d5b5865efc8692c1713240daf8d5e6f8080d58a65e8ef15be4546",
+    "size": 2007
+   },
+   "part": "wave:627d1549a575e8bac1ca4f7f3ba01ea02082d1598b3ae4a464d94bc1dd23c557",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "362d1cd3f6238ef272d1344ea28339e160ab88ff4941f078df2a619bf0da5c83",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/e5a850e06fd222ab.azkp",
+    "sha256": "e5a850e06fd222ab355fc6d351e8e0dd567a05904eb743a1a82a021027d48256",
+    "size": 16154
+   },
+   "part": "wave:6291c5e3e42c67df962c898d5d257845dfa80ef0a5a725edd4b24ee1bd21d417",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "1b224e7a843607c1eb80fbd93e6435722ed2dea4a22ce00447c4241e61571169",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/2400b977e6b35318.azkp",
+    "sha256": "2400b977e6b35318625b7326ee1a483c648e4bac3a8cd58f24d65b219d014685",
+    "size": 4728
+   },
+   "part": "wave:7e9f10ec881462e3c5b0ad3b89dfead6643c22d82f4dfdf3672da6e22ac45a5c",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "b8468736f52e554a3eff95da3e9cbf7f43951f884a82ab7e81686f22f66509fd",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/8b79fa0349eaa009.azkp",
+    "sha256": "8b79fa0349eaa009d31e069c9d0466eb514424da9cef781712e0d174a74ded78",
+    "size": 11560
+   },
+   "part": "wave:80d73b17a67f220ca5a4506c425b8a302772c548e0c9667e4721e50aac8759b5",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "1655a73aff8cfbdbd6b037bcb9df57653d227e24f302982008a6dc083b97a8e9",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/63f60a4a02dde763.azkp",
+    "sha256": "63f60a4a02dde763dab11e0f144f6561f7cb371083dd743385c707523a265d1c",
+    "size": 4710
+   },
+   "part": "wave:b202c556a07a259dc0b5d8dfc7df464e725ecb1c009a68683a3c60ccc6d80a5e",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "ae194e7be4fd8bc427cc08eb59ea1e8a78e3a9164d66a6322693587eb5840dd0",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/4f47c3208b2f5c2b.azkp",
+    "sha256": "4f47c3208b2f5c2b72bcd1db664d83a60b97708389cbde439abf45f8267ffa53",
+    "size": 2010
+   },
+   "part": "wave:c571ed21652cf6926cec71032cce82ac498418bee9279393a0714de2c5748459",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "fce877c1531b0444b38c7cef8ee9a0a771bbbf7d08ad916edf960171a3c0cecf",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/1d75ee957bb53df8.azkp",
+    "sha256": "1d75ee957bb53df8dc07dec18d03c892a320bbe3dd67e7863684521a32459edb",
+    "size": 9283
+   },
+   "part": "wave:d5adf651164822943a9629439c05617c02ff97304e428a542103534840c8da5d",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "25708e5ea9dd698f3c2bd36ede8de6a3aab90e8237975c9b9d40f64b02b14dcd",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/17724a93f2b2edad.azkp",
+    "sha256": "17724a93f2b2edadba8ca59fae75a19af60ef1f8abb4f6d3e72f5b814b4a24b0",
+    "size": 4688
+   },
+   "part": "wave:d8f4f3392c2056e54092602de0f11af7d806a976a2a31a1d1e123eaaa9493989",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "01f3b3bc8ed582a7cc4e9442a9be9de97951f534cfa96264a5b9531095e14ace",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/cb4db411a647ce0d.azkp",
+    "sha256": "cb4db411a647ce0d667f9a4e3590464b3b064800c9168a02e206d343b149380b",
+    "size": 3100
+   },
+   "part": "wave:e2fb1a0c2c33059b57b0b0b9bd69ebf1144bea969f81af0a4e3c725d0646c63a",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   },
   {
@@ -1029,7 +1039,17 @@
     "sha256": "8acbfeff654ab53d6dcf9c4cf04f53c0ce157538eaa975beddd5af3de704ee44",
     "size": 6997
    },
-   "part": "wave:f272f3ea54b190b24b6dbb71c904b2305a94da57ba8f2e714d8630ad8ff047fc",
+   "part": "wave:e645253365b984b43ba3b40c376cf5c128ac12e5edf32886e4627c3dee268899",
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  },
+  {
+   "answer": "4e3a6634aea0318db8003be6a33dd972f5d158ea51202cfb363cd1d690b77c05",
+   "blob": {
+    "path": "variants/booblord/shipped/parts/a72233b39c414117.azkp",
+    "sha256": "a72233b39c4141177a8b3b5decf0d65b76491b60e99daa9ec34d3c9658316a80",
+    "size": 5764
+   },
+   "part": "wave:ff75fa7faa7a56bc16715ddc7cdc10165375416c8371f32c7f5f846241039178",
    "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
   }
  ],
@@ -1209,11 +1229,11 @@
  ],
  "plan": [
   {
-   "answer": "62bba944f2a9f8f973e4ae8e9cdd1b4aacd62416f13e87d16636e45963fd785d",
+   "answer": "d969a2bd8ed49158489a45590066f162dece83d69bd77faae783dee66d01bf90",
    "blob": {
-    "path": "variants/booblord/shipped/usa-72ca94916d6d.azkp",
-    "sha256": "72ca94916d6dccc7922ef147e007631d2d050a30f0d5e76a7666975323e98a8a",
-    "size": 6597452
+    "path": "variants/booblord/shipped/usa-812ebba1f71d.azkp",
+    "sha256": "812ebba1f71d1648ea616a80dd8f3ab5b73a678c099d47383cd14def60ed6a8e",
+    "size": 6090181
    },
    "entries": {
     "booblord": {
@@ -1317,11 +1337,11 @@
    ]
   },
   {
-   "answer": "6d66f90823ee76b854b9bba3230ea446a9820418e0f62ce72464f13e0ac07230",
+   "answer": "c5294e329fd1c390ae4f1af71096d0eeec1dec303ac6b229d65eaffd49ca132b",
    "blob": {
-    "path": "variants/booblord/shipped/europe-fbd58d2351b0.azkp",
-    "sha256": "fbd58d2351b0e2eb0a16620cb33be3e1fb51c734ea5727f8c17779207dccdef7",
-    "size": 6586092
+    "path": "variants/booblord/shipped/europe-5bc5d4d0f8d1.azkp",
+    "sha256": "5bc5d4d0f8d150e36f1b10fd8a510521941f2ecd850b90f74062a732a6168ca6",
+    "size": 6078821
    },
    "entries": {
     "booblord": {
