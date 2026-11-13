@@ -37,7 +37,8 @@ const MOST = 256 * 1024 * 1024;   // library.MOST, the most a variant's file hol
 const MODES = { own: "Balanced", garret4: "Skin only" };
 const SIZES = { own: "its own", garret4: "Garret's height" };
 const JSON_NOTE = "Every field, as the recipe file holds it.";
-const LEGEND = "✓ green: fully playable · ~ yellow: rough edges · ✕ red: not playable · ? grey: not yet tested";   // the Models view's
+// Each grade's mark and colour, as the list's rows wear them (the Models view's Species summary names the marks alone).
+const LEGEND = "✓ green: fully playable · ~ yellow: rough edges · ✕ red: not playable · ? grey: not yet tested";
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
 const el = (tag, props = {}, ...children) => {

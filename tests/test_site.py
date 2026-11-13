@@ -1878,8 +1878,9 @@ def test_the_models_groups_fold_species_open_and_each_opens_when_its_model_is_ch
     and Community (with Content from) and Yours shut, at every visit (D1156: never remembered); each summary counts
     its models and names the chosen one when it is in it; a group opens when its model becomes the chosen one (a
     link's, a recipe's or the remembered setup's: the tab's set), and shut again stays shut while it stays chosen; a
-    search typed opens a shut group it finds models in, each count saying how many of all, and cleared shuts it again;
-    a source that can't be read opens Community to say so. No CSP violation."""
+    search typed opens a shut group it finds models in, each count saying how many of all, and cleared shuts it again,
+    and one typed before the list answers opens them once it does (Step 4.53a); a source that can't be read opens
+    Community to say so. No CSP violation."""
     from azurkit.tools.characters import _player_variants, content
 
     repo, path = tmp_path / "repo", "variants/beamlord/variant.json"
@@ -1947,8 +1948,11 @@ def test_the_models_groups_fold_species_open_and_each_opens_when_its_model_is_ch
         page.evaluate("() => { document.getElementById('char-community-group').open = true; }")
         _page.check_csp(page)
         page = served.open()   # a visit: the drop-downs as they start, none of the last page's kept
+        _page.fill(page, "char-filter", "beam")   # typed before the tab's list answers: its groups open once it does
         _page.click(page, "tab-characters")
         _page.until(page, "() => azurkit.characters.state.view?.community.length === 1", 300)
+        assert [fold[0] for fold in page.evaluate(FOLDS)] == [True, True, False]
+        _page.fill(page, "char-filter", "")
         assert [fold[0] for fold in page.evaluate(FOLDS)] == [True, False, False]
         page.evaluate("""() => { const box = document.getElementById("char-source"); box.value = "./content-gone/";
             box.dispatchEvent(new Event("change")); }""")

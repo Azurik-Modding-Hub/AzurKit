@@ -62,7 +62,8 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, choice: 0, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
               shown: null, pictures: new Map(), shipped: new Map(), wanted: null, dressing: false, settling: null,
-              panels: new Map(), asking: false, again: false, unfolded: null, found: {}, holds: null, searched: new Set() };
+              panels: new Map(), asking: false, again: false, unfolded: null, found: {}, holds: null,
+              searched: new Set(), sought: {} };
   const fallback = () => host.catalog?.characters?.source ?? "";
   // Show objects (D1034): off by default, remembered: by the site in this browser's storage, by the app in its config.
   c.objects = app ? host.show_objects === true : (() => {
@@ -246,6 +247,26 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     refused.dataset.model = v.name;
     return refused;
   };
+  // The search's drop-downs (Step 4.21): a search opens each shut group it finds models in, once a search (shut again,
+  // it stays shut while the search stands), and a group whose models come later, a search typed before the list or the
+  // community content answers, as they come; cleared, it shuts those again, but the chosen model's, so the list goes
+  // back as it was.
+  const sought = () => {
+    for (const [id, found] of Object.entries(c.found)) {
+      const fold = $(`char-${id}-group`);
+      if (c.filter && found && c.sought[id] !== c.filter) {
+        c.sought[id] = c.filter;
+        if (!fold.open) {
+          fold.open = true;
+          c.searched.add(id);
+        }
+      } else if (!c.filter && c.searched.has(id) && id !== c.holds) fold.open = false;
+    }
+    if (!c.filter) {
+      c.searched.clear();
+      c.sought = {};
+    }
+  };
   const render = () => {
     if (!c.view) return;
     const view = c.view, chosen = view.chosen, filter = c.filter.toLowerCase();
@@ -302,6 +323,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
       $(`char-${holds}-group`).open = true;
       c.unfolded = `${holds} ${chosen.name}`;
     }
+    sought();
     $("char-edit").hidden = !chosen.variant;
     $("char-name").textContent = chosen.name + (chosen.community ? "  · community" : "");
     $("char-info").replaceChildren(...chosen.info.map(([label, text, colour, tip]) => {
@@ -597,20 +619,11 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     changed({ rest: REST });
     ask();
   };
-  // The search (the picker's own handler has narrowed the species): typed, it opens each shut group it finds models in;
-  // cleared, it shuts those again, but the chosen model's, so the list goes back as it was (Step 4.21).
+  // The search (the picker's own handler has narrowed the species): the groups drawn for it, their drop-downs (sought),
+  // now or once the list answers.
   $("char-filter").addEventListener("input", () => {
     c.filter = $("char-filter").value.trim();
-    if (!c.view) return;
     render();
-    for (const [id, found] of Object.entries(c.found)) {
-      const fold = $(`char-${id}-group`);
-      if (c.filter && found && !fold.open) {
-        fold.open = true;
-        c.searched.add(id);
-      } else if (!c.filter && c.searched.has(id) && id !== c.holds) fold.open = false;
-    }
-    if (!c.filter) c.searched.clear();
   });
   $("char-mode").addEventListener("change", () => option("mode", $("char-mode").value, defaults().mode));
   $("char-chain").addEventListener("change", () => option("chain", $("char-chain").checked ? "any" : "hit", "hit"));
