@@ -85,10 +85,11 @@ def _id(said: str) -> str:
 BLAST, NOVA = (builtins()["beamlord"].clips[c] for c in ("blast", "nova"))
 
 
-def _counted(name: str, key: str, value: int) -> dict:
-    """booblord's recipe with its mesh op ``name``'s count ``key`` at ``value``."""
+def _counted(name: str, key: str | dict, value: int | None) -> dict:
+    """booblord's recipe with its mesh op ``name``'s count ``key`` at ``value`` (or each of a dict ``key``'s)."""
     recipe = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["booblord"]
-    recipe["mesh"]["ops"] = [op | {key: value} if op.get("name") == name else op for op in recipe["mesh"]["ops"]]
+    counts = {key: value} if isinstance(key, str) else key
+    recipe["mesh"]["ops"] = [op | counts if op.get("name") == name else op for op in recipe["mesh"]["ops"]]
     return recipe
 
 # a recipe file's refusals at load: (its recipes, its source, the built-in names taken, said)
@@ -301,8 +302,9 @@ _LOAD_REFUSALS = [({n: r}, "test", taken, said) for r, n, taken, said in (
         ("top hem 2", "relax", 10 ** 12, "relax 1,000,000,000,000 is past the 100 passes an op may run"),
         ("ponytail", "rings", 10 ** 6, "rings 1,000,000 is past the 512 a tube may have"),
         ("ponytail", "sides", 2 ** 20, "sides 1,048,576 is past the 256 a tube may have"),
-        ("ponytail", "segments", 10 ** 9, "segments 1,000,000,000 is past the 72 its rings"),
-        ("necklace", "sides", 256, "256 sides and 192 rings are past the 32,768 points ((sides + 1) x rings)"))] + [
+        ("ponytail", "segments", 10 ** 9, "segments 1,000,000,000 is past the 40 its rings"),
+        ("necklace", {"sides": 256, "rings": 192}, None,
+         "256 sides and 192 rings are past the 32,768 points ((sides + 1) x rings)"))] + [
     ({"mine": {"from": "booblord", "mesh_ops": [{"over": "ponytail", "rings": 10 ** 6}]}}, "test", (),
      "rings 1,000,000 is past the 512 a tube may have")]
 
@@ -827,13 +829,12 @@ def test_a_kept_body_is_not_reused_for_specs_that_differ_only_in_a_zeros_sign():
     assert keys[0] != keys[1] and keys[0] == keys[2]
 
 
-def test_booblord_high_is_booblord_with_finer_forms_and_each_texture_at_twice_its_size(usa_iso):
-    """D593, D680, D691, D698, D721, D724 (Modkit's Step 2.177 on):
-    booblord_high is ``from`` booblord with ``texture_scale`` 2 and her
-    ``mesh_ops`` (her bust, glutes and thighs subdivided once more, each
-    feathered; her sash thickened, tapered at its top), her ponytail's rings
-    laid over booblord's tube and her face's sharpen and shade after her
-    skin row's paint ops; every other field a build reads is booblord's and
+def test_booblord_high_is_booblord_with_a_thicker_sash_and_each_texture_at_twice_its_size(usa_iso):
+    """D593, D680, D691, D698, D721, D724 (Modkit's Step 2.177 on), and
+    the booblord pass's carry-over (D1241): booblord_high is ``from``
+    booblord with ``texture_scale`` 2 and one ``mesh_ops`` row (her sash
+    thickened, tapered at its top), her mesh booblord's before it and her
+    paint booblord's; every other field a build reads is booblord's and
     her sha her own; she reads booblord's sounds and clips and swings the
     Axion staff with booblord's arm fit, which a field laid over her drops;
     her rows bake at twice their size, a size past 4,096 failing by name."""
@@ -841,25 +842,13 @@ def test_booblord_high_is_booblord_with_finer_forms_and_each_texture_at_twice_it
     from azurkit.tools.characters import paint
 
     high, boob = builtins()["booblord_high"], builtins()["booblord"]
-    own = ("name", "title", "notes", "sha", "texture_scale", "files", "mesh", "textures")
+    own = ("name", "title", "notes", "sha", "texture_scale", "files", "mesh")
     assert [f.name for f in dataclasses.fields(high) if f.name not in own
             and getattr(high, f.name) != getattr(boob, f.name)] == []
     n = len(boob.mesh.ops)
-    added, laid = high.mesh.ops[n:], [k for k in range(n) if high.mesh.ops[k] != boob.mesh.ops[k]]
-    assert [(boob.mesh.ops[k].name, boob.mesh.ops[k].sides, boob.mesh.ops[k].rings, high.mesh.ops[k].rings)
-            for k in laid] == [("ponytail", 32, 72, 144)]
-    assert dataclasses.replace(high.mesh.ops[laid[0]], rings=72) == boob.mesh.ops[laid[0]]
-    assert dataclasses.replace(high.mesh, ops=boob.mesh.ops) == boob.mesh
-    assert [(op.name, op.edge, op.apart is not None, op.normals) for op in added[:-1]] == [
-        ("bust high", 0.0065, True, "nearer"), ("bust high feather", 0.0092, True, "nearer"),
-        ("glutes high", 0.0055, False, "area"), ("glutes high feather", 0.0078, False, "area"),
-        ("thighs high", 0.011, False, "area"), ("thighs high feather", 0.0156, False, "area")]
-    assert (added[-1].name, added[-1].depth, added[-1].only, added[-1].taper) == (
-        "sash thick", 0.006, ("loincloth_front_1", "loincloth_back_1"), 0.03)
-    assert [dataclasses.replace(t, ops=t.ops[:len(b.ops)]) for t, b in zip(high.textures, boob.textures)] == list(
-        boob.textures) and len(high.textures) == len(boob.textures)
-    assert [[op.op for op in t.ops[len(b.ops):]] for t, b in zip(high.textures, boob.textures)] == [
-        ["sharpen", "shade"], []]
+    assert high.mesh.ops[:n] == boob.mesh.ops and dataclasses.replace(high.mesh, ops=boob.mesh.ops) == boob.mesh
+    assert [(op.name, op.depth, op.only, op.taper) for op in high.mesh.ops[n:]] == [
+        ("sash thick", 0.006, ("loincloth_front_1", "loincloth_back_1"), 0.03)]
     assert (high.texture_scale, high.files, high.sha != boob.sha) == (2, "booblord", True)
     assert [f(high) for f in (_player_variants.sound_folder, _player_variants.clip_folder)] == [
         f(boob) for f in (_player_variants.sound_folder, _player_variants.clip_folder)]
@@ -870,7 +859,7 @@ def test_booblord_high_is_booblord_with_finer_forms_and_each_texture_at_twice_it
     assert pw.default_weapon(data, read_body(data, body), high).name == "booblord_spin"
     assert pw.attack_recipe(high, "booblord_spin", "booblord_spin") is high
     assert [(s.row, s.size, s.format, len(s.ops)) for s in paint.scaled(data, body, high.textures, 2)] == [
-        (1, 1024, "dxt1", 6), (0, 512, "dxt1", 4), (2, 256, "dxt1", 0), (3, 128, "dxt1", 0)]
+        (1, 1024, "dxt1", 13), (0, 512, "dxt1", 3), (2, 256, "dxt1", 0), (3, 128, "dxt1", 0)]
     with pytest.raises(ValueError, match="row 1 at 32768x32768 is past the 4096"):
         paint.scaled(data, body, boob.textures, 64)
 
