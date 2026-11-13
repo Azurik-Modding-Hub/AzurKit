@@ -1914,8 +1914,13 @@ are the Characters section's.
   in WebKit), each key the recipe, the File by identity, what this browser keeps
   installed and the engine's version; a change drops B's job by `terminate()` (a
   heavy one goes on, unkept, while the list holds no heavy job, a reshape's, or,
-  from a change of the Characters tab's own, until a pick, so its heap is the
-  next heavy job's, not resident beside it; and a change of
+  from a change of the Characters tab's own that comes `REST` or more after the
+  list's last, until a pick, a Build or a Track, so its heap is the next heavy
+  job's, not resident beside it; one listed sooner, a size changed a second
+  after the pick, is dropped: young, its heap is small, and the change's build
+  starts at once for a Build at its head start, 0.8-1.1 s at the click in
+  capped WebKit where letting it go on took 2.9 s at no lower peak, Step
+  4.53b; and a change of
   the Characters tab's own, a number, an option or Reset, that follows
   another within `REST` (7 s), no Build or Track between, lists its build
   with that rest before B starts it, where one alone and a pick start as any

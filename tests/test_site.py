@@ -5896,6 +5896,32 @@ def test_the_sites_second_worker_lets_a_heavy_job_ahead_end_unkept_when_a_change
         [False, ["build q1"]], [[{"size": 1}], [], []], [["build q3"], True], True, 1, 3]
 
 
+WORKERS_YOUNG = """
+    {   // B's heavy job ahead of a pick, which a change with a rest drops sooner than the rest after the pick
+        const { pool, stubs, b, f } = make();
+        pool.want([{ key: "build p", message: build("p"), heavy: true }], { begin: true });
+        const sent = b.tags();
+        pool.want([{ key: "build q", message: build("q"), heavy: true }], { rest: 200 });
+        const dropped = [b.stopped, pool.state().dropped, stubs.length];
+        stubs[2]?.say({ type: "ready", n: 3, heap: 2 ** 25 });
+        pool.ask(build("q"), { key: "build q", heavy: true });   // Build at its head start
+        out.young = [sent, dropped, stubs[2]?.tags() ?? null, f.tags()];
+    }
+"""
+"""The next test's scenario on :data:`WORKERS_HARNESS`'s stub workers."""
+
+
+def test_a_change_soon_after_a_pick_drops_its_build_ahead_so_a_build_at_its_head_start_takes_the_new_one(browser):
+    """Review F1 of Step 4.53b: B's build ahead of a pick that a change of
+    the Characters tab's own (one with a rest) leaves less than the rest
+    after the pick (a size changed a second later) is dropped, as before the
+    rest's let-go: young, its heap is small, and a new B starts the
+    change's build at once, which a Build at its head start takes over (F
+    is sent none). Measured, capped WebKit: 1.1 s at the click with the
+    drop, 2.9 s and no lower peak with the pick's build let go on."""
+    assert _on_stubs(browser, WORKERS_YOUNG)["young"] == [["build p"], [True, 1, 3], ["build q"], []]
+
+
 def test_a_job_ahead_that_failed_or_whose_worker_stopped_isnt_tried_again_while_its_key_stays_listed(browser):
     """A job ahead that fails on B, or whose B stops (out of memory, say),
     isn't sent to the next B while the page's list still holds its key
