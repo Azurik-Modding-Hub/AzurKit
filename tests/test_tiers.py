@@ -6,6 +6,8 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -221,7 +223,10 @@ def test_a_stopped_run_keeps_each_failed_trys_error_lines_and_a_finished_runs_lo
     to that file as its rerun ends, so a run stopped before its end (a cap, a
     cancelled job: CI's slowed sweep lost its errors so, 4.37f's 8.8) keeps
     them; a finished run's summary prints a flaky test's first error whole
-    under its line, past the 200 characters its line keeps (4.37f's C.14).
+    under its line, past the 200 characters its line keeps (4.37f's C.14),
+    and CI's log each twice-failed test's first try from that sibling
+    (``python -m tests._rerun --first``, a torn last line passed over: a
+    rerun's report is no failure pytest prints, D1260).
     The pytest a test runs (this one's) writes neither of its run's files."""
     from tests import _rerun
 
@@ -255,8 +260,8 @@ def test_a_stopped_run_keeps_each_failed_trys_error_lines_and_a_finished_runs_lo
         assert run.ret == code, out
         assert [line.split("\t") for line in flakes.read_text(encoding="utf-8").splitlines()] == [
             ["test_r.py::test_once", f"call: {whole}"[:_rerun.WHY]]], out
-        failed = [json.loads(line) for line in
-                  flakes.with_suffix(_rerun.FAILED).read_text(encoding="utf-8").splitlines()]
+        text = flakes.with_suffix(_rerun.FAILED).read_text(encoding="utf-8")
+        failed = [json.loads(line) for line in text.splitlines()]
         assert [(row["test"], row["when"], row["try"]) for row in failed] == [
             ("test_r.py::test_always", "call", 1), ("test_r.py::test_always", "call", 2),
             ("test_r.py::test_once", "call", 1)], failed
@@ -265,6 +270,14 @@ def test_a_stopped_run_keeps_each_failed_trys_error_lines_and_a_finished_runs_lo
         assert max(len(line) for row in failed for line in row["lines"]) <= _rerun.WIDTH
         assert "".join(failed[2]["lines"][1:3]) == whole, failed[2]   # whole, on lines of WIDTH
         assert ("flaky: 1 passed" in out) == (code == 1), out
+        torn = tmp_path / f"torn{code}.jsonl"
+        torn.write_text(text + '{"test": "test_r.py::test_once", "try": 2, "lin', encoding="utf-8")
+        first = subprocess.run([sys.executable, "-m", "tests._rerun", "--first", str(torn)], cwd=ROOT,
+                               capture_output=True, text=True, timeout=60)
+        assert first.stdout == (
+            "--- failed twice (1): each one's first try (tests/_rerun.py, D1170)\n"
+            f"test_r.py::test_always: its first try's call, at {failed[0]['at']}\n"
+            + "".join(f"    {line}\n" for line in failed[0]["lines"])), first.stdout + first.stderr
     lines = out.splitlines()
     at = lines.index(f"  test_r.py::test_once: call: {whole}"[:2 + len("test_r.py::test_once: ") + _rerun.WHY])
     assert lines[at + 1:at + 4] == ["    at test_r.py:13", f"    {whole[:_rerun.WIDTH]}",
@@ -332,19 +345,25 @@ def test_ci_reruns_a_failed_test_once_and_its_job_summary_lists_each_that_passed
     pytest's exit stays 0, so the job is green; each job then writes that
     file into its summary, whatever came before (``python -m tests._rerun``):
     a heading with the count, then each test's id and first try's error;
-    nothing when no test was flaky."""
+    nothing when no test was flaky. Its log then prints each twice-failed
+    test's first try from that file's sibling (``--first``, D1260)."""
     from tests import _rerun
 
     text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
     env = "        env:\n          AZURKIT_FLAKES: ${{ runner.temp }}/flakes.tsv   #"
     summary = ('        if: always()\n        run: if [ -s "$RUNNER_TEMP/flakes.tsv" ]; then uv run --locked python -m '
                'tests._rerun "$RUNNER_TEMP/flakes.tsv" >> "$GITHUB_STEP_SUMMARY"; fi\n')
+    first = ('        if: always()\n        run: if [ -s "$RUNNER_TEMP/flakes.failed.jsonl" ]; then uv run --locked '
+             'python -m tests._rerun --first "$RUNNER_TEMP/flakes.failed.jsonl"; fi\n')
+    assert Path("flakes.tsv").with_suffix(_rerun.FAILED).name == "flakes.failed.jsonl"   # the sibling a run writes
     for kind in ("pure", "vanilla"):
         steps = re.split(r"(?m)^      - ", _jobs(text)[kind].split("    steps:\n", 1)[1])[1:]
         tiers = [at for at, step in enumerate(steps) if re.search(r"uv run --locked pytest |-m pytest ", step)]
         written = [at for at, step in enumerate(steps) if summary in step]
+        printed = [at for at, step in enumerate(steps) if first in step]
         assert tiers and all(env in steps[at] for at in tiers), kind
         assert len(written) == 1 and written[0] > max(tiers), kind
+        assert len(printed) == 1 and printed[0] > max(tiers), kind
     assert 'AZURKIT_FLAKES="$AZURKIT_FLAKES" .venv/bin/python -m pytest "$@"' in text
     rows = "t.py::test_b[x]\tcall: AssertionError: late\nt.py::test_a\tsetup: OSError: busy\n"
     assert _rerun.summary(rows) == ("### Flaky: 2 passed on their one rerun (D1170: recorded, not a block)\n\n"

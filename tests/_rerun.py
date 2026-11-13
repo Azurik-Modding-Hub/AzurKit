@@ -10,8 +10,10 @@ error ("flaky: N passed on their one rerun") and that error's lines under it (:f
 ``scripts/fullsuite.py`` keeps them in the receipt (``flakes``) and its flake ledger, and CI writes them into its job's
 summary (``python -m tests._rerun FILE``: :func:`summary`). Each failed try's error lines go to that file's sibling
 (:data:`FAILED`) as its report comes, so a run stopped before its end (a cap, a cancelled job) loses none of them
-(Step 4.37k). The run takes the variable out of its environment, so a pytest a test runs writes neither file. A rerun
-is recorded, never hidden. ``-p no:tests._rerun`` turns it off, and ``--pdb`` runs without it.
+(Step 4.37k), and CI's log prints each twice-failed test's first try from it (``python -m tests._rerun --first FILE``:
+:func:`first`), which neither pytest's failures nor the summary show. The run takes the variable out of its
+environment, so a pytest a test runs writes neither file. A rerun is recorded, never hidden. ``-p no:tests._rerun``
+turns it off, and ``--pdb`` runs without it.
 """
 
 from __future__ import annotations
@@ -35,6 +37,7 @@ WHY = 200                               # a flaky test's first error, cut to thi
 LINES = 40                              # a failed try's error lines kept (its sibling file, the summary), at most
 WIDTH = 200                             # characters a kept line takes, the rest on the next (CI's log cuts at 240)
 FAILED = ".failed.jsonl"                # AZURKIT_FLAKES' sibling's suffix: each failed try's error lines, as it came
+CUT = 240                               # characters a line --first prints, at most (CI's log's own cut)
 
 
 def _why(report) -> str:
@@ -172,6 +175,25 @@ def summary(text: str) -> str:
             + "".join(f"- `{case}`: {why}\n" for case, why in sorted(rows.items())))
 
 
-if __name__ == "__main__":   # CI: python -m tests._rerun FILE >> "$GITHUB_STEP_SUMMARY"
-    path = Path(sys.argv[1])
-    sys.stdout.write(summary(path.read_text(encoding="utf-8")) if path.is_file() else "")
+def first(text: str) -> str:
+    """Each test that failed twice in a :data:`FAILED` file's ``text`` (it has a second try's row): its first try's
+    rows, each its test, phase and time, then its error lines, under a heading line; empty for none. Its first try's
+    report is a rerun's, which pytest's failures and the summary leave out, so a stall's first words (what stopped,
+    WebKit's ended pages, Firefox's log) were never printed (D1260: CI run 43431651205). A torn line (a run stopped
+    as it wrote) is passed over; each line is cut at :data:`CUT`."""
+    rows = []
+    for line in text.splitlines():
+        with contextlib.suppress(ValueError):
+            rows.append(json.loads(line))
+    rows = [row for row in rows if isinstance(row, dict)]
+    twice = {row.get("test") for row in rows if row.get("try") == 2}
+    said = [line[:CUT] + "\n" for row in rows if row.get("test") in twice and row.get("try") == 1
+            for line in (f"{row.get('test')}: its first try's {row.get('when')}, at {row.get('at')}",
+                         *(f"    {line}" for line in row.get("lines", ())))]
+    head = f"--- failed twice ({len(twice)}): each one's first try (tests/_rerun.py, D1170)\n"
+    return head + "".join(said) if said else ""
+
+
+if __name__ == "__main__":   # CI: python -m tests._rerun FILE >> "$GITHUB_STEP_SUMMARY"; --first FILE: its log
+    show, path = (first, Path(sys.argv[2])) if sys.argv[1] == "--first" else (summary, Path(sys.argv[1]))
+    sys.stdout.write(show(path.read_text(encoding="utf-8")) if path.is_file() else "")

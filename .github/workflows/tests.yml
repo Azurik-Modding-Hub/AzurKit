@@ -26,7 +26,8 @@
 #   down still names what it ran out of, and stops a tier whose log has stalled or whose job nears its limit, its
 #   log's tail and processes printed first, so a hang names itself.
 # Every tier reruns a failed test once, at once (tests/_rerun.py, D1170): one that passes its rerun fails nothing, and
-# the job's summary lists it with its first try's error (AZURKIT_FLAKES' file); one that fails twice fails the job.
+# the job's summary lists it with its first try's error (AZURKIT_FLAKES' file); one that fails twice fails the job,
+# and the job's log prints its first try's error lines (its sibling file).
 # Each setup download with no retry of its own runs through one (Step 4.4ci46: run 42255487123's Linux job lost two
 # packages to a mirror that closed the connection): apt under install-deps, the content clone and each of the game data's
 # fetches through scripts/ci_retry.sh's retry, Pyodide's core and wheels through scripts/web_tools.py's; tries spread
@@ -188,6 +189,12 @@ jobs:
         # listed here with its first try's error (a fix lane, never a skip); one that fails twice fails the job.
         if: always()
         run: if [ -s "$RUNNER_TEMP/flakes.tsv" ]; then uv run --locked python -m tests._rerun "$RUNNER_TEMP/flakes.tsv" >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Each test that failed twice, its first try's error lines (D1170)
+        # tests/_rerun.py writes each failed try's error lines to AZURKIT_FLAKES' sibling as its report comes; pytest's
+        # failures and the tier's log show only a test's second try, so its first (a stall's: what stopped, WebKit's
+        # ended pages, Firefox's log) is printed here (run 43431651205's WebKit tests left theirs unprinted).
+        if: always()
+        run: if [ -s "$RUNNER_TEMP/flakes.failed.jsonl" ]; then uv run --locked python -m tests._rerun --first "$RUNNER_TEMP/flakes.failed.jsonl"; fi
 
   vanilla:
     name: vanilla and europe (${{ matrix.label }}, ${{ matrix.shard }} of ${{ matrix.shards }})
@@ -467,6 +474,12 @@ jobs:
         # listed here with its first try's error (a fix lane, never a skip); one that fails twice fails the job.
         if: always()
         run: if [ -s "$RUNNER_TEMP/flakes.tsv" ]; then uv run --locked python -m tests._rerun "$RUNNER_TEMP/flakes.tsv" >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Each test that failed twice, its first try's error lines (D1170)
+        # tests/_rerun.py writes each failed try's error lines to AZURKIT_FLAKES' sibling as its report comes; pytest's
+        # failures and the tier's log show only a test's second try, so its first (a stall's: what stopped, WebKit's
+        # ended pages, Firefox's log) is printed here (run 43431651205's WebKit tests left theirs unprinted).
+        if: always()
+        run: if [ -s "$RUNNER_TEMP/flakes.failed.jsonl" ]; then uv run --locked python -m tests._rerun --first "$RUNNER_TEMP/flakes.failed.jsonl"; fi
       - name: Delete the images and any parts left
         if: always()
         run: if [ -n "${TIER_ROOM:-}" ]; then rm -rf "$TIER_ROOM"; fi
