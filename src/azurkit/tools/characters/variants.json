@@ -1,7 +1,7 @@
 {
  "beamlord": {
   "title": "Beamlord",
-  "notes": "Balthazar gone mad with his lightning: a 14 m beam, a sweeping spread and a nova ring round him, twice as fast, chaining while A or B is held; in the air he fires a bolt straight down from his hands until he lands, and there a blue dome rises out of the floor round him, its blast throwing enemies back; translucent electric-blue bolts along the beam, branching and flickering, that hit through walls (D332, D385, D442); on the nova the game's electric shield rises round him, a translucent electric-blue force field 1.44 m round his chest, from his feet to over his head, that crackles and turns to face you, fading in as the nova's ring grows and out after it (D433, D442, D479). The airship boss keeps his own look: the beams and the dome are the player's own copy of his effects (D446).",
+  "notes": "Balthazar gone mad with his lightning: a 14 m beam that hits through walls, a sweeping spread and a nova ring, twice as fast, chaining while A or B is held. In the air he fires a bolt straight down; landing raises a blue dome that throws enemies back. The nova raises his electric shield.",
   "base": "balthazar",
   "mode": "own",
   "size": "own",

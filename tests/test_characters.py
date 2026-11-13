@@ -2136,13 +2136,15 @@ def test_each_europe_shipped_part_row_is_a_usa_rows_file_and_answer():
     assert usa and {row["release"] for row in rows} <= {r.iso_sha256 for r in gate.RELEASES} and not apart, apart
 
 
-def test_each_booblords_notes_are_short_and_for_players():
-    """The owner's review (D1061): at most 300 characters, and nothing of how she was made (a D, W, X or Step number, a
-    quote of the owner, sculpting or triangles)."""
+def test_each_built_ins_notes_are_short_and_for_players():
+    """The owner's review (D1061), for every built-in the Characters tab and the Variants view show the notes of
+    (beamlord's held seven decision ids in 790 characters): at most 300 characters, and nothing of how it was made (a
+    D, W, X or Step number, a quote of the owner, sculpting or triangles)."""
     built = _player_variants.builtins()
-    for name in ("booblord", "booblord_high", "booblord_human", "booblord_high_human"):
-        assert len(built[name].notes) <= 300 and not re.search(
-            r"\b[DWXQ]\d+|Step|owner|\"|triangle|sculpt|recipe", built[name].notes), name
+    assert {"beamlord", "booblord", "booblord_high", "booblord_human", "booblord_high_human"} <= set(built)
+    for name, variant in built.items():
+        assert len(variant.notes) <= 300 and not re.search(
+            r"\b[DWXQ]\d+|Step|owner|\"|triangle|sculpt|recipe", variant.notes), name
 
 
 def test_a_variants_shipped_pictures_are_drawn_again_when_the_recipe_it_is_from_changes():
