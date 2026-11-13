@@ -481,6 +481,23 @@ def test_the_game_datas_fetches_go_over_ssh_on_githubs_https_port_to_one_pinned_
     assert "ssh.github.com:443" in hosts and not [host for host in hosts if host.endswith(":22")]
 
 
+def test_every_https_fetch_in_a_workflow_ends_a_stalled_transfer():
+    """Step 4.52a (ci50's other half): the game data's ssh ends a silent
+    connection (above), but Azurik-Custom-Content's HTTPS fetch had no
+    bound, so a stalled transfer could wait out the vanilla job's 330
+    minutes. Every git clone or fetch of an ``https://`` URL in a workflow
+    gives up under 1000 bytes a second for 60 s (``http.lowSpeedLimit``,
+    ``http.lowSpeedTime``), so ``scripts/ci_retry.sh``'s next try runs."""
+    bounds = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip().startswith("#"):
+                bounds += [(path.name, dict(re.findall(r"-c http\.(lowSpeed\w+)=(\S+)", command)))
+                           for command in re.split(r"\s*(?:&&|\|\||;)\s*", line)
+                           if DOWNLOAD.search(command) and "https://" in command]
+    assert bounds and all(bound == {"lowSpeedLimit": "1000", "lowSpeedTime": "60"} for _, bound in bounds), bounds
+
+
 def test_the_game_data_comes_a_file_a_fetch_each_retried_alone_and_its_checkout_after_that_fetch_fetches_nothing():
     """Step 4.5e: runs 42313664434 (Intel) and 42387860921 (Apple Silicon)
     lost the macOS runner's whole network for minutes 2.5 min into the Europe

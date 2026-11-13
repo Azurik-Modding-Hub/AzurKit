@@ -328,7 +328,9 @@ jobs:
           CONTENT_COMMIT: 2a0abad923baa90a3a36ba266b1976f72a94d20a   # booblord v10, beamlord v1 (2026-11-13): its main from AzurKit 1.1.1
         run: |
           . scripts/ci_retry.sh
-          content() { rm -rf "$RUNNER_TEMP/content" && git init --quiet "$RUNNER_TEMP/content" && git -C "$RUNNER_TEMP/content" fetch --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$CONTENT_COMMIT" && git -C "$RUNNER_TEMP/content" checkout --quiet FETCH_HEAD; }
+          # Step 4.52a: a transfer under 1000 bytes a second for 60 s ends its try, as the game data's ssh ends a silent
+          # connection, so a stalled fetch never waits out the job's 330 minutes.
+          content() { rm -rf "$RUNNER_TEMP/content" && git init --quiet "$RUNNER_TEMP/content" && git -C "$RUNNER_TEMP/content" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 fetch --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$CONTENT_COMMIT" && git -C "$RUNNER_TEMP/content" checkout --quiet FETCH_HEAD; }
           retry "Azurik-Custom-Content's clone" content
       - name: The USA and Europe images, from the game-data repository's parts, one release at a time, each part a fetch of its own
         env:
