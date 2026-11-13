@@ -250,13 +250,15 @@ def layer(pick: Mapping, release: Release, base: Mapping[str, bytes]) -> Layer:
     ``xbr.files`` names: ``edits.xbr.plan``) as ``community <id>``, its
     recipe the pack's id, version and pack.json's sha256 (a build's
     manifest carries it so, never its bytes); with no operation, no change
-    (the manifest still records it). ``ValueError`` names the pack and each
-    operation that can't apply (D35)."""
-    changes = ()
+    (the manifest still records it), its plan's notes (a move past
+    float32's range, Q110) each naming the pack. ``ValueError`` names the
+    pack and each operation that can't apply (D35)."""
+    changes, notes = (), ()
     if pick["xbr"]:
         try:
-            changes = xbr.plan(pick["xbr"], release, base).changes
+            planned = xbr.plan(pick["xbr"], release, base)
         except ValueError as exc:
             raise ValueError(f"community pack {pick['id']!r}: {exc}") from None
+        changes, notes = planned.changes, tuple(f"community pack {pick['id']!r}: {n}" for n in planned.notes)
     return Layer(f"{TOOL} {pick['id']}", TOOL, KIND,
-                 {"id": pick["id"], "version": pick["version"], "sha256": pick["sha256"]}, changes)
+                 {"id": pick["id"], "version": pick["version"], "sha256": pick["sha256"]}, changes, notes=notes)

@@ -176,6 +176,22 @@ def test_a_community_packs_edits_are_its_own_layer_a_later_edit_wins_and_its_bui
         preset.read({**record, "layers": [{"tool": "community", "kind": "packs", "recipe": {"id": "hard"}}]})
 
 
+def test_a_community_packs_move_past_float32_is_written_as_infinity_and_its_layer_notes_it_naming_the_pack():
+    """Q110 for a community pack: a move past float32's range writes the
+    infinity it saturates to, and its layer keeps the plan's note, naming
+    the pack, as the player's own edits' layer does."""
+    from tests.test_edits import _level
+
+    file = "gamedata/training_room.xbr"
+    base = {file: _level(("transform", -1, None), ("critterGenerator", 0, "fuel"))}
+    move = {"op": "move", "file": file, "entity": "fuel", "x": 1e39, "y": 2.0, "z": 3.0}
+    made = community.layer({"id": "far", "version": 1, "sha256": "ab" * 32, "packs": {}, "xbr": [move]},
+                           gate.USA, base)
+    assert made.notes == ("community pack 'far': xbr op 1 (move): x: 1e+39 is past float32's range: written as "
+                          "inf (Q110)",)
+    assert [c.after[:4] for c in made.changes] == [b"\x00\x00\x80\x7f"]
+
+
 def _installed(tmp_path, monkeypatch, packs: dict[str, dict]) -> tuple[Path, dict]:
     """A folder source of ``packs``, the content folder empty under ``tmp_path``: the source and its manifest."""
     manifest, _ = _repo(tmp_path, packs)
