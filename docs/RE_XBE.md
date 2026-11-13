@@ -1157,8 +1157,8 @@ mapping `&DAT_0037be98 + ctrl_idx * 0x54` to XInput slots.
 The authoritative layout is the single table in
 [§ControllerState struct](RE_MOVEMENT.md#controllerstate-struct-xinput-polling--pinned-2026-04-18)
 in `RE_MOVEMENT.md` — it matches the `_Static_assert`s in
-`shims/include/azurik.h` and is guarded by
-`tests/test_shim_authoring.py::test_controller_state_fields_resolve_to_expected_offsets`.
+`devkit/re/data/structs.h` and is guarded by
+`tests/test_re_shims.py::test_the_structures_a_shim_or_the_re_data_declares_hold_each_field_at_ghidras_offset`.
 This section used to carry a second copy of the same struct that
 had drifted (it listed START at `+0x38` / BACK at `+0x3C`; the
 real offsets are `+0x40` and `+0x44`, with the thumb clicks at
