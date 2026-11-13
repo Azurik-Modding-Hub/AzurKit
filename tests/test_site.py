@@ -2161,10 +2161,12 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     """D1072: a page promise that never settles fails its call by name past its bound, with the page's state (its
     refusals of its security policy among it, ``azurkit.violations``, Step 4.5f), and a
     page that answers nothing fails a wait by name past the wait's timeout and ``_page.STALL``, saying its state went
-    unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each, the
-    browser's probe ``_page.PROBE``) and the listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
-    10 min, run 41610020282). The state's status line comes on lines of its own, its `` · `` parts whole up to
-    ``_page.STATUS`` and the rest counted, no line past ``_page.WIDTH``, which CI's log cuts no more (run 42168608453
+    unread and that its browser still answers, each within that bound and the sum of the reads its failure may make,
+    each in its own bound (``_page.HEAR`` each, WebKit's log's on macOS too, macOS's privacy prompts' ``_page.ASKED``,
+    the browser's probe ``_page.PROBE``, the listing of its driver's processes ``ci_resources.SAY_S``; a line under
+    their sum failed a call whose reads took their time, 26.7 s on GitHub's Intel Mac runner, run 43049572654): never a
+    silent wait (Windows' Firefox once left an evaluate unanswered 2 h 10 min, run 41610020282). The state's status
+    line comes on lines of its own, its `` · `` parts whole up to ``_page.STATUS`` and the rest counted, no line past ``_page.WIDTH``, which CI's log cuts no more (run 42168608453
     cut a load failure's at "ValueError: can").
     A pick whose input never comes (``_page.pick``, every set_input_files of the site's tests)
     and a navigation whose document never comes (``_page.load``, every goto and reload of the site's tests, and the
@@ -2176,6 +2178,11 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
 
     from scripts import ci_resources
     assert _page.ACT * 1000 == DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS   # no wider than the bound the calls had
+
+    def reads(hear: float) -> float:
+        """s the reads a stalled call's failure may make take at most, each its bound (:func:`_page.stalled`)."""
+        return ((hear if _page.LOG and browser.browser_type.name == "webkit" else 0) + 3 * hear
+                + (_page.ASKED if _page.LOG else 0) + _page.PROBE + ci_resources.SAY_S)
     served = Site(browser, site)
     try:
         page = served.open()   # in the bound a page's opening has, not the test's
@@ -2213,7 +2220,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         lines = str(busy.value).splitlines()
         assert re.fullmatch(r"no answer in [23] s: \(\) => azurkit\.build", lines[0])
         assert lines[1:2] + lines[-2:-1] == ["state: unread (no answer in 1 s)", "its browser still answers"]
-        assert 1 <= settled < 20 and 3 <= held < 20, (settled, held)
+        assert 1 <= settled < 1 + reads(_page.HEAR) and 3 <= held < 1 + _page.STALL + reads(1), (settled, held)
         assert _page.until(page, "() => azurkit.ready", 30)   # the page answers again once its thread is free
         t3 = time.monotonic()   # a pick whose input never comes, its page's state read in its whole HEAR (Firefox's
         with pytest.raises(AssertionError) as unpicked:   # past the busy page's 1 s, slowed by taskpolicy -b: 4.4ci36)
@@ -2221,7 +2228,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         lines = str(unpicked.value).splitlines()
         assert lines[0] == "no answer in 2 s: the pick of index.html in #nowhere", lines
         assert lines[1].startswith("state: {'asks': [") and lines[-2:-1] == ["its browser still answers"], lines
-        assert 2 <= time.monotonic() - t3 < 20
+        assert 2 <= time.monotonic() - t3 < _page.ACT + reads(_page.HEAR)
         monkeypatch.setattr(_page, "HEAR", 1)   # the held navigation's state read below may end unread in 1 s
         monkeypatch.setattr(browser._impl_obj, "close", lambda **_: asyncio.sleep(600))   # a close never answered
         # what the close may wait on, listed in 5 s (its 10 s outside the test), the close's 1 s with it inside the
@@ -2256,7 +2263,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert lines[1].startswith("state: ") and lines[-3:-2] == ["its browser still answers"], lines
         assert re.fullmatch(rf"its requests unanswered: GET {re.escape(served.origin)}/held\.html \(\d+ s\)",
                             lines[-1]), lines
-        assert 2 <= time.monotonic() - t2 < 20
+        assert 2 <= time.monotonic() - t2 < _page.ACT + reads(_page.HEAR)
         routes[0].abort()
     finally:
         monkeypatch.undo()   # the close has its own bound
