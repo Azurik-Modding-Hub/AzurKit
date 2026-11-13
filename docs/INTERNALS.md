@@ -2408,7 +2408,14 @@ are the Characters section's.
   one page), and three more for one still slower. Its regression verdict
   then holds the head's samples taken there to the release's taken there,
   place by place, by the same line (the case's `beside`); the receipt's
-  verdict stands where the release's tree can't be built or driven. A busy
+  verdict stands where the release's tree can't be built or driven. Each
+  tree installs the content its own CI pins (Step 4.54c: its `tests.yml`'s
+  `CONTENT_COMMIT`, else the content clone's newest commit at that tree's
+  commit's date), unpacked by `git archive` from the clone beside the
+  checkout (a commit it lacks fetched into a scratch repository of its own)
+  and never its working tree, so a release whose built-in booblord isn't
+  the content's isn't handed one it refuses; `--content` is the head's
+  alone. A busy
   box moves within an hour (a Save's sample is the browser's write of a
   2.8 GB download, a Check's the cores a nice-10 process gets: the release's
   own tree read 1.5-2.6x its receipt's Saves on 11-12), so only the release

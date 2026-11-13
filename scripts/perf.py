@@ -67,7 +67,13 @@ case's ``beside``), the same line: over its budget and over the release's
 by more than both :data:`REGRESSION` and :data:`REGRESSION_S`; one still
 slower after :data:`R` pages a side takes R more, and is judged on all of
 them. The receipt's verdict stands where the release's tree can't be built
-or driven (its ``beside`` says why). The box a gate runs on moves through
+or driven (its ``beside`` says why). Each tree installs the content its own
+CI pins (Step 4.54c, :func:`content_commit`: its tests.yml's
+``CONTENT_COMMIT``, else the clone's newest commit at its commit's date), a
+``git archive`` of the clone beside the checkout unpacked into the scratch
+(:func:`content_at`), so a release whose built-in booblord isn't the
+content's is never handed a booblord it refuses; ``--content`` is the
+head's alone. The box a gate runs on moves through
 an hour (a Save's sample is the browser's write of a 2.8 GB download; a
 Check's, the cores a nice-10 process gets), so only the release timed in
 the same minutes tells a slower product from a busier box; nothing of the
@@ -177,6 +183,11 @@ SIDE_MODULE = "emscripten-wasm32.so"  # the site's (its Pyodide's); the app's is
 #: key), the site's ``web/``, the lock its app's venv installs from and the ``web_tools.py`` that builds all three
 #: (:func:`tools_of`), so a lane's change there is timed as the head's alone
 RELEASE_TREE = ("src", "web", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "NOTICE.md", "scripts/web_tools.py")
+#: Where a tree's CI pins the content commit its tests run with (Step 4.54c: :func:`content_commit`)
+WORKFLOW, PIN = ".github/workflows/tests.yml", re.compile(r"^\s*CONTENT_COMMIT:\s*([0-9a-f]{40})\b", re.M)
+#: Azurik-Custom-Content, as tests.yml fetches it: a pinned commit the clone beside lacks is fetched from here into a
+#: scratch repository of its own (:func:`content_at`), never into the clone
+CONTENT_URL = "https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git"
 
 
 def select(paths: list[str]) -> set[tuple[str, str]]:
@@ -873,6 +884,49 @@ def clone_of(wt: Path) -> Path | None:
     return guess if guess and (guess / "manifest.json").is_file() else None
 
 
+def content_commit(clone: Path, wt: Path, rev: str | None = None) -> tuple[str, str]:
+    """The content commit the tree at ``rev`` of ``wt`` (None: its working tree) is tested with, and how it was
+    found: its :data:`WORKFLOW`'s ``CONTENT_COMMIT`` (``pinned``), else, for a tree from before the pin, ``clone``'s
+    newest commit on its HEAD's first-parent line at or before that tree's commit (``dated``) (Step 4.54c: a release
+    whose built-in booblord isn't the content's refuses to install her)."""
+    path = wt / WORKFLOW
+    text = (path.read_text(encoding="utf-8") if path.is_file() else None) if rev is None else (
+        _git(wt, "show", f"{rev}:{WORKFLOW}"))
+    if pin := PIN.search(text or ""):
+        return pin.group(1), "pinned"
+    date = (_git(wt, "show", "-s", "--format=%cI", rev or "HEAD") or "").strip()
+    found = (_git(clone, "log", "-1", "--first-parent", "--format=%H", f"--before={date}", "HEAD") or "").strip()
+    if not date or not found:
+        raise RuntimeError(f"no content commit of {clone} at or before {rev or 'the worktree'}'s ({date or 'no date'})")
+    return found, "dated"
+
+
+def content_at(clone: Path, commit: str, into: Path) -> Path:
+    """The content repository's files at ``commit`` in the new folder ``into``: a ``git archive`` of ``clone``'s
+    objects, never its working tree, index or refs; a commit it lacks fetched from :data:`CONTENT_URL` into a
+    scratch repository beside ``into`` (deleted once read), as tests.yml fetches it (Step 4.54c)."""
+    import tarfile
+    source = clone
+    into.parent.mkdir(parents=True, exist_ok=True)
+    if _git(clone, "cat-file", "-e", f"{commit}^{{commit}}") is None:
+        source = into.with_name(f"{into.name}.git")
+        for cmd in (["init", "-q", str(source)], ["-C", str(source), "fetch", "-q", "--depth", "1", CONTENT_URL, commit]):
+            subprocess.run(["git", *cmd], check=True, capture_output=True, timeout=600)
+    part, tar = into.with_name(f"{into.name}.part"), into.with_name(f"{into.name}.tar")
+    part.mkdir()
+    try:
+        subprocess.run(["git", "-C", str(source), "archive", "--format=tar", "-o", str(tar), commit], check=True,
+                       capture_output=True, timeout=600)
+        with tarfile.open(tar) as archive:
+            archive.extractall(part, filter="data")
+        part.rename(into)
+    finally:
+        tar.unlink(missing_ok=True)
+        if source != clone:
+            shutil.rmtree(source, ignore_errors=True)
+    return into
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="perf", description=__doc__.split("\n\n")[0])
     ap.add_argument("worktree", type=Path)
@@ -885,7 +939,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--update-ceilings", action="store_true", help=f"rewrite {CEILINGS} from this run")
     ap.add_argument("--json", type=Path, help="write the result here")
     ap.add_argument("--keep", type=Path, help="keep each run's samples here, and reuse them")
-    ap.add_argument("--content", type=Path, help="a clone of Azurik-Custom-Content (default: beside the checkout)")
+    ap.add_argument("--content", type=Path, help="the head's Azurik-Custom-Content folder (default: the commit its "
+                    "tests.yml pins, from the clone beside the checkout)")
     ap.add_argument("--repeats", type=int, default=R, help=f"samples an op (default {R}; fewer only to try a driver)")
     ap.add_argument("--reference", type=Path, metavar="META",
                     help="a receipt of the last release's run: an op slower than its there, or erring, fails (D1170)")
@@ -939,10 +994,37 @@ def main(argv: list[str] | None = None) -> int:
         if iso is None or iso.stat().st_size != gate.USA.iso_size:
             print(f"perf: the USA image: {gate.missing(gate.USA)}", file=sys.stderr)
             return 2
-        content = args.content or clone_of(wt)
+        clone = clone_of(wt) or args.content
         import tempfile
         # Not macOS's $TMPDIR, which a daily sweep empties of what looks 3 days old (this venv keeps uv's cache's times).
         scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site.", dir=None if os.name == "nt" else "/tmp"))
+        contents: dict = {}   # each tree's content folder, or the error its release's side had; each commit's
+        unpacked: dict[str, Path] = {}   # files, unpacked once
+
+        def content_of(tree: Path) -> Path | None:
+            """The content ``tree`` installs (Step 4.54c): the commit its own tests.yml pins (:func:`content_commit`),
+            unpacked from the clone beside into the scratch (:func:`content_at`), ``--content`` the head's alone; with
+            no clone, none. The head's that can't be had is the clone as it stands, said in the log."""
+            if tree not in contents:
+                head = tree == wt
+                if head and args.content or clone is None:
+                    contents[tree] = args.content if head else None
+                else:
+                    side = "the head" if head else "the release's tree"
+                    try:
+                        commit, how = content_commit(clone, wt, None if head else release)
+                        if commit not in unpacked:
+                            unpacked[commit] = content_at(clone, commit, scratch / "content" / commit)
+                        contents[tree] = unpacked[commit]
+                        print(f"perf: {side} installs content {commit[:12]} ({how})", flush=True)
+                    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                        contents[tree] = clone if head else error
+                        print(f"perf: {side}'s content: {type(error).__name__}: {str(error)[:300]}"
+                              + ("; the clone as it stands instead" if head else ""), flush=True)
+            if isinstance(got := contents[tree], BaseException):
+                raise got
+            return got
+
         built: dict = {}   # (tree, what): made; ("failed", what): the error the release's failed with
         natives: dict[str, list] = {}
         held: dict[str, dict] = {}   # each run's record so far: a re-run's samples join its first ones (measure)
@@ -953,7 +1035,7 @@ def main(argv: list[str] | None = None) -> int:
             if (tree, what) not in built:   # as a run needs it, by ``tools`` (a web_tools): one wheel for both hosts
                 built[(tree, what)] = (tools.wheel(into / "wheel", tree) if what == "wheel"
                                        else tools.site(into / "site", root=tree, built=made("wheel", tree, into, tools),
-                                                       content=content)
+                                                       content=content_of(tree))
                                        if what == "site"
                                        else _perf.venv(tree, into / "app", made("wheel", tree, into, tools), tools))
             return built[(tree, what)]
@@ -990,7 +1072,8 @@ def main(argv: list[str] | None = None) -> int:
                                          else {"samples": {}})
                 have = {op: [s for s in got if not s.get("error")] for op, got in old["samples"].items()}
                 todo = {op: n - taken(have.get(op, [])) for op, n in targets.items() if n > taken(have.get(op, []))}
-                got = (_perf.drive(tree, spec, todo, iso, content, maker("site") if spec.host == "site" else None,
+                got = (_perf.drive(tree, spec, todo, iso, content_of(tree),
+                                   maker("site") if spec.host == "site" else None,
                                    maker("app") if spec.host == "app" else None) if todo
                        else {"samples": {}, "log": []})
                 for op, more in got["samples"].items():

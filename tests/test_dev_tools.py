@@ -2075,6 +2075,52 @@ def test_a_perf_run_stopped_while_it_drives_the_releases_tree_beside_exits_143_w
     assert not trees[0].exists() and not (tmp_path / "perf.json").exists()
 
 
+def test_each_tree_the_perf_gate_times_installs_the_content_its_own_commit_pins(tmp_path, monkeypatch, capsys):
+    """Step 4.54c: the head and the release's tree beside it each install the
+    content their own CI pins, never the content clone's working tree (a
+    release whose built-in booblord isn't the content's refused her, and its
+    install's wait ran 1800 s): the head the commit its tests.yml's
+    ``CONTENT_COMMIT`` names, which the clone lacks, so it is fetched into a
+    scratch repository of its own; the release, whose tests.yml pins none,
+    the clone's newest commit at its commit's date. The clone's working
+    tree, refs and objects are as they were, and the unpacked trees go with
+    the scratch."""
+    repo, receipt = _a_release_beside(tmp_path, monkeypatch, ("A12",))
+    remote, clone = tmp_path / "content-remote", tmp_path / "Azurik-Custom-Content"   # the clone beside the checkout
+    _git(tmp_path, "init", "-q", "-b", "main", str(remote))
+    commits = {}
+    for name, date in (("before", "2020-01-01T00:00:00Z"), ("after", "2099-01-01T00:00:00Z"), ("pinned", None)):
+        if name == "pinned":   # content's main moved on past the clone
+            _git(tmp_path, "clone", "-q", str(remote), str(clone))
+        monkeypatch.setenv("GIT_COMMITTER_DATE", date or "2099-02-01T00:00:00Z")
+        (remote / "manifest.json").write_text(name, encoding="utf-8")
+        _git(remote, "add", "manifest.json")
+        _git(remote, "commit", "-q", "-m", name)
+        commits[name] = _git(remote, "rev-parse", "HEAD")
+    monkeypatch.delenv("GIT_COMMITTER_DATE")
+    (clone / "manifest.json").write_text("the clone's own edit", encoding="utf-8")
+    (repo / perf.WORKFLOW).parent.mkdir(parents=True)
+    (repo / perf.WORKFLOW).write_text(f"env:\n  CONTENT_COMMIT: {commits['pinned']}   # its pin\n", encoding="utf-8")
+    monkeypatch.setattr(perf, "CONTENT_URL", str(remote))
+    def state():   # the clone's working tree, refs and objects
+        return [_git(clone, *a) for a in (("status", "--porcelain"), ("for-each-ref",), ("count-objects", "-v"))]
+    before, seen = state(), {}
+
+    def drive(wt, spec, todo, iso, content, *_):
+        side = "release" if wt.name == "tree" else "head"
+        seen.setdefault(side, set()).add((content, (content / "manifest.json").read_text(encoding="utf-8")))
+        return {"samples": {op: [{"s": 8.0, "bar": 2, "progress": True}] * n for op, n in todo.items()}, "log": []}
+    monkeypatch.setattr(_perf, "drive", drive)
+    perf.main([str(repo), "--select", "app:build", "--ops", "A12", "--profiles", "app",
+               "--reference", str(receipt), "--json", str(tmp_path / "perf.json")])
+    assert {side: {text for _, text in got} for side, got in seen.items()} == {"head": {"pinned"}, "release": {"before"}}
+    assert all(len(got) == 1 and not path.exists() for got in seen.values() for path, _ in got)
+    assert state() == before and _git(clone, "status", "--porcelain") == "M manifest.json"
+    out = capsys.readouterr().out
+    assert f"perf: the head installs content {commits['pinned'][:12]} (pinned)" in out
+    assert f"perf: the release's tree installs content {commits['before'][:12]} (dated)" in out
+
+
 def test_a_changed_areas_perf_run_times_an_op_once_under_1_s_and_mains_run_of_every_op_three_times(tmp_path,
                                                                                                     monkeypatch):
     """P4 (D1215): a changed area's perf run (``--select``) takes one sample
