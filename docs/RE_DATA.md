@@ -2417,7 +2417,10 @@ positions.
   ones whose ancestors are the identity (training_room's fuels, say) the
   translate is the item's world position. 10 have a translate a link
   drives, which the game sets again as each node starts dirty: a move of
-  one is refused.
+  one is refused. 501 have a transform the level's save list holds, whose
+  whole attribute array a level `.sav` restores (SAVE_FORMAT § 4d's
+  records), so a save of that level made before the move puts it back
+  [inferred]; training_room's fuels are not among them.
 
 ## A creature fx graph's links and its blast dome (Step 2.145, 2026-10-21)
 
