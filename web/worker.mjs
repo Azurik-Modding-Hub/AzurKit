@@ -190,10 +190,14 @@ def placed(data):
 def blobbed(data):
     """One piece of a build as a Blob, made as soon as its bytes reach JS, so the worker holds one piece's bytes in JS
     at a time and the page none (mem-site L2): the browser keeps a Blob's bytes outside the page's heap. Where the
-    worker holds a build file (P7, built() in worker.mjs), the piece is written there and stands as its offset."""
+    worker holds a build file (P7, built() in worker.mjs), the piece is written there and stands as its offset; where
+    it holds none (a build with no character, a private window, WebKit on Windows), a bytes object's piece is the
+    Blob's one copy, made from where it lies in the heap (placed()), with no copy of it left in JS for a GC."""
+    at = placed(data)
     if hasattr(browser, "azurkitOut"):
-        at = placed(data)
         return {"opfs": browser.azurkitOut(handed(data)) if at is None else browser.azurkitOut(at, len(data))}
+    if at is not None and hasattr(browser, "azurkitBlob"):
+        return browser.azurkitBlob(at, len(data) if type(data) is bytes else data.nbytes)
     return Blob.new(to_js([handed(data)], create_pyproxies=False))
 
 
@@ -1355,6 +1359,7 @@ try {
   const loaded = await load();
   heap = () => loaded.py._module?.HEAPU8?.length;
   self.azurkitCopy = (at, size) => loaded.py._module.HEAPU8.slice(at, at + size);   // handed()'s one copy
+  self.azurkitBlob = (at, size) => new Blob([loaded.py._module.HEAPU8.subarray(at, at + size)]);   // blobbed()'s
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   // The Characters tab's asks that stand on no image overtake an image's check (a player's Install lists its variants
   // now): the check's waits are the File's and WebCrypto's, the engine idle. They keep their own order (behind: those

@@ -506,8 +506,7 @@ memory peaks stay strict. The gate writes both kinds of row to
    unkept.
 10. **A stale first dress caught in a gap** takes the kill, and the next
     seed's click reads the logic again (45 s).
-11. **Site builds without OPFS still copy twice.** Cut mode and S62's other
-    mode are unproven.
+11. ~~Site builds without OPFS still copy twice~~: fixed by 4.53b.
 12. **The arm64 WebKit engine trap:** `Error.stackTraceLimit = 0` in the
     engine worker's realm would turn the page crash into a RuntimeError that
     D1126's restart handles. A WebContent crash still takes the page with it

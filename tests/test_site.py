@@ -6207,6 +6207,46 @@ def _held_build_file(browser, site, usa_iso, profile: Path, recipe: dict, made: 
         served.close()
 
 
+BLOBBED = """const AzurkitBlob = Blob;
+globalThis.Blob = class extends AzurkitBlob {
+    constructor(parts, ...rest) {
+        super(parts, ...rest);
+        const [one] = parts ?? [];
+        if (parts?.length === 1 && ArrayBuffer.isView(one)) {
+            postMessage({ type: "wrote", size: one.byteLength, copy: one.byteLength === one.buffer.byteLength });
+        }
+    }
+};
+"""
+"""The worker's first lines in the next test: it posts each Blob made of one piece's bytes, and whether those were a
+copy of their own (HEARD holds them)."""
+
+
+def test_a_builds_pieces_without_a_build_file_reach_their_blobs_from_the_engines_heap_with_no_copy_in_js(
+        browser, site, usa_iso):
+    """A build with no build file (no character here; a private window's and WebKit's on Windows too) makes each
+    piece's Blob from where its bytes lie in the engine's heap, the Blob's one copy: none is copied into the worker's
+    JS first, a second copy left for a GC a worker building again at once doesn't get. The build is CPython's."""
+    served = Site(browser, site)
+    try:
+        served.context.add_init_script(HEARD)
+        worker = (site / "worker.mjs").read_text(encoding="utf-8")
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(body=BLOBBED + worker,
+                                                                          content_type="text/javascript"))
+        page = served.open()
+        _page.pick(page, "#iso", usa_iso)
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.answer(page, "() => document.querySelector('#build').click()")
+        built = _built(page)
+        made, report = sdk.image({"iso": str(usa_iso), "packs": page.evaluate("() => azurkit.sent")})
+        assert (built["report"], built["segments"]) == (report, _signature(made))
+        writes = _page.answer(page, "() => writes")
+        assert _page.answer(page, "() => azurkit.build.out") is None and {w["copy"] for w in writes} == {False}
+        assert {w["size"] for w in writes} == {s[1] for s in built["segments"] if s[0] == "bytes"}
+    finally:
+        served.close()
+
+
 KEPT_DRESSES = """(order) => new Promise((done) => {   // the hints azurkit-dress keeps, oldest first (its order record's), put first
     const opened = indexedDB.open("azurkit-dress", 1);
     opened.onupgradeneeded = () => opened.result.createObjectStore("dress");

@@ -1978,7 +1978,8 @@ are the Characters section's.
   player's file and the bytes the build writes (Blobs from the worker on, so
   the page holds none of them; a character's go into its build file straight
   from the engine's heap, `placed`, as a copy in the worker's JS stays until a
-  GC, which a worker building again at once doesn't get: 4.3r4s), and Save
+  GC, which a worker building again at once doesn't get: 4.3r4s, and with no
+  build file each Blob is made from the heap too, its one copy), and Save
   downloads it.
   - **A seed's build is sparse on both hosts:** its base holds each level as
     an `iso.View` of its TOC and node sections (`generator.sections`, but a
