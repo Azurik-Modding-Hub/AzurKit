@@ -263,7 +263,7 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
           beside: dict | None = None, bound: float | None = None, rare: bool = False) -> dict:
     """One op's verdict in one context from its samples (``{"s", "bar",
     "progress"[, "page"][, "froze"][, "error"]}``): ``pass``, ``listed`` (over its
-    budget, within its ceiling), ``bar`` (D982: over 3 s with a moving bar), ``over``
+    budget, within its ceiling), ``bar`` (D982: over its budget with a moving bar), ``over``
     (unlisted, over its budget), ``regressed`` (over its
     ceiling), ``no progress`` (past 1 s with none shown and not a debt) and
     ``error``; a heavy op's (D1244: a ``bound``, :func:`bound_of`) ``bar``,
@@ -567,13 +567,15 @@ def updated(lst: dict, results: dict, memory: dict, first: bool, new: frozenset[
     shows progress or stays under 1 s, a memory peak likewise (its ceiling
     the peak x 1.15); ``first`` (no list on main) records every over-budget
     op and debt, and so does a context in ``new`` (a browser new to main) for
-    its own. A failed or unmeasured op keeps its entry."""
+    its own; a ``bar`` op is no list's, nor one past its bound (``beyond``:
+    its tier's line is the target, never a ceiling a run sets, D1244). A
+    failed or unmeasured op keeps its entry."""
     out = {"ceilings": dict(lst["ceilings"]), "debts": list(lst["debts"]), "memory": dict(lst["memory"]),
            "untimed": dict(lst["untimed"])}
     for k, r in results.items():
         if "median" not in r or r["verdict"] == "error":
             continue
-        over, fresh = r["median"] > r["budget"] and r["verdict"] != "bar", first or context_of(k) in new
+        over, fresh = r["median"] > r["budget"] and r["verdict"] not in ("bar", "beyond"), first or context_of(k) in new
         if k in out["ceilings"]:
             if not over:
                 del out["ceilings"][k]

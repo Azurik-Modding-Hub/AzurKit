@@ -846,7 +846,8 @@ def test_the_perf_gate_keeps_misses_as_debt_and_fails_only_a_regression_against_
     assert perf.check_list(mine, None) == []   # the first record
     results = {"A15/app": perf.judge([s(4.0)] * 3, 3.0, 4.8, True), "S14/webkit": perf.judge([s(2.0)] * 3, 3.0, 21.0),
                "A06/app": perf.judge([s(7.0, progress=False)] * 3, 3.0),
-               "S03/lag": perf.judge(moving, 3.0, 29.3, False, True)}   # D982: a moving bar leaves the list
+               "S03/lag": perf.judge(moving, 3.0, 29.3, False, True),   # D982: a moving bar leaves the list
+               "S84/webkit": perf.judge(heavy(95.0), 10.0, bar=True, bound=90.0, rare=True)}   # beyond: no ceiling
     assert perf.updated(main, results, {}, first=False) == {
         "ceilings": {"A15/app": 4.6}, "debts": [], "memory": {}, "untimed": {}}
     assert perf.updated(perf.listed(None), results, {}, first=True)["ceilings"] == {"A15/app": 4.6, "A06/app": 8.1}
