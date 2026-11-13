@@ -2550,8 +2550,9 @@ are the Characters section's.
   run with no network as well (Modkit's §12.4 hygiene), and only the
   pytest log's tail and summary are printed. A setup download with no
   retry of its own (apt under Playwright's `install-deps`, the game data's
-  fetches and Azurik-Custom-Content's clone) runs as `retry "WHAT" COMMAND`
-  (the game data's name their `--tries=6`) from
+  fetches and Azurik-Custom-Content's fetch over HTTPS, a transfer under
+  1000 B/s for 60 s ending its try: Step 4.52a) runs as `retry "WHAT"
+  COMMAND` (the game data's name their `--tries=6`) from
   `scripts/ci_retry.sh` (in any workflow: `tests/test_contracts.py`): 6
   tries, 7.5 min of waits, and `web_tools.download` fetches Pyodide's core
   and wheels: 6 asks, 15 s to 2 min apart, no wait starting that would end
