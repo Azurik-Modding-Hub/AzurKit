@@ -10,6 +10,31 @@ Each change's entry is its own file in `devlog/`, never a line here:
 `devlog/<section>/<step>-<slug>.md`, its section `added`, `changed`, `removed` or `fixed`, its name in lower-case
 letters, digits, dots and hyphens, the file one Markdown bullet. A release joins them into a section below.
 
+## [1.1.1 (November 13, 2026)]
+
+### Added
+- devkit's `models clip-rest` re-rests a variant's clip files on the jiggle bones its own build places, their keyed
+  places moved with them and every other bone's tracks checked equal to the old clip's before it writes, so a
+  reshaped built-in's recipe needs no `places` (the booblord pass's E3).
+
+### Changed
+- Booblord is reworked in place (the booblord pass, D1224-D1242): a high black ponytail in one even colour with a
+  round knot, drawn red eyes, a narrower back tail and a shallower backpack, a grey satin sheen on her shorts, the
+  staff held out of her body in her attacks and a lighter mesh (about 30,400 vertices a flip, her own runs under
+  9.5 MB); her springs keep their places, so her clips stay as they were and her ponytail trails behind her in her
+  first attack's follow-through instead of standing up. Booblord High is her at twice the texels with a thicker sash,
+  and the two human variants wear an indigo top and sash. Her new download, booblord v10 in
+  Azurik-Custom-Content, needs AzurKit 1.1.1 or later: an earlier AzurKit refuses to install or update her (Step
+  4.48b).
+
+### Fixed
+- `models clip-rest` names the clip file a refusal of its re-rest comes from (idles.glb or moves.glb), and its test pins the bound its other bones are held to (Step 4.48b, on Step 4.48a's review).
+- The perf gate's load read answers 0 on Windows, which keeps no load average, instead of failing the perf stage (CI's pure Windows job, Step 4.50b).
+- The perf gate's cap test holds each OS to what its stop does: on Windows SIGTERM
+  ends the process at once, exit 15, with no handler (Step 4.50c).
+- The guide's Community variants line says its last sentences once: a rebase had kept the old ending beside the new
+  one (Step 4.50d).
+
 ## [1.1.0 (November 12, 2026)]
 
 ### Added
