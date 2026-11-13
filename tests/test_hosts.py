@@ -2337,8 +2337,7 @@ def test_where_the_tests_ask_each_of_the_apps_processes_dumps_its_stacks_and_a_f
         _stacks.arm()
         event = threading.Event()
         threading.Thread(target=held, args=(event,), name="azurkit-image").start()
-        time.sleep(1)
-        faulthandler.cancel_dump_traceback_later()   # the last dump while both wait
+        time.sleep(1); faulthandler.cancel_dump_traceback_later()   # one line: the last dump finds either at :10
         event.set()
         """)
     subprocess.run([sys.executable, "-c", code], env=os.environ | {_stacks.FOLDER: str(dumped)}, timeout=60,
