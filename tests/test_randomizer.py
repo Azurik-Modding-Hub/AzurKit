@@ -38,6 +38,7 @@ import sys
 import threading
 import time
 import tomllib
+import types
 from pathlib import Path
 
 import pytest
@@ -519,6 +520,48 @@ def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps
     assert first[0] not in ended and len(ended) == 1   # the stale ones' next note ended them; the fresh ones answered
     held = logic._opener_sets
     assert dict(held[0][2]) == off and held[3][0][1] == tuple(sorted(load_plan(fresh, logic.db).placement.items()))
+
+
+@pytest.mark.parametrize("second, stopped", [("the same", False), ("another", True)])
+def test_openers_asked_again_while_one_runs_record_every_set_either_compiled_so_another_settings_drops_them_all(
+        monkeypatch, second, stopped):
+    """Two openers calls at once on one Logic (the app's job ahead and the View's): the first compiles, the second
+    starts, the first ends (answered, or stopped: a stale plan's), then the second; every set either compiled is in the
+    record the last keeps, or dropped with the stale one's settings, so the next settings' openers leave only their
+    own (the stand-in work's, a set each call)."""
+    logic = types.SimpleNamespace(_compiled={}, _native={}, db=object())
+    first, other = (Settings(3, "hard", off, seed_difficulty=3) for off in ({}, {"a6.rjump_platforms": False}))
+    then = first if second == "the same" else other
+    began, asked, ended = threading.Event(), threading.Event(), threading.Event()
+
+    def worked_out(logic, settings, placement, rating) -> list[dict]:
+        who = placement["who"]
+        logic._compiled[who] = logic._native[who] = who
+        if who == "first":
+            began.set()
+            assert asked.wait(30)
+            if stopped:
+                raise RuntimeError("stopped")
+        elif who == "second":
+            asked.set()
+            assert ended.wait(30)
+        return [{"picks": [who], "one_of": False}]
+
+    def run_first() -> None:
+        try:
+            difficulty.openers(logic, first, {"who": "first"})
+        except RuntimeError:
+            pass
+        ended.set()
+
+    monkeypatch.setattr(difficulty, "_worked_out", worked_out)
+    thread = threading.Thread(target=run_first)
+    thread.start()
+    assert began.wait(30)
+    assert difficulty.openers(logic, then, {"who": "second"})[0]["picks"] == ["second"]
+    thread.join(30)
+    difficulty.openers(logic, other if then is first else first, {"who": "third"})
+    assert set(logic._compiled) == set(logic._native) == {"third"}
 
 
 def test_a_step_up_a_pick_or_the_movement_tier_opens_names_only_that_pick_and_the_tier():

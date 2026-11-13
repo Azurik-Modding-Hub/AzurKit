@@ -393,7 +393,8 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
     still open the round, so that the set only loses it with the tier lowered too. Each removal is a reach on the
     settings' switchable option set (``Logic.reach``'s ``off``), one compile a tier for every mix, kept for the next plan
     at these settings; another settings' or another database's openers drop them. The last plan's answer is kept with
-    them: the spoiler's View takes an app's job ahead's."""
+    them: the spoiler's View takes an app's job ahead's. Two calls may run at once (the app's job ahead and the View's,
+    :func:`_record`)."""
     mine = (settings.skip_ceiling, settings.movement_tier, tuple(sorted(settings.skip_override.items())))
     held = getattr(logic, "_opener_sets", None)
     if held is not None and (held[0] != mine or held[4] is not logic.db):
@@ -406,13 +407,36 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
     if held is not None and held[3][0] == asked_of:
         return held[3][1]
     before = set(logic._compiled), set(logic._native)
-    answer = held[3] if held else (None, None)
+    answer = None
     try:
         answer = asked_of, _worked_out(logic, settings, placement, rating)
         return answer[1]
     finally:
-        logic._opener_sets = (mine, (held[1] if held else set()) | (set(logic._compiled) - before[0]),
-                              (held[2] if held else set()) | (set(logic._native) - before[1]), answer, logic.db)
+        _record(logic, mine, held, before, answer)
+
+
+def _record(logic: Logic, mine: tuple, held: tuple | None, before: tuple[set, set], answer: tuple | None) -> None:
+    """Keep what an :func:`openers` call at ``mine`` compiled (the memos' keys past ``before``, its start's) with
+    ``held``'s for the drop, and its ``answer`` (``None``: it raised, a stopped job's). A call that ran beside it may
+    have kept its own meanwhile: one at these settings is merged, so each set either compiled is in the record; one at
+    another settings is dropped by an answered call (the newest answer's settings stay) and keeps the record past an
+    unanswered one, whose sets drop. No set either compiled is left in neither record (another settings' then never
+    drops it)."""
+    compiled, native, kept = set(logic._compiled) - before[0], set(logic._native) - before[1], answer
+    if held is not None:
+        compiled, native, kept = compiled | held[1], native | held[2], kept or held[3]
+    now = getattr(logic, "_opener_sets", None)
+    if now is not None and now is not held:   # another call's, kept while this one ran
+        if now[0] == mine and now[4] is logic.db:
+            compiled, native, kept = compiled | now[1], native | now[2], answer or now[3]
+        else:
+            drop = (compiled - now[1], native - now[2]) if answer is None else (now[1] - compiled, now[2] - native)
+            for memo, keys in zip((logic._compiled, logic._native), drop, strict=True):
+                for key in keys:
+                    memo.pop(key, None)
+            if answer is None:
+                return
+    logic._opener_sets = (mine, compiled, native, kept or (None, None), logic.db)
 
 
 def _worked_out(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> list[dict]:
