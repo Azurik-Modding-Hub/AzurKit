@@ -7115,12 +7115,13 @@ def test_the_variants_sounds_and_effects_tabs_write_the_rows_and_wavs_the_build_
         _page.until(page, f"() => azurkit.variants.state.recipe.base === {json.dumps(species)}", 60)
         _variants_shown(page, name="(new, unsaved)")
 
-    def applied(page, recipe: dict) -> None:
-        _page.click(page, "var-tab-json")
+    def applied(page, recipe: dict) -> None:   # Apply answers once the engine reads it: until then the old recipe
+        _page.click(page, "var-tab-json")   # (and the note it already showed), so the wait is for this recipe
         page.evaluate("(text) => { document.getElementById('var-text').value = text; }", json.dumps(recipe))
         _page.click(page, "var-apply")
-        _page.until(page, "() => document.getElementById('var-json-note').textContent === 'Every field, as the recipe "
-                          "file holds it.'", 60)
+        assert _page.until(page, f"""() => {{ const note = document.getElementById('var-json-note');
+            return (note.classList.contains('warn') || JSON.stringify(azurkit.variants.state.recipe) === JSON.stringify(
+              {json.dumps(recipe)})) && note.textContent; }}""", 60) == "Every field, as the recipe file holds it."
 
     def fx_rows(page) -> list:
         _variants_shown(page)
