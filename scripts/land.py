@@ -27,10 +27,11 @@ debt, a memory peak or an untimed op, or raises a ceiling, against main's
 a browser the stack's perf.py times and main's doesn't may add its own once,
 its first record: ``perf.new_browsers``, D994); and one that moves an op
 main holds frequent to the rare tier, adds a heavy op there, drops a heavy
-op's bound, raises a line or loses the tiers (``perf.check_tiers``, D1244),
-but against a main with no tiers. It refuses a head whose
-``docs/DEVLOG.md`` holds a bullet twice (``scripts/devlog.py``: the stale copy
-a union merge keeps of a bullet its lane edited, Step 4.4dx1).
+op's bound, makes heavy an op main holds plain, raises a line or loses the
+tiers (``perf.check_tiers``, D1244), but against a main with no tiers. It
+refuses a head whose ``docs/DEVLOG.md`` holds a bullet twice
+(``scripts/devlog.py``: the stale copy a union merge keeps of a bullet its
+lane edited, Step 4.4dx1).
 Landing never waits for a release (D1170): a release is a tag on a commit
 that is on main (``release.yml`` checks that), cut whenever its tests pass,
 and the perf list holds no release back (an op over its budget is a debt row).

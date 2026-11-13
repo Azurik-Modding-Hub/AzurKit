@@ -2179,9 +2179,10 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
     times it. The tiers (D1244, ``perf.check_tiers``) likewise: a registry
     that first holds them lands against a main whose has none (the owner's
     tiering), and once main holds them a stack that moves an op to the rare
-    tier, drops a heavy op's bound, raises a line (the capped profile's too,
-    which a lowered BUDGET raises), loses the tiers or adds a heavy op at
-    the rare tier is refused by name; a new plain op may start rare."""
+    tier, drops a heavy op's bound, makes heavy an op main holds plain,
+    raises a line (the capped profile's too, which a lowered BUDGET raises),
+    loses the tiers or adds a heavy op at the rare tier is refused by name;
+    a new plain op may start rare, and a new heavy one frequent."""
     repo, _, receipts, _ = _repo(tmp_path, monkeypatch)
 
     def commit(browsers, lst, what, registry=None, lines=""):
@@ -2242,13 +2243,15 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
              "RARE capped: raised against main's, 36.0 -> 43.2"),                    # RARE x CAPPED / BUDGET
             ("p2/t6", registry("S07", field=False), lined(12.0), "the registry's tiers: gone against main's"),
             ("p2/t7", registry("S07", "S09", heavy=("S07", "S09"), ops=("S05", "S07", "S09")), lined(12.0),
-             "S09: a new heavy op at the rare tier")):
+             "S09: a new heavy op at the rare tier"),
+            ("p2/t9", registry("S07", heavy=("S07", "S05")), lined(12.0), "S05: made heavy against main's")):
         _git(repo, "switch", "-q", "-c", branch, "main")
         commit(three, recorded, branch, given, lines)
         code, why = land.land(repo, branch, dry_run=True)
         assert code == 1 and refused in why, why
-    _git(repo, "switch", "-q", "-c", "p2/t8", "main")   # a new op may start rare, but for a heavy one
-    commit(three, recorded, "p2/t8", registry("S07", "S09", ops=("S05", "S07", "S09")), lined(12.0))
+    _git(repo, "switch", "-q", "-c", "p2/t8", "main")   # a new op may start rare, but for a heavy one, or heavy
+    commit(three, recorded, "p2/t8", registry("S07", "S09", heavy=("S07", "S11"), ops=("S05", "S07", "S09", "S11")),
+           lined(12.0))                                 # at the frequent tier, unlike one main holds plain (t9)
     assert land.land(repo, "p2/t8", dry_run=True)[0] == 0
 
 
