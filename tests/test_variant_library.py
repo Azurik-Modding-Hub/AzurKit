@@ -174,7 +174,10 @@ def test_new_from_this_on_each_built_in_dresses_the_built_ins_body_its_springs_w
     bust_bounce 4.2e-03 off the file's pose) and its dress takes the
     built-in's three body parts and shipped places under one key; every
     other built-in's copy holds none (its own mesh places them, or it is
-    a copy ``from`` them). A ``places`` with no jiggle is refused by name."""
+    a copy ``from`` them). Since the booblord pass (Step 4.48b) booblord's own
+    recipe holds ``places`` (her v8 mesh and jiggle, where her clips rest),
+    so each booblord's copy laid whole keeps hers and is placed as its built-in is. A
+    ``places`` with no jiggle is refused by name."""
     from azurkit.tools.characters import shipped
     from azurkit.tools.characters._player_character import _body_keys
 
@@ -185,10 +188,10 @@ def test_new_from_this_on_each_built_in_dresses_the_built_ins_body_its_springs_w
             (variants.sound_folder(built) / f).touch()   # her files as installed (only their names are read)
         recipe = json.loads(library.copy_as(f"{name}_own", opened).read_text(encoding="utf-8"))[f"{name}_own"]
         copy, home = variants.resolve(f"{name}_own"), json.loads(variants.BUILTIN.read_text(encoding="utf-8"))
-        assert recipe.get("places") == ({"of": "booblord", "mesh": home["booblord"]["mesh"],
-                                          "jiggle": home["booblord"]["jiggle"]} if name == "booblord_high" else None)
+        laid = name in ("booblord", "booblord_high", "booblord_human")   # booblord_high_human's copy stays from them
+        assert recipe.get("places") == (home["booblord"]["places"] if laid else None), name
         mine, its = variants.placing(copy), variants.placing(built)
-        assert (mine is None) == (its is None) == (name not in ("booblord_high", "booblord_high_human")), name
+        assert (mine is None) == (its is None) == (not name.startswith("booblord")), name
         if built.mesh is not None:
             assert _body_keys(b"", b"", built.base, copy, lib / f"{name}_own", mine) == \
                 _body_keys(b"", b"", built.base, built, None, its), name
@@ -315,7 +318,8 @@ def test_an_installed_community_only_character_is_worn_by_name_as_its_entry_afte
     assert variants.resolve("my_lord").sha == worn.sha and variants.resolve("my_lord").source.startswith(
         str(library.root()))
     boob = json.loads(variants.BUILTIN.read_text(encoding="utf-8"))
-    pair = {"pair": {k: v for k, v in boob["booblord"].items() if k not in ("wavs", "shouts")},   # no WAV in an entry
+    # no WAV in an entry, and not her places: the entry's own pair places pair_high's springs
+    pair = {"pair": {k: v for k, v in boob["booblord"].items() if k not in ("wavs", "shouts", "places")},
             "pair_high": {**boob["booblord_high"], "from": "pair"}}
     installs("pair", {"variants/pair/variant.json": json.dumps(pair).encode(),
                       **{f"variants/pair/{f}": b"x" for f in library.named_files(pair)}})

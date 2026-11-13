@@ -1566,12 +1566,12 @@ BOOBLORD_V3 = {
 def _booblord_v3():
     """Booblord's v3 as the built-in ``booblord`` (Modkit's ``tests/_variant_fixtures.py``: her shipped recipe's
     dress takes minutes, v3's seconds): her recipe with v3's mesh, arms and jiggle, and no poses, textures, idles,
-    slots, victory_cancel, lods or weapon (her spins her default, as v3's were), her moves.glb and idles.glb clips
-    and the columns playing them left out; its recipe ``12ee3e6638f4``, as Modkit's."""
+    slots, victory_cancel, lods, places or weapon (her spins her default, as v3's were), her moves.glb and
+    idles.glb clips and the columns playing them left out; its recipe ``12ee3e6638f4``, as Modkit's."""
     from azurkit.tools.characters._player_variants import BUILTIN, _variant
 
     recipe = json.loads(BUILTIN.read_text(encoding="utf-8"))["booblord"]
-    for key in ("poses", "textures", "slots", "victory_cancel", "lods", "weapon", "idles"):
+    for key in ("poses", "textures", "slots", "victory_cancel", "lods", "places", "weapon", "idles"):
         recipe.pop(key, None)
     moves = {k for k, clip in recipe["clips"].items() if clip.get("file") in ("moves.glb", "idles.glb")}
     recipe["clips"] = {k: clip for k, clip in recipe["clips"].items() if k not in moves}

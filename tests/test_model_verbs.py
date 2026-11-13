@@ -215,13 +215,13 @@ def _v3(sash: bool = False) -> dict:
     """booblord v3, the recipe Modkit's model tests build on (her v4's 54
     mesh ops dress for minutes): her shipped recipe with the probe's mesh
     (less its finer bust and its tail), arms and jiggle, and none of her
-    poses, textures, slots, victory_cancel, lods, weapon, idles or moves
+    poses, textures, slots, victory_cancel, lods, places, weapon, idles or moves
     (their clips key v4's bones), nor her sounds' files (installed content's
     here); with ``sash`` her shipped ``jiggle.springs`` (her hair's and her
     sash's chains) but her ponytail's, which v3 lacks."""
     probe, recipe = _probe(), json.loads(BUILTIN.read_text(encoding="utf-8"))["booblord"]
     springs = recipe["jiggle"]["springs"]
-    for key in ("poses", "textures", "slots", "victory_cancel", "lods", "weapon", "idles", *UNGRADED):
+    for key in ("poses", "textures", "slots", "victory_cancel", "lods", "places", "weapon", "idles", *UNGRADED):
         recipe.pop(key, None)
     moves = {k for k, clip in recipe["clips"].items() if clip.get("file") in ("moves.glb", "idles.glb")}
     recipe["clips"] = {k: clip for k, clip in recipe["clips"].items() if k not in moves}

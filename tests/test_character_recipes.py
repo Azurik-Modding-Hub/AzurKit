@@ -1586,13 +1586,14 @@ V3_SHA = "12ee3e6638f4"
 
 def booblord_v3_recipe(sash: bool = False) -> dict:
     """Her shipped recipe with v3's shape, arms and jiggle (a build of a minute, her shipped one's many), and no
-    poses, textures, moves, idles, victory_cancel, lods or weapon; with ``sash`` her shipped ``jiggle.springs`` (her
-    hair chain and her sash's two chains; not her ponytail's: v3 has no ponytail bones) in place of v3's."""
+    poses, textures, moves, idles, victory_cancel, lods, places or weapon; with ``sash`` her shipped
+    ``jiggle.springs`` (her hair chain and her sash's two chains; not her ponytail's: v3 has no ponytail bones) in
+    place of v3's."""
     from azurkit.tools.characters._player_variants import BUILTIN
 
     recipe = json.loads(BUILTIN.read_text(encoding="utf-8"))["booblord"]
     springs = recipe["jiggle"]["springs"]
-    for key in ("poses", "textures", "slots", "victory_cancel", "lods", "weapon", "idles"):
+    for key in ("poses", "textures", "slots", "victory_cancel", "lods", "places", "weapon", "idles"):
         recipe.pop(key, None)
     moves = {k for k, clip in recipe["clips"].items() if clip.get("file") in ("moves.glb", "idles.glb")}
     recipe["clips"] = {k: clip for k, clip in recipe["clips"].items() if k not in moves}
