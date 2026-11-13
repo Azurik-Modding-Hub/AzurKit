@@ -21,10 +21,7 @@ edited by hand) builds, as names and sha256 only.
   ticks, translated by :func:`recipe`, a case that dresses the player with
   its ``character``, :func:`wears`): each file it changes (Europe's but the
   XBRs both releases hold, :func:`shared`, which its USA case records), and
-  for G3 the image without the build's root entries (``ISO``). A case that
-  moves a level entity leaves out ``gamedata/training_room.xbr``,
-  ``filelist.txt`` and ``ISO`` (:data:`LEVEL_PATCHED`: AZ-009, level_patches
-  isn't ported).
+  for G3 the image without the build's root entries (``ISO``).
 - ``resources.json``: for each G3 case that dresses the player, each XBR
   its build changed, resource by resource (:func:`view`).
 - ``close.json``: what lets another host's float maths (D1016: another BLAS
@@ -122,7 +119,6 @@ NAMES = {CONFIG: "config.xbr"}   # a file's name in G1 and the editor's golden (
 FLOATS = ("gamedata/characters.xbr", "gamedata/fx.xbr")   # what a dress writes float maths into (D1016): close.json's
 KEY, MOST_SUMS = 16, 64   # close.json: a sha256's digits a row is found by; its sums a resource, at most
 ULPS, NEAR_ZERO = 4, 1e-9   # how far a float may be off, at most: "a few ULPs", and in metres or radians near zero
-LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt", "ISO")
 ART = "web/art"   # the tracker's shipped pictures, from the checkout's root
 PICTURES = "web/characters"   # the Characters tab's
 SPECIES = "src/azurkit/tools/characters/species.json"   # picker.SPECIES
@@ -171,9 +167,9 @@ def _defaults() -> dict[str, dict]:
 
 
 def _ops(mod: Mapping, path) -> list[dict]:
-    """A Modkit mod's config.xbr cells and xbr_edits as ``xbr`` operations, in
-    its order (one shape at a time); a replace's ``expected`` is the sha256
-    of the bytes the image holds there."""
+    """A Modkit mod's config.xbr cells, xbr_edits and level_patches moves as
+    ``xbr`` operations, in its order (one shape at a time); a replace's
+    ``expected`` is the sha256 of the bytes the image holds there."""
     cell = lambda table, entity, prop, value: {"op": "set", "file": CONFIG, "table": table,  # noqa: E731
                                                "entity": entity, "prop": prop, "value": value}
     ops = [cell(e["section"], e["entity"], e["property"], e["value"]) for e in mod.get("patches", [])]
@@ -190,6 +186,10 @@ def _ops(mod: Mapping, path) -> list[dict]:
             if not (e["op"].startswith("set_keyed_") and file == CONFIG):
                 raise ValueError(f"an xbr_edit AzurKit doesn't translate: {e['op']} in {file}")
             ops.append(cell(e["section"], e["entity"], e["prop"], e["value"]))
+    for e in mod.get("level_patches", []):
+        if e["action"] != "move":
+            raise ValueError(f"a level patch AzurKit doesn't translate: {e['action']}")
+        ops.append({"op": "move", "file": f"gamedata/{mod['level']}.xbr"} | {k: e[k] for k in ("entity", *"xyz")})
     return ops
 
 
@@ -278,13 +278,6 @@ def recipe(golden: str, case: Mapping, path, folder: Path | None = None) -> dict
             {"settings": layer.settings_doc(kept_logic().db.defaults) | options} if options else {}) | (
             {"obsidian_cost": args["obsidian_cost"]} if args["obsidian_cost"] is not None else {})
     return out
-
-
-def level_patched(case: Mapping) -> bool:
-    """Whether a G3 case's mods move a level entity (AZ-009)."""
-    args = case["args"]
-    mods_ = args.get("mod") or [args.get("config_mod") or {}]
-    return any(mod.get("level_patches") for mod in mods_)
 
 
 class Images:
@@ -522,10 +515,9 @@ def _job(job: tuple) -> tuple:
     spec = cases(golden)[case]
     with tempfile.TemporaryDirectory(prefix="azurkit-record-") as folder:
         made, report = sdk.image(recipe(golden, spec, path, Path(folder)) | {"iso": path})
-    left = LEVEL_PATCHED if golden in G3 and level_patched(spec) else ()
     out = {f: sha for f, sha in report["result"].items()
-           if f not in left and not (golden != "pipelines.json" and golden in G3 and shared(f))}
-    if golden in G3 and not left:
+           if not (golden != "pipelines.json" and golden in G3 and shared(f))}
+    if golden in G3:
         with iso.Reader(made) as r:
             files = {f: r.read(f) for f in report["result"] if f != "filelist.txt"}
         out["ISO"] = iso.read(path, files).sha256()

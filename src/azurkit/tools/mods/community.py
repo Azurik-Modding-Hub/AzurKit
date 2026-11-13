@@ -178,9 +178,12 @@ def resolve(pins: object, record: Mapping, read: Callable[[str], bytes]) -> list
 
 def said(op: Mapping) -> str:
     """A normalized operation in words: a cell by its names and value, a
-    ``replace_bytes`` by its file, size and offset, never its bytes."""
+    ``move`` by its entity and place, a ``replace_bytes`` by its file, size
+    and offset, never its bytes."""
     if op["op"] == "set":
         return f"{op['file']}: {op['table']} / {op['entity']} / {op['prop']} = {op['value']}"
+    if op["op"] == "move":
+        return f"{op['file']}: {op['entity']} moved to {op['x']:g}, {op['y']:g}, {op['z']:g}"
     return f"{op['file']}: {len(op['value']) // 2} bytes at {op['offset']:#x}"
 
 

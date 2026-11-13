@@ -18,6 +18,18 @@ the image's XBR files, planned against the vanilla files into one layer
   bytes ``value`` (hex) at ``offset`` of an XBR file, where the vanilla
   file holds ``expected``: their hex, up to 32 B, or ``{"sha256", "size"}``
   (Q225); a file that holds other bytes there is refused.
+- ``{"op": "move", "file", "entity", "x", "y", "z"}``: a level entity, a
+  ``critterGenerator`` (an item, a gem, a critter) of a level file's node
+  sections, by its id ``g<G>/r<R>`` (the node section's index among the
+  file's, then the record's) or by its critter name where exactly one
+  generator of the vanilla level holds it (one several hold is refused,
+  naming their ids), put at ``x, y, z``: its parent transform's
+  ``translateX..Z``, where the game places its spawns (0x6F960: the
+  parent's matrix times each gen point), each any finite number (D23),
+  past float32's range written as the infinity it saturates to and noted
+  (Q110). A generator whose transform a link places is refused (the link
+  would put it back). The name is the vanilla level's, whatever another
+  layer repoints (the randomizer's writer, which never moves a record).
 
 The operations apply in list order: one that gives a byte an earlier one
 wrote another value wins, and the earlier one is dropped whole and reported
@@ -40,14 +52,16 @@ from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 
 from azurkit.core.gate import Release
-from azurkit.core.xbr import Document, edits
+from azurkit.core.xbr import Document, edits, nodes
 from azurkit.core.xbr.keyed import NUMBER, SIZE, STRING, Table
 from azurkit.edits.layer import Change, Layer, compose
 
 TOOL, KIND, LAYER = "data", "xbr", "data xbr"
 KEYS = {"set": ("op", "file", "table", "entity", "prop", "value"),
-        "replace_bytes": ("op", "file", "offset", "expected", "value")}
-OPTIONAL = {"set": ("col", "fill"), "replace_bytes": ()}
+        "replace_bytes": ("op", "file", "offset", "expected", "value"),
+        "move": ("op", "file", "entity", "x", "y", "z")}
+OPTIONAL = {"set": ("col", "fill"), "replace_bytes": (), "move": ()}
+OPS = " | ".join(KEYS)
 INLINE = 32                                  # the most bytes ``expected`` gives as hex (Q225)
 HEX = re.compile(r"(?:[0-9a-fA-F]{2})+")
 SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -71,6 +85,12 @@ CONFIG = "gamedata/config.xbr"   # the file whose cells INT32 names
 BY_COLUMN = "settings_foo"   # the one table whose cells are named by their column (a setting each), not their row
 WHOLE = {"round": (round, "rounded"), "trunc": (math.trunc, "truncated")}
 RANGE = (-2**31, 2**31 - 1)
+GENERATOR = "critterGenerator"
+ID = re.compile(r"g(\d+)/r(\d+)")   # a level entity's id: its node section's index among the file's, its record's
+NAME_MAX = 255   # the longest entity a move names
+ATTRS, LINKS, PARENT, CRITTER = 0x08, 0x10, 0x18, 0x1C   # a record's attribute block, links, parent and critter name
+LINK, PLUG, TARGET = 24, 0x10, 0x14   # a link's size, its target plug (u16) and target record
+TRANSLATE = ("translateX", "translateY", "translateZ")
 
 
 class Unread(ValueError):
@@ -86,12 +106,12 @@ def normalize(ops: object) -> list[dict]:
     """``ops`` checked: a list of operations, each with exactly its keys;
     ``ValueError`` names every one that isn't, in one message (D35)."""
     if not isinstance(ops, list):
-        raise ValueError("recipe: xbr is a list of operations ({op: set | replace_bytes, ...})")
+        raise ValueError(f"recipe: xbr is a list of operations ({{op: {OPS}, ...}})")
     failed = []
     for k, op in enumerate(ops, 1):
         where = f"xbr op {k}"
         if not isinstance(op, Mapping) or not isinstance(op.get("op"), str) or op["op"] not in KEYS:
-            failed.append(f"{where}: not an operation (op: set | replace_bytes)")
+            failed.append(f"{where}: not an operation (op: {OPS})")
             continue
         where, keys, optional = f"{where} ({op['op']})", KEYS[op["op"]], OPTIONAL[op["op"]]
         if lost := [key for key in keys if key not in op]:
@@ -102,6 +122,18 @@ def normalize(ops: object) -> list[dict]:
             continue
         if not (isinstance(op["file"], str) and op["file"].startswith("gamedata/") and op["file"].endswith(".xbr")):
             failed.append(f"{where}: file {op['file']!r} is no gamedata/<name>.xbr")
+        if op["op"] == "move":
+            entity = op["entity"]
+            if not (isinstance(entity, str) and 0 < len(entity) <= NAME_MAX and entity.isascii()
+                    and entity.isprintable()):
+                failed.append(f"{where}: entity is no critterGenerator's name or id (g<G>/r<R>; printable ASCII, up "
+                              f"to {NAME_MAX} characters)")
+            for key in "xyz":
+                try:
+                    edits.finite(op[key], f"{where}: {key}")
+                except ValueError as exc:
+                    failed.append(str(exc))
+            continue
         if op["op"] == "set":
             if not all(isinstance(op[key], str) for key in ("table", "entity", "prop")):
                 failed.append(f"{where}: table, entity and prop are names")
@@ -196,13 +228,85 @@ def writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents: 
     return _writes(op, release, base, documents)[:2]
 
 
+def _f32(value: float) -> tuple[bytes, str | None]:
+    """``value`` as a little-endian float32 (past its range, the infinity a C
+    ``(float)`` cast gives) and Q110's note when it saturated."""
+    try:
+        return struct.pack("<f", value), None
+    except OverflowError:
+        made = struct.pack("<f", math.copysign(math.inf, value))
+        return made, f"{value:g} is past float32's range: written as {struct.unpack('<f', made)[0]:g} (Q110)"
+
+
+def _generator(entity: str, sections: Sequence[tuple[int, memoryview, list]], file: str) -> tuple[int, int]:
+    """The node section (its index among ``sections``) and record of the
+    critterGenerator ``entity`` (an id, or the critter name one generator holds)."""
+    if found := ID.fullmatch(entity):
+        g, r = int(found[1]), int(found[2])
+        if g >= len(sections) or r >= len(sections[g][2]) or sections[g][2][r] is None:
+            raise LookupError(f"{file} has no record {entity}")
+        _, s, recs = sections[g]
+        if (kind := nodes.lstr(s, recs[r])) != GENERATOR:
+            raise LookupError(f"{file} {entity} is a {kind or 'record of no type'}, not a {GENERATOR}")
+        return g, r
+    hits = [(g, r) for g, (_, s, recs) in enumerate(sections) for r, ro in enumerate(recs)
+            if ro is not None and nodes.lstr(s, ro) == GENERATOR and nodes.lstr(s, ro + CRITTER) == entity]
+    if not hits:
+        raise LookupError(f"{file} has no {GENERATOR} {entity!r}")
+    if len(hits) > 1:
+        ids = ", ".join(f"g{g}/r{r}" for g, r in hits[:20]) + (f" and {len(hits) - 20} more" if len(hits) > 20 else "")
+        raise LookupError(f"{file}: {len(hits)} {GENERATOR}s are {entity!r} ({ids}): name one by its id")
+    return hits[0]
+
+
+def _move(op: Mapping, data: bytes) -> tuple[str, list[tuple[int, bytes]], list[str]]:
+    """A ``move``'s description, its write (its generator's parent
+    transform's translateX..Z) and notes, planned on the vanilla level ``data``."""
+    from azurkit.core.xbr.graph import node_types
+
+    file = op["file"]
+    view = memoryview(data)
+    sections = [(e.file_offset, view[e.file_offset:e.file_offset + e.size]) for e in nodes.parse_toc(data)
+                if e.tag == "node"]
+    if not sections:
+        raise LookupError(f"{file} has no node section, so no level entity to move")
+    sections = [(at, s, nodes.record_offsets(s)) for at, s in sections]
+    g, r = _generator(op["entity"], sections, file)
+    start, s, recs = sections[g]
+    gid, ro = f"g{g}/r{r}", recs[r]
+    (p,) = struct.unpack_from("<i", s, ro + PARENT)
+    kind = nodes.lstr(s, recs[p]) if 0 <= p < len(recs) and recs[p] is not None else None
+    attrs = node_types()["types"].get(kind, {}).get("attrs", [])
+    if not set(TRANSLATE) <= set(attrs):
+        raise LookupError(f"{file} {gid}'s parent is no transform, so it has no place to move")
+    at, n = nodes.list_at(s, recs[p] + ATTRS)
+    plugs = [attrs.index(name) for name in TRANSLATE]
+    if n != len(attrs) or plugs != list(range(plugs[0], plugs[0] + 3)):   # never in vanilla: each type's own count
+        raise LookupError(f"{file} {gid}'s transform holds {n} attributes, not a {kind}'s {len(attrs)} in its order")
+    for k, other in enumerate(recs):   # a link into its translate: the game would set it again (each node starts dirty)
+        links, count = nodes.list_at(s, other + LINKS) if other is not None else (0, 0)
+        for link in range(links, links + LINK * count, LINK):
+            if (struct.unpack_from("<I", s, link + TARGET)[0] == p
+                    and struct.unpack_from("<H", s, link + PLUG)[0] in plugs):
+                raise LookupError(f"{file} {gid}'s transform is placed by a link from g{g}/r{k}, which would put it "
+                                  "back")
+    made = [_f32(op[key]) for key in "xyz"]
+    notes = [f"{key}: {note}" for key, (_, note) in zip("xyz", made) if note]
+    name = nodes.lstr(s, ro + CRITTER) or "no critter name"
+    return f"move {file} {gid} ({name})", [(start + at + 4 * plugs[0], b"".join(b for b, _ in made))], notes
+
+
 def _writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents: dict | None = None
-            ) -> tuple[str, list[tuple[int, bytes]], tuple[str, int, int] | None]:
-    """:func:`writes`, and a ``set``'s cell (its table, column and row)."""
+            ) -> tuple[str, list[tuple[int, bytes]], tuple[str, int, int] | None, list[str]]:
+    """:func:`writes`, a ``set``'s cell (its table, column and row) and a
+    ``move``'s notes (a value past float32's range, Q110)."""
     file = op["file"]
     if file not in release.files:
         raise LookupError(f"the {release.label} image has no {file}")
     data = base[file]
+    if op["op"] == "move":
+        what, made, notes = _move(op, data)
+        return what, made, None, notes
     if op["op"] == "set":
         documents = {} if documents is None else documents
         if file not in documents:
@@ -210,7 +314,7 @@ def _writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents:
         tables = documents[file].tables
         if op["table"] not in tables:
             raise LookupError(f"{file} has no keyed table {op['table']!r}")
-        return _set(tables[op["table"]], data, op)
+        return *_set(tables[op["table"]], data, op), []
     at, after = op["offset"], bytes.fromhex(op["value"])
     if at + len(after) > len(data):
         raise ValueError(f"0x{at:X}+{len(after)} is past {file}'s {len(data):,} B")
@@ -218,7 +322,7 @@ def _writes(op: Mapping, release: Release, base: Mapping[str, bytes], documents:
     if (held.hex() != expected.lower() if isinstance(expected, str)
             else hashlib.sha256(held).hexdigest() != expected["sha256"]):
         raise ValueError(f"{file} holds {_digest(held)} at 0x{at:X}, not the bytes it expects")
-    return f"replace_bytes {file} 0x{at:X}", [(at, after)], None
+    return f"replace_bytes {file} 0x{at:X}", [(at, after)], None, []
 
 
 def _reads(cell, value: object) -> bool:
@@ -264,11 +368,11 @@ def plan(ops: Sequence[Mapping], release: Release, base: Mapping[str, bytes]) ->
     """The layer ``ops`` (:func:`normalize` d) make of ``release``'s vanilla
     files (``base``: each of :func:`files`); ``ValueError`` names every
     operation that can't apply, and why (D35)."""
-    changes, failed, documents, owners, cells = [], [], {}, [], {}
+    changes, failed, documents, owners, cells, notes = [], [], {}, [], {}, []
     for k, op in enumerate(ops, 1):
         where, file = f"xbr op {k} ({op['op']})", op["file"]
         try:
-            what, made, cell = _writes(op, release, base, documents)
+            what, made, cell, said = _writes(op, release, base, documents)
         except (LookupError, ValueError) as exc:
             failed.append(f"{where}: {str(exc).removeprefix(f'{where}: ')}")
             continue
@@ -276,10 +380,20 @@ def plan(ops: Sequence[Mapping], release: Release, base: Mapping[str, bytes]) ->
         changes += [Change(file, at, hashlib.sha256(data[at:at + len(after)]).hexdigest(), after, f"#{k} {what}")
                     for at, after in made]
         owners += [k] * len(made)
+        notes += [f"{where}: {line}" for line in said]
         if cell is not None:
             cells[(file, *cell)] = (k, op, what)   # the last set of a cell is the one held to it
     if failed:
         raise ValueError("; ".join(failed))
     if unread := _unread(changes, owners, cells, base, documents):
         raise Unread("; ".join(unread))
-    return Layer(LAYER, TOOL, KIND, {"ops": [dict(op) for op in ops]}, tuple(changes))
+    return Layer(LAYER, TOOL, KIND, {"ops": [dict(op) for op in ops]}, tuple(changes), notes=tuple(notes))
+
+
+def moved(ops: Sequence[Mapping]) -> list[str]:
+    """Why a seed's logic is unverified once ``ops`` (:func:`normalize` d)
+    move a level's entities: it reads every spot where vanilla has it."""
+    names = dict.fromkeys(f"{op['file'].removeprefix('gamedata/').removesuffix('.xbr')} {op['entity']}"
+                          for op in ops if op["op"] == "move")
+    return [f"you moved a level's entities ({', '.join(names)}), and a seed's logic reads every spot where vanilla "
+            "has it"] if names else []

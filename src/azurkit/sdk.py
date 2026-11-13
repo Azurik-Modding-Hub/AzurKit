@@ -42,7 +42,8 @@ record: ``{"stage", "label", "done", "total", "percent"}``).
 A recipe names its image, every pack it applies, each with its sliders'
 values (a slider it doesn't name keeps its default), and the mods file's
 ``xbr`` operations (``edits.xbr``: a config.xbr cell ``set`` by its names,
-or ``replace_bytes`` in an XBR file, applied in order after the packs)::
+``replace_bytes`` in an XBR file, or a level entity's ``move``, applied in
+order after the packs)::
 
     {"iso": "<a vanilla image>", "packs": {"fps_unlock": {"target_fps": 120}, "qol_alloc_race": {}},
      "xbr": [{"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
@@ -441,6 +442,7 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, byte
     if prepared is not None:
         layers.append(generator.plan_layer(prepared, base))   # a WriteError or LayerError: nothing planned on
         reasons = generator.movement_reasons(packs, catalog()["packs"])   # the worn body's join them below
+        reasons += xbr.moved([*ops, *(op for pick in picks for op in pick["xbr"])])   # a level's entities moved
 
         def judge(made: iso.Image, manifest: edits.Manifest) -> dict:
             steps("judge")
@@ -1866,8 +1868,8 @@ def _read(given: str | bytes | Mapping) -> dict:
 def read_mods(given: str | bytes | Mapping) -> dict:
     """A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
     text or the object, a share link, or one of Modkit's mod files: its
-    ``patches``, ``sections``, ``_keyed_patches`` and ``xbr_edits`` as
-    ``xbr`` operations) as a recipe's ``{"packs", "xbr"}``,
+    ``patches``, ``sections``, ``_keyed_patches``, ``xbr_edits`` and
+    ``level_patches`` moves as ``xbr`` operations) as a recipe's ``{"packs", "xbr"}``,
     normalized, and ``randomizer`` (the seed and share string a randomized
     build's plan replays from, or the plan file it built); ``packs`` only when it has a packs layer (a
     build's packs are then its packs, with those they require, and no
@@ -1933,9 +1935,8 @@ def _character(given: object) -> tuple[dict, dict]:
 def _shared(ops: list[dict]) -> list[dict]:
     """``ops``, refused by name unless each is a ``set`` (Q174: a link
     carries names and numbers, never a file's bytes)."""
-    if raw := [str(k) for k, op in enumerate(ops, 1) if op["op"] != "set"]:
-        raise ValueError(f"preset: a share link carries packs and set only (Q174), not xbr op {', '.join(raw)} "
-                         "(replace_bytes)")
+    if raw := [f"{k} ({op['op']})" for k, op in enumerate(ops, 1) if op["op"] != "set"]:
+        raise ValueError(f"preset: a share link carries packs and set only (Q174), not xbr op {', '.join(raw)}")
     return ops
 
 

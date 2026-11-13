@@ -782,7 +782,10 @@ them for the randomizer's `rando db-extract` and the player-model swap
   The other 5 are logic data: training_room's four `large_*_fuel` land
   on a `combiner`'s attributes 9–11, and d1's `key_diamondbattery` on a
   `randomNumber`'s link 0 target and the 8 bytes after its one link (a
-  `soundEffect`'s attributes 0–1).  The 166 names that are not critter
+  `soundEffect`'s attributes 0–1); AzurKit's `move` (Step 4.41b) finds
+  the generator by its records instead and writes its parent transform's
+  translate ([`RE_DATA.md`](RE_DATA.md) § "Where a placed item stands").
+  The 166 names that are not critter
   names land on other records' attributes or links, between blocks, or
   (19) outside the `node` sections.  Only 132 of the 331 have every
   ancestor exactly the identity, and the transform's own pivots and the

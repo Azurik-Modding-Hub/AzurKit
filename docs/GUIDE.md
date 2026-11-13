@@ -268,10 +268,12 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Share links:** Copy link makes a short link with your packs, settings, seed and character, never your image or
   a path.
 - **Starts fresh each visit:** tick Remember settings to keep your setup for next time, never your image.
-- **Game data edits:** a mods file can set any value in `config.xbr` by name, or replace bytes in an XBR file;
-  `azurkit build` takes several, applied in order, and says where a later one changes what an earlier one set.
+- **Game data edits:** a mods file can set any value in `config.xbr` by name, replace bytes in an XBR file, or move
+  a level's item or critter; `azurkit build` takes several, applied in order, and says where a later one changes what
+  an earlier one set.
 - **Modkit's mod files:** a mod file from Azurik_Modkit loads and builds too (its patches, sections,
-  `_keyed_patches` and `xbr_edits`); what AzurKit can't apply as written is refused by name.
+  `_keyed_patches`, `xbr_edits` and its level's moves, each by the name the original level gives it, even in a
+  randomized build); what AzurKit can't apply as written, such as a rename, is refused by name.
 - **Same bytes everywhere:** the page, the app and the command line make the identical image; only a character
   swap's float maths may round its last digits otherwise in the browser or on another computer.
 - **Proven exact:** packs, randomized seeds and character swaps are checked byte for byte against AzurKit's own

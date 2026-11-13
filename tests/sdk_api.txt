@@ -44,7 +44,8 @@ record: ``{"stage", "label", "done", "total", "percent"}``).
 A recipe names its image, every pack it applies, each with its sliders'
 values (a slider it doesn't name keeps its default), and the mods file's
 ``xbr`` operations (``edits.xbr``: a config.xbr cell ``set`` by its names,
-or ``replace_bytes`` in an XBR file, applied in order after the packs)::
+``replace_bytes`` in an XBR file, or a level entity's ``move``, applied in
+order after the packs)::
 
     {"iso": "<a vanilla image>", "packs": {"fps_unlock": {"target_fps": 120}, "qol_alloc_race": {}},
      "xbr": [{"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
@@ -265,8 +266,8 @@ def read_mods(given: 'str | bytes | Mapping') -> 'dict':
 
 A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
 text or the object, a share link, or one of Modkit's mod files: its
-``patches``, ``sections``, ``_keyed_patches`` and ``xbr_edits`` as
-``xbr`` operations) as a recipe's ``{"packs", "xbr"}``,
+``patches``, ``sections``, ``_keyed_patches``, ``xbr_edits`` and
+``level_patches`` moves as ``xbr`` operations) as a recipe's ``{"packs", "xbr"}``,
 normalized, and ``randomizer`` (the seed and share string a randomized
 build's plan replays from, or the plan file it built); ``packs`` only when it has a packs layer (a
 build's packs are then its packs, with those they require, and no

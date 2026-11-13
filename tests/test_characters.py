@@ -227,7 +227,7 @@ def _bodies(kit: bool = False) -> dict[str, dict]:
     build from the player's image and the package alone, but those of
     :data:`KIT` (with ``kit``, those alone): every case that dresses the player,
     but the built-in variants (Step 4.3c), a variant file's
-    and the seed case (level_patches, AZ-009)."""
+    and the seed case (its own test, which plans a seed)."""
     out = {}
     for case, spec in _models("usa").items():
         args = spec["args"]
@@ -2729,11 +2729,10 @@ def test_a_randomized_build_wears_a_character_as_its_goldens_seed_0_all(release,
     settings flags and obsidian cost; ``record_goldens.recipe``'s
     translation) built through ``sdk.image``: the plan is the seed of the
     tier its movement sliders, the body's size folded into the walk and
-    roll, play as (D1066), and every file G3 records (Modkit's
-    build changed them all but ``training_room.xbr``, its level_patches,
-    AZ-009, and filelist.txt, which lists it) is the golden's; the image reads back to the plan, and the
+    roll, play as (D1066), and every file G3 records (its config mod
+    moves training_room's large_air_fuel too, AZ-009) is the golden's; the image reads back to the plan, and the
     logic is unverified with its moved sliders first (D1064), the packs'
-    reasons and the body's (``characters.reasons``: flicken's x0.351 height, in the words of
+    reasons, the moved entity's and the body's (``characters.reasons``: flicken's x0.351 height, in the words of
     Modkit's verdict of this build). A body no
     sitting graded, with no melee idle swing, a weak attack or one that
     never ends gives Modkit's reasons for each."""
@@ -2742,14 +2741,15 @@ def test_a_randomized_build_wears_a_character_as_its_goldens_seed_0_all(release,
     made, report = sdk.image(record_goldens.recipe(G3[release.name], spec, path) | {"iso": str(path)})
     usa, golden = _golden(G3["usa"])[SEEDED], _golden(G3[release.name])[SEEDED]
     want = {f: sha for f, sha in ({f: sha for f, sha in usa.items() if f.endswith(".xbr")} | golden).items()
-            if f not in record_goldens.LEVEL_PATCHED}
-    assert {f: report["result"].get(f) for f in want} == want and report["conflicts"] == []
-    assert set(report["result"]) - set(want) == {"filelist.txt"}
+            if f != "ISO"}
+    assert report["result"] == want and report["conflicts"] == []
     verdict = report["randomizer"]
     assert (verdict["seed"], verdict["logic_verified"], verdict["conflicts"]) == ("0", False, [])
     assert verdict["why_not"][0].startswith("you moved sliders (") and any(   # D1064's first, then the packs' and body's
         why.startswith("the worn body is x0.351 garret4's height, so it touches pickups") for why in verdict["why_not"])
     assert not any(why.startswith("--player-character") for why in verdict["why_not"])
+    assert ("you moved a level's entities (training_room large_air_fuel), and a seed's logic reads every spot where "
+            "vanilla has it") in verdict["why_not"]
     weak = characters.reasons("nobody", SimpleNamespace(reach=None, damage=0.25, speed=0.0, size=1.0))
     assert [why.split(": ", 2)[1][:20] for why in weak] == [
         "not yet tested as a ", "none of its idle swi", "an attack deals x0.2", "--player-attack-spee"]

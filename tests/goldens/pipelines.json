@@ -6,14 +6,20 @@
   "gamedata/config.xbr": "89b23c00cb34adf15bfca1a9a57ba1123fb9d2b6a961c97390fa44917484dcc4"
  },
  "pack_build_iso:starting_hp=500": {
+  "ISO": "9d9f4c3b8ac93cb77a81d83eaf10e64d20f2b745677883c6da9ffe0abebc3c74",
   "default.xbe": "3319501bfe468d6ebe4cc56c0f919aae2713709e38b7a579efcc9ae1279e35aa",
+  "filelist.txt": "4117757da27b136b2795c9ea57d66442c4051199539fde6179f65e1eb9fb3132",
   "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
-  "gamedata/config.xbr": "7aafefd1fd4df286d01a0606f33347d5bfc05ab99536a977e65e9d0cb824a60c"
+  "gamedata/config.xbr": "7aafefd1fd4df286d01a0606f33347d5bfc05ab99536a977e65e9d0cb824a60c",
+  "gamedata/training_room.xbr": "2edd8c02ff63cdef7876636ee69601cfdb5a8651bf52d8c4c05a00c17dbd728f"
  },
  "patch:config-mod": {
+  "ISO": "1c3a7555b055a4c3edee10a791c637d22936d53aa409eeec22d649e58ce5cc85",
   "default.xbe": "a6b23515f4837dc782f0579f86fdaa8297b9782c091c76fe7ad26b1879275789",
+  "filelist.txt": "cb2bf469946a6b65c1b283d709424e183ab253b4243073c863881abe441ae7ea",
   "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
-  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881"
+  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881",
+  "gamedata/training_room.xbr": "2edd8c02ff63cdef7876636ee69601cfdb5a8651bf52d8c4c05a00c17dbd728f"
  },
  "randomize-full:attack-damage=2,attack-reach=1.25,attack-speed=1.5,model-scale=2": {
   "ISO": "162cfe5b1ef568dd56678ef882892d4b97da62490b64bc851d7f63dad820398d",
@@ -24,9 +30,12 @@
   "gamedata/index/index.xbr": "c8f742a8c4cc99604caaf1ddf0e6b60d09352ec994d3560cdd44f4cdfc1beb51"
  },
  "randomize-full:config-mod": {
+  "ISO": "1c3a7555b055a4c3edee10a791c637d22936d53aa409eeec22d649e58ce5cc85",
   "default.xbe": "a6b23515f4837dc782f0579f86fdaa8297b9782c091c76fe7ad26b1879275789",
+  "filelist.txt": "cb2bf469946a6b65c1b283d709424e183ab253b4243073c863881abe441ae7ea",
   "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
-  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881"
+  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881",
+  "gamedata/training_room.xbr": "2edd8c02ff63cdef7876636ee69601cfdb5a8651bf52d8c4c05a00c17dbd728f"
  },
  "randomize-full:player-character=air_elemental": {
   "ISO": "4c91c7b239d61b7890592896265f37017fbc9ec5a25991e02d5d71b7809927f5",
@@ -306,7 +315,9 @@
   "gamedata/index/index.xbr": "63bc4f0739a9a1f70d23383eddb9f34cf3ba770e3407ae741733df60e647667a"
  },
  "randomize-full:seed=0,all": {
+  "ISO": "649c06fbe04a4e47ce457e41eb471fc608ea55e6ded4732307ccc37a49d5acd0",
   "default.xbe": "75eb1d3d3dd2523e8f0d837648962d376705bb9944004781881cfba4e0686378",
+  "filelist.txt": "fc4366cb888fcc3108a9402dbe982f26dfbba23ae7a64c376375dc54efbb2b38",
   "gamedata/a1.xbr": "16f6893943c07a42d111d8f8ed68b48c5e54996040bbe2a287b171b85959f438",
   "gamedata/a3.xbr": "27951938820e7555a632dd13d33a8cd099d12ac3795c5602458275c794414569",
   "gamedata/a5.xbr": "ccfddc7d2e0ab8907e600a4aeaf9ce35fb0fb548b27ee989b6885c9522f7c177",
@@ -326,6 +337,7 @@
   "gamedata/fx.xbr": "1530da2b89cd6138c255d52dd851b5b2c2f89d5d914001d05d3fd39d3aa0d888",
   "gamedata/life.xbr": "588191f44910b00d6e15e2a6c929e26ec388f90d54d75c25fa9580d9c06df9b8",
   "gamedata/town.xbr": "c169c15c2b3301f05a896db4ba509bb99a3938986558e996d07f977a8c47f881",
+  "gamedata/training_room.xbr": "2edd8c02ff63cdef7876636ee69601cfdb5a8651bf52d8c4c05a00c17dbd728f",
   "gamedata/w1.xbr": "6b8809be7dbb09eaddaeb32f6c5dbacb9064895fefb8c3909b6cd6bf36b60ab8",
   "gamedata/w2.xbr": "3f5cb30a8776fdab9e7c27cf60b57fa90f047207a67da292ae80ee6a19b799fc",
   "gamedata/w3.xbr": "0ef01d3f0ac3ac4eb70b641c7b0cb5a6538a8858ad3d414dd595c8866d60a5af",

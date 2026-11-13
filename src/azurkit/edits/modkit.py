@@ -34,11 +34,17 @@ and both hosts' Load take one and the Data tab shows what it changes.
   be a release's vanilla file (only gamedata/index/index.xbr differs
   between USA and Europe, and a mods file's operations replay on either).
 
+- ``level_patches`` (``[{action, entity, ...}]``, after the rest): each
+  ``move`` (``entity``, ``x``, ``y``, ``z``) of the mod's ``level`` is a
+  ``move`` operation, its entity the vanilla level's whatever the
+  randomizer or an earlier mod file repoints (AZ-009); a ``rename`` is
+  refused by itself (AzurKit never renames a level's string: one is every
+  generator's of that critter in its graph).
+
 ``name``, ``author``, ``description``, ``source_dump`` and ``level`` are
-metadata; ``level_patches`` (a level's entities moved or renamed by name) is
-refused by name, as is any other key and a mod with no edit shape (AZ-215).
-A null or empty ``_keyed_patches``, ``xbr_edits``, ``level_patches`` or
-``source_hashes`` is none, as Modkit read it.
+metadata; any other key is refused by name, as is a mod with no edit
+shape (AZ-215). A null or empty ``_keyed_patches``, ``xbr_edits``,
+``level_patches`` or ``source_hashes`` is none, as Modkit read it.
 :func:`edits` gives each edit its label, operation and refusal (a host's
 preview shows each); :func:`preset` refuses them all in one message (D35).
 """
@@ -66,6 +72,7 @@ ENTRY = ("op", "label", "xbr_file", "file", "filename", "section", "entity", "pr
 KEYED = ("set_keyed_double", "set_keyed_string", "point_keyed_string")
 BYTES = ("replace_bytes", "replace_string_at")
 PATCH = ("section", "entity", "property", "value")
+MOVE = ("action", "entity", "x", "y", "z")   # a level_patches move's keys
 WHERE = "Modkit mod"
 #: the bytes a mod's byte edits may hold, all told (each is held a byte at a time): config.xbr's largest table
 #: (108,514 B) whole, where a real mod's are a few cells or strings
@@ -327,6 +334,30 @@ def _bytes(file: str, offset: int, after: bytes, was: bytes) -> dict:
     return {"op": "replace_bytes", "file": file, "offset": offset, "expected": expected, "value": after.hex()}
 
 
+def _level(k: int, raw: object, file: str | None) -> Edit:
+    """``level_patches[k]`` as a ``move`` of the mod's level ``file``."""
+    label = f"level_patches[{k}]"
+    if not isinstance(raw, Mapping):
+        return label, None, "not a level patch object"
+    label = f"{label} ({raw.get('action')} {raw.get('entity')})"
+    if raw.get("action") == "rename":
+        return label, None, ("AzurKit never renames a level's string (it is every generator's of that critter in its "
+                             "graph); the randomizer repoints one generator's name instead")
+    if raw.get("action") != "move":
+        return label, None, f"unknown action {raw.get('action')!r} (AzurKit takes a level patch's move)"
+    if unknown := [str(key) for key in raw if key not in MOVE]:
+        return label, None, f"no key {', '.join(map(repr, unknown))} (a move's keys: {', '.join(MOVE)})"
+    if lost := [key for key in MOVE if key not in raw]:
+        return label, None, f"no {', '.join(lost)}"
+    if file is None:
+        return label, None, "the mod's level names no level file a release has"
+    op = {"op": "move", "file": file} | {key: raw[key] for key in MOVE[1:]}
+    try:
+        return label, xbr.normalize([op])[0], None
+    except ValueError as exc:
+        return label, None, str(exc).replace("xbr op 1 (move): ", "")
+
+
 def _hashes(given: object) -> list[str]:
     """Why ``source_hashes`` refuses the mod: a file no release has, or one no release's vanilla file is."""
     if not (isinstance(given, Mapping) and all(isinstance(h, str) for h in given.values())):
@@ -345,18 +376,15 @@ def _hashes(given: object) -> list[str]:
 
 def edits(mod: Mapping, config: bytes) -> list[Edit]:
     """Each edit of Modkit's ``mod``, in the order Modkit applied them
-    (``patches``, ``sections``, ``_keyed_patches``, ``xbr_edits``): its
-    label, its operation and why it is refused (``config`` is the vanilla
-    config.xbr). ``ValueError`` names what refuses the whole mod: a key
-    Modkit's mod files don't have, ``level_patches``, no edit shape, a shape
-    that isn't one, or ``source_hashes``."""
+    (``patches``, ``sections``, ``_keyed_patches``, ``xbr_edits``, then
+    ``level_patches``): its label, its operation and why it is refused
+    (``config`` is the vanilla config.xbr). ``ValueError`` names what
+    refuses the whole mod: a key Modkit's mod files don't have, no edit
+    shape, a shape that isn't one, or ``source_hashes``."""
     failed = []
     if unknown := [str(key) for key in mod if key not in KEYS]:
         failed.append(f"no key {', '.join(map(repr, unknown))} (Modkit's: {', '.join(KEYS)})")
-    if mod.get("level_patches"):
-        failed.append("level_patches: AzurKit doesn't move or rename a level's entities by name; make each edit an "
-                      "xbr_edits replace_bytes with its original")
-    elif not any(shape in mod for shape in (*SHAPES, "level_patches")):
+    if not any(shape in mod for shape in (*SHAPES, "level_patches")):
         failed.append(f"no edit shape ({', '.join(SHAPES)}); its keys: {', '.join(map(str, mod)) or 'none'}")
     # Modkit read a null or empty _keyed_patches, xbr_edits, level_patches or source_hashes as none
     patches, sections, keyed = mod.get("patches", []), mod.get("sections", {}), mod.get("_keyed_patches") or {}
@@ -369,6 +397,8 @@ def edits(mod: Mapping, config: bytes) -> list[Edit]:
         failed.append("_keyed_patches must be {table: {entity: {property: value}}}")
     if not isinstance(xbr_edits := mod.get("xbr_edits") or [], list):
         failed.append("xbr_edits must be a list of edit objects")
+    if not isinstance(level_patches := mod.get("level_patches") or [], list):
+        failed.append("level_patches must be a list of {action, entity, ...} objects")
     if mod.get("source_hashes") is not None:
         failed += _hashes(mod["source_hashes"])
     if failed:
@@ -391,6 +421,9 @@ def edits(mod: Mapping, config: bytes) -> list[Edit]:
     chains = {CONFIG: chain}
     for k, raw in enumerate(xbr_edits):
         out.append(_entry(k, raw, chains, len(out)))
+    level = mod.get("level")
+    file = _file(level if level.casefold().endswith(".xbr") else f"{level}.xbr") if isinstance(level, str) else None
+    out += [_level(k, raw, file) for k, raw in enumerate(level_patches)]
     return out
 
 

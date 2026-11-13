@@ -345,8 +345,11 @@ def _changes(state: _State, ops: object) -> list[Section]:
             sections.append(Section(f"{label} ({name})", (Block("", ("vanilla", "now"), tuple(rows)),)))
     raw = [op for op in xbr.normalize(list(ops)) if op["op"] != "set" or op["file"] != FILE]
     if raw:
-        rows = tuple((f"{op['file']} 0x{op['offset']:X}", (f"{len(op['value']) // 2} B",)) if op["op"] != "set"
-                     else (f"{op['file']} {op['table']}/{op['entity']}/{op['prop']}", (format_value(op["value"]),))
+        rows = tuple((f"{op['file']} 0x{op['offset']:X}", (f"{len(op['value']) // 2} B",))
+                     if op["op"] == "replace_bytes" else
+                     (f"{op['file']} {op['entity']}", (", ".join(format_value(float(op[k])) for k in "xyz"),))
+                     if op["op"] == "move" else
+                     (f"{op['file']} {op['table']}/{op['entity']}/{op['prop']}", (format_value(op["value"]),))
                      for op in raw)
         sections.append(Section("Byte edits from a mods file (read-only; a build checks them)",
                                 (Block("", ("",), rows),)))
@@ -465,7 +468,8 @@ def preview(made: Sequence[tuple[str, Mapping | None, str | None]], config: byte
             rows.append(row | ({"refused": why} if why else {"changed": False}))
             continue
         if op["file"] != FILE:
-            at = f" 0x{op['offset']:X}" if "offset" in op else f" {op['table']}/{op['entity']}/{op['prop']}"
+            at = (f" 0x{op['offset']:X}" if "offset" in op else f" {op['entity']}" if op["op"] == "move"
+                  else f" {op['table']}/{op['entity']}/{op['prop']}")
             rows.append(row | {"what": f"{op['op']} {op['file']}{at}", "checked": False, "changed": True})
             continue
         try:

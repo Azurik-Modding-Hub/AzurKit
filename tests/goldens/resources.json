@@ -1723,6 +1723,21 @@
     "size": 63224342,
     "vanilla_count": 3413
    },
+   "gamedata/training_room.xbr": {
+    "changed": [
+     [
+      323,
+      "node",
+      46888,
+      "709c12b34f8cc2e6a4f1f2304cd0212e1626a19bc800c95d418714fb0c6addc2"
+     ]
+    ],
+    "count": 327,
+    "new": [],
+    "sha256": "2edd8c02ff63cdef7876636ee69601cfdb5a8651bf52d8c4c05a00c17dbd728f",
+    "size": 4618688,
+    "vanilla_count": 327
+   },
    "gamedata/w1.xbr": {
     "changed": [
      [
@@ -36775,6 +36790,21 @@
     "sha256": "c169c15c2b3301f05a896db4ba509bb99a3938986558e996d07f977a8c47f881",
     "size": 63224342,
     "vanilla_count": 3413
+   },
+   "gamedata/training_room.xbr": {
+    "changed": [
+     [
+      323,
+      "node",
+      46888,
+      "709c12b34f8cc2e6a4f1f2304cd0212e1626a19bc800c95d418714fb0c6addc2"
+     ]
+    ],
+    "count": 327,
+    "new": [],
+    "sha256": "2edd8c02ff63cdef7876636ee69601cfdb5a8651bf52d8c4c05a00c17dbd728f",
+    "size": 4618688,
+    "vanilla_count": 327
    },
    "gamedata/w1.xbr": {
     "changed": [

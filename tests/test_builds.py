@@ -7,12 +7,9 @@ G4 build cases, file by file, with G3's whole image.
 G3's and G4's recipes are Modkit's flags and mod shapes (the goldens'
 ``cases.json``), translated once into AzurKit's by
 ``scripts/record_goldens.py``'s ``recipe`` (REORG §12.2: Modkit's shapes
-are read only there): its ``patches``, ``_keyed_patches`` and
-``xbr_edits`` become ``set`` and ``replace_bytes`` operations, whose
-``expected`` is read from the image. ``level_patches`` isn't ported
-(AZ-009), so the three cases that move an entity in ``training_room.xbr``
-leave that file, ``filelist.txt``, which lists it, and the image out by
-name."""
+are read only there): its ``patches``, ``_keyed_patches``, ``xbr_edits``
+and ``level_patches`` become ``set``, ``replace_bytes`` and ``move``
+operations, a replace's ``expected`` read from the image."""
 
 from __future__ import annotations
 
@@ -36,8 +33,8 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _cases(path) -> dict[str, tuple[dict, dict, tuple[str, ...]]]:
-    """``{case: (its recipe, its golden, the files it leaves out)}`` for G3's
+def _cases(path) -> dict[str, tuple[dict, dict]]:
+    """``{case: (its recipe, its golden)}`` for G3's
     packs-family cases (no character, no seed) and G4's build cases
     (``tests/goldens/``)."""
     out = {}
@@ -47,28 +44,25 @@ def _cases(path) -> dict[str, tuple[dict, dict, tuple[str, ...]]]:
             if golden == "pipelines.json" and (record_goldens.wears(recipes[name]) or record_goldens.seeded(
                     recipes[name])):   # tests/test_characters.py's, and tests/test_randomizer.py's seed cases
                 continue
-            left = record_goldens.LEVEL_PATCHED if golden == "pipelines.json" and record_goldens.level_patched(
-                recipes[name]) else ()
-            out[name] = (record_goldens.recipe(golden, recipes[name], path), files, left)
+            out[name] = (record_goldens.recipe(golden, recipes[name], path), files)
     return out
 
 
 def test_g3_and_g4_cases_build_their_goldens_and_open_back_into_their_recipes(usa_iso):
     """Each of G3's 5 packs-family cases and G4's 3 build cases, as a mods
     file's recipe, changes each file its golden names to its sha256 and no
-    other (the level-patched cases less ``training_room.xbr`` and
-    ``filelist.txt``). Its image carries /azurkit.json and /azurkit.bin,
+    other (three move training_room's large_air_fuel, AZ-009). Its image
+    carries /azurkit.json and /azurkit.bin,
     and ``sdk.open_build`` reads it back into its mods file: the release,
     the result, and the recipe it was built from, normalized, which
     ``sdk.read_mods`` takes again. A build with no pack carries no root
     file."""
     cases = _cases(usa_iso)
-    assert len(cases) == 8 and sum(bool(left) for _, _, left in cases.values()) == 3
-    for name, (recipe, golden, left) in cases.items():
+    assert len(cases) == 8 and sum("gamedata/training_room.xbr" in golden for _, golden in cases.values()) == 3
+    for name, (recipe, golden) in cases.items():
         made, report = sdk.image(recipe | {"iso": str(usa_iso)})
         want = {file: sha for file, sha in golden.items() if file != "ISO"}
-        assert {file: report["result"].get(file) for file in want} == want, name
-        assert report["result"].keys() - set(left) == want.keys() and report["conflicts"] == [], name
+        assert report["result"] == want and report["conflicts"] == [], name
         found = sdk.open_build(made)
         assert (found["base"]["release"], found["result"]) == ("usa", report["result"]), name
         assert sdk.read_mods(found) == {"packs": mods.normalize(recipe["packs"])} | (
@@ -83,7 +77,7 @@ def test_the_whole_image_less_its_root_entries_is_modkits(usa_iso):
     player_physics at zero), its changed files packed into the vanilla image
     without the root entries, is Modkit's image byte for byte: the XISO
     layout (PLAN §3.3)."""
-    recipe, golden, _ = _cases(usa_iso)["randomize-full:zero-scales"]
+    recipe, golden = _cases(usa_iso)["randomize-full:zero-scales"]
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
     with iso.Reader(made) as r:
         files = {file: r.read(file) for file in report["result"] if file != "filelist.txt"}
@@ -137,12 +131,13 @@ def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso
     with pytest.raises(ValueError) as caught:
         sdk.image({"iso": str(usa_iso), "xbr": shapes})
     assert str(caught.value) == (
-        "xbr op 1: not an operation (op: set | replace_bytes); xbr op 2 (set): no table, entity, prop, value; "
+        "xbr op 1: not an operation (op: set | replace_bytes | move); xbr op 2 (set): no table, entity, prop, "
+        "value; "
         "xbr op 3 (set): no key 'x' (its keys: op, file, table, entity, prop, value); "
         "xbr op 4 (replace_bytes): file 'default.xbe' is no gamedata/<name>.xbr; xbr op 4 (replace_bytes): "
         "offset -1 is not a file offset (a whole number from 0); xbr op 4 (replace_bytes): value is not hex bytes; "
         "xbr op 5 (replace_bytes): expected is not the hex of the 33 B the value replaces (up to 32 B; past that "
-        "{sha256, size}); xbr op 6: not an operation (op: set | replace_bytes)")
+        "{sha256, size}); xbr op 6: not an operation (op: set | replace_bytes | move)")
     assert held.hex() not in str(caught.value)
     with pytest.raises(ValueError, match=r"preset: a manifest's layers is a list of \{tool, kind, recipe\}"):
         sdk.read_mods({"format": manifest.FORMAT, "layers": ["x"]})

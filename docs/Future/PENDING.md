@@ -288,9 +288,9 @@ work comes here and to group 9's known flaws and editor leftovers, reach
 staying frozen (D1212); 4.40b's triage readies their lanes.
 
 - Inherited by AzurKit (3):
-  - AZ-009: level patches address entities by their current name, not
-    their vanilla identity (AzurKit refuses a mod file's level patches by
-    name).
+  - ~~AZ-009: level patches address entities by their current name, not
+    their vanilla identity~~: fixed by 4.41b (a move by the vanilla
+    level's name or id; a rename stays refused).
   - ~~AZ-234: the D-pad field names in the struct header are swapped~~:
     fixed by 4.41a.
   - ~~AZ-247: the index structs describe 20-byte records~~: fixed by
@@ -843,29 +843,32 @@ D329, D43, D1123) aren't repeated here.
 
 ### Level patches (AZ-009)
 
-AzurKit refuses a mod file's level patches by name, pinned by test_edits'
-Modkit mod-file test.
+~~AzurKit refuses a mod file's level patches by name~~: since 4.41b a
+mod file's level moves build, by the vanilla level's name or id (a rename
+stays refused, by itself), pinned by test_edits'
+`test_a_level_move_means_the_vanilla_generator_whether_split_across_mod_files_or_after_the_randomizer`
+and the Modkit mod-file test's refusals; the tests below are struck.
 
-- `test_edit_layers.py:343`
+- ~~`test_edit_layers.py:343`
   `test_level_patch_targets_same_slot_whether_split_across_mods_or_not`
-  (D1171).
-- `test_edit_layers.py:424`
+  (D1171).~~
+- ~~`test_edit_layers.py:424`
   `test_randomize_full_level_patches_mean_the_input_levels_entities`
-  (D1171).
-- `test_edit_layers.py:483`
+  (D1171).~~
+- ~~`test_edit_layers.py:483`
   `test_a_level_patch_float_saturates_past_float32_range_and_refuses_nan_or_inf`
-  (AZ-181; D1171).
-- `test_edit_layers.py:547`
+  (AZ-181; D1171).~~
+- ~~`test_edit_layers.py:547`
   `test_a_level_patch_name_without_a_marker_means_the_input_levels_slot`
-  (AZ-183; D1171).
-- `test_edit_layers.py:584` `test_m16_missing_patch_keys_are_errors_not_keyerrors`
-  (D1171).
-- `test_edit_layers.py:595` `test_l21_raw_patch_rejects_malformed_entries`
-  (D1171).
-- `test_edit_layers.py:611`
-  `test_l21_raw_patch_rejects_negative_and_float_offsets` (D1171).
-- `test_edit_layers.py:623` `test_l21_raw_patch_still_applies_valid_entries`
-  (D1171).
+  (AZ-183; D1171).~~
+- ~~`test_edit_layers.py:584` `test_m16_missing_patch_keys_are_errors_not_keyerrors`
+  (D1171).~~
+- ~~`test_edit_layers.py:595` `test_l21_raw_patch_rejects_malformed_entries`
+  (D1171).~~
+- ~~`test_edit_layers.py:611`
+  `test_l21_raw_patch_rejects_negative_and_float_offsets` (D1171).~~
+- ~~`test_edit_layers.py:623` `test_l21_raw_patch_still_applies_valid_entries`
+  (D1171).~~
 
 ### Shims, the XBE and the kernel
 

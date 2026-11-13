@@ -252,9 +252,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     oracle-packs-4, Modkit 28d0b4110; the characters: oracle-models-3,
     Modkit 1648692; the randomizer: oracle-rando-6, Modkit 8bfef0ca6),
     which the recorder's first run wrote back unchanged but the files
-    AzurKit can't build (AZ-009: G3's `seed=0,all` leaves out
-    `training_room.xbr`, `filelist.txt` and `ISO`, as the packs' three
-    level-patched cases do); the randomizer's plans gained their spoiler's
+    AzurKit couldn't build until Step 4.41b's moves recorded them (AZ-009:
+    G3's `seed=0,all` left out `training_room.xbr`, `filelist.txt` and
+    `ISO`, as the packs' three level-patched cases did); the randomizer's plans gained their spoiler's
     sha256, `tracker.json` was recorded equal to Modkit's own tracker's
     digests, and Modkit's `rando_iso.json` (the default plan's sha256 and
     its seed build's image, both pinned above) was left out.
@@ -414,14 +414,20 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The mods file** (Q268; `edits/preset.py`'s `read`, `sdk.read_mods`,
   `azurkit build --mods`) is a preset, an AzurKit build's manifest, a
   share link or one of Modkit's mod files (`edits/modkit.py`: its config
-  cells and `xbr_edits` as `xbr` operations, each checked against the
-  vanilla config.xbr as it is read, `tools/data`'s `preview`; its retired
-  registry.json names refused by `edits/modkit_retired.json`). Its `mods` layer is the build's packs (in place of those on by
+  cells, `xbr_edits` and `level_patches` moves as `xbr` operations, each
+  checked against the vanilla config.xbr as it is read, `tools/data`'s
+  `preview`; its retired registry.json names refused by
+  `edits/modkit_retired.json`, a `level_patches` rename by itself). Its `mods` layer is the build's packs (in place of those on by
   default), and its `data` layer's `xbr` operations (`edits/xbr.py`) apply
   in order after the packs: `set` a config.xbr cell by the file's names
   (D51's spellings), type-checked; `replace_bytes` in an XBR file, where
   vanilla holds `expected` (hex up to 32 B, else `{sha256, size}`): read it
-  from the image in a test, never write it. A later operation or layer that
+  from the image in a test, never write it; `move` a level's
+  `critterGenerator`, by its id `g<G>/r<R>` or a critter name one vanilla
+  generator holds, to `x, y, z`: its parent transform's translate (RE_DATA's
+  "Where a placed item stands"), planned on the vanilla level, so the name
+  is the vanilla one whatever the randomizer repoints (AZ-009); a seed
+  with a move is unverified (`xbr.moved`, a `why_not`). A later operation or layer that
   rewrites an earlier group's bytes wins, and the conflict names both groups
   (D28; a cell's group names the cell, AZ-130).
 - **A build's manifest** (`edits/manifest.py`): an image with a layer

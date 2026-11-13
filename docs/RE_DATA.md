@@ -2393,6 +2393,32 @@ offsets only, no positions.
   it [L3]. A gate's switch and timer (a1/g0/r2655:
   `currentTime{>=8}`, 8 s) only whole steps advance.
 
+### Where a placed item stands: what a move writes (Step 4.41b, 2026-11-13)
+
+[static, unverified in game until its sitting] USA VAs, capstone over the
+vanilla `default.xbe`; counts over the USA image's level files, no
+positions.
+
+- **A spawn stands at its parent's matrix times its gen point.** The
+  `critterGenerator` loader 0x6F570 copies the record's gen points (+0x2C
+  count, +0x30 ref, 12 B each) as they are into the generator's own list
+  (0x6F6A0-0x6F6CB), and 0x6F960 places each spawn at the parent's world
+  matrix (the parent object's +0x30, the identity with none) times the
+  point at its cursor (0x6FA0E-0x6FA5C). The generator's own
+  `localPositionX..Z` attributes are read by neither, so a write there
+  moves nothing.
+- **So a move writes the parent transform's translate.** The `xbr`
+  operation `move` (`edits/xbr.py`) writes the three f32 `translateX..Z`
+  (the parent `transform`'s attributes 1-3, 12 B, which the transform
+  loader 0x67F80 reads into its local matrix), found by attribute name.
+  All 3,132 generators on the USA disc have a `transform` parent that
+  parents nothing else, at inherit mode 0, so the move carries that one
+  generator and all of its gen points (140 have more than one); for the
+  ones whose ancestors are the identity (training_room's fuels, say) the
+  translate is the item's world position. 10 have a translate a link
+  drives, which the game sets again as each node starts dirty: a move of
+  one is refused.
+
 ## A creature fx graph's links and its blast dome (Step 2.145, 2026-10-21)
 
 - **Links.** A node record's outgoing links are 24-byte entries in its

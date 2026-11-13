@@ -10,8 +10,10 @@ import concurrent.futures
 import functools
 import hashlib
 import json
+import math
 import random
 import re
+import struct
 import zlib
 
 import pytest
@@ -591,7 +593,7 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
     in one message (D35): an unknown op, a file no release has, an offset,
     value or column of the wrong type (AZ-180), a retired registry.json name (AZ-123's and
     AZ-167's, naming the cell it wrote), a typo'd shape (AZ-215), a value or
-    cell a build refuses, ``level_patches``, a level byte edit with no
+    cell a build refuses, a ``level_patches`` rename, a level byte edit with no
     original, a stale original or source hash (AZ-214), an unknown key."""
     from azurkit.tools import data
 
@@ -648,7 +650,8 @@ def test_a_modkit_mod_file_reads_as_its_xbr_operations_in_modkits_order_and_each
             "a string cell, not a number",
         '{"_keyed_patches": {"settings_foo": {"initial hp": {"Value": 1' + "0" * 400 + '}}}}':
             "_keyed_patches settings_foo/initial hp/Value: value: 1000",
-        json.dumps({"level": "a3", "level_patches": [{}]}): "level_patches: AzurKit doesn't move or rename",
+        json.dumps({"level": "a3", "level_patches": [{"action": "rename", "entity": "gem", "name": "fuel"}]}):
+            "level_patches[0] (rename gem): AzurKit never renames a level's string",
         json.dumps({"patches": {"section": "damage"}, "_keyed_patches": {"damage": ["catalisk"]}}):
             "patches must be a list of {section, entity, property, value} objects; _keyed_patches must be {table: "
             "{entity: {property: value}}}",
@@ -959,3 +962,83 @@ def test_a_modkit_mods_byte_edits_naming_one_level_two_ways_all_land_in_that_fil
     base = {"gamedata/a3.xbr": bytes(0x1000)}
     made, _ = compose(base, [xbr.plan(ops, gate.USA, base)])
     assert bytes(made["gamedata/a3.xbr"][0x800:0x803]) == b"\x11\x22\x33"
+
+
+def _level(*records: tuple[str, int, str | None]) -> bytes:
+    """A level file of one node section of ``records``, each its type, its
+    parent's index (-1: none) and its critter name, every attribute 0."""
+    from azurkit.core.xbr.graph import node_types
+
+    table, first = 0x20, 0x20 + 4 * len(records)
+    s = bytearray(first + 0x40 * len(records))
+    struct.pack_into("<Ii", s, 0, len(records), table - 4)
+
+    def tail(at: int, count: int, blob: bytes) -> None:   # a (count, self-relative ref) field at ``at``: ``blob``
+        struct.pack_into("<Ii", s, at, count, len(s) - (at + 4))
+        s.extend(blob.ljust(len(blob) + 4 & ~3, b"\0"))
+
+    for k, (kind, parent, name) in enumerate(records):
+        rec = first + 0x40 * k
+        struct.pack_into("<i", s, table + 4 * k, rec - (table + 4 * k))
+        tail(rec, len(kind), kind.encode())
+        tail(rec + 0x08, n := len(node_types()["types"][kind]["attrs"]), bytes(4 * n))
+        struct.pack_into("<i", s, rec + 0x18, parent)
+        if name:
+            tail(rec + 0x1C, len(name), name.encode())
+    return (b"xobx" + bytes(8) + struct.pack("<II", 1, 0x4C)).ljust(0x3C, b"\0") + struct.pack(
+        "<II4sI", 0, len(s), b"node", 0) + bytes(s)
+
+
+def test_a_level_move_means_the_vanilla_generator_whether_split_across_mod_files_or_after_the_randomizer():
+    """AZ-009 (Modkit's level_patches looked an entity up by the name the
+    build so far held): a Modkit mod's ``level_patches`` move is a ``move``
+    operation, planned against the vanilla level, so its name (or id,
+    ``g<G>/r<R>``) means the vanilla generator, in one mod file or split
+    across two, after the randomizer's writer has repointed the names; it
+    writes that generator's parent transform's translateX..Z (0x6F960
+    places a spawn at the parent's matrix times its gen point), past
+    float32 as the infinity it saturates to, noted (Q110). A name several
+    generators hold, an id that is no generator, a name none holds and
+    NaN are refused by name; a seed with a move isn't promised (why_not)."""
+    from azurkit.core.xbr import nodes
+    from azurkit.edits import xbr
+
+    file = "gamedata/training_room.xbr"
+    base = {file: _level(("transform", -1, None), ("critterGenerator", 0, "fuel"), ("transform", -1, None),
+                         ("critterGenerator", 2, "gem"), ("transform", -1, None), ("critterGenerator", 4, "gem"))}
+    section = memoryview(base[file])[0x4C:]
+    recs = nodes.record_offsets(section)
+
+    def repoint(rec: int, to: int) -> Change:   # the writer's: record ``rec``'s critter name made record ``to``'s
+        n, ref = struct.unpack_from("<Ii", section, recs[to] + 0x1C)
+        field = recs[rec] + 0x1C
+        at, made = 0x4C + field, struct.pack("<Ii", n, recs[to] + 0x1C + 4 + ref - (field + 4))
+        return Change(file, at, _sha256(base[file][at:at + 8]), made, f"randomizer g0/r{rec}")
+
+    seed = Layer("randomizer", generator.TOOL, generator.KIND, {}, (repoint(1, 3), repoint(5, 1)))   # fuel <-> a gem
+
+    def placed(made: bytes) -> list[tuple[float, ...]]:   # each transform's translate
+        return [struct.unpack_from("<3f", made, 0x4C + nodes.list_at(section, recs[k] + 0x08)[0] + 4)
+                for k in (0, 2, 4)]
+
+    moves = [{"action": "move", "entity": "fuel", "x": 1, "y": 2, "z": 3},
+             {"action": "move", "entity": "g0/r3", "x": 4, "y": 5.5, "z": -6}]
+    ops = sdk.read_mods(json.dumps({"level": "training_room", "level_patches": moves}))["xbr"]
+    split, _ = cli.merged([(f"mod{k}.json", sdk.read_mods(json.dumps({"level": "training_room", "level_patches": [m]})))
+                           for k, m in enumerate(moves)])
+    assert split["xbr"] == ops == [{"op": "move", "file": file} | {k: m[k] for k in ("entity", *"xyz")} for m in moves]
+    made, conflicts = compose(base, [seed, xbr.plan(ops, gate.USA, base)])
+    assert nodes.lstr(memoryview(made[file])[0x4C:], recs[5] + 0x1C) == "fuel" and not conflicts
+    assert placed(bytes(made[file])) == [(1, 2, 3), (4, 5.5, -6), (0, 0, 0)]
+    far = xbr.plan([ops[0] | {"x": 1e39}], gate.USA, base)
+    assert far.notes == ("xbr op 1 (move): x: 1e+39 is past float32's range: written as inf (Q110)",)
+    assert placed(bytes(compose(base, [far])[0][file]))[0] == (math.inf, 2, 3)
+    assert xbr.moved(ops) == ["you moved a level's entities (training_room fuel, training_room g0/r3), and a seed's "
+                              "logic reads every spot where vanilla has it"]
+    for entity, why in {"gem": f"{file}: 2 critterGenerators are 'gem' (g0/r3, g0/r5): name one by its id",
+                        "g0/r2": f"{file} g0/r2 is a transform, not a critterGenerator",
+                        "large_air_fuel": f"{file} has no critterGenerator 'large_air_fuel'"}.items():
+        with pytest.raises(ValueError, match="^" + re.escape(f"xbr op 1 (move): {why}") + "$"):
+            xbr.plan([ops[0] | {"entity": entity}], gate.USA, base)
+    with pytest.raises(ValueError, match=r"^xbr op 1 \(move\): y: nan is not a finite number$"):
+        xbr.normalize([ops[0] | {"y": float("nan")}])
