@@ -396,7 +396,7 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
     them: the spoiler's View takes an app's job ahead's. Two calls may run at once (the app's job ahead and the View's,
     :func:`_record`)."""
     mine = (settings.skip_ceiling, settings.movement_tier, tuple(sorted(settings.skip_override.items())))
-    held = getattr(logic, "_opener_sets", None)
+    entry = held = getattr(logic, "_opener_sets", None)
     if held is not None and (held[0] != mine or held[4] is not logic.db):
         for key in held[1]:
             logic._compiled.pop(key, None)
@@ -412,21 +412,22 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
         answer = asked_of, _worked_out(logic, settings, placement, rating)
         return answer[1]
     finally:
-        _record(logic, mine, held, before, answer)
+        _record(logic, mine, held, entry, before, answer)
 
 
-def _record(logic: Logic, mine: tuple, held: tuple | None, before: tuple[set, set], answer: tuple | None) -> None:
+def _record(logic: Logic, mine: tuple, held: tuple | None, entry: tuple | None, before: tuple[set, set],
+            answer: tuple | None) -> None:
     """Keep what an :func:`openers` call at ``mine`` compiled (the memos' keys past ``before``, its start's) with
-    ``held``'s for the drop, and its ``answer`` (``None``: it raised, a stopped job's). A call that ran beside it may
-    have kept its own meanwhile: one at these settings is merged, so each set either compiled is in the record; one at
-    another settings is dropped by an answered call (the newest answer's settings stay) and keeps the record past an
-    unanswered one, whose sets drop. No set either compiled is left in neither record (another settings' then never
-    drops it)."""
+    ``held``'s for the drop, and its ``answer`` (``None``: it raised, a stopped job's). A record other than ``entry``,
+    the one at its start (``held``, or another settings' it dropped), was kept meanwhile by a call that ran beside it:
+    one at these settings is merged, so each set either compiled is in the record; one at another settings is dropped
+    by an answered call (the newest answer's settings stay) and keeps the record past an unanswered one, whose sets
+    drop. No set either compiled is left in neither record (another settings' then never drops it)."""
     compiled, native, kept = set(logic._compiled) - before[0], set(logic._native) - before[1], answer
     if held is not None:
         compiled, native, kept = compiled | held[1], native | held[2], kept or held[3]
     now = getattr(logic, "_opener_sets", None)
-    if now is not None and now is not held:   # another call's, kept while this one ran
+    if now is not None and now is not entry:   # another call's, kept while this one ran
         if now[0] == mine and now[4] is logic.db:
             compiled, native, kept = compiled | now[1], native | now[2], answer or now[3]
         else:

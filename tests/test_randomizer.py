@@ -522,45 +522,56 @@ def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps
     assert dict(held[0][2]) == off and held[3][0][1] == tuple(sorted(load_plan(fresh, logic.db).placement.items()))
 
 
-@pytest.mark.parametrize("second, stopped", [("the same", False), ("another", True)])
-def test_openers_asked_again_while_one_runs_record_every_set_either_compiled_so_another_settings_drops_them_all(
-        monkeypatch, second, stopped):
-    """Two openers calls at once on one Logic (the app's job ahead and the View's): the first compiles, the second
-    starts, the first ends (answered, or stopped: a stale plan's), then the second; every set either compiled is in the
-    record the last keeps, or dropped with the stale one's settings, so the next settings' openers leave only their
-    own (the stand-in work's, a set each call)."""
+@pytest.mark.parametrize("then, steps, stopped", [
+    ("the same", "+first +second -first -second", None),
+    ("another", "+first +second -first -second", "first"),
+    ("another", "+first -first +second -second", "second"),
+])
+def test_two_openers_calls_keep_every_set_compiled_under_the_newer_calls_settings_so_another_settings_drops_them_all(
+        monkeypatch, then, steps, stopped):
+    """Two openers calls on one Logic (the app's job ahead and the View's), the second at ``then`` settings, in the
+    order ``steps`` gives (``+who`` starts one and waits for its compile, ``-who`` lets it end: answered, or ``stopped``,
+    a stale plan's or the page's cancel). The record left is the second's settings with every set compiled at them and
+    none of another's (one stopped alone keeps its own for the next plan at them), so the next settings' openers leave
+    only their own (the stand-in work's, a set each call)."""
     logic = types.SimpleNamespace(_compiled={}, _native={}, db=object())
     first, other = (Settings(3, "hard", off, seed_difficulty=3) for off in ({}, {"a6.rjump_platforms": False}))
-    then = first if second == "the same" else other
-    began, asked, ended = threading.Event(), threading.Event(), threading.Event()
+    asked = {"first": first, "second": first if then == "the same" else other}
+    compiled, go = ({who: threading.Event() for who in asked} for _ in range(2))
 
     def worked_out(logic, settings, placement, rating) -> list[dict]:
         who = placement["who"]
         logic._compiled[who] = logic._native[who] = who
-        if who == "first":
-            began.set()
-            assert asked.wait(30)
-            if stopped:
+        if who in go:
+            compiled[who].set()
+            assert go[who].wait(30)
+            if who == stopped:
                 raise RuntimeError("stopped")
-        elif who == "second":
-            asked.set()
-            assert ended.wait(30)
         return [{"picks": [who], "one_of": False}]
 
-    def run_first() -> None:
+    def call(who: str) -> None:
         try:
-            difficulty.openers(logic, first, {"who": "first"})
+            difficulty.openers(logic, asked[who], {"who": who})
         except RuntimeError:
             pass
-        ended.set()
 
     monkeypatch.setattr(difficulty, "_worked_out", worked_out)
-    thread = threading.Thread(target=run_first)
-    thread.start()
-    assert began.wait(30)
-    assert difficulty.openers(logic, then, {"who": "second"})[0]["picks"] == ["second"]
-    thread.join(30)
-    difficulty.openers(logic, other if then is first else first, {"who": "third"})
+    threads = {who: threading.Thread(target=call, args=(who,)) for who in asked}
+    for step in steps.split():
+        who = step[1:]
+        if step[0] == "+":
+            threads[who].start()
+            assert compiled[who].wait(30)
+        else:
+            go[who].set()
+            threads[who].join(30)
+            assert not threads[who].is_alive()
+    second, held = asked["second"], logic._opener_sets
+    assert held[0] == (second.skip_ceiling, second.movement_tier, tuple(sorted(second.skip_override.items())))
+    assert set(logic._compiled) == set(logic._native) == held[1] == held[2] == (
+        {"first", "second"} if then == "the same" else {"second"})
+    assert held[3][1] == (None if stopped == "second" else [{"picks": ["second"], "one_of": False}])
+    difficulty.openers(logic, other if second is first else first, {"who": "third"})
     assert set(logic._compiled) == set(logic._native) == {"third"}
 
 
