@@ -3693,8 +3693,8 @@ class _ReachMix:
                 self.bits |= self.has[:, i].astype(np.int64) << i
         self.span, self.r2 = math.ceil(reach / BIND_CELL), reach * reach
 
-    def at(self, q: Vec, cell: tuple[int, int, int]) -> dict[int, float] | None:
-        """The mix at ``q`` (in ``cell``), or ``None`` where no vertex is in reach."""
+    def _near(self, cell: tuple[int, int, int]) -> tuple:
+        """The rows in the cells about ``cell`` (ascending) and their x, y and z, kept."""
         import numpy as np
 
         got = self.near.get(cell)
@@ -3704,7 +3704,43 @@ class _ReachMix:
                 (cell[0] + a, cell[1] + b, cell[2] + c), ())), dtype=np.int64)
             at_ = self.at_[rows]
             got = self.near[cell] = (rows, at_[:, 0].copy(), at_[:, 1].copy(), at_[:, 2].copy())
-        rows, x, y, z = got
+        return got
+
+    def each(self, asked: list[tuple[Vec, tuple[int, int, int]]]) -> list[dict[int, float] | None]:
+        """:meth:`at` of each ``(q, cell)`` of ``asked``, by the compiled
+        kernel (``core.native.mix``) where it reads them, else the twin."""
+        import numpy as np
+
+        if native.library() is not None and asked:
+            cells: dict[tuple[int, int, int], int] = {}
+            for _, cell in asked:
+                cells.setdefault(cell, len(cells))
+            got = [self._near(cell)[0] for cell in cells]
+            start = np.zeros(len(got) + 1, np.int64)
+            start[1:] = np.cumsum([len(rows) for rows in got])
+            rows = np.ascontiguousarray(np.concatenate(got), np.int64)
+            try:
+                q = np.ascontiguousarray(np.array([p for p, _ in asked], np.float64).reshape(-1, 3))
+            except (TypeError, ValueError):
+                q = None
+            if q is not None and len(q) == len(asked):
+                at_ = np.ascontiguousarray(self.at_, np.float64)
+                weights, has = np.ascontiguousarray(self.weights, np.float64), np.ascontiguousarray(self.has, np.uint8)
+                where = np.array([cells[cell] for _, cell in asked], np.int64)
+                nb = len(self.bones)
+                out, held, ok = np.zeros((len(asked), nb)), np.zeros((len(asked), nb), np.uint8), np.zeros(len(asked), np.uint8)
+                if native.mix(at_.ctypes.data, len(at_), weights.ctypes.data, has.ctypes.data, nb, start.ctypes.data,
+                              rows.ctypes.data, len(got), where.ctypes.data, q.ctypes.data, len(asked), self.r2,
+                              out.ctypes.data, held.ctypes.data, ok.ctypes.data):
+                    return [{self.bones[c]: x for c, x in zip(np.flatnonzero(h).tolist(), o[h != 0].tolist())}
+                            if k else None for o, h, k in zip(out, held, ok.tolist())]
+        return [self.at(q, cell) for q, cell in asked]
+
+    def at(self, q: Vec, cell: tuple[int, int, int]) -> dict[int, float] | None:
+        """The mix at ``q`` (in ``cell``), or ``None`` where no vertex is in reach."""
+        import numpy as np
+
+        rows, x, y, z = self._near(cell)
         ux, uy, uz = x - q[0], y - q[1], z - q[2]
         d = ux * ux + uy * uy + uz * uz
         keep = d < self.r2
@@ -3763,12 +3799,15 @@ def _bind(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> dic
         surface = _surface_grid(mesh, final, to) if r.bind is not None and r.bind.near is not None else None
         ks = [k for k in range(len(final)) if r.holds(base[k]) and r.selects(mesh.heaviest[k], group_of[k])]
         nearest = _bind_nearest(final, grid, ks)
-        mix = None
+        reaches: dict[int, dict[int, float] | None] = {}
+        if r.bind is not None and r.bind.reach > 0.0 and (asked := [k for k in ks if k in nearest]):   # at once
+            mix = _ReachMix(final, grid, [prior.get(j) or mesh.skins[j] for j in range(len(final))], r.bind.reach)
+            reaches = dict(zip(asked, mix.each([(final[k], tuple(math.floor(final[k][c] / BIND_CELL) for c in range(3)))
+                                                for k in asked])))
         for k in ks:
             if k not in nearest:
                 continue
             q = final[k]
-            ci = tuple(math.floor(q[c] / BIND_CELL) for c in range(3))
             op = r.bind
             g = 1.0
             if surface is not None:
@@ -3778,9 +3817,7 @@ def _bind(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> dic
                     continue
             got = dict(prior.get(nearest[k]) or mesh.skins[nearest[k]])
             if op is not None and op.reach > 0.0:
-                if mix is None:
-                    mix = _ReachMix(final, grid, [prior.get(j) or mesh.skins[j] for j in range(len(final))], op.reach)
-                reached = mix.at(q, ci)
+                reached = reaches[k]
                 got = got if reached is None else reached
             f = g
             if op is not None and op.fade:

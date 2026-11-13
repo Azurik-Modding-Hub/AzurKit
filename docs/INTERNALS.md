@@ -1396,10 +1396,12 @@ are the Characters section's.
   relax op's Taubin sweeps (`az_relax`: `_sweeps`, its welded graph
   `_relax_graph`'s in numpy, on integers), a beneath side's nearest cloth
   crossing of each ray (`az_beneath`: `_Cloth`, its direction grid and its
-  numpy read) and the island UVs' conjugate gradients (`az_cg`:
-  `_conjugate`, its rows' sums Neumaier's as Python's), each twin the
-  function it speeds; a division by zero and a direction not finite, which
-  the twin raises on, are the twin's.
+  numpy read), the island UVs' conjugate gradients (`az_cg`:
+  `_conjugate`, its rows' sums Neumaier's as Python's) and a bind's reach
+  mixes (`az_mix`: `_ReachMix.each`, each point's rows in reach, their
+  sums in row order as numpy's `cumsum`), each twin the function it
+  speeds; a division by zero and a direction not finite, which the twin
+  raises on, are the twin's.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

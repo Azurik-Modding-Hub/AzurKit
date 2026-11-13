@@ -49,7 +49,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
            "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster", "spring", "clear",
-           "strip", "regroup", "checks", "same", "fields", "relax", "beneath", "cg")
+           "strip", "regroup", "checks", "same", "fields", "relax", "beneath", "cg", "mix")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -124,7 +124,8 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_fields", [vp, i64, vp, vp, vp, i64, i64, vp]),
                          ("az_relax", [vp, i64, vp, i64, vp, vp, vp, vp, vp, i64, i64, vp]),
                          ("az_beneath_need", [vp, i64, vp, vp]), ("az_beneath", [vp, i64, vp, vp, vp, vp, vp, vp, i64, vp]),
-                         ("az_cg", [i64, vp, vp, vp, vp, vp, vp, f64, i64, vp])):
+                         ("az_cg", [i64, vp, vp, vp, vp, vp, vp, f64, i64, vp]),
+                         ("az_mix", [vp, i64, vp, vp, i64, vp, vp, i64, vp, vp, i64, f64, vp, vp, vp])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
         return None, f"{name} doesn't load: {e}", None
@@ -1229,3 +1230,16 @@ def cg(start: array, cols: array, weights: array, diag: array, b: array, x: arra
     work = array("d", bytes(32 * max(n, 1)))
     return lib.az_cg(n, _at(start), _at(cols), _at(weights), _at(diag), _at(b), _at(x), tolerance, steps,
                      _at(work)) == 0
+
+
+def mix(at: int, nrows: int, weights: int, has: int, nb: int, start: int, rows: int, ncells: int, cell: int, q: int,
+        nq: int, r2: float, out: int, held: int, got: int) -> bool:
+    """``mesh_edit._ReachMix.at`` of each of ``nq`` points ``q`` through
+    its cell's rows (``az_mix``, addresses of contiguous buffers: the rows'
+    points ``at``, ``weights`` and ``has`` (bytes), ``nrows`` x ``nb``; the
+    cells' rows from ``start``; each point's ``cell``) into ``out`` (a held
+    bone's share), ``held`` and ``got`` (1 a mix); False without the
+    library or where the twin answers."""
+    if (lib := library()) is None:
+        return False
+    return lib.az_mix(at, nrows, weights, has, nb, start, rows, ncells, cell, q, nq, r2, out, held, got) == 0

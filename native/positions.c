@@ -397,3 +397,44 @@ API i64 az_cg(i64 n, const i64 *start, const i64 *cols, const double *w, const d
     }
     return 0;
 }
+
+/* ---- the binds' reach mix ----------------------------------------------------------------------------------------
+ * _ReachMix.at of each of nq points q (3 each), read through its cell's rows (rows[start[c]..start[c + 1]) of the
+ * cell c = cell[i], ascending): of those within the reach (d = ux ux + uy uy + uz uz < r2, from the rows' points at,
+ * 3 each), each weighed (1 - d / r2)^2, the weights' sum and each bone's sum of a weight times the row's skin weight
+ * (weights: nrows x nb), each in row order from 0.0 (numpy's cumsum), over the weights' sum; a bone held where a row
+ * within the reach has it (has: nrows x nb bytes). Into out (nq x nb doubles: a held bone's share), held (nq x nb
+ * bytes) and got (nq bytes: 1 a mix, 0 none within the reach). 0, or 1 where an index is out of range. */
+API i64 az_mix(const double *at, i64 nrows, const double *weights, const unsigned char *has, i64 nb, const i64 *start,
+               const i64 *rows, i64 ncells, const i64 *cell, const double *q, i64 nq, double r2, double *out,
+               unsigned char *held, unsigned char *got) {
+    for (i64 c = 0; c < ncells; c++)
+        for (i64 e = start[c]; e < start[c + 1]; e++)
+            if (rows[e] < 0 || rows[e] >= nrows) return 1;
+    for (i64 i = 0; i < nq; i++)
+        if (cell[i] < 0 || cell[i] >= ncells) return 1;
+    for (i64 i = 0; i < nq; i++) {
+        const double *p = q + 3 * i;
+        double *o = out + nb * i, total = 0.0;
+        unsigned char *h = held + nb * i;
+        for (i64 b = 0; b < nb; b++) o[b] = 0.0, h[b] = 0;
+        int any = 0;
+        for (i64 e = start[cell[i]]; e < start[cell[i] + 1]; e++) {
+            i64 r = rows[e];
+            double ux = at[3 * r] - p[0], uy = at[3 * r + 1] - p[1], uz = at[3 * r + 2] - p[2];
+            double d = ux * ux + uy * uy + uz * uz;
+            if (!(d < r2)) continue;
+            double x = 1.0 - d / r2, w = x == 1.0 ? 1.0 : x * x;   /* fdlibm.pow(x, 2.0) */
+            total = total + w;
+            for (i64 b = 0; b < nb; b++) {
+                o[b] = o[b] + w * weights[nb * r + b];
+                if (has[nb * r + b]) h[b] = 1;
+            }
+            any = 1;
+        }
+        got[i] = (unsigned char)any;
+        if (any)
+            for (i64 b = 0; b < nb; b++) o[b] = o[b] / total;
+    }
+    return 0;
+}

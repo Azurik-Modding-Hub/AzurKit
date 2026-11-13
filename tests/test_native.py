@@ -964,7 +964,8 @@ def _positions_cases(seed: int, count: int):
     a radius of 0 the twin divides by) and points under a few of them
     each; a welded graph's relax sweeps; a cloth of triangles about an
     origin (some degenerate, one corner on the origin) and rays at it; a
-    sparse system for the island UVs' conjugate gradients."""
+    sparse system for the island UVs' conjugate gradients; skins about
+    points a bind's reach mixes."""
     rng = random.Random(seed)
 
     def u(lo=-0.3, hi=0.3):
@@ -1015,14 +1016,20 @@ def _positions_cases(seed: int, count: int):
                 for k in range(m)]
         cg = {"rows": rows, "diag": [sum(-w for _, w in row) + rng.uniform(0.0, 0.5) for row in rows],
               "b": [u() for _ in range(m)], "x": [u() for _ in range(m)]}
+        near = [[u(-0.1, 0.1), u(-0.1, 0.1), u(-0.1, 0.1)] for _ in range(rng.randint(1, 80))]
+        mix = {"points": near, "reach": rng.uniform(0.01, 0.08),
+               "skins": [[[b, rng.choice((0.0, rng.random()))] for b in sorted(rng.sample(range(70), rng.randint(1, 4)))]
+                         for _ in near],
+               "asks": [[x + u(-0.05, 0.05) for x in rng.choice(near)] for _ in range(40)]}
         yield {"ops": ops, "points": points, "opss": opss, "relax": relax, "origin": o, "tris": tris, "rays": rays,
-               "cg": cg}
+               "cg": cg, "mix": mix}
 
 
 def _positions_answer(case: dict) -> list:
     """mesh_edit's fields (``_displace_each``, ``_det_each``), relax
-    sweeps (``_sweeps``), beneath crossings (``_Cloth``) and island UVs'
-    conjugate gradients (``_conjugate``) on ``case`` (by the library when
+    sweeps (``_sweeps``), beneath crossings (``_Cloth``), island UVs'
+    conjugate gradients (``_conjugate``) and a bind's reach mixes
+    (``_ReachMix.each``) on ``case`` (by the library when
     it's loaded, else the twins): each answer's floats as hex, or the
     error it raises."""
     from azurkit.tools.characters import mesh_edit as me
@@ -1060,6 +1067,13 @@ def _positions_answer(case: dict) -> list:
     out.append(bits(me._Cloth(tris, o).near(asked)))
     cg = case["cg"]
     out.append(bits(me._conjugate([[tuple(e) for e in row] for row in cg["rows"]], cg["diag"], cg["b"], cg["x"])))
+    mix, grid = case["mix"], {}
+    for k, p in enumerate(mix["points"]):
+        grid.setdefault(tuple(math.floor(x / me.BIND_CELL) for x in p), []).append(k)
+    mixes = me._ReachMix([tuple(p) for p in mix["points"]], grid, [dict(map(tuple, s)) for s in mix["skins"]],
+                         mix["reach"]).each([(tuple(q), tuple(math.floor(x / me.BIND_CELL) for x in q))
+                                             for q in mix["asks"]])
+    out.append([None if m is None else [[b, x.hex()] for b, x in m.items()] for m in mixes])
     return out
 
 
@@ -1067,16 +1081,18 @@ def test_the_position_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     """``native/positions.c``'s kernels (``az_fields``: the fields'
     moves and det J; ``az_relax``: a relax op's sweeps; ``az_beneath``: a
     beneath side's nearest cloth crossings; ``az_cg``: the island UVs'
-    conjugate gradients) give their twins' answers bit for bit over
-    seeded random inputs, what the twins raise raised alike."""
+    conjugate gradients; ``az_mix``: a bind's reach mixes) give their
+    twins' answers bit for bit over seeded random inputs, what the twins
+    raise raised alike."""
     cases, ran = list(_positions_cases(1412, 40)), collections.Counter()
-    for name in ("fields", "relax", "cloth", "cg"):
+    for name in ("fields", "relax", "cloth", "cg", "mix"):
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name:
                             ran.update([(name, (got := real(*a)) not in (None, False))]) or got)
     assert native.report()["loaded"]
     got = [_positions_answer(case) for case in cases]
-    assert min(ran[(name, True)] for name in ("fields", "relax", "cloth", "cg")) > 30, ran   # most by the library
+    assert min(ran[(name, True)] for name in ("fields", "relax", "cloth", "cg", "mix")) > 30, ran   # most by it
     assert any(isinstance(g[0], str) for g in got) and any(n is not None for g in got for n in g[3]), got
+    assert any(m is None for g in got for m in g[5]) and any(m and len(m) > 1 for g in got for m in g[5]), got
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):
         assert got == [_positions_answer(case) for case in cases]
