@@ -786,6 +786,12 @@ def test_the_perf_gate_keeps_misses_as_debt_and_fails_only_a_regression_against_
     assert {k: v["verdict"] for k, v in perf.verdicts(   # D1053: Firefox's whole Save passes on its bar, no other's
         [("S49", "firefox"), ("S49", "webkit")], {("firefox", "S49"): bars, ("webkit", "S49"): bars}, empty,
         browser_bars={"S49"}).items()} == {"S49/firefox": "bar", "S49/webkit": "over"}
+    assert {k: (v["verdict"], v["ok"], v["budget"], v.get("bound")) for k, v in perf.verdicts(   # D1244: each op's tier
+        [("S84", "webkit"), ("S85", "webkit"), ("S83", "webkit")],
+        {("webkit", "S84"): heavy(85.0), ("webkit", "S85"): heavy(35.0), ("webkit", "S83"): [s(6.0)] * 3}, empty,
+        {"S84", "S85"}, reference={"S84/webkit": 50.0}, rare={"S84", "S83"}, heavy={"S84", "S85"}).items()} == {
+        "S84/webkit": ("bar", True, 10.0, 90.0), "S85/webkit": ("beyond", True, 3.0, 30.0),
+        "S83/webkit": ("pass", True, 10.0, None)}
     times = {"A12": [[5.0, 3.2, 2.6], [2.0, 2.1, 2.2]], "A13": [[4.0, 4.1, 4.2], [4.0, 4.0, 4.1]],
              "A15": [[4.0, 4.1, 4.2]], "A24": [[290.0]]}
     asked = []
@@ -867,8 +873,9 @@ def test_each_perf_op_has_a_tier_and_the_rare_ones_are_internals_table():
             break
         rows.append(row)
     assert ids(rows) == {op.id for op in ops if op.tier == "rare"}
-    assert ids(line for line in tiers.splitlines() if line.lstrip().startswith("| A heavy op")) == {
-        op.id for op in ops if op.heavy}
+    row = next(line for line in tiers.splitlines() if line.lstrip().startswith("| A heavy op")).split("|")[1]
+    assert [set(re.findall(r"\b[AS]\d+\b", half)) for half in row.split("rare:")] == [
+        {op.id for op in ops if op.heavy and op.tier == tier} for tier in _perf.TIERS]   # its frequent: and rare: ids
     rare, heavy = perf.tiered(ops)
     assert rare == {op.id for op in ops if op.tier == "rare"} - {"A48", "A54", "S41", "S47"} and heavy == {
         op.id for op in ops if op.heavy}
@@ -1844,7 +1851,8 @@ def test_the_perf_gates_rerun_of_a_slower_op_adds_its_samples_to_the_first_and_j
     """D1170's rerun, as the gate runs perf.py (no ``--keep``): an op slower
     than the release's takes R more samples (one past 30 s), each run asked
     only for those, and its verdict reads every sample, the first ones too
-    (a changed area's first pass takes one each, D1215: A21's R from there)."""
+    (a changed area's first pass takes one each, D1215: A21's R from there),
+    each op at its tier's line and bound (D1244)."""
     from azurkit.core import gate
     from scripts import web_tools
 
@@ -1876,8 +1884,10 @@ def test_the_perf_gates_rerun_of_a_slower_op_adds_its_samples_to_the_first_and_j
                       "--reference", str(release), "--json", str(tmp_path / "perf.json")]) == 1
     cases = json.loads((tmp_path / "perf.json").read_text(encoding="utf-8"))["cases"]
     assert asked == [{"A31": 1, "A21": 1}, {"A21": 2}, {"A31": 1, "A21": 3}]
-    assert {k: (r["samples"], r["median"], r["slower"]) for k, r in cases.items()} == {
-        "A31/app": ([200.0, 100.0], 150.0, True), "A21/app": ([4.0] * 6, 4.0, True)}
+    assert {k: (r["samples"], r["median"], r["slower"], r["verdict"], r["budget"], r.get("bound"))
+            for k, r in cases.items()} == {   # each at its tier's line (D1244: A31 rare and heavy, A21 frequent)
+        "A31/app": ([200.0, 100.0], 150.0, True, "beyond", 10.0, 45.0),
+        "A21/app": ([4.0] * 6, 4.0, True, "over", 3.0, None)}
 
 
 def test_the_perf_gate_judges_a_pages_first_sample_against_the_releases_first_and_a_later_one_against_its_later():
