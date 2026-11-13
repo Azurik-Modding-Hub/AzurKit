@@ -422,7 +422,9 @@ def _record(logic: Logic, mine: tuple, held: tuple | None, entry: tuple | None, 
     the one at its start (``held``, or another settings' it dropped), was kept meanwhile by a call that ran beside it:
     one at these settings is merged, so each set either compiled is in the record; one at another settings is dropped
     by an answered call (the newest answer's settings stay) and keeps the record past an unanswered one, whose sets
-    drop. No set either compiled is left in neither record (another settings' then never drops it)."""
+    drop. No set either compiled is left in neither record (another settings' then never drops it), but for two
+    calls that end within one thread switch: with no lock (the engine takes none), a switch between the re-read and
+    the write loses the other's record, and its sets stay past every settings change."""
     compiled, native, kept = set(logic._compiled) - before[0], set(logic._native) - before[1], answer
     if held is not None:
         compiled, native, kept = compiled | held[1], native | held[2], kept or held[3]

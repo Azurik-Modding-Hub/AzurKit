@@ -516,7 +516,8 @@ memory peaks stay strict. The gate writes both kinds of row to
     golden, and hangs for 60 minutes (D1105). Land a diagnostics-only
     commit first (the survey's 4.5d).
 14. ~~`procpool._peak()` returns 0 on Windows~~: fixed by 4.52a.
-15. ~~OPENERS: the stale openers' compiled set leaks~~: fixed by 4.52a.
+15. ~~OPENERS: the stale openers' compiled set leaks~~: fixed by 4.52a,
+    but for two calls that end within one thread switch (no lock).
 16. **A Firefox Save whose `flat.mjs` fetch never answers stays greyed**
     (4.5u; accepted, since sw.js serves `flat.mjs` on the real site).
 17. **A closed Firefox tab leaves its last build's ~835 MB file in OPFS**
