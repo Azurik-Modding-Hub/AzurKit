@@ -145,12 +145,13 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Voice:** the creature's own sounds, or Garret's.
 - **Target RAM:** the machine the build is for, From your packs (the default), 64 MiB for a retail Xbox, or 128 or
   256 MiB for xemu; it moves only how large a model may be (`"ram": 64`), and another model and Reset keep it.
-- **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both, each a recipe over a
+- **Variants:** Beamlord, and Booblord (blue skin, a high black ponytail, red eyes, a black satin outfit) as she
+  is, in high detail, in human colours (tan skin, brown eyes, an indigo top and sash) or both, each a recipe over a
   creature's body applied to your own copy; or your own: a recipe file, or a variant you saved, worn by name (a
   folder each in `variants` in AzurKit's data folder, where Modkit saves them), its shapes sized as you like (a
   moved shape shows the nearest one at once, marked Preview, until its own pictures are drawn). Booblord's four
-  need her own moves and voice, extra files from our Azurik-Custom-Content; a build without them stops, naming
-  the file.
+  need her own moves and voice, extra files from our Azurik-Custom-Content (her newest version); a build without
+  them, or with an older version's, stops, naming the file.
 - **Make your own (the Variants view):** beside Models, a list of the built-in variants and yours, each in its
   grade's colour as in Models (one that won't load is marked, saying why). New starts one on any species' body, New from this copies the one open with all its
   files so every field is yours, Save, Save as and Delete (after a yes) keep your library, and Import and Export move
