@@ -111,6 +111,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Firefox, never held by the test's host. A load of the site's page (it
     starts its engine) has `_page.STALL` (`test_site.Site.open`,
     `test_service_worker.VISIT`): Windows' Firefox held one past 30 s.
+  - A browser that stops answering (`tests/_page.py`'s `stalled`: a call
+    left unanswered, and the browser answers nothing either) has its
+    Playwright connection closed naming the call, so its try fails by name
+    at once (D1072); the next test that takes its module's browser, the
+    stalled test's rerun too, launches it again (`tests/conftest.py`'s
+    `pytest_runtest_setup`), finished first as its module's end would, and
+    its close ends what an ended parent left running while its driver runs.
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
@@ -122,7 +129,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   fails twice, or a product bug, blocks. Each flaky test's line is written
   as its rerun ends and each failed try's error lines as its report comes
   (`AZURKIT_FLAKES`' sibling, `.failed.jsonl`), so a run stopped before its
-  end keeps them; a pytest a test runs writes neither file.
+  end keeps them; a pytest a test runs writes neither file. CI's log
+  prints each test that failed twice with its first try's error lines
+  from that file (`python -m tests._rerun --first`): pytest shows only the
+  second.
   A rerun is recorded, never hidden: it is no skip. Perf timings over budget
   are debt rows, not blocks (the perf gate, below).
 - **When a truth goes red, suspect the code or the address first:** a
@@ -2586,7 +2596,10 @@ are the Characters section's.
   (`--max-worker-restart=0`), where replacing one under loadgroup hangs it.
   A failed test gets its one rerun there too (D1170): a job whose failures
   all passed their rerun is green, and its last step lists them in the
-  job's summary (`AZURKIT_FLAKES`, `python -m tests._rerun`).
+  job's summary (`AZURKIT_FLAKES`, `python -m tests._rerun`); the step
+  after it prints each test that failed twice with its first try's error
+  lines in the job's log (`python -m tests._rerun --first`, from that
+  file's sibling `.failed.jsonl`).
   Each runner's vanilla tier runs as parts at once, a job each
   (`--shard=LABEL:K/N`, `scripts/ci_shards.py`, Step 4.4ci35): the tier's
   tests cut in their run order by that runner's seconds in
