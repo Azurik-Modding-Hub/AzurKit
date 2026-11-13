@@ -2250,7 +2250,8 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
             lines = str(uncreated.value).splitlines()
             assert lines[0] == "no answer in 2 s: the browser's new context", lines
             assert len(lines) == 2 and lines[1].startswith("under its driver: "), lines
-            assert 2 <= time.monotonic() - t5 < _page.STALL + ci_resources.SAY_S
+            # the call's STALL, its driver's listing in SAY_S and its server's start and, as it fails, close (its 10 s)
+            assert 2 <= time.monotonic() - t5 < _page.STALL + ci_resources.SAY_S + 10
         monkeypatch.setattr(_page, "HEAR", 1)   # the held navigation's state read below may end unread in 1 s
         monkeypatch.setattr(browser._impl_obj, "close", lambda **_: asyncio.sleep(600))   # a close never answered
         # what the close may wait on, listed in 5 s (its 10 s outside the test), the close's 1 s with it inside the
