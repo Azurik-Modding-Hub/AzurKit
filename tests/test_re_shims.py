@@ -387,7 +387,9 @@ def test_the_structures_a_shim_or_the_re_data_declares_hold_each_field_at_ghidra
     ControllerState, the XBR loader's XbrTocEntry and XbrTocRun,
     IndexXbrRecord, and PLAYER_FLAG_RUNNING 0x40 and _FALLING 0x01, the
     bits 0x84940 tests) and against the ControllerState shimkit's
-    ``azurik_vanilla.h`` gives every shim; a field moved fails by name."""
+    ``azurik_vanilla.h`` gives every shim; a field moved fails by name.
+    The xemu oracle's ``PAD_FIELDS`` names the D-pad's two offsets the
+    same way (its copy was swapped too, AZ-234)."""
     def asserts(offsets: dict[str, dict[str, int]]) -> str:
         return "\n".join(f"_Static_assert(__builtin_offsetof({struct}, {field}) == 0x{at:X}, "
                          f'"{struct}.{field} is not at 0x{at:X}");'
@@ -403,6 +405,10 @@ def test_the_structures_a_shim_or_the_re_data_declares_hold_each_field_at_ghidra
                      encoding="utf-8")
     with pytest.raises(RuntimeError, match=r"ControllerState\.back_button is not at 0x40"):
         shimkit.compile(probe)
+    pad = next(ast.literal_eval(node.value)
+               for node in ast.parse((ROOT / "devkit/xemu/oracle.py").read_text(encoding="utf-8")).body
+               if isinstance(node, ast.Assign) and [getattr(t, "id", "") for t in node.targets] == ["PAD_FIELDS"])
+    assert {k: pad[k] for k in ("dpad_x", "dpad_y")} == {k: CONTROLLER[k] for k in ("dpad_x", "dpad_y")}, "oracle"
 
 
 def test_new_shim_lists_its_flags_and_refuses_a_bad_name_or_category_by_name_exit_1(capsys):
