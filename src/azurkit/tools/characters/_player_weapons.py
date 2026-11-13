@@ -1183,7 +1183,10 @@ G3 cases of town_male_6 and the catalisk stayed main's; 2.204's
 Balthazar's magic on seven bodies main refused it on, frag_fire_1's red
 its model's own; Step 2.209's Axion staff her default moved Booblord
 spin's three again with her recipe's sha, their builds main's, and her
-spins on her four recipes carry each one's grade before it, D117).
+spins on her four recipes carry each one's grade before it, D117; the
+booblord pass's rework of her, Step 4.48b, moved those three once more,
+their builds main's, and her own picks on her four recipes, her arm fit
+refit, are its sitting's).
 A default build keeps the
 species' or variant's own grade; a grade colours the build's status line,
 the GUI's picker and its Weapon box (:func:`pick_grade`) and never gates
