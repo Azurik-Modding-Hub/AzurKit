@@ -550,22 +550,11 @@ memory peaks stay strict. The gate writes both kinds of row to
     no places and refuse. The stores hold reshape parts under old keys, so
     each misses once. Both are accepted.
 30. Looks:
-    - Save sits 260 px below Save as and Delete.
     - The status leads with the recipe hash.
-    - The Notes box has 5 rows.
-    - The "colours:" label is lowercase.
     - "Built-in" and "built in" are both used.
-    - The search box moves.
-    - At 860 px the Models view's Custom row sits under the bottom bar.
     - `colours.mjs` rounds ties away from zero where Python rounds to even
       (the hex box only).
-    - Export PNGs isn't greyed before an image loads (D979).
-    - 4.21's LEGEND comment; a search typed before the list answers opens
-      no fold.
     - The effect colour uses the browser's picker, not Modkit's wheel.
-    - Live's tab, not the editor's: at 1100 px, 4.6k's Attach… button
-      wraps Live's bar onto a second line (39 px). With 4.20's 16 px
-      difficulty line it leaves the map room about 35 px shorter (4.25).
 31. 4.6c's leftovers: `variant_save`'s `from` isn't checked as a name.
     Only a crafted call reaches it, so it gets no lane of its own (D1219);
     4.38b checks it (32). Done: Undo (since 4.6e, c0f65767), the page's
