@@ -187,8 +187,10 @@ RELEASE_TREE = ("src", "web", "pyproject.toml", "uv.lock", "README.md", "LICENSE
 #: Where a tree's CI pins the content commit its tests run with (Step 4.54c: :func:`content_commit`)
 WORKFLOW, PIN = ".github/workflows/tests.yml", re.compile(r"^\s*CONTENT_COMMIT:\s*([0-9a-f]{40})\b", re.M)
 #: Azurik-Custom-Content, as tests.yml fetches it: a pinned commit the clone beside lacks is fetched from here into a
-#: scratch repository of its own (:func:`content_at`), never into the clone
+#: scratch repository of its own (:func:`content_at`), never into the clone; a transfer under 1000 bytes a second
+#: for 60 s ends the fetch, as tests.yml's does (Step 4.52a), in place of the 600 s of its timeout
 CONTENT_URL = "https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git"
+FETCH = ("-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60", "fetch", "-q", "--depth", "1")
 
 
 def select(paths: list[str]) -> set[tuple[str, str]]:
@@ -911,7 +913,7 @@ def content_at(clone: Path, commit: str, into: Path) -> Path:
     into.parent.mkdir(parents=True, exist_ok=True)
     if _git(clone, "cat-file", "-e", f"{commit}^{{commit}}") is None:
         source = into.with_name(f"{into.name}.git")
-        for cmd in (["init", "-q", str(source)], ["-C", str(source), "fetch", "-q", "--depth", "1", CONTENT_URL, commit]):
+        for cmd in (["init", "-q", str(source)], ["-C", str(source), *FETCH, CONTENT_URL, commit]):
             subprocess.run(["git", *cmd], check=True, capture_output=True, timeout=600)
     part, tar = into.with_name(f"{into.name}.part"), into.with_name(f"{into.name}.tar")
     part.mkdir()
