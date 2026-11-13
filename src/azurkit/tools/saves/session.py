@@ -16,6 +16,7 @@ so they are neither hashed nor saved."""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
@@ -92,8 +93,17 @@ def ask(given: object, xbe: Callable[[str], bytes]) -> dict:
         return _signed(given, xbe)
     if do == "save":
         slot, out = _slot(given), Path(given["out"])
-        if (folder := FOLDERS.get(slot.id)) and out.resolve().is_relative_to(folder):
+        if (folder := FOLDERS.get(slot.id)) and _inside(out, folder):
             raise ValueError(f"saves: {out} is inside {folder}, the slot's own folder, which a save never writes into")
         return {"out": str(slot.write(out))}
     slot = _slot(given)
     return {"name": f"{slot.id}.zip", "data": slot.zip()}
+
+
+def _inside(out: Path, folder: Path) -> bool:
+    """Whether ``out`` is ``folder`` (resolved) or inside it: by its path,
+    then by file identity (as ``core.gate``'s outputs), so on a disk that
+    folds case (macOS's) the folder named in another case is it too."""
+    real = out.resolve()
+    return real.is_relative_to(folder) or folder.exists() and any(
+        d.exists() and os.path.samefile(d, folder) for d in (real, *real.parents))

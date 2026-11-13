@@ -431,6 +431,27 @@ def test_save_speaks_json_and_edits_a_modkit_plan_files_lines_then_each_set_all_
     assert saves.signed(again, saves.key(flash, mcpx, xbe)) and b"\n7\n9\n" in again.files["magic.sav"]
 
 
+def test_a_save_edits_out_inside_its_slot_in_another_case_is_refused_where_the_disk_folds_case(tmp_path):
+    """Step 4.52a (4.28g's known flaw): the save's guard compared the output
+    with the slot's folder letter for letter, so on a disk that folds case
+    (macOS's) an output naming that folder in another case wrote inside the
+    slot it read; it is refused, as by its own case. On a case-sensitive
+    disk that is another folder, which the save writes."""
+    slot = tmp_path / ID
+    for path, data in _files().items():
+        (slot / path).parent.mkdir(parents=True, exist_ok=True)
+        (slot / path).write_bytes(data)
+    sdk.saves({"do": "open", "folder": str(slot)})
+    out = tmp_path / ID.lower() / "out"
+    if (tmp_path / ID.lower()).exists():   # this disk folds case: it names the slot's folder
+        with pytest.raises(ValueError, match="the slot's own folder"):
+            sdk.saves({"do": "save", "id": ID, "out": str(out)})
+        assert not (slot / "out").exists()
+    else:
+        assert sdk.saves({"do": "save", "id": ID, "out": str(out)})["out"] == str(out)
+        assert saves.Slot.read(out, ID).files == saves.Slot.read(slot, ID).files
+
+
 def test_slots_are_read_from_an_xemu_hdd_image(tmp_path):
     """Step 4.7e: Azurik's slots on an xemu HDD (a qcow2, version 3 or 2, and
     a raw disk: the same slots) are the folders under UDATA/4d530007 on its
