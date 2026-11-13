@@ -150,8 +150,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   creature's body applied to your own copy; or your own: a recipe file, or a variant you saved, worn by name (a
   folder each in `variants` in AzurKit's data folder, where Modkit saves them), its shapes sized as you like (a
   moved shape shows the nearest one at once, marked Preview, until its own pictures are drawn). Booblord's four
-  need her own moves and voice, extra files from our Azurik-Custom-Content (her newest version); a build without
-  them, or with an older version's, stops, naming the file.
+  need her own moves and voice, extra files from our Azurik-Custom-Content; a build without them stops, naming
+  the file.
 - **Make your own (the Variants view):** beside Models, a list of the built-in variants and yours, each in its
   grade's colour as in Models (one that won't load is marked, saying why). New starts one on any species' body, New from this copies the one open with all its
   files so every field is yours, Save, Save as and Delete (after a yes) keep your library, and Import and Export move
