@@ -168,8 +168,9 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   as a build would, answers, then draws it: a first Check of new content takes a while, with a bar, a copy of a
   variant checked before (New from this, under any name, on a later visit too) takes a few seconds, as does a first
   Check of a built-in or its own copy (it fetches its parts the first time) and a Check after an edit on the Jiggle
-  tab (a spring's numbers), a colour or a sound, and checking it again unchanged answers at once. Unsaved edits are
-  asked about before you leave them, build that variant or close the page, and the app asks too before its window
+  tab (a spring's numbers), a colour or a sound, and checking it again unchanged answers at once (within a couple of
+  seconds, with a bar, while the last Check is still being kept and drawn). Unsaved edits are asked about before you
+  leave them, build that variant or close the page, and the app asks too before its window
   closes. The app keeps your variants where Modkit does; the web page keeps them in your browser (Clear in the Tools
   tab removes them: Export one to keep a copy). Yours show under the models too, as Yours, and Edit… opens a chosen
   variant here.
