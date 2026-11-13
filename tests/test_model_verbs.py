@@ -24,6 +24,7 @@ import contextlib
 import dataclasses
 import hashlib
 import json
+import math
 import os
 import re
 import struct
@@ -581,6 +582,23 @@ def test_weapon_fit_turns_each_clip_to_its_fewest_excess_ticks_above_the_floor_a
     with pytest.raises(SystemExit) as usage:
         devkit(["models", "weapon-fit"])
     assert usage.value.code == 2
+
+
+def test_garret4_reference_holds_the_hoe_on_his_staff_carriers_and_gives_each_clip_its_deep_ticks(usa_iso):
+    """weapon-fit's reference (Step 4.15a7): garret4 holding a prop he doesn't own (the farmer's hoe, a loose
+    prop) holds it as his build does, on his staff's carriers with his staff cut, where Modkit's script copied it
+    without them and stopped at "garret4 has no bone 'wpn_tip'"; each clip asked for gives its deep ticks and
+    the prop's lowest z, in the order asked, the hoe's its own and not his staff's (whose attack_3 reaches into
+    his chest)."""
+    from devkit.models import weapon_fit
+
+    data = image.read(usa_iso, "gamedata/characters.xbr")[0]
+    clips = ["attack_3", "attack_9", "smash_attack_3"]
+    hoe, staff = (weapon_fit.garret4_reference(data, w, clips) for w in ("farmers_hoe", "axion_staff"))
+    assert [list(hoe), list(staff)] == [clips, clips]
+    assert all(type(ticks) is int and ticks >= 0 and math.isfinite(low) for ticks, low in [*hoe.values(),
+                                                                                           *staff.values()])
+    assert staff["attack_3"][0] > 0 and hoe != staff
 
 
 def test_clip_rest_moves_each_jiggle_bones_rest_and_its_keyed_places_by_as_much_and_nothing_else(monkeypatch):
