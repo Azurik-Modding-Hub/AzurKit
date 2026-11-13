@@ -2169,7 +2169,8 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
     that first holds them lands against a main whose has none (the owner's
     tiering), and once main holds them a stack that moves an op to the rare
     tier, drops a heavy op's bound, raises a line (the capped profile's too,
-    which a lowered BUDGET raises) or loses the tiers is refused by name."""
+    which a lowered BUDGET raises), loses the tiers or adds a heavy op at
+    the rare tier is refused by name; a new plain op may start rare."""
     repo, _, receipts, _ = _repo(tmp_path, monkeypatch)
 
     def commit(browsers, lst, what, registry=None, lines=""):
@@ -2228,11 +2229,16 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
             ("p2/t4", registry("S07", heavy=()), lined(12.0), "S07: no longer heavy against main's"),
             ("p2/t5", registry("S07"), "BUDGET = 2.5\nCAPPED = 9.0\nRARE = 12.0\n",   # the capped profile's line:
              "RARE capped: raised against main's, 36.0 -> 43.2"),                    # RARE x CAPPED / BUDGET
-            ("p2/t6", registry("S07", field=False), lined(12.0), "the registry's tiers: gone against main's")):
+            ("p2/t6", registry("S07", field=False), lined(12.0), "the registry's tiers: gone against main's"),
+            ("p2/t7", registry("S07", "S09", heavy=("S07", "S09"), ops=("S05", "S07", "S09")), lined(12.0),
+             "S09: a new heavy op at the rare tier")):
         _git(repo, "switch", "-q", "-c", branch, "main")
         commit(three, recorded, branch, given, lines)
         code, why = land.land(repo, branch, dry_run=True)
         assert code == 1 and refused in why, why
+    _git(repo, "switch", "-q", "-c", "p2/t8", "main")   # a new op may start rare, but for a heavy one
+    commit(three, recorded, "p2/t8", registry("S07", "S09", ops=("S05", "S07", "S09")), lined(12.0))
+    assert land.land(repo, "p2/t8", dry_run=True)[0] == 0
 
 
 def test_every_name_the_perf_registrys_functions_call_is_one_the_module_has():

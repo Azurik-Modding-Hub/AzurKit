@@ -84,9 +84,10 @@ when each sample's page part, the click to the download's start, is within
 a debt or raises a ceiling against main's (:func:`check_list`), but for a
 browser main's perf.py doesn't time (:func:`new_browsers`), whose first
 record may add its own ops and debts once; it fails too for a stack that
-moves an op main holds frequent to the rare tier, drops a heavy op's bound,
-raises a line or loses the tiers (D1244, :func:`check_tiers`), but against a
-main with no tiers, the owner's first record. A run whose engine answers without the compiled kernels' library
+moves an op main holds frequent to the rare tier, adds a heavy op there,
+drops a heavy op's bound, raises a line or loses the tiers (D1244,
+:func:`check_tiers`), but against a main with no tiers, the owner's first
+record. A run whose engine answers without the compiled kernels' library
 the worktree ships for its host
 (:func:`native_failures`: its pages' ``sdk.catalog`` ``native``, loaded,
 that library, those bytes, and as each page leaves no reach call its twin
@@ -520,16 +521,21 @@ def tiering_at(repo: Path, rev: str | None) -> dict | None:
 
 def check_tiers(mine: dict | None, main: dict | None) -> list[str]:
     """What the head's tiers loosen against main's (D1244, :func:`tiering`): an op main holds at the frequent tier
-    moved to the rare one, an op main holds heavy no longer heavy (its bound gone), a line raised (the capped
-    profile's too), or the registry's tiers gone. None against a main whose registry has no tiers: that first record
-    is the owner's tiering (D1244); a later move needs an owner's decision and a change here that lets it through
-    once, as a browser's first record has :func:`new_browsers`. A new op may start at either tier."""
+    moved to the rare one, a new heavy op at the rare tier (its 45 s / 90 s bound), an op main holds heavy no longer
+    heavy (its bound gone), a line raised (the capped profile's too), or the registry's tiers gone. None against a
+    main whose registry has no tiers: that first record is the owner's tiering (D1244); a later move needs an owner's
+    decision and a change here that lets it through once, as a browser's first record has :func:`new_browsers`. A
+    new op may start at either tier, a heavy one only frequent."""
     if not main:
         return []
     if not mine:
         return ["the registry's tiers: gone against main's (D1244)"]
-    bad = [f"{op}: moved to the rare tier against main's (D1244: an owner's decision)"
-           for op, tier in sorted(mine["tiers"].items()) if tier == "rare" and main["tiers"].get(op, "rare") != "rare"]
+    bad = []
+    for op, tier in sorted(mine["tiers"].items()):
+        if tier == "rare" and main["tiers"].get(op, "rare") != "rare":
+            bad.append(f"{op}: moved to the rare tier against main's (D1244: an owner's decision)")
+        elif tier == "rare" and op not in main["tiers"] and op in mine["heavy"]:
+            bad.append(f"{op}: a new heavy op at the rare tier (D1244: an owner's decision; a new one starts frequent)")
     bad += [f"{op}: no longer heavy against main's (D1244: its bound)"
             for op in sorted(set(main.get("heavy", ())) & (set(mine["tiers"]) - set(mine["heavy"])))]
     return bad + [f"{name}: raised against main's, {main['lines'][name]} -> {v} s (D1244)"

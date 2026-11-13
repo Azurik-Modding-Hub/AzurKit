@@ -2409,7 +2409,8 @@ are the Characters section's.
   lowered `BUDGET` raises) or loses the registry's tiers
   (`perf.check_tiers`, reading main's `tests/_perf.py` and `perf.py` with
   `ast`), but against a main whose registry has no tiers, the first record
-  (D1244's, Step 4.49a). A new op may start at either tier.
+  (D1244's, Step 4.49a). A new op may start at either tier, a heavy one
+  only frequent (its rare bound is the owner's call).
 - **The tiers (D1244):** "frequently used parts of the tool need to be
   strict about timing and how optimized they are", rarely used ones may be
   looser. Each registry op has a tier (`_perf.Op.tier`, `_perf.TIERS`):
