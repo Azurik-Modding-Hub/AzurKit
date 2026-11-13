@@ -1382,7 +1382,7 @@ def _check_gltf(where: str, p: dict) -> None:
     _file(f"{where}.file", p["file"])
     if not isinstance(p["sha256"], str) or not _SHA256.match(p["sha256"]):
         raise ValueError(f"{where}.sha256: {p['sha256']!r} is not 64 lower-case hex digits "
-                         "(`azurik-mod model clips` prints it)")
+                         "(`python -m devkit models model clips` prints it)")
     name = p["animation"]
     if not isinstance(name, str) or not name or not name.isascii() or name != name.lower() or "\0" in name:
         raise ValueError(f"{where}.animation: {name!r} is not a clip's name (lower-case ASCII)")
@@ -1463,7 +1463,7 @@ def gltf_clip(characters: bytes, body: Body, p: dict, markers: dict[str, int], *
     sha = mesh_edit.file_sha256(path)
     if sha != p["sha256"]:
         raise ValueError(f"gltf: file {p['file']!r}: its sha256 is {sha[:12]}, not the recipe's {p['sha256'][:12]} "
-                         "(`azurik-mod model clips` prints the row)")
+                         "(`python -m devkit models model clips` prints the row)")
     if builtin:
         doc = mesh_edit._load(path)[0]
         if doc.get("meshes") or doc.get("images"):
@@ -2294,7 +2294,7 @@ def _mesh(where: str, mesh, builtin: bool) -> MeshSpec:
         sha = mesh["gltf"]["sha256"]
         if not isinstance(sha, str) or not _SHA256.match(sha):
             raise ValueError(f"{where}.gltf.sha256: {sha!r} is not 64 lower-case hex digits "
-                             "(`azurik-mod model check` prints it)")
+                             "(`python -m devkit models model check` prints it)")
         gltf = (_file(f"{where}.gltf.file", mesh["gltf"]["file"]), sha)
         how = mesh["gltf"].get("import", "positions")
         if how not in ("positions", "topology", "weights"):

@@ -201,6 +201,29 @@ def test_the_engine_holds_no_threads_processes_prints_or_exits_numpy_stays_in_it
     assert found == []
 
 
+MODKIT_COMMAND = re.compile(r"azurik-mod(?![\w-])")
+"""Modkit's command line (``azurik-mod model clips``), gone with Modkit (D1171), not ``azurik-modding-hub``."""
+
+
+def modkit_commands(source: str, rel: str) -> list[str]:
+    """``"<rel>:<line>"`` for each raise of ``source`` whose message names :data:`MODKIT_COMMAND`."""
+    return [f"{rel}:{node.lineno}" for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Raise)
+            and any(isinstance(s, ast.Constant) and isinstance(s.value, str) and MODKIT_COMMAND.search(s.value)
+                    for s in ast.walk(node))]
+
+
+def test_no_refusal_in_the_engine_names_modkits_azurik_mod_command():
+    """Six refusals of a recipe's glTF mesh or clip told its author to run Modkit's ``azurik-mod model clips``
+    (``check``, ``import``, ``export``), which no AzurKit install has: they name devkit's ``python -m devkit models
+    model ...``, and no raise under ``src/azurkit`` names Modkit's command, an f-string's parts included."""
+    assert modkit_commands('raise ValueError(f"{w}: " "(`azurik-mod model clips` prints it)")', "x.py") == ["x.py:1"]
+    assert modkit_commands('raise ValueError("(`python -m devkit models model clips` prints it)")\n'
+                           'raise OSError("see https://azurik-modding-hub.github.io/AzurKit/")', "x.py") == []
+    found = [v for path in sorted(SRC.rglob("*.py"))
+             for v in modkit_commands(path.read_text(encoding="utf-8"), path.relative_to(SRC).as_posix())]
+    assert found == []
+
+
 HTML_SINKS = re.compile(r"\b(innerHTML|outerHTML|insertAdjacentHTML|createContextualFragment|parseFromString|srcdoc)\b"
                         r"|\bdocument\s*\.\s*write|javascript:", re.IGNORECASE)
 """What would parse text as HTML or run it as a URL's script in the page (D992's SEC-18)."""

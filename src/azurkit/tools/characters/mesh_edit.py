@@ -2600,8 +2600,8 @@ def _edit(path: Path, mesh: _Mesh) -> GltfEdit:
         else:
             ignored.append(str(m.get("name", f"mesh {mi}")))
     if not found:
-        raise ValueError("no mesh carries a vertex id: edit the file `azurik-mod model export` wrote and keep its "
-                         "UVMap.001 (or tick Include > Attributes in Blender's glTF export)")
+        raise ValueError("no mesh carries a vertex id: edit the file `python -m devkit models model export` wrote "
+                         "and keep its UVMap.001 (or tick Include > Attributes in Blender's glTF export)")
     if len(found) > 1:
         raise ValueError(f"meshes {', '.join(repr(meshes[mi].get('name', mi)) for mi, _ in found)} all carry vertex "
                          "ids: keep one")
@@ -5724,7 +5724,7 @@ def _base(mesh: _Mesh, spec: MeshSpec, base_dir: Path | None) -> tuple[list[Vec]
     edit = _read_edit(path, mesh)
     if edit.sha256 != sha:
         raise ValueError(f"mesh.gltf.file {file!r}: its sha256 is {edit.sha256}, not the recipe's {sha} "
-                         "(`azurik-mod model check` prints the row)")
+                         "(`python -m devkit models model check` prints the row)")
     for k, p in edit.moved.items():
         base[k] = p
     return base, edit
@@ -5811,7 +5811,7 @@ def _prepare(characters_xbr: bytes, body: str, spec: MeshSpec, base_dir: Path | 
         imported = gltf_import.read(characters_xbr, body, path, spec.gltf_import)
         if imported.sha256 != sha:
             raise ValueError(f"mesh.gltf.file {file!r}: its sha256 is {imported.sha256}, not the recipe's {sha} "
-                             "(`azurik-mod model import` prints the row)")
+                             "(`python -m devkit models model import` prints the row)")
         mesh, edit = _mesh_of(imported.asset), None
         base = list(mesh.positions)
     else:
