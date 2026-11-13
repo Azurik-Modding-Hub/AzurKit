@@ -2208,12 +2208,13 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     change to her bytes is red until ``scripts/record_shipped.py`` re-records.
     Its parent's shipped places (the row of the first release that holds the
     file: USA's and Europe's ``characters.xbr`` are one) are too, a fresh
-    ``_parent_places`` in booblord_high's case. And on USA each shipped part
-    (Step 4.6p: a Check's of a built-in or of its own copy, :func:`_own_copies`
-    built for them) is the part a fresh dress works out under its key, on every
-    host: a key is its stage's inputs alone, the same on each (Step 4.37m1,
-    D1195), the part's floats the recording host's (``shipped.agrees``: close
-    enough off it, D1016)."""
+    ``_parent_places`` in booblord_high's case. And on USA each of USA's shipped
+    parts (Step 4.6p: a Check's of a built-in or of its own copy, :func:`_own_copies`
+    built for them; a row's ``release``, Europe's being those whose glue after the
+    body's parts is keyed on Europe's own files) is the part a fresh dress works
+    out under its key, on every host: a key is its stage's inputs alone, the same
+    on each (Step 4.37m1, D1195), the part's floats the recording host's
+    (``shipped.agrees``: close enough off it, D1016)."""
     cases = _variants(release, tmp_path)
     assert len(cases) == {"usa": 7, "europe": 1}[release.name]
     plans = [row for row in shipped.table().get("plan", ()) if row["release"] == release.iso_sha256]
@@ -2228,7 +2229,8 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     assert plans and {shipped.name("plan", row) for row in plans} <= held
     places = [row for row in shipped.table().get("places", ()) if row["release"] == release.iso_sha256]
     assert bool(places) == (release.name == "usa") and {shipped.name("places", row) for row in places} <= held
-    asked = {shipped.name("part", row) for row in shipped.table().get("part", ())}
+    asked = {shipped.name("part", row) for row in shipped.table().get("part", ())
+             if row["release"] == release.iso_sha256}
     assert release.name != "usa" or asked and asked <= held, sorted(asked - held)
 
 

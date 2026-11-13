@@ -9,7 +9,9 @@ every part (``tools/characters/parts.py``) a Check of each built-in variant
 and of its own copy (New from this) works out there (``part`` rows, Step
 4.6p: each part a file in its entry's ``variants/<entry>/shipped/parts/``,
 named for its bytes' sha256, so a re-record writes only the parts that
-changed).
+changed; each row's ``release`` the first whose Checks work it out: the
+glue after the body's parts is keyed on the release's own files, DRESS, so
+Europe's W28, W39 and cut parts are rows of their own, Step 4.37m1).
 
     uv run --locked python scripts/record_shipped.py [--check] [--content CLONE] [--workers N]
 
@@ -116,7 +118,7 @@ def _plan(job: tuple) -> tuple[dict, bytes]:
     return seen["plan"] | {"blob": {"path": rel, "sha256": sha, "size": len(blob)}}, blob
 
 
-def _checks(job: tuple) -> tuple[str, list[dict], dict[str, bytes]]:
+def _checks(job: tuple) -> tuple[str, list[dict], dict[str, bytes], str]:
     """``(built-in, release, image)``'s Check and its own copy's (New from
     this, in a library of the process's own), at the page's defaults, each
     as the Variants editor asks it (``sdk.variant_check``) and fresh: the
@@ -126,7 +128,7 @@ def _checks(job: tuple) -> tuple[str, list[dict], dict[str, bytes]]:
     Check that refuses ships none of its own (they would only speed a
     refusal), and no size part ships (a built-in's size ships as its
     ``size`` row; a copy's is its release's, a dress at x1 of parts that
-    ship)."""
+    ship); and the release's iso sha256."""
     import shutil
     import tempfile
 
@@ -162,7 +164,7 @@ def _checks(job: tuple) -> tuple[str, list[dict], dict[str, bytes]]:
         if part_codec.digest(part_codec.decode(blobs[key])) != row["answer"]:
             raise SystemExit(f"{shipped.name('part', row)} of {builtin}: its bytes don't read back to its answer")
     parts.clear()
-    return owner[0] if rows else "", list(rows.values()), blobs
+    return owner[0] if rows else "", list(rows.values()), blobs, _release(name).iso_sha256
 
 
 def _key(row: dict) -> tuple:
@@ -180,22 +182,26 @@ def _differs(kind: str, old: dict | None, new: dict | None, exact: bool) -> bool
             or not shipped.agrees(kind, old[answer], new[answer], exact))
 
 
-def _files(checked: list[tuple[str, list[dict], dict[str, bytes]]]) -> tuple[dict[str, bytes], list[dict]]:
+def _files(checked: list[tuple[str, list[dict], dict[str, bytes], str]]) -> tuple[dict[str, bytes], list[dict]]:
     """The parts' files (``{path: bytes}``: each entry's in its
     ``shipped/parts/``, named for their sha256) and rows from
-    :func:`_checks`' answers; refused naming each part two Checks worked
+    :func:`_checks`' answers, each naming the first release whose Checks
+    worked it out (``release``, as :data:`gate.RELEASES` orders them: the
+    pin's dresses on USA ask USA's); refused naming each part two Checks worked
     out to two answers (a part is a function of its key: never so on one host)."""
-    files, rows, answers = {}, {}, {}
-    for entry, made, blobs in checked:
+    files, rows, answers, heard = {}, {}, {}, {}
+    for entry, made, blobs, release in checked:
         for row in made:
             sha = hashlib.sha256(blobs[row["part"]]).hexdigest()
             path = f"variants/{entry}/shipped/parts/{sha[:16]}.azkp"
             files[path] = blobs[row["part"]]
             rows[row["part"], path] = row | {"blob": {"path": path, "sha256": sha, "size": len(files[path])}}
             answers.setdefault(row["part"], set()).add(row["answer"])
+            heard.setdefault(row["part"], set()).add(release)
     if twice := [shipped.name("part", {"part": key}) for key, found in sorted(answers.items()) if len(found) > 1]:
         raise SystemExit(f"two Checks worked out {', '.join(twice)} to two answers")
-    return files, [rows[k] for k in sorted(rows)]
+    first = {key: next(r.iso_sha256 for r in gate.RELEASES if r.iso_sha256 in found) for key, found in heard.items()}
+    return files, [rows[k] | {"release": first[k[0]]} for k in sorted(rows)]
 
 
 def _parts_held(rows, content: Path) -> list[str]:
