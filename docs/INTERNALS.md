@@ -2404,7 +2404,9 @@ are the Characters section's.
   once (it lands a stack after the one that put `new_browsers` on main: the
   landing queue lands with main's `land.py`). A line rises only for a rare
   op, once, by the owner's tiering: both fail a stack that moves an op
-  main's registry holds frequent to the rare tier or raises a line
+  main's registry holds frequent to the rare tier, drops a heavy op's
+  `heavy` (its bound), raises a line (the capped profile's too, which a
+  lowered `BUDGET` raises) or loses the registry's tiers
   (`perf.check_tiers`, reading main's `tests/_perf.py` and `perf.py` with
   `ast`), but against a main whose registry has no tiers, the first record
   (D1244's, Step 4.49a). A new op may start at either tier.

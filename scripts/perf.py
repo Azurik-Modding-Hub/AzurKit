@@ -84,9 +84,9 @@ when each sample's page part, the click to the download's start, is within
 a debt or raises a ceiling against main's (:func:`check_list`), but for a
 browser main's perf.py doesn't time (:func:`new_browsers`), whose first
 record may add its own ops and debts once; it fails too for a stack that
-moves an op main holds frequent to the rare tier or raises a line (D1244,
-:func:`check_tiers`), but against a main with no tiers, the owner's first
-record. A run whose engine answers without the compiled kernels' library
+moves an op main holds frequent to the rare tier, drops a heavy op's bound,
+raises a line or loses the tiers (D1244, :func:`check_tiers`), but against a
+main with no tiers, the owner's first record. A run whose engine answers without the compiled kernels' library
 the worktree ships for its host
 (:func:`native_failures`: its pages' ``sdk.catalog`` ``native``, loaded,
 that library, those bytes, and as each page leaves no reach call its twin
@@ -477,24 +477,27 @@ def new_browsers(repo: Path, base: str | None, head: str) -> set[str]:
 
 def tiering(perf_source: str | None, registry_source: str | None) -> dict | None:
     """The tiers a ``tests/_perf.py`` holds and the lines its ``scripts/perf.py`` does (D1244), read with ``ast``:
-    ``{"tiers": {op: tier}, "lines": {name: seconds}}``; None for a registry whose ``Op`` has no ``tier`` (before
-    D1244's first record)."""
+    ``{"tiers": {op: tier}, "heavy": [op, ...], "lines": {name: seconds}}``, the lines the capped profile derives
+    from them (``RARE capped``, ``HEAVY rare site capped``: :func:`budget_of`, :func:`bound_of`) among them; None
+    for a registry whose ``Op`` has no ``tier`` (before D1244's first record)."""
     try:
         tree, script = ast.parse(registry_source or ""), ast.parse(perf_source or "")
     except SyntaxError:
         return None
     op = next((n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Op"), None)
-    field = next((n for n in (op.body if op else ()) if isinstance(n, ast.AnnAssign)
-                  and getattr(n.target, "id", None) == "tier"), None)
-    if field is None:
+    fields = {n.target.id: n.value for n in (op.body if op else ()) if isinstance(n, ast.AnnAssign)
+              and isinstance(n.target, ast.Name)}
+    if "tier" not in fields:
         return None
-    default = ast.literal_eval(field.value) if field.value is not None else None
-    tiers = {}
+    default = {f: ast.literal_eval(v) if v is not None else None for f, v in fields.items() if f in ("tier", "heavy")}
+    tiers, heavy = {}, []
     for node in ast.walk(tree):
         if (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "Op" and node.args
                 and isinstance(node.args[0], ast.Constant)):
-            given = next((k.value for k in node.keywords if k.arg == "tier"), None)
-            tiers[node.args[0].value] = ast.literal_eval(given) if given is not None else default
+            given = {k.arg: ast.literal_eval(k.value) for k in node.keywords if k.arg in default}
+            tiers[node.args[0].value] = given.get("tier", default["tier"])
+            if given.get("heavy", default.get("heavy")):
+                heavy.append(node.args[0].value)
     lines = {}
     for node in script.body:
         for name in (getattr(t, "id", None) for t in getattr(node, "targets", ())):
@@ -503,7 +506,10 @@ def tiering(perf_source: str | None, registry_source: str | None) -> dict | None
             elif name == "HEAVY":
                 lines |= {f"HEAVY {tier} {host}": v for tier, hosts in ast.literal_eval(node.value).items()
                           for host, v in hosts.items()}
-    return {"tiers": tiers, "lines": lines}
+    if lines.get("BUDGET") and "CAPPED" in lines:   # the capped profile's three times each: a lowered BUDGET raises it
+        lines |= {f"{name} capped": round(v * lines["CAPPED"] / lines["BUDGET"], 6) for name, v in list(lines.items())
+                  if name == "RARE" or name.startswith("HEAVY ")}
+    return {"tiers": tiers, "heavy": sorted(heavy), "lines": lines}
 
 
 def tiering_at(repo: Path, rev: str | None) -> dict | None:
@@ -514,13 +520,18 @@ def tiering_at(repo: Path, rev: str | None) -> dict | None:
 
 def check_tiers(mine: dict | None, main: dict | None) -> list[str]:
     """What the head's tiers loosen against main's (D1244, :func:`tiering`): an op main holds at the frequent tier
-    moved to the rare one, or a line raised. None against a main whose registry has no tiers: that first record is the
-    owner's tiering (D1244); a later move needs an owner's decision and a change here that lets it through once, as a
-    browser's first record has :func:`new_browsers`. A new op may start at either tier."""
-    if not mine or not main:
+    moved to the rare one, an op main holds heavy no longer heavy (its bound gone), a line raised (the capped
+    profile's too), or the registry's tiers gone. None against a main whose registry has no tiers: that first record
+    is the owner's tiering (D1244); a later move needs an owner's decision and a change here that lets it through
+    once, as a browser's first record has :func:`new_browsers`. A new op may start at either tier."""
+    if not main:
         return []
+    if not mine:
+        return ["the registry's tiers: gone against main's (D1244)"]
     bad = [f"{op}: moved to the rare tier against main's (D1244: an owner's decision)"
            for op, tier in sorted(mine["tiers"].items()) if tier == "rare" and main["tiers"].get(op, "rare") != "rare"]
+    bad += [f"{op}: no longer heavy against main's (D1244: its bound)"
+            for op in sorted(set(main.get("heavy", ())) & (set(mine["tiers"]) - set(mine["heavy"])))]
     return bad + [f"{name}: raised against main's, {main['lines'][name]} -> {v} s (D1244)"
                   for name, v in sorted(mine["lines"].items()) if v > main["lines"].get(name, v)]
 

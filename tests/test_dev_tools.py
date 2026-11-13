@@ -2168,7 +2168,8 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
     times it. The tiers (D1244, ``perf.check_tiers``) likewise: a registry
     that first holds them lands against a main whose has none (the owner's
     tiering), and once main holds them a stack that moves an op to the rare
-    tier or raises a line is refused by name."""
+    tier, drops a heavy op's bound, raises a line (the capped profile's too,
+    which a lowered BUDGET raises) or loses the tiers is refused by name."""
     repo, _, receipts, _ = _repo(tmp_path, monkeypatch)
 
     def commit(browsers, lst, what, registry=None, lines=""):
@@ -2210,19 +2211,26 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
     code, why = land.land(repo, "p2/z", dry_run=True)
     assert code == 1 and "S08/firefox: added to the list" in why, why
 
-    def registry(*rare, field=True):   # a tests/_perf.py whose Op has a tier (``field``), ``rare`` its rare ops
-        return ("class Op:\n    id: str\n" + ('    tier: str = "frequent"\n' if field else "") + "\n\nOPS = {o.id: o for o in ("
-                + "".join(f'Op("{op}"' + (', tier="rare"' if op in rare else "") + "), " for op in ("S05", "S07")) + ")}\n")
-    three = ("webkit", "chromium", "firefox")
+    def registry(*rare, field=True, heavy=("S07",), ops=("S05", "S07")):   # a tests/_perf.py whose Op has a tier
+        return ("class Op:\n    id: str\n" + ('    tier: str = "frequent"\n    heavy: bool = False\n' if field else "")
+                + "\n\nOPS = {o.id: o for o in (" + "".join(
+                    f'Op("{op}"' + (', tier="rare"' if op in rare else "") + (", heavy=True" if op in heavy else "")
+                    + "), " for op in ops) + ")}\n")   # (``field``), ``rare`` its rare ops, ``heavy`` its heavy ones
+    three, lined = ("webkit", "chromium", "firefox"), "BUDGET = 3.0\nCAPPED = 9.0\nRARE = {}\n".format
     _git(repo, "switch", "-q", "main")
-    commit(three, recorded, "an untiered registry", registry("S07", field=False), "RARE = 10.0\n")
+    commit(three, recorded, "an untiered registry", registry("S07", field=False), lined(10.0))
     _git(repo, "switch", "-q", "-c", "p2/t1")
-    commit(three, recorded, "the tiers' first record", registry("S07"), "RARE = 12.0\n")
+    commit(three, recorded, "the tiers' first record", registry("S07"), lined(12.0))
     assert land.land(repo, "p2/t1")[0] == 0
-    for branch, given, lines, refused in (("p2/t2", ("S07", "S05"), "RARE = 12.0\n", "S05: moved to the rare tier"),
-                                          ("p2/t3", ("S07",), "RARE = 14.0\n", "RARE: raised against main's, 12.0 -> 14.0")):
+    for branch, given, lines, refused in (
+            ("p2/t2", registry("S07", "S05"), lined(12.0), "S05: moved to the rare tier"),
+            ("p2/t3", registry("S07"), lined(14.0), "RARE: raised against main's, 12.0 -> 14.0"),
+            ("p2/t4", registry("S07", heavy=()), lined(12.0), "S07: no longer heavy against main's"),
+            ("p2/t5", registry("S07"), "BUDGET = 2.5\nCAPPED = 9.0\nRARE = 12.0\n",   # the capped profile's line:
+             "RARE capped: raised against main's, 36.0 -> 43.2"),                    # RARE x CAPPED / BUDGET
+            ("p2/t6", registry("S07", field=False), lined(12.0), "the registry's tiers: gone against main's")):
         _git(repo, "switch", "-q", "-c", branch, "main")
-        commit(three, recorded, branch, registry(*given), lines)
+        commit(three, recorded, branch, given, lines)
         code, why = land.land(repo, branch, dry_run=True)
         assert code == 1 and refused in why, why
 

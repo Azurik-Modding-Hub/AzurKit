@@ -26,8 +26,9 @@ debt, a memory peak or an untimed op, or raises a ceiling, against main's
 (``perf.check_list``; main without the file takes any, the first record, and
 a browser the stack's perf.py times and main's doesn't may add its own once,
 its first record: ``perf.new_browsers``, D994); and one that moves an op
-main holds frequent to the rare tier or raises a line (``perf.check_tiers``,
-D1244), but against a main with no tiers. It refuses a head whose
+main holds frequent to the rare tier, drops a heavy op's bound, raises a
+line or loses the tiers (``perf.check_tiers``, D1244), but against a main
+with no tiers. It refuses a head whose
 ``docs/DEVLOG.md`` holds a bullet twice (``scripts/devlog.py``: the stale copy
 a union merge keeps of a bullet its lane edited, Step 4.4dx1).
 Landing never waits for a release (D1170): a release is a tag on a commit
