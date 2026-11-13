@@ -297,7 +297,10 @@ def run(variant, iso: Path, out: Path) -> tuple[list[str], int]:
             data = path.read_bytes()
             if hashlib.sha256(data).hexdigest() != sha:
                 raise ValueError(f"{path}: its sha256 isn't the recipe's {sha[:12]}")
-            new, moved, keyed = rerest(data, news)
+            try:
+                new, moved, keyed = rerest(data, news)
+            except ValueError as exc:   # a refusal names the file it came from (D35, D992)
+                raise ValueError(f"{file}: {exc}") from None
             (part / file).write_bytes(new)
             was = {c.name: c for c in clip_import.read_clips(old_body, body, path)}
             got = {c.name: c for c in clip_import.read_clips(new_body, body, part / file)}

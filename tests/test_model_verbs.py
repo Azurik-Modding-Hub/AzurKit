@@ -583,7 +583,7 @@ def test_weapon_fit_turns_each_clip_to_its_fewest_excess_ticks_above_the_floor_a
     assert usage.value.code == 2
 
 
-def test_clip_rest_moves_each_jiggle_bones_rest_and_its_keyed_places_by_as_much_and_nothing_else():
+def test_clip_rest_moves_each_jiggle_bones_rest_and_its_keyed_places_by_as_much_and_nothing_else(monkeypatch):
     """``python -m devkit models clip-rest`` (the booblord pass's E3):
     ``rerest`` puts each named node at its new rest and moves its
     translation keys by as much (a CUBICSPLINE's values, its tangents kept;
@@ -591,9 +591,12 @@ def test_clip_rest_moves_each_jiggle_bones_rest_and_its_keyed_places_by_as_much_
     accessor's bytes (rotations, another node's keys, the times) as they
     were; a rest that would turn, a keys accessor two nodes share and a
     file that isn't a .glb are refused by name. ``compare`` names the other
-    bones whose tracks differ. Its dress runs W24 and W29 twice for
-    minutes, so the verb was run by hand: on booblord's clips for the
-    pass's pick, every other bone's tracks equal in all 13."""
+    bones whose tracks differ, and ``drift`` how far apart only the bones
+    it is given pose, against the verb's bound (twice the thinning's
+    tolerance). Its dress runs W24, W29 and W30 twice (about 75 s), so the
+    verb was run by hand: on booblord's clips for the pass's pick, every
+    other bone's tracks equal in 12 of 13, sit_cross's head and neck
+    thinned apart and posed within 2.6e-4."""
     from types import SimpleNamespace
 
     from azurkit.tools.characters.retarget import Track
@@ -663,6 +666,19 @@ def test_clip_rest_moves_each_jiggle_bones_rest_and_its_keyed_places_by_as_much_
     c = clip_rest.compare(clip((0, 3, 1.0), (1, 0, 0.1), (2, 0, 0.4)), clip((0, 3, 1.0), (1, 0, 0.15), (2, 0, 0.5)),
                           {1}, ["spine", "breast", "squish"])
     assert (c.others, c.placed, c.differ) == ((1, 2), (0, 1), ("squish",))
+
+    import numpy as np
+
+    from azurkit.tools.characters import clip_import, gltf
+
+    old, new = SimpleNamespace(length=1.0, bones=()), SimpleNamespace(length=1.0, bones=())
+    apart = {0: 5e-3, 1: 1e-4, 2: 1.0}   # bone 2, not asked about, is a jiggle bone's move
+    monkeypatch.setattr(gltf, "_engine", lambda info, played, t: {
+        k: np.full((4, 4), d if played is new else 0.0) for k, d in apart.items()})
+    bound = 2 * clip_import.THIN_TOLERANCE
+    assert clip_rest.drift(None, old, None, new, {0, 1}) == pytest.approx(5e-3) and 5e-3 > bound
+    assert clip_rest.drift(None, old, None, new, {1}) == pytest.approx(1e-4) and 1e-4 <= bound
+    assert clip_rest.drift(None, old, None, new, set()) == 0.0
     with pytest.raises(SystemExit) as usage:
         devkit(["models", "clip-rest"])
     assert usage.value.code == 2
