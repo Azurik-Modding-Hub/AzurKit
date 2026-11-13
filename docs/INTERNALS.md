@@ -1690,7 +1690,10 @@ are the Characters section's.
     the perf's source), checks an Install in
     its worker (`sdk.content_check`, given the source: an Update only from
     where it was installed, SEC-8, asked before it fetches a file and again
-    with the files), keeps the files in IndexedDB and
+    with the files; a known flaw, D835: an Install clicked while F builds
+    fetches once that build ends, its first check queued behind it, as
+    F's build drops B's job ahead and no B loads beside it, Step 4.53b),
+    keeps the files in IndexedDB and
     writes them into its worker's `content/` once a worker; the app's
     engine installs into its content folder. A known flaw (D835): on the
     site a detailed variant's dress (booblord's) may run out of wasm
