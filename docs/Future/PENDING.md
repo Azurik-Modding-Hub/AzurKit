@@ -506,18 +506,12 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 ### Known flaws (named under D835, listed until fixed)
 
-1. **Refusals name Modkit's commands:** six messages tell the player
-   "`azurik-mod model clips` (or `check`, `import`, `export`) prints it"
-   (`_player_variants.py`, `mesh_edit.py`); devkit's are
-   `python -m devkit models model ...`. The glTF writer's generator string
-   and the generated level data's headers say `azurik-mod` too (changing
-   those moves goldens).
+1. ~~Refusals name Modkit's commands~~: fixed by 4.52b (819ac2dc).
 2. **"WHITE cycles"** in the build's character log line and comments
    (4.18a): D1153 wants modern pad names (LB). Rewording moves the shipped
    plan answers' digests, so they need a re-record.
-3. **Beamlord's notes show decision ids** to players (its `variant.json` in
-   the content repo). Write plain notes in the next content version, as
-   booblord's were (D1061).
+3. ~~Beamlord's notes show decision ids~~: fixed by 4.52b (1e72520c); the
+   content repo's copy follows at his next content version.
 4. **Booblord's own four spin picks** carry their grades across the vase
    drop ("her mesh, not her moves"); no sitting has watched them on the
    vase-less body (4.27d; D835, D856: the owner may want one).
