@@ -2542,12 +2542,12 @@ def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(m
     driver's ``taskkill /T``; runs 41744982709, 182336a's, 41779807138) answers once the ``browser`` fixture's close
     (``conftest.close_browser``) has waited ``conftest.LEFT_S`` and ended it, and a warning names it; a browser's
     process under the driver, one that began before the driver, one of another name and the user's own Chrome
-    outside Playwright's folders, each also left by an ended parent, run on."""
+    outside Playwright's folders, each also left by an ended parent, run on. A browser that stopped answering (its
+    connection closed by ``_page.stalled``, D1260) has its close return at once: what its ended parent left running is
+    ended then, while its driver runs, and the warning says it was found on the closed connection."""
     from concurrent.futures import ThreadPoolExecutor
 
     from scripts import ci_resources
-    procs = {what: subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
-             for what in ("held", "under", "older", "other", "theirs")}
     gone, driver = 999_999_999, os.getpid()   # a parent id no process has
     webkit = "D:\\a\\AzurKit\\AzurKit\\.tools\\playwright\\webkit-2370\\"   # Playwright's WebKit's folder on CI
     rows = {"held": (gone, 30, "WebKitWebProcess.exe", f'"{webkit}WebKitWebProcess.exe" 2 -clientIdentifier 1'),
@@ -2555,36 +2555,45 @@ def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(m
             "older": (gone, 200, "WebKitWebProcess.exe", f'"{webkit}WebKitWebProcess.exe" 2 -clientIdentifier 1'),
             "other": (gone, 30, "git.exe", "C:\\Program Files\\Git\\cmd\\git.exe"),
             "theirs": (gone, 30, "chrome.exe", '"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"')}
-    monkeypatch.setattr(ci_resources, "processes", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20)] + [
-        (procs[what].pid, parent, age, name, command, 1 << 20) for what, (parent, age, name, command) in rows.items()
-        if procs[what].poll() is None])
 
-    async def close():   # the driver's: it answers once the held process has ended
-        while procs["held"].poll() is None:
-            await asyncio.sleep(0.05)
     def apart(call):   # sync Playwright's loop, a module's browser's, may run in this thread: asyncio.run in another
         with ThreadPoolExecutor(1) as pool:
             return pool.submit(asyncio.run, call).result()
-    fake = types.SimpleNamespace(browser_type=types.SimpleNamespace(name="webkit"), _sync=apart,
-                                 is_connected=lambda: True, _impl_obj=types.SimpleNamespace(close=close, _connection=(
-                                     types.SimpleNamespace(_transport=types.SimpleNamespace(
-                                         _proc=types.SimpleNamespace(pid=driver))))))
     monkeypatch.setattr(conftest, "LEFT_S", 0.5)
     monkeypatch.setattr(conftest, "EVERY_S", 0.2)
-    try:
-        t0 = time.monotonic()
-        with pytest.warns(UserWarning) as said:
-            conftest.close_browser(fake, 30)
-        assert 0.5 <= time.monotonic() - t0 < 10
-        assert {what: proc.poll() is None for what, proc in procs.items()} == {
-            "held": False, "under": True, "older": True, "other": True, "theirs": True}
-        assert [str(w.message) for w in said] == [
-            "the webkit browser's close waited on what a parent that ended left running, out of its driver's kill's "
-            f"reach, ended: WebKitWebProcess.exe (id {procs['held'].pid}, parent {gone}): 0 min, 1 MiB"]
-    finally:
-        for proc in procs.values():
-            proc.kill()
-            proc.wait()
+    for stopped in (False, True):   # its close held by the left process; its connection closed, its close at once
+        procs = {what: subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"]) for what in rows}
+        monkeypatch.setattr(ci_resources, "processes", lambda timeout=0, procs=procs: [
+            (driver, 1, 100, "node", "", 1 << 20)] + [(procs[what].pid, parent, age, name, command, 1 << 20)
+                                                      for what, (parent, age, name, command) in rows.items()
+                                                      if procs[what].poll() is None])
+
+        async def close(procs=procs, stopped=stopped):   # the driver's: once the held process has ended, or at once
+            while not stopped and procs["held"].poll() is None:
+                await asyncio.sleep(0.05)
+        connection = types.SimpleNamespace(_transport=types.SimpleNamespace(_proc=types.SimpleNamespace(pid=driver)),
+                                           _closed_error=Exception("the browser stopped answering: a call") if stopped
+                                           else None)
+        fake = types.SimpleNamespace(browser_type=types.SimpleNamespace(name="webkit"), _sync=apart,
+                                     is_connected=lambda: True,
+                                     _impl_obj=types.SimpleNamespace(close=close, _connection=connection))
+        try:
+            t0 = time.monotonic()
+            with pytest.warns(UserWarning) as said:
+                conftest.close_browser(fake, 30)
+            took = time.monotonic() - t0
+            assert (stopped or took >= 0.5) and took < 10, took   # held LEFT_S, or found at once
+            procs["held"].wait(10)
+            assert {what: proc.poll() is None for what, proc in procs.items()} == {
+                "held": False, "under": True, "older": True, "other": True, "theirs": True}
+            assert [str(w.message) for w in said] == [
+                f"the webkit browser's close {'on its closed connection found' if stopped else 'waited on'} what a "
+                f"parent that ended left running, out of its driver's kill's reach, ended: WebKitWebProcess.exe (id "
+                f"{procs['held'].pid}, parent {gone}): 0 min, 1 MiB"]
+        finally:
+            for proc in procs.values():
+                proc.kill()
+                proc.wait()
 
 
 STOPPED = """import asyncio, json, sys, time
