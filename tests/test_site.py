@@ -6701,16 +6701,20 @@ def test_the_site_engines_restore_reads_the_logic_before_the_page_is_ready_when_
 
 WORKERS_SMOKE = """async ({ seed }) => {
     const { workers } = await import("/workers.mjs");
-    const start = () => {   // as app.mjs starts its engine: a blob: URL that imports worker.mjs
-        const entry = new URL("worker.mjs", location.href).href;
-        return new Worker(URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\\n`],
-                                                       { type: "text/javascript" })), { type: "module" });
+    const start = () => {   // as app.mjs starts its engine: a blob: URL that imports worker.mjs; each message the
+        const entry = new URL("worker.mjs", location.href).href;   // pool sends it told to smoke.posted, if set
+        const worker = new Worker(URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\\n`],
+                                                               { type: "text/javascript" })), { type: "module" });
+        const post = worker.postMessage.bind(worker);
+        worker.postMessage = (...sent) => { post(...sent); smoke.posted?.(sent[0]); };
+        return worker;
     };
     const smoke = globalThis.smoke = { told: [] };
     smoke.pool = workers({ start, ready: () => smoke.ready = true, told: (data) => smoke.told.push(data.type),
                            cores: 8, settle: 0 });
 }"""
-"""Two real engine workers on the site's worker.mjs, kept as ``smoke`` (its pool, F's ready, what no job asked for)."""
+"""Two real engine workers on the site's worker.mjs, kept as ``smoke`` (its pool, F's ready, what no job asked for,
+and ``posted``: a test's hook on each message the pool sends a worker, called as it is sent)."""
 
 
 def test_two_real_engine_workers_plan_a_seed_alike_and_a_change_drops_bs_plan_mid_way(browser, site):
@@ -6735,15 +6739,18 @@ def test_two_real_engine_workers_plan_a_seed_alike_and_a_change_drops_bs_plan_mi
                     "plan" in got.reply, performance.now() - asked < 1000];
         }""")
         assert (took, same, planned, waited) == (True, True, True, True)
-        page.evaluate("""() => smoke.pool.want([{ key: "plan 2", message: { type: "plan", call: 4,
-                                                                            recipe: { seed: "2" } } }])""")
-        _page.answer(page, """() => new Promise((dropped) => {   // the check and the change in one task, so B's
-            const drop = () => {                                       // plan 2 can't end between them (Step 4.37g)
-                if (smoke.pool.state().b?.job !== "plan 2") return setTimeout(drop, 1);
-                smoke.pool.want([]);
-                dropped(true);
+        # The change made from the pool's own send of plan 2 to B (a microtask after it, as the pool's call returns):
+        # no message of B's can come between them, where a timer's poll let B's plan (70-85 ms) start and end unseen
+        _page.answer(page, """() => new Promise((dropped) => {
+            smoke.posted = (message) => {
+                if (message?.call !== 4) return;
+                smoke.posted = null;
+                queueMicrotask(() => {
+                    smoke.pool.want([]);
+                    dropped(true);
+                });
             };
-            drop();
+            smoke.pool.want([{ key: "plan 2", message: { type: "plan", call: 4, recipe: { seed: "2" } } }]);
         })""", seconds=120)
         _page.until(page, "() => smoke.pool.state().b?.loaded", 300)
         state = page.evaluate("() => smoke.pool.state()")
