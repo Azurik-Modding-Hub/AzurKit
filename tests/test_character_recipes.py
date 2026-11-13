@@ -1905,7 +1905,7 @@ def test_booblords_attacks_only_whoosh_and_her_other_sounds_are_the_owners_wavs(
         again, _ = _dress(image, variant)
         assert {k: bytes(v) for k, v in again.changed().items()} == {k: bytes(v) for k, v in game.changed().items()}
         assert l1.check(vanilla_xbe, xbe) == []
-    assert builtins()["booblord"].sha == "481c4cfffa90"   # Modkit's last 1d7ad4bcbc8d, her vase dropped (Step 4.3)
+    assert builtins()["booblord"].sha == "3eab02e20f9d"   # the booblord pass's rework (Step 4.48b)
 
 
 def _vanilla_file(image, path: str) -> bytes:
