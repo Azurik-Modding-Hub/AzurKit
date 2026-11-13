@@ -883,7 +883,7 @@ are the Characters section's.
     Modkit's split over spawned children, `min(16, the CPUs,
     $AZURKIT_CORES)` busy across the process (a `later`'s call shares them
     with the call beside it, and takes one past them rather than wait), kept for the next, but one that has peaked
-    past `RETIRE` (256 MiB; not on Windows, which has no peak to read), which
+    past `RETIRE` (256 MiB; `core.host.peak`: Windows' peak working set too), which
     leaves after its part so its heap goes back to the OS, through pipes alone;
     a costed call that would start a child runs its items in the engine first,
     the cheapest first, while they stay under `SMALL` (0.25 CPU-s; the G4

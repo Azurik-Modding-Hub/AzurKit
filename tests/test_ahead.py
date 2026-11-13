@@ -278,6 +278,11 @@ class _Kernel32:   # Windows' calls, recorded
         ref._obj.ullTotalPhys = 8 << 30
         return 1
 
+    def K32GetProcessMemoryInfo(self, process, ref, size):
+        self.log.append(("K32GetProcessMemoryInfo", process, size == ref._obj.cb))
+        ref._obj.PeakWorkingSetSize = 3 << 30
+        return 1
+
     def __getattr__(self, name):
         answers = {"GetCurrentThread": "thread", "GetCurrentProcess": "process", "GetThreadPriority": 0,
                    "GetPriorityClass": 0x20, "SetThreadPriority": 1, "SetPriorityClass": 1}
@@ -332,6 +337,20 @@ def test_the_hosts_background_priority_goes_down_and_back_and_its_memory_reads_p
         monkeypatch.setattr(host, "os", _posix(log))
     got = host.background(process)
     assert (got, host.foreground(got, process), log, host.ram()) == (was, back, calls, ram)
+
+
+def test_the_pools_peak_reads_this_processs_own_peak_on_every_os(monkeypatch):
+    """``host.peak``, which retires a pool child past ``RETIRE`` and keeps a
+    heavy job's work ahead off a small machine (``ahead.room``): on this
+    host, in bytes, past what this process has touched; on Windows, its
+    peak working set from ``K32GetProcessMemoryInfo``."""
+    touched = bytearray(b"\x01") * (64 << 20)
+    assert host.peak() >= len(touched)
+    del touched
+    log = []
+    monkeypatch.setattr(host, "sys", types.SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(host, "_kernel32", lambda: _Kernel32(log))
+    assert (host.peak(), log) == (3 << 30, [("GetCurrentProcess",), ("K32GetProcessMemoryInfo", "process", True)])
 
 
 def _reads():

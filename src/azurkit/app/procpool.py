@@ -378,28 +378,12 @@ def stop() -> None:
         child.stop()
 
 
-def _peak() -> int:
-    """This process's peak resident size in bytes, 0 where it can't be read
-    (Windows, whose children stay, as before): macOS's ``getrusage``; Linux's
-    ``VmHWM``, as its ``getrusage`` starts a spawned child at its parent's
-    peak (exec keeps it), past the line whatever the child did."""
-    if sys.platform == "darwin":
-        import resource
-
-        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    try:
-        with open("/proc/self/status", encoding="utf-8") as status:
-            return next(int(line.split()[1]) * 1024 for line in status if line.startswith("VmHWM:"))
-    except (OSError, StopIteration):
-        return 0
-
-
 def _work(conn) -> None:
     """A child: each part's results, or ``failed`` (its items then run in
     the parent), holding none of a part's inputs or results while it waits
     for the next; ``leaving`` with the results, then gone, once it has
-    peaked at the line its parent sent with the part (the parent's
-    :data:`RETIRE`) or past it, or after a low part where POSIX's nice has
+    peaked (``host.peak``) at the line its parent sent with the part (the
+    parent's :data:`RETIRE`) or past it, or after a low part where POSIX's nice has
     no way back (it would answer the next click's parts low)."""
     from .engine import orphaned
 
@@ -419,7 +403,7 @@ def _work(conn) -> None:
             out = ("failed", None)
         host.foreground(was)
         fn = shared = items = None   # the part's inputs, never held while this child waits for the next part
-        leaving = out[0] == "done" and (_peak() >= line or low and sys.platform not in ("darwin", "win32"))
+        leaving = out[0] == "done" and (host.peak() >= line or low and sys.platform not in ("darwin", "win32"))
         try:
             conn.send(("leaving", out[1]) if leaving else out)
         except Exception:   # results that don't pickle

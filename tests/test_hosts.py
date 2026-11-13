@@ -2411,17 +2411,17 @@ def _ended(pid: int, within: float = 10) -> bool:
 
 def test_a_pool_child_grown_past_the_line_leaves_with_its_results_and_a_small_one_stays():
     """Step 4.3r4c: a child whose part took it past ``procpool.RETIRE`` hands
-    every result back and leaves, so that part's heap goes back to the OS
-    (Windows, with no peak to read, keeps it: a named flaw); the next child
-    stays for the next call, however big its parent has grown by then (Linux's
-    ``getrusage`` would start it at its parent's peak)."""
+    every result back and leaves, so that part's heap goes back to the OS, on
+    every OS (``host.peak``); the next child stays for the next call,
+    however big its parent has grown by then (Linux's ``getrusage`` would
+    start it at its parent's peak)."""
     from azurkit.app import procpool
 
     procpool.stop()
     size = procpool.RETIRE + (16 << 20)
     try:
         assert [len(got) for got in procpool.map_(operator.mul, b"x", [size])] == [size]
-        assert len(procpool._IDLE) == (sys.platform == "win32")
+        assert not procpool._IDLE
         procpool.stop()
         assert procpool.map_(operator.add, 1, [2]) == [3]
         assert len(procpool._IDLE) == 1

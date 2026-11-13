@@ -28,7 +28,8 @@ parent's call on its child's pid, so a child lowers itself. Per OS:
   priority of its own).
 
 :func:`ram` is the machine's physical memory in bytes, ``None`` where it
-can't be read. Nothing here starts a thread or a process."""
+can't be read, and :func:`peak` this process's peak resident size. Nothing
+here starts a thread or a process."""
 
 from __future__ import annotations
 
@@ -67,6 +68,7 @@ def _kernel32():
     k.GetThreadPriority.argtypes = k.GetPriorityClass.argtypes = [ctypes.c_void_p]
     k.SetThreadPriority.argtypes = [ctypes.c_void_p, ctypes.c_int]
     k.SetPriorityClass.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+    k.K32GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]
     return k
 
 
@@ -164,3 +166,38 @@ def _physical() -> int | None:
     except (OSError, ValueError, AttributeError):
         return None
     return pages * size if pages > 0 and size > 0 else None
+
+
+def peak() -> int:
+    """This process's peak resident size in bytes, 0 where it can't be read
+    (Pyodide): macOS's ``getrusage``; Linux's ``VmHWM``, as its
+    ``getrusage`` starts a spawned child at its parent's peak (exec keeps
+    it), past the line whatever the child did; Windows' peak working set
+    (``K32GetProcessMemoryInfo``)."""
+    if sys.platform == "darwin":
+        import resource
+
+        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if sys.platform == "win32":
+        import ctypes
+
+        class Counters(ctypes.Structure):   # PROCESS_MEMORY_COUNTERS
+            _fields_ = [("cb", ctypes.c_ulong), ("PageFaultCount", ctypes.c_ulong),
+                        *((name, ctypes.c_size_t) for name in (
+                            "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
+                            "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage", "QuotaNonPagedPoolUsage",
+                            "PagefileUsage", "PeakPagefileUsage"))]
+        counters = Counters()
+        counters.cb = ctypes.sizeof(Counters)
+        try:
+            k = _kernel32()
+            if not k.K32GetProcessMemoryInfo(k.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+                return 0
+        except (OSError, AttributeError):
+            return 0
+        return int(counters.PeakWorkingSetSize)
+    try:
+        with open("/proc/self/status", encoding="utf-8") as status:
+            return next(int(line.split()[1]) * 1024 for line in status if line.startswith("VmHWM:"))
+    except (OSError, StopIteration):
+        return 0

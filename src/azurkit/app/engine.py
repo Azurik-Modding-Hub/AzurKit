@@ -54,7 +54,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from azurkit import _stacks, sdk
-from azurkit.core import gate, iso, native
+from azurkit.core import gate, host, iso, native
 from azurkit.core.progress import Steps, noting, record
 from azurkit.edits import files as replaced
 from azurkit.tools import characters, randomizer
@@ -196,14 +196,12 @@ def _picked(recipe: Mapping) -> tuple[dict, dict]:
 
 
 def _image(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
-    from . import procpool
-
     _drop()   # before the build: never two builds' images held at once
     recipe, picked = _picked(recipe)
     made, report = sdk.image(recipe, progress=progress, spoiler=False, **picked)   # a seed's spoiler when asked: JOBS' spoiler
     ident = secrets.token_hex(8)
     _BUILT[ident] = _Built(made, report)
-    return {"size": made.size, "report": report, "build": ident, "peak": procpool._peak()}
+    return {"size": made.size, "report": report, "build": ident, "peak": host.peak()}
 
 
 def _save(recipe: Mapping, out: str, build: str | None = None,
