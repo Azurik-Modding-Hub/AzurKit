@@ -5860,6 +5860,42 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
     }
 
 
+WORKERS_RESTED = """
+    {   // B's heavy job ahead, which a change with a rest drops after a pause past the rest, then another within it
+        const gone = [];
+        const { pool, stubs, b } = make({ free: (messages) => gone.push(messages.at(-1).report) });
+        pool.want([{ key: "build q1", message: build("q1"), heavy: true }], { rest: 200 });
+        await new Promise((r) => setTimeout(r, 250));
+        pool.want([{ key: "build q2", message: build("q2"), heavy: true }], { rest: 200 });
+        const t0 = performance.now();
+        pool.want([{ key: "build q3", message: build("q3"), heavy: true }], { rest: 200 });
+        pool.want([{ key: "build q3", message: build("q3"), heavy: true }]);   // the page's remember(), no rest
+        const moved = [b.stopped, b.tags()];
+        b.say({ type: "built", report: { size: 1 }, heap: 2 ** 26 });
+        await Promise.resolve();
+        const ended = [[...gone], pool.state().kept, b.tags().slice(1)];
+        while (b.tags().length < 2) await new Promise((r) => setTimeout(r, 10));
+        const rested = [b.tags().slice(1), performance.now() - t0 >= 200];
+        pool.want([{ key: "build p", message: build("p"), heavy: true }], { begin: true });
+        out.rested = [moved, ended, rested, b.stopped, pool.state().dropped, stubs.length];
+    }
+"""
+"""The next test's scenario on :data:`WORKERS_HARNESS`'s stub workers."""
+
+
+def test_the_sites_second_worker_lets_a_heavy_job_ahead_end_unkept_when_a_change_with_a_rest_drops_it(browser):
+    """Step 4.4ci48's known flaw: B's heavy job ahead that a change of the
+    Characters tab's own (one with a rest) drops, after a pause past the
+    rest as within it, goes on, unkept, through the page's lists after it
+    with no rest: none is terminated (WebKit would keep its pages resident
+    beside the next B's heap, 6.5 GiB with an 8 s pause), its end heard as
+    an answer nothing can take, and the list's heavy job runs after it in
+    its heap once the list has rested. A pick's change still drops one at
+    once."""
+    assert _on_stubs(browser, WORKERS_RESTED)["rested"] == [
+        [False, ["build q1"]], [[{"size": 1}], [], []], [["build q3"], True], True, 1, 3]
+
+
 def test_a_job_ahead_that_failed_or_whose_worker_stopped_isnt_tried_again_while_its_key_stays_listed(browser):
     """A job ahead that fails on B, or whose B stops (out of memory, say),
     isn't sent to the next B while the page's list still holds its key

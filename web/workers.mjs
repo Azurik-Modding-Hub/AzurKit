@@ -3,8 +3,8 @@
 // settled recipe's build, the warm-up's heavy items). Both run worker.mjs, so B's answer is the one F would give, and a
 // click whose key is B's finished job takes B's answer at once; one whose key B is still working on follows B's
 // records (D1006's bar) and F never starts it again. A worker can't stop a call it runs, so a change of the page's
-// list drops B's job by terminate() (a heavy one goes on, unkept, while the list holds no heavy job: want()), and a new
-// B loads (from R2.10's snapshot once the engine has it). Cancel answers
+// list drops B's job by terminate() (a heavy one goes on, unkept, while the list holds no heavy job or the change has
+// a rest: want()), and a new B loads (from R2.10's snapshot once the engine has it). Cancel answers
 // at once, and a build it stops whose key the list still holds goes on as work ahead (the plan's D4: kept when it
 // ends, dropped by a change), so Build again waits only for its rest. Memory: one heap (w-reshape): wasm memory never
 // shrinks, and WebKit keeps a terminated worker's pages resident while a new worker's heap grows beside them, so the
@@ -426,10 +426,15 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     want: (items, { begin = false, rest = 0 } = {}) => {
       const keys = new Set(items.map((i) => i.key));
       // B's job the list no longer holds is dropped, but a heavy one goes on, unkept, while the list holds no heavy job
-      // (a reshape's: none is built ahead): terminated, its pages would stay resident in WebKit beside the heap the next
-      // heavy job grows (0.5-0.75 GiB more in a reshape's build, 4.3r4s); ended, its heap is that job's (oneHeap())
-      if (b?.job?.ahead && !b.job.adopted && !keys.has(b.job.key) && !(b.job.heavy && !items.some((i) => i.heavy))) {
-        dropB();
+      // (a reshape's: none is built ahead), or from a change with a rest on (a slider's move, the one after a pause
+      // past the rest too: terminated there, 6.5 GiB in WebKit, Step 4.4ci48), loose, through the lists after it with
+      // none (the page's own, remember()'s) until a pick: terminated, its pages would stay resident in WebKit beside
+      // the heap the next heavy job grows (0.5-0.75 GiB more in a reshape's build, 4.3r4s); ended, its heap is that
+      // job's (oneHeap()), and the list's next heavy job waits for it
+      const job = b?.job;
+      if (job?.ahead && !job.adopted && !keys.has(job.key)) {
+        if (job.heavy && !begin && (rest > 0 || job.loose)) job.loose = true;
+        else if (!job.heavy || items.some((i) => i.heavy)) dropB();
       }
       for (const key of [...kept.keys()]) if (!keys.has(key)) unkeep(key);
       for (const key of [...taken]) if (!keys.has(key) && !asked(key)) taken.delete(key);

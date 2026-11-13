@@ -1913,16 +1913,17 @@ are the Characters section's.
   which takes minutes and whose heap a change's terminate() would leave resident
   in WebKit), each key the recipe, the File by identity, what this browser keeps
   installed and the engine's version; a change drops B's job by `terminate()` (a
-  heavy one goes on, unkept, while the list holds no heavy job, a reshape's, so
-  its heap is the next heavy job's, not resident beside it; and a change of
+  heavy one goes on, unkept, while the list holds no heavy job, a reshape's, or,
+  from a change of the Characters tab's own, until a pick, so its heap is the
+  next heavy job's, not resident beside it; and a change of
   the Characters tab's own, a number, an option or Reset, that follows
   another within `REST` (7 s), no Build or Track between, lists its build
   with that rest before B starts it, where one alone and a pick start as any
   change, so a Build at its head start finds its build under way (`S72`): a
   slider's session of moves, a pause, a drag and Reset dropped a build ahead
   at each move, its heap resident beside the next B's, 7.2-7.4 GiB in WebKit,
-  Step 4.4ci48; a known flaw: a pause past `REST` still starts a build the
-  next move drops), a
+  Step 4.4ci48, and a pause past `REST` started a build the next move
+  dropped, 6.5 GiB, until that move let it go on, Step 4.53b), a
   click matching its finished job takes its answer and one it is still working on
   follows its records. One heavy job at a time, none of B's beside F's build. One
   heap (w-reshape): a worker a job grew stays for the next heavy job (wasm memory

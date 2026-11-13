@@ -500,10 +500,8 @@ memory peaks stay strict. The gate writes both kinds of row to
    heavy flinch.
 8. **The Live tracker's 'loading' fix** (f07a354) has never been checked
    on a live xemu.
-9. **Characters: a pause past REST** still starts a build that the next
-   move drops (ci48; capped WebKit reached 6.50 GiB with an 8 s pause). The
-   mechanism fix isn't done: a resting list's dropped heavy job should go on
-   unkept.
+9. ~~Characters: a pause past REST still starts a build the next move
+   drops~~: fixed by 4.53b.
 10. **A stale first dress caught in a gap** takes the kill, and the next
     seed's click reads the logic again (45 s).
 11. ~~Site builds without OPFS still copy twice~~: fixed by 4.53b.
