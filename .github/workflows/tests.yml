@@ -325,7 +325,7 @@ jobs:
         # push ahead of AzurKit's re-record, or between two parts, tested other content than this commit's. The commit
         # whose re-record needs a newer entry (scripts/record_shipped.py --content) moves the pin.
         env:
-          CONTENT_COMMIT: 27a53b7613656f8b98a985ff2bbe6048099db94c   # its main's on 2026-11-12: booblord v9, beamlord v1
+          CONTENT_COMMIT: 2a0abad923baa90a3a36ba266b1976f72a94d20a   # booblord v10, beamlord v1 (2026-11-13): its main from AzurKit 1.1.1
         run: |
           . scripts/ci_retry.sh
           content() { rm -rf "$RUNNER_TEMP/content" && git init --quiet "$RUNNER_TEMP/content" && git -C "$RUNNER_TEMP/content" fetch --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$CONTENT_COMMIT" && git -C "$RUNNER_TEMP/content" checkout --quiet FETCH_HEAD; }

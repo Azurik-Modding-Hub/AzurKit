@@ -94,10 +94,11 @@ The next session starts here (D1192), so 1.1 can follow.
 ## 2. Releases and content
 
 1. ~~1.0.2~~: out on 2026-11-09 (tag `v1.0.2`, 15c16383).
-2. ~~The content push~~: booblord v9 is the content repo's `main`
-   (27a53b7, the commit CI pins), past v8: two of its part files swapped
-   to match the parts 1.1 ships. The clone's superseded branches and
-   worktrees go with 11.2.
+2. **The content push**: booblord v10 (her rework, 2a0abad) is the
+   content repo's `booblord-v10` branch, the commit CI pins; its `main`
+   stays v9 (27a53b7, what 1.1.0 installs) until 1.1.1 is out, then
+   fast-forwards to it, since 1.1.0 refuses v10's recipe and 1.1.1 v9's.
+   The clone's superseded branches and worktrees go with 11.2.
 3. **1.1** (D1203, D1210, D1244): the release where group 1's tiered
    lines hold, with the Variants editor's gaps: Undo (there since 4.6e),
    the app's window asking about unsaved edits on close (4.38a, landed) and
