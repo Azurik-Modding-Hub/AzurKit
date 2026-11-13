@@ -2395,8 +2395,8 @@ offsets only, no positions.
 
 ### Where a placed item stands: what a move writes (Step 4.41b, 2026-11-13)
 
-[static, unverified in game until its sitting] USA VAs, capstone over the
-vanilla `default.xbe`; counts over the USA image's level files, no
+[static, and the move seen in xemu on 2026-11-13] USA VAs, capstone over
+the vanilla `default.xbe`; counts over the USA image's level files, no
 positions.
 
 - **A spawn stands at its parent's matrix times its gen point.** The
@@ -2421,6 +2421,16 @@ positions.
   whole attribute array a level `.sav` restores (SAVE_FORMAT § 4d's
   records), so a save of that level made before the move puts it back
   [inferred]; training_room's fuels are not among them.
+- **Seen in xemu (2026-11-13).** A USA build with only a move of
+  training_room's `large_air_fuel` to (-22.3, -6.0, 0.6) spawned it
+  0.04 m from that point, on the floor between the start chamber's two
+  vases, and Garret walking into it collected it (air fuel 0 to 15),
+  while the armory, its vanilla spot, stood empty and walking there took
+  nothing. The vanilla image from the same state spawned it 0.04 m from
+  its vanilla spot, in the armory, where the walk collected it, and
+  nothing at the new point. It is a refill dispenser: a link spawns it
+  only once air fuel is low, so at a new game's full 50 neither image has
+  it, and the sitting set air fuel to 0 first.
 - **A move leaves the generator's cell.** The loader copies the record's
   u16 at +0x34 into the generator's +0x74 (0x6F7FB-0x6F80A; 0xFFFF takes
   the context's default, 0x6F810), and 0x6F960 hands each spawn the cell
@@ -2430,7 +2440,7 @@ positions.
   USA generator holds an explicit cell, and many levels have several
   (e2 32, f3 31, e5 23): whether an item moved into another cell than its
   own is drawn, updated and collected there is [unverified]. training_room
-  has one real cell, so its move below doesn't meet this.
+  has one real cell, so its move above doesn't meet this.
 
 ## A creature fx graph's links and its blast dome (Step 2.145, 2026-10-21)
 
