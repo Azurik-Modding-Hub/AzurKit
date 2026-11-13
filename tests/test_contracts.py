@@ -201,8 +201,9 @@ def test_the_engine_holds_no_threads_processes_prints_or_exits_numpy_stays_in_it
     assert found == []
 
 
-MODKIT_COMMAND = re.compile(r"azurik-mod(?![\w-])")
-"""Modkit's command line (``azurik-mod model clips``), gone with Modkit (D1171), not ``azurik-modding-hub``."""
+MODKIT_COMMAND = re.compile(r"azurik[-_]mod(?![\w-])")
+"""Modkit's command line (``azurik-mod model clips``) and its package's paths (``azurik_mod/randomizer/...``), gone
+with Modkit (D1171), not ``azurik-modding-hub``."""
 
 
 def modkit_commands(source: str, rel: str) -> list[str]:
@@ -214,9 +215,12 @@ def modkit_commands(source: str, rel: str) -> list[str]:
 
 def test_no_refusal_in_the_engine_names_modkits_azurik_mod_command():
     """Six refusals of a recipe's glTF mesh or clip told its author to run Modkit's ``azurik-mod model clips``
-    (``check``, ``import``, ``export``), which no AzurKit install has: they name devkit's ``python -m devkit models
-    model ...``, and no raise under ``src/azurkit`` names Modkit's command, an f-string's parts included."""
+    (``check``, ``import``, ``export``), gone with Modkit: they name devkit's ``python -m devkit models model ...``,
+    the physics calculator's unmapped slider names AzurKit's own ``physics.py``, and no raise under ``src/azurkit``
+    names Modkit's command or its package's paths, an f-string's parts included."""
     assert modkit_commands('raise ValueError(f"{w}: " "(`azurik-mod model clips` prints it)")', "x.py") == ["x.py:1"]
+    assert modkit_commands('raise ValueError(f"{p}: " f"(azurik_mod/randomizer/physics.py SLIDERS)")', "x.py") == [
+        "x.py:1"]
     assert modkit_commands('raise ValueError("(`python -m devkit models model clips` prints it)")\n'
                            'raise OSError("see https://azurik-modding-hub.github.io/AzurKit/")', "x.py") == []
     found = [v for path in sorted(SRC.rglob("*.py"))

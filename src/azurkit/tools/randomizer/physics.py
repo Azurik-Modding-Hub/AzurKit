@@ -130,7 +130,7 @@ class Movement:
             for name, value in sliders.items():
                 if (pack, name) not in SLIDERS:
                     raise ValueError(f"{pack} {name}: not a movement slider the physics calculator maps "
-                                     f"(azurik_mod/randomizer/physics.py SLIDERS)")
+                                     f"(azurkit/tools/randomizer/physics.py SLIDERS)")
                 field, how = SLIDERS[(pack, name)]
                 value = float(value)
                 if not math.isfinite(value):
