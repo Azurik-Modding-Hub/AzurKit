@@ -4378,6 +4378,19 @@ def test_play_finds_xemu_tells_the_fork_from_upstream_and_launches_it_private_wi
     assert not xemu.answers(played)                           # it quit
 
 
+def test_plays_look_for_a_running_xemu_on_windows_opens_no_console_window():
+    """Step 4.53c: the Windows app is a windowed program, which has no console, so Windows gives a console program it
+    starts a console window of its own unless asked for none: Play's and Live's ``tasklist`` asks for none."""
+    asked = []
+
+    def run(argv, **kw):
+        asked.append((argv[0], kw.get("creationflags")))
+        return types.SimpleNamespace(stdout='"xemu.exe","4242","Console","1","180,000 K"\n')
+
+    assert app.xemu.running_xemus("win32", run=run) == [(Path("xemu.exe"), 4242)]
+    assert asked == [("tasklist", 0x08000000)]   # CREATE_NO_WINDOW
+
+
 class _GuestRam:
     """A guest RAM image of the test's own, as the helper reads it (physical): a page directory at CR3 that maps
     itself, 4 KiB pages given frames as they are written, and one 4 MiB page."""

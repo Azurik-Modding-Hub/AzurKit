@@ -170,12 +170,18 @@ def _ps(field: str, run, uid: int) -> dict[int, str]:
     return {int(r[0]): r[2].strip() for r in rows if len(r) == 3 and r[0].isdigit() and r[1] == str(uid)}
 
 
+NO_WINDOW = 0x08000000
+"""Windows' ``CREATE_NO_WINDOW``: the app is a windowed program, which has no console, so a console program it starts
+(``tasklist``) would open a console window of its own without it."""
+
+
 def _tasklist(run, user: str) -> list[tuple[Path, int]]:
     """Windows: ``user``'s running ``xemu.exe`` processes, from ``tasklist`` (which
-    names no path or command line: enough for Play to start no second one)."""
+    names no path or command line: enough for Play to start no second one), with
+    no console window (:data:`NO_WINDOW`)."""
     try:
         out = run(["tasklist", "/FI", "IMAGENAME eq xemu.exe", "/FI", f"USERNAME eq {user}", "/FO", "CSV",
-                   "/NH"], capture_output=True, text=True, timeout=10).stdout
+                   "/NH"], capture_output=True, text=True, timeout=10, creationflags=NO_WINDOW).stdout
     except (OSError, subprocess.SubprocessError):
         return []
     return [(Path(r[0]), int(r[1])) for r in csv.reader(out.splitlines())
