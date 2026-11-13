@@ -49,7 +49,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
            "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster", "spring", "clear",
-           "strip", "regroup", "checks", "same")
+           "strip", "regroup", "checks", "same", "fields", "relax", "beneath", "cg")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -120,7 +120,11 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_strip_need", [i64]), ("az_strip", [vp, i64, vp, vp, vp]),
                          ("az_regroup_need", [i64] * 3),
                          ("az_regroup", [i64, vp, vp, vp, i64, vp, i64, vp, i64, i64, *[vp] * 8]),
-                         ("az_checks", [i64, vp, vp, i64, i64, i64, vp, vp, vp]), ("az_same", [vp, i64, vp, i64, vp])):
+                         ("az_checks", [i64, vp, vp, i64, i64, i64, vp, vp, vp]), ("az_same", [vp, i64, vp, i64, vp]),
+                         ("az_fields", [vp, i64, vp, vp, vp, i64, i64, vp]),
+                         ("az_relax", [vp, i64, vp, i64, vp, vp, vp, vp, vp, i64, i64, vp]),
+                         ("az_beneath_need", [vp, i64, vp, vp]), ("az_beneath", [vp, i64, vp, vp, vp, vp, vp, vp, i64, vp]),
+                         ("az_cg", [i64, vp, vp, vp, vp, vp, vp, f64, i64, vp])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
         return None, f"{name} doesn't load: {e}", None
@@ -1140,3 +1144,88 @@ def runs(old: bytes, new: bytes) -> list[tuple[int, int]] | None:
         if n <= cap:
             return [(out[2 * i], out[2 * i + 1]) for i in range(n)]
         cap = n
+
+
+# ---- the mesh edit's position steps --------------------------------------------------------------------------------
+# tools/characters/mesh_edit.py's fields, relax sweeps, beneath crossings and the island UVs' conjugate gradients
+# (native/positions.c, Step 4.55b): each returns None (or False) without the library or where the twin answers, and
+# mesh_edit then runs its twin, the function it speeds.
+FIELD_ROW = 24                            # positions.c's FIELD_ROW: a placed op's doubles (mesh_edit._field_row)
+CELL_SPAN = 50                            # positions.c's SPAN: a direction's cell on each axis lies in -50..50
+
+
+def fields(rows: array, start: array, idx: array, pts: array, det: bool) -> array | None:
+    """``mesh_edit._displace`` (``det`` false: each point moved, then 1.0
+    where an op holds it, 4 doubles a point) or ``_det`` (``det``: det J,
+    1 double a point) of each of the points ``pts`` (3 doubles each) under
+    its ops, ``idx[start[i]:start[i + 1]]`` of the op ``rows``
+    (:data:`FIELD_ROW` doubles each, ``mesh_edit._field_row``'s) (``az_fields``);
+    ``None`` without the library or where the twin raises (a division by
+    zero)."""
+    if (lib := library()) is None:
+        return None
+    n = len(pts) // 3
+    out = array("d", bytes(8 * n * (1 if det else 4)))
+    if n == 0:
+        return out
+    code = lib.az_fields(_at(rows), len(rows) // FIELD_ROW, _at(start), _at(idx), _at(pts), n, int(det), _at(out))
+    return out if code == 0 else None
+
+
+def relax(pos: array, free: array, start: array, nbr: array, weight: array, mid: array, steps: array,
+          passes: int) -> bool:
+    """``mesh_edit._relax``'s sweeps of one op on ``pos`` (3 doubles a
+    welded point) in place (``az_relax``): ``passes`` times each of
+    ``steps``, each point ``free[i]`` towards the mean of its neighbours
+    ``nbr[start[i]:start[i + 1]]`` by the step times ``weight[i]``, its x
+    kept at 0 where ``mid[i]``; False (``pos`` untouched) without the
+    library or where the twin answers."""
+    if (lib := library()) is None:
+        return False
+    work = array("d", bytes(24 * len(free)))
+    return lib.az_relax(_at(pos), len(pos) // 3, _at(free), len(free), _at(start), _at(nbr), _at(weight), _at(mid),
+                        _at(steps), len(steps), passes, _at(work)) == 0
+
+
+def cloth(corners: array, origin: array) -> tuple[array, int] | None:
+    """A ``beneath`` side's cloth, its triangles' ``corners`` (9 doubles
+    each) seen from ``origin``, counted by the cells of their corners'
+    directions (``az_beneath_need``): what :func:`crossings` reads it
+    through, or ``None`` without the library or where the twin answers (a
+    direction not finite, which it raises on)."""
+    if (lib := library()) is None:
+        return None
+    cells = array("q", bytes(8 * ((2 * CELL_SPAN + 1) ** 3 + 1)))
+    total = lib.az_beneath_need(_at(corners), len(corners) // 9, _at(origin), _at(cells))
+    return None if total < 0 else (cells, total)
+
+
+def crossings(corners: array, origin: array, counted: tuple[array, int], u: array, cell: array) -> array | None:
+    """The nearest crossing past ``origin`` of each ray (a unit direction
+    of ``u``, 3 doubles each, in its direction cell of ``cell``, 3 ints)
+    with the cloth's triangles read through its cell, NaN where none
+    (``az_beneath``, after :func:`cloth`'s ``counted``); ``None`` without
+    the library."""
+    if (lib := library()) is None:
+        return None
+    cells, total = counted
+    nq = len(u) // 3
+    near, entries = array("d", bytes(8 * nq)), array("q", bytes(8 * max(total, 1)))
+    table = array("d", bytes(96 * max(len(corners) // 9, 1)))
+    lib.az_beneath(_at(corners), len(corners) // 9, _at(origin), _at(cells), _at(entries), _at(table), _at(u),
+                   _at(cell), nq, _at(near))
+    return near
+
+
+def cg(start: array, cols: array, weights: array, diag: array, b: array, x: array, tolerance: float,
+       steps: int) -> bool:
+    """``mesh_edit._conjugate``'s conjugate gradients from ``x`` in place
+    (``az_cg``): row ``k`` of ``A`` ``diag[k]`` and the entries
+    ``cols``, ``weights`` from ``start[k]`` to ``start[k + 1]``; False
+    without the library or where the twin answers."""
+    if (lib := library()) is None:
+        return False
+    n = len(x)
+    work = array("d", bytes(32 * max(n, 1)))
+    return lib.az_cg(n, _at(start), _at(cols), _at(weights), _at(diag), _at(b), _at(x), tolerance, steps,
+                     _at(work)) == 0

@@ -135,7 +135,7 @@ def tup(x):
     return tuple(tup(v) for v in x) if isinstance(x, list) else x
 
 answers = []
-docs, dress, springs, bodies = json.load(open(json.loads(ARGV)[0]))
+docs, dress, springs, bodies, positions = json.load(open(json.loads(ARGV)[0]))
 for doc, call in docs:
     graphs = tuple(native.Graph(*tup(g)) for g in doc.pop("graphs"))
     t = native.Tables(**{k: tup(v) for k, v in doc.items()} | {"discs": frozenset(doc["discs"])}, graphs=graphs)
@@ -146,7 +146,8 @@ rng = random.Random(1407)
 cuts = [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
 json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answer(case) for case in dress],
             "springs": [_spring_answer(case) for case in springs], "cuts": cuts,
-            "bodies": [_body_answer(case) for case in bodies]})
+            "bodies": [_body_answer(case) for case in bodies],
+            "positions": [_positions_answer(case) for case in positions]})
 """
 
 
@@ -320,12 +321,13 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     cases = list(_cases(1401, 40))
     cases += [(_monotone_of(t), call) for t, call in cases[:30]]
     dress, springs, bodies = list(_dress_cases(1405, 60)), list(_spring_cases(1409, 12)), list(_body_cases(1411, 16))
+    positions = list(_positions_cases(1413, 12))
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
-    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs, bodies]), encoding="utf-8")
+    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs, bodies, positions]), encoding="utf-8")
     got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer)
                   + inspect.getsource(_spring_answer) + inspect.getsource(_mesh) + inspect.getsource(_body_answer)
-                  + _UNDER_PYODIDE,
+                  + inspect.getsource(_positions_answer) + _UNDER_PYODIDE,
                   packages=(_pyodide.numpy(),))
     assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
     assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
@@ -334,6 +336,8 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
         assert got["dress"] == json.loads(json.dumps([_dress_answer(case) for case in dress]))
         assert got["springs"] == json.loads(json.dumps([_spring_answer(case) for case in springs]))
     assert got["bodies"] == [_body_answer(case) for case in bodies]
+    with numpy.errstate(all="ignore"):
+        assert got["positions"] == json.loads(json.dumps([_positions_answer(case) for case in positions]))
     from azurkit.tools.characters import decimate
     rng = random.Random(1407)
     assert got["cuts"] == [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
@@ -951,6 +955,131 @@ def test_the_body_write_kernels_give_their_twins_answers(monkeypatch):
     assert any("Error" in g[1] for g in got) and any(g[1].count("Group(") > 2 for g in got), got   # raised; split
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     assert got == [_body_answer(case) for case in cases]
+
+
+def _positions_cases(seed: int, count: int):
+    """Seeded random inputs of the mesh edit's position kernels
+    (``native/positions.c``), as JSON: placed scale (smooth and cone),
+    push and taper ops (now and then a whole number, a centre on a point,
+    a radius of 0 the twin divides by) and points under a few of them
+    each; a welded graph's relax sweeps; a cloth of triangles about an
+    origin (some degenerate, one corner on the origin) and rays at it; a
+    sparse system for the island UVs' conjugate gradients."""
+    rng = random.Random(seed)
+
+    def u(lo=-0.3, hi=0.3):
+        return rng.uniform(lo, hi)
+
+    for i in range(count):
+        ops = []
+        for _ in range(rng.randint(1, 8)):
+            kind, centre = rng.choice(("smooth", "cone", "push", "taper")), [u(), u(), u()]
+            if kind in ("smooth", "cone"):
+                radius = [rng.uniform(0.05, 0.4) for _ in range(3)]
+                if rng.random() < 0.04:
+                    radius[rng.randrange(3)] = 0.0
+                factors = [rng.choice((1.0, 1, rng.uniform(0.5, 1.8))) for _ in range(3)]
+                ops.append({"kind": kind, "centre": centre, "radius": radius, "factors": factors})
+            elif kind == "push":
+                ops.append({"kind": kind, "centre": centre, "direction": [u(), u(), u() + 0.5],
+                            "height": rng.uniform(-0.06, 0.06), "depth": rng.choice((0.05, 1, rng.uniform(0.0, 0.1))),
+                            "radius": [rng.uniform(0.05, 0.3) for _ in range(4)], "fold": rng.uniform(0.0, 1.0)})
+            else:
+                r0 = rng.uniform(0.0, 0.2)
+                ops.append({"kind": kind, "centre": centre, "plateau": rng.choice((0, rng.uniform(0.0, 0.05))),
+                            "half": rng.uniform(0.01, 0.2), "reach": [r0, r0 + rng.uniform(0.0, 0.2)],
+                            "factors": [rng.uniform(0.5, 1.5), rng.uniform(0.5, 1.5)]})
+        points = [[u(-0.5, 0.5), u(-0.5, 0.5), u(-0.5, 0.5)] for _ in range(60)]
+        points += [list(rng.choice(ops)["centre"]) for _ in range(3)] + [[0.0, -0.0, 0.0]]
+        opss = [sorted(rng.sample(range(len(ops)), rng.randint(0, min(4, len(ops))))) for _ in points]
+        n = rng.randint(2, 40)
+        free = sorted(rng.sample(range(n), rng.randint(1, n)))
+        relax = {"pos": [[u(), u(), u()] for _ in range(n)], "free": free,
+                 "nbrs": [sorted(rng.sample([x for x in range(n) if x != w], rng.randint(1, min(6, n - 1))))
+                          for w in free],
+                 "weight": [rng.random() for _ in free], "mid": [rng.random() < 0.2 for _ in free],
+                 "passes": rng.randint(1, 6)}
+        o, tris, rays = [u(), u(), u()], [], []
+        for _ in range(rng.randint(1, 80)):   # small triangles about a point 0.1-0.4 from the origin
+            at = [o[k] + u(-0.4, 0.4) for k in range(3)]
+            tris.append([[at[k] + u(-0.04, 0.04) for k in range(3)] for _ in range(3)])
+        tris[0][1] = list(o)
+        if len(tris) > 2:
+            tris[1][2] = list(tris[1][0])
+        for j in range(60):   # half at a triangle's centre, half anywhere
+            q = [sum(p[k] for p in rng.choice(tris)) / 3 - o[k] for k in range(3)] if j % 2 else [u(), u(), u()]
+            r = math.sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2])
+            rays.append([q[0] / r, q[1] / r, q[2] / r])
+        m = rng.randint(1, 50)
+        rows = [sorted((j, -rng.random()) for j in rng.sample([x for x in range(m) if x != k], min(m - 1, rng.randint(0, 6))))
+                for k in range(m)]
+        cg = {"rows": rows, "diag": [sum(-w for _, w in row) + rng.uniform(0.0, 0.5) for row in rows],
+              "b": [u() for _ in range(m)], "x": [u() for _ in range(m)]}
+        yield {"ops": ops, "points": points, "opss": opss, "relax": relax, "origin": o, "tris": tris, "rays": rays,
+               "cg": cg}
+
+
+def _positions_answer(case: dict) -> list:
+    """mesh_edit's fields (``_displace_each``, ``_det_each``), relax
+    sweeps (``_sweeps``), beneath crossings (``_Cloth``) and island UVs'
+    conjugate gradients (``_conjugate``) on ``case`` (by the library when
+    it's loaded, else the twins): each answer's floats as hex, or the
+    error it raises."""
+    from azurkit.tools.characters import mesh_edit as me
+
+    def bits(x):
+        return None if x is None else x.hex() if isinstance(x, float) else [bits(v) for v in x]
+
+    placed = []
+    for k, op in enumerate(case["ops"]):
+        if op["kind"] in ("smooth", "cone"):
+            made = me.ScaleOp("b", tuple(op["radius"]), tuple(op["factors"]), profile=op["kind"])
+        elif op["kind"] == "push":
+            made = me.PushOp("b", tuple(op["direction"]), op["height"], tuple(op["radius"]), op["depth"],
+                             fold=op["fold"])
+        else:
+            made = me.TaperOp("b", tuple(op["factors"]), op["plateau"], op["half"], tuple(op["reach"]))
+        frame = me.push_frame(op["direction"]) if op["kind"] == "push" else None
+        placed.append(me._Placed(f"ops[{k}]", made, tuple(op["centre"]), frame, frozenset()))
+    points = [tuple(p) for p in case["points"]]
+    out = []
+    for ask in (lambda: [[bits(list(p)), inside] for p, inside in me._displace_each(points, case["opss"], placed)],
+                lambda: bits(me._det_each(points, case["opss"], placed))):
+        try:
+            out.append(ask())
+        except ZeroDivisionError as exc:
+            out.append(f"{type(exc).__name__}: {exc}")
+    relax = case["relax"]
+    pos = {w: tuple(p) for w, p in enumerate(relax["pos"])}
+    free = relax["free"]
+    me._sweeps(pos, free, dict(zip(free, relax["nbrs"])), dict(zip(free, relax["weight"])),
+               {w for w, on in zip(free, relax["mid"]) if on}, relax["passes"])
+    out.append([bits(list(pos[w])) for w in sorted(pos)])
+    o, tris = tuple(case["origin"]), [tuple(tuple(p) for p in t) for t in case["tris"]]
+    asked = [(tuple(r), tuple(math.floor(x * me.BENEATH_CELLS) for x in r)) for r in case["rays"]]
+    out.append(bits(me._Cloth(tris, o).near(asked)))
+    cg = case["cg"]
+    out.append(bits(me._conjugate([[tuple(e) for e in row] for row in cg["rows"]], cg["diag"], cg["b"], cg["x"])))
+    return out
+
+
+def test_the_position_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
+    """``native/positions.c``'s kernels (``az_fields``: the fields'
+    moves and det J; ``az_relax``: a relax op's sweeps; ``az_beneath``: a
+    beneath side's nearest cloth crossings; ``az_cg``: the island UVs'
+    conjugate gradients) give their twins' answers bit for bit over
+    seeded random inputs, what the twins raise raised alike."""
+    cases, ran = list(_positions_cases(1412, 40)), collections.Counter()
+    for name in ("fields", "relax", "cloth", "cg"):
+        monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name:
+                            ran.update([(name, (got := real(*a)) not in (None, False))]) or got)
+    assert native.report()["loaded"]
+    got = [_positions_answer(case) for case in cases]
+    assert min(ran[(name, True)] for name in ("fields", "relax", "cloth", "cg")) > 30, ran   # most by the library
+    assert any(isinstance(g[0], str) for g in got) and any(n is not None for g in got for n in g[3]), got
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    with numpy.errstate(all="ignore"):
+        assert got == [_positions_answer(case) for case in cases]
 
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):

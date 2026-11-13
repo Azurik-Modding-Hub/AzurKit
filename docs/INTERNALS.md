@@ -1388,6 +1388,18 @@ are the Characters section's.
   lists keep their order, a heap's unique keys pop in theirs and Python's
   `min` its first; a vertex not a tuple of floats, a triangle not three
   int64s, what the twin raises on and a centre not finite are the twin's.
+  The tenth is the mesh edit's position steps' (`native/positions.c`,
+  Step 4.55b): the fields' moves and det J of a run of points under their
+  placed scale, push and taper ops (`az_fields`: `_effect` in
+  `_displace_each`, `_det_each`; a row of each op's numbers,
+  `_field_row`, a number not a float or an int within 2**52 the twin's), a
+  relax op's Taubin sweeps (`az_relax`: `_sweeps`, its welded graph
+  `_relax_graph`'s in numpy, on integers), a beneath side's nearest cloth
+  crossing of each ray (`az_beneath`: `_Cloth`, its direction grid and its
+  numpy read) and the island UVs' conjugate gradients (`az_cg`:
+  `_conjugate`, its rows' sums Neumaier's as Python's), each twin the
+  function it speeds; a division by zero and a direction not finite, which
+  the twin raises on, are the twin's.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

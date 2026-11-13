@@ -1639,6 +1639,72 @@ def _det(p: Vec, ops: list[_Placed]) -> float:
             + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
 
 
+def _field_row(placed: _Placed) -> list[float]:
+    """``placed``'s numbers as ``native/positions.c``'s ``az_fields``
+    reads them (``core.native.FIELD_ROW`` doubles: its kind, centre, then
+    its op's); :class:`TypeError` where the twin must read it (an op of
+    another kind, a number not a float or an int within 2**52, a tuple of
+    another length)."""
+    op = placed.op
+    if type(op) is ScaleOp:
+        nums = [0.0 if op.profile == "smooth" else 1.0, *placed.centre, *op.radius, *op.factors]
+        sizes = (len(op.radius), len(op.factors)) == (3, 3)
+    elif type(op) is PushOp and placed.frame is not None:
+        nums = [2.0, *placed.centre, *placed.frame[0], *placed.frame[1], *placed.frame[2], op.depth, *op.radius,
+                op.fold, op.height]
+        sizes = tuple(map(len, placed.frame)) == (3, 3, 3) and len(op.radius) == 4
+    elif type(op) is TaperOp:
+        nums = [3.0, *placed.centre, op.plateau, op.half, *op.reach, *op.factors]
+        sizes = (len(op.reach), len(op.factors)) == (2, 2)
+    else:
+        raise TypeError("an op the kernel doesn't read")
+    if not sizes or len(placed.centre) != 3 or not all(
+            type(x) is float or (type(x) is int and abs(x) <= 1 << 52) for x in nums[1:]):
+        raise TypeError("numbers the kernel doesn't read")
+    return nums + [0.0] * (native.FIELD_ROW - len(nums))
+
+
+def _fields(points: list[Vec], opss: list[list[int]], placed: list[_Placed], det: bool):
+    """The compiled kernel's :func:`_displace` or :func:`_det` of each of
+    ``points`` under its ops (``opss``: their places in ``placed``), its
+    answer array, or ``None`` where the twin answers."""
+    from array import array
+
+    if native.library() is None:
+        return None
+    try:
+        rows = array("d", [x for pl in placed for x in _field_row(pl)])
+        pts = array("d", [x for p in points for x in p])
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if len(pts) != 3 * len(points):
+        return None
+    start, idx = array("q", [0]), array("q")
+    for ops in opss:
+        idx.extend(ops)
+        start.append(len(idx))
+    return native.fields(rows, start, idx, pts, det)
+
+
+def _displace_each(points: list[Vec], opss: list[list[int]], placed: list[_Placed]) -> list[tuple[Vec, bool]]:
+    """:func:`_displace` of each of ``points`` under its ops (``opss``:
+    their places in ``placed``), by the compiled kernel
+    (``core.native.fields``) where it reads them, else the twin."""
+    got = _fields(points, opss, placed, False)
+    if got is None:
+        return [_displace(p, [placed[i] for i in ops]) for p, ops in zip(points, opss)]
+    return [((got[j], got[j + 1], got[j + 2]), got[j + 3] != 0.0) for j in range(0, len(got), 4)]
+
+
+def _det_each(points: list[Vec], opss: list[list[int]], placed: list[_Placed]) -> list[float]:
+    """:func:`_det` of each of ``points`` under its ops, as
+    :func:`_displace_each` asks it."""
+    got = _fields(points, opss, placed, True)
+    if got is None:
+        return [_det(p, [placed[i] for i in ops]) for p, ops in zip(points, opss)]
+    return got.tolist()
+
+
 # --------------------------------------------------------------------------- the round ops
 def _side_name(name: str, mirrored: bool) -> str:
     """A side's name: a mirrored op's mirror takes its name with left and
@@ -3208,29 +3274,11 @@ def _beneath(mesh: _Mesh, spec: MeshSpec, final: list[Vec]) -> int:
             o = side.origin or tuple(c[i] + os_ * sa[i] + on_ * n[i] + ot_ * ta[i] for i in range(3))
             cloth = [t for t in mesh.triangles if all(group_of[v] in groups for v in t)
                      and not mesh.fixed.intersection(t)]      # a tube or a cut's cord isn't the cloth
-            grid: dict[tuple[int, int, int], list[int]] = {}
-            for t, tri in enumerate(cloth):
-                dirs = [_unit(_sub(final[v], o)) for v in tri]
-                if any(d is None for d in dirs):
-                    continue
-                lo = [math.floor(min(d[i] for d in dirs) * BENEATH_CELLS) - 1 for i in range(3)]
-                hi = [math.floor(max(d[i] for d in dirs) * BENEATH_CELLS) + 1 for i in range(3)]
-                for i in range(lo[0], hi[0] + 1):
-                    for j in range(lo[1], hi[1] + 1):
-                        for k in range(lo[2], hi[2] + 1):
-                            grid.setdefault((i, j, k), []).append(t)
-            # each cloth triangle's edges from its first corner, that corner to the origin and their cross (no skin
-            # point this side moves is the cloth's), read a cell's triangles at once (Step 2.179: booblord_high's
-            # finer skin and top asked 2.5 million): the loop's floats, a cell's as numpy's same products and sums
-            corners = np.array([[final[w] for w in tri] for tri in cloth], dtype=np.float64).reshape(-1, 3, 3)
-            e1, e2, tv = corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0], np.array(o) - corners[:, 0]
-            qv = np.stack((tv[:, 1] * e1[:, 2] - tv[:, 2] * e1[:, 1], tv[:, 2] * e1[:, 0] - tv[:, 0] * e1[:, 2],
-                           tv[:, 0] * e1[:, 1] - tv[:, 1] * e1[:, 0]), axis=1)
-            table = np.concatenate((e1, e2, tv, qv), axis=1)
-            read: dict[tuple[int, int, int], np.ndarray] = {}
+            reader = _Cloth([tuple(final[w] for w in tri) for tri in cloth], o)
             at: dict[bytes, list[int]] = {}
             for v in range(len(final)):
                 at.setdefault(mesh.keys[v], []).append(v)
+            asked = []      # each ray's points, direction, length and cell (the cloth's corners never move here)
             for key in sorted(at):
                 copies = at[key]
                 if any(group_of[w] in groups for w in copies):
@@ -3245,28 +3293,89 @@ def _beneath(mesh: _Mesh, spec: MeshSpec, final: list[Vec]) -> int:
                 q = _sub(final[v], o)
                 r = _norm(q)
                 u = (q[0] / r, q[1] / r, q[2] / r)
-                cell = tuple(math.floor(u[i] * BENEATH_CELLS) for i in range(3))
-                near = None
-                if cell in grid:
-                    got = read.get(cell)
-                    if got is None:
-                        got = read[cell] = table[grid[cell]]
-                    a1, a2, a3, b1, b2, b3, t1, t2, t3, q1, q2, q3 = got.T
-                    p1, p2, p3 = u[1] * b3 - u[2] * b2, u[2] * b1 - u[0] * b3, u[0] * b2 - u[1] * b1
-                    det = a1 * p1 + a2 * p2 + a3 * p3
-                    with np.errstate(divide="ignore", invalid="ignore"):
-                        x = (t1 * p1 + t2 * p2 + t3 * p3) / det
-                        y = (u[0] * q1 + u[1] * q2 + u[2] * q3) / det
-                        dist = (b1 * q1 + b2 * q2 + b3 * q3) / det
-                        hit = (np.abs(det) >= 1e-12) & (x >= 0.0) & (x <= 1.0) & (y >= 0.0) & (x + y <= 1.0) & (
-                            dist > 0.0)   # a thicken's rims are flat here (Step 2.177d): their NaNs miss
-                    if hit.any():
-                        near = float(dist[hit].min())
+                asked.append((mine, u, r, tuple(math.floor(u[i] * BENEATH_CELLS) for i in range(3))))
+            for (mine, u, r, _), near in zip(asked, reader.near([(u, cell) for _, u, _, cell in asked])):
                 if near is not None and r > near - gap and near - gap > 0.0:
                     for w in mine:
                         final[w] = tuple(o[i] + (near - gap) * u[i] for i in range(3))
                     moved += 1
     return moved
+
+
+class _Cloth:
+    """A ``beneath`` side's cloth (:func:`_beneath`): its triangles'
+    corners ``tris`` (in the final shape) read through a grid over the
+    directions from ``o`` to their corners (cells of
+    1/:data:`BENEATH_CELLS` on each axis, each padded by one, so a
+    triangle is read wherever a ray could meet it), by the compiled kernel
+    (``core.native.cloth``, ``crossings``) where it reads them, else the
+    twin's dict and numpy table; a direction not finite raises here, as
+    the twin's grid does."""
+
+    def __init__(self, tris: list[tuple[Vec, Vec, Vec]], o: Vec) -> None:
+        from array import array
+
+        self.tris, self.o, self.counted = tris, o, None
+        if native.library() is not None:
+            try:
+                self.flat, self.origin = array("d", [x for t in tris for p in t for x in p]), array("d", o)
+            except (TypeError, ValueError, OverflowError):
+                self.flat = None
+            if self.flat is not None and len(self.flat) == 9 * len(tris) and len(self.origin) == 3:
+                self.counted = native.cloth(self.flat, self.origin)
+        if self.counted is not None:
+            return
+        self.grid: dict[tuple[int, int, int], list[int]] = {}
+        for t, tri in enumerate(tris):
+            dirs = [_unit(_sub(p, o)) for p in tri]
+            if any(d is None for d in dirs):
+                continue
+            lo = [math.floor(min(d[i] for d in dirs) * BENEATH_CELLS) - 1 for i in range(3)]
+            hi = [math.floor(max(d[i] for d in dirs) * BENEATH_CELLS) + 1 for i in range(3)]
+            for i in range(lo[0], hi[0] + 1):
+                for j in range(lo[1], hi[1] + 1):
+                    for k in range(lo[2], hi[2] + 1):
+                        self.grid.setdefault((i, j, k), []).append(t)
+        # each cloth triangle's edges from its first corner, that corner to the origin and their cross (no skin
+        # point this side moves is the cloth's), read a cell's triangles at once (Step 2.179: booblord_high's
+        # finer skin and top asked 2.5 million): the loop's floats, a cell's as numpy's same products and sums
+        corners = np.array(tris, dtype=np.float64).reshape(-1, 3, 3)
+        e1, e2, tv = corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0], np.array(o) - corners[:, 0]
+        qv = np.stack((tv[:, 1] * e1[:, 2] - tv[:, 2] * e1[:, 1], tv[:, 2] * e1[:, 0] - tv[:, 0] * e1[:, 2],
+                       tv[:, 0] * e1[:, 1] - tv[:, 1] * e1[:, 0]), axis=1)
+        self.table = np.concatenate((e1, e2, tv, qv), axis=1)
+
+    def near(self, asked: list[tuple[Vec, tuple[int, int, int]]]) -> list[float | None]:
+        """Each ray's (a unit direction from ``o`` and its cell) nearest
+        crossing past ``o`` with a triangle read through its cell, or
+        ``None``."""
+        from array import array
+
+        if self.counted is not None and (got := native.crossings(
+                self.flat, self.origin, self.counted, array("d", [x for u, _ in asked for x in u]),
+                array("q", [c for _, cell in asked for c in cell]))) is not None:
+            return [None if x != x else x for x in got]
+        read: dict[tuple[int, int, int], np.ndarray] = {}
+        out: list[float | None] = []
+        for u, cell in asked:
+            near = None
+            if cell in self.grid:
+                got = read.get(cell)
+                if got is None:
+                    got = read[cell] = self.table[self.grid[cell]]
+                a1, a2, a3, b1, b2, b3, t1, t2, t3, q1, q2, q3 = got.T
+                p1, p2, p3 = u[1] * b3 - u[2] * b2, u[2] * b1 - u[0] * b3, u[0] * b2 - u[1] * b1
+                det = a1 * p1 + a2 * p2 + a3 * p3
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    x = (t1 * p1 + t2 * p2 + t3 * p3) / det
+                    y = (u[0] * q1 + u[1] * q2 + u[2] * q3) / det
+                    dist = (b1 * q1 + b2 * q2 + b3 * q3) / det
+                    hit = (np.abs(det) >= 1e-12) & (x >= 0.0) & (x <= 1.0) & (y >= 0.0) & (x + y <= 1.0) & (
+                        dist > 0.0)   # a thicken's rims are flat here (Step 2.177d): their NaNs miss
+                if hit.any():
+                    near = float(dist[hit].min())
+            out.append(near)
+        return out
 
 
 def _insets(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> int:
@@ -3361,35 +3470,28 @@ def _relax(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> in
     wid: dict[bytes, int] = {}
     wof = [wid.setdefault(key, len(wid)) for key in mesh.keys]
     first: dict[int, int] = {}
+    members: dict[int, list[int]] = {}
     for k, w in enumerate(wof):
         first.setdefault(w, k)
+        members.setdefault(w, []).append(k)
     moved: set[int] = set()
+    corners = welded = None
     for i, op in enumerate(spec.ops):
         if not isinstance(op, RelaxOp):
             continue
         if op.passes < 0:
             raise ValueError(f"mesh.ops[{i}].passes: {op.passes} is not a count of passes")
         regions = _regions(mesh, MeshSpec(ops=(op,), keep=spec.keep), RelaxOp)
-        chosen = [all(any(r.selects(mesh.heaviest[v], group_of[v]) for r in regions) for v in t) for t in mesh.triangles]
-        faces: dict[tuple[int, int], set] = {}
-        adj: dict[int, set[int]] = {}
-        for t, ok in zip(mesh.triangles, chosen):
-            if not ok:
-                continue
-            w = [wof[v] for v in t]
-            if len(set(w)) < 3:
-                continue
-            key = frozenset(w)
-            for a in range(3):
-                x, y = w[a], w[(a + 1) % 3]
-                faces.setdefault((min(x, y), max(x, y)), set()).add(key)
-                adj.setdefault(x, set()).add(y)
-                adj.setdefault(y, set()).add(x)
-        loop: dict[int, set[int]] = {}
-        for (x, y), fs in faces.items():
-            if len(fs) == 1:
-                loop.setdefault(x, set()).add(y)
-                loop.setdefault(y, set()).add(x)
+        if corners is None:     # each triangle's vertices and welded points, once a call
+            corners = np.array(mesh.triangles, np.int64).reshape(-1, 3)
+            welded = np.array(wof, np.int64)[corners]
+        picks: dict[tuple[int, int], bool] = {}   # whether a region selects a (heaviest bone, group)
+        for hg in zip(mesh.heaviest, group_of):
+            if hg not in picks:
+                picks[hg] = any(r.selects(*hg) for r in regions)
+        chosen = np.array([picks[hg] for hg in zip(mesh.heaviest, group_of)], bool)[corners].all(axis=1)
+        w = welded[chosen]
+        adj, loop = _relax_graph(w[(w[:, 0] != w[:, 1]) & (w[:, 1] != w[:, 2]) & (w[:, 0] != w[:, 2])])
         weight: dict[int, float] = {}
         for w in adj:
             p = base[first[w]]
@@ -3402,25 +3504,95 @@ def _relax(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> in
             if best > 0.0 and (w not in loop or (op.open and len(loop[w]) == 2)):
                 weight[w] = best
         free = sorted(weight)
-        nbrs = {w: sorted(loop[w] if w in loop else adj[w]) for w in free}
+        nbrs = {w: loop[w] if w in loop else adj[w] for w in free}
         pos = {w: final[first[w]] for w in adj}
         mid = {w for w in free if abs(base[first[w]][0]) < MIDLINE}
-        for _ in range(op.passes):
-            for step in RELAX_STEPS:
-                nxt = {}
-                for w in free:
-                    nb = nbrs[w]
-                    q = pos[w]
-                    m = tuple(sum(pos[x][j] for x in nb) / len(nb) for j in range(3))
-                    f = step * weight[w]
-                    nxt[w] = (0.0 if w in mid else q[0] + f * (m[0] - q[0]), q[1] + f * (m[1] - q[1]),
-                              q[2] + f * (m[2] - q[2]))
-                pos.update(nxt)
-        for k, w in enumerate(wof):
-            if w in weight and pos[w] != final[k]:
-                final[k] = pos[w]
-                moved.add(w)
+        _sweeps(pos, free, nbrs, weight, mid, op.passes)
+        for w in free:
+            for k in members[w]:
+                if pos[w] != final[k]:
+                    final[k] = pos[w]
+                    moved.add(w)
     return len(moved)
+
+
+def _relax_graph(w: np.ndarray) -> tuple[dict[int, list[int]], dict[int, list[int]]]:
+    """The welded neighbours of the triangles ``w`` (rows of three
+    distinct welded points): each point's along every edge, and along the
+    open edges (those of one triangle, its points taken as a set), each
+    sorted (:func:`_relax`)."""
+    bits = 21     # a welded point's number in a key's field: three to a triangle's key, two to an edge's
+    t = np.sort(w, axis=1)
+    if len(w) and int(w.max()) >> bits:   # past the fields: the rows themselves, slower
+        t = np.unique(t, axis=0).reshape(-1, 3)
+        both_ways = np.concatenate([t[:, (a, b)] for a, b in ((0, 1), (1, 2), (0, 2))])
+        edges, count = np.unique(both_ways, axis=0, return_counts=True)
+        bits = int(w.max()).bit_length()
+        edges = (edges[:, 0].astype(object) << bits) | edges[:, 1].astype(object)
+    else:
+        t = np.unique((t[:, 0] << 2 * bits) | (t[:, 1] << bits) | t[:, 2])      # each triangle once, as a set
+        t = np.column_stack(((t >> 2 * bits), (t >> bits) & ((1 << bits) - 1), t & ((1 << bits) - 1)))
+        edges, count = np.unique(np.concatenate([(t[:, a] << bits) | t[:, b] for a, b in ((0, 1), (1, 2), (0, 2))]),
+                                 return_counts=True)   # each edge (its points in order) and how many triangles have it
+
+    def both(e: np.ndarray) -> dict[int, list[int]]:
+        lo, hi = e >> bits, e & ((1 << bits) - 1)
+        e = np.sort(np.concatenate(((lo << bits) | hi, (hi << bits) | lo)))
+        out: dict[int, list[int]] = {}
+        for a, b in zip((e >> bits).tolist(), (e & ((1 << bits) - 1)).tolist()):
+            out.setdefault(a, []).append(b)
+        return out
+    return both(edges), both(edges[count == 1])
+
+
+def _sweeps(pos: dict[int, Vec], free: list[int], nbrs: dict[int, list[int]], weight: dict[int, float],
+            mid: set[int], passes: int) -> None:
+    """:func:`_relax`'s sweeps of one op on ``pos`` (welded point:
+    position) in place: ``passes`` times each of :data:`RELAX_STEPS`,
+    every point of ``free`` (sorted) moved towards the mean of its
+    ``nbrs`` by the step times its ``weight``, its x kept at 0 in
+    ``mid``, each step's points from the step before; by the compiled
+    kernel (``core.native.relax``) where it reads them, else here."""
+    if _relaxed(pos, free, nbrs, weight, mid, passes):
+        return
+    for _ in range(passes):
+        for step in RELAX_STEPS:
+            nxt = {}
+            for w in free:
+                nb = nbrs[w]
+                q = pos[w]
+                m = tuple(sum(pos[x][j] for x in nb) / len(nb) for j in range(3))
+                f = step * weight[w]
+                nxt[w] = (0.0 if w in mid else q[0] + f * (m[0] - q[0]), q[1] + f * (m[1] - q[1]),
+                          q[2] + f * (m[2] - q[2]))
+            pos.update(nxt)
+
+
+def _relaxed(pos: dict[int, Vec], free: list[int], nbrs: dict[int, list[int]], weight: dict[int, float],
+             mid: set[int], passes) -> bool:
+    """:func:`_sweeps` by the compiled kernel (``core.native.relax``), or
+    False (``pos`` untouched) where the twin sweeps (no library, no pass
+    or point to move, a position not a float)."""
+    from array import array
+
+    if native.library() is None or type(passes) is not int or passes <= 0 or not free:
+        return False
+    at = {w: i for i, w in enumerate(pos)}
+    flat = [x for q in pos.values() for x in q]
+    if len(flat) != 3 * len(at) or not all(type(x) is float for x in flat):
+        return False
+    start, nbr = array("q", [0]), array("q")
+    for w in free:
+        nbr.extend(at[x] for x in nbrs[w])
+        start.append(len(nbr))
+    held = array("d", flat)
+    if not native.relax(held, array("q", [at[w] for w in free]), start, nbr, array("d", [weight[w] for w in free]),
+                        array("q", [w in mid for w in free]), array("d", RELAX_STEPS), passes):
+        return False
+    for w in free:
+        j = 3 * at[w]
+        pos[w] = (held[j], held[j + 1], held[j + 2])
+    return True
 
 
 BIND_CELL = 0.02
@@ -5048,8 +5220,24 @@ def _conjugate(packed: list[list[tuple[int, float]]], diag: list[float], b: list
     ``A q`` is ``diag[k] * q[k] + sum(w * q[j] for j, w in packed[k])``,
     Python's ``sum`` (compensated, Neumaier's, since 3.12) taken term by
     term down the rows; the dot products are ``sum`` over their terms and
-    the rest elementwise, each step as the loop rounds it."""
+    the rest elementwise, each step as the loop rounds it; the compiled
+    kernel's (``core.native.cg``) where it reads them."""
+    from array import array
+
     n = len(x)
+    if native.library() is not None and len(packed) == len(diag) == len(b) == n:
+        try:
+            start, cols, weights = array("q", [0]), array("q"), array("d")
+            for row in packed:
+                for j, w in row:
+                    cols.append(j)
+                    weights.append(w)
+                start.append(len(cols))
+            got, consts = array("d", x), (array("d", diag), array("d", b))
+        except (TypeError, ValueError, OverflowError):
+            got = None
+        if got is not None and native.cg(start, cols, weights, *consts, got, UNWRAP_TOLERANCE, UNWRAP_MAX):
+            return got.tolist()
     width = max((len(row) for row in packed), default=0)
     cols, weights = np.zeros((n, width), np.intp), np.zeros((n, width))
     for k, row in enumerate(packed):
@@ -5593,21 +5781,25 @@ def _positions(mesh: _Mesh, base: list[Vec], spec: MeshSpec, told: bool = False
     final = list(base)
     det_min = None
     if placed:
-        each = [[op for op in placed if k in op.moves] for k in range(len(base))]
+        each: list[list[int]] = [[] for _ in base]    # each vertex's ops, by their place in placed
+        for i, op in enumerate(placed):
+            for k in op.moves:
+                if k < len(base):
+                    each[k].append(i)
         held: set[int] = set()
-        for k, ops in enumerate(each):
-            if ops:
-                final[k], inside = _displace(base[k], ops)
-                if inside:
-                    held.add(k)
-        points: list[tuple[Vec, list[_Placed]]] = [(base[k], each[k]) for k in sorted(held)]
+        ks = [k for k, ops in enumerate(each) if ops]
+        for k, (p, inside) in zip(ks, _displace_each([base[k] for k in ks], [each[k] for k in ks], placed)):
+            final[k] = p
+            if inside:
+                held.add(k)
+        points: list[tuple[Vec, list[int]]] = [(base[k], each[k]) for k in sorted(held)]
         for tri in mesh.triangles:
             if held.intersection(tri):
                 centre = tuple(sum(base[v][i] for v in tri) / 3 for i in range(3))
                 for ops in {tuple(each[v]) for v in tri if each[v]}:
                     points.append((centre, list(ops)))
-        dets = [_det(p, ops) for p, ops in points]
-        bad = [(p, ops) for (p, ops), d in zip(points, dets) if not d > 0]
+        dets = _det_each([p for p, _ in points], [ops for _, ops in points], placed)
+        bad = [(p, [placed[i] for i in ops]) for (p, ops), d in zip(points, dets) if not d > 0]
         if bad:
             labels = sorted({op.label for p, ops in bad for op in ops if _effect(p, op) is not None})
             raise ValueError(f"mesh.ops fold the surface at {len(bad)} points (det J <= 0) inside {', '.join(labels)}: "
