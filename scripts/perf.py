@@ -115,6 +115,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import dataclasses
 import hashlib
 import json
@@ -927,6 +928,20 @@ def content_at(clone: Path, commit: str, into: Path) -> Path:
     return into
 
 
+@contextlib.contextmanager
+def builtins_unread():
+    """The head's engine holds no content's built-in variant recipe to its own (``content.builtin_refusal`` answers
+    none) while a release's tree beside builds its site (Step 4.54c): that tree's ``web_tools`` checks the content its
+    CI pins with the engine in this process, the head's, whose built-in booblord may have moved since the release; the
+    release's page still refuses at Install by its own engine."""
+    from azurkit.tools.characters import content
+    was, content.builtin_refusal = content.builtin_refusal, lambda *_: None
+    try:
+        yield
+    finally:
+        content.builtin_refusal = was
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="perf", description=__doc__.split("\n\n")[0])
     ap.add_argument("worktree", type=Path)
@@ -1033,11 +1048,13 @@ def main(argv: list[str] | None = None) -> int:
 
         def made(what: str, tree: Path = wt, into: Path = scratch, tools=web_tools) -> Path | str:   # each made once,
             if (tree, what) not in built:   # as a run needs it, by ``tools`` (a web_tools): one wheel for both hosts
-                built[(tree, what)] = (tools.wheel(into / "wheel", tree) if what == "wheel"
-                                       else tools.site(into / "site", root=tree, built=made("wheel", tree, into, tools),
-                                                       content=content_of(tree))
-                                       if what == "site"
-                                       else _perf.venv(tree, into / "app", made("wheel", tree, into, tools), tools))
+                if what == "site":   # the release's checks its content with this engine: no built-in of ours read
+                    wheel, content = made("wheel", tree, into, tools), content_of(tree)
+                    with contextlib.nullcontext() if tree == wt else builtins_unread():
+                        built[(tree, what)] = tools.site(into / "site", root=tree, built=wheel, content=content)
+                else:
+                    built[(tree, what)] = (tools.wheel(into / "wheel", tree) if what == "wheel"
+                                           else _perf.venv(tree, into / "app", made("wheel", tree, into, tools), tools))
             return built[(tree, what)]
 
         def made_release(what: str) -> Path | str:   # the release's tree beside (Step 4.47e): its commit's files,

@@ -2415,7 +2415,9 @@ are the Characters section's.
   checkout (a commit it lacks fetched into a scratch repository of its own)
   and never its working tree, so a release whose built-in booblord isn't
   the content's isn't handed one it refuses; `--content` is the head's
-  alone. A busy
+  alone. The release's site checks its content with perf.py's engine, the
+  head's, so it is built with no built-in recipe read
+  (`content.builtin_refusal` off; its own page refuses at Install). A busy
   box moves within an hour (a Save's sample is the browser's write of a
   2.8 GB download, a Check's the cores a nice-10 process gets: the release's
   own tree read 1.5-2.6x its receipt's Saves on 11-12), so only the release

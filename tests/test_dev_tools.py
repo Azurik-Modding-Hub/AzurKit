@@ -1943,7 +1943,8 @@ def test_the_perf_gate_judges_a_pages_first_sample_against_the_releases_first_an
 
 
 #: The release's own ``scripts/web_tools.py`` in :func:`_a_release_beside`'s repo: its wheel is its own build's,
-#: where its ``.tools`` folder is (its own lookup, git's, can't answer in an archive)
+#: where its ``.tools`` folder is (its own lookup, git's, can't answer in an archive); its site holds booblord's
+#: recipe in its content to the engine's built-in, as a release's ``content_files`` does (``content.verify``)
 RELEASE_WEB_TOOLS = """from pathlib import Path
 
 
@@ -1953,6 +1954,14 @@ def _tools(root):
 
 def wheel(out, root):
     return _tools(root) / "the release's wheel"
+
+
+def site(out, root, built, content):
+    from azurkit.tools.characters import content as kit
+    recipe = "variants/booblord/variant.json"
+    if why := kit.builtin_refusal({"kind": "variant", "id": "booblord"}, {recipe: (content / recipe).read_bytes()}):
+        raise SystemExit(f"content {content}: booblord: {why}")
+    return out
 """
 
 
@@ -2082,11 +2091,22 @@ def test_each_tree_the_perf_gate_times_installs_the_content_its_own_commit_pins(
     install's wait ran 1800 s): the head the commit its tests.yml's
     ``CONTENT_COMMIT`` names, which the clone lacks, so it is fetched into a
     scratch repository of its own; the release, whose tests.yml pins none,
-    the clone's newest commit at its commit's date. The clone's working
-    tree, refs and objects are as they were, and the unpacked trees go with
-    the scratch."""
+    the clone's newest commit at its commit's date. The release's site is
+    built from its content though the head's engine, whose built-in booblord
+    has moved, refuses her recipe there (the release's own page refuses at
+    Install), while the head's site still holds its content to its built-ins.
+    The clone's working tree, refs and objects are as they were, and the
+    unpacked trees go with the scratch."""
+    from azurkit.tools.characters import content as kit
+    from scripts import web_tools
+
     repo, receipt = _a_release_beside(tmp_path, monkeypatch, ("A12",))
+    meta = json.loads(receipt.read_text(encoding="utf-8"))
+    meta["perf"]["cases"]["S05/webkit"] = {"samples": [2.0] * 3, "median": 2.0}
+    receipt.write_text(json.dumps(meta), encoding="utf-8")
     remote, clone = tmp_path / "content-remote", tmp_path / "Azurik-Custom-Content"   # the clone beside the checkout
+    recipe = remote / "variants" / "booblord" / "variant.json"
+    recipe.parent.mkdir(parents=True)
     _git(tmp_path, "init", "-q", "-b", "main", str(remote))
     commits = {}
     for name, date in (("before", "2020-01-01T00:00:00Z"), ("after", "2099-01-01T00:00:00Z"), ("pinned", None)):
@@ -2094,7 +2114,8 @@ def test_each_tree_the_perf_gate_times_installs_the_content_its_own_commit_pins(
             _git(tmp_path, "clone", "-q", str(remote), str(clone))
         monkeypatch.setenv("GIT_COMMITTER_DATE", date or "2099-02-01T00:00:00Z")
         (remote / "manifest.json").write_text(name, encoding="utf-8")
-        _git(remote, "add", "manifest.json")
+        recipe.write_text(json.dumps({"booblord": {"release": name}}), encoding="utf-8")   # none the head's built-in
+        _git(remote, "add", "manifest.json", "variants")
         _git(remote, "commit", "-q", "-m", name)
         commits[name] = _git(remote, "rev-parse", "HEAD")
     monkeypatch.delenv("GIT_COMMITTER_DATE")
@@ -2104,17 +2125,26 @@ def test_each_tree_the_perf_gate_times_installs_the_content_its_own_commit_pins(
     monkeypatch.setattr(perf, "CONTENT_URL", str(remote))
     def state():   # the clone's working tree, refs and objects
         return [_git(clone, *a) for a in (("status", "--porcelain"), ("for-each-ref",), ("count-objects", "-v"))]
-    before, seen = state(), {}
+    before, seen, heads, refusal = state(), {}, [], kit.builtin_refusal
+
+    def head_site(out, root, built, content):   # the head's reading of its own content's booblord
+        heads.append(kit.builtin_refusal({"kind": "variant", "id": "booblord"}, {
+            "variants/booblord/variant.json": (content / "variants" / "booblord" / "variant.json").read_bytes()}))
+        return out
 
     def drive(wt, spec, todo, iso, content, *_):
         side = "release" if wt.name == "tree" else "head"
-        seen.setdefault(side, set()).add((content, (content / "manifest.json").read_text(encoding="utf-8")))
+        seen.setdefault(side, set()).add((spec.host, content, (content / "manifest.json").read_text(encoding="utf-8")))
         return {"samples": {op: [{"s": 8.0, "bar": 2, "progress": True}] * n for op, n in todo.items()}, "log": []}
+    monkeypatch.setattr(web_tools, "site", head_site)
     monkeypatch.setattr(_perf, "drive", drive)
-    perf.main([str(repo), "--select", "app:build", "--ops", "A12", "--profiles", "app",
-               "--reference", str(receipt), "--json", str(tmp_path / "perf.json")])
-    assert {side: {text for _, text in got} for side, got in seen.items()} == {"head": {"pinned"}, "release": {"before"}}
-    assert all(len(got) == 1 and not path.exists() for got in seen.values() for path, _ in got)
+    perf.main([str(repo), "--select", "app:build,site:build", "--ops", "A12,S05", "--profiles", "app,site",
+               "--browsers", "webkit", "--reference", str(receipt), "--json", str(tmp_path / "perf.json")])
+    assert {side: {(host, text) for host, _, text in got} for side, got in seen.items()} == {
+        "head": {("app", "pinned"), ("site", "pinned")}, "release": {("app", "before"), ("site", "before")}}
+    assert all(len({path for _, path, _ in got}) == 1 for got in seen.values())
+    assert not any(path.exists() for got in seen.values() for _, path, _ in got)
+    assert len(heads) == 1 and "not the built-in booblord's" in heads[0] and kit.builtin_refusal is refusal
     assert state() == before and _git(clone, "status", "--porcelain") == "M manifest.json"
     out = capsys.readouterr().out
     assert f"perf: the head installs content {commits['pinned'][:12]} (pinned)" in out
