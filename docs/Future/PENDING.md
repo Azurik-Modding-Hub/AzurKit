@@ -555,6 +555,11 @@ memory peaks stay strict. The gate writes both kinds of row to
     - `colours.mjs` rounds ties away from zero where Python rounds to even
       (the hex box only).
     - The effect colour uses the browser's picker, not Modkit's wheel.
+    - Live's tab, not the editor's: at 1100 px with Live on, Live's 32rem
+      status line wraps its bar onto a second line (57 px, 31 with Live
+      off), and the app's Attach… pushes the line onto a third (91 px), so
+      the map room is shorter (4.25; measured again in 4.53a, Chromium and
+      WebKit alike).
 31. 4.6c's leftovers: `variant_save`'s `from` isn't checked as a name.
     Only a crafted call reaches it, so it gets no lane of its own (D1219);
     4.38b checks it (32). Done: Undo (since 4.6e, c0f65767), the page's
