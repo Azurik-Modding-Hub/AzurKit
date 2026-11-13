@@ -515,22 +515,22 @@ memory peaks stay strict. The gate writes both kinds of row to
 13. **Windows Firefox loses 6-15 GiB of temp disk** through the pack
     golden, and hangs for 60 minutes (D1105). Land a diagnostics-only
     commit first (the survey's 4.5d).
-14. ~~`procpool._peak()` returns 0 on Windows~~: fixed by 4.52a (1d4daf32).
-15. ~~OPENERS: the stale openers' compiled set leaks~~: fixed by 4.52a (b4a1f6d1).
+14. ~~`procpool._peak()` returns 0 on Windows~~: fixed by 4.52a.
+15. ~~OPENERS: the stale openers' compiled set leaks~~: fixed by 4.52a.
 16. **A Firefox Save whose `flat.mjs` fetch never answers stays greyed**
     (4.5u; accepted, since sw.js serves `flat.mjs` on the real site).
 17. **A closed Firefox tab leaves its last build's ~835 MB file in OPFS**
     until the next load or a Clear (4.5q; accepted design).
 18. **The site's Update fetches every file of an entry** before refusing an
     Update from another source; the app refuses first (ci52).
-19. ~~The HTTPS content clone has no low-speed bound~~: fixed by 4.52a (731550c1).
+19. ~~The HTTPS content clone has no low-speed bound~~: fixed by 4.52a.
 20. **The Windows and Linux frozen apps are console builds:** `freeze.py`
     passes `--windowed` on macOS only (ci5).
 21. **The app's own server answers over HTTP/1.0** (ci42).
 22. **A player's image named usa.iso or europe.iso in Downloads** (or one
     `AZURKIT_ISO` names there) refuses the default Save beside it; the
     player picks another folder (4.28a).
-23. ~~A save edit's output guard doesn't fold case on macOS~~: fixed by 4.52a (d5bd2c88).
+23. ~~A save edit's output guard doesn't fold case on macOS~~: fixed by 4.52a.
 24. **source_hashes** is checked against both releases' vanilla files
     (4.6i; accepted).
 25. **A row's "main colour" can be a tinted near-black** (4.6e; Modkit's
