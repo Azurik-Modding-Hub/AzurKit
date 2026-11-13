@@ -193,6 +193,12 @@ waited for a B that never started (run 41521288667). The pool's path with no B i
 ``cores``)."""
 
 
+def _routed(context, url, handler) -> None:
+    """``context.route(url, handler)``, answered in ``_page.STALL`` s at most (``_page.within``)."""
+    _page.within(context, context._impl_obj.route(url=url, handler=context._wrap_handler(handler)), _page.STALL,
+                 "the context's route")
+
+
 class Site:
     """The site served to a fresh browser context from its folder by a server
     of a process of its own (:class:`_page.Served`, at ``origin``, a secure
@@ -222,15 +228,20 @@ class Site:
             home = profile.with_name(f"{profile.name}-home")
             home.mkdir(parents=True, exist_ok=True)
             options = {"env": {**os.environ, "CFFIXED_USER_HOME": str(home)}} | options
-        try:
-            self.context = (browser.browser_type.launch_persistent_context(str(profile), headless=True,
-                                                                           accept_downloads=True, **options)
-                            if profile else browser.new_context(accept_downloads=True, **options))
+        try:   # each call bounded (a persistent launch by Playwright's own 30 s): a stopped browser answers none
+            if profile:
+                self.context = browser.browser_type.launch_persistent_context(str(profile), headless=True,
+                                                                              accept_downloads=True, **options)
+            else:   # the options by the names Playwright's own call gives them (camelCase)
+                self.context = _perf.bounded(browser, browser._impl_obj.new_context(acceptDownloads=True, **{
+                    re.sub(r"_([a-z])", lambda m: m[1].upper(), k): v for k, v in options.items()}),
+                    "the browser's new context")
+            _page.within(self.context, self.context._impl_obj.add_init_script(script=FOUR_CORES), _page.STALL,
+                         "the context's init script")
+            _routed(self.context, re.compile(rf"^(?!{re.escape(self.origin)}/)"), self._elsewhere)
         except BaseException:
             self.files.close()
             raise
-        self.context.add_init_script(FOUR_CORES)
-        self.context.route(re.compile(rf"^(?!{re.escape(self.origin)}/)"), self._elsewhere)
 
     def _elsewhere(self, route, request) -> None:
         if request.url.startswith(f"blob:{self.origin}/"):   # the page's own blob: (WebKit routes them; Chromium doesn't)
@@ -2173,7 +2184,9 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     frozen app page's first load) fail so past ``_page.ACT``, Playwright's own bound for them, naming the file or the
     address, the load also the requests it waits on (Step 4.4ci30), and a browser's close its
     driver never answers (the ``browser`` fixture's, ``conftest.close_browser``) fails past its bound naming its
-    browser and driver."""
+    browser and driver, and a new context its browser never answers (:class:`Site`'s, ``_bare_page``'s; their
+    routes, init script and new page bounded as well) fails past ``_page.STALL`` naming it and its driver's
+    processes."""
     from playwright._impl._helper import DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS
 
     from scripts import ci_resources
@@ -2229,6 +2242,15 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert lines[0] == "no answer in 2 s: the pick of index.html in #nowhere", lines
         assert lines[1].startswith("state: {'asks': [") and lines[-2:-1] == ["its browser still answers"], lines
         assert 2 <= time.monotonic() - t3 < _page.ACT + reads(_page.HEAR)
+        with monkeypatch.context() as held_new:   # a new context never answered: Site's is bounded, as its page's
+            held_new.setattr(browser._impl_obj, "new_context", lambda **_: asyncio.sleep(600))
+            t5 = time.monotonic()
+            with pytest.raises(AssertionError) as uncreated:
+                Site(browser, site)
+            lines = str(uncreated.value).splitlines()
+            assert lines[0] == "no answer in 2 s: the browser's new context", lines
+            assert len(lines) == 2 and lines[1].startswith("under its driver: "), lines
+            assert 2 <= time.monotonic() - t5 < _page.STALL + ci_resources.SAY_S
         monkeypatch.setattr(_page, "HEAR", 1)   # the held navigation's state read below may end unread in 1 s
         monkeypatch.setattr(browser._impl_obj, "close", lambda **_: asyncio.sleep(600))   # a close never answered
         # what the close may wait on, listed in 5 s (its 10 s outside the test), the close's 1 s with it inside the
@@ -5508,12 +5530,16 @@ def _bare_page(browser, root: Path):
     """A page that is a bare document (no app.mjs: no engine of its own), every other path served from ``root`` by a
     server of a process of its own (:class:`_page.Served`), as :class:`Site` serves it."""
     files = _page.Served(root.resolve())
-    context = browser.new_context()
+    try:
+        context = _perf.bounded(browser, browser._impl_obj.new_context(), "the browser's new context")
+    except BaseException:
+        files.close()
+        raise
     context.on("close", lambda _: files.close())
-    context.route(f"{files.url}/", lambda route: route.fulfill(body=WORKERS_BARE, content_type="text/html"))
-    context.route(re.compile(rf"^(?!{re.escape(files.url)}/)"), lambda route: route.continue_()   # the page's own blob:
-                  if route.request.url.startswith(f"blob:{files.url}/") else route.fulfill(status=404, body=""))
-    page = context.new_page()
+    _routed(context, f"{files.url}/", lambda route: route.fulfill(body=WORKERS_BARE, content_type="text/html"))
+    _routed(context, re.compile(rf"^(?!{re.escape(files.url)}/)"), lambda route: route.continue_()   # the page's own
+            if route.request.url.startswith(f"blob:{files.url}/") else route.fulfill(status=404, body=""))  # blob:
+    page = _page.within(context, context._impl_obj.new_page(), _page.STALL, "a new page")
     _page.load(page, f"{files.url}/")
     return context, page
 
