@@ -191,6 +191,18 @@ OPS = {op.id: op for op in (
        content=True, head_start=True, heavy=True),
     Op("A105", "Check after a colour (the Colours tab's wheel)", "characters", first=False, bar=True, content=True,
        head_start=True, heavy=True),
+    # Step 4.55a (PENDING 1.9): a Check after each other tab's edit, each a value no Check held; new heavy ops, so
+    # frequent (perf.check_tiers: a heavy op's rare bound is the owner's call)
+    Op("A107", "Check after a sound edit (the Sounds tab's Sound line: a whoosh's length)", "characters", first=False,
+       bar=True, content=True, head_start=True, heavy=True),
+    Op("A108", "Check after Import PNG (a row's texture, another grey each)", "characters", first=False, bar=True,
+       content=True, head_start=True, heavy=True),
+    Op("A109", "Check after a Moves edit (an idle or victory slot given another of the recipe's clips)", "characters",
+       first=False, bar=True, content=True, head_start=True, heavy=True),
+    Op("A114", "Check after an Attacks edit (its Damage)", "characters", first=False, bar=True, content=True,
+       head_start=True, heavy=True),
+    Op("A115", "Check after an Effects edit (a shield row added, then its first number)", "characters", first=False,
+       bar=True, content=True, head_start=True, heavy=True),
     Op("A106", "Check booblord's own copy with her parts out of reach (worked out)", "characters", bar=True,
        content=True, head_start=True,
        tier="rare", heavy=True),   # each sample a fresh HOME whose Content from holds no part
@@ -294,6 +306,16 @@ OPS = {op.id: op for op in (
        content=True, head_start=True, heavy=True),
     Op("S87", "Check after a colour (the Colours tab's wheel)", "characters", first=False, bar=True, content=True,
        head_start=True, heavy=True),
+    Op("S89", "Check after a sound edit (the Sounds tab's Sound line: a whoosh's length)", "characters", first=False,
+       bar=True, content=True, head_start=True, heavy=True),   # Step 4.55a: A107-A115's
+    Op("S90", "Check after Import PNG (a row's texture, another grey each)", "characters", first=False, bar=True,
+       content=True, head_start=True, heavy=True),
+    Op("S91", "Check after a Moves edit (an idle or victory slot given another of the recipe's clips)", "characters",
+       first=False, bar=True, content=True, head_start=True, heavy=True),
+    Op("S92", "Check after an Attacks edit (its Damage)", "characters", first=False, bar=True, content=True,
+       head_start=True, heavy=True),
+    Op("S93", "Check after an Effects edit (a shield row added, then its first number)", "characters", first=False,
+       bar=True, content=True, head_start=True, heavy=True),
     Op("S88", "Check booblord's own copy with her parts out of reach (worked out)", "characters", bar=True,
        content=True, head_start=True,
        tier="rare", heavy=True),   # each sample a fresh profile whose server refuses every part
@@ -2359,7 +2381,25 @@ SCALE_TYPED = """(x) => { const b = document.getElementById("var-scale"); b.valu
 STIFFNESS = "document.querySelector('#var-springs input')"
 STIFFNESS_TYPED = f"""(x) => {{ const b = {STIFFNESS}; b.value = String(x); b.dispatchEvent(new Event("change")); }}"""
 FIRST_ROW = "document.querySelector('#var-rows button[data-row]:not([data-row=\"\"])')"
-YOURS = (("mine_a", "keylord"), ("mine_b", "golem"), ("mine_c", "town_female_2"))
+# Step 4.55a's (PENDING 1.9), each on the copy as the edits before it left it: the Sounds tab's Sound line, its first
+# sound's first number (booblord's spin whoosh's length); Import PNG on the Colours tab's last row, a grey texture of
+# its size (LAST_ROW: [row, width, height]); a Moves tab pick (MOVES_PICKS: a slot given a clip of the recipe's it
+# didn't play); the Attacks tab's Damage; the Effects tab, a shield row added (FX_ADD), then its first number.
+SFX_TYPED = """(x) => { const b = document.getElementById("var-sfx-0"); b.value = String(x);
+  b.dispatchEvent(new Event("change")); }"""
+LAST_ROW = """() => { const b = [...document.querySelectorAll('#var-rows button[data-row]:not([data-row=""])')].at(-1);
+  b.click(); const row = Number(b.dataset.row); return [row, ...azurkit.variants.colours.answer.rows[row].size]; }"""
+MOVES_PICKS = (("idle_2", "stretch (gltf)"), ("victory_1", "touchdown (gltf)"), ("idle_3", "look_back (gltf)"),
+               ("victory_2", "stretch (gltf)"), ("idle_4", "hip_idle (gltf)"), ("victory_3", "look_back (gltf)"),
+               ("idle_5", "sit_cross (gltf)"), ("victory_4", "sash_fix (gltf)"))
+MOVE_SLOT = "document.querySelector('#var-moves .var-pick[data-key=\"{}\"]')"   # a Moves slot's picker, by its key
+DAMAGE_TYPED = """(x) => { const b = document.getElementById("var-attack-damage"); b.value = String(x);
+  b.dispatchEvent(new Event("change")); }"""
+FX_ADD = """() => { const a = document.getElementById("var-fx-add"); if (!a.open) a.open = true; }"""
+FX_SHIELD = "document.querySelector('#var-fx-add button[data-template=\"bubble\"]:not(:disabled)')"
+FX_TYPED = """(x) => { const b = document.querySelector("#var-fx-rows .var-fx-param input[type=text]");
+  b.value = String(x); b.dispatchEvent(new Event("change")); }"""
+YOURS =(("mine_a", "keylord"), ("mine_b", "golem"), ("mine_c", "town_female_2"))
 
 
 def _recipe_file(d: Driver, name: str, base: str = "keylord") -> Path:
@@ -2371,12 +2411,12 @@ def _recipe_file(d: Driver, name: str, base: str = "keylord") -> Path:
 
 
 def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], object], exported: Callable[[str], None],
-                 booblord: Callable[[], None]) -> None:
+                 booblord: Callable[[], None], png: Callable[[Path], object] | None = None) -> None:
     """The Variants view's ops after its open, on one of yours: Save after a Body edit; Import (``imported``: a new
     name's recipe.json each sample) and Export (``exported``, the op timed by it); New from this on booblord (her files
     copied, once ``booblord()`` installed her) and Check of each copy (the image picked), each a new copy, then the
     same copy checked again, unchanged; on the copy checked last, the Shape tab's drag and let go, then (Step 4.37e0)
-    a Check after each edit (:func:`_edit_checks`)."""
+    a Check after each edit (:func:`_edit_checks`; ``png``, the host's Import PNG of a file)."""
     save, new_from, imported_op, exported_op, check, again, drag, let_go, *edits = ops
     n = 0
     while d.need(save):
@@ -2404,7 +2444,7 @@ def _variant_ops(d: Driver, p: Page, ops: tuple, imported: Callable[[Path], obje
             p.wait("() => !document.getElementById('var-check').disabled", 600)
             p.js("() => { self.azurkitChecked = azurkit.variants.state.checked; }")
             d.act(p, again, click("var-check"), VAR_AGAIN, 600)
-    _edit_checks(d, p, (drag, let_go, *edits))
+    _edit_checks(d, p, (drag, let_go, *edits), png)
 
 
 def _new_from(d: Driver, p: Page, op: str | None, change: bool = False) -> None:
@@ -2423,16 +2463,20 @@ def _checked_again(d: Driver, p: Page, op: str) -> None:
     d.act(p, op, click("var-check"), VAR_AGAIN, 3600)
 
 
-def _edit_checks(d: Driver, p: Page, ops: tuple) -> None:
+def _edit_checks(d: Driver, p: Page, ops: tuple, png: Callable[[Path], object] | None = None) -> None:
     """On the copy checked last, at her values: the Shape tab's drag (``drag``) and let go (``let_go``), each sample to
     a value no sample held; once those have their samples, each let go Checked (``shaped``: D1201's Shape edit). Then,
     each on the copy as the edits before it left it (edit, Check, as a player goes), a Check after each other edit the
     page makes, each sample at a value no Check held: Scale (``scaled``), the Jiggle tab's first stiffness
-    (``jiggled``), a drag on the Colours tab's wheel on its first row (``coloured``). Each Check comes D1014's head
+    (``jiggled``), a drag on the Colours tab's wheel on its first row (``coloured``); and (Step 4.55a) the Sounds tab's
+    Sound line (``sounded``), Import PNG on the Colours tab's last row after its Reset row (``textured``; ``png``, the
+    host's import of a file), a Moves tab pick (``moved``), the Attacks tab's Damage (``attacked``) and the Effects tab
+    (``effected``: its first sample adds a shield row, the rest type its first number). Each Check comes D1014's head
     start after its edit: 4.37e's section 5 (D1194, D1201). A page whose let go no ``shaped`` sample Checked (a
     later page of a changed area's run, where ``shaped`` had its sample on the first, D1215) Checks it untimed before
     the next edit, so each edit's Check carries its own edit alone, as on the first page (Step 4.49a)."""
-    drag, let_go, shaped, scaled, jiggled, coloured = ops
+    drag, let_go, shaped, scaled, jiggled, coloured, *later = ops
+    sounded, textured, moved, attacked, effected = (*later, None, None, None, None, None)[:5]
     p.js(click("var-tab-shape"))
     unchecked = False   # a let go no Check followed yet
     for end in SHAPE_ENDS:
@@ -2444,7 +2488,7 @@ def _edit_checks(d: Driver, p: Page, ops: tuple) -> None:
         if d.need(shaped) and not d.needed((drag, let_go)):
             _checked_again(d, p, shaped)
             unchecked = False
-    if unchecked and d.needed((scaled, jiggled, coloured)):
+    if unchecked and d.needed((scaled, jiggled, coloured, *later)):
         _checked_again(d, p, None)
     for k in range(1, 9):
         if not d.need(scaled):
@@ -2467,6 +2511,64 @@ def _edit_checks(d: Driver, p: Page, ops: tuple) -> None:
             break
         d.act(p, None, WHEEL_DRAG, COLOURS, 600, arg=37 * k % 360, change=True)
         _checked_again(d, p, coloured)
+    if d.need(sounded):
+        d.act(p, None, click("var-tab-sounds"), f"() => !document.getElementById('var-sfx-line').hidden && {VAR_READ}",
+              600)
+    for k in range(1, 9):
+        if not d.need(sounded):
+            break
+        x = round(0.4 + k / 100, 2)
+        d.act(p, None, SFX_TYPED, f"() => {VAR_READ} && Object.values(azurkit.variants.state.recipe.sfx ?? {{}})"
+              f".some((s) => s?.length === {x})", 600, arg=x, change=True)
+        _checked_again(d, p, sounded)
+    if png is not None and d.need(textured):
+        d.act(p, None, click("var-tab-colours"), COLOURS, 600)
+        row, width, high = p.js(LAST_ROW)
+        p.wait(f"() => azurkit.variants.colours.row === {row} && ({COLOURS})()", 600)
+    for k in range(1, 9):
+        if png is None or not d.need(textured):
+            break
+        held = f"(azurkit.variants.state.recipe.colours ?? []).some((e) => e?.row === {row})"
+        d.act(p, None, click("var-colour-reset"), f"() => !{held} && ({COLOURS})()", 600)
+        file = _png(d.scratch / "colours" / f"grey_{k}.png", width, high, 250 - 20 * k)
+        d.act(p, None, lambda: png(file), f"() => /^Row {row}'s texture is grey_{k}\\.png/.test(document"
+              f".getElementById('var-png-note').textContent) && {VAR_READ}", 600, change=True)
+        _checked_again(d, p, textured)
+    if d.need(moved):
+        d.act(p, None, click("var-tab-moves"), f"() => !document.getElementById('var-moves').hidden && {VAR_READ}", 600)
+    for key, clip in MOVES_PICKS:
+        if not d.need(moved):
+            break
+        slot = MOVE_SLOT.format(key)
+        d.act(p, None, f"() => {slot}.click()", f"() => {_menu_entry(clip)}", 600)
+        d.act(p, None, f"() => {_menu_entry(clip)}.click()",
+              f"() => {VAR_READ} && {slot}.textContent === {json.dumps(clip)}", 600, change=True)
+        _checked_again(d, p, moved)
+    if d.need(attacked):
+        d.act(p, None, click("var-tab-attacks"), "() => !document.getElementById('var-kit').hidden "
+              f"&& !document.getElementById('var-attack-damage').disabled && {VAR_READ}", 600)
+    for k in range(1, 9):
+        if not d.need(attacked):
+            break
+        x = round(0.6 + k / 100, 2)
+        d.act(p, None, DAMAGE_TYPED, f"() => {VAR_READ} && azurkit.variants.state.recipe.attacks?.damage === {x}", 600,
+              arg=x, change=True)
+        _checked_again(d, p, attacked)
+    if d.need(effected):
+        d.act(p, None, click("var-tab-effects"), f"() => !document.getElementById('var-effects').hidden && {VAR_READ}",
+              600)
+    for k in range(1, 9):
+        if not d.need(effected):
+            break
+        if k == 1:   # the copy holds no effects row yet
+            d.act(p, None, FX_ADD, f"() => {FX_SHIELD}", 600)
+            d.act(p, None, f"() => {FX_SHIELD}.click()",
+                  f"() => {VAR_READ} && azurkit.variants.state.recipe.effects?.length === 1", 600, change=True)
+        else:
+            x = round(1.1 + k / 100, 2)
+            d.act(p, None, FX_TYPED, f"() => {VAR_READ} && Object.values(azurkit.variants.state.recipe.effects[0])"
+                  f".includes({x})", 600, arg=x, change=True)
+        _checked_again(d, p, effected)
 
 
 def _app_booblord(d: Driver, p: Page) -> None:
@@ -2509,7 +2611,7 @@ def _unparted(d: Driver) -> Path:
 
 def app_variants(d: Driver, app: App, ctx) -> None:
     """The Variants view in the app (Step 4.6c): three of yours in its library, as a Modkit player keeps them (A87);
-    then A88-A105 (:func:`_variant_ops`): Import by path, Export into the Downloads folder."""
+    then A88-A115 (:func:`_variant_ops`): Import and Import PNG by path, Export into the Downloads folder."""
     library = app.home / "Library" / "Application Support" / "AzurKit" / "variants"
     for name, base in YOURS:
         (library / name).mkdir(parents=True, exist_ok=True)
@@ -2530,8 +2632,12 @@ def app_variants(d: Driver, app: App, ctx) -> None:
         d.act(p, op, click("var-export"), "() => /^Saved /.test(document.getElementById('status').textContent)", 600)
         out.unlink(missing_ok=True)
 
-    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95", "A98", "A99", "A104", "A105"),
-                 imported, exported, lambda: _app_booblord(d, p))
+    def png(file: Path) -> None:
+        p.js(typed("var-png-path", str(file)))
+        p.js(click("var-png-use"))
+
+    _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95", "A98", "A99", "A104", "A105", "A107",
+                        "A108", "A109", "A114", "A115"), imported, exported, lambda: _app_booblord(d, p), png)
     app.quit(p)
 
 
@@ -2554,7 +2660,7 @@ def site_variants(d: Driver, ctx, url: str) -> None:
     """The Variants view on the site (Step 4.6c): three of yours imported, then a later visit opens it, the browser
     opened again on its profile as S02's is (:meth:`Driver.reopen`: a page beside the closed one would carry that one's
     process, 1.5 GiB of capped-site's peak), S73: the library this browser keeps, handed to its engine as the page
-    starts; S74-S87 (:func:`_variant_ops`): Import picks a
+    starts; S74-S93 (:func:`_variant_ops`): Import and Import PNG pick a
     file, Export is the browser's download (its page part to the download's start)."""
     p = _site_page(d, ctx, url, None)
     p.js(click("tab-characters"))
@@ -2583,8 +2689,9 @@ def site_variants(d: Driver, ctx, url: str) -> None:
         d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, None, (started - t0) / 1000)
         caught.value.delete()
 
-    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81", "S84", "S85", "S86", "S87"),
-                 lambda file: p.page.set_input_files("#var-import", str(file)), exported, lambda: _site_booblord(d, p))
+    _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81", "S84", "S85", "S86", "S87", "S89",
+                        "S90", "S91", "S92", "S93"), lambda file: p.page.set_input_files("#var-import", str(file)),
+                 exported, lambda: _site_booblord(d, p), lambda file: p.page.set_input_files("#var-png", str(file)))
     d.leave(p)
 
 
@@ -2697,14 +2804,19 @@ WHEEL_DRAG = """(turn) => { const w = document.getElementById("var-wheel"), box 
 
 def _white_png(out: Path, side: int = 128) -> Path:
     """A white ``side`` px RGBA PNG (a row's edited texture: town_female_3's are 128 px), written with the stdlib."""
+    return _png(out, side, side, 255)
+
+
+def _png(out: Path, width: int, high: int, level: int) -> Path:
+    """A ``width`` x ``high`` px RGBA PNG, every pixel grey ``level`` (0-255) and opaque, written with the stdlib."""
     import struct
     import zlib
 
     def chunk(kind: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
-    rows = b"".join(b"\0" + b"\xff" * 4 * side for _ in range(side))
+    rows = b"".join(b"\0" + bytes((level, level, level, 255)) * width for _ in range(high))
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", side, side, 8, 6, 0, 0, 0))
+    out.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, high, 8, 6, 0, 0, 0))
                     + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
     return out
 
@@ -2819,7 +2931,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-plan": ("app", ("A97",), app_plan),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A120", "A121", "A94"), app_data),
     "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95", "A98", "A99", "A104",
-                             "A105"), app_variants),
+                             "A105", "A107", "A108", "A109", "A114", "A115"), app_variants),
     "app-variants-unparted": ("app", ("A106",), app_variants_unparted),
     "app-colours": ("app", ("A100", "A101", "A102", "A103"), app_colours),
     "app-variant-moves": ("app", ("A110", "A111", "A112", "A113"), app_variant_moves),
@@ -2844,7 +2956,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-plan": ("site", ("S83",), site_plan),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S120", "S121", "S80"), site_data),
     "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81", "S84", "S85", "S86",
-                               "S87"), site_variants),
+                               "S87", "S89", "S90", "S91", "S92", "S93"), site_variants),
     "site-variants-unparted": ("site", ("S88",), site_variants_unparted),
     "site-colours": ("site", ("S100", "S101", "S102", "S103"), site_colours),
     "site-variant-moves": ("site", ("S110", "S111", "S112", "S113"), site_variant_moves),

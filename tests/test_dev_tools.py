@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import hashlib
 import json
 import os
 import re
@@ -1173,35 +1174,53 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_marks_a_sample_whose_page_f
 def test_the_perf_gates_check_after_an_edit_rows_click_3_s_after_it_at_new_values_and_s88_finds_no_part(tmp_path):
     """Step 4.37e0 (D1194, D1201) over a stub clock: S84-S87 click Check D1014's 3 s after their edit (a Shape
     slider's let go, once S82's and S81's samples are taken; Scale; the Jiggle tab's stiffness; the Colours tab's
-    wheel), each sample at a value no Check held. S88's source, the site's ``./content-unparted/``, serves the clone's
-    files but refuses each shipped Check part, and A106's Content from (``_unparted``) holds none of them."""
-    log = []
+    wheel), each sample at a value no Check held; so do Step 4.55a's S89-S93 (the Sound line's first number; Import PNG
+    of another grey texture of the last row's size, after its Reset row; a Moves pick; Damage; an Effects row added,
+    then its first number). S88's source, the site's ``./content-unparted/``, serves the clone's files but refuses
+    each shipped Check part, and A106's Content from (``_unparted``) holds none of them."""
+    log, pngs = [], []
 
     class Logged(_Stub):
         def do(self, action, arg=None):
             log.append((action, arg, self.t))
             return super().do(action, arg)
+
+        def js(self, fn, arg=None):   # the Colours tab's last row: row 2, 128 x 64 px
+            return [2, 128, 64] if fn == _perf.LAST_ROW else super().js(fn, arg)
+
+    def png(file):   # each a texture of the row's size (its IHDR's width and height), another grey each
+        data = file.read_bytes()
+        pngs.append((int.from_bytes(data[16:20]), int.from_bytes(data[20:24]), hashlib.sha256(data).hexdigest()))
+        log.append(("png", file.name, p.t))
     check = _perf.click("var-check")
+    picks = {f"() => {_perf.MOVE_SLOT.format(key)}.click()": key for key, _ in _perf.MOVES_PICKS}
     p = Logged({_perf.SHAPE_DRAG: {_perf.SHAPE_NEAREST: 100}, _perf.SHAPE_LET_GO: {_perf.SHAPE_PREVIEWED: 1000},
                 check: {_perf.VAR_CHECKED: 5000, _perf.VAR_AGAIN: 5000}, _perf.SCALE_TYPED: {_perf.VAR_EDITED: 200},
                 _perf.STIFFNESS_TYPED: {_perf.VAR_EDITED: 200}, _perf.WHEEL_DRAG: {_perf.COLOURS: 300}})
-    ops = ("S82", "S81", "S84", "S85", "S86", "S87")
+    ops = ("S82", "S81", "S84", "S85", "S86", "S87", "S89", "S90", "S91", "S92", "S93")
     d = _perf.Driver(_perf.RUNS["webkit"], dict.fromkeys(ops, 3), tmp_path, tmp_path / "usa.iso", None)
     d.sleep = lambda seconds: setattr(p, "t", p.t + seconds * 1000)
     d.fresh(p)
-    _perf._variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", *ops), pytest.fail, pytest.fail, lambda: None)
+    _perf._variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", *ops), pytest.fail, pytest.fail, lambda: None,
+                       png)
     named = {_perf.SHAPE_DRAG: "drag", _perf.SHAPE_LET_GO: "let go", _perf.SCALE_TYPED: "scale",
-             _perf.STIFFNESS_TYPED: "stiffness", _perf.WHEEL_DRAG: "wheel", check: "check"}
-    seen = [(named[action], arg, t) for action, arg, t in log if action in named]
-    edits = [(edit, x) for edit, values in (("scale", (1.1, 1.2, 1.3)), ("stiffness", (3.1, 3.2, 3.3)),
-                                            ("wheel", (37, 74, 111))) for x in values]
+             _perf.STIFFNESS_TYPED: "stiffness", _perf.WHEEL_DRAG: "wheel", _perf.SFX_TYPED: "sound", "png": "png",
+             _perf.DAMAGE_TYPED: "damage", f"() => {_perf.FX_SHIELD}.click()": "shield", _perf.FX_TYPED: "fx",
+             check: "check", **{fn: "pick" for fn in picks}}
+    seen = [(named[action], picks.get(action, arg), t) for action, arg, t in log if action in named]
+    edits = [(edit, x) for edit, values in (
+        ("scale", (1.1, 1.2, 1.3)), ("stiffness", (3.1, 3.2, 3.3)), ("wheel", (37, 74, 111)),
+        ("sound", (0.41, 0.42, 0.43)), ("png", ("grey_1.png", "grey_2.png", "grey_3.png")),
+        ("pick", ("idle_2", "victory_1", "idle_3")), ("damage", (0.61, 0.62, 0.63)), ("shield", (None,)),
+        ("fx", (1.12, 1.13))) for x in values]
     assert [(name, arg) for name, arg, _ in seen] == [   # the copy's own Check first
         ("check", None), ("drag", 1.4), ("let go", None), ("drag", 0.6), ("let go", None),
         *[step for end in (1.3, 0.7, 1.2) for step in (("drag", end), ("let go", None), ("check", None))],
         *[step for edit in edits for step in (edit, ("check", None))]]
-    assert [t - before for (_, _, before), (name, _, t) in zip(seen, seen[1:]) if name == "check"] == [3000] * 12
+    assert [t - before for (_, _, before), (name, _, t) in zip(seen, seen[1:]) if name == "check"] == [3000] * 27
     assert {op: [s["s"] for s in d.samples[op]] for op in ops} == {
-        "S82": [0.1] * 3, "S81": [1.0] * 3, "S84": [5.0] * 3, "S85": [5.0] * 3, "S86": [5.0] * 3, "S87": [5.0] * 3}
+        "S82": [0.1] * 3, "S81": [1.0] * 3, **dict.fromkeys(ops[2:], [5.0] * 3)}
+    assert [size for *size, _ in pngs] == [[128, 64]] * 3 and len({sha for *_, sha in pngs}) == 3
 
     import urllib.error
     import urllib.request
