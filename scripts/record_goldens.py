@@ -59,7 +59,8 @@ sha256, are recorded the same way, each family by its name:
 The first recording is Modkit's last cut: for the core and packs families
 oracle-packs-4 (Modkit 28d0b4110, Step 4.12a), for the models family
 oracle-models-3 (Modkit 1648692, Step 4.12c), which this script's first run
-wrote back unchanged but where AzurKit can't build a file (AZ-009); for the
+wrote back unchanged but the files AzurKit couldn't build until Step 4.41b's
+moves recorded them (AZ-009); for the
 randomizer's oracle-rando-6 (Modkit 8bfef0ca6, Step 4.12b), whose rows it
 wrote back unchanged, each plan's ``spoiler`` added and ``tracker.json``
 recorded equal to the digests of Modkit's own tracker. Only it
