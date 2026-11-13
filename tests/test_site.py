@@ -1467,12 +1467,11 @@ def test_the_released_site_reads_community_content_from_github_or_any_https_repo
         _page.until(page, f"() => {state('beamlord')} === 'installed v1' && {entry % 'beamlord'}.querySelector('.model')",
                     120)
         before = len(heard)
-        _page.answer(page, f"() => {entry % 'booblord'}.querySelector('button').click()")
-        assert _page.until(page, "() => !azurkit.characters.state.installing && document.getElementById('status')"
-                                 ".textContent.includes('nothing was installed') && document.getElementById('status')"
-                                 ".textContent", 600) == (
-            f"{titles['booblord']}: nothing was installed: booblord: it was installed from {sdk.SOURCE}, not {MINE}/: an "
-            "Update comes from where it was installed (clear the installed content to take it from elsewhere)")
+        _page.answer(page, _perf.INSTALL)   # the perf driver's: its wait ends at the refusal, naming it (Step 4.54c)
+        assert _page.until(page, _perf.INSTALLED, 600) == (
+            f"error: {titles['booblord']}: nothing was installed: booblord: it was installed from {sdk.SOURCE}, not "
+            f"{MINE}/: an Update comes from where it was installed (clear the installed content to take it from "
+            "elsewhere)")
         assert [url for url in heard[before:] if url.startswith(f"{MINE}/") and url != f"{MINE}/manifest.json"] == []
         _page.check_csp(page)
         _page.within(served.context, page._impl_obj.close(), _page.STALL, "the first page's close")

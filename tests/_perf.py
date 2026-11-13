@@ -525,6 +525,15 @@ def model(name: str) -> str:
             f"#char-community .model[data-model=\"{name}\"]').click()")
 
 
+# booblord's Install on the Characters tab, and its done-state: her model listed, or at once the install's refusal as
+# the sample's error, which names it (Step 4.54c: a tree whose built-in booblord isn't the content's refuses her, and a
+# wait for her model alone ran its whole 1800 s)
+INSTALL = """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()"""
+INSTALLED = ("() => { const said = document.getElementById('status').textContent; "
+             "return !azurkit.characters.state.installing && (said.includes('nothing was installed') ? 'error: ' + said "
+             ": document.querySelector('#char-community .entry[data-entry=\"booblord\"] .model')); }")
+
+
 def chosen(name: str, pictures: bool = True) -> str:
     return (f"() => azurkit.characters.state.view?.chosen.name === '{name}'"
             + (f" && {PICTURES}" if pictures else ""))
@@ -1562,8 +1571,7 @@ def app_booblord(d: Driver, app: App, ctx) -> None:
     p.js(click("tab-characters"))
     p.wait(SPECIES)   # the shipped view lists no community entry: booblord's Install comes with the engine's answer
     p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
-    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
-          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 600)
+    d.act(p, None, INSTALL, INSTALLED, 600)
     d.act(p, "A18", model("booblord"), chosen("booblord"), 3600, change=True)
     d.act(p, "A20", build_js(), BUILT, 3600)
     _save(d, p, "A22", "booblord")
@@ -1596,8 +1604,7 @@ def app_reshape(d: Driver, app: App, ctx) -> None:
     d.act(p, None, typed("iso-path", str(d.iso)), USA)
     p.js(click("tab-characters"))
     p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
-    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
-          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 600)
+    d.act(p, None, INSTALL, INSTALLED, 600)
     d.act(p, None, model("booblord"), chosen("booblord"), 3600)
     d.act(p, None, RESHAPE, RESHAPED, 600, change=True)
     d.act(p, "A31", build_js(), BUILT, 3600)
@@ -1614,8 +1621,7 @@ def _reshape_pictures(d: Driver, p: Page, preview: str, first: str, again: str) 
     """D1011, booblord installed: a slider's moves each show the nearest shape at once, the dress waiting until it rests
     (preview); the exact pictures replace it (first, from the last move, a bar's); back on her shipped shape, the
     same shape is exact at once (again)."""
-    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
-          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 1800)
+    d.act(p, None, INSTALL, INSTALLED, 1800)
     d.act(p, None, model("booblord"), chosen("booblord"), 3600)
     for stop in ("1.15", "1.2", "1.25"):
         t0, _ = d.act(p, preview, reshape(stop), PREVIEWED, 600, change=True)
@@ -1743,9 +1749,7 @@ def _booblord(d: Driver, ctx, url: str) -> Page:
     d.act(p, None, click("tab-characters"), SPECIES_LISTED, 600)
     p.wait("() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
     _pick(d, p, None, WEAPONS_ANSWERED)
-    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
-          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')
-               && !azurkit.characters.state.installing""", 1800)
+    d.act(p, None, INSTALL, INSTALLED, 1800)
     d.act(p, None, model("booblord"), chosen("booblord"), 3600, change=True)
     return p
 
@@ -2468,8 +2472,7 @@ def _app_booblord(d: Driver, p: Page) -> None:
     """booblord installed on the Characters tab (the app's Content from), the Variants view shown again."""
     p.js(click("char-view-model"))
     p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
-    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
-          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 1800)
+    d.act(p, None, INSTALL, INSTALLED, 1800)
     p.js(click("char-view-variants"))
 
 
@@ -2477,9 +2480,7 @@ def _site_booblord(d: Driver, p: Page) -> None:
     """booblord installed on the Characters tab (the site's Content from), the Variants view shown again."""
     p.js(click("char-view-model"))
     p.wait("() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
-    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
-          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')
-               && !azurkit.characters.state.installing""", 1800)
+    d.act(p, None, INSTALL, INSTALLED, 1800)
     p.js(click("char-view-variants"))
 
 
