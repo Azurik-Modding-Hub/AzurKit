@@ -2599,7 +2599,7 @@ def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(m
 STOPPED = """import asyncio, json, sys, time
 from playwright.sync_api import sync_playwright
 from scripts import web_tools
-from tests import _page
+from tests import _page, conftest
 _page.HEAR = _page.PROBE = 1
 with sync_playwright() as playwright:   # a Chromium's GPU in its process, as conftest's launches have it
     own = {"args": list(web_tools.CHROMIUM)} if sys.argv[1] == "chromium" else {}
@@ -2614,26 +2614,30 @@ with sync_playwright() as playwright:   # a Chromium's GPU in its process, as co
         except Exception as error:
             said.append(str(error))
         at.append(time.monotonic())
-print(json.dumps({"said": said, "took": [b - a for a, b in zip(at, at[1:])]}))
+    stopped = conftest._stopped(browser)   # what the next test's setup reads to launch it again
+print(json.dumps({"said": said, "took": [b - a for a, b in zip(at, at[1:])], "stopped": stopped}))
 """
 """A browser whose page leaves a call unanswered and that answers nothing either (its cookies), in a Playwright of its
-own: the calls after the stall, an evaluate and the browser's close, said and timed."""
+own: the calls after the stall, an evaluate and the browser's close, said and timed, and why ``conftest._stopped``
+says its connection is closed."""
 
 
 def test_a_browser_that_answers_nothing_fails_its_later_calls_at_once(browser):
     """D1072: a call left unanswered whose browser answers nothing either says so and closes that browser's Playwright
     connection naming the call, so the next call fails at once by that name and the browser's close returns at once:
-    never a silent wait, and the next test that takes the module's browser launches it again at once
-    (``tests/conftest.py``'s ``pytest_runtest_setup``, D1260). In a Python of its own, as the closed connection is its
-    Playwright's, every browser's of it."""
+    never a silent wait. ``conftest._stopped``, which the next test's setup reads to launch the module's browser again
+    (``tests/conftest.py``'s ``pytest_runtest_setup``, D1260), finds that closed connection and names its call on a real
+    browser's Playwright, never only a stand-in's. In a Python of its own, as the closed connection is its Playwright's,
+    every browser's of it."""
     done = subprocess.run([sys.executable, "-c", STOPPED, browser.browser_type.name], cwd=_page.WEB.parent,
                           capture_output=True, text=True, timeout=_page.STALL)
     assert done.returncode == 0, done.stderr[-2000:]
-    (stalled, later, closed), took = json.loads(done.stdout).values()
+    (stalled, later, closed), took, stopped = json.loads(done.stdout).values()
     assert stalled.splitlines()[0] == "no answer in 1 s: () => new Promise(() => {})"
     assert "its browser answers nothing either (in 1 s): every later call to it fails at once" in stalled.splitlines()
     assert "the browser stopped answering: () => new Promise(() => {})" in later and closed is None
     assert took[1] < 1 and took[2] < 1, took
+    assert "the browser stopped answering: () => new Promise(() => {})" in stopped, stopped
 
 
 def test_each_firefox_a_test_launches_takes_no_proxy_under_its_own_prefs():
