@@ -2678,15 +2678,17 @@ def content_install(given: Mapping) -> dict:
 
 def content_check(given: Mapping) -> dict:
     """The site's half of Install (its page fetches, this checks):
-    ``given["manifest"]`` checked, and with ``id`` and ``files`` (``{path:
-    bytes}``, what the page fetched of the entry and those it requires)
-    every file verified as :func:`content_install` verifies it
+    ``given["manifest"]`` checked, and with ``id`` the install held first
+    (``tools.characters.content.held_to``): none it writes goes below its
+    installed version or, with ``source`` (the page's Content from), comes
+    from another source than the one it was installed from or writes over a
+    file another installed entry holds (SEC-8), which the page asks with no
+    ``files`` before it fetches any, as :func:`content_install` holds an
+    install before it reads one; then with ``files`` (``{path: bytes}``, what
+    the page fetched of the entry and those it requires) every file verified
+    as :func:`content_install` verifies it
     (``tools.characters.content.verify``): ``{"manifest", "install": [each
-    entry's id it writes, those required first]}``, or the refusal named: none
-    it writes goes below its installed version or, with ``source`` (the
-    page's Content from), comes from another source than the one it was
-    installed from or writes over a file another installed entry holds
-    (``tools.characters.content.held_to``, SEC-8)."""
+    entry's id it writes, those required first]}``, or the refusal named."""
     from azurkit.tools.characters import content as kit
 
     if not isinstance(given, Mapping):
@@ -2696,7 +2698,9 @@ def content_check(given: Mapping) -> dict:
         return {"manifest": manifest, "install": []}
     if not isinstance(source := given.get("source"), str | None):
         raise ValueError("content: the source is a URL")
-    chosen = kit.verify(manifest, given["id"], given.get("files") or {}, content_refusal)
-    record = kit.installed()
-    kit.held_to(kit.writes(chosen, given["id"], record), record, source)
+    entries = {e["id"]: e for e in manifest["entries"]}
+    chosen, record = [entries[name] for name in kit.needs(given["id"], entries)], kit.installed()
+    kit.held_to(kit.writes(chosen, given["id"], record), record, source)   # before any file is read, as the app's
+    if "files" in given:
+        kit.verify(manifest, given["id"], given["files"] or {}, content_refusal)
     return {"manifest": manifest, "install": [e["id"] for e in chosen]}

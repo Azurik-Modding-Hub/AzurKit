@@ -249,6 +249,10 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
         throw new Error(`its files are ${bytes.toLocaleString("en-US")} bytes, past the `
                         + `${MAX_ENTRY.toLocaleString("en-US")} one Install fetches`);
       }
+      // The engine holds the install first (none below its installed version, no Update from another source, SEC-8),
+      // as the app's does before it reads a file: a refused one fetches nothing
+      const first = await call("content_check", { manifest: JSON.stringify(s.manifest), id: entry.id, source: s.source });
+      if ("refused" in first) throw new Error(first.refused);
       const fetched = {}, from = where(s.source, here);
       progress(0, wanted.length);
       for (const [k, f] of wanted.entries()) {

@@ -1063,7 +1063,8 @@ are the Characters section's.
     `installed.json` last. An installed copy stays at its version until its
     Update, which only goes up and only from the source it came from,
     and no install writes over a file another installed entry holds
-    (`content.held_to`, SEC-8); a URL source is https, http only on this
+    (`content.held_to`, SEC-8), each held before any file is read; a URL
+    source is https, http only on this
     computer (`sdk._secure`, a redirect's end too). The engine opens no connection: the sdk's CPython calls fetch,
     and the site's page fetches and its worker checks
     (`sdk.content_check`).
@@ -1688,7 +1689,8 @@ are the Characters section's.
     --site DIR --content CLONE` serves a clone as `./content-source/`,
     the perf's source), checks an Install in
     its worker (`sdk.content_check`, given the source: an Update only from
-    where it was installed, SEC-8), keeps the files in IndexedDB and
+    where it was installed, SEC-8, asked before it fetches a file and again
+    with the files), keeps the files in IndexedDB and
     writes them into its worker's `content/` once a worker; the app's
     engine installs into its content folder. A known flaw (D835): on the
     site a detailed variant's dress (booblord's) may run out of wasm

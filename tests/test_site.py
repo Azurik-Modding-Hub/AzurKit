@@ -1396,7 +1396,8 @@ def test_the_released_site_reads_community_content_from_github_or_any_https_repo
     (CI's, else the one beside the main checkout). With nothing set Content from is that address, its list holds
     booblord and her Install checks each file. A player's own https repository (:data:`MINE`, another origin again)
     is read with no warning, an entry installs from it, and it is remembered for the next visit; booblord's Update
-    from it is refused by name (SEC-8: an Update comes from where she was installed). A plain http source is refused
+    from it is refused by name before any of her files is fetched (SEC-8: an Update comes from where she was
+    installed). A plain http source is refused
     by name before any fetch, and a read that fails (a 404, a host that lets only another site read it, no network)
     says what failed while the page works on, the last list read shown. Reset goes back to GitHub's, and booblord's
     Build at the page's defaults is G3's ``player-character=booblord`` golden, file for file. No CSP violation, and no
@@ -1451,12 +1452,14 @@ def test_the_released_site_reads_community_content_from_github_or_any_https_repo
         _page.answer(page, f"() => {entry % 'beamlord'}.querySelector('button').click()")
         _page.until(page, f"() => {state('beamlord')} === 'installed v1' && {entry % 'beamlord'}.querySelector('.model')",
                     120)
+        before = len(heard)
         _page.answer(page, f"() => {entry % 'booblord'}.querySelector('button').click()")
         assert _page.until(page, "() => !azurkit.characters.state.installing && document.getElementById('status')"
                                  ".textContent.includes('nothing was installed') && document.getElementById('status')"
                                  ".textContent", 600) == (
             f"{titles['booblord']}: nothing was installed: booblord: it was installed from {sdk.SOURCE}, not {MINE}/: an "
             "Update comes from where it was installed (clear the installed content to take it from elsewhere)")
+        assert [url for url in heard[before:] if url.startswith(f"{MINE}/") and url != f"{MINE}/manifest.json"] == []
         _page.check_csp(page)
         _page.within(served.context, page._impl_obj.close(), _page.STALL, "the first page's close")
         asked = heard.count(f"{MINE}/manifest.json")

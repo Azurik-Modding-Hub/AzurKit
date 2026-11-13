@@ -522,8 +522,7 @@ memory peaks stay strict. The gate writes both kinds of row to
     (4.5u; accepted, since sw.js serves `flat.mjs` on the real site).
 17. **A closed Firefox tab leaves its last build's ~835 MB file in OPFS**
     until the next load or a Clear (4.5q; accepted design).
-18. **The site's Update fetches every file of an entry** before refusing an
-    Update from another source; the app refuses first (ci52).
+18. ~~The site's Update fetches every file of an entry~~: fixed by 4.53b.
 19. ~~The HTTPS content clone has no low-speed bound~~: fixed by 4.52a.
 20. **The Windows and Linux frozen apps are console builds:** `freeze.py`
     passes `--windowed` on macOS only (ci5).

@@ -19,7 +19,7 @@
 //      {type: "tracker", call, given} (the item tracker's, sdk.tracker), {type: "plan", call, recipe} (sdk.plan),
 //      the Characters tab's {type: "pickers", call, file, given}, {type: "preview" | "match", call, file, recipe}
 //      (sdk.pickers, sdk.preview, sdk.match: numpy, Pyodide's pinned wheel from this site, is loaded for them) and
-//      {type: "content_check", call, manifest, id, files, source} (an Install's check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
+//      {type: "content_check", call, manifest, id, files, source} (an Install's check, sdk.content_check; with no files, its hold before the fetch), and {type: "content", files, installed} (what this browser keeps installed, written
 //      into the engine's content folder file by file once checked: kept), {type: "warm"} (numpy and a dress's modules,
 //      unanswered: a body's build ahead starts at its first step), and the Tools tab's {type: "info" |
 //      "verify_all" | "files", call, file} (sdk.image_info, sdk.verify_all: the files its kept check hasn't hashed,
@@ -437,9 +437,9 @@ def engine(request):
         try:
             if request.type == "content_check":
                 entry, files = getattr(request, "id", None), getattr(request, "files", None)
-                given = {"manifest": request.manifest} | ({"id": entry, "source": getattr(request, "source", None),
-                                                          "files": {k: bytes(v) for k, v in files.to_py().items()}}
-                                                         if entry else {})
+                given = {"manifest": request.manifest} | ({"id": entry, "source": getattr(request, "source", None)}
+                                                         if entry else {}) | (
+                    {"files": {k: bytes(v) for k, v in files.to_py().items()}} if entry and files is not None else {})
                 return js(sdk.content_check(given))
             given = json.loads(JSON.stringify(request.given if request.type == "pickers" else request.recipe))
             if mounted := getattr(request, "iso", None):

@@ -186,7 +186,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install
   and Update (or `azurkit content install booblord`); every file's size and checksum is checked first, so a bad
   download keeps nothing, and an installed one stays at its version until you update it. An update only goes up, from
-  where it was installed, an install never replaces another installed entry's file, and a web source is https: the
+  where it was installed (one that can't is refused before anything downloads), an install never replaces another
+  installed entry's file, and a web source is https: the
   web page reads ours from GitHub, or any https repository you set as Content from. A repository's own characters
   work too: listed under their entry and in the Variants view, built, checked and shared by name like ours; one
   whose files changed since its install, or named like ours, yours or a species, is refused, saying why. In the

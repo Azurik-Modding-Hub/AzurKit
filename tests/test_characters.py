@@ -1587,6 +1587,23 @@ def test_an_update_only_goes_up_from_where_it_was_installed_and_a_url_source_is_
     assert (folder / path).read_bytes() == b"[3]"
 
 
+def test_the_sites_content_check_refuses_an_update_from_another_source_before_any_file_is_read(tmp_path, monkeypatch):
+    """SEC-8 on the site as in the app (ci52): ``sdk.content_check`` holds an install before it reads a file, so the
+    page asks it with no files before its fetches and an Update from another source fetches nothing; given files, it
+    names that refusal before any fault of theirs, and the entry's own source passes with no file read."""
+    home, other = tmp_path / "home", tmp_path / "other"
+    monkeypatch.setattr(content, "ROOT", tmp_path / "content")
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
+    path = "packs/a/pack.json"
+    _source(home, {path: b"{}"}, [{"id": "a", "files": [path]}])
+    sdk.content_install({"id": "a", "source": str(home)})
+    newer = json.dumps(_source(other, {path: b"[2]"}, [{"id": "a", "version": 2, "files": [path]}]))
+    for files in ({}, {"files": {path: b"not its bytes"}}):
+        with pytest.raises(ValueError, match=r"^a: it was installed from .+home, not .+other: an Update comes from"):
+            sdk.content_check({"manifest": newer, "id": "a", "source": str(other)} | files)
+    assert sdk.content_check({"manifest": newer, "id": "a", "source": str(home)})["install"] == ["a"]
+
+
 def test_an_install_over_a_file_another_installed_entry_holds_is_refused_naming_both(tmp_path, monkeypatch):
     """An entry from another source that lists a file an installed entry holds (letter case aside: one file on
     APFS and NTFS) at another sha256 is refused by name, naming both entries, before anything is fetched (the
