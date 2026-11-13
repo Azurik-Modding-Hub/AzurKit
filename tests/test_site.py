@@ -7402,6 +7402,46 @@ VARIANTS_DRAG = """([name, values]) => { const box = document.getElementById(`va
     track.dispatchEvent(new Event("change", { bubbles: true })); }"""
 VARIANTS_BOX = """([label, text]) => { const box = document.querySelector(`#var-springs input[aria-label="${label}"]`);
     box.value = text; box.dispatchEvent(new Event("change", { bubbles: true })); return box.value; }"""
+SHIPPED_LANDED = ("() => azurkit.variants.state.pictured === 'shipped' && "
+                  "document.getElementById('var-picture-note').textContent.includes('as it ships')")
+"""The open built-in's shipped pictures drawn: its note alone may still be the last one's (the view opens beamlord
+first), its own pictures fetched and decoded after it opened (``pictured`` is null until they land)."""
+
+
+def test_a_shape_drag_before_a_built_ins_shipped_pictures_land_keeps_its_preview_note_once_they_do(browser, site):
+    """booblord's shipped pictures held until a drag of her Bust size has moved it: once they land they show (no
+    image: the nearest shape is the pictures as they are), marked Preview with the drag's note, never "as it ships"
+    over the moved values, as a drag after they landed reads (the Shape tab test's 2 CI flakes, Step 4.54a)."""
+    file = json.loads((site / "characters" / "index.json").read_text(encoding="utf-8"))["variants"]["booblord"]
+    held = []
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.until(page, SHIPPED_LANDED, 60)   # the view's first, beamlord's
+        page.route(f"**/characters/{file}.*.png",   # the view's fetches held (a list's <img> of hers goes on)
+                   lambda route: route.continue_() if route.request.resource_type == "image" else held.append(route))
+        page.evaluate(VARIANTS_ROW, "booblord")
+        _page.until(page, "() => azurkit.variants.state.name === 'booblord'", 60)
+        _variants_shown(page)
+        _page.click(page, "var-tab-shape")
+        end = time.monotonic() + 60
+        while len(held) < 2:   # each call lets this side hear the page's requests, the routes that hold them
+            assert time.monotonic() < end, f"booblord's shipped pictures not both asked in 60 s: {len(held)} held"
+            page.evaluate("() => new Promise((waited) => setTimeout(waited, 50))")
+        page.evaluate(VARIANTS_DRAG, ["bust", [1.05, 1.1, 1.15, 1.2]])
+        for route in held:
+            route.continue_()
+        _page.until(page, "() => azurkit.variants.state.pictured === 'shipped'", 60)
+        assert page.evaluate("""() => [azurkit.variants.state.recipe.shapes, document.getElementById('var-front')
+            .parentElement.hasAttribute('data-preview'), document.getElementById('var-picture-note').textContent]""") == [
+            {"bust": {"value": 1.2}}, True, "Preview: the nearest shape drawn. Choose your image first (1.) to draw these "
+                                            "values."]
+        _page.check_csp(page)
+    finally:
+        served.close()
 
 
 def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_the_build_reads(browser, site):
@@ -7438,7 +7478,7 @@ def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_t
         page.evaluate(VARIANTS_ROW, "booblord")
         _variants_shown(page, status=sha["hers"])
         _page.click(page, "var-tab-shape")
-        _page.until(page, "() => document.getElementById('var-picture-note').textContent.includes('as it ships')", 60)
+        _page.until(page, SHIPPED_LANDED, 60)
         got = page.evaluate(shown)
         assert (got["shape"], got["rows"], got["ops"]) == ("booblord's shapes, the values yours.", [
             ["Bust size", "Bust size sizes breast (both sides), 2 layers.", "1"],

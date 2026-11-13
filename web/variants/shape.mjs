@@ -18,7 +18,8 @@ const isObject = (x) => Boolean(x) && typeof x === "object" && !Array.isArray(x)
 const parentOf = (recipe) => typeof recipe.from === "string" ? recipe.from
   : Array.isArray(recipe.from) ? recipe.from[0] : null;
 
-// shapeTab(ctx): the tab ({name, title, element, load(read), checked()}) on the view's ctx (web/variants.mjs).
+// shapeTab(ctx): the tab ({name, title, element, load(read), checked(), shipped()}) on the view's ctx
+// (web/variants.mjs).
 export function shapeTab(ctx) {
   const { el, state: v } = ctx;
   const ui = {
@@ -229,5 +230,11 @@ export function shapeTab(ctx) {
     }
   };
 
-  return { name: "shape", title: "Shape", element, load, checked };
+  // A built-in's shipped pictures landed (fetched and decoded after it opened): a drag that moved its shapes' values
+  // meanwhile shows its nearest shape on them, marked Preview, never their "as it ships" over those values.
+  const shipped = () => {
+    if (t.ticket === v.ticket && t.opened && t.shapes.length && away(t.opened.values, values())) nearest();
+  };
+
+  return { name: "shape", title: "Shape", element, load, checked, shipped };
 }

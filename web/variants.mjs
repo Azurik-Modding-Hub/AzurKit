@@ -780,16 +780,20 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
       ui.pictureNote.textContent = image() ? "Check with game data draws it." : `${CHOOSE} to draw it.`;
       return;
     }
-    const views = await Promise.all(["front", "back"].map((side) => fetch(`characters/${file}.${side}.png`)
+    const blobs = await Promise.all(["front", "back"].map((side) => fetch(`characters/${file}.${side}.png`)
       .then((reply) => reply.ok ? reply.blob() : null).catch(() => null)));
     if (mine !== v.ticket) return;
-    await Promise.all([[ui.front, views[0]], [ui.back, views[1]]].map(async ([canvas, blob]) => {
+    const views = await Promise.all(blobs.map((blob) => blob ? createImageBitmap(blob) : null));
+    // decoded, then drawn only if no tab's or Check's picture was drawn or asked meanwhile (theirs are newer)
+    if (mine !== v.ticket || v.pictured || painting) return;
+    for (const [canvas, view] of [[ui.front, views[0]], [ui.back, views[1]]]) {
       const g = canvas.getContext("2d");
       g.clearRect(0, 0, canvas.width, canvas.height);
-      if (blob) g.drawImage(await createImageBitmap(blob), 0, 0, canvas.width, canvas.height);
-    }));
+      if (view) g.drawImage(view, 0, 0, canvas.width, canvas.height);
+    }
     v.pictured = "shipped";
     ui.pictureNote.textContent = "From the front and from behind, as it ships.";
+    for (const t of tabs) t.shipped?.();   // a drag while they came: the Shape tab's nearest shape on them, marked
   };
   // A tab's pictures (the Shape tab's preview, D1011's nearest shape) on the view's two, marked Preview when they are:
   // decoded, then drawn only if no newer one was asked meanwhile (a drag asks one a move), its note and mark the newest
