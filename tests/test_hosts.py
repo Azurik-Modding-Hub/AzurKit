@@ -604,6 +604,28 @@ def test_the_windows_app_opens_no_console_and_what_it_prints_reaches_its_termina
         assert log.read_text(encoding="utf-8") == f"{kept}again\n"
 
 
+def test_a_default_save_beside_an_image_named_usa_iso_in_downloads_goes_into_its_azurkit_folder(tmp_path, monkeypatch):
+    """Step 4.53c (PENDING's known flaw 22): the app suggests a build's image goes to Downloads, and D36 refuses a save
+    directly in the folder of an image named usa.iso or europe.iso (any case) or of the one ``AZURKIT_ISO`` names, so
+    the default Save of such an image in Downloads was refused. It is suggested in Downloads' AzurKit folder then (made,
+    for the save dialog to open in), which D36 takes, and beside any other image in Downloads as before."""
+    _home(monkeypatch, tmp_path / "home")
+    for name in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE"):
+        monkeypatch.delenv(name, raising=False)
+    (downloads := platformdirs.user_downloads_path()).mkdir(parents=True, exist_ok=True)
+    for name, found in (("USA.iso", False), ("europe.iso", False), ("azurik.iso", True), ("azurik.iso", False)):
+        (iso := downloads / name).write_bytes(b"")
+        with monkeypatch.context() as m:
+            if found:
+                m.setenv("AZURKIT_ISO", str(iso))
+            out = app._suggested(iso, f"{iso.stem} (AzurKit).iso")
+            gate.require_new_output(out, iso)
+        assert (out.parent, out.name) == (downloads if name == "azurik.iso" and not found else downloads / "AzurKit",
+                                          f"{iso.stem} (AzurKit).iso"), name
+        assert out.parent.is_dir()
+        iso.unlink()
+
+
 def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpythons_image(
         frozen_app, tmp_path, monkeypatch, browser, usa_iso, europe_iso):
     """``AzurKit serve`` from the frozen app (read-only, in a fresh HOME,

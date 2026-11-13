@@ -1831,7 +1831,8 @@ are the Characters section's.
     hold unwritten (`swapcache.clear`), so none lands after. What waits for an image is greyed with "Choose your image
     first (1.)" until one is picked, or with the engine's refusal of it
     (D979). The app's saves without a dialog go to the Downloads folder,
-    through `writable` (SEC-16). `tests/test_site.py`, `test_hosts.py` and
+    through `writable` (SEC-16); a build's image is suggested in Downloads'
+    `AzurKit` folder where D36 refuses Downloads (`_suggested`). `tests/test_site.py`, `test_hosts.py` and
     `test_edits.py` hold it; `tests/_perf.py`'s A47-A55 and S40-S48 time it.
     **Replace files** (Step 4.7d, `web/replace.mjs`, `edits/files.py`): a
     file from the computer stands in for one of the image's, whole, in one

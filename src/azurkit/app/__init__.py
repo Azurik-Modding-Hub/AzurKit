@@ -484,6 +484,21 @@ def _downloads() -> Path:
     return folder
 
 
+def _suggested(iso: Path, name: str) -> Path:
+    """Where Save suggests a build of ``iso`` goes: ``name`` in Downloads, or in Downloads' ``AzurKit`` folder (made)
+    where D36 refuses Downloads, which holds an image named usa.iso or europe.iso, or the one ``AZURKIT_ISO`` names:
+    it refuses only a save directly in such an image's folder."""
+    from platformdirs import user_downloads_path
+    out = user_downloads_path() / name
+    try:
+        gate.require_new_output(out, iso)
+    except ValueError:
+        out = out.parent / "AzurKit" / name
+        with contextlib.suppress(OSError):   # a folder it can't make: Save says why
+            out.parent.mkdir(parents=True, exist_ok=True)
+    return out
+
+
 def _written(out: Path, data: bytes) -> dict:
     """``data`` at ``out``, whole or not at all (a part file renamed into place)."""
     part = out.with_name(f"{out.name}.part")
@@ -902,12 +917,11 @@ class Server(http.server.ThreadingHTTPServer):
         report = built["report"]
         self.seeded, self.spoiler, self.source = report.get("plan"), None, Path(recipe["iso"])
         _remember(iso=recipe["iso"])
-        from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
         stem = iso.stem if iso.suffix.lower() in (".iso", ".xiso") else iso.name   # the site's download's name
         recipe = {k: v for k, v in recipe.items() if k != "picked"}   # the server holds it (_held)
         return {"report": report, "size": built["size"], "recipe": recipe, "build": built["build"],
-                "out": str(user_downloads_path() / f"{stem} (AzurKit).iso")}
+                "out": str(_suggested(iso, f"{stem} (AzurKit).iso"))}
 
     def writable(self, out: Path, kind: str) -> Path:
         """``out``, where a save of ``kind`` (one of :data:`SAVES`: ``out``,

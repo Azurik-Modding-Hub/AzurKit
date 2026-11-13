@@ -524,9 +524,7 @@ memory peaks stay strict. The gate writes both kinds of row to
 19. ~~The HTTPS content clone has no low-speed bound~~: fixed by 4.52a.
 20. ~~The Windows and Linux frozen apps are console builds~~: fixed by 4.53c.
 21. **The app's own server answers over HTTP/1.0** (ci42).
-22. **A player's image named usa.iso or europe.iso in Downloads** (or one
-    `AZURKIT_ISO` names there) refuses the default Save beside it; the
-    player picks another folder (4.28a).
+22. ~~A player's image named usa.iso or europe.iso in Downloads~~: fixed by 4.53c.
 23. ~~A save edit's output guard doesn't fold case on macOS~~: fixed by 4.52a.
 24. **source_hashes** is checked against both releases' vanilla files
     (4.6i; accepted).
