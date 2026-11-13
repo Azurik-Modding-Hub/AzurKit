@@ -7516,12 +7516,15 @@ def test_the_colours_tab_recolours_on_the_sites_engine_and_keeps_an_imported_png
         served.close()
 
 
-def test_the_colours_tabs_export_pngs_is_greyed_with_d979s_line_until_an_image_is_picked(browser, site, usa_iso):
-    """D979 on the Colours tab (Step 4.53a): opened before an image, Export PNGs is greyed, its title the line that says
-    what it waits for, as Check with game data beside the editor is; the image picked, it is live, its title what it
-    does. It once stayed live, and a click only wrote that line in its note."""
+def test_the_colours_tabs_export_and_import_pngs_are_greyed_with_d979s_line_until_an_image_is_picked(
+        browser, site, usa_iso):
+    """D979 on the Colours tab (Step 4.53a): opened before an image, Export PNGs and Import PNG are greyed, each one's
+    title the line that says what it waits for, as Check with game data beside the editor is; the image picked, they
+    are live, each title what it does. Both once stayed live: Export's click only wrote that line in its note, and
+    Import's said "Its body isn't read yet" (the row's texture size comes with the image's answer)."""
     served = Site(browser, site)
-    export = "() => [document.getElementById('var-png-export').disabled, document.getElementById('var-png-export').title]"
+    export = """() => [...['var-png-export', 'var-png'].map((id) => document.getElementById(id).disabled),
+        document.getElementById('var-png-export').title, document.getElementById('var-png-box').title]"""
     try:
         page = served.open()
         _page.click(page, "tab-characters")
@@ -7530,10 +7533,11 @@ def test_the_colours_tabs_export_pngs_is_greyed_with_d979s_line_until_an_image_i
         page.evaluate(VARIANTS_ROW, "beamlord")
         _variants_shown(page, status="built in")
         _page.click(page, "var-tab-colours")
-        assert page.evaluate(export) == [True, "Choose your image first (1.)"]
+        assert page.evaluate(export) == [True, True, "Choose your image first (1.)", "Choose your image first (1.)"]
         _page.pick(page, "#iso", usa_iso)
         assert _page.until(page, f"() => !({export})()[0] && ({export})()", 60) == [
-            False, "Each row's texture as its build recolours it, a PNG each"]
+            False, False, "Each row's texture as its build recolours it, a PNG each",
+            "Export: each row's texture as built, a PNG each. Import: an edited one becomes the chosen row's."]
     finally:
         served.close()
 

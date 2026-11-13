@@ -22,6 +22,7 @@ const DEFAULTS = Object.fromEntries(HSV.map(([key, , , d]) => [key, d]));
 const VALUE_TRACK = [0, 3, 0.05];
 const TIP = "Pick where the row's main colour (the ring) goes; the bar sets its value. Click a palette colour to swap it.";
 const PNG_TIP = "Export: each row's texture as built, a PNG each. Import: an edited one becomes the chosen row's.";
+const USE_TIP = "An edited PNG of the chosen row's texture, by its full path";
 const CHOOSE = "Choose your image first (1.)";   // D979's line on what waits for an image
 
 const el = (tag, props = {}, ...children) => {
@@ -239,7 +240,7 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
     export: button("var-png-export", "Export PNGs…", "Each row's texture as its build recolours it, a PNG each"),
     file: app ? null : el("input", { id: "var-png", type: "file", accept: ".png,image/png" }),
     path: app ? box("var-png-path", 24) : null,
-    use: app ? button("var-png-use", "Import PNG", "An edited PNG of the chosen row's texture, by its full path") : null,
+    use: app ? button("var-png-use", "Import PNG", USE_TIP) : null,
     choose: app && dialog ? button("var-png-choose", "Choose…") : null,
     pngNote: el("span", { id: "var-png-note", className: "note" }),
     tiles: el("div", { id: "var-tiles", className: "var-tiles" }),
@@ -247,6 +248,7 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
     back: el("canvas", { id: "var-colour-back", width: VIEW, height: VIEW }),
     caption: el("p", { id: "var-colour-caption", className: "note" }),
   };
+  ui.box = app ? null : el("label", { className: "file", id: "var-png-box", title: PNG_TIP }, "Import PNG… ", ui.file);
   ui.tab.setAttribute("aria-selected", "false");
   ui.path && (ui.path.placeholder = "Your PNG's full path");
   ui.path && (ui.path.inputMode = "text");
@@ -268,7 +270,7 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
       el("p", { className: "rando-row" }, el("span", { className: "field", textContent: "Palette" }),
          el("span", { id: "var-palette" }, ...ui.swatches), el("span", { className: "field", textContent: "Swaps" }), ui.swaps),
       el("p", { className: "rando-row" }, ui.export, ...app ? [ui.path, ui.use, ...ui.choose ? [ui.choose] : []]
-        : [el("label", { className: "file", id: "var-png-box", title: PNG_TIP }, "Import PNG… ", ui.file)],
+        : [ui.box],
          el("span", { className: "note", textContent: "ⓘ", title: PNG_TIP })),
       el("p", { className: "rando-row" }, ui.pngNote), ui.tiles),
     el("div", { className: "var-colour-views" }, el("p", { className: "previews" }, ui.front, ui.back), ui.caption));
@@ -568,7 +570,8 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
   // Undo takes it back).
   const imported = async (read) => {
     const size = c.answer?.rows?.[c.row]?.size;
-    const why = v.kind !== "yours" ? "Save as first: Import copies the PNG into the variant's folder"
+    const why = !image() ? CHOOSE
+      : v.kind !== "yours" ? "Save as first: Import copies the PNG into the variant's folder"
       : c.row === null ? "Choose a row: a PNG is one row's texture" : !size?.length ? "Its body isn't read yet" : "";
     if (why) return pngSaid(why, true);
     const ops = (entry()?.ops ?? []).map((o) => o?.op);
@@ -618,6 +621,11 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
     showWheel();
     ui.export.disabled = !image() || c.exporting;   // greyed with D979's line until an image is picked
     ui.export.title = image() ? "Each row's texture as its build recolours it, a PNG each" : CHOOSE;
+    // Import PNG too: the row's texture size it needs comes with the image's answer.
+    for (const control of [ui.file, ui.use, ui.choose]) if (control) control.disabled = !image();
+    if (ui.box) ui.box.title = image() ? PNG_TIP : CHOOSE;
+    if (ui.use) ui.use.title = image() ? USE_TIP : CHOOSE;
+    if (ui.choose) ui.choose.title = image() ? "" : CHOOSE;
     recolour();
   };
   return {
