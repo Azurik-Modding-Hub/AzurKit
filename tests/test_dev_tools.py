@@ -2118,6 +2118,16 @@ def test_a_changed_areas_perf_run_times_an_op_once_under_1_s_and_mains_run_of_ev
         assert block.get("one_sample") == (["A21/app"] if "--select" in how else None)
 
 
+def test_the_perf_gates_load_reads_zero_where_the_os_keeps_no_load(monkeypatch):
+    """Step 4.50b: Windows has no ``os.getloadavg``, so the perf stage's
+    load read (``perf.normal_load``) answers 0.0 there, as ``fullsuite.py``
+    does, instead of raising AttributeError (CI run 43344633676's pure
+    Windows job: the perf stage past its cap died on it)."""
+    monkeypatch.delattr(os, "getloadavg", raising=False)
+    monkeypatch.setattr(perf.subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(OSError("no ps")))
+    assert perf.normal_load(samples=1, span=0.0) == 0.0
+
+
 def test_a_perf_stage_past_its_cap_stops_perf_py_so_its_scratch_goes(tmp_path, monkeypatch):
     """Step 4.46a: at its cap the perf stage stops perf.py with SIGTERM (it
     SIGKILLed its group), so perf.py's handler runs its finallys, its

@@ -834,7 +834,11 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
 def normal_load(samples: int = 8, span: float = 4.0) -> float:
     """The normal-priority 5-min load (D975): vm.loadavg's 5-min value times
     the nice <= 0 share of the runnable threads (``ps -A -M``, ``samples``
-    times over ``span`` s); a failed ps counts every thread (never under)."""
+    times over ``span`` s); a failed ps counts every thread (never under).
+    0.0 where the OS keeps no load (Windows has no ``os.getloadavg``), as
+    ``fullsuite.py`` reads it."""
+    if not hasattr(os, "getloadavg"):
+        return 0.0
     runnable = normal = 0
     for i in range(samples):
         try:
