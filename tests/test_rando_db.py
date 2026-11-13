@@ -6,6 +6,8 @@ refusals and the planner's mechanisms on those fixtures, and the shipped databas
 
 from __future__ import annotations
 
+import argparse
+import base64
 import dataclasses
 import functools
 import gzip
@@ -18,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from azurkit.core import gate
+from azurkit.tools.randomizer import layer
 from azurkit.tools.randomizer.planner.fill import FillError, _Slots, fill
 from azurkit.tools.randomizer.planner.grammar import parse
 from azurkit.tools.randomizer.planner.loader import (
@@ -28,7 +31,18 @@ from azurkit.tools.randomizer.planner.loader import (
     kept_logic,
     load_database,
 )
-from azurkit.tools.randomizer.planner.settings import MOVEMENT_TIERS, SETTINGS_FORMAT, Settings, settings_from_table
+from azurkit.tools.randomizer.planner.settings import (
+    MOVEMENT_TIERS,
+    SETTINGS_FORMAT,
+    Settings,
+    SettingsError,
+    picks,
+    registry_tag,
+    settings_from_table,
+    share_decode,
+    share_encode,
+    skips_on,
+)
 from azurkit.tools.randomizer.planner.solver import Logic
 from devkit.rando import bench, check, db_extract, impact, soak
 from devkit.rando.draft.author import dnf, term_text
@@ -757,3 +771,107 @@ def test_a_route_mark_a_skip_outdoes_holds_below_the_skips_tier_and_above_it_for
             logic.mark_short(loc, pv, walk), logic.mark_short(loc, bare, walk).split(" (")[0]) == (
         (["w2.firewall02_air3"], ["power_water", "power_water_a3"]), [(True, True), (True, False)], None,
         "the logic collects it holding water 0")
+
+
+# --- Step 4.28f and 4.42b: the settings' and share strings' rules on the toy database (moved here from
+# test_randomizer.py by Step 4.52c, so a change to the toy database alone runs them) ----------------------------
+
+def test_settings_refuse_a_toggle_that_turns_on_a_held_or_manual_skip(tmp_path):
+    """D144: a toggle wins over the ceiling, but never turns on a held or a
+    manual skip, in a settings file or a share string; a string's toggles
+    count only against the skip registry it was made for (§7.3)."""
+    root = tmp_path / "db"
+    shutil.copytree(TOYDB, root)
+    (root / "settings" / "mine.toml").write_text(
+        'format = "azurik-rando-settings/1"\nskip_ceiling = 4\nmovement_tier = "safe"\ndark_fire = 1\n\n'
+        '[skip_override]\n"t1.wall_skip" = false\n"t1.held_skip" = true\n"t1.manual_skip" = true\n',
+        encoding="utf-8")
+    assert [(i.code, i.where) for i in check_database(root).issues] == [
+        ("settings_enables_held_or_manual_skip", "settings/mine.toml: skip_override.t1.held_skip"),
+        ("settings_enables_held_or_manual_skip", "settings/mine.toml: skip_override.t1.manual_skip")]
+    skips = {sid: s for sid, (_, s) in load_database(TOYDB).skips.items()}
+    for sid, status in (("t1.held_skip", "held"), ("t1.manual_skip", "manual")):
+        text = share_encode(Settings(0, "hard", {sid: True}), skips)
+        with pytest.raises(SettingsError, match=f"skip_override.{sid}: turns on a {status} skip"):
+            share_decode(text, skips)
+    on = Settings(0, "hard", {"t1.wall_skip": True})
+    text = share_encode(on, skips)
+    assert share_decode(f" {text.lower()} ", skips) == on
+    assert skips_on(on, skips) == ["t1.wall_skip"]
+    fewer = {sid: s for sid, s in skips.items() if sid != "t1.held_skip"}
+    for text, why in ((text, "made for another skip registry"), ("AZR-AAIB", "not canonical")):
+        with pytest.raises(SettingsError, match=why):
+            share_decode(text, fewer)
+
+
+def test_a_share_string_whose_toggle_varint_never_ends_is_refused_at_its_fifth_byte():
+    """Step 4.42b: a share string's toggle varint ends by its fifth byte,
+    which holds any count or gap a registry has; a longer run (a crafted
+    string's, as long as the string) is refused there, so its decoding
+    stays linear in its length rather than quadratic, where it read on to
+    the string's end and only then said "truncated"."""
+    skips = {sid: s for sid, (_, s) in load_database(TOYDB).skips.items()}
+    for run in (5, 200_000):
+        raw = bytes([0, 0x80]) + registry_tag(picks(skips)) + b"\xff" * run
+        with pytest.raises(SettingsError, match="share: a toggle index past the registry$"):
+            share_decode("AZR-" + base64.b32encode(raw).decode().rstrip("="), skips)
+
+
+def test_a_settings_refusal_names_its_first_20_problems_and_counts_the_rest():
+    """Step 4.42b: a settings table refused for many reasons (a handed file
+    of a million unknown toggles) says the first 20 and how many more, as
+    the writer's refusals do, not a line as large as the table; its
+    ``problems`` keep every one."""
+    skips = {sid: s for sid, (_, s) in load_database(TOYDB).skips.items()}
+    with pytest.raises(SettingsError) as refused:
+        settings_from_table(layer.settings_doc(Settings(0, "hard", {})) | {
+            "skip_override": {f"t1.none_{k:02}": True for k in range(25)}}, skips, "settings file")
+    said = str(refused.value)
+    assert (len(refused.value.problems), said.count("the database has no such skip"), said.endswith(
+        "; ... and 5 more"), "t1.none_19" in said, "t1.none_20" in said) == (25, 20, True, True, False), said
+
+
+def test_a_skip_batch_is_one_pick_and_a_variant_id_in_a_file_string_or_flag_stands_for_its_batch(tmp_path):
+    """D275 (Step R1.31): skips that cross the same thing and differ only in
+    kit are variants of one batch (``batch``, ``batch_name``). A settings
+    file, a share string and its registry name the batch; a toggle on it
+    turns on its in-logic variants, and the ceiling admits each by its own
+    tier. An old per-variant id, in a settings file or a share string made
+    for the per-variant registry, loads as its batch, on when any of its
+    ids is; a variant's id in ``--skip`` or ``--no-skip`` turns its batch
+    over a file's toggle, and both on one batch are refused. A batch whose
+    variants cross other things is refused (``bad_batch``)."""
+    root = tmp_path / "db"
+    shutil.copytree(TOYDB, root)
+    batch = 'batch = "t1.walls"\nbatch_name = "The wall"\n'
+    hard = ('[[skip]]\nid = "t1.wall_skip_hard"\nname = "Wall Skip (hard)"\n{level}tricks = ["jumpy"]\n'
+            'requires = "true"\ndifficulty = 3\nstatus = "in_logic"\nconfirmed = {{ by = "owner", ref = "toy" }}\n'
+            'from = "t1_start"\nto = "t1_vault"\ngates = ["t1.wall"]\n' + batch + "{tricks}\n")
+    for rel, lone, extra in (
+            ("levels/t1.toml", 'gates = ["t1.wall"]\n', hard.format(level="", tricks="")),
+            ("tricks.toml", 'name = "Wall Skip"\n', hard.format(level='level = "t1"\nbypasses = "the wall"\n', tricks=(
+                'difficulty_reason = "toy"\nconfidence = "toy"\nevidence = []\nsource = "toy"\nd145 = "toy"\n')))):
+        text = (root / rel).read_text(encoding="utf-8")
+        (root / rel).write_text(text.replace(lone, lone + batch, 1) + "\n" + extra, encoding="utf-8")
+    db = load_database(root)
+    skips = {sid: s for sid, (_, s) in db.skips.items()}
+    assert picks(skips) == {"t1.held_skip": ["t1.held_skip"], "t1.manual_skip": ["t1.manual_skip"],
+                            "t1.walls": ["t1.wall_skip", "t1.wall_skip_hard"]}
+    walls = Settings(0, "hard", {"t1.walls": True})
+    assert [skips_on(st, skips) for st in (Settings(2, "hard", {}), walls)] == [
+        ["t1.wall_skip"], ["t1.wall_skip", "t1.wall_skip_hard"]]
+    assert share_decode(share_encode(walls, skips), skips) == walls
+    old = share_encode(Settings(0, "hard", {"t1.wall_skip_hard": True}), list(skips))   # its registry: every id
+    path = tmp_path / "old.toml"
+    path.write_text(layer.settings_text(walls).replace('"t1.walls" = true', '"t1.wall_skip" = false\n'
+                                                       '"t1.wall_skip_hard" = true'), encoding="utf-8")
+    assert [share_decode(old, skips), layer.read_settings(path, skips)] == [walls, walls] and old != share_encode(
+        walls, skips)
+    flags = argparse.Namespace(settings=str(path), no_skip=["t1.wall_skip_hard"])
+    assert layer.settings_from_args(flags, db).skip_override == {"t1.walls": False}
+    with pytest.raises(SettingsError, match="skip_override.t1.walls: both --skip and --no-skip"):
+        layer.settings_from_args(argparse.Namespace(**vars(flags), skip=["t1.wall_skip"]), db)
+    (root / "levels/t1.toml").write_text((root / "levels/t1.toml").read_text(encoding="utf-8").replace(
+        'gates = ["t1.wall"]\nbatch', 'gates = []\nbatch', 1), encoding="utf-8")
+    assert [(i.code, i.detail) for i in check_database(root).issues if i.code == "bad_batch"] == [
+        ("bad_batch", "its variants' gates differ")]
