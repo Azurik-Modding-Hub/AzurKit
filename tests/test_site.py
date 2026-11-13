@@ -7263,7 +7263,7 @@ def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_t
             ["Bust size", "Bust size sizes breast (both sides), 2 layers.", "1"],
             ["Hip width", "Hip width sizes hip (both sides); hip bone (both sides), and below 1 pelvis too.", "1"],
             ["Butt size", "Butt size sizes glute (both sides), and turns out loincloth back 1 70° a unit over 1.", "1"]],
-            ["Its mesh's ops (54):", 54, ["pelvis", "scale", "Hip width < 1"]])
+            ["Its mesh's ops (63):", 63, ["pelvis", "scale", "Hip width < 1"]])
         page.evaluate(VARIANTS_DRAG, ["bust", [1.05, 1.1, 1.15, 1.2]])
         got = page.evaluate(shown)
         assert (got["recipe"], got["marked"], got["note"]) == (
