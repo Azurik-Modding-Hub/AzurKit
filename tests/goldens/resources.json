@@ -6461,44 +6461,44 @@
      [
       2956,
       "bmsh",
-      2841344,
-      "0d6a52a2484761bb816fcbc9de034b3eb3d19b75300e4a96f65c7b1b46e01242"
+      1653552,
+      "704a0dae1acfaa042de41236663a77856607ea519d6028801b08489a8c1c0926"
      ],
      [
       2957,
       "body",
-      389984,
-      "2f72c45c0038c4a14021ef5cfec7ca8e4f8028eb4610109ec9ee5e3c9b71e8e4"
+      209392,
+      "2065e2b02029cff931fb3679494e2cb6337dd508167fd163e7d77d2c21a3102f"
      ],
      [
       2958,
       "banm",
       55564,
-      "c19b544a9a7a001dca142f85b8da37912b0191d048b67de584a0b74fbcbaccae"
+      "d2d2edc989eccf7ce36c6300cea96544b7f7dc1377df5c554b7a7c62383c555a"
      ],
      [
       2959,
       "banm",
       63400,
-      "8087432998d01245a144049178d01a785b4c9a410bde71e01297dbc00bad4dd3"
+      "2cc5f82f1fe2e7eafd1ad466e844bd6a440aee8f07ab65f897f260a84fa5baf8"
      ],
      [
       2960,
       "banm",
       85692,
-      "3b080b88fa173c46eef6bf0ec86695872b39be2d9977c2a6a0a1f21ee5c9098c"
+      "94e1549bf941ead6b2390d68590848cb985e5cfa4046d672ee34d7f5ca250fd6"
      ],
      [
       2961,
       "banm",
-      77224,
-      "8f39526389414cd7609ed5183a783a5744d32c77ca51c5c6a111ed1cde4868e2"
+      114152,
+      "0e641f40d0070006270d3f003d9a0f1af9307019fbc0934afa396d406b08fc68"
      ],
      [
       2962,
       "banm",
       36708,
-      "5d5f288edd76cd778ec26f84f8495660c1a77a5214047f382e0078b4a1cd0095"
+      "083fc6cdef26ed42ea16bad8499d0d95b3bf041b711192568d67c4dc414f1cf3"
      ]
     ],
     "count": 3477,
@@ -6507,546 +6507,546 @@
       null,
       "surf",
       174976,
-      "f0759c8733c851dfc287a306e02a840ba120856813a7dd6141f9de52d1e88965",
+      "7aed920515d4fb5f3af4319c94bcfb51751146c6c47cbe7f41052c79270b65f3",
       []
      ],
      [
       null,
       "surf",
       43904,
-      "d363677459ae02b8f73aedf89d03d13faa447b9695948469559ffb3272a516e0",
+      "94213f61a9fe0449a7a564aaab7416fa21a6fef91a0b6cabf5646955b6ed64b6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_basic_attack",
       "banm",
       51412,
-      "2a49c10c12d1e17ac5b626255ca1e5dd0b1cfe4d936b536bf3c4eaa6000132d8",
+      "b6b52bacec1d78b23d498cc86121bf750734c25c46d9e656418deb8aa9426372",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_ledge",
       "banm",
-      42312,
-      "e31547899b2675c56c7d4032876799f6571fb6fde83e199660f1e64b2343f137",
+      42540,
+      "c0fa8a6e9f4170bb4d6b5f7d74c85c16c53543807bbee28fa5375e79ae9d5c29",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_sweep",
       "banm",
-      66912,
-      "291457a1d69513e51b11197789dc729f0a3f0a84ddc149b0a06b4f57451aa30b",
+      67284,
+      "17c17a645b5a5dfc34b8f1cea51965acdf749344aa873b0da2a845d3e237a351",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_1",
       "banm",
-      43892,
-      "c8aa2379b2b6652e573b6edf1cdacc6ccff1be8dfd81700c713a44dbed458a20",
+      45292,
+      "5800a422dc7fd342e179a4bbbb34c49b68c9803abe604c557018e0a8b6da968f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_10",
       "banm",
-      50200,
-      "9ea987abe1a83d0012c0c286936261e0e554979b406b17623a728a9a2849514e",
+      55576,
+      "5d070be8bfc9c581dbe19d998f36a0ff3f41f5ad350e3ef78f33f24b3b307cdf",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_12",
       "banm",
       30220,
-      "52488f85581cc56c62dc142e27ee53a96aec3b12ab8bf4af2addbeee8e667b5f",
+      "94b740f22fc294392db08f07d3b0bb22119039af67cf25182742d08c9653b8d0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_13",
       "banm",
-      24524,
-      "957111b4bdfa6a5a0853b9c5e27e71135f216576b8e5bcb0c22fd402dceb8277",
+      24392,
+      "57d5ac2b5d3695a0d440e31003b7c8ff01292dfabd68b61ba83c574e9dedd9e7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_14",
       "banm",
-      38016,
-      "ced9e6a5519ff50b8cb4c5433dae99ecd90a9849f260ac274bfb1c53b828b5ec",
+      38260,
+      "17d9e1434944d7ebb9837dd386c9c6f073fb38e50bc8ed44344a98be65f81923",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_15",
       "banm",
-      38708,
-      "d11fa4f90a355a564fb746c45bc44cf74f5deb9b5c3baa0a7b5c8ecd687c2d4d",
+      41204,
+      "8b39f5d1cc3f9f1701d5ed38412663332f8f9d5643f2399684e6a4b84a467bdb",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_16",
       "banm",
       37452,
-      "e06bc19c30638233634b6f7a62f6147b55e9f8020987a4c802bd22fda822127d",
+      "fa4555516958057f4573917f9401a2b0c2c6f9d546343ea3f1f5a8df9520cd74",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_17",
       "banm",
-      35288,
-      "7ae76640cb30cc44e511055ce462f7a0d96a74087c2322bfd2001abc77e57c3e",
+      34896,
+      "1f48e031e18a2eb59eb386ca5dae56ca9fcddd345da32ed6452611065996fdd7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_2",
       "banm",
-      42588,
-      "8e4c3d033caf354b90e06cf9dc7e014dda73119399248a6078cbba9336bb9c11",
+      44764,
+      "88c88fb1a5d3a62a8cb9adbfdf05df538ee3ce09720d9d7fbfc1e49e3c766a6b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_3",
       "banm",
-      42532,
-      "afc14d3f9eca632f5e708093445bcc4545b753787137ff45c57b08868b551f20",
+      44440,
+      "8f67e19ec2651e481ff217a6ead415d0ab71791bec368a8f37d9cccdd095cfb1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_8",
       "banm",
-      38504,
-      "a6cca24658c38d6de595c3753b8be425bb234ce60671c75c8f77d59ee50bcd2e",
+      40808,
+      "efd5cadb2777b443c24613981902443be1999eb296717915c1f98b21fb03b9a9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_9",
       "banm",
-      28636,
-      "0dc6d74308d65db1b51aef88cd11b53d2dbf3f3db6898378d4dc5a2c0c947c3b",
+      28472,
+      "d27ad066763e1de39e5be49ed32a99483dc415d13a40dfa009af66f23d5b7e12",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_back",
       "banm",
-      27908,
-      "b78f796b70e4c00583a0433cf4b5c1381fe8eecb58ccc67c6d8467a3df9913e7",
+      29336,
+      "6a341491980d5b941136a00131d585404917b754106a2fc53e3f86f8fdf7e7d2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_back_kick",
       "banm",
-      29536,
-      "bc6937a3952e22afc905fdfa762fe892284db217b9e44e4499d81b60b8b7ec5c",
+      31712,
+      "e8e447173597bd0f955ac83d860c18e6fc47ce05fc7ab5193cfed9dd4a82bbd1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down",
       "banm",
-      87724,
-      "d136fc795e49cf5324324e8f0908ce0ba41b4e2051d905de76a75b5df02078c5",
+      93804,
+      "8ef37a636e329d0804f367cb3ce87cfd5135031b87087b01196487881fd7a31d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down_edge",
       "banm",
-      115200,
-      "0aae94d1fe7b2b2df1fc44ec10e2df9068868568138a0c83d09efcaf5f866f58",
+      134656,
+      "1f0d89d98cc211061fcfc855b28a0ff7dc35bcbaffd14afc27324d9e688ef690",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_drop",
       "banm",
       42104,
-      "06967c7a4b9e8e05fc56d688c22a7a3e5009c97bd2c959ba8291b1d7dc37d9ad",
+      "0905b91cfbc97cf579cf293aeb17ea03ed9c3a2c6c74208e01c5cc5d38b1ae74",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_from_jump",
       "banm",
       38432,
-      "e68263015576761a58765db8e4d5f81813ae801bd62edabac4d8715c373e90e3",
+      "6072e53f835984a3b450441a1a89857dd2dc8ab3dcb048c6f0c3fb6b3b6974e9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_idle",
       "banm",
-      84580,
-      "968bffee8c023aff6049cbc099f7312858e83f99573964644497d32a49ad8494",
+      110448,
+      "cf9c4d4706b57419ee93d1036bbd88f3402e10489807954b1a60fa171abfa919",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_left",
       "banm",
-      88128,
-      "bb36147a373a589aa05d0e7ba4e89758f6945d7c31d02f6777892afa1ffd8703",
+      94204,
+      "e5754f84381e8d7ae746dca62641f45dd95bfc568497cf775762c9eed794eca1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_right",
       "banm",
-      73216,
-      "b383564044461d8b0b939ae28050fae919fde8b219733e07815dafe474d26301",
+      80320,
+      "99de76299a08b591f7119f0e4a6511ecb38a390fbf65152b24aad84bdbe6d32e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_start",
       "banm",
-      83824,
-      "2e00519976e805178399520cfc2ea98026e4689b4ca565769003d654a0808029",
+      83372,
+      "6ef082cd9ac14904652813e9384a2ade2f01f1e198590d42c78bdd6efe81ddb6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up",
       "banm",
-      86956,
-      "311bddb2c5a88e8aa8ca851ccde464fa2ad05d713b81113e2cd36a0d8df69a9e",
+      93868,
+      "33c4d0663655cafa5b9050bcbe31f30e4e3a0427de68bc89f12da5d8594cb21b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up_edge",
       "banm",
-      162624,
-      "861a7dc0ae2565d425a31659363b706ddf917c19e4759b80887b2b1fbaae497f",
+      188928,
+      "7b73469b0dc267236ee526e7cee230ba2ffa51b1fe65a99e22436e881c41b2a4",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die",
       "banm",
       71960,
-      "f1c03b84cbc3459d706c80ccbf03d6fc18304d720fbdda6dbe8fa3c4095b2947",
+      "03c13fb2ad7bb4aec29b55de2a396c23b5dce7ef5c970416bd483c350a5d8ade",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_1",
       "banm",
       189668,
-      "5f1c883c19249a237012458059611f245edcc89c7791c32473b5e630addaa135",
+      "1281c5f4d6349f06d350b3510357e27abb3d7813389fddb5ee88320afe5a957e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_2",
       "banm",
       218612,
-      "3d9dd7a4c435edf7bb67f4ed89c7664ba0fcbb535d70b8a11d7d7effe1011409",
+      "370a6df37352f6b044ba0cb29257c0de187a3f1233540e7cde30fb904e7316a7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/drowning",
       "banm",
-      155416,
-      "3fe369f11a42d0c3f018c9f16b92d57ff2757e199ad72948a4717619171a8339",
+      181656,
+      "3afb0f7c2761a30e07bd23af3d8913ebaca7110497e93d306ab52515fe3cf47b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack",
       "banm",
       124260,
-      "008046209053958a08ecbda806dd930625923b566574ca4ee8bdb02293d41727",
+      "2335636df78690f9b10d17d496b35bd1d2202562eecd004e6c155c86d3ff53d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_2",
       "banm",
       167444,
-      "fb656ab9aed765f295edcd37b02ad50386cb00e346db7b68aed07a86da9b120c",
+      "465bb2826a57a1a8471a299ad00a3612a77f46f04a8f7eaad195a1a5e49d44a2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_3",
       "banm",
       198996,
-      "b02cafc868a35648695e2258fe23f42036086dee37d5c05a4be9d20c9772f12e",
+      "ca18fb4f1ab0138094b849b019a876d0e4664518d5af3e6bf035ec6bf6c5b78d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall",
       "banm",
       155380,
-      "1f410d6b0fcd0c86fe915ea2277519b49f1370adba999f5cd42f6c685fa1199f",
+      "c2d3e7549718ac14b1c56a8450fc893b57af558ce8c6756d1553f5022021d59f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_attack",
       "banm",
       24184,
-      "bc9dae41b40efeee7572572f0c46153a9cd37655f4a4fea0348afb86955582e6",
+      "d4028681bebb7a60e60b74d6b385e10e074082726982bd1c129f02ee5c242297",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_big",
       "banm",
-      98268,
-      "bd5864ccb61559cedebc25230b16773e9fa3e0a8574b3c88437d6180ea00d636",
+      84636,
+      "468406dbe4f9e371d9dff39efc8b823a6a15047307e5af7aa8e1ab18529fecc0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang",
       "banm",
       47804,
-      "c261e9b512f97d045f36ae4dd92a2e34d14c8f8295e0df309fe705cdeeefae0d",
+      "62ba5646e2f8511652f5f2121992ae45878098ec1fa76bb5c83944c003c2e8c5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang_start",
       "banm",
-      49196,
-      "05ba5781cb26bedb2d31104076328ca6120fdeb2ceb71faae0dc9d896c041a40",
+      48968,
+      "11cca3340a3ea2a4b2a09d59bc7fdc7862288bfb1402d491a8fd1d37c62937b6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist",
       "banm",
       183292,
-      "f7fb6f5afbcba11df033492c5ba5fda09737ddb6b4535f7714fa0bb30ecfbcc2",
+      "e7a9bbba886d275fa165fe66a7731c6abd6ed52da380b965387b35d54e20987e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist_waist",
       "banm",
       76504,
-      "fe4ee0a9f5d836bcc20f78142b95e0b19bb64d98eedf0619092413687c12dfa3",
+      "830eba13959261a943dc063ed471dc6a015d946b81a5816209ede2d961458a14",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hose_attack_3",
       "banm",
-      82832,
-      "dcade1b22c282df66eac681b234bf26c37b2655096c515132c106e41cee6fdbb",
+      82380,
+      "8c938d402d05eef7f5cce0e97f101811dafc5a803f5db82692ec0cb28fb08ce8",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hover",
       "banm",
-      60312,
-      "05c4fca3f51fa88291de89970727217ad1783d5da65ea9a972c72926cc643ec6",
+      45592,
+      "8d188ed6f155bb18d3beebae2bf92789c8dc31f0349f4d2df003884c2f276fb3",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump",
       "banm",
       114892,
-      "05212201586c85d8ddf34b860587bfab22398ab063c182e32c709c109b1658fe",
+      "cb11d7941071783c1ba7309786ffb7c97848fc2f60abf0f21849ce5f5a0e8c24",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump_standing",
       "banm",
-      164944,
-      "3cec3168c94ff890e5b4c1e1ef2054ab30c217c6d1dd2e46921c98ad39537930",
+      136700,
+      "14ca5ddeb21c203e3ef39a5712a75d0ca81a9bb05e1de8b48643c7dc724e6fb6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1",
       "banm",
-      34232,
-      "d5c05a35f8ac66c33f721d096579da3f86e46bd95a30033d2a9dc680461773b0",
+      32760,
+      "43135db7a1a0dd3ab421bffa4e263a676c85927b860cacd9d920c501363c9822",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1b",
       "banm",
       33012,
-      "1ce7b4b0e60da5312cee7735c51f84534e6bc4b28f9c2c984e055aec36ed3a92",
+      "6eaaa2e92e28efd3d364bf1f76dd0c157781725e6f20c1f7621dbda5dc8991aa",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1l",
       "banm",
       32984,
-      "7556bbffdfaa2369558460dcc26363734be7a7a8fa043f6c0714a782c9d0a70b",
+      "f2bf9e2b04cf379f5d984eb282c1fcb9058256450c1fee6072df69994df2ee43",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1r",
       "banm",
-      36648,
-      "f1df591579665634ac9396182c8058603a3168a8b1de70c3d155dc3645b8f9d9",
+      36500,
+      "6d5ef51153fb3185c3373d3a3b6c4d7522624b31c3a310fdfe796e3e81335f4f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/roll_forward",
       "banm",
-      73656,
-      "fb6e7b8d4cd47f97fea31ec17d90d45ad59550bb30f92141bc84751fd95ab935",
+      73980,
+      "7ae5fc4dc53631364c37820a3bbef77b62e17be0b6665b2566f0d9e1c9df1f53",
       []
      ],
      [
       "characters/townspeople/female_2/g4/slide",
       "banm",
       37736,
-      "cfed087ec72cd3209f9933cc846b6ffe841e4e9e27c26d117aeda520637079bb",
+      "37786330dcb48943a5f9b36670d09404089c8d6de3585a8a61e0ba0e310a7cfc",
       []
      ],
      [
       "characters/townspeople/female_2/g4/smash_attack_1",
       "banm",
-      43856,
-      "af0a367af514841d57ee3b713db6ccb1766ab7c97dac00e83f88c22e4128c375",
+      48720,
+      "54efa4e508217943e6a254acca13ff24f524878c31d71075a5d5dcc9ddf004c5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/smash_attack_2",
       "banm",
       56212,
-      "f2df3b1b1a21e8ac023c39993831c74bfd5b12eaed7a418efbb85bf14f0dfac6",
+      "13fec7293f73c984a8343af9ce9050981c999f935edc93f6a8e0982d1cbe39d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/step_up",
       "banm",
       47632,
-      "2db7e5da88a12ff557f9be57e1d6c8890d7ec93bee81dfa36747da6b5c065587",
+      "60985f2f661d244a55d6a4886cffb1bd8609768ab29d3c202779834481316f18",
       []
      ],
      [
       "characters/townspeople/female_2/g4/superjump",
       "banm",
       291340,
-      "052b700bb778e13f5a00bdf1c4075450d641f601e66a7fd5446ec72e2e2d3575",
+      "6fd6dc100c0fd0e50c33de8f6c4c40bccf1a51dbfcb6b36bf8f35930ef918e3d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_2",
       "banm",
-      57008,
-      "79ec599cc1ebf7f7d49e1ba48560b6c3352c01328d4a7a609999f755c79f5d35",
+      57412,
+      "d6d3a4a8676fb7635bc843fa320e47813ee3b9063556036dffa357e38e42ab1a",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle",
       "banm",
       127480,
-      "03d8c4016e521c5a976f31c7da2668021c0b850d0007d8950fc47e4a22abf64b",
+      "b451e2ba597c9c1262350ae17f79baeb0e1a14db15d55fd392b4e1e38447475e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_down",
       "banm",
       55032,
-      "e916c6b9babe61abd0b10f2e309455a1a86301a4b6fc2cf466b2438c19ec7a14",
+      "9c6cc71d22651c07ccbc7be410ce1f2610b8a447253e2fd9ac39ba37e82f199c",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_up",
       "banm",
-      49064,
-      "ee838ac30bb4bf804c98b6c5305182ce0d1828e28bf38bdee5715e3e1b710e8f",
+      56812,
+      "a5b796f56677cdacc30546bd8d8f520adf216f2deb79b2165d9167aa03006f12",
       []
      ],
      [
       "characters/townspeople/female_2/g4/use",
       "banm",
       58668,
-      "5aadcecb24ea7fa295cad332ceb09135bd2578198d7c077333885309ed7855f3",
+      "e7fd4aa66c10fa8eb04e09ea5085d9a9eba30ae6d1af61e3a788eeae732622cc",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_2",
       "banm",
-      57328,
-      "45e0c162b429870a536c553779b63d51f327c1633adc01afd3dda7619ba121b1",
+      57732,
+      "3cdbfeb6bb2b0d8b204167fb3a6fec82038ed3f7dd81a7255a58b53016cf7a31",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle",
       "banm",
       127816,
-      "8d0e8cfc5ee4496c6d142b9276d5812de286f55412c03c4708bbf6905ea0db7f",
+      "3c5f2744308a5829c787a2f9a0e724b04ff5b9270747859c610a0be29695ec65",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_down",
       "banm",
       55240,
-      "dfcc389f29ac128b8a45c9ab85e8262b1873dfd3ecc977547481b4acaad26327",
+      "d20098ba012f0f0bf5d22a42ad831c9acd919add096fb10a2e5a6e89868a6d1d",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_up",
       "banm",
-      49304,
-      "a22fee67a68a5b5691111288f661d800059f1b2a98d7f633f1bd1c542373502d",
+      57052,
+      "37a270c4c3ef04a6d4d122feec500c112b9df593b40ab55739527ce298ffa68c",
       []
      ],
      [
       "characters/townspeople/female_2/v/bust_bounce",
       "banm",
-      120468,
-      "040c5265b8028191042443d6827df567e540b47c830577871e0ad87bcaa347bc",
+      128084,
+      "622689ec24ab1a7e1a9e5a5139fb90c05d6c0b0a5f2e83bf25f8b9f0a1b70705",
       []
      ],
      [
       "characters/townspeople/female_2/v/hip_idle",
       "banm",
-      32888,
-      "4203587eb5327ea0ff110587d95e28af654aca4cdcb3aaca05411953c55b115d",
+      48136,
+      "89c9ab8395eeb2abc45a3a33897c3cc869018a14abbc18a005ecaef90d6b4f1a",
       []
      ],
      [
       "characters/townspeople/female_2/v/look_back",
       "banm",
-      174032,
-      "c3bcab2ad8bacb69883b9d22917b1cced871b20c778f27a49d4945d9d623497e",
+      184352,
+      "ae6e4236afc266d26d444cfbd99cb209495be7d39a864393dfdc61cfdffbf6a5",
       []
      ],
      [
       "characters/townspeople/female_2/v/sash_fix",
       "banm",
-      234440,
-      "a54511742919e43ed4ca799362f06fe878b41e8fce13ac1a84a23d1bfae9f3d0",
+      245912,
+      "da4029976fc933d998f8f53809c17bd75fb25475c350c3bee7f0617794b8fe0d",
       []
      ],
      [
       "characters/townspeople/female_2/v/sit_cross",
       "banm",
-      312112,
-      "710fdd818e0bf7399419938f5c21f9621205c43953f422819b1424d928f2b67b",
+      348272,
+      "71082e72cfc3490c2c32695955b4c1508b8d75b6a0abc3a2e404f0bc83e70bf2",
       []
      ],
      [
       "characters/townspeople/female_2/v/stretch",
       "banm",
-      100884,
-      "104498418bfdc217aa13725ed64619bd14960114deeafb2c934bda2f0029e574",
+      111124,
+      "359afcd5d3810bb95a829a072cbbcad0faf22c6e5a65026b5ef9fd8eb3ae1093",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run",
       "banm",
-      42976,
-      "218a7cb84c15d80ebaf4f8ffd48dcf5a1bbb4fd11818b8a3513e70288b36304b",
+      45904,
+      "4644055e406b15b618d2a51f8d27592d58618458012599e990717dd424657fc7",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run_back",
       "banm",
-      42880,
-      "5b6b9fc9d6ba65f10a098af169eb216a8cdb319d070772aea01ed3cad0f085ea",
+      45808,
+      "2fb04c69ecf16f7e215658c589a6a61094957747d0752a95dbfbda1db6a90ed7",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk",
       "banm",
-      47488,
-      "6fb954ef6487bc47c213ba3765ddb06f4e7070dd391602f311e250e8015e3954",
+      50176,
+      "6d954da004f84670ea4fe4ae03fb22f3772decd095686fcfe3aea1f912fabe57",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk_back",
       "banm",
-      47520,
-      "4178ee0a09788860ee37df17f5d4373a10fc72306679ef3d39abb472c2e900e3",
+      50144,
+      "fe13a52f17f0708c83f04751b373dd24d899e6f001327cc3932fbc1b3d2b4322",
       []
      ],
      [
       "characters/townspeople/female_2/v/touchdown",
       "banm",
-      38876,
-      "4d82bc6d389b7b6162e0f949157b6d261a7717cea5d41db0acffd799d30ad87a",
+      40412,
+      "a8c1314aeba97a4d9c5e7bd084a3e4adb3e6a3fb2928f9e914ebe4b0ee8d4972",
       []
      ],
      [
       "characters/townspeople/female_2/v/victory_vsign",
       "banm",
-      80368,
-      "249234369b6cb5391d99a06f8047894bbd61ab65ac3ca0140714d627b0317c6f",
+      94416,
+      "a60a2951ba2302491aef887251258a6d990f379beb237b5fcad1c45ed5a7ef79",
       []
      ],
      [
@@ -7086,8 +7086,8 @@
      [
       null,
       "bmsh",
-      894656,
-      "0a766bf29b434d40cebdf5d1e516d1742f3b8625be4e2f0bccd0a0cf6b9adddf",
+      172660,
+      "7510c99de940ccc4adecb95c1b67fef07d941f3576bdcc3c27df1f30df24a8d1",
       [
        40,
        80,
@@ -7095,16 +7095,12 @@
        160,
        200,
        240,
-       280,
-       320,
-       360,
-       400,
-       440
+       280
       ]
      ]
     ],
-    "sha256": "a39cd7c7c1bae57eed770abe9abe567281d43f9cab736e1e40730d8e1e422f48",
-    "size": 78609272,
+    "sha256": "da9d8023208a7e69e12bbfd6af50c05e28ef22ed66cb1876c09eed8c696a2a7b",
+    "size": 76786516,
     "vanilla_count": 3394
    },
    "gamedata/config.xbr": {
@@ -7113,7 +7109,7 @@
       2,
       "tabl",
       7289,
-      "a23f7be81d1377bb2a1bc640d205ef66e5f1a2630deab88edd3cf02babe1d2e6"
+      "ac606a8f078c20ca27e452a7de5fb7e0e179052a29494544247ba84a62ea3bee"
      ],
      [
       4,
@@ -7125,12 +7121,12 @@
       7,
       "tabl",
       86176,
-      "b80ffbd3c58d7c70a472be48ec5de5113ae9d4e040ebad3947bd0fb27bc55ae3"
+      "30230f032b5eac42695c86aa221324400d88640559824ec608a7c0f5ec8a875c"
      ]
     ],
     "count": 18,
     "new": [],
-    "sha256": "8a5fad533712f7aa86bbfdcbcb4fed5df5dece9dd4560e2ce427fe2355ee9afd",
+    "sha256": "1566f731c18e68030cc9373c114894820f33abe8aca92d32f8bb7816a89dd280",
     "size": 565818,
     "vanilla_count": 18
    },
@@ -7200,13 +7196,13 @@
       1684,
       "node",
       30384,
-      "f956acdbd363dbbecc84c3cad03b5f7efaec8db4d51c5fc10c060bc5806a7e3f"
+      "9c3b202cb2d99c6438b4b6273bcc9d9918fd1a0d0e71a2a8b576e7e7d2b40f5c"
      ],
      [
       1710,
       "node",
       32024,
-      "7daade60dd72ab180f2c05fb2b18236777a2bf14357065bf57342a4acc9df423"
+      "8c6895729008f8cd2ce235bb014dee195e9946afa570b3d04bd17fc67f929ab0"
      ],
      [
       1736,
@@ -7248,169 +7244,169 @@
       1880,
       "node",
       12072,
-      "f85ae5f814378ae1893a6dd78ce28c5d207c929183ca528d455cebac55c9871b"
+      "6a4751b94c1124f1486903d42771ac0fabcb76edbfe639fdc0daec27484ebdcb"
      ],
      [
       1894,
       "node",
       15280,
-      "2d8e44774225bea10f80ccb84f864cd56cf18c850d14334429d0b5b4d4d3f139"
+      "7da6ee05d3f2810a1954cbb6f5aca92ef612e8e2b147d86c7b89ba50077223aa"
      ],
      [
       1901,
       "node",
       17016,
-      "da7ca19ec31460a3c36e3e5120ababbae1c3f874e9731e803fb1525c43d5a919"
+      "e0f1e6bea8e437dbeeceb909beb6d53688aa4703fec35c38c579496dc314f79d"
      ],
      [
       1937,
       "node",
       23628,
-      "0f483a61aa2054ece7102dfbf8c530d4887ec64e3683b7ddbc2935e8e3d6941a"
+      "0a0739787f1f297be7937b1aaa4513baf62c150590dcda6a1be06f8336098b02"
      ],
      [
       1958,
       "node",
       25564,
-      "dfa0905eadd4dcb5a81992ba5fd85ac3db834a14cc71fd36672d303877ec4ae8"
+      "8adc8af8e6c7cdc25b308e15ca0575c07f474cfcebceeb503cea54c60e54c4b3"
      ],
      [
       1973,
       "node",
       25580,
-      "92e422e9cb91cf068bf230b2736b23e69e88be6c2e66d2c42c6ed9d363b7143f"
+      "99cc46ec3cfc2c8e8ebb94c0d93ca8effa8552d37baa386ccf66f17fe0dd9250"
      ],
      [
       1988,
       "node",
       15608,
-      "67846f6fc0c554754c8b9d399706aef545183c90679fb69c495c4165136af013"
+      "56aec0544de351a337576e8ca879b34a362e84d2b882702b4c7481cfc2d99e2b"
      ],
      [
       2005,
       "node",
       19152,
-      "c308d633fca9bd30e68b797bd9ed446923e9199d15cae8e70d1b579e69b196b7"
+      "412c6584a3a6052d0b7924c0af30dea287302abba762888803f5e58364005e83"
      ],
      [
       2020,
       "node",
       21584,
-      "034ff24e3ad9f406a32ad44736724c53922047e08bb9790f7cf4cadeafb44b7e"
+      "a2503b9eaec8f73f362cd60d4ad758864fe6f03416f26083657bd263da4c0885"
      ],
      [
       2058,
       "node",
       26116,
-      "fe5547e8af1f3be28e3044c7a625277d5eac9c48a5e3da853234e14fc31aa7bd"
+      "7ac1503d625ca4559f02f5d668721e52c1346b49d889769b747e2a465340fe14"
      ],
      [
       2104,
       "node",
       32052,
-      "699e5cfa12444615adda0935e8737d8ce838aa88aa9141a76ea2f509b534a856"
+      "9b84c891bd65f1edc89f9e8438abb6e5d56cd4a89ff291a14f0ddc34fc624424"
      ],
      [
       2159,
       "node",
       36324,
-      "bdb595508b070d4259baf9391654b56e9b310efd831fed7398eef3f94e4aaff8"
+      "06e52439632b44f1826c5022f94c897e3bc0991dc025e297186e9308a138864f"
      ],
      [
       2223,
       "node",
       26496,
-      "6c9a9786a71c34aebcf004c4a460fd69f830b046be62e8d65ce1bc29691c8d1d"
+      "1ca643aaa92a99d09bfaf418fff1e54a1b17bcc988f90445a64c1e25b9fa824e"
      ],
      [
       2282,
       "node",
       31412,
-      "fedbb6c6f06892d2db1b4117598241a9c499fc3650f15bf81ea8c17f1c5762e8"
+      "a04fc3f530e759b09419794329299f3c00452fed7003019ec69b38e201aac868"
      ],
      [
       2325,
       "node",
       35284,
-      "7589248e6397df91b7077ebca7a79b2f73b8099dd89080552ba501fc5304ab99"
+      "84486661d5f434b1654b431959e7f6914eeec60694da50cb4bd91f3823ec9b61"
      ],
      [
       2363,
       "node",
       16512,
-      "45884f45dfc2a6df6dbb33480b3c35dfbebaf0c0ca94bf7ebee479fead623894"
+      "5a5a3b38792ab1e3b0dfa33c5f7ac94b3b23cd38ab5bd7b7e48716eab157c3e8"
      ],
      [
       2402,
       "node",
       19344,
-      "bca292641790fdc230052f262bb7be1753b332dfd3a64bc0f6ea8e1912a7c8ab"
+      "86af609f8f15181c215de88a9adcb94ed4185a46371912d462eecdc945ec720a"
      ],
      [
       2429,
       "node",
       19392,
-      "2c4145437dde4b894e456d8886c537f487b69ee6748330d6c02e1d90d4c0cf4f"
+      "ad7062bc0b1a5fedba2dcb8481a5b7f484b967eeb922473ef58d01f01096f876"
      ],
      [
       2460,
       "node",
       24596,
-      "4cd993901f07a352eb42c73a6c67bd25de5bdf7d1bfe2e084442b15ed441d5dd"
+      "e59c72cf3944682e6a5e10ad7751dd4cfc4af5c5e6f33fb71959b4f583bdc95f"
      ],
      [
       2472,
       "node",
       14920,
-      "9ce14fb06f4c31316c07776def500763deada14eaa969806f8c156746863c6d6"
+      "b51574b6627d84698898e279302c8f6acd3df0c871acec164416f69a9d82f2d6"
      ],
      [
       2481,
       "node",
       14920,
-      "ed4ca66d6d17a6f77a2f1e0a9817e61d2db7b862464a8b8ae8b5ebf4615e1fca"
+      "b8125ee0043a8d6c01785801daf3578d64a1192bfa3a3556e13543d0aa74a2de"
      ],
      [
       2490,
       "node",
       14920,
-      "e7861adb1b242c31895f3aae97b331c6ccc4899237652ae27cf3a55199345979"
+      "df1685e67f27bc2a69c6a9a8323b3502269a3bdd73b48c8dc691fdb1c65b31cc"
      ],
      [
       2598,
       "node",
       34860,
-      "cca9e6a26ddf7b8d674344418c9172cd04a3b485c31f1c8ec0c155c3ab6e9384"
+      "44ff5c176f5ac57f09c048cf694d02a876faa68cc7be6d73cf8db89c7727eff8"
      ],
      [
       2690,
       "node",
       36392,
-      "97f66da8a5e61a72b5ea53653793ad7bdf2e508eb54f630eaf147e80239282be"
+      "70e9e1506c463c3f3470741076f8cd650679d43f1b717b0de09d6f99bc1820c3"
      ],
      [
       2790,
       "node",
       40988,
-      "a91b1dd8bb59a76776f0d8b9e6f3982b3cf23c330d7a60ad19df72abe58b5c70"
+      "26327f71e26a5134097d376e1988cb6c1d8fd7c764cc287fc4ace3c23e2b267a"
      ],
      [
       2799,
       "node",
       13684,
-      "d3c450146100b9a1cfaa5051327f2712228df52bb9cf146d74e3c56eac3cfd72"
+      "e846c3999204475774b0c99d364e6b0cb6e1ab1298dcecf74045c03bd97baf39"
      ],
      [
       2810,
       "node",
       18216,
-      "8c33f0344dd13fe677d09e696dca655b2e1557a1593dedc4a7838dbaeb349020"
+      "a267b4a4b08928eee759e379270dcbcf71cdd8d21a5a62502414f7f78cd2358b"
      ],
      [
       2817,
       "node",
       23280,
-      "1511cc3b74e05e5be9843178fa98d3c65c8c0ee7900e1ec699070c5501ee350e"
+      "02100a3fec3fac3abf7a67a8e408d7f2b6fde8d0e56fbae2a0cd1c96f5875ceb"
      ]
     ],
     "count": 3581,
@@ -7479,7 +7475,7 @@
       []
      ]
     ],
-    "sha256": "82a58403c9698bdf4635b3fd7fc59a59acd28a66ff853208dbb2fdc04146943d",
+    "sha256": "948a260995297705eaadc97bbba04fd6f72007e34a38608103bc88ffe441dfb5",
     "size": 38295801,
     "vanilla_count": 3572
    },
@@ -7938,44 +7934,44 @@
      [
       2956,
       "bmsh",
-      2835052,
-      "401087f3709bd63ea086311beb10fc598f8d92202520ce0699d848ba802e7f8d"
+      1647272,
+      "9eb7f54655ba5b78a3563f20923dcbae29fe2f596d77428e1150abe60f1073e5"
      ],
      [
       2957,
       "body",
-      389372,
-      "5ef5690977ba6f6ce0dfeb4b2d7d0766fb50c3afb80ca034bb16407caaa3fed8"
+      208476,
+      "e4603113a90691f220c3128f59de8f3207bacfe1d76e8afffffec71bd650325e"
      ],
      [
       2958,
       "banm",
       55564,
-      "c19b544a9a7a001dca142f85b8da37912b0191d048b67de584a0b74fbcbaccae"
+      "d2d2edc989eccf7ce36c6300cea96544b7f7dc1377df5c554b7a7c62383c555a"
      ],
      [
       2959,
       "banm",
       63400,
-      "8087432998d01245a144049178d01a785b4c9a410bde71e01297dbc00bad4dd3"
+      "2cc5f82f1fe2e7eafd1ad466e844bd6a440aee8f07ab65f897f260a84fa5baf8"
      ],
      [
       2960,
       "banm",
       85692,
-      "3b080b88fa173c46eef6bf0ec86695872b39be2d9977c2a6a0a1f21ee5c9098c"
+      "94e1549bf941ead6b2390d68590848cb985e5cfa4046d672ee34d7f5ca250fd6"
      ],
      [
       2961,
       "banm",
-      77224,
-      "8f39526389414cd7609ed5183a783a5744d32c77ca51c5c6a111ed1cde4868e2"
+      114152,
+      "0e641f40d0070006270d3f003d9a0f1af9307019fbc0934afa396d406b08fc68"
      ],
      [
       2962,
       "banm",
       36708,
-      "5d5f288edd76cd778ec26f84f8495660c1a77a5214047f382e0078b4a1cd0095"
+      "083fc6cdef26ed42ea16bad8499d0d95b3bf041b711192568d67c4dc414f1cf3"
      ]
     ],
     "count": 3456,
@@ -7984,336 +7980,336 @@
       null,
       "surf",
       174976,
-      "f0759c8733c851dfc287a306e02a840ba120856813a7dd6141f9de52d1e88965",
+      "7aed920515d4fb5f3af4319c94bcfb51751146c6c47cbe7f41052c79270b65f3",
       []
      ],
      [
       null,
       "surf",
       43904,
-      "d363677459ae02b8f73aedf89d03d13faa447b9695948469559ffb3272a516e0",
+      "94213f61a9fe0449a7a564aaab7416fa21a6fef91a0b6cabf5646955b6ed64b6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down",
       "banm",
-      74032,
-      "55b46f27be0ba537036fb1b3c9cd6805bfcf8c4a648bb8ea3c7f78e688637bd2",
+      80112,
+      "a4fbcc4b6e423bd0ca66208507cae446408e19719268492c9e4950ba3c0c60c9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down_edge",
       "banm",
-      94788,
-      "b67f54a3e0364f1c7f07cc2a87452661dd35a935d8e91591b0653fa1feada4a6",
+      114244,
+      "49f2fe099e104bda46f722b39480b4e99d493b0c2c3d1d6e55fbe444516d26e9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_drop",
       "banm",
       33900,
-      "9889b23c217d46939af5a60a9906f74000f41e7b5cd6db14336a5f7ba2e2d69c",
+      "5a5eb0ca5b822451b06d13f324b9ce8541e17d72e5fe983645e9d0fe982771b7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_from_jump",
       "banm",
       30676,
-      "c7eff211556fbbfc3176be00900cd36c61e903a4d74f8fc21942128fad9a72e0",
+      "d2cb34bea6434074d51b5415df18a5fb216d643b33dd051cc7ca2f8d2d137bda",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_idle",
       "banm",
-      60584,
-      "7e1fb8625238c759cd3ab0c120630c2b138bc9012d941d3dfda62047a03ef549",
+      86452,
+      "3d32e42d0d39f9dc9b236a3dcbfacd4042afdcc883fd955c8b429cc84de53ac9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_left",
       "banm",
-      74436,
-      "83378cfe8fe25e2c7aeae89929ba8ad1bc966a748051d4b3a1a396ff0c1ecfcd",
+      80512,
+      "fe81373f62b6101f1594d6484b2c128cbe7d739a6c516c7719f95f090f219942",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_right",
       "banm",
-      59524,
-      "d5bdfc9c652422499eda27401a7e6ce8ca38c880e87b4eab44ea0a64e37ba6a0",
+      66628,
+      "37004e5dd8c681a25a3d6a407c858abe24f9a1718537c37729fde61783e7218c",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_start",
       "banm",
-      68676,
-      "5f2e63667f852f7210c1def8cd94f4045885000acd8a698c59a68f80367a04eb",
+      68224,
+      "37d73e9127d384db522869f534bd2b835f40767c63426981d6749c68b8d347b9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up",
       "banm",
-      73264,
-      "5ef03f0d216a3c142473d7424d966a80562e5031dfd98a09e0e45854c36b0e7d",
+      80176,
+      "ca4a4af702df63399c65130c6d45e656e0671fd71b61cd046d78618f485936d0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up_edge",
       "banm",
-      131012,
-      "7018b8efdd5c50a712dc96663eb9c051d9c9c0392ca0d3fe7a3110d038bfb15f",
+      157316,
+      "4f137bb838db75559b81e52609895edbbc3286a1afb110a44316262becf1b8f0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die",
       "banm",
       62748,
-      "4a4761dfbfe23399377a6cb380f5a08e503805d584af1d867e935a5d44f2e3df",
+      "b632be61eb0b2ee791232378786b456a3247bddaee6a930cc1816acaf66ba8f2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_1",
       "banm",
       156488,
-      "ad1627b67b6e98a5bd50d037b837d0c3c846f5239c8f7efab60ee3f5a839e572",
+      "6e5f542be17d5bf03987c055c57c142ac13a010a987527a202ae2a9f82e2faae",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_2",
       "banm",
       185880,
-      "68ea973e177b8f889935d269a4cb517328a57f77dc5d38ed37b4abcc8192204e",
+      "7ee97480b7740cd6448ca4cb141cc7aa41f5eb60d3e9e665ce9b423ef8562d55",
       []
      ],
      [
       "characters/townspeople/female_2/g4/drowning",
       "banm",
-      108124,
-      "d067f3424c39336b39d27a1791f7c7122f72c8d817cf178547f8b51270789d9b",
+      134364,
+      "cbd6fb75979da15e46d987047c0d4ea825b854f81826ea6a08650fcdf8837f0e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall",
       "banm",
       138104,
-      "7c49da44e70eeba98a4a6e27bcea1efe7039ce4faac887fa71a641953974c68f",
+      "45e5f8e0a5439211b70acbfee3c6adc4573e3866e4659b4a4fe17bf6bdc0dc1c",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_attack",
       "banm",
       21692,
-      "b68cdfbc5b508183e5fd908083e46815758834a04b8ebdec7ba16e506dbc0421",
+      "b43db8d8f3d98252a45ff2b409da3545c343180c4aa9c6856488525b3f24dc71",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_big",
       "banm",
-      84576,
-      "740eebf4bc8e2be554fb08cc13f10e40c71c254f470bfa26743b79db106e6827",
+      70944,
+      "547f1a8c5e4c74a014e94aa32dedb5f129635efca00d00300ed6ddfba956a0d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang",
       "banm",
       37472,
-      "09fc69a2bcfc473b69bd7da5e1816b903fbb3d17008bb018d72b764f1fd17a89",
+      "f9e2547d6d4d422ce064c512001e43a60c0e89063639df6af844d823cdb32975",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang_start",
       "banm",
-      42000,
-      "4fce4d2f3f97b8ea87502da75375d0f29f239ba00c108b8357afb9e8ab863768",
+      41772,
+      "da37ee24ff189f60be7df9d081da1f95def55bc09ac9c4416a077bc7510db031",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist",
       "banm",
       145632,
-      "12136d5eacfa90a683d5eaedd54634bb1842ec4abcfc72c6d8cb36bdf6899bc0",
+      "a4a8b486420447b6c3d8c12f13080442a4862b952ada00d4ce17842873b0e4b7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist_waist",
       "banm",
       64156,
-      "a389b1cf24d8d114951e85781bc04a126bf4e98909751069d670a4335a701e90",
+      "22fb85807982c4d777cf2daed484951a4a4dc0642c6abfa7c8cc4ca4a81f1b83",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hover",
       "banm",
-      46620,
-      "7805e683f5556fa5fd2e7f3d1baf5c67a2a5d167ce3664379b9b78bfe9158293",
+      31900,
+      "8605128656867784d31188c465e43922f186915ae730f26272750fb09fad3f98",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump",
       "banm",
       99072,
-      "184b5db70373be63777b68c1f0fbaac5a4a6ce380ba8ea4b1deb36abef59645b",
+      "adedc71344eb99ff88111b96768420c0d9d67c78dc9eba3b0685b8c90e59be82",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump_standing",
       "banm",
-      136580,
-      "b65e373fcd87667155d51a231001d8266380d850b2f4b38667d7cad9396db919",
+      108336,
+      "e97102a69567a664193aa0fc4967b04ba3f26b11b8cd60045d31c10bd510d7eb",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1",
       "banm",
-      30284,
-      "005fa8b6769a043fd8f91c73aeb3f5d00f53dc22ec0156732f9fc4e2fecbcee1",
+      28812,
+      "5e116442c7df1c6d42e885c529f6a7ed796521d97f040b64ecb2ea3da5a28cde",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1b",
       "banm",
       28952,
-      "afb65f3829ad24bf2c0e5fc96378f59e0b989779b473cbadbcc75e3e0f1d856e",
+      "a5654b61ceefcc89414a7aa410dbdfcfb9ee6f376b46c20b26f235252486d38d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1l",
       "banm",
       28924,
-      "d76005e69e68a7c5684d109de17d3d39889ab1559e0edc7fec054546b8f4ce97",
+      "9da53060368d7be1e6e119f0edd37566b4a3b0c36a0b59a676ef08a4998ea890",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1r",
       "banm",
-      32588,
-      "e5d29c482c1276a108ec360ca50942ef6697d53e0d00a6553c41500939bfd79b",
+      32440,
+      "c8b2aeac37f28daa77be66413ae5ab414da8c37e41d6e8e32ab968f718b3fe26",
       []
      ],
      [
       "characters/townspeople/female_2/g4/roll_forward",
       "banm",
-      65564,
-      "8f346ccf50fe0beb43258a27ce72de5a0246c84aa49bd0ae37ffa1df7d478701",
+      65888,
+      "8a783f36c310ae72d18dd4b41dd208d3186c160bbc7e6040f585e4068b205099",
       []
      ],
      [
       "characters/townspeople/female_2/g4/slide",
       "banm",
       30988,
-      "06765c76d4100a9ce30791db919b7704cb9d39f606a5d01b3d1b22a2b093c1c2",
+      "5244af355d2b73c864d6ea41f418a879b9322352cee9e95d0b77ac0da174cb64",
       []
      ],
      [
       "characters/townspeople/female_2/g4/step_up",
       "banm",
       41332,
-      "01332ec71eca40e703ac3388876a27be7f18bb464876f6251328453200ceeb5f",
+      "bc3571d0562231f5d926bf2157f5151bdbdf6091e398fd6143695ea7b2dabdc5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/superjump",
       "banm",
       217056,
-      "2cc43a0619a6903b15c5af610b72af93031e9de334e98d1d2a049a8d1f533028",
+      "540cecd068cdd032103530c5aac5d965fcc1fa584d02d4d2e6dd1455473a4979",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_2",
       "banm",
-      43540,
-      "7162c2e832e54e0fd248d47a7a79411b639f67e8c96a3d35a40006538b4b3368",
+      43944,
+      "ddb4e5c3a29436e00c391768812ec10a2d861e2f3d58b96c679181fb8466ca62",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle",
       "banm",
       86908,
-      "3b9881b4d8a9e7f0faa0ee873db1a48192bd2a997a5071c7da1198217b57a10e",
+      "c9a5654adb8e8a8521c4b39cbf4d3270f00a2699dde8eef9e79bb9e41ed69979",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_down",
       "banm",
       39548,
-      "f84314ee43c482e4234f6e8c68dcdeb1b2d95eb5e03e6b464357f67acf07c772",
+      "5f23e60a63726dc607386626a3e9d5cb1e6fdeefdd3db72750abf3869ca44deb",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_up",
       "banm",
-      35372,
-      "11645c5e8655bf9fc9bce9aa9ebc3ce98fcb9cc5095dae7792135492c72abad0",
+      43120,
+      "d9cd12978f76ac829c8a89948fceda9c50b42f1ce127412f039bdd7b4451db66",
       []
      ],
      [
       "characters/townspeople/female_2/g4/use",
       "banm",
       49008,
-      "094097af1407cc65204027d8907810e291b8d5322a46ec9db90516b769558b18",
+      "9368d5fa021f7dfe1f17a3db7dca3433ded296fbe8807c7ee10424596ccbcbe6",
       []
      ],
      [
       "characters/townspeople/female_2/t/shove",
       "banm",
       98808,
-      "8db607fbdc9005945bfe5a9beeff5887af87b14af3e084165b1bb2a5816373f8",
+      "f1097f9d7f48ae7f267bef197fc57130571745bda39399c48d2791b6f8f82e8f",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_2",
       "banm",
-      43860,
-      "b3b262fddab21171636593fdc695be4cd2b8b7778ae373cd09652b199cd70526",
+      44264,
+      "bf1c5e37cd2a608fd3b81567471a28a1ebb5f259d96e199fa17899afbd08958f",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle",
       "banm",
       87244,
-      "3433091e2ad15cd0da7cf9ddc1da514ff57651dc2e83be29b146eee64c65a8cd",
+      "e842eea41197e61c753b5a3245165adbec388e95e23d4bdddffe481221537219",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_down",
       "banm",
       39756,
-      "74d431d4bd098aefe8f35591bc62796d27d195878b3e0e93c8dae6e3811e2df2",
+      "649b2482a992b77ee97fb5fe5ad05f4a91460eb27f5f381c1558efb667d91051",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_up",
       "banm",
-      35612,
-      "485693a2fb24e5892fec9a0117ec8703cd2331b9f28e400c8ef97a589bb0ab6f",
+      43360,
+      "90fb3a3fabeec1bd6358eca43c0cdd59a625460002651e941ade7a3b37422091",
       []
      ],
      [
       "characters/townspeople/female_2/v/bust_bounce",
       "banm",
-      120036,
-      "1b338900e1e1d098764bae14f3a09d92dfb3284aec32c28b698ab2b5fc1d7de3",
+      127860,
+      "2d5fb41f4d8617a872f117016d7040ecb15ec24f0fff109f89cbc0d74f7c6c32",
       []
      ],
      [
       "characters/townspeople/female_2/v/hip_idle",
       "banm",
-      32888,
-      "08229a083354558796d9cc6bbbd3f116b9a257226d3a6e9a50ca1735af1634a2",
+      48136,
+      "96132046d0024f8e045c563df686af95aff073910f67c0de8d944394e3f90e35",
       []
      ],
      [
       "characters/townspeople/female_2/v/hspin",
       "banm",
       23120,
-      "a4ca9f56ea502d1178ebe5f5f5f76569a50003886a16b8ec35bdfa1c6ea747df",
+      "2ad51da6b3154d74cc05bda972e4dd54f5cec22bdb3a156dc59a96b42e760d53",
       []
      ],
      [
       "characters/townspeople/female_2/v/look_back",
       "banm",
-      171680,
-      "e93a8adf260e429e51cf9775e49791fbcfd236ead0a8366133587f1b49e1ded2",
+      183312,
+      "7daa64bd73740326d5a103a593ac4b2e8910d66e497be2d39a101e7094a86954",
       []
      ],
      [
@@ -8326,108 +8322,104 @@
      [
       "characters/townspeople/female_2/v/sash_fix",
       "banm",
-      233496,
-      "92be07df4cff5b923a6022f6e73abf86377e62c86276fbdecda7b27bb7bda164",
+      245672,
+      "362ad2e657e3a6967a13a69a701f41ece74cd1e939ee21557f2bc49030994750",
       []
      ],
      [
       "characters/townspeople/female_2/v/sit_cross",
       "banm",
-      310224,
-      "d501ca341c62fa6ced6fdedfa17706252bd96d73ebc87abb943dcc63d0ebe688",
+      347184,
+      "5271aa7b2512e24f89505ae91cc3e56c30848db238f553e41b729c25cd37fc24",
       []
      ],
      [
       "characters/townspeople/female_2/v/spin",
       "banm",
       12676,
-      "da16a0a77d9810eb8aff4592fc84f4d1371a3a887c1aa8544cfdb2e1ccb11969",
+      "1a5a8ab254a735f8210d743e2ecd03af06ff1ec92f9d7239a0c314458f5f12f6",
       []
      ],
      [
       "characters/townspeople/female_2/v/stomp",
       "banm",
       10072,
-      "f80a2689c4167fb6b564bcb219141246383048455d72179a448362ac5575ff7e",
+      "2f6b2b7140e9cb0fb58357ce3926417cfcc44988a7a7d3ab29158905608d66ca",
       []
      ],
      [
       "characters/townspeople/female_2/v/stretch",
       "banm",
-      99492,
-      "7b48cf8efa42a5dcec0a177089a93ef061c6d03e6a1c0b4ed6e2a3adc2eaa8ac",
+      110388,
+      "73d2c9988de0e83be3b891546adad7b938cfbd1970f690a60cf2ee5d05c44fd6",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run",
       "banm",
-      50356,
-      "f5db8b18a8b47647f3c9f0d3ee959a13e94bf1faaa3b53c1fc85a32333cbce74",
+      53188,
+      "393bdca34e08a435e394381f05f470b489bd06e5b9cc229c9975ca8f2fc91349",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run_back",
       "banm",
-      50340,
-      "fb17ea691dd2c006cb33244189610ab1db2ebe456cc35228a7fea4825ba5c09d",
+      53172,
+      "b815b5816fca4dc3f194ab35b0452b010cce810d6dbc9639a102b0d521725abb",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk",
       "banm",
-      47248,
-      "c3bf39a0a4b67954cc454a880f8be00051eb6e311349f59257d7632f9404ed7c",
+      50048,
+      "99f1b99bd694cd253c37ed3da5166cfb50a5fdee257f8c6ba1c39750cb24bb20",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk_back",
       "banm",
-      40004,
-      "6834c4f68759df8da7113f9952091a0094a4c0f5343fd1dd5a5afbaa7d88453d",
+      42980,
+      "860dd11cac36cc9676ff70b284e8c5f266fc66829f8cfa2db6931b2cbbec32d8",
       []
      ],
      [
       "characters/townspeople/female_2/v/touchdown",
       "banm",
-      38828,
-      "6571b298d5a535596e7e3679405be31b7e64aa6a1b4fdd7c069983b29ea4bde3",
+      40380,
+      "32736cd982b70b4e2f2e9f6ce20fee7796a6ddc80dfed12b00db9a8318a89352",
       []
      ],
      [
       "characters/townspeople/female_2/v/twirl",
       "banm",
       23492,
-      "0c214a598daf2ecb4eec1bae2bdc069db65f72bfe02f3496d359aa63036cc52f",
+      "2c3fa8d2e83e2202c7ea41dc2ec52ff329e2a5da299b89ec1174ba220538cad0",
       []
      ],
      [
       "characters/townspeople/female_2/v/victory_vsign",
       "banm",
-      80272,
-      "bf7e3f109948ea9d97e005723f753b6dde62bd1059beb8108b217f3ccaa18790",
+      94352,
+      "bf3e26033b3ea6299aaaf9c1d0c9bb67f53dd5927e5f5ac21f7bb889d93d30c6",
       []
      ],
      [
       null,
       "bmsh",
-      891856,
-      "c502556ab6dfbdfb4ce3b2fbbc95fb54b28999ac5917290445a1e443ef2b3b0d",
+      171396,
+      "8108f7bd74d18a576f2910719c862e053fc652f598e0cda79ca986ad9d567483",
       [
        40,
        80,
        120,
        160,
        200,
-       240,
-       280,
-       320,
-       360,
-       400
+       240
       ]
      ]
     ],
-    "sha256": "47933eb012a23beec3af87cfa2f2c57376e70b900cce4862d526e2df8c6fd825",
-    "size": 76588938,
+    "sha256": "0ff3aafac6e1839f3adc79322a6f9170ead84c871394c81f5ed209241a8c7680",
+    "size": 74725222,
     "vanilla_count": 3394
    },
    "gamedata/config.xbr": {
@@ -8454,12 +8446,12 @@
       7,
       "tabl",
       86176,
-      "b80ffbd3c58d7c70a472be48ec5de5113ae9d4e040ebad3947bd0fb27bc55ae3"
+      "30230f032b5eac42695c86aa221324400d88640559824ec608a7c0f5ec8a875c"
      ]
     ],
     "count": 18,
     "new": [],
-    "sha256": "ff2fca638c35288b0d4de4043a7b6184d0340ba627baa80b6743d4e31a8e9fc6",
+    "sha256": "4174e5de68baa00ff2c90c518769b7fd211e613a38d021ece0b1d17eb6e94b1e",
     "size": 565818,
     "vanilla_count": 18
    },
@@ -9335,44 +9327,44 @@
      [
       2956,
       "bmsh",
-      6811264,
-      "b9c30a0ba47881c34123b94c630dfd0b1052e0ca6f12c7fa47ed27df3d962d4d"
+      1653536,
+      "a8108bd3f23db999c1f2ac0cd438c62edee4f4eb4619011b37d6345c2043eff4"
      ],
      [
       2957,
       "body",
-      930120,
-      "76061a6a4833a67f6e361caf384b4e1508c9916def49005ec2f01fc3e4c6b4fa"
+      209900,
+      "c4b51b5966a622ea8c27c5a1834e6f3fd1650668b6ebdf9268fb326a6bf9535f"
      ],
      [
       2958,
       "banm",
       55564,
-      "c19b544a9a7a001dca142f85b8da37912b0191d048b67de584a0b74fbcbaccae"
+      "d2d2edc989eccf7ce36c6300cea96544b7f7dc1377df5c554b7a7c62383c555a"
      ],
      [
       2959,
       "banm",
       63400,
-      "8087432998d01245a144049178d01a785b4c9a410bde71e01297dbc00bad4dd3"
+      "2cc5f82f1fe2e7eafd1ad466e844bd6a440aee8f07ab65f897f260a84fa5baf8"
      ],
      [
       2960,
       "banm",
-      86928,
-      "20a596ebfd7e51e48424f5b91cdf03830b78459e1132de085abbb4b8ae828121"
+      85692,
+      "94e1549bf941ead6b2390d68590848cb985e5cfa4046d672ee34d7f5ca250fd6"
      ],
      [
       2961,
       "banm",
-      77224,
-      "8f39526389414cd7609ed5183a783a5744d32c77ca51c5c6a111ed1cde4868e2"
+      114152,
+      "0e641f40d0070006270d3f003d9a0f1af9307019fbc0934afa396d406b08fc68"
      ],
      [
       2962,
       "banm",
       36708,
-      "5d5f288edd76cd778ec26f84f8495660c1a77a5214047f382e0078b4a1cd0095"
+      "083fc6cdef26ed42ea16bad8499d0d95b3bf041b711192568d67c4dc414f1cf3"
      ]
     ],
     "count": 3478,
@@ -9381,553 +9373,553 @@
       null,
       "surf",
       699264,
-      "9f112b86d93df66e81149b93f360623ff746cad08c2e0daf4e046f35cc314c65",
+      "d17da346bc1666af85b440e26711cc7799289e20903075cbaa1ef55b1d578034",
       []
      ],
      [
       null,
       "surf",
       174976,
-      "f787ffb5e2429caa0e3c7dd6e1e75b56b627a87e9ddb0255fe6693b6616ce3fc",
+      "8a876a5186b031663100c7ec15cad9c9f2f86bd90522ef9ba8257f0c61bf8680",
       []
      ],
      [
       null,
       "surf",
       43904,
-      "c3d2170c295dff8580661b92aa0b82621ad116b28cb00e71b1c41fe233b29186",
+      "ac5e43f7889b0307211937d76f68bc4794b8017a3262c40cb70783b854d8b5ea",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_basic_attack",
       "banm",
       51412,
-      "22bd6e93516d8cd5bef7f5d71f69b4d3c68c7ddec7a85c0443bf51eb6e760fb1",
+      "b6b52bacec1d78b23d498cc86121bf750734c25c46d9e656418deb8aa9426372",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_ledge",
       "banm",
-      42312,
-      "087404f039e4a7ea7c8f8c134611df7679745d5941c452cbc777ee6b0b699135",
+      42540,
+      "c0fa8a6e9f4170bb4d6b5f7d74c85c16c53543807bbee28fa5375e79ae9d5c29",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_sweep",
       "banm",
       67284,
-      "7ab7dd893a65b25dd38943c4fd2a884498dfe96cc3e539e6ee83a2a93e5a35ef",
+      "17c17a645b5a5dfc34b8f1cea51965acdf749344aa873b0da2a845d3e237a351",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_1",
       "banm",
-      43892,
-      "6f56f0d86d83c879ce5b4e17d8e6fea902acf753e25f539cd98f654ca9bf0413",
+      45292,
+      "5800a422dc7fd342e179a4bbbb34c49b68c9803abe604c557018e0a8b6da968f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_10",
       "banm",
-      50200,
-      "e5040aa15cb7b6688734ad73ab549a4e56d50744304ed0020f034b9ac208fa93",
+      55576,
+      "5d070be8bfc9c581dbe19d998f36a0ff3f41f5ad350e3ef78f33f24b3b307cdf",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_12",
       "banm",
       30220,
-      "cb81af34329abdc9a0c4b3eccb5fcabcb9cfeb8a717c2f9c125b83130e802068",
+      "94b740f22fc294392db08f07d3b0bb22119039af67cf25182742d08c9653b8d0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_13",
       "banm",
-      24524,
-      "102d199226696ab1e45816ad2c0240d0ebeadd14570e863c0d9cbf031bc068a1",
+      24392,
+      "57d5ac2b5d3695a0d440e31003b7c8ff01292dfabd68b61ba83c574e9dedd9e7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_14",
       "banm",
-      38016,
-      "8ff90d9659ac2f270aedfb181d1705a7c9c252506ba10d1dc5bcff6dca63a5ba",
+      38260,
+      "17d9e1434944d7ebb9837dd386c9c6f073fb38e50bc8ed44344a98be65f81923",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_15",
       "banm",
-      38708,
-      "e08dbacb1df8d6516d0673d1d040caeba2fb36bf2501e13cbaa22fc9b67132ce",
+      41204,
+      "8b39f5d1cc3f9f1701d5ed38412663332f8f9d5643f2399684e6a4b84a467bdb",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_16",
       "banm",
       37452,
-      "e805c8edd1f6387d9ebdefa22bb90373d89ff6f5e0212d11d3920218aa189eae",
+      "fa4555516958057f4573917f9401a2b0c2c6f9d546343ea3f1f5a8df9520cd74",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_17",
       "banm",
-      35288,
-      "558c97437d1c6c7c77663e02270a402a6d88dd0fb76c5ba9dc7ec5661f678dc2",
+      34896,
+      "1f48e031e18a2eb59eb386ca5dae56ca9fcddd345da32ed6452611065996fdd7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_2",
       "banm",
-      42588,
-      "7b8e9406e6423a0a7f5e800502cec00dcaf63dc253a80435c88f6649f983370c",
+      44764,
+      "88c88fb1a5d3a62a8cb9adbfdf05df538ee3ce09720d9d7fbfc1e49e3c766a6b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_3",
       "banm",
-      42532,
-      "0e9105506d7711f6b794b4b7551dd12cfb5db706084395887d8ee1150ba0ceb1",
+      44440,
+      "8f67e19ec2651e481ff217a6ead415d0ab71791bec368a8f37d9cccdd095cfb1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_8",
       "banm",
-      38504,
-      "05d07a0107d1321408ae011ebbddf82ed45d763bdc0c4b82e9b3d6ac4407b031",
+      40808,
+      "efd5cadb2777b443c24613981902443be1999eb296717915c1f98b21fb03b9a9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_9",
       "banm",
-      28636,
-      "e50214bc35cfc1c42e30faf33a5ccb4cfb9ebdce1692b8acedf5a1e51d7d6897",
+      28472,
+      "d27ad066763e1de39e5be49ed32a99483dc415d13a40dfa009af66f23d5b7e12",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_back",
       "banm",
-      27908,
-      "bf842b7b84508e8c095ef930fe6b14a69c5d9a33c503536d6adad56cb2dc929d",
+      29336,
+      "6a341491980d5b941136a00131d585404917b754106a2fc53e3f86f8fdf7e7d2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_back_kick",
       "banm",
-      29536,
-      "3418910063e34f1ec0502b9ecbd9b2c98f3300e2ea4998182a19c8ee677762d7",
+      31712,
+      "e8e447173597bd0f955ac83d860c18e6fc47ce05fc7ab5193cfed9dd4a82bbd1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down",
       "banm",
-      87724,
-      "0b9137d66b6282e089efc4a21046eb3a625e1bfd85f77c4d3dbcaf6520735cd2",
+      93804,
+      "8ef37a636e329d0804f367cb3ce87cfd5135031b87087b01196487881fd7a31d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down_edge",
       "banm",
-      115200,
-      "325090aa6cf48cad210f90c839d42c88f8ee35fe114485db90de57b7dfe51287",
+      134656,
+      "1f0d89d98cc211061fcfc855b28a0ff7dc35bcbaffd14afc27324d9e688ef690",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_drop",
       "banm",
       42104,
-      "d38074c7e86b92c557548fbef7abd52f915ff2f135b5b5da562e498667a87699",
+      "0905b91cfbc97cf579cf293aeb17ea03ed9c3a2c6c74208e01c5cc5d38b1ae74",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_from_jump",
       "banm",
       38432,
-      "01285fcbd729ecede4d0b122ff095aae8c13a2ecc5a455f88c5562b9ef2019a2",
+      "6072e53f835984a3b450441a1a89857dd2dc8ab3dcb048c6f0c3fb6b3b6974e9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_idle",
       "banm",
-      84580,
-      "00fd07406dbc4b4a1f351b2eac10fe94465b843c6b022d7f3a1459b737aaa2a5",
+      110448,
+      "cf9c4d4706b57419ee93d1036bbd88f3402e10489807954b1a60fa171abfa919",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_left",
       "banm",
-      88128,
-      "8d8ae88a8f2cf3ed1627bc8f16840834f45d817d428078860ad27a6b1b90452d",
+      94204,
+      "e5754f84381e8d7ae746dca62641f45dd95bfc568497cf775762c9eed794eca1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_right",
       "banm",
-      73216,
-      "c49b0f51250792b361304bd32ae8bd3c13475fcbf8ae335aaf2d0aba2e99e76f",
+      80320,
+      "99de76299a08b591f7119f0e4a6511ecb38a390fbf65152b24aad84bdbe6d32e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_start",
       "banm",
       83372,
-      "dabbaf35082fded6880f59d657b99b5cff0efe12c1fce0bd4047c5ac3762163a",
+      "6ef082cd9ac14904652813e9384a2ade2f01f1e198590d42c78bdd6efe81ddb6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up",
       "banm",
-      86956,
-      "8edbb8ca85eabb5c341a31e4caff3041b2d0f64a1535fb0b24089860081d8b0c",
+      93868,
+      "33c4d0663655cafa5b9050bcbe31f30e4e3a0427de68bc89f12da5d8594cb21b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up_edge",
       "banm",
-      162624,
-      "0e8ad26951616dd4ca4762c8d9ffcddba8946f9fc6b849d438f259bc10f644cd",
+      188928,
+      "7b73469b0dc267236ee526e7cee230ba2ffa51b1fe65a99e22436e881c41b2a4",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die",
       "banm",
       71960,
-      "f1c03b84cbc3459d706c80ccbf03d6fc18304d720fbdda6dbe8fa3c4095b2947",
+      "03c13fb2ad7bb4aec29b55de2a396c23b5dce7ef5c970416bd483c350a5d8ade",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_1",
       "banm",
-      188736,
-      "6a764d492dbee00ef937113a49ea1f948c77061309f86cda6cd7f305074d5baf",
+      189668,
+      "1281c5f4d6349f06d350b3510357e27abb3d7813389fddb5ee88320afe5a957e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_2",
       "banm",
       218612,
-      "c430195b8089806ba243dd9a9d1266eb05807afd3a2315ad55941d16db4dea82",
+      "370a6df37352f6b044ba0cb29257c0de187a3f1233540e7cde30fb904e7316a7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/drowning",
       "banm",
-      155416,
-      "2d03d2a0fb366863d9d7c02228fb78c6b813fcc0fefb1174083c97ec1ca8ad32",
+      181656,
+      "3afb0f7c2761a30e07bd23af3d8913ebaca7110497e93d306ab52515fe3cf47b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack",
       "banm",
       124260,
-      "aab5300daea21f6bd894d7d235275746d39e8bda130c98960be3e0069f63f7b3",
+      "2335636df78690f9b10d17d496b35bd1d2202562eecd004e6c155c86d3ff53d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_2",
       "banm",
       167444,
-      "d37f1b79ccbda0fc40de1b048e3dd1866f29707354de2e3c356db38226c741b4",
+      "465bb2826a57a1a8471a299ad00a3612a77f46f04a8f7eaad195a1a5e49d44a2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_3",
       "banm",
       198996,
-      "3666f5351a724b72b6771057359d66ba59217b7f4260356157c85162fca3358b",
+      "ca18fb4f1ab0138094b849b019a876d0e4664518d5af3e6bf035ec6bf6c5b78d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall",
       "banm",
       155380,
-      "1f410d6b0fcd0c86fe915ea2277519b49f1370adba999f5cd42f6c685fa1199f",
+      "c2d3e7549718ac14b1c56a8450fc893b57af558ce8c6756d1553f5022021d59f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_attack",
       "banm",
       24184,
-      "c739b1b6abb784b2373ab334ed5f9964a68c5259e8c6ad14a257e034ee9e912d",
+      "d4028681bebb7a60e60b74d6b385e10e074082726982bd1c129f02ee5c242297",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_big",
       "banm",
-      98268,
-      "bd5864ccb61559cedebc25230b16773e9fa3e0a8574b3c88437d6180ea00d636",
+      84636,
+      "468406dbe4f9e371d9dff39efc8b823a6a15047307e5af7aa8e1ab18529fecc0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang",
       "banm",
       47804,
-      "c261e9b512f97d045f36ae4dd92a2e34d14c8f8295e0df309fe705cdeeefae0d",
+      "62ba5646e2f8511652f5f2121992ae45878098ec1fa76bb5c83944c003c2e8c5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang_start",
       "banm",
-      49196,
-      "3d866ebb9f6f9c5a203f80ae5d19f8d52bff583d12c277701a0e90388bdaa12b",
+      48968,
+      "11cca3340a3ea2a4b2a09d59bc7fdc7862288bfb1402d491a8fd1d37c62937b6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist",
       "banm",
-      184400,
-      "534383fbef6948c5fc01e45255a7042610426714f83b8249c252ccd65037633c",
+      183292,
+      "e7a9bbba886d275fa165fe66a7731c6abd6ed52da380b965387b35d54e20987e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist_waist",
       "banm",
-      76036,
-      "01b623bfa0346886a33d6e0e11ad834bac5ee6763e07a6972f492ce8c6140252",
+      76504,
+      "830eba13959261a943dc063ed471dc6a015d946b81a5816209ede2d961458a14",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hose_attack_3",
       "banm",
       82380,
-      "258210b61bbeca26e0fae0ee405a7d66c8d1bad8421c3f7f3fccc9c2603f0616",
+      "8c938d402d05eef7f5cce0e97f101811dafc5a803f5db82692ec0cb28fb08ce8",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hover",
       "banm",
-      60312,
-      "05c4fca3f51fa88291de89970727217ad1783d5da65ea9a972c72926cc643ec6",
+      45592,
+      "8d188ed6f155bb18d3beebae2bf92789c8dc31f0349f4d2df003884c2f276fb3",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump",
       "banm",
       114892,
-      "05212201586c85d8ddf34b860587bfab22398ab063c182e32c709c109b1658fe",
+      "cb11d7941071783c1ba7309786ffb7c97848fc2f60abf0f21849ce5f5a0e8c24",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump_standing",
       "banm",
-      164944,
-      "bf94a2302777cb14a2a0f78647f933e9378a06824c2692a5a8f3e76bbb049f10",
+      136700,
+      "14ca5ddeb21c203e3ef39a5712a75d0ca81a9bb05e1de8b48643c7dc724e6fb6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1",
       "banm",
-      34232,
-      "d5c05a35f8ac66c33f721d096579da3f86e46bd95a30033d2a9dc680461773b0",
+      32760,
+      "43135db7a1a0dd3ab421bffa4e263a676c85927b860cacd9d920c501363c9822",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1b",
       "banm",
       33012,
-      "6b924919312ab925de6fd56a19dec98b0452a0fb7803b5313719c7f9b7a81c5e",
+      "6eaaa2e92e28efd3d364bf1f76dd0c157781725e6f20c1f7621dbda5dc8991aa",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1l",
       "banm",
       32984,
-      "7556bbffdfaa2369558460dcc26363734be7a7a8fa043f6c0714a782c9d0a70b",
+      "f2bf9e2b04cf379f5d984eb282c1fcb9058256450c1fee6072df69994df2ee43",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1r",
       "banm",
-      36648,
-      "45271e3dbe97657bd80b58151a1e12a389b56bc166f13a1dff64ea1699d9c9cb",
+      36500,
+      "6d5ef51153fb3185c3373d3a3b6c4d7522624b31c3a310fdfe796e3e81335f4f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/roll_forward",
       "banm",
       73980,
-      "d64aff9684cbf2f35cf299fc435956e5c26244ae99241e223f605661f4228838",
+      "7ae5fc4dc53631364c37820a3bbef77b62e17be0b6665b2566f0d9e1c9df1f53",
       []
      ],
      [
       "characters/townspeople/female_2/g4/slide",
       "banm",
       37736,
-      "1e049a9710f16e6e52cc3ff385975f53ffe294d1624c14e616e8fa06af3a0420",
+      "37786330dcb48943a5f9b36670d09404089c8d6de3585a8a61e0ba0e310a7cfc",
       []
      ],
      [
       "characters/townspeople/female_2/g4/smash_attack_1",
       "banm",
-      43856,
-      "6192a15064501d2ad5ea8e6a1bd6f926d13e382ad98921d07946387d62a80418",
+      48720,
+      "54efa4e508217943e6a254acca13ff24f524878c31d71075a5d5dcc9ddf004c5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/smash_attack_2",
       "banm",
       56212,
-      "1bff8d3612dda1631be172896664f9bc22c9e72cd3d9101944a3b1fece696f7e",
+      "13fec7293f73c984a8343af9ce9050981c999f935edc93f6a8e0982d1cbe39d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/step_up",
       "banm",
       47632,
-      "2db7e5da88a12ff557f9be57e1d6c8890d7ec93bee81dfa36747da6b5c065587",
+      "60985f2f661d244a55d6a4886cffb1bd8609768ab29d3c202779834481316f18",
       []
      ],
      [
       "characters/townspeople/female_2/g4/superjump",
       "banm",
       291340,
-      "4f88ef132348251e3c1a5207dd49b7c924a637637e0728271a7e8f3ea17b334e",
+      "6fd6dc100c0fd0e50c33de8f6c4c40bccf1a51dbfcb6b36bf8f35930ef918e3d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_2",
       "banm",
-      57008,
-      "76223326bff0a30caa12366db0d3ca1d9bb284b54d8ccd289af24a52e80f7449",
+      57412,
+      "d6d3a4a8676fb7635bc843fa320e47813ee3b9063556036dffa357e38e42ab1a",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle",
       "banm",
       127480,
-      "03d8c4016e521c5a976f31c7da2668021c0b850d0007d8950fc47e4a22abf64b",
+      "b451e2ba597c9c1262350ae17f79baeb0e1a14db15d55fd392b4e1e38447475e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_down",
       "banm",
       55032,
-      "e916c6b9babe61abd0b10f2e309455a1a86301a4b6fc2cf466b2438c19ec7a14",
+      "9c6cc71d22651c07ccbc7be410ce1f2610b8a447253e2fd9ac39ba37e82f199c",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_up",
       "banm",
-      49580,
-      "00b6280a0f1f992ece310aeb17a12035e307e844377d5994694d0926f8f559a9",
+      56812,
+      "a5b796f56677cdacc30546bd8d8f520adf216f2deb79b2165d9167aa03006f12",
       []
      ],
      [
       "characters/townspeople/female_2/g4/use",
       "banm",
       58668,
-      "16feb1309483f97c4e140b218156257e55e64790834f583994396879f2d789a5",
+      "e7fd4aa66c10fa8eb04e09ea5085d9a9eba30ae6d1af61e3a788eeae732622cc",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_2",
       "banm",
-      57328,
-      "e2540cf612fa28f64da6e3a9a276a79444e9add132d07b14ca588ca816f14464",
+      57732,
+      "3cdbfeb6bb2b0d8b204167fb3a6fec82038ed3f7dd81a7255a58b53016cf7a31",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle",
       "banm",
       127816,
-      "8d0e8cfc5ee4496c6d142b9276d5812de286f55412c03c4708bbf6905ea0db7f",
+      "3c5f2744308a5829c787a2f9a0e724b04ff5b9270747859c610a0be29695ec65",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_down",
       "banm",
       55240,
-      "dfcc389f29ac128b8a45c9ab85e8262b1873dfd3ecc977547481b4acaad26327",
+      "d20098ba012f0f0bf5d22a42ad831c9acd919add096fb10a2e5a6e89868a6d1d",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_up",
       "banm",
-      49820,
-      "ad81d4cee2c734612a46041641f11d8f61d3c219d7b455ea78f8b28c9515373d",
+      57052,
+      "37a270c4c3ef04a6d4d122feec500c112b9df593b40ab55739527ce298ffa68c",
       []
      ],
      [
       "characters/townspeople/female_2/v/bust_bounce",
       "banm",
-      120468,
-      "040c5265b8028191042443d6827df567e540b47c830577871e0ad87bcaa347bc",
+      128084,
+      "622689ec24ab1a7e1a9e5a5139fb90c05d6c0b0a5f2e83bf25f8b9f0a1b70705",
       []
      ],
      [
       "characters/townspeople/female_2/v/hip_idle",
       "banm",
-      32888,
-      "4203587eb5327ea0ff110587d95e28af654aca4cdcb3aaca05411953c55b115d",
+      48136,
+      "89c9ab8395eeb2abc45a3a33897c3cc869018a14abbc18a005ecaef90d6b4f1a",
       []
      ],
      [
       "characters/townspeople/female_2/v/look_back",
       "banm",
-      174032,
-      "c3bcab2ad8bacb69883b9d22917b1cced871b20c778f27a49d4945d9d623497e",
+      184352,
+      "ae6e4236afc266d26d444cfbd99cb209495be7d39a864393dfdc61cfdffbf6a5",
       []
      ],
      [
       "characters/townspeople/female_2/v/sash_fix",
       "banm",
-      234440,
-      "a54511742919e43ed4ca799362f06fe878b41e8fce13ac1a84a23d1bfae9f3d0",
+      245912,
+      "da4029976fc933d998f8f53809c17bd75fb25475c350c3bee7f0617794b8fe0d",
       []
      ],
      [
       "characters/townspeople/female_2/v/sit_cross",
       "banm",
-      312112,
-      "710fdd818e0bf7399419938f5c21f9621205c43953f422819b1424d928f2b67b",
+      348272,
+      "71082e72cfc3490c2c32695955b4c1508b8d75b6a0abc3a2e404f0bc83e70bf2",
       []
      ],
      [
       "characters/townspeople/female_2/v/stretch",
       "banm",
-      100884,
-      "104498418bfdc217aa13725ed64619bd14960114deeafb2c934bda2f0029e574",
+      111124,
+      "359afcd5d3810bb95a829a072cbbcad0faf22c6e5a65026b5ef9fd8eb3ae1093",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run",
       "banm",
-      42976,
-      "218a7cb84c15d80ebaf4f8ffd48dcf5a1bbb4fd11818b8a3513e70288b36304b",
+      45904,
+      "4644055e406b15b618d2a51f8d27592d58618458012599e990717dd424657fc7",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run_back",
       "banm",
-      42880,
-      "5b6b9fc9d6ba65f10a098af169eb216a8cdb319d070772aea01ed3cad0f085ea",
+      45808,
+      "2fb04c69ecf16f7e215658c589a6a61094957747d0752a95dbfbda1db6a90ed7",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk",
       "banm",
-      47488,
-      "6fb954ef6487bc47c213ba3765ddb06f4e7070dd391602f311e250e8015e3954",
+      50176,
+      "6d954da004f84670ea4fe4ae03fb22f3772decd095686fcfe3aea1f912fabe57",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk_back",
       "banm",
-      47520,
-      "4178ee0a09788860ee37df17f5d4373a10fc72306679ef3d39abb472c2e900e3",
+      50144,
+      "fe13a52f17f0708c83f04751b373dd24d899e6f001327cc3932fbc1b3d2b4322",
       []
      ],
      [
       "characters/townspeople/female_2/v/touchdown",
       "banm",
-      38876,
-      "4d82bc6d389b7b6162e0f949157b6d261a7717cea5d41db0acffd799d30ad87a",
+      40412,
+      "a8c1314aeba97a4d9c5e7bd084a3e4adb3e6a3fb2928f9e914ebe4b0ee8d4972",
       []
      ],
      [
       "characters/townspeople/female_2/v/victory_vsign",
       "banm",
-      80368,
-      "249234369b6cb5391d99a06f8047894bbd61ab65ac3ca0140714d627b0317c6f",
+      94416,
+      "a60a2951ba2302491aef887251258a6d990f379beb237b5fcad1c45ed5a7ef79",
       []
      ],
      [
@@ -9967,8 +9959,8 @@
      [
       null,
       "bmsh",
-      2101304,
-      "f4bc49ac5023e8e9f5d5e6d5b156ddf512495067861abb2dbaecc1d4b82874da",
+      173972,
+      "838eebf7125ad98a6a9ef4878393550712df5aa3cd25779a55a13007465fd1c1",
       [
        40,
        80,
@@ -9977,20 +9969,12 @@
        200,
        240,
        280,
-       320,
-       360,
-       400,
-       440,
-       480,
-       520,
-       560,
-       600,
-       640
+       320
       ]
      ]
     ],
-    "sha256": "b67dc776b9df91a1a8be6e66a1f111b249e9b35327df6fcd462e61e38d201728",
-    "size": 85044216,
+    "sha256": "c2bd34b340e77ea57207ddf15dd07ddecedf838c349a73dd5b5f5240f3fe8551",
+    "size": 77486936,
     "vanilla_count": 3394
    },
    "gamedata/config.xbr": {
@@ -9999,7 +9983,7 @@
       2,
       "tabl",
       7289,
-      "a23f7be81d1377bb2a1bc640d205ef66e5f1a2630deab88edd3cf02babe1d2e6"
+      "ac606a8f078c20ca27e452a7de5fb7e0e179052a29494544247ba84a62ea3bee"
      ],
      [
       4,
@@ -10011,12 +9995,12 @@
       7,
       "tabl",
       86176,
-      "b80ffbd3c58d7c70a472be48ec5de5113ae9d4e040ebad3947bd0fb27bc55ae3"
+      "30230f032b5eac42695c86aa221324400d88640559824ec608a7c0f5ec8a875c"
      ]
     ],
     "count": 18,
     "new": [],
-    "sha256": "8a5fad533712f7aa86bbfdcbcb4fed5df5dece9dd4560e2ce427fe2355ee9afd",
+    "sha256": "1566f731c18e68030cc9373c114894820f33abe8aca92d32f8bb7816a89dd280",
     "size": 565818,
     "vanilla_count": 18
    },
@@ -10086,13 +10070,13 @@
       1684,
       "node",
       30384,
-      "f956acdbd363dbbecc84c3cad03b5f7efaec8db4d51c5fc10c060bc5806a7e3f"
+      "9c3b202cb2d99c6438b4b6273bcc9d9918fd1a0d0e71a2a8b576e7e7d2b40f5c"
      ],
      [
       1710,
       "node",
       32024,
-      "7daade60dd72ab180f2c05fb2b18236777a2bf14357065bf57342a4acc9df423"
+      "8c6895729008f8cd2ce235bb014dee195e9946afa570b3d04bd17fc67f929ab0"
      ],
      [
       1736,
@@ -10134,169 +10118,169 @@
       1880,
       "node",
       12072,
-      "f85ae5f814378ae1893a6dd78ce28c5d207c929183ca528d455cebac55c9871b"
+      "6a4751b94c1124f1486903d42771ac0fabcb76edbfe639fdc0daec27484ebdcb"
      ],
      [
       1894,
       "node",
       15280,
-      "2d8e44774225bea10f80ccb84f864cd56cf18c850d14334429d0b5b4d4d3f139"
+      "7da6ee05d3f2810a1954cbb6f5aca92ef612e8e2b147d86c7b89ba50077223aa"
      ],
      [
       1901,
       "node",
       17016,
-      "da7ca19ec31460a3c36e3e5120ababbae1c3f874e9731e803fb1525c43d5a919"
+      "e0f1e6bea8e437dbeeceb909beb6d53688aa4703fec35c38c579496dc314f79d"
      ],
      [
       1937,
       "node",
       23628,
-      "0f483a61aa2054ece7102dfbf8c530d4887ec64e3683b7ddbc2935e8e3d6941a"
+      "0a0739787f1f297be7937b1aaa4513baf62c150590dcda6a1be06f8336098b02"
      ],
      [
       1958,
       "node",
       25564,
-      "dfa0905eadd4dcb5a81992ba5fd85ac3db834a14cc71fd36672d303877ec4ae8"
+      "8adc8af8e6c7cdc25b308e15ca0575c07f474cfcebceeb503cea54c60e54c4b3"
      ],
      [
       1973,
       "node",
       25580,
-      "92e422e9cb91cf068bf230b2736b23e69e88be6c2e66d2c42c6ed9d363b7143f"
+      "99cc46ec3cfc2c8e8ebb94c0d93ca8effa8552d37baa386ccf66f17fe0dd9250"
      ],
      [
       1988,
       "node",
       15608,
-      "67846f6fc0c554754c8b9d399706aef545183c90679fb69c495c4165136af013"
+      "56aec0544de351a337576e8ca879b34a362e84d2b882702b4c7481cfc2d99e2b"
      ],
      [
       2005,
       "node",
       19152,
-      "c308d633fca9bd30e68b797bd9ed446923e9199d15cae8e70d1b579e69b196b7"
+      "412c6584a3a6052d0b7924c0af30dea287302abba762888803f5e58364005e83"
      ],
      [
       2020,
       "node",
       21584,
-      "034ff24e3ad9f406a32ad44736724c53922047e08bb9790f7cf4cadeafb44b7e"
+      "a2503b9eaec8f73f362cd60d4ad758864fe6f03416f26083657bd263da4c0885"
      ],
      [
       2058,
       "node",
       26116,
-      "fe5547e8af1f3be28e3044c7a625277d5eac9c48a5e3da853234e14fc31aa7bd"
+      "7ac1503d625ca4559f02f5d668721e52c1346b49d889769b747e2a465340fe14"
      ],
      [
       2104,
       "node",
       32052,
-      "699e5cfa12444615adda0935e8737d8ce838aa88aa9141a76ea2f509b534a856"
+      "9b84c891bd65f1edc89f9e8438abb6e5d56cd4a89ff291a14f0ddc34fc624424"
      ],
      [
       2159,
       "node",
       36324,
-      "bdb595508b070d4259baf9391654b56e9b310efd831fed7398eef3f94e4aaff8"
+      "06e52439632b44f1826c5022f94c897e3bc0991dc025e297186e9308a138864f"
      ],
      [
       2223,
       "node",
       26496,
-      "6c9a9786a71c34aebcf004c4a460fd69f830b046be62e8d65ce1bc29691c8d1d"
+      "1ca643aaa92a99d09bfaf418fff1e54a1b17bcc988f90445a64c1e25b9fa824e"
      ],
      [
       2282,
       "node",
       31412,
-      "fedbb6c6f06892d2db1b4117598241a9c499fc3650f15bf81ea8c17f1c5762e8"
+      "a04fc3f530e759b09419794329299f3c00452fed7003019ec69b38e201aac868"
      ],
      [
       2325,
       "node",
       35284,
-      "7589248e6397df91b7077ebca7a79b2f73b8099dd89080552ba501fc5304ab99"
+      "84486661d5f434b1654b431959e7f6914eeec60694da50cb4bd91f3823ec9b61"
      ],
      [
       2363,
       "node",
       16512,
-      "45884f45dfc2a6df6dbb33480b3c35dfbebaf0c0ca94bf7ebee479fead623894"
+      "5a5a3b38792ab1e3b0dfa33c5f7ac94b3b23cd38ab5bd7b7e48716eab157c3e8"
      ],
      [
       2402,
       "node",
       19344,
-      "bca292641790fdc230052f262bb7be1753b332dfd3a64bc0f6ea8e1912a7c8ab"
+      "86af609f8f15181c215de88a9adcb94ed4185a46371912d462eecdc945ec720a"
      ],
      [
       2429,
       "node",
       19392,
-      "2c4145437dde4b894e456d8886c537f487b69ee6748330d6c02e1d90d4c0cf4f"
+      "ad7062bc0b1a5fedba2dcb8481a5b7f484b967eeb922473ef58d01f01096f876"
      ],
      [
       2460,
       "node",
       24596,
-      "4cd993901f07a352eb42c73a6c67bd25de5bdf7d1bfe2e084442b15ed441d5dd"
+      "e59c72cf3944682e6a5e10ad7751dd4cfc4af5c5e6f33fb71959b4f583bdc95f"
      ],
      [
       2472,
       "node",
       14920,
-      "9ce14fb06f4c31316c07776def500763deada14eaa969806f8c156746863c6d6"
+      "b51574b6627d84698898e279302c8f6acd3df0c871acec164416f69a9d82f2d6"
      ],
      [
       2481,
       "node",
       14920,
-      "ed4ca66d6d17a6f77a2f1e0a9817e61d2db7b862464a8b8ae8b5ebf4615e1fca"
+      "b8125ee0043a8d6c01785801daf3578d64a1192bfa3a3556e13543d0aa74a2de"
      ],
      [
       2490,
       "node",
       14920,
-      "e7861adb1b242c31895f3aae97b331c6ccc4899237652ae27cf3a55199345979"
+      "df1685e67f27bc2a69c6a9a8323b3502269a3bdd73b48c8dc691fdb1c65b31cc"
      ],
      [
       2598,
       "node",
       34860,
-      "cca9e6a26ddf7b8d674344418c9172cd04a3b485c31f1c8ec0c155c3ab6e9384"
+      "44ff5c176f5ac57f09c048cf694d02a876faa68cc7be6d73cf8db89c7727eff8"
      ],
      [
       2690,
       "node",
       36392,
-      "97f66da8a5e61a72b5ea53653793ad7bdf2e508eb54f630eaf147e80239282be"
+      "70e9e1506c463c3f3470741076f8cd650679d43f1b717b0de09d6f99bc1820c3"
      ],
      [
       2790,
       "node",
       40988,
-      "a91b1dd8bb59a76776f0d8b9e6f3982b3cf23c330d7a60ad19df72abe58b5c70"
+      "26327f71e26a5134097d376e1988cb6c1d8fd7c764cc287fc4ace3c23e2b267a"
      ],
      [
       2799,
       "node",
       13684,
-      "d3c450146100b9a1cfaa5051327f2712228df52bb9cf146d74e3c56eac3cfd72"
+      "e846c3999204475774b0c99d364e6b0cb6e1ab1298dcecf74045c03bd97baf39"
      ],
      [
       2810,
       "node",
       18216,
-      "8c33f0344dd13fe677d09e696dca655b2e1557a1593dedc4a7838dbaeb349020"
+      "a267b4a4b08928eee759e379270dcbcf71cdd8d21a5a62502414f7f78cd2358b"
      ],
      [
       2817,
       "node",
       23280,
-      "1511cc3b74e05e5be9843178fa98d3c65c8c0ee7900e1ec699070c5501ee350e"
+      "02100a3fec3fac3abf7a67a8e408d7f2b6fde8d0e56fbae2a0cd1c96f5875ceb"
      ]
     ],
     "count": 3581,
@@ -10365,7 +10349,7 @@
       []
      ]
     ],
-    "sha256": "488abd64f3a8f0ff9d16a01563268e799150f828b8daa103b3751419f2fe510b",
+    "sha256": "8b817685515116c7e4cf774abe0fcba54bf729887b9ad3b8ccf139132270c609",
     "size": 38295846,
     "vanilla_count": 3572
    },
@@ -10824,599 +10808,599 @@
      [
       2956,
       "bmsh",
-      6811264,
-      "b9c30a0ba47881c34123b94c630dfd0b1052e0ca6f12c7fa47ed27df3d962d4d"
+      1653536,
+      "a8108bd3f23db999c1f2ac0cd438c62edee4f4eb4619011b37d6345c2043eff4"
      ],
      [
       2957,
       "body",
-      930120,
-      "76061a6a4833a67f6e361caf384b4e1508c9916def49005ec2f01fc3e4c6b4fa"
+      209900,
+      "c4b51b5966a622ea8c27c5a1834e6f3fd1650668b6ebdf9268fb326a6bf9535f"
      ],
      [
       2958,
       "banm",
       55564,
-      "c19b544a9a7a001dca142f85b8da37912b0191d048b67de584a0b74fbcbaccae"
+      "d2d2edc989eccf7ce36c6300cea96544b7f7dc1377df5c554b7a7c62383c555a"
      ],
      [
       2959,
       "banm",
       63400,
-      "8087432998d01245a144049178d01a785b4c9a410bde71e01297dbc00bad4dd3"
+      "2cc5f82f1fe2e7eafd1ad466e844bd6a440aee8f07ab65f897f260a84fa5baf8"
      ],
      [
       2960,
       "banm",
-      86928,
-      "20a596ebfd7e51e48424f5b91cdf03830b78459e1132de085abbb4b8ae828121"
+      85692,
+      "94e1549bf941ead6b2390d68590848cb985e5cfa4046d672ee34d7f5ca250fd6"
      ],
      [
       2961,
       "banm",
-      77224,
-      "8f39526389414cd7609ed5183a783a5744d32c77ca51c5c6a111ed1cde4868e2"
+      114152,
+      "0e641f40d0070006270d3f003d9a0f1af9307019fbc0934afa396d406b08fc68"
      ],
      [
       2962,
       "banm",
       36708,
-      "5d5f288edd76cd778ec26f84f8495660c1a77a5214047f382e0078b4a1cd0095"
+      "083fc6cdef26ed42ea16bad8499d0d95b3bf041b711192568d67c4dc414f1cf3"
      ]
     ],
-    "count": 3486,
+    "count": 3487,
     "new": [
      [
       null,
       "surf",
       699264,
-      "9f112b86d93df66e81149b93f360623ff746cad08c2e0daf4e046f35cc314c65",
+      "d17da346bc1666af85b440e26711cc7799289e20903075cbaa1ef55b1d578034",
       []
      ],
      [
       null,
       "surf",
       174976,
-      "f787ffb5e2429caa0e3c7dd6e1e75b56b627a87e9ddb0255fe6693b6616ce3fc",
+      "8a876a5186b031663100c7ec15cad9c9f2f86bd90522ef9ba8257f0c61bf8680",
       []
      ],
      [
       null,
       "surf",
       43904,
-      "c3d2170c295dff8580661b92aa0b82621ad116b28cb00e71b1c41fe233b29186",
+      "ac5e43f7889b0307211937d76f68bc4794b8017a3262c40cb70783b854d8b5ea",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_basic_attack",
       "banm",
       51412,
-      "22bd6e93516d8cd5bef7f5d71f69b4d3c68c7ddec7a85c0443bf51eb6e760fb1",
+      "b6b52bacec1d78b23d498cc86121bf750734c25c46d9e656418deb8aa9426372",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_ledge",
       "banm",
-      42312,
-      "087404f039e4a7ea7c8f8c134611df7679745d5941c452cbc777ee6b0b699135",
+      42540,
+      "c0fa8a6e9f4170bb4d6b5f7d74c85c16c53543807bbee28fa5375e79ae9d5c29",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_sweep",
       "banm",
       67284,
-      "7ab7dd893a65b25dd38943c4fd2a884498dfe96cc3e539e6ee83a2a93e5a35ef",
+      "17c17a645b5a5dfc34b8f1cea51965acdf749344aa873b0da2a845d3e237a351",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_1",
       "banm",
-      43892,
-      "6f56f0d86d83c879ce5b4e17d8e6fea902acf753e25f539cd98f654ca9bf0413",
+      45292,
+      "5800a422dc7fd342e179a4bbbb34c49b68c9803abe604c557018e0a8b6da968f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_10",
       "banm",
-      50200,
-      "e5040aa15cb7b6688734ad73ab549a4e56d50744304ed0020f034b9ac208fa93",
+      55576,
+      "5d070be8bfc9c581dbe19d998f36a0ff3f41f5ad350e3ef78f33f24b3b307cdf",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_12",
       "banm",
       30220,
-      "cb81af34329abdc9a0c4b3eccb5fcabcb9cfeb8a717c2f9c125b83130e802068",
+      "94b740f22fc294392db08f07d3b0bb22119039af67cf25182742d08c9653b8d0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_13",
       "banm",
-      24524,
-      "102d199226696ab1e45816ad2c0240d0ebeadd14570e863c0d9cbf031bc068a1",
+      24392,
+      "57d5ac2b5d3695a0d440e31003b7c8ff01292dfabd68b61ba83c574e9dedd9e7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_14",
       "banm",
-      38016,
-      "8ff90d9659ac2f270aedfb181d1705a7c9c252506ba10d1dc5bcff6dca63a5ba",
+      38260,
+      "17d9e1434944d7ebb9837dd386c9c6f073fb38e50bc8ed44344a98be65f81923",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_15",
       "banm",
-      38708,
-      "e08dbacb1df8d6516d0673d1d040caeba2fb36bf2501e13cbaa22fc9b67132ce",
+      41204,
+      "8b39f5d1cc3f9f1701d5ed38412663332f8f9d5643f2399684e6a4b84a467bdb",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_16",
       "banm",
       37452,
-      "e805c8edd1f6387d9ebdefa22bb90373d89ff6f5e0212d11d3920218aa189eae",
+      "fa4555516958057f4573917f9401a2b0c2c6f9d546343ea3f1f5a8df9520cd74",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_17",
       "banm",
-      35288,
-      "558c97437d1c6c7c77663e02270a402a6d88dd0fb76c5ba9dc7ec5661f678dc2",
+      34896,
+      "1f48e031e18a2eb59eb386ca5dae56ca9fcddd345da32ed6452611065996fdd7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_2",
       "banm",
-      42588,
-      "7b8e9406e6423a0a7f5e800502cec00dcaf63dc253a80435c88f6649f983370c",
+      44764,
+      "88c88fb1a5d3a62a8cb9adbfdf05df538ee3ce09720d9d7fbfc1e49e3c766a6b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_3",
       "banm",
-      42532,
-      "0e9105506d7711f6b794b4b7551dd12cfb5db706084395887d8ee1150ba0ceb1",
+      44440,
+      "8f67e19ec2651e481ff217a6ead415d0ab71791bec368a8f37d9cccdd095cfb1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_8",
       "banm",
-      38504,
-      "05d07a0107d1321408ae011ebbddf82ed45d763bdc0c4b82e9b3d6ac4407b031",
+      40808,
+      "efd5cadb2777b443c24613981902443be1999eb296717915c1f98b21fb03b9a9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_9",
       "banm",
-      28636,
-      "e50214bc35cfc1c42e30faf33a5ccb4cfb9ebdce1692b8acedf5a1e51d7d6897",
+      28472,
+      "d27ad066763e1de39e5be49ed32a99483dc415d13a40dfa009af66f23d5b7e12",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_back",
       "banm",
-      27908,
-      "bf842b7b84508e8c095ef930fe6b14a69c5d9a33c503536d6adad56cb2dc929d",
+      29336,
+      "6a341491980d5b941136a00131d585404917b754106a2fc53e3f86f8fdf7e7d2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_back_kick",
       "banm",
-      29536,
-      "3418910063e34f1ec0502b9ecbd9b2c98f3300e2ea4998182a19c8ee677762d7",
+      31712,
+      "e8e447173597bd0f955ac83d860c18e6fc47ce05fc7ab5193cfed9dd4a82bbd1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down",
       "banm",
-      87724,
-      "0b9137d66b6282e089efc4a21046eb3a625e1bfd85f77c4d3dbcaf6520735cd2",
+      93804,
+      "8ef37a636e329d0804f367cb3ce87cfd5135031b87087b01196487881fd7a31d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down_edge",
       "banm",
-      115200,
-      "325090aa6cf48cad210f90c839d42c88f8ee35fe114485db90de57b7dfe51287",
+      134656,
+      "1f0d89d98cc211061fcfc855b28a0ff7dc35bcbaffd14afc27324d9e688ef690",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_drop",
       "banm",
       42104,
-      "d38074c7e86b92c557548fbef7abd52f915ff2f135b5b5da562e498667a87699",
+      "0905b91cfbc97cf579cf293aeb17ea03ed9c3a2c6c74208e01c5cc5d38b1ae74",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_from_jump",
       "banm",
       38432,
-      "01285fcbd729ecede4d0b122ff095aae8c13a2ecc5a455f88c5562b9ef2019a2",
+      "6072e53f835984a3b450441a1a89857dd2dc8ab3dcb048c6f0c3fb6b3b6974e9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_idle",
       "banm",
-      84580,
-      "00fd07406dbc4b4a1f351b2eac10fe94465b843c6b022d7f3a1459b737aaa2a5",
+      110448,
+      "cf9c4d4706b57419ee93d1036bbd88f3402e10489807954b1a60fa171abfa919",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_left",
       "banm",
-      88128,
-      "8d8ae88a8f2cf3ed1627bc8f16840834f45d817d428078860ad27a6b1b90452d",
+      94204,
+      "e5754f84381e8d7ae746dca62641f45dd95bfc568497cf775762c9eed794eca1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_right",
       "banm",
-      73216,
-      "c49b0f51250792b361304bd32ae8bd3c13475fcbf8ae335aaf2d0aba2e99e76f",
+      80320,
+      "99de76299a08b591f7119f0e4a6511ecb38a390fbf65152b24aad84bdbe6d32e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_start",
       "banm",
       83372,
-      "dabbaf35082fded6880f59d657b99b5cff0efe12c1fce0bd4047c5ac3762163a",
+      "6ef082cd9ac14904652813e9384a2ade2f01f1e198590d42c78bdd6efe81ddb6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up",
       "banm",
-      86956,
-      "8edbb8ca85eabb5c341a31e4caff3041b2d0f64a1535fb0b24089860081d8b0c",
+      93868,
+      "33c4d0663655cafa5b9050bcbe31f30e4e3a0427de68bc89f12da5d8594cb21b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up_edge",
       "banm",
-      162624,
-      "0e8ad26951616dd4ca4762c8d9ffcddba8946f9fc6b849d438f259bc10f644cd",
+      188928,
+      "7b73469b0dc267236ee526e7cee230ba2ffa51b1fe65a99e22436e881c41b2a4",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die",
       "banm",
       71960,
-      "f1c03b84cbc3459d706c80ccbf03d6fc18304d720fbdda6dbe8fa3c4095b2947",
+      "03c13fb2ad7bb4aec29b55de2a396c23b5dce7ef5c970416bd483c350a5d8ade",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_1",
       "banm",
-      188736,
-      "6a764d492dbee00ef937113a49ea1f948c77061309f86cda6cd7f305074d5baf",
+      189668,
+      "1281c5f4d6349f06d350b3510357e27abb3d7813389fddb5ee88320afe5a957e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_2",
       "banm",
       218612,
-      "c430195b8089806ba243dd9a9d1266eb05807afd3a2315ad55941d16db4dea82",
+      "370a6df37352f6b044ba0cb29257c0de187a3f1233540e7cde30fb904e7316a7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/drowning",
       "banm",
-      155416,
-      "2d03d2a0fb366863d9d7c02228fb78c6b813fcc0fefb1174083c97ec1ca8ad32",
+      181656,
+      "3afb0f7c2761a30e07bd23af3d8913ebaca7110497e93d306ab52515fe3cf47b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack",
       "banm",
       124260,
-      "aab5300daea21f6bd894d7d235275746d39e8bda130c98960be3e0069f63f7b3",
+      "2335636df78690f9b10d17d496b35bd1d2202562eecd004e6c155c86d3ff53d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_2",
       "banm",
       167444,
-      "d37f1b79ccbda0fc40de1b048e3dd1866f29707354de2e3c356db38226c741b4",
+      "465bb2826a57a1a8471a299ad00a3612a77f46f04a8f7eaad195a1a5e49d44a2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_3",
       "banm",
       198996,
-      "3666f5351a724b72b6771057359d66ba59217b7f4260356157c85162fca3358b",
+      "ca18fb4f1ab0138094b849b019a876d0e4664518d5af3e6bf035ec6bf6c5b78d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall",
       "banm",
       155380,
-      "1f410d6b0fcd0c86fe915ea2277519b49f1370adba999f5cd42f6c685fa1199f",
+      "c2d3e7549718ac14b1c56a8450fc893b57af558ce8c6756d1553f5022021d59f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_attack",
       "banm",
       24184,
-      "c739b1b6abb784b2373ab334ed5f9964a68c5259e8c6ad14a257e034ee9e912d",
+      "d4028681bebb7a60e60b74d6b385e10e074082726982bd1c129f02ee5c242297",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_big",
       "banm",
-      98268,
-      "bd5864ccb61559cedebc25230b16773e9fa3e0a8574b3c88437d6180ea00d636",
+      84636,
+      "468406dbe4f9e371d9dff39efc8b823a6a15047307e5af7aa8e1ab18529fecc0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang",
       "banm",
       47804,
-      "c261e9b512f97d045f36ae4dd92a2e34d14c8f8295e0df309fe705cdeeefae0d",
+      "62ba5646e2f8511652f5f2121992ae45878098ec1fa76bb5c83944c003c2e8c5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang_start",
       "banm",
-      49196,
-      "3d866ebb9f6f9c5a203f80ae5d19f8d52bff583d12c277701a0e90388bdaa12b",
+      48968,
+      "11cca3340a3ea2a4b2a09d59bc7fdc7862288bfb1402d491a8fd1d37c62937b6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist",
       "banm",
-      184400,
-      "534383fbef6948c5fc01e45255a7042610426714f83b8249c252ccd65037633c",
+      183292,
+      "e7a9bbba886d275fa165fe66a7731c6abd6ed52da380b965387b35d54e20987e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist_waist",
       "banm",
-      76036,
-      "01b623bfa0346886a33d6e0e11ad834bac5ee6763e07a6972f492ce8c6140252",
+      76504,
+      "830eba13959261a943dc063ed471dc6a015d946b81a5816209ede2d961458a14",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hose_attack_3",
       "banm",
       82380,
-      "258210b61bbeca26e0fae0ee405a7d66c8d1bad8421c3f7f3fccc9c2603f0616",
+      "8c938d402d05eef7f5cce0e97f101811dafc5a803f5db82692ec0cb28fb08ce8",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hover",
       "banm",
-      60312,
-      "05c4fca3f51fa88291de89970727217ad1783d5da65ea9a972c72926cc643ec6",
+      45592,
+      "8d188ed6f155bb18d3beebae2bf92789c8dc31f0349f4d2df003884c2f276fb3",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump",
       "banm",
       114892,
-      "05212201586c85d8ddf34b860587bfab22398ab063c182e32c709c109b1658fe",
+      "cb11d7941071783c1ba7309786ffb7c97848fc2f60abf0f21849ce5f5a0e8c24",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump_standing",
       "banm",
-      164944,
-      "bf94a2302777cb14a2a0f78647f933e9378a06824c2692a5a8f3e76bbb049f10",
+      136700,
+      "14ca5ddeb21c203e3ef39a5712a75d0ca81a9bb05e1de8b48643c7dc724e6fb6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1",
       "banm",
-      34232,
-      "d5c05a35f8ac66c33f721d096579da3f86e46bd95a30033d2a9dc680461773b0",
+      32760,
+      "43135db7a1a0dd3ab421bffa4e263a676c85927b860cacd9d920c501363c9822",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1b",
       "banm",
       33012,
-      "6b924919312ab925de6fd56a19dec98b0452a0fb7803b5313719c7f9b7a81c5e",
+      "6eaaa2e92e28efd3d364bf1f76dd0c157781725e6f20c1f7621dbda5dc8991aa",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1l",
       "banm",
       32984,
-      "7556bbffdfaa2369558460dcc26363734be7a7a8fa043f6c0714a782c9d0a70b",
+      "f2bf9e2b04cf379f5d984eb282c1fcb9058256450c1fee6072df69994df2ee43",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1r",
       "banm",
-      36648,
-      "45271e3dbe97657bd80b58151a1e12a389b56bc166f13a1dff64ea1699d9c9cb",
+      36500,
+      "6d5ef51153fb3185c3373d3a3b6c4d7522624b31c3a310fdfe796e3e81335f4f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/roll_forward",
       "banm",
       73980,
-      "d64aff9684cbf2f35cf299fc435956e5c26244ae99241e223f605661f4228838",
+      "7ae5fc4dc53631364c37820a3bbef77b62e17be0b6665b2566f0d9e1c9df1f53",
       []
      ],
      [
       "characters/townspeople/female_2/g4/slide",
       "banm",
       37736,
-      "1e049a9710f16e6e52cc3ff385975f53ffe294d1624c14e616e8fa06af3a0420",
+      "37786330dcb48943a5f9b36670d09404089c8d6de3585a8a61e0ba0e310a7cfc",
       []
      ],
      [
       "characters/townspeople/female_2/g4/smash_attack_1",
       "banm",
-      43856,
-      "6192a15064501d2ad5ea8e6a1bd6f926d13e382ad98921d07946387d62a80418",
+      48720,
+      "54efa4e508217943e6a254acca13ff24f524878c31d71075a5d5dcc9ddf004c5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/smash_attack_2",
       "banm",
       56212,
-      "1bff8d3612dda1631be172896664f9bc22c9e72cd3d9101944a3b1fece696f7e",
+      "13fec7293f73c984a8343af9ce9050981c999f935edc93f6a8e0982d1cbe39d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/step_up",
       "banm",
       47632,
-      "2db7e5da88a12ff557f9be57e1d6c8890d7ec93bee81dfa36747da6b5c065587",
+      "60985f2f661d244a55d6a4886cffb1bd8609768ab29d3c202779834481316f18",
       []
      ],
      [
       "characters/townspeople/female_2/g4/superjump",
       "banm",
       291340,
-      "4f88ef132348251e3c1a5207dd49b7c924a637637e0728271a7e8f3ea17b334e",
+      "6fd6dc100c0fd0e50c33de8f6c4c40bccf1a51dbfcb6b36bf8f35930ef918e3d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_2",
       "banm",
-      57008,
-      "76223326bff0a30caa12366db0d3ca1d9bb284b54d8ccd289af24a52e80f7449",
+      57412,
+      "d6d3a4a8676fb7635bc843fa320e47813ee3b9063556036dffa357e38e42ab1a",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle",
       "banm",
       127480,
-      "03d8c4016e521c5a976f31c7da2668021c0b850d0007d8950fc47e4a22abf64b",
+      "b451e2ba597c9c1262350ae17f79baeb0e1a14db15d55fd392b4e1e38447475e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_down",
       "banm",
       55032,
-      "e916c6b9babe61abd0b10f2e309455a1a86301a4b6fc2cf466b2438c19ec7a14",
+      "9c6cc71d22651c07ccbc7be410ce1f2610b8a447253e2fd9ac39ba37e82f199c",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_up",
       "banm",
-      49580,
-      "00b6280a0f1f992ece310aeb17a12035e307e844377d5994694d0926f8f559a9",
+      56812,
+      "a5b796f56677cdacc30546bd8d8f520adf216f2deb79b2165d9167aa03006f12",
       []
      ],
      [
       "characters/townspeople/female_2/g4/use",
       "banm",
       58668,
-      "16feb1309483f97c4e140b218156257e55e64790834f583994396879f2d789a5",
+      "e7fd4aa66c10fa8eb04e09ea5085d9a9eba30ae6d1af61e3a788eeae732622cc",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_2",
       "banm",
-      57328,
-      "e2540cf612fa28f64da6e3a9a276a79444e9add132d07b14ca588ca816f14464",
+      57732,
+      "3cdbfeb6bb2b0d8b204167fb3a6fec82038ed3f7dd81a7255a58b53016cf7a31",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle",
       "banm",
       127816,
-      "8d0e8cfc5ee4496c6d142b9276d5812de286f55412c03c4708bbf6905ea0db7f",
+      "3c5f2744308a5829c787a2f9a0e724b04ff5b9270747859c610a0be29695ec65",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_down",
       "banm",
       55240,
-      "dfcc389f29ac128b8a45c9ab85e8262b1873dfd3ecc977547481b4acaad26327",
+      "d20098ba012f0f0bf5d22a42ad831c9acd919add096fb10a2e5a6e89868a6d1d",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_up",
       "banm",
-      49820,
-      "ad81d4cee2c734612a46041641f11d8f61d3c219d7b455ea78f8b28c9515373d",
+      57052,
+      "37a270c4c3ef04a6d4d122feec500c112b9df593b40ab55739527ce298ffa68c",
       []
      ],
      [
       "characters/townspeople/female_2/v/bust_bounce",
       "banm",
-      120468,
-      "040c5265b8028191042443d6827df567e540b47c830577871e0ad87bcaa347bc",
+      128084,
+      "622689ec24ab1a7e1a9e5a5139fb90c05d6c0b0a5f2e83bf25f8b9f0a1b70705",
       []
      ],
      [
       "characters/townspeople/female_2/v/hip_idle",
       "banm",
-      32888,
-      "4203587eb5327ea0ff110587d95e28af654aca4cdcb3aaca05411953c55b115d",
+      48136,
+      "89c9ab8395eeb2abc45a3a33897c3cc869018a14abbc18a005ecaef90d6b4f1a",
       []
      ],
      [
       "characters/townspeople/female_2/v/look_back",
       "banm",
-      174032,
-      "c3bcab2ad8bacb69883b9d22917b1cced871b20c778f27a49d4945d9d623497e",
+      184352,
+      "ae6e4236afc266d26d444cfbd99cb209495be7d39a864393dfdc61cfdffbf6a5",
       []
      ],
      [
       "characters/townspeople/female_2/v/sash_fix",
       "banm",
-      234440,
-      "a54511742919e43ed4ca799362f06fe878b41e8fce13ac1a84a23d1bfae9f3d0",
+      245912,
+      "da4029976fc933d998f8f53809c17bd75fb25475c350c3bee7f0617794b8fe0d",
       []
      ],
      [
       "characters/townspeople/female_2/v/sit_cross",
       "banm",
-      312112,
-      "710fdd818e0bf7399419938f5c21f9621205c43953f422819b1424d928f2b67b",
+      348272,
+      "71082e72cfc3490c2c32695955b4c1508b8d75b6a0abc3a2e404f0bc83e70bf2",
       []
      ],
      [
       "characters/townspeople/female_2/v/stretch",
       "banm",
-      100884,
-      "104498418bfdc217aa13725ed64619bd14960114deeafb2c934bda2f0029e574",
+      111124,
+      "359afcd5d3810bb95a829a072cbbcad0faf22c6e5a65026b5ef9fd8eb3ae1093",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run",
       "banm",
-      42976,
-      "218a7cb84c15d80ebaf4f8ffd48dcf5a1bbb4fd11818b8a3513e70288b36304b",
+      45904,
+      "4644055e406b15b618d2a51f8d27592d58618458012599e990717dd424657fc7",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run_back",
       "banm",
-      42880,
-      "5b6b9fc9d6ba65f10a098af169eb216a8cdb319d070772aea01ed3cad0f085ea",
+      45808,
+      "2fb04c69ecf16f7e215658c589a6a61094957747d0752a95dbfbda1db6a90ed7",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk",
       "banm",
-      47488,
-      "6fb954ef6487bc47c213ba3765ddb06f4e7070dd391602f311e250e8015e3954",
+      50176,
+      "6d954da004f84670ea4fe4ae03fb22f3772decd095686fcfe3aea1f912fabe57",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk_back",
       "banm",
-      47520,
-      "4178ee0a09788860ee37df17f5d4373a10fc72306679ef3d39abb472c2e900e3",
+      50144,
+      "fe13a52f17f0708c83f04751b373dd24d899e6f001327cc3932fbc1b3d2b4322",
       []
      ],
      [
       "characters/townspeople/female_2/v/touchdown",
       "banm",
-      38876,
-      "4d82bc6d389b7b6162e0f949157b6d261a7717cea5d41db0acffd799d30ad87a",
+      40412,
+      "a8c1314aeba97a4d9c5e7bd084a3e4adb3e6a3fb2928f9e914ebe4b0ee8d4972",
       []
      ],
      [
       "characters/townspeople/female_2/v/victory_vsign",
       "banm",
-      80368,
-      "249234369b6cb5391d99a06f8047894bbd61ab65ac3ca0140714d627b0317c6f",
+      94416,
+      "a60a2951ba2302491aef887251258a6d990f379beb237b5fcad1c45ed5a7ef79",
       []
      ],
      [
@@ -11456,8 +11440,8 @@
      [
       null,
       "bmsh",
-      2101304,
-      "f4bc49ac5023e8e9f5d5e6d5b156ddf512495067861abb2dbaecc1d4b82874da",
+      173972,
+      "838eebf7125ad98a6a9ef4878393550712df5aa3cd25779a55a13007465fd1c1",
       [
        40,
        80,
@@ -11466,22 +11450,14 @@
        200,
        240,
        280,
-       320,
-       360,
-       400,
-       440,
-       480,
-       520,
-       560,
-       600,
-       640
+       320
       ]
      ],
      [
       "characters/townspeople/female_2/v/skin",
       "body",
-      930120,
-      "de5834ccd741cbcc6e7c1cf672621a1f57f7b777ff54b21f201a3c4b11266f16",
+      209900,
+      "40f67b1c804fb1f55a5326f63a505b5654eb820b79805367633306c68e3f9f87",
       [
        19900,
        19904
@@ -11490,8 +11466,8 @@
      [
       null,
       "bmsh",
-      6811264,
-      "3f95e2af54c3a61bbb6c54b59f98ed5a9d8793237fe4aed7b561ab44173e3cdb",
+      1653536,
+      "6fab4df88ee68e02a199d845669e2c8ef097884f7955df2a0f8f12b2aae5ffe8",
       [
        40,
        80,
@@ -11506,46 +11482,14 @@
        440,
        480,
        520,
-       560,
-       600,
-       640,
-       680,
-       720,
-       760,
-       800,
-       840,
-       880,
-       920,
-       960,
-       1000,
-       1040,
-       1080,
-       1120,
-       1160,
-       1200,
-       1240,
-       1280,
-       1320,
-       1360,
-       1400,
-       1440,
-       1480,
-       1520,
-       1560,
-       1600,
-       1640,
-       1680,
-       1720,
-       1760,
-       1800,
-       1840
+       560
       ]
      ],
      [
       null,
       "gshd",
       924,
-      "52f1b2265781cc488474e86d3c048e06d264760288f50f3e2a69c3dab0f3f3b9",
+      "f5a9191b11faf6e09159c54f87c3961894fa77abc5858534cbd9e14f13de6a2d",
       [
        8,
        112,
@@ -11588,8 +11532,8 @@
      [
       null,
       "bmsh",
-      2101304,
-      "0ee867844bfbe26238f7f957b5a76f884d69f215d7902f9bc7326e1b2a12d553",
+      173972,
+      "b9d73090a48955467040c4b2fcabef197d095def02c9de4f0ef4a1bfea618288",
       [
        40,
        80,
@@ -11598,27 +11542,26 @@
        200,
        240,
        280,
-       320,
-       360,
-       400,
-       440,
-       480,
-       520,
-       560,
-       600,
-       640
+       320
       ]
      ],
      [
       null,
       "surf",
       699264,
-      "ee27b4698ff8d275fb81927fb8e7a00c2704086a21c4e8e3abd326af1e719002",
+      "c8f4356d846faa9bade559852e4fb4f176595a6ae02867bd62891e8089b02423",
+      []
+     ],
+     [
+      null,
+      "surf",
+      43904,
+      "0b282b61c1fd85a77d8cd28a66239f02e1ded1081a86e6ccada792c372c82037",
       []
      ]
     ],
-    "sha256": "9a87ccba3ebfdf6b21fb1dfdc158192a0b66e9e86f62278409d6df4216f5ddf1",
-    "size": 95616351,
+    "sha256": "c9e8de2040a7cac49be32f2743f981e1154385137c782b8e217ef6c7b7b4978f",
+    "size": 80296991,
     "vanilla_count": 3394
    },
    "gamedata/config.xbr": {
@@ -11627,7 +11570,7 @@
       2,
       "tabl",
       7289,
-      "a23f7be81d1377bb2a1bc640d205ef66e5f1a2630deab88edd3cf02babe1d2e6"
+      "ac606a8f078c20ca27e452a7de5fb7e0e179052a29494544247ba84a62ea3bee"
      ],
      [
       4,
@@ -11639,12 +11582,12 @@
       7,
       "tabl",
       86176,
-      "b80ffbd3c58d7c70a472be48ec5de5113ae9d4e040ebad3947bd0fb27bc55ae3"
+      "30230f032b5eac42695c86aa221324400d88640559824ec608a7c0f5ec8a875c"
      ]
     ],
     "count": 18,
     "new": [],
-    "sha256": "8a5fad533712f7aa86bbfdcbcb4fed5df5dece9dd4560e2ce427fe2355ee9afd",
+    "sha256": "1566f731c18e68030cc9373c114894820f33abe8aca92d32f8bb7816a89dd280",
     "size": 565818,
     "vanilla_count": 18
    },
@@ -11714,13 +11657,13 @@
       1684,
       "node",
       30384,
-      "f956acdbd363dbbecc84c3cad03b5f7efaec8db4d51c5fc10c060bc5806a7e3f"
+      "9c3b202cb2d99c6438b4b6273bcc9d9918fd1a0d0e71a2a8b576e7e7d2b40f5c"
      ],
      [
       1710,
       "node",
       32024,
-      "7daade60dd72ab180f2c05fb2b18236777a2bf14357065bf57342a4acc9df423"
+      "8c6895729008f8cd2ce235bb014dee195e9946afa570b3d04bd17fc67f929ab0"
      ],
      [
       1736,
@@ -11762,169 +11705,169 @@
       1880,
       "node",
       12072,
-      "f85ae5f814378ae1893a6dd78ce28c5d207c929183ca528d455cebac55c9871b"
+      "6a4751b94c1124f1486903d42771ac0fabcb76edbfe639fdc0daec27484ebdcb"
      ],
      [
       1894,
       "node",
       15280,
-      "2d8e44774225bea10f80ccb84f864cd56cf18c850d14334429d0b5b4d4d3f139"
+      "7da6ee05d3f2810a1954cbb6f5aca92ef612e8e2b147d86c7b89ba50077223aa"
      ],
      [
       1901,
       "node",
       17016,
-      "da7ca19ec31460a3c36e3e5120ababbae1c3f874e9731e803fb1525c43d5a919"
+      "e0f1e6bea8e437dbeeceb909beb6d53688aa4703fec35c38c579496dc314f79d"
      ],
      [
       1937,
       "node",
       23628,
-      "0f483a61aa2054ece7102dfbf8c530d4887ec64e3683b7ddbc2935e8e3d6941a"
+      "0a0739787f1f297be7937b1aaa4513baf62c150590dcda6a1be06f8336098b02"
      ],
      [
       1958,
       "node",
       25564,
-      "dfa0905eadd4dcb5a81992ba5fd85ac3db834a14cc71fd36672d303877ec4ae8"
+      "8adc8af8e6c7cdc25b308e15ca0575c07f474cfcebceeb503cea54c60e54c4b3"
      ],
      [
       1973,
       "node",
       25580,
-      "92e422e9cb91cf068bf230b2736b23e69e88be6c2e66d2c42c6ed9d363b7143f"
+      "99cc46ec3cfc2c8e8ebb94c0d93ca8effa8552d37baa386ccf66f17fe0dd9250"
      ],
      [
       1988,
       "node",
       15608,
-      "67846f6fc0c554754c8b9d399706aef545183c90679fb69c495c4165136af013"
+      "56aec0544de351a337576e8ca879b34a362e84d2b882702b4c7481cfc2d99e2b"
      ],
      [
       2005,
       "node",
       19152,
-      "c308d633fca9bd30e68b797bd9ed446923e9199d15cae8e70d1b579e69b196b7"
+      "412c6584a3a6052d0b7924c0af30dea287302abba762888803f5e58364005e83"
      ],
      [
       2020,
       "node",
       21584,
-      "034ff24e3ad9f406a32ad44736724c53922047e08bb9790f7cf4cadeafb44b7e"
+      "a2503b9eaec8f73f362cd60d4ad758864fe6f03416f26083657bd263da4c0885"
      ],
      [
       2058,
       "node",
       26116,
-      "fe5547e8af1f3be28e3044c7a625277d5eac9c48a5e3da853234e14fc31aa7bd"
+      "7ac1503d625ca4559f02f5d668721e52c1346b49d889769b747e2a465340fe14"
      ],
      [
       2104,
       "node",
       32052,
-      "699e5cfa12444615adda0935e8737d8ce838aa88aa9141a76ea2f509b534a856"
+      "9b84c891bd65f1edc89f9e8438abb6e5d56cd4a89ff291a14f0ddc34fc624424"
      ],
      [
       2159,
       "node",
       36324,
-      "bdb595508b070d4259baf9391654b56e9b310efd831fed7398eef3f94e4aaff8"
+      "06e52439632b44f1826c5022f94c897e3bc0991dc025e297186e9308a138864f"
      ],
      [
       2223,
       "node",
       26496,
-      "6c9a9786a71c34aebcf004c4a460fd69f830b046be62e8d65ce1bc29691c8d1d"
+      "1ca643aaa92a99d09bfaf418fff1e54a1b17bcc988f90445a64c1e25b9fa824e"
      ],
      [
       2282,
       "node",
       31412,
-      "fedbb6c6f06892d2db1b4117598241a9c499fc3650f15bf81ea8c17f1c5762e8"
+      "a04fc3f530e759b09419794329299f3c00452fed7003019ec69b38e201aac868"
      ],
      [
       2325,
       "node",
       35284,
-      "7589248e6397df91b7077ebca7a79b2f73b8099dd89080552ba501fc5304ab99"
+      "84486661d5f434b1654b431959e7f6914eeec60694da50cb4bd91f3823ec9b61"
      ],
      [
       2363,
       "node",
       16512,
-      "45884f45dfc2a6df6dbb33480b3c35dfbebaf0c0ca94bf7ebee479fead623894"
+      "5a5a3b38792ab1e3b0dfa33c5f7ac94b3b23cd38ab5bd7b7e48716eab157c3e8"
      ],
      [
       2402,
       "node",
       19344,
-      "bca292641790fdc230052f262bb7be1753b332dfd3a64bc0f6ea8e1912a7c8ab"
+      "86af609f8f15181c215de88a9adcb94ed4185a46371912d462eecdc945ec720a"
      ],
      [
       2429,
       "node",
       19392,
-      "2c4145437dde4b894e456d8886c537f487b69ee6748330d6c02e1d90d4c0cf4f"
+      "ad7062bc0b1a5fedba2dcb8481a5b7f484b967eeb922473ef58d01f01096f876"
      ],
      [
       2460,
       "node",
       24596,
-      "4cd993901f07a352eb42c73a6c67bd25de5bdf7d1bfe2e084442b15ed441d5dd"
+      "e59c72cf3944682e6a5e10ad7751dd4cfc4af5c5e6f33fb71959b4f583bdc95f"
      ],
      [
       2472,
       "node",
       14920,
-      "9ce14fb06f4c31316c07776def500763deada14eaa969806f8c156746863c6d6"
+      "b51574b6627d84698898e279302c8f6acd3df0c871acec164416f69a9d82f2d6"
      ],
      [
       2481,
       "node",
       14920,
-      "ed4ca66d6d17a6f77a2f1e0a9817e61d2db7b862464a8b8ae8b5ebf4615e1fca"
+      "b8125ee0043a8d6c01785801daf3578d64a1192bfa3a3556e13543d0aa74a2de"
      ],
      [
       2490,
       "node",
       14920,
-      "e7861adb1b242c31895f3aae97b331c6ccc4899237652ae27cf3a55199345979"
+      "df1685e67f27bc2a69c6a9a8323b3502269a3bdd73b48c8dc691fdb1c65b31cc"
      ],
      [
       2598,
       "node",
       34860,
-      "cca9e6a26ddf7b8d674344418c9172cd04a3b485c31f1c8ec0c155c3ab6e9384"
+      "44ff5c176f5ac57f09c048cf694d02a876faa68cc7be6d73cf8db89c7727eff8"
      ],
      [
       2690,
       "node",
       36392,
-      "97f66da8a5e61a72b5ea53653793ad7bdf2e508eb54f630eaf147e80239282be"
+      "70e9e1506c463c3f3470741076f8cd650679d43f1b717b0de09d6f99bc1820c3"
      ],
      [
       2790,
       "node",
       40988,
-      "a91b1dd8bb59a76776f0d8b9e6f3982b3cf23c330d7a60ad19df72abe58b5c70"
+      "26327f71e26a5134097d376e1988cb6c1d8fd7c764cc287fc4ace3c23e2b267a"
      ],
      [
       2799,
       "node",
       13684,
-      "d3c450146100b9a1cfaa5051327f2712228df52bb9cf146d74e3c56eac3cfd72"
+      "e846c3999204475774b0c99d364e6b0cb6e1ab1298dcecf74045c03bd97baf39"
      ],
      [
       2810,
       "node",
       18216,
-      "8c33f0344dd13fe677d09e696dca655b2e1557a1593dedc4a7838dbaeb349020"
+      "a267b4a4b08928eee759e379270dcbcf71cdd8d21a5a62502414f7f78cd2358b"
      ],
      [
       2817,
       "node",
       23280,
-      "1511cc3b74e05e5be9843178fa98d3c65c8c0ee7900e1ec699070c5501ee350e"
+      "02100a3fec3fac3abf7a67a8e408d7f2b6fde8d0e56fbae2a0cd1c96f5875ceb"
      ]
     ],
     "count": 3581,
@@ -11993,7 +11936,7 @@
       []
      ]
     ],
-    "sha256": "41f0fe2ba18a4342f291c29c503bc7ea2f207358c9a3ed4ff0be8f0e4576e24f",
+    "sha256": "175730af103df28408d0dd78789012a391e5a978d85dfcc151d1b826ba08562d",
     "size": 38295900,
     "vanilla_count": 3572
    },
@@ -12457,592 +12400,592 @@
      [
       2956,
       "bmsh",
-      2841344,
-      "0d6a52a2484761bb816fcbc9de034b3eb3d19b75300e4a96f65c7b1b46e01242"
+      1653552,
+      "704a0dae1acfaa042de41236663a77856607ea519d6028801b08489a8c1c0926"
      ],
      [
       2957,
       "body",
-      389984,
-      "2f72c45c0038c4a14021ef5cfec7ca8e4f8028eb4610109ec9ee5e3c9b71e8e4"
+      209392,
+      "2065e2b02029cff931fb3679494e2cb6337dd508167fd163e7d77d2c21a3102f"
      ],
      [
       2958,
       "banm",
       55564,
-      "c19b544a9a7a001dca142f85b8da37912b0191d048b67de584a0b74fbcbaccae"
+      "d2d2edc989eccf7ce36c6300cea96544b7f7dc1377df5c554b7a7c62383c555a"
      ],
      [
       2959,
       "banm",
       63400,
-      "8087432998d01245a144049178d01a785b4c9a410bde71e01297dbc00bad4dd3"
+      "2cc5f82f1fe2e7eafd1ad466e844bd6a440aee8f07ab65f897f260a84fa5baf8"
      ],
      [
       2960,
       "banm",
       85692,
-      "3b080b88fa173c46eef6bf0ec86695872b39be2d9977c2a6a0a1f21ee5c9098c"
+      "94e1549bf941ead6b2390d68590848cb985e5cfa4046d672ee34d7f5ca250fd6"
      ],
      [
       2961,
       "banm",
-      77224,
-      "8f39526389414cd7609ed5183a783a5744d32c77ca51c5c6a111ed1cde4868e2"
+      114152,
+      "0e641f40d0070006270d3f003d9a0f1af9307019fbc0934afa396d406b08fc68"
      ],
      [
       2962,
       "banm",
       36708,
-      "5d5f288edd76cd778ec26f84f8495660c1a77a5214047f382e0078b4a1cd0095"
+      "083fc6cdef26ed42ea16bad8499d0d95b3bf041b711192568d67c4dc414f1cf3"
      ]
     ],
-    "count": 3485,
+    "count": 3486,
     "new": [
      [
       null,
       "surf",
       174976,
-      "f0759c8733c851dfc287a306e02a840ba120856813a7dd6141f9de52d1e88965",
+      "7aed920515d4fb5f3af4319c94bcfb51751146c6c47cbe7f41052c79270b65f3",
       []
      ],
      [
       null,
       "surf",
       43904,
-      "d363677459ae02b8f73aedf89d03d13faa447b9695948469559ffb3272a516e0",
+      "94213f61a9fe0449a7a564aaab7416fa21a6fef91a0b6cabf5646955b6ed64b6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_basic_attack",
       "banm",
       51412,
-      "2a49c10c12d1e17ac5b626255ca1e5dd0b1cfe4d936b536bf3c4eaa6000132d8",
+      "b6b52bacec1d78b23d498cc86121bf750734c25c46d9e656418deb8aa9426372",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_ledge",
       "banm",
-      42312,
-      "e31547899b2675c56c7d4032876799f6571fb6fde83e199660f1e64b2343f137",
+      42540,
+      "c0fa8a6e9f4170bb4d6b5f7d74c85c16c53543807bbee28fa5375e79ae9d5c29",
       []
      ],
      [
       "characters/townspeople/female_2/g4/360_sweep",
       "banm",
-      66912,
-      "291457a1d69513e51b11197789dc729f0a3f0a84ddc149b0a06b4f57451aa30b",
+      67284,
+      "17c17a645b5a5dfc34b8f1cea51965acdf749344aa873b0da2a845d3e237a351",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_1",
       "banm",
-      43892,
-      "c8aa2379b2b6652e573b6edf1cdacc6ccff1be8dfd81700c713a44dbed458a20",
+      45292,
+      "5800a422dc7fd342e179a4bbbb34c49b68c9803abe604c557018e0a8b6da968f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_10",
       "banm",
-      50200,
-      "9ea987abe1a83d0012c0c286936261e0e554979b406b17623a728a9a2849514e",
+      55576,
+      "5d070be8bfc9c581dbe19d998f36a0ff3f41f5ad350e3ef78f33f24b3b307cdf",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_12",
       "banm",
       30220,
-      "52488f85581cc56c62dc142e27ee53a96aec3b12ab8bf4af2addbeee8e667b5f",
+      "94b740f22fc294392db08f07d3b0bb22119039af67cf25182742d08c9653b8d0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_13",
       "banm",
-      24524,
-      "957111b4bdfa6a5a0853b9c5e27e71135f216576b8e5bcb0c22fd402dceb8277",
+      24392,
+      "57d5ac2b5d3695a0d440e31003b7c8ff01292dfabd68b61ba83c574e9dedd9e7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_14",
       "banm",
-      38016,
-      "ced9e6a5519ff50b8cb4c5433dae99ecd90a9849f260ac274bfb1c53b828b5ec",
+      38260,
+      "17d9e1434944d7ebb9837dd386c9c6f073fb38e50bc8ed44344a98be65f81923",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_15",
       "banm",
-      38708,
-      "d11fa4f90a355a564fb746c45bc44cf74f5deb9b5c3baa0a7b5c8ecd687c2d4d",
+      41204,
+      "8b39f5d1cc3f9f1701d5ed38412663332f8f9d5643f2399684e6a4b84a467bdb",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_16",
       "banm",
       37452,
-      "e06bc19c30638233634b6f7a62f6147b55e9f8020987a4c802bd22fda822127d",
+      "fa4555516958057f4573917f9401a2b0c2c6f9d546343ea3f1f5a8df9520cd74",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_17",
       "banm",
-      35288,
-      "7ae76640cb30cc44e511055ce462f7a0d96a74087c2322bfd2001abc77e57c3e",
+      34896,
+      "1f48e031e18a2eb59eb386ca5dae56ca9fcddd345da32ed6452611065996fdd7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_2",
       "banm",
-      42588,
-      "8e4c3d033caf354b90e06cf9dc7e014dda73119399248a6078cbba9336bb9c11",
+      44764,
+      "88c88fb1a5d3a62a8cb9adbfdf05df538ee3ce09720d9d7fbfc1e49e3c766a6b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_3",
       "banm",
-      42532,
-      "afc14d3f9eca632f5e708093445bcc4545b753787137ff45c57b08868b551f20",
+      44440,
+      "8f67e19ec2651e481ff217a6ead415d0ab71791bec368a8f37d9cccdd095cfb1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_8",
       "banm",
-      38504,
-      "a6cca24658c38d6de595c3753b8be425bb234ce60671c75c8f77d59ee50bcd2e",
+      40808,
+      "efd5cadb2777b443c24613981902443be1999eb296717915c1f98b21fb03b9a9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_9",
       "banm",
-      28636,
-      "0dc6d74308d65db1b51aef88cd11b53d2dbf3f3db6898378d4dc5a2c0c947c3b",
+      28472,
+      "d27ad066763e1de39e5be49ed32a99483dc415d13a40dfa009af66f23d5b7e12",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_back",
       "banm",
-      27908,
-      "b78f796b70e4c00583a0433cf4b5c1381fe8eecb58ccc67c6d8467a3df9913e7",
+      29336,
+      "6a341491980d5b941136a00131d585404917b754106a2fc53e3f86f8fdf7e7d2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/attack_back_kick",
       "banm",
-      29536,
-      "bc6937a3952e22afc905fdfa762fe892284db217b9e44e4499d81b60b8b7ec5c",
+      31712,
+      "e8e447173597bd0f955ac83d860c18e6fc47ce05fc7ab5193cfed9dd4a82bbd1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down",
       "banm",
-      87724,
-      "d136fc795e49cf5324324e8f0908ce0ba41b4e2051d905de76a75b5df02078c5",
+      93804,
+      "8ef37a636e329d0804f367cb3ce87cfd5135031b87087b01196487881fd7a31d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_down_edge",
       "banm",
-      115200,
-      "0aae94d1fe7b2b2df1fc44ec10e2df9068868568138a0c83d09efcaf5f866f58",
+      134656,
+      "1f0d89d98cc211061fcfc855b28a0ff7dc35bcbaffd14afc27324d9e688ef690",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_drop",
       "banm",
       42104,
-      "06967c7a4b9e8e05fc56d688c22a7a3e5009c97bd2c959ba8291b1d7dc37d9ad",
+      "0905b91cfbc97cf579cf293aeb17ea03ed9c3a2c6c74208e01c5cc5d38b1ae74",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_from_jump",
       "banm",
       38432,
-      "e68263015576761a58765db8e4d5f81813ae801bd62edabac4d8715c373e90e3",
+      "6072e53f835984a3b450441a1a89857dd2dc8ab3dcb048c6f0c3fb6b3b6974e9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_idle",
       "banm",
-      84580,
-      "968bffee8c023aff6049cbc099f7312858e83f99573964644497d32a49ad8494",
+      110448,
+      "cf9c4d4706b57419ee93d1036bbd88f3402e10489807954b1a60fa171abfa919",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_left",
       "banm",
-      88128,
-      "bb36147a373a589aa05d0e7ba4e89758f6945d7c31d02f6777892afa1ffd8703",
+      94204,
+      "e5754f84381e8d7ae746dca62641f45dd95bfc568497cf775762c9eed794eca1",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_right",
       "banm",
-      73216,
-      "b383564044461d8b0b939ae28050fae919fde8b219733e07815dafe474d26301",
+      80320,
+      "99de76299a08b591f7119f0e4a6511ecb38a390fbf65152b24aad84bdbe6d32e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_start",
       "banm",
-      83824,
-      "2e00519976e805178399520cfc2ea98026e4689b4ca565769003d654a0808029",
+      83372,
+      "6ef082cd9ac14904652813e9384a2ade2f01f1e198590d42c78bdd6efe81ddb6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up",
       "banm",
-      86956,
-      "311bddb2c5a88e8aa8ca851ccde464fa2ad05d713b81113e2cd36a0d8df69a9e",
+      93868,
+      "33c4d0663655cafa5b9050bcbe31f30e4e3a0427de68bc89f12da5d8594cb21b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/climb_up_edge",
       "banm",
-      162624,
-      "861a7dc0ae2565d425a31659363b706ddf917c19e4759b80887b2b1fbaae497f",
+      188928,
+      "7b73469b0dc267236ee526e7cee230ba2ffa51b1fe65a99e22436e881c41b2a4",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die",
       "banm",
       71960,
-      "f1c03b84cbc3459d706c80ccbf03d6fc18304d720fbdda6dbe8fa3c4095b2947",
+      "03c13fb2ad7bb4aec29b55de2a396c23b5dce7ef5c970416bd483c350a5d8ade",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_1",
       "banm",
       189668,
-      "5f1c883c19249a237012458059611f245edcc89c7791c32473b5e630addaa135",
+      "1281c5f4d6349f06d350b3510357e27abb3d7813389fddb5ee88320afe5a957e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/die_2",
       "banm",
       218612,
-      "3d9dd7a4c435edf7bb67f4ed89c7664ba0fcbb535d70b8a11d7d7effe1011409",
+      "370a6df37352f6b044ba0cb29257c0de187a3f1233540e7cde30fb904e7316a7",
       []
      ],
      [
       "characters/townspeople/female_2/g4/drowning",
       "banm",
-      155416,
-      "3fe369f11a42d0c3f018c9f16b92d57ff2757e199ad72948a4717619171a8339",
+      181656,
+      "3afb0f7c2761a30e07bd23af3d8913ebaca7110497e93d306ab52515fe3cf47b",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack",
       "banm",
       124260,
-      "008046209053958a08ecbda806dd930625923b566574ca4ee8bdb02293d41727",
+      "2335636df78690f9b10d17d496b35bd1d2202562eecd004e6c155c86d3ff53d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_2",
       "banm",
       167444,
-      "fb656ab9aed765f295edcd37b02ad50386cb00e346db7b68aed07a86da9b120c",
+      "465bb2826a57a1a8471a299ad00a3612a77f46f04a8f7eaad195a1a5e49d44a2",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_3",
       "banm",
       198996,
-      "b02cafc868a35648695e2258fe23f42036086dee37d5c05a4be9d20c9772f12e",
+      "ca18fb4f1ab0138094b849b019a876d0e4664518d5af3e6bf035ec6bf6c5b78d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall",
       "banm",
       155380,
-      "1f410d6b0fcd0c86fe915ea2277519b49f1370adba999f5cd42f6c685fa1199f",
+      "c2d3e7549718ac14b1c56a8450fc893b57af558ce8c6756d1553f5022021d59f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_attack",
       "banm",
       24184,
-      "bc9dae41b40efeee7572572f0c46153a9cd37655f4a4fea0348afb86955582e6",
+      "d4028681bebb7a60e60b74d6b385e10e074082726982bd1c129f02ee5c242297",
       []
      ],
      [
       "characters/townspeople/female_2/g4/fall_big",
       "banm",
-      98268,
-      "bd5864ccb61559cedebc25230b16773e9fa3e0a8574b3c88437d6180ea00d636",
+      84636,
+      "468406dbe4f9e371d9dff39efc8b823a6a15047307e5af7aa8e1ab18529fecc0",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang",
       "banm",
       47804,
-      "c261e9b512f97d045f36ae4dd92a2e34d14c8f8295e0df309fe705cdeeefae0d",
+      "62ba5646e2f8511652f5f2121992ae45878098ec1fa76bb5c83944c003c2e8c5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hang_start",
       "banm",
-      49196,
-      "05ba5781cb26bedb2d31104076328ca6120fdeb2ceb71faae0dc9d896c041a40",
+      48968,
+      "11cca3340a3ea2a4b2a09d59bc7fdc7862288bfb1402d491a8fd1d37c62937b6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist",
       "banm",
       183292,
-      "f7fb6f5afbcba11df033492c5ba5fda09737ddb6b4535f7714fa0bb30ecfbcc2",
+      "e7a9bbba886d275fa165fe66a7731c6abd6ed52da380b965387b35d54e20987e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hoist_waist",
       "banm",
       76504,
-      "fe4ee0a9f5d836bcc20f78142b95e0b19bb64d98eedf0619092413687c12dfa3",
+      "830eba13959261a943dc063ed471dc6a015d946b81a5816209ede2d961458a14",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hose_attack_3",
       "banm",
-      82832,
-      "dcade1b22c282df66eac681b234bf26c37b2655096c515132c106e41cee6fdbb",
+      82380,
+      "8c938d402d05eef7f5cce0e97f101811dafc5a803f5db82692ec0cb28fb08ce8",
       []
      ],
      [
       "characters/townspeople/female_2/g4/hover",
       "banm",
-      60312,
-      "05c4fca3f51fa88291de89970727217ad1783d5da65ea9a972c72926cc643ec6",
+      45592,
+      "8d188ed6f155bb18d3beebae2bf92789c8dc31f0349f4d2df003884c2f276fb3",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump",
       "banm",
       114892,
-      "05212201586c85d8ddf34b860587bfab22398ab063c182e32c709c109b1658fe",
+      "cb11d7941071783c1ba7309786ffb7c97848fc2f60abf0f21849ce5f5a0e8c24",
       []
      ],
      [
       "characters/townspeople/female_2/g4/jump_standing",
       "banm",
-      164944,
-      "3cec3168c94ff890e5b4c1e1ef2054ab30c217c6d1dd2e46921c98ad39537930",
+      136700,
+      "14ca5ddeb21c203e3ef39a5712a75d0ca81a9bb05e1de8b48643c7dc724e6fb6",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1",
       "banm",
-      34232,
-      "d5c05a35f8ac66c33f721d096579da3f86e46bd95a30033d2a9dc680461773b0",
+      32760,
+      "43135db7a1a0dd3ab421bffa4e263a676c85927b860cacd9d920c501363c9822",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1b",
       "banm",
       33012,
-      "1ce7b4b0e60da5312cee7735c51f84534e6bc4b28f9c2c984e055aec36ed3a92",
+      "6eaaa2e92e28efd3d364bf1f76dd0c157781725e6f20c1f7621dbda5dc8991aa",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1l",
       "banm",
       32984,
-      "7556bbffdfaa2369558460dcc26363734be7a7a8fa043f6c0714a782c9d0a70b",
+      "f2bf9e2b04cf379f5d984eb282c1fcb9058256450c1fee6072df69994df2ee43",
       []
      ],
      [
       "characters/townspeople/female_2/g4/ouch_1r",
       "banm",
-      36648,
-      "f1df591579665634ac9396182c8058603a3168a8b1de70c3d155dc3645b8f9d9",
+      36500,
+      "6d5ef51153fb3185c3373d3a3b6c4d7522624b31c3a310fdfe796e3e81335f4f",
       []
      ],
      [
       "characters/townspeople/female_2/g4/roll_forward",
       "banm",
-      73656,
-      "fb6e7b8d4cd47f97fea31ec17d90d45ad59550bb30f92141bc84751fd95ab935",
+      73980,
+      "7ae5fc4dc53631364c37820a3bbef77b62e17be0b6665b2566f0d9e1c9df1f53",
       []
      ],
      [
       "characters/townspeople/female_2/g4/slide",
       "banm",
       37736,
-      "cfed087ec72cd3209f9933cc846b6ffe841e4e9e27c26d117aeda520637079bb",
+      "37786330dcb48943a5f9b36670d09404089c8d6de3585a8a61e0ba0e310a7cfc",
       []
      ],
      [
       "characters/townspeople/female_2/g4/smash_attack_1",
       "banm",
-      43856,
-      "af0a367af514841d57ee3b713db6ccb1766ab7c97dac00e83f88c22e4128c375",
+      48720,
+      "54efa4e508217943e6a254acca13ff24f524878c31d71075a5d5dcc9ddf004c5",
       []
      ],
      [
       "characters/townspeople/female_2/g4/smash_attack_2",
       "banm",
       56212,
-      "f2df3b1b1a21e8ac023c39993831c74bfd5b12eaed7a418efbb85bf14f0dfac6",
+      "13fec7293f73c984a8343af9ce9050981c999f935edc93f6a8e0982d1cbe39d9",
       []
      ],
      [
       "characters/townspeople/female_2/g4/step_up",
       "banm",
       47632,
-      "2db7e5da88a12ff557f9be57e1d6c8890d7ec93bee81dfa36747da6b5c065587",
+      "60985f2f661d244a55d6a4886cffb1bd8609768ab29d3c202779834481316f18",
       []
      ],
      [
       "characters/townspeople/female_2/g4/superjump",
       "banm",
       291340,
-      "052b700bb778e13f5a00bdf1c4075450d641f601e66a7fd5446ec72e2e2d3575",
+      "6fd6dc100c0fd0e50c33de8f6c4c40bccf1a51dbfcb6b36bf8f35930ef918e3d",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_2",
       "banm",
-      57008,
-      "79ec599cc1ebf7f7d49e1ba48560b6c3352c01328d4a7a609999f755c79f5d35",
+      57412,
+      "d6d3a4a8676fb7635bc843fa320e47813ee3b9063556036dffa357e38e42ab1a",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle",
       "banm",
       127480,
-      "03d8c4016e521c5a976f31c7da2668021c0b850d0007d8950fc47e4a22abf64b",
+      "b451e2ba597c9c1262350ae17f79baeb0e1a14db15d55fd392b4e1e38447475e",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_down",
       "banm",
       55032,
-      "e916c6b9babe61abd0b10f2e309455a1a86301a4b6fc2cf466b2438c19ec7a14",
+      "9c6cc71d22651c07ccbc7be410ce1f2610b8a447253e2fd9ac39ba37e82f199c",
       []
      ],
      [
       "characters/townspeople/female_2/g4/swim_idle_up",
       "banm",
-      49064,
-      "ee838ac30bb4bf804c98b6c5305182ce0d1828e28bf38bdee5715e3e1b710e8f",
+      56812,
+      "a5b796f56677cdacc30546bd8d8f520adf216f2deb79b2165d9167aa03006f12",
       []
      ],
      [
       "characters/townspeople/female_2/g4/use",
       "banm",
       58668,
-      "5aadcecb24ea7fa295cad332ceb09135bd2578198d7c077333885309ed7855f3",
+      "e7fd4aa66c10fa8eb04e09ea5085d9a9eba30ae6d1af61e3a788eeae732622cc",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_2",
       "banm",
-      57328,
-      "45e0c162b429870a536c553779b63d51f327c1633adc01afd3dda7619ba121b1",
+      57732,
+      "3cdbfeb6bb2b0d8b204167fb3a6fec82038ed3f7dd81a7255a58b53016cf7a31",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle",
       "banm",
       127816,
-      "8d0e8cfc5ee4496c6d142b9276d5812de286f55412c03c4708bbf6905ea0db7f",
+      "3c5f2744308a5829c787a2f9a0e724b04ff5b9270747859c610a0be29695ec65",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_down",
       "banm",
       55240,
-      "dfcc389f29ac128b8a45c9ab85e8262b1873dfd3ecc977547481b4acaad26327",
+      "d20098ba012f0f0bf5d22a42ad831c9acd919add096fb10a2e5a6e89868a6d1d",
       []
      ],
      [
       "characters/townspeople/female_2/s/g4/swim_idle_up",
       "banm",
-      49304,
-      "a22fee67a68a5b5691111288f661d800059f1b2a98d7f633f1bd1c542373502d",
+      57052,
+      "37a270c4c3ef04a6d4d122feec500c112b9df593b40ab55739527ce298ffa68c",
       []
      ],
      [
       "characters/townspeople/female_2/v/bust_bounce",
       "banm",
-      120468,
-      "040c5265b8028191042443d6827df567e540b47c830577871e0ad87bcaa347bc",
+      128084,
+      "622689ec24ab1a7e1a9e5a5139fb90c05d6c0b0a5f2e83bf25f8b9f0a1b70705",
       []
      ],
      [
       "characters/townspeople/female_2/v/hip_idle",
       "banm",
-      32888,
-      "4203587eb5327ea0ff110587d95e28af654aca4cdcb3aaca05411953c55b115d",
+      48136,
+      "89c9ab8395eeb2abc45a3a33897c3cc869018a14abbc18a005ecaef90d6b4f1a",
       []
      ],
      [
       "characters/townspeople/female_2/v/look_back",
       "banm",
-      174032,
-      "c3bcab2ad8bacb69883b9d22917b1cced871b20c778f27a49d4945d9d623497e",
+      184352,
+      "ae6e4236afc266d26d444cfbd99cb209495be7d39a864393dfdc61cfdffbf6a5",
       []
      ],
      [
       "characters/townspeople/female_2/v/sash_fix",
       "banm",
-      234440,
-      "a54511742919e43ed4ca799362f06fe878b41e8fce13ac1a84a23d1bfae9f3d0",
+      245912,
+      "da4029976fc933d998f8f53809c17bd75fb25475c350c3bee7f0617794b8fe0d",
       []
      ],
      [
       "characters/townspeople/female_2/v/sit_cross",
       "banm",
-      312112,
-      "710fdd818e0bf7399419938f5c21f9621205c43953f422819b1424d928f2b67b",
+      348272,
+      "71082e72cfc3490c2c32695955b4c1508b8d75b6a0abc3a2e404f0bc83e70bf2",
       []
      ],
      [
       "characters/townspeople/female_2/v/stretch",
       "banm",
-      100884,
-      "104498418bfdc217aa13725ed64619bd14960114deeafb2c934bda2f0029e574",
+      111124,
+      "359afcd5d3810bb95a829a072cbbcad0faf22c6e5a65026b5ef9fd8eb3ae1093",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run",
       "banm",
-      42976,
-      "218a7cb84c15d80ebaf4f8ffd48dcf5a1bbb4fd11818b8a3513e70288b36304b",
+      45904,
+      "4644055e406b15b618d2a51f8d27592d58618458012599e990717dd424657fc7",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_run_back",
       "banm",
-      42880,
-      "5b6b9fc9d6ba65f10a098af169eb216a8cdb319d070772aea01ed3cad0f085ea",
+      45808,
+      "2fb04c69ecf16f7e215658c589a6a61094957747d0752a95dbfbda1db6a90ed7",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk",
       "banm",
-      47488,
-      "6fb954ef6487bc47c213ba3765ddb06f4e7070dd391602f311e250e8015e3954",
+      50176,
+      "6d954da004f84670ea4fe4ae03fb22f3772decd095686fcfe3aea1f912fabe57",
       []
      ],
      [
       "characters/townspeople/female_2/v/sway_walk_back",
       "banm",
-      47520,
-      "4178ee0a09788860ee37df17f5d4373a10fc72306679ef3d39abb472c2e900e3",
+      50144,
+      "fe13a52f17f0708c83f04751b373dd24d899e6f001327cc3932fbc1b3d2b4322",
       []
      ],
      [
       "characters/townspeople/female_2/v/touchdown",
       "banm",
-      38876,
-      "4d82bc6d389b7b6162e0f949157b6d261a7717cea5d41db0acffd799d30ad87a",
+      40412,
+      "a8c1314aeba97a4d9c5e7bd084a3e4adb3e6a3fb2928f9e914ebe4b0ee8d4972",
       []
      ],
      [
       "characters/townspeople/female_2/v/victory_vsign",
       "banm",
-      80368,
-      "249234369b6cb5391d99a06f8047894bbd61ab65ac3ca0140714d627b0317c6f",
+      94416,
+      "a60a2951ba2302491aef887251258a6d990f379beb237b5fcad1c45ed5a7ef79",
       []
      ],
      [
@@ -13082,8 +13025,8 @@
      [
       null,
       "bmsh",
-      894656,
-      "0a766bf29b434d40cebdf5d1e516d1742f3b8625be4e2f0bccd0a0cf6b9adddf",
+      172660,
+      "7510c99de940ccc4adecb95c1b67fef07d941f3576bdcc3c27df1f30df24a8d1",
       [
        40,
        80,
@@ -13091,18 +13034,14 @@
        160,
        200,
        240,
-       280,
-       320,
-       360,
-       400,
-       440
+       280
       ]
      ],
      [
       "characters/townspeople/female_2/v/skin",
       "body",
-      389984,
-      "f70a485d7896590c731da1e13f9a612a928d15e9296f58603bc015b013cdc6a7",
+      209392,
+      "67cd0f4870d0b59764b9251178854572a6f7653c3fe05fc425001c58932357b7",
       [
        19900,
        19904
@@ -13111,8 +13050,8 @@
      [
       null,
       "bmsh",
-      2841344,
-      "ef0cb86a1e5f90408b1c8b29fe30d57f4b2f2beebac0f5b338e38bef2344a16d",
+      1653552,
+      "cf699633fa3704d0be17056a23b05e0b7caf8d2c29c8b336e9e527742189dc89",
       [
        40,
        80,
@@ -13127,19 +13066,14 @@
        440,
        480,
        520,
-       560,
-       600,
-       640,
-       680,
-       720,
-       760
+       560
       ]
      ],
      [
       null,
       "gshd",
       924,
-      "463e43a03be9e824610ff9451635b5ce5a7e7a4bd4de56a26212c25e1aca6d2e",
+      "4715e51cb246be69269b139e874e9b8b0b454b710dc5dcbfca0cd198bd8d0c64",
       [
        8,
        112,
@@ -13182,8 +13116,8 @@
      [
       null,
       "bmsh",
-      894656,
-      "0e3c3584f2406d823bfa91a5aa2333ed7381df5116c69d0fe75b26ccefbc0c3d",
+      172660,
+      "b8263905f4b32d6cea0c7573c26748c6a3ede362014d9da9e18b628ecc30fd16",
       [
        40,
        80,
@@ -13191,23 +13125,26 @@
        160,
        200,
        240,
-       280,
-       320,
-       360,
-       400,
-       440
+       280
       ]
      ],
      [
       null,
       "surf",
       174976,
-      "94c16be54171b6459bd84a9b138e68a5857509f519a51acca401cd7996bfab2e",
+      "93662d7e42cb1ff001cf5c15a2a0e25f09b7d0a9b980b356aa02837d98224aad",
+      []
+     ],
+     [
+      null,
+      "surf",
+      11136,
+      "979b55be3efb8524082603078a7471e57423fca250ca17ba4f840109964734f0",
       []
      ]
     ],
-    "sha256": "d3c731e652b0c7d85ef8f19ee7e51d8d67ba011cc2ef49ab4f1982136ae78f0c",
-    "size": 82938975,
+    "sha256": "87c211507998a916622dc6ab46d432fe0b847e59f09b4dde2a68482928ef16ac",
+    "size": 79039511,
     "vanilla_count": 3394
    },
    "gamedata/config.xbr": {
@@ -13216,7 +13153,7 @@
       2,
       "tabl",
       7289,
-      "a23f7be81d1377bb2a1bc640d205ef66e5f1a2630deab88edd3cf02babe1d2e6"
+      "ac606a8f078c20ca27e452a7de5fb7e0e179052a29494544247ba84a62ea3bee"
      ],
      [
       4,
@@ -13228,12 +13165,12 @@
       7,
       "tabl",
       86176,
-      "b80ffbd3c58d7c70a472be48ec5de5113ae9d4e040ebad3947bd0fb27bc55ae3"
+      "30230f032b5eac42695c86aa221324400d88640559824ec608a7c0f5ec8a875c"
      ]
     ],
     "count": 18,
     "new": [],
-    "sha256": "8a5fad533712f7aa86bbfdcbcb4fed5df5dece9dd4560e2ce427fe2355ee9afd",
+    "sha256": "1566f731c18e68030cc9373c114894820f33abe8aca92d32f8bb7816a89dd280",
     "size": 565818,
     "vanilla_count": 18
    },
@@ -13303,13 +13240,13 @@
       1684,
       "node",
       30384,
-      "f956acdbd363dbbecc84c3cad03b5f7efaec8db4d51c5fc10c060bc5806a7e3f"
+      "9c3b202cb2d99c6438b4b6273bcc9d9918fd1a0d0e71a2a8b576e7e7d2b40f5c"
      ],
      [
       1710,
       "node",
       32024,
-      "7daade60dd72ab180f2c05fb2b18236777a2bf14357065bf57342a4acc9df423"
+      "8c6895729008f8cd2ce235bb014dee195e9946afa570b3d04bd17fc67f929ab0"
      ],
      [
       1736,
@@ -13351,169 +13288,169 @@
       1880,
       "node",
       12072,
-      "f85ae5f814378ae1893a6dd78ce28c5d207c929183ca528d455cebac55c9871b"
+      "6a4751b94c1124f1486903d42771ac0fabcb76edbfe639fdc0daec27484ebdcb"
      ],
      [
       1894,
       "node",
       15280,
-      "2d8e44774225bea10f80ccb84f864cd56cf18c850d14334429d0b5b4d4d3f139"
+      "7da6ee05d3f2810a1954cbb6f5aca92ef612e8e2b147d86c7b89ba50077223aa"
      ],
      [
       1901,
       "node",
       17016,
-      "da7ca19ec31460a3c36e3e5120ababbae1c3f874e9731e803fb1525c43d5a919"
+      "e0f1e6bea8e437dbeeceb909beb6d53688aa4703fec35c38c579496dc314f79d"
      ],
      [
       1937,
       "node",
       23628,
-      "0f483a61aa2054ece7102dfbf8c530d4887ec64e3683b7ddbc2935e8e3d6941a"
+      "0a0739787f1f297be7937b1aaa4513baf62c150590dcda6a1be06f8336098b02"
      ],
      [
       1958,
       "node",
       25564,
-      "dfa0905eadd4dcb5a81992ba5fd85ac3db834a14cc71fd36672d303877ec4ae8"
+      "8adc8af8e6c7cdc25b308e15ca0575c07f474cfcebceeb503cea54c60e54c4b3"
      ],
      [
       1973,
       "node",
       25580,
-      "92e422e9cb91cf068bf230b2736b23e69e88be6c2e66d2c42c6ed9d363b7143f"
+      "99cc46ec3cfc2c8e8ebb94c0d93ca8effa8552d37baa386ccf66f17fe0dd9250"
      ],
      [
       1988,
       "node",
       15608,
-      "67846f6fc0c554754c8b9d399706aef545183c90679fb69c495c4165136af013"
+      "56aec0544de351a337576e8ca879b34a362e84d2b882702b4c7481cfc2d99e2b"
      ],
      [
       2005,
       "node",
       19152,
-      "c308d633fca9bd30e68b797bd9ed446923e9199d15cae8e70d1b579e69b196b7"
+      "412c6584a3a6052d0b7924c0af30dea287302abba762888803f5e58364005e83"
      ],
      [
       2020,
       "node",
       21584,
-      "034ff24e3ad9f406a32ad44736724c53922047e08bb9790f7cf4cadeafb44b7e"
+      "a2503b9eaec8f73f362cd60d4ad758864fe6f03416f26083657bd263da4c0885"
      ],
      [
       2058,
       "node",
       26116,
-      "fe5547e8af1f3be28e3044c7a625277d5eac9c48a5e3da853234e14fc31aa7bd"
+      "7ac1503d625ca4559f02f5d668721e52c1346b49d889769b747e2a465340fe14"
      ],
      [
       2104,
       "node",
       32052,
-      "699e5cfa12444615adda0935e8737d8ce838aa88aa9141a76ea2f509b534a856"
+      "9b84c891bd65f1edc89f9e8438abb6e5d56cd4a89ff291a14f0ddc34fc624424"
      ],
      [
       2159,
       "node",
       36324,
-      "bdb595508b070d4259baf9391654b56e9b310efd831fed7398eef3f94e4aaff8"
+      "06e52439632b44f1826c5022f94c897e3bc0991dc025e297186e9308a138864f"
      ],
      [
       2223,
       "node",
       26496,
-      "6c9a9786a71c34aebcf004c4a460fd69f830b046be62e8d65ce1bc29691c8d1d"
+      "1ca643aaa92a99d09bfaf418fff1e54a1b17bcc988f90445a64c1e25b9fa824e"
      ],
      [
       2282,
       "node",
       31412,
-      "fedbb6c6f06892d2db1b4117598241a9c499fc3650f15bf81ea8c17f1c5762e8"
+      "a04fc3f530e759b09419794329299f3c00452fed7003019ec69b38e201aac868"
      ],
      [
       2325,
       "node",
       35284,
-      "7589248e6397df91b7077ebca7a79b2f73b8099dd89080552ba501fc5304ab99"
+      "84486661d5f434b1654b431959e7f6914eeec60694da50cb4bd91f3823ec9b61"
      ],
      [
       2363,
       "node",
       16512,
-      "45884f45dfc2a6df6dbb33480b3c35dfbebaf0c0ca94bf7ebee479fead623894"
+      "5a5a3b38792ab1e3b0dfa33c5f7ac94b3b23cd38ab5bd7b7e48716eab157c3e8"
      ],
      [
       2402,
       "node",
       19344,
-      "bca292641790fdc230052f262bb7be1753b332dfd3a64bc0f6ea8e1912a7c8ab"
+      "86af609f8f15181c215de88a9adcb94ed4185a46371912d462eecdc945ec720a"
      ],
      [
       2429,
       "node",
       19392,
-      "2c4145437dde4b894e456d8886c537f487b69ee6748330d6c02e1d90d4c0cf4f"
+      "ad7062bc0b1a5fedba2dcb8481a5b7f484b967eeb922473ef58d01f01096f876"
      ],
      [
       2460,
       "node",
       24596,
-      "4cd993901f07a352eb42c73a6c67bd25de5bdf7d1bfe2e084442b15ed441d5dd"
+      "e59c72cf3944682e6a5e10ad7751dd4cfc4af5c5e6f33fb71959b4f583bdc95f"
      ],
      [
       2472,
       "node",
       14920,
-      "9ce14fb06f4c31316c07776def500763deada14eaa969806f8c156746863c6d6"
+      "b51574b6627d84698898e279302c8f6acd3df0c871acec164416f69a9d82f2d6"
      ],
      [
       2481,
       "node",
       14920,
-      "ed4ca66d6d17a6f77a2f1e0a9817e61d2db7b862464a8b8ae8b5ebf4615e1fca"
+      "b8125ee0043a8d6c01785801daf3578d64a1192bfa3a3556e13543d0aa74a2de"
      ],
      [
       2490,
       "node",
       14920,
-      "e7861adb1b242c31895f3aae97b331c6ccc4899237652ae27cf3a55199345979"
+      "df1685e67f27bc2a69c6a9a8323b3502269a3bdd73b48c8dc691fdb1c65b31cc"
      ],
      [
       2598,
       "node",
       34860,
-      "cca9e6a26ddf7b8d674344418c9172cd04a3b485c31f1c8ec0c155c3ab6e9384"
+      "44ff5c176f5ac57f09c048cf694d02a876faa68cc7be6d73cf8db89c7727eff8"
      ],
      [
       2690,
       "node",
       36392,
-      "97f66da8a5e61a72b5ea53653793ad7bdf2e508eb54f630eaf147e80239282be"
+      "70e9e1506c463c3f3470741076f8cd650679d43f1b717b0de09d6f99bc1820c3"
      ],
      [
       2790,
       "node",
       40988,
-      "a91b1dd8bb59a76776f0d8b9e6f3982b3cf23c330d7a60ad19df72abe58b5c70"
+      "26327f71e26a5134097d376e1988cb6c1d8fd7c764cc287fc4ace3c23e2b267a"
      ],
      [
       2799,
       "node",
       13684,
-      "d3c450146100b9a1cfaa5051327f2712228df52bb9cf146d74e3c56eac3cfd72"
+      "e846c3999204475774b0c99d364e6b0cb6e1ab1298dcecf74045c03bd97baf39"
      ],
      [
       2810,
       "node",
       18216,
-      "8c33f0344dd13fe677d09e696dca655b2e1557a1593dedc4a7838dbaeb349020"
+      "a267b4a4b08928eee759e379270dcbcf71cdd8d21a5a62502414f7f78cd2358b"
      ],
      [
       2817,
       "node",
       23280,
-      "1511cc3b74e05e5be9843178fa98d3c65c8c0ee7900e1ec699070c5501ee350e"
+      "02100a3fec3fac3abf7a67a8e408d7f2b6fde8d0e56fbae2a0cd1c96f5875ceb"
      ]
     ],
     "count": 3581,
@@ -13582,7 +13519,7 @@
       []
      ]
     ],
-    "sha256": "5584f2ec2a40e614f4264a82be3f8a306d98575d6973a852db8f3b5ea23650a7",
+    "sha256": "079e47c958ac568e47aea6eb7be595249e2643db464e1c9b681c6dacfa6fd626",
     "size": 38295855,
     "vanilla_count": 3572
    },
