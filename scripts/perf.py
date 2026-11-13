@@ -1,7 +1,8 @@
 """perf: the perf gate (D980-D985): every player-facing operation timed in
-the app and on the site, each against 3 s (D981), the over-budget ones
-against their ceilings in ``tests/perf_ceilings.toml``, a list that only
-shrinks.
+the app and on the site, each against its tier's line (D981, D1244: 3 s for
+what players do often, 10 s for what they rarely do; a Check's and a new
+shape's bound past a moving bar), the over-budget ones against their
+ceilings in ``tests/perf_ceilings.toml``, a list that only shrinks.
 
     uv run --locked python scripts/perf.py WORKTREE [--select HOST:GROUP,..] [--base REF] [--all]
                                            [--profiles P,..] [--browsers B,..] [--ops ID,..]
@@ -35,6 +36,13 @@ progress shown, or one a sample of which froze in a gap (``_perf.FREEZE_MS``)
 is a perf-debt row (the block's ``debt``, :func:`debt_rows`; a Save's with
 the free disk its run left), which fails nothing, and so is an op the last
 release never measured (none in ``--reference``) that errors, with its error.
+The tiers (D1244, ``_perf.Op.tier`` and ``heavy``): an op's budget is its
+tier's line (:func:`budget_of`: :data:`BUDGET` for what players do often,
+:data:`RARE` for what they rarely do; a first-time op keeps 3 s in either);
+a heavy op (a dress's work the page asks for: a Check, a new shape's first
+build or pictures) passes that line only with a moving bar, as D982's do, and
+past its bound (:func:`bound_of`, :data:`HEAVY`) its verdict is ``beyond``,
+a debt row too.
 A run fails only on a clear regression against the last release
 (:func:`blocking`): with ``--reference`` (a receipt of the last release's run,
 ``scripts/fullsuite.py``'s ``release_reference``), an op whose median is over
@@ -75,8 +83,11 @@ when each sample's page part, the click to the download's start, is within
 1 s or moved the page's own bar. The list itself fails when it adds an op or
 a debt or raises a ceiling against main's (:func:`check_list`), but for a
 browser main's perf.py doesn't time (:func:`new_browsers`), whose first
-record may add its own ops and debts once. A run whose engine answers
-without the compiled kernels' library the worktree ships for its host
+record may add its own ops and debts once; it fails too for a stack that
+moves an op main holds frequent to the rare tier or raises a line (D1244,
+:func:`check_tiers`), but against a main with no tiers, the owner's first
+record. A run whose engine answers without the compiled kernels' library
+the worktree ships for its host
 (:func:`native_failures`: its pages' ``sdk.catalog`` ``native``, loaded,
 that library, those bytes, and as each page leaves no reach call its twin
 answered) fails, its ops with it, so a time the Python twins took is never
@@ -113,8 +124,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CEILINGS = "tests/perf_ceilings.toml"
-BUDGET = 3.0          # D981: a player-facing op's seconds on this Mac
-CAPPED = 9.0          # D984: the capped profile's
+BUDGET = 3.0          # D981: a player-facing op's seconds on this Mac (D1244: what players do often)
+RARE = 10.0           # D1244: a rarely used op's line (``_perf.Op.tier``)
+CAPPED = 9.0          # D984: the capped profile's: three times each line (:func:`budget_of`, :func:`bound_of`)
+#: D1194, D1244: a heavy op (``_perf.Op.heavy``: a dress's work the page asks for, a Check or a new shape's first
+#: build or pictures) passes its tier's line only with a moving bar, and past this bound, by tier and host, is a debt
+#: row (``beyond``); a browser's rare bound is D1244's 90 s at most
+HEAVY = {"frequent": {"app": 15.0, "site": 30.0}, "rare": {"app": 45.0, "site": 90.0}}
 PROGRESS = 1.0        # D980: an op past this shows progress
 MEMORY = 6 * 2**30    # the capped profile's peak resident size
 R = 3                 # samples an op (the median decides)
@@ -122,7 +138,7 @@ LONG = 30.0           # an op past this runs once, and once more on a re-run
 MARGIN = 1.15         # a ceiling is the median times this, rounded up to 0.1 s
 REGRESSION = 0.25     # D1170: a clear regression: the median over the last release's run's by more than this share of it
 REGRESSION_S = 0.5    # and by more than these seconds (both)
-DEBTS = ("listed", "over", "regressed", "no progress")   # D1170: the verdicts that are perf-debt rows, failing nothing
+DEBTS = ("listed", "over", "regressed", "no progress", "beyond")   # D1170: the verdicts that are perf-debt rows
 #: A sample's place (Step 4.47d), as the driver tags it (``first_on_page``): its op's first on its page (a site page or
 #: an app run: a cold Check, a first preview) or a later one there; the regression verdict judges each against its own
 PLACES = {"first": "its first sample on a page", "later": "its later samples there"}
@@ -186,8 +202,25 @@ def run_of(op: str, context: str) -> str:
     return context
 
 
-def budget_of(context: str) -> float:
-    return CAPPED if context == "capped" else BUDGET
+def budget_of(context: str, tier: str = "frequent") -> float:
+    """An op's line in ``context`` (D981, D1244): :data:`BUDGET`, a rare op's :data:`RARE`; the capped profile's three
+    times each (D984)."""
+    line = RARE if tier == "rare" else BUDGET
+    return line * CAPPED / BUDGET if context == "capped" else line
+
+
+def bound_of(op: str, context: str, tier: str = "frequent") -> float:
+    """A heavy op's bound in ``context`` (:data:`HEAVY`, D1244): its tier's for its host (an ``A`` op's the app's, the
+    site's in each browser and the lag profile), the capped profile's three times."""
+    line = HEAVY[tier]["app" if op.startswith("A") else "site"]
+    return line * CAPPED / BUDGET if context == "capped" else line
+
+
+def tiered(ops) -> tuple[set[str], set[str]]:
+    """``(rare, heavy)``: the ids of ``ops`` (``_perf.Op``) judged at the rare line and the heavy ones (D1244); a
+    first-time op (a bar op that isn't heavy: D982, D1008) keeps 3 s in either tier, as it stood."""
+    return ({op.id for op in ops if op.tier == "rare" and (op.heavy or not op.bar)},
+            {op.id for op in ops if op.heavy})
 
 
 def ceil(seconds: float) -> float:
@@ -226,20 +259,24 @@ def regression(median: float, reference: float | None, budget: float) -> bool:
 
 def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt: bool = False,
           bar: bool = False, browser_bar: bool = False, reference: float | dict | None = None,
-          beside: dict | None = None) -> dict:
+          beside: dict | None = None, bound: float | None = None, rare: bool = False) -> dict:
     """One op's verdict in one context from its samples (``{"s", "bar",
     "progress"[, "page"][, "froze"][, "error"]}``): ``pass``, ``listed`` (over its
     budget, within its ceiling), ``bar`` (D982: over 3 s with a moving bar), ``over``
     (unlisted, over its budget), ``regressed`` (over its
     ceiling), ``no progress`` (past 1 s with none shown and not a debt) and
-    ``error``. Its ``debt`` (D1170): a verdict of :data:`DEBTS` or a sample
+    ``error``; a heavy op's (D1244: a ``bound``, :func:`bound_of`) ``bar``,
+    ``listed`` or ``over`` whose median passes its bound is ``beyond``.
+    Its ``debt`` (D1170): a verdict of :data:`DEBTS` or a sample
     whose page froze in a gap (the case's ``froze``), and an error with no
     ``reference`` (an op the last release never measured), a perf-debt row
     that fails nothing; ``ok`` is false only as :func:`blocks` says: an error
     on an op with a ``reference`` median (the last release's run's), or
     ``slower``: its median over its ``budget`` and over that one by more
     than both :data:`REGRESSION` of it and :data:`REGRESSION_S`
-    (:func:`regression`). Like with like (Step 4.47d): with a ``reference``
+    (:func:`regression`): a frequent op's budget, a ``rare`` one's line
+    (its budget, or its bound for a heavy one), so a rare op blocks only as a
+    clear regression past it. Like with like (Step 4.47d): with a ``reference``
     of places (:func:`reference_of`) and samples the driver placed
     (:func:`placed`), each place both hold is judged so on its own median
     (the case's ``places``), and the op is ``slower`` when one is, so how
@@ -260,7 +297,12 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     case; no verdict reads it."""
     seconds = [s["s"] for s in samples]
     whole = reference.get("median") if isinstance(reference, dict) else reference
+    line = bound if rare and bound is not None else budget   # D1244: the regression's line
     out = {"n": len(samples), "budget": budget, "ceiling": ceiling, "samples": seconds, "reference": whole}
+    if bound is not None:
+        out["bound"] = bound
+    if line != budget:
+        out["line"] = line
     if (at := placed(samples)) is not None:
         out["first_on_page"] = [s["first_on_page"] for s in samples]
     if browser_bar:
@@ -284,6 +326,8 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
         verdict = "bar" if bar and moved else "listed" if ceiling is not None else "over"   # D982 before the list
     else:
         verdict = "pass"
+    if bound is not None and verdict in ("bar", "listed", "over") and median > bound:
+        verdict = "beyond"   # D1244: past its tier's bound
     if verdict in ("pass", "listed", "bar") and median > PROGRESS and not shown and not debt:
         verdict = "no progress"
     if froze := [s["froze"] for s in samples if s.get("froze")]:
@@ -291,10 +335,10 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     theirs = reference.get("places") if isinstance(reference, dict) else None
     if at and theirs and (both := [p for p in PLACES if p in at and p in theirs]):
         out["places"] = {p: {"median": round(statistics.median(at[p]), 3), "reference": theirs[p],
-                             "slower": regression(statistics.median(at[p]), theirs[p], budget)} for p in both}
+                             "slower": regression(statistics.median(at[p]), theirs[p], line)} for p in both}
         slower = any(v["slower"] for v in out["places"].values())
     else:
-        slower = regression(median, whole, budget)
+        slower = regression(median, whole, line)
     if beside is not None:
         out["beside"] = dict(beside)
         both = [p for p in (*PLACES, "all") if beside.get("head", {}).get(p) and beside.get("release", {}).get(p)]
@@ -302,7 +346,7 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
             out["beside"]["places"] = {p: {"head": round(statistics.median(beside["head"][p]), 3),
                                            "release": round(statistics.median(beside["release"][p]), 3)} for p in both}
             for v in out["beside"]["places"].values():
-                v["slower"] = regression(v["head"], v["release"], budget)
+                v["slower"] = regression(v["head"], v["release"], line)
             slower = out["beside"]["slower"] = any(v["slower"] for v in out["beside"]["places"].values())
     return out | {"verdict": verdict, "ok": not slower, "slower": slower, "debt": verdict in DEBTS or bool(froze)}
 
@@ -328,12 +372,14 @@ def blocking(block: dict | None) -> list[str]:
     def stored(r: dict, p: str) -> float | None:   # the receipt's figure for a place
         return r.get("places", {}).get(p, {}).get("reference", r.get("reference"))
     out = ["; ".join(f"{k}: slower than the release's tree timed beside it ({v['head']} s against {v['release']} s"
-                     f" at {PLACES.get(p, 'every sample')}, over its {r['budget']} s budget and the release's by "
+                     f" at {PLACES.get(p, 'every sample')}, over its {r.get('line', r['budget'])} s budget and the "
+                     f"release's by "
                      f"{REGRESSION:.0%} and {REGRESSION_S} s: D1170; its receipt: {stored(r, p)} s)"
                      for p, v in r["beside"]["places"].items() if v["slower"])
            if r.get("slower") and (r.get("beside") or {}).get("slower")
            else "; ".join(f"{k}: slower than the release's {v['reference']} s" + (f" at {PLACES[p]}" if p else "")
-                          + f" ({v['median']} s, over its {r['budget']} s budget and the release's by {REGRESSION:.0%}"
+                          + f" ({v['median']} s, over its {r.get('line', r['budget'])} s budget and the release's by "
+                          f"{REGRESSION:.0%}"
                           f" and {REGRESSION_S} s: D1170)"
                           + (f"; the release's tree beside it: {r['beside']['error']}"
                              if (r.get("beside") or {}).get("error") else "")
@@ -391,8 +437,9 @@ def listed(text: str | None) -> dict:
 def render(lst: dict) -> str:
     """The list as ``tests/perf_ceilings.toml``."""
     order = lambda k: (k.split("/")[0], k)   # noqa: E731
-    lines = ["# The perf gate's list (scripts/perf.py; D980-D985): each op still over its budget (3 s, the capped",
-             "# profile's 9 s) with its ceiling, the median x 1.15 rounded up to 0.1 s, as \"<op>/<context>\"",
+    lines = ["# The perf gate's list (scripts/perf.py; D980-D985): each op still over its line (3 s, a rare op's 10 s,",
+             "# D1244; the capped profile's three times) with its ceiling, the median x 1.15 rounded up to 0.1 s, as",
+             "# \"<op>/<context>\"",
              "# (tests/_perf.py's ids; app, webkit, chromium, lag, capped); the ops past 1 s that show no progress",
              "# yet (D980); the capped profile's peak memory over 6 GiB; the ops the gate can't time. It only",
              "# shrinks: `perf.py --update-ceilings` lowers and drops, and the gate fails an added op, debt or a",
@@ -428,14 +475,67 @@ def new_browsers(repo: Path, base: str | None, head: str) -> set[str]:
     return set(browsers_of(_git(repo, "show", f"{head}:scripts/perf.py"))) - set(browsers_of(old))
 
 
-def check_list(mine: dict, main: dict | None, new: frozenset[str] | set[str] = frozenset()) -> list[str]:
+def tiering(perf_source: str | None, registry_source: str | None) -> dict | None:
+    """The tiers a ``tests/_perf.py`` holds and the lines its ``scripts/perf.py`` does (D1244), read with ``ast``:
+    ``{"tiers": {op: tier}, "lines": {name: seconds}}``; None for a registry whose ``Op`` has no ``tier`` (before
+    D1244's first record)."""
+    try:
+        tree, script = ast.parse(registry_source or ""), ast.parse(perf_source or "")
+    except SyntaxError:
+        return None
+    op = next((n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Op"), None)
+    field = next((n for n in (op.body if op else ()) if isinstance(n, ast.AnnAssign)
+                  and getattr(n.target, "id", None) == "tier"), None)
+    if field is None:
+        return None
+    default = ast.literal_eval(field.value) if field.value is not None else None
+    tiers = {}
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "Op" and node.args
+                and isinstance(node.args[0], ast.Constant)):
+            given = next((k.value for k in node.keywords if k.arg == "tier"), None)
+            tiers[node.args[0].value] = ast.literal_eval(given) if given is not None else default
+    lines = {}
+    for node in script.body:
+        for name in (getattr(t, "id", None) for t in getattr(node, "targets", ())):
+            if name in ("BUDGET", "RARE", "CAPPED"):
+                lines[name] = ast.literal_eval(node.value)
+            elif name == "HEAVY":
+                lines |= {f"HEAVY {tier} {host}": v for tier, hosts in ast.literal_eval(node.value).items()
+                          for host, v in hosts.items()}
+    return {"tiers": tiers, "lines": lines}
+
+
+def tiering_at(repo: Path, rev: str | None) -> dict | None:
+    """``rev``'s :func:`tiering` (None for no ``rev``)."""
+    return None if rev is None else tiering(_git(repo, "show", f"{rev}:scripts/perf.py"),
+                                            _git(repo, "show", f"{rev}:tests/_perf.py"))
+
+
+def check_tiers(mine: dict | None, main: dict | None) -> list[str]:
+    """What the head's tiers loosen against main's (D1244, :func:`tiering`): an op main holds at the frequent tier
+    moved to the rare one, or a line raised. None against a main whose registry has no tiers: that first record is the
+    owner's tiering (D1244); a later move needs an owner's decision and a change here that lets it through once, as a
+    browser's first record has :func:`new_browsers`. A new op may start at either tier."""
+    if not mine or not main:
+        return []
+    bad = [f"{op}: moved to the rare tier against main's (D1244: an owner's decision)"
+           for op, tier in sorted(mine["tiers"].items()) if tier == "rare" and main["tiers"].get(op, "rare") != "rare"]
+    return bad + [f"{name}: raised against main's, {main['lines'][name]} -> {v} s (D1244)"
+                  for name, v in sorted(mine["lines"].items()) if v > main["lines"].get(name, v)]
+
+
+def check_list(mine: dict, main: dict | None, new: frozenset[str] | set[str] = frozenset(),
+               tiers: tuple[dict | None, dict | None] = (None, None)) -> list[str]:
     """What the worktree's list adds or raises against main's: none on the
     first record (no list on main), and none of a context in ``new`` (a
-    browser main's perf.py doesn't time: its first record)."""
+    browser main's perf.py doesn't time: its first record); and what its
+    ``tiers`` (the head's and main's :func:`tiering`) loosen (:func:`check_tiers`)."""
+    bad = check_tiers(*tiers)
     if main is None:
-        return []
+        return bad
     old = [k for k in mine["ceilings"] if context_of(k) not in new]
-    bad = [f"{k}: added to the list (ceiling {mine['ceilings'][k]} s)" for k in old if k not in main["ceilings"]]
+    bad += [f"{k}: added to the list (ceiling {mine['ceilings'][k]} s)" for k in old if k not in main["ceilings"]]
     bad += [f"{k}: its ceiling raised, {main['ceilings'][k]} -> {v} s" for k, v in mine["ceilings"].items()
             if k in main["ceilings"] and v > main["ceilings"][k]]
     bad += [f"{k}: a new progress debt" for k in mine["debts"] if k not in main["debts"] and context_of(k) not in new]
@@ -508,14 +608,20 @@ def rerun(results: dict, samples: list[dict], again: bool = False) -> int:
 
 
 def verdicts(cases: list[tuple[str, str]], samples: dict, lst: dict, bars=frozenset(),
-             browser_bars=frozenset(), reference: dict | None = None, beside: dict | None = None) -> dict:
+             browser_bars=frozenset(), reference: dict | None = None, beside: dict | None = None,
+             rare=frozenset(), heavy=frozenset()) -> dict:
     """``{key: verdict}`` for ``cases`` from ``{(run, op): samples}`` against the list ``lst`` and the ``reference``
     (``{key: s}`` or :func:`reference_of`'s, the last release's run's) and, for a key ``beside`` holds, the release's
-    tree timed beside it (:func:`pair`); Firefox's whole Save passes 3 s on its moving bar (D1053: its download writer
-    alone takes that), never its page part."""
-    return {key(op, c): judge(samples.get((run_of(op, c), op), []), budget_of(c), lst["ceilings"].get(key(op, c)),
-                              key(op, c) in lst["debts"], op in bars or op in browser_bars and c == "firefox",
-                              op in browser_bars, (reference or {}).get(key(op, c)), (beside or {}).get(key(op, c)))
+    tree timed beside it (:func:`pair`); each op at its tier's line (D1244, :func:`tiered`: an op of ``rare`` at
+    :data:`RARE`, one of ``heavy`` held to its bound); Firefox's whole Save passes 3 s on its moving bar (D1053: its
+    download writer alone takes that), never its page part."""
+    def tier(op: str) -> str:
+        return "rare" if op in rare else "frequent"
+    return {key(op, c): judge(samples.get((run_of(op, c), op), []), budget_of(c, tier(op)),
+                              lst["ceilings"].get(key(op, c)), key(op, c) in lst["debts"],
+                              op in bars or op in browser_bars and c == "firefox", op in browser_bars,
+                              (reference or {}).get(key(op, c)), (beside or {}).get(key(op, c)),
+                              bound_of(op, c, tier(op)) if op in heavy else None, op in rare)
             for op, c in cases}
 
 
@@ -607,8 +713,9 @@ def pair(slow: list[tuple[str, str]], samples: dict, go, beside, repeat=frozense
 
 def debt_rows(results: dict, saves=frozenset(), free: dict | None = None) -> list[dict]:
     """The perf-debt rows (D1170) of ``results``: each case whose ``debt`` is set, with its verdict (``froze`` for
-    one within its budget whose page froze), median, budget, first freeze and error (an op new to the release that
-    errs); a Save's (``saves``) with the free disk in GiB its run left (``free``: ``{run: bytes}``)."""
+    one within its budget whose page froze), median, budget, a heavy op's bound (D1244), first freeze and error (an op
+    new to the release that errs); a Save's (``saves``) with the free disk in GiB its run left (``free``: ``{run:
+    bytes}``)."""
     rows = []
     for k, r in results.items():
         if not r.get("debt"):
@@ -616,6 +723,8 @@ def debt_rows(results: dict, saves=frozenset(), free: dict | None = None) -> lis
         op, _, context = k.partition("/")
         row = {"op": k, "verdict": r["verdict"] if r["verdict"] in (*DEBTS, "error") else "froze",
                "median": r.get("median"), "budget": r["budget"]} | ({"froze": r["froze"][0]} if r.get("froze") else {})
+        if r.get("bound") is not None:
+            row["bound"] = r["bound"]
         if r.get("error"):
             row["error"] = r["error"]
         if op in saves and (free or {}).get(run_of(op, context)) is not None:
@@ -627,14 +736,16 @@ def debt_rows(results: dict, saves=frozenset(), free: dict | None = None) -> lis
 def debt_line(row: dict) -> str:
     """A perf-debt row as one printed line."""
     return (f"{row['op']}: {row['verdict']} "
-            + (f"({row['error']})" if "error" in row else f"({row['median']} s, budget {row['budget']})")
+            + (f"({row['error']})" if "error" in row else f"({row['median']} s, budget {row['budget']}"
+               + (f", bound {row['bound']})" if row.get("bound") is not None else ")"))
             + (f"; {row['froze']}" if row.get("froze") else "")
             + (f"; {row['free_disk_gib']} GiB free" if "free_disk_gib" in row else ""))
 
 
 def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(), bars=frozenset(),
             fresh=frozenset(), browser_bars=frozenset(), reference: dict | None = None,
-            once: bool = False, beside=None, repeat=frozenset()) -> tuple[dict, dict, dict]:
+            once: bool = False, beside=None, repeat=frozenset(), rare=frozenset(),
+            heavy=frozenset()) -> tuple[dict, dict, dict]:
     """``({key: verdict}, {run: memory peak}, {(run, op): samples})`` for ``cases`` (``(op,
     context)``): ``drive(run, {op: target})`` returns that run's ``{"samples":
     {op: every sample so far}, "memory_peak"}`` once each op has
@@ -648,7 +759,8 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
     (the release's tree's ``drive``, Step 4.47e) a slower op is timed beside
     the release's instead (:func:`pair`; ``repeat``: the ops repeated in one
     state) and judged against it; one whose release side errs re-runs as
-    before, against the reference."""
+    before, against the reference. ``rare`` and ``heavy``: :func:`tiered`'s
+    (D1244), each op judged at its tier's line."""
     timed = [(op, c) for op, c in cases if op not in untimed]
     samples: dict[tuple[str, str], list[dict]] = {}
     peaks: dict[str, int | None] = {}
@@ -673,12 +785,13 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
             rest.setdefault(run_of(op, c), {})[op] = R
     if rest:
         go(rest)
-    judged = verdicts(timed, samples, lst, bars, browser_bars, reference)
+    tiers = {"rare": rare, "heavy": heavy}
+    judged = verdicts(timed, samples, lst, bars, browser_bars, reference, **tiers)
     paired = {} if beside is None else pair(
         [(op, c) for op, c in timed if c not in fresh and judged[key(op, c)].get("slower")], samples, go, beside,
-        repeat, lambda record: verdicts(timed, samples, lst, bars, browser_bars, reference, record))
+        repeat, lambda record: verdicts(timed, samples, lst, bars, browser_bars, reference, record, **tiers))
     if paired:
-        judged = verdicts(timed, samples, lst, bars, browser_bars, reference, paired)
+        judged = verdicts(timed, samples, lst, bars, browser_bars, reference, paired, **tiers)
     for again in (False, *[True] * (R - 1)):   # R more, then R more while a place holds fewer (:func:`rerun`)
         more: dict[str, dict[str, int]] = {}
         for op, c in timed:
@@ -692,7 +805,7 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
             break
         go(more)
     peaks_of = {run: (peak, shared.get(run, False)) for run, peak in peaks.items()}
-    return verdicts(timed, samples, lst, bars, browser_bars, reference, paired), peaks_of, samples
+    return verdicts(timed, samples, lst, bars, browser_bars, reference, paired, **tiers), peaks_of, samples
 
 
 def normal_load(samples: int = 8, span: float = 4.0) -> float:
@@ -774,9 +887,12 @@ def main(argv: list[str] | None = None) -> int:
     on_main = _git(wt, "show", f"main:{CEILINGS}")
     main_list = listed(on_main) if on_main is not None else None
     new = new_browsers(wt, "main", "HEAD")   # each one's first record may add its own ops
+    tiers = (tiering_at(wt, "HEAD"), tiering_at(wt, "main"))   # D1244: a line rises only by the owner's tiering
+    rare, heavy = tiered(ops)
     t0 = time.monotonic()
     block = {"profiles": profiles, "browsers": browsers, "pairs": sorted(f"{h}:{g}" for h, g in pairs),
-             "cases": {}, "memory": {}, "list": check_list(mine, main_list, new), "untimed": {}, "new": sorted(new),
+             "cases": {}, "memory": {}, "list": check_list(mine, main_list, new, tiers), "untimed": {},
+             "new": sorted(new),
              "tree_peaks": {}}
     reference, free = None, {}   # the last release's run's medians; the free disk each run left (a Save's debt)
     release = None   # the release's commit, whose tree is timed beside an op that reads slower (Step 4.47e)
@@ -881,7 +997,8 @@ def main(argv: list[str] | None = None) -> int:
             fresh = (set(contexts(profiles, browsers)) if main_list is None else new) if args.update_ceilings else ()
             block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh, browser_bars, reference,
                                                      once=not args.all, beside=beside if release else None,
-                                                     repeat={op.id for op in ops if not op.first})
+                                                     repeat={op.id for op in ops if not op.first}, rare=rare,
+                                                     heavy=heavy)
             if not args.all:   # D1215: the cases whose one sample stood (under 1 s, clean)
                 block["one_sample"] = sorted(k for k, r in block["cases"].items()
                                              if r["n"] == 1 and r.get("median") is not None and r["median"] < PROGRESS)
@@ -905,12 +1022,12 @@ def main(argv: list[str] | None = None) -> int:
         lst["untimed"] = (dict(mine["untimed"]) | block["untimed"]) if main_list is None else {   # the registry's
             k: v for k, v in mine["untimed"].items() if k not in _perf.OPS or _perf.OPS[k].untimed}   # not the run's
         (wt / CEILINGS).write_text(render(lst), encoding="utf-8")
-        block["list"] = check_list(lst, main_list, new)
+        block["list"] = check_list(lst, main_list, new, tiers)
         if cases:   # judged again against the list it wrote
             block["cases"] = verdicts([oc for oc in cases if oc[0] not in untimed], samples, lst, bars, browser_bars,
                                       reference, {k: {f: v for f, v in r["beside"].items() if f in ("head", "release",
                                                                                                      "error")}
-                                                  for k, r in block["cases"].items() if "beside" in r})
+                                                  for k, r in block["cases"].items() if "beside" in r}, rare, heavy)
             for name, mem in block["memory"].items():
                 mem |= {"ceiling": lst["memory"].get(name), "ok": mem["peak"] <= max(MEMORY, lst["memory"].get(name, 0))}
     block["failures"] = blocking(block)
@@ -919,6 +1036,7 @@ def main(argv: list[str] | None = None) -> int:
               "wall_s": round(time.monotonic() - t0, 1)}
     for k, r in block["cases"].items():
         print(f"{k:16} {r['verdict']:12} {r.get('median', '-')!s:>8} s  n {r['n']}  budget {r['budget']}"
+              + (f"  bound {r['bound']}" if r.get("bound") is not None else "")
               + (f"  ceiling {r['ceiling']}" if r["ceiling"] else "")
               + (f"  release's {r['reference']}" if r.get("reference") is not None else "")
               + "".join(f"  {p} {v['median']} ({v['reference']})" for p, v in r.get("places", {}).items())

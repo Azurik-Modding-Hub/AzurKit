@@ -25,7 +25,9 @@ timed every op this stack's changes reach, with nothing blocking. Every stack's
 debt, a memory peak or an untimed op, or raises a ceiling, against main's
 (``perf.check_list``; main without the file takes any, the first record, and
 a browser the stack's perf.py times and main's doesn't may add its own once,
-its first record: ``perf.new_browsers``, D994). It refuses a head whose
+its first record: ``perf.new_browsers``, D994); and one that moves an op
+main holds frequent to the rare tier or raises a line (``perf.check_tiers``,
+D1244), but against a main with no tiers. It refuses a head whose
 ``docs/DEVLOG.md`` holds a bullet twice (``scripts/devlog.py``: the stale copy
 a union merge keeps of a bullet its lane edited, Step 4.4dx1).
 Landing never waits for a release (D1170): a release is a tag on a commit
@@ -127,7 +129,8 @@ def land(repo: Path, branch: str, dry_run: bool = False) -> tuple[int, str]:
         return 1, f"land: {branch}'s developer log holds a bullet twice (Step 4.4dx1): " + "; ".join(twice)
     left = perf_list(repo, top) or perf.listed(None)
     new = perf.new_browsers(repo, main, top)   # each one's first record may add its own ops (D994)
-    if grown := perf.check_list(left, perf_list(repo, main), new):   # any stack, list-only ones too (no perf stage)
+    tiers = (perf.tiering_at(repo, top), perf.tiering_at(repo, main))   # D1244: a line rises only by the owner's
+    if grown := perf.check_list(left, perf_list(repo, main), new, tiers):   # any stack, list-only ones too
         return 1, f"land: {branch}'s {perf.CEILINGS} grows main's list (D981): " + "; ".join(grown)
     folder = fs.receipts(repo)
     paths = fs.git(repo, "diff", "--name-only", main, top) if main else fs.git(repo, "ls-tree", "-r", "--name-only", top)

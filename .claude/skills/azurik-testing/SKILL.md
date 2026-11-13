@@ -185,8 +185,9 @@ For a build, build each seed into a `mktemp -d` output and compare `shasum -a 25
 ## 9. The perf gate, the window and flakes
 
 - `scripts/perf.py` times the player-facing ops a change reaches (`tests/_perf.py`'s registry) inside
-  the gate's lock: an op over 3 s, its ceiling (`tests/perf_ceilings.toml`) or past 1 s with no
-  progress is a perf-debt row (`perf-debt.jsonl` beside the receipts, a lane); only a clear
+  the gate's lock: an op over its tier's line (3 s for what players do often; INTERNALS.md's table
+  holds the rare ops' looser lines and the Checks', D1244), its ceiling (`tests/perf_ceilings.toml`)
+  or past 1 s with no progress is a perf-debt row (`perf-debt.jsonl` beside the receipts, a lane); only a clear
   regression against main's last passing full run, a memory peak, an error or a list that grows
   fails it (D1170). A seat runs only `perf.py <lane> --select HOST:GROUP` of its own ops.
 - **The window:** browser, memory, perf or other heavy runs take `$EV/tools/window take <step>` and

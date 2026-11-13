@@ -26,13 +26,17 @@ were left as they were. Step 4.47g added the 2026-11-12 session's items
 
 The next session starts here (D1192), so 1.1 can follow.
 
-1. **The target** (D1194, D1201, D1204; from D1167, D1181): every first
-   Check a player meets takes 30 s at most in each of WebKit, Chromium and
-   Firefox, a Check after a Shape edit too, and the app well under. It is
+1. **The target** (D1244, amending D1194 and D1201; D1204): tiered by how
+   often players meet it. A Check players meet often (her own copy's first,
+   after Scale, a Jiggle stiffness or a colour) takes 30 s at most in each
+   of WebKit, Chromium and Firefox and 15 s in the app; a rare one (after a
+   Shape edit, one with no shipped parts) and a reshape's first build and
+   pictures 90 s and 45 s. The perf gate holds each op to its tier's line,
+   one past it a debt row (Step 4.49a; INTERNALS.md's tiers). It is
    measured on this Mac, busy, beside other projects' load (D1107): no idle
-   rerun and no budget change; on CI's runners the tests keep their bounds.
-   Rounds go on until every path holds it with margin; then one real-Safari
-   first Check, in one window (D1089, D1202).
+   rerun and no line change but the owner's; on CI's runners the tests keep
+   their bounds. Rounds go on until every path holds its line with margin;
+   then one real-Safari first Check, in one window (D1089, D1202).
 2. **Where it stands** (4.37a, 11-10, with booblord v8's parts installed):
    S78, her own copy, 5.25 s in WebKit, 5.70 s in Chromium and 11.74 s in
    Firefox; A92 5.44 s in the app. On the site's engine (Pyodide on Node) a
@@ -75,11 +79,17 @@ The next session starts here (D1192), so 1.1 can follow.
    4.37m1 lands, then keyed on `parts.VERSION` instead of on what draws
    them, which as built makes every later `tools/characters` edit owe a
    characters re-record.
-8. **The Firefox Shape-edit gap** (D1209): 4.37e's design finds no lane in
-   reach that brings a Firefox Shape-edit first Check to 30 s (about
-   35-75 s after round 7, estimated). Rounds 6 and 7 land every lane in
-   reach and measure it; then its number goes under group 9's known flaws
-   (D835), with no full engine port.
+8. **The Firefox Shape-edit gap** (D1209, D1244): its line is now a rare
+   Check's 90 s (S84). It read 256 s in Firefox and 180 s in Chromium on
+   11-11, before round 6 landed (about 160 s and 115-120 s now, estimated
+   from 4.37e0's ratios, unmeasured); WebKit reads 113-117 s. Main's
+   every-browser run measures it against 90 s; one still over goes under
+   group 9's known flaws with its number (D835), with no full engine port.
+9. **Paths with no perf row** (4.49a's design): a Check after a sound edit
+   (frequent; 2.6 s natively in 4.37m1's A/B), after a texture row or
+   Import PNG (about 15 s natively, 37.1 s on the site's engine), and after
+   a Moves, Attacks or Effects edit. The gate can't tier what it doesn't
+   time: each wants a row in `tests/_perf.py` with its tier and its line.
 
 ## 2. Releases and content
 
@@ -87,10 +97,10 @@ The next session starts here (D1192), so 1.1 can follow.
 2. ~~The content push~~: booblord v8 is the content repo's `main`
    (9a92177, the commit CI pins), past v7. The clone's superseded branches
    and worktrees go with 11.2.
-3. **1.1** (D1203, D1210): the release where group 1's 30 s holds, with the
-   Variants editor's gaps: Undo (there since 4.6e), the app's window asking
-   about unsaved edits on close (4.38a, landed) and community-only
-   characters resolving (9.32).
+3. **1.1** (D1203, D1210, D1244): the release where group 1's tiered
+   lines hold, with the Variants editor's gaps: Undo (there since 4.6e),
+   the app's window asking about unsaved edits on close (4.38a, landed) and
+   community-only characters resolving (9.32).
 4. **1.0.3** (D1196, D1198, D1210, D1218, D1221): the release that fixes
    the Windows app's Build with a character. Its fixes: the hang (`serve`
    read its input on fd 0, where numpy's OpenBLAS waits at load: 4.37r,

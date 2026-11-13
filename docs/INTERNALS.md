@@ -1719,9 +1719,8 @@ are the Characters section's.
     a value no Check held, clicked the head start after it), and A106 and
     S88 one whose Content from holds none of her shipped Check parts (the
     site's `./content-unparted/`, which the perf's server answers as
-    `content-source/` but each part a 404): bar ops, so they pass at any
-    length while the bar moves and their medians are read against the
-    first Check's 30 s (D1194, D1201).
+    `content-source/` but each part a 404): heavy ops, each held to its
+    tier's line (D1244: Commits and landing's tiers).
     Its tabs are modules of their own under `web/variants/`, so each tab's
     lane edits its own file. The Colours tab (Step 4.6e,
     `web/variants/colours.mjs`; Modkit's, D772, D809 (a)) draws on
@@ -2316,14 +2315,17 @@ are the Characters section's.
   area's run times it once and the rest only when that sample is at or past
   1 s or froze (`perf.alone`, D1215: the block's `one_sample` names the cases
   one sample judged; main's every-op run keeps three). Timings are
-  advisory (D1170): an op over 3 s (or over its ceiling in
-  `tests/perf_ceilings.toml`), past 1 s with no progress, or whose page froze
-  in a gap is a perf-debt row (the block's `debt`, printed and appended to
+  advisory (D1170): an op over its tier's line (3 s, a rare op's 10 s: the
+  tiers, below; or over its ceiling in `tests/perf_ceilings.toml`), a heavy
+  op past its bound (`beyond`), past 1 s with no progress, or whose page
+  froze in a gap is a perf-debt row (the block's `debt`, printed and appended to
   `perf-debt.jsonl` beside the receipts; a Save's row carries the free disk),
   a lane, not a block, and so is an op the last release never measured that
   errs, its error the row's reason. The block fails only on a clear
   regression against the last release (`perf.blocking`): an op's median over
-  its budget and over the last release's run's for the same op and context
+  its line (a frequent op's 3 s, strict on how optimized it is; a rare op's
+  10 s, a heavy one's bound) and over the last release's run's for the same
+  op and context
   (`fullsuite.release_reference`: the newest receipt with verdicts on the
   newest `v*` tag's commit the stack holds, a run of every op first, else
   the release's before; `perf.py --reference`) by more than 25 % and 0.5 s
@@ -2359,7 +2361,9 @@ are the Characters section's.
   timed in the same minutes tells a slower product from a busier box. An image's first check and the site's first engine load may pass
   3 s only with a moving bar (D982), and so may a character's first build
   in a browser (`S14`, D1067; the same build at a later visit, over its
-  kept dress, `S64`, may not); past 1 s an op shows progress unless the
+  kept dress, `S64`, may not), and a heavy op its tier's line, past which
+  it answers to its bound (the tiers, below); past 1 s an op shows progress
+  unless the
   list names it a debt (D980). A download (the registry's `browser_bar`: the
   browser writes the file the page handed it, and its download indicator
   shows that) shows it when each sample's page part, the click to the
@@ -2396,7 +2400,52 @@ are the Characters section's.
   `perf.py` doesn't time yet (`perf.new_browsers`), whose first record
   (`--update-ceilings`, its ops as measured) may add its own ops and debts
   once (it lands a stack after the one that put `new_browsers` on main: the
-  landing queue lands with main's `land.py`).
+  landing queue lands with main's `land.py`). A line rises only for a rare
+  op, once, by the owner's tiering: both fail a stack that moves an op
+  main's registry holds frequent to the rare tier or raises a line
+  (`perf.check_tiers`, reading main's `tests/_perf.py` and `perf.py` with
+  `ast`), but against a main whose registry has no tiers, the first record
+  (D1244's, Step 4.49a). A new op may start at either tier.
+- **The tiers (D1244):** "frequently used parts of the tool need to be
+  strict about timing and how optimized they are", rarely used ones may be
+  looser. Each registry op has a tier (`_perf.Op.tier`, `_perf.TIERS`):
+  frequent, what a player meets every session, often or once (a launch, a
+  first visit, the image's check), and every response to a drag, a
+  keystroke or a pick inside an open view, wherever it sits; or rare, a
+  part of the tool few players open or a one-off act inside it. A heavy op
+  (`_perf.Op.heavy`, each a bar op) is a dress's work the page asks for: a
+  Check, or a new shape's first build or pictures (D999). Its lines
+  (`perf.BUDGET`, `RARE`, `HEAVY`; `perf.tiered` picks each op's):
+
+  | Kind | Frequent | Rare |
+  |---|---|---|
+  | An op | 3 s (D981) | 10 s |
+  | A heavy op (frequent: A92, A99, A104, A105, S78, S85, S86, S87; rare: A31, A60, A95, A98, A106, S52, S62, S63, S81, S84, S88) | a moving bar past 3 s; 15 s in the app, 30 s in each browser (D1194) | a moving bar past 10 s; 45 s in the app, 90 s in each browser (D1244's most) |
+  | A first-time op (D982, D1008, D1067) | a moving bar past 3 s, no bound | the same |
+
+  The capped profile answers to three times each line (D984), the lag
+  profile to the browsers'; the app's heavy lines are half the browsers'
+  (D1194's "well under"). Every tier keeps D980's progress past 1 s, the
+  freeze probe and the 6 GiB memory line. The rare ops, by the part of the
+  tool they sit in (`tests/test_dev_tools.py` holds this table to the
+  registry):
+
+  | Rare ops | Why rare |
+  |---|---|
+  | A97, S83 | Open a plan… on the Randomizer tab, a one-off act |
+  | A31, A32, A60, A61, S52, S53, S62, S63, S65 | a reshape on the Characters tab (D999's sliders): its first build and exact pictures, and the same reshape again |
+  | S13 | installing a community character |
+  | A33, A34, A35, A36, S26, S27, S28, S29 | the Patches tab's community packs |
+  | A90, A91, S76, S77 | a variant's zip, imported or exported |
+  | A95, A98, S81, S84 | the Variants editor's Shape tab: a let go's preview and the Check after it |
+  | A106, S88 | a Check with no shipped parts: new content's first (a community-only character) |
+  | A102, A103, S102, S103 | the Colours tab's PNGs, exported or imported |
+  | A110, A112, S110, S112 | the Moves and Attacks tabs' first opens |
+  | A39, A42, A45, A46, A94, A120, A121, S32, S35, S38, S39, S80, S120, S121 | the Data tab: its first open, All tables, a build of 100 edits, a mods file of 1,000 and its Changes, All files |
+  | A47, A48, A49, A50, A51, S40, S41, S42, S43, S44 | the Tools tab: the image's info, Verify every file, its file list, Extract |
+  | A52, A53, A54, A55, S45, S46, S47, S48 | Open a build…, a mods file saved and loaded, a plan file's spoiler, the last build's report |
+  | A62, A63, A64, A65, A66, S54, S55, S56, S57, S58 | Replace files and Saves |
+
 - **The suite lock's turns (D1222):** macOS hands a released flock to its
   first waiter in the order they blocked, stopped or not, and no later
   taker or `LOCK_NB` try passes it (Step 4.47a's scratch run), so a seat's

@@ -741,7 +741,10 @@ def test_the_perf_gate_keeps_misses_as_debt_and_fails_only_a_regression_against_
     fail it), or an error on an op that run measured; a memory peak blocks
     too (perf.blocking). The receipt's debt rows go to the debt ledger; the
     list may lower and drop but never add or raise against main's; changes
-    reach the ops of their area."""
+    reach the ops of their area. The tiers (D1244): a rare op answers to
+    10 s, a heavy one (a Check) to a moving bar past its line and its bound
+    past that (``beyond``, a debt row), and a rare op blocks only as a
+    regression past its own line, a frequent one past 3 s."""
     def s(seconds, bar=0, progress=True):
         return {"s": seconds, "bar": bar, "progress": progress}
     slow, moving = [s(3.2), s(3.4), s(3.1)], [s(6.8, bar=5)] * 3
@@ -765,6 +768,19 @@ def test_the_perf_gate_keeps_misses_as_debt_and_fails_only_a_regression_against_
         ("over", True, True), ("no progress", True, True), ("pass", False, True), ("pass", True, True),
         ("error", True, True), ("error", False, False), ("over", True, False), ("pass", False, True),
         ("over", True, True), ("over", True, True)]
+    heavy = lambda seconds: [s(seconds, bar=5)] * 3   # noqa: E731
+    assert [(r["verdict"], r["debt"], r["ok"]) for r in (
+        perf.judge([s(6.0)] * 3, perf.budget_of("app", "rare")), perf.judge(heavy(35.0), 3.0, bar=True, bound=30.0),
+        perf.judge(heavy(85.0), 10.0, bar=True, bound=90.0, rare=True),
+        perf.judge(heavy(95.0), 10.0, bar=True, bound=90.0, rare=True),
+        perf.judge([s(7.0)] * 3, 10.0, reference=5.0, rare=True),
+        perf.judge(heavy(70.0), 10.0, bar=True, reference=50.0, bound=90.0, rare=True),
+        perf.judge(heavy(14.0), 3.0, bar=True, reference=10.0, bound=15.0))] == [
+        ("pass", False, True), ("beyond", True, True), ("bar", False, True), ("beyond", True, True),
+        ("pass", False, True), ("bar", False, True), ("bar", False, False)]
+    assert perf.debt_line(perf.debt_rows({"S84/webkit": perf.judge(heavy(95.0), 10.0, bar=True, bound=90.0,
+                                                                   rare=True)})[0]) == (
+        "S84/webkit: beyond (95.0 s, budget 10.0, bound 90.0)")
     assert perf.judge(saved(1.3, 0.01), 3.0, browser_bar=True)["page"] == [0.01] * 3
     empty, bars = {"ceilings": {}, "debts": set()}, [{**s(6.8, bar=5), "page": 0.01}] * 3
     assert {k: v["verdict"] for k, v in perf.verdicts(   # D1053: Firefox's whole Save passes on its bar, no other's
@@ -829,6 +845,40 @@ def test_the_perf_gate_keeps_misses_as_debt_and_fails_only_a_regression_against_
         "ceilings": {"A15/app": 4.6}, "debts": [], "memory": {}, "untimed": {}}
     assert perf.updated(perf.listed(None), results, {}, first=True)["ceilings"] == {"A15/app": 4.6, "A06/app": 8.1}
     assert perf.listed(perf.render(main)) == main
+
+
+def test_each_perf_op_has_a_tier_and_the_rare_ones_are_internals_table():
+    """D1244: every registry op is frequent or rare, a heavy op (a dress's
+    work: a Check, a new shape's first build or pictures) is a bar op, and
+    docs/INTERNALS.md's "The tiers (D1244)" names the rare ops and the heavy
+    ones exactly; a first-time op keeps 3 s in either tier. The lines: 3 s
+    and 10 s, a heavy op's 15 s / 30 s frequent and 45 s / 90 s rare (app /
+    browser; D1244's 90 s at most), the capped profile's three times each,
+    the lag profile's the browsers'."""
+    ops = _perf.OPS.values()
+    assert {op.tier for op in ops} <= set(_perf.TIERS) and all(op.bar for op in ops if op.heavy)
+    text = (ROOT / "docs" / "INTERNALS.md").read_text(encoding="utf-8")
+    tiers = text[text.index("- **The tiers (D1244):**"):]
+    tiers = tiers[:tiers.index("\n- **")]
+    ids = lambda rows: {i for row in rows for i in re.findall(r"\b[AS]\d+\b", row.split("|")[1])}   # noqa: E731
+    rows = []
+    for row in tiers[tiers.index("| Rare ops |"):].splitlines()[2:]:
+        if not row.lstrip().startswith("|"):
+            break
+        rows.append(row)
+    assert ids(rows) == {op.id for op in ops if op.tier == "rare"}
+    assert ids(line for line in tiers.splitlines() if line.lstrip().startswith("| A heavy op")) == {
+        op.id for op in ops if op.heavy}
+    rare, heavy = perf.tiered(ops)
+    assert rare == {op.id for op in ops if op.tier == "rare"} - {"A48", "A54", "S41", "S47"} and heavy == {
+        op.id for op in ops if op.heavy}
+    assert (perf.BUDGET, perf.RARE, perf.CAPPED, perf.HEAVY) == (
+        3.0, 10.0, 9.0, {"frequent": {"app": 15.0, "site": 30.0}, "rare": {"app": 45.0, "site": 90.0}})
+    assert [perf.budget_of(c, t) for c, t in (("app", "frequent"), ("webkit", "rare"), ("capped", "rare"))] == [
+        3.0, 10.0, 30.0]
+    assert [perf.bound_of(op, c, t) for op, c, t in (
+        ("A99", "app", "frequent"), ("S85", "firefox", "frequent"), ("A98", "app", "rare"), ("S84", "lag", "rare"),
+        ("A98", "capped", "rare"), ("S84", "capped", "rare"))] == [15.0, 30.0, 45.0, 90.0, 135.0, 270.0]
 
 
 def test_a_changed_path_times_only_the_perf_ops_of_the_groups_that_load_it_and_the_perf_tools_every_op():
@@ -2085,14 +2135,20 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
     lists its over-budget ops and debts as measured, with no re-run, and
     land.py takes them against main's list; an op added in another context
     is still refused, and so is a new op of that browser once main's perf.py
-    times it."""
+    times it. The tiers (D1244, ``perf.check_tiers``) likewise: a registry
+    that first holds them lands against a main whose has none (the owner's
+    tiering), and once main holds them a stack that moves an op to the rare
+    tier or raises a line is refused by name."""
     repo, _, receipts, _ = _repo(tmp_path, monkeypatch)
 
-    def commit(browsers, lst, what):
+    def commit(browsers, lst, what, registry=None, lines=""):
         (repo / "scripts").mkdir(exist_ok=True)
         (repo / "tests").mkdir(exist_ok=True)
-        (repo / "scripts" / "perf.py").write_text(f"BROWSERS = {browsers!r}\n", encoding="utf-8")
+        (repo / "scripts" / "perf.py").write_text(f"BROWSERS = {browsers!r}\n{lines}", encoding="utf-8")
         (repo / perf.CEILINGS).write_text(perf.render(lst), encoding="utf-8")
+        if registry is not None:
+            (repo / "tests" / "_perf.py").write_text(registry, encoding="utf-8")
+            _git(repo, "add", "tests/_perf.py")
         _git(repo, "add", "scripts/perf.py", perf.CEILINGS)
         _git(repo, "commit", "-q", "-m", what)
         _receipt(receipts, _git(repo, "rev-parse", "HEAD"), mode="changed", base=_git(repo, "rev-parse", "main"),
@@ -2123,6 +2179,22 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
            "a second record")
     code, why = land.land(repo, "p2/z", dry_run=True)
     assert code == 1 and "S08/firefox: added to the list" in why, why
+
+    def registry(*rare, field=True):   # a tests/_perf.py whose Op has a tier (``field``), ``rare`` its rare ops
+        return ("class Op:\n    id: str\n" + ('    tier: str = "frequent"\n' if field else "") + "\n\nOPS = {o.id: o for o in ("
+                + "".join(f'Op("{op}"' + (', tier="rare"' if op in rare else "") + "), " for op in ("S05", "S07")) + ")}\n")
+    three = ("webkit", "chromium", "firefox")
+    _git(repo, "switch", "-q", "main")
+    commit(three, recorded, "an untiered registry", registry("S07", field=False), "RARE = 10.0\n")
+    _git(repo, "switch", "-q", "-c", "p2/t1")
+    commit(three, recorded, "the tiers' first record", registry("S07"), "RARE = 12.0\n")
+    assert land.land(repo, "p2/t1")[0] == 0
+    for branch, given, lines, refused in (("p2/t2", ("S07", "S05"), "RARE = 12.0\n", "S05: moved to the rare tier"),
+                                          ("p2/t3", ("S07",), "RARE = 14.0\n", "RARE: raised against main's, 12.0 -> 14.0")):
+        _git(repo, "switch", "-q", "-c", branch, "main")
+        commit(three, recorded, branch, registry(*given), lines)
+        code, why = land.land(repo, branch, dry_run=True)
+        assert code == 1 and refused in why, why
 
 
 def test_every_name_the_perf_registrys_functions_call_is_one_the_module_has():

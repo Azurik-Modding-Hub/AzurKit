@@ -68,6 +68,9 @@ from tests import _page
 
 ROOT = Path(__file__).resolve().parent.parent
 GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")
+#: D1244: how often players do an op, which sets its line (scripts/perf.py's: 3 s for what they do often, 10 s for what
+#: they rarely do); docs/INTERNALS.md's table "The tiers (D1244)" names each rare op and why
+TIERS = ("frequent", "rare")
 LONG = 30.0          # an op with a sample over this runs once (its median is that sample)
 STARVED = 1.3        # a sample past 1 s whose wall is over this x its tree's CPU seconds waited for a core
 SAVE_DIALOG = 3.0    # a player's Save comes this long after the build (the save dialog)
@@ -92,6 +95,9 @@ class Op:
     browser_bar: str = ""  # D980: the browser's own bar for its write of a file the page handed it (a download only)
     untimed: str = ""     # why the gate can't time it (it is listed as such)
     head_start: bool = False   # D1014: a Track or Build clicked HEAD_START after the scenario's last change
+    tier: str = "frequent"   # one of TIERS (D1244)
+    heavy: bool = False   # D1194, D1244: a dress's work the page asks for (a Check; D999's new shape's first build or
+    #                       pictures), a bar op held past its tier's line to its bound (scripts/perf.py's HEAVY)
 
     @property
     def host(self) -> str:
@@ -106,7 +112,7 @@ OPS = {op.id: op for op in (
     Op("A05", "tabs, a pack's Settings, Copy link (the slowest)", "start"),
     Op("A06", "Randomizer tab, first open", "randomizer"),
     Op("A07", "seed typed, its ask", "randomizer"),
-    Op("A97", "Open a plan… on the Randomizer tab: its seed and settings shown (Step 4.6j)", "randomizer"),
+    Op("A97", "Open a plan… on the Randomizer tab: its seed and settings shown (Step 4.6j)", "randomizer", tier="rare"),
     Op("A08", "Characters tab, no image", "characters"),
     Op("A09", "Characters tab with the image", "characters"),
     Op("A10", "choose keylord (options and pictures)", "characters"),
@@ -134,16 +140,18 @@ OPS = {op.id: op for op in (
     Op("A29", "Cancel a build, then Build", "randomizer"),
     Op("A30", "a small ask while a build runs (a model's pictures)", "randomizer"),
     Op("A31", "Build booblord reshaped (one slider moved), first", "build", bar=True, content=True,   # D999
-       head_start=True),
-    Op("A32", "the same reshape at the next launch", "build", content=True),
+       head_start=True, tier="rare", heavy=True),
+    Op("A32", "the same reshape at the next launch", "build", content=True, tier="rare"),
     Op("A59", "a slider moved: the reshape's nearest shape, marked Preview (D1011)", "characters", first=False,
        content=True),
-    Op("A60", "the reshape's exact pictures, first", "characters", bar=True, content=True),   # D999's kind, by D1011
-    Op("A61", "the same reshape's exact pictures again", "characters", first=False, content=True),
-    Op("A33", "the Patches tab's community group, first open -> its list", "build"),   # Step 4.3k: community packs
-    Op("A34", "Install a community pack -> its row tickable", "build"),
-    Op("A35", "tick it -> its rows set and locked", "build"),
-    Op("A36", "Build with it", "build", head_start=True),
+    Op("A60", "the reshape's exact pictures, first", "characters", bar=True, content=True,
+       tier="rare", heavy=True),   # D999's kind, by D1011
+    Op("A61", "the same reshape's exact pictures again", "characters", first=False, content=True, tier="rare"),
+    Op("A33", "the Patches tab's community group, first open -> its list", "build",
+       tier="rare"),   # Step 4.3k: community packs
+    Op("A34", "Install a community pack -> its row tickable", "build", tier="rare"),
+    Op("A35", "tick it -> its rows set and locked", "build", tier="rare"),
+    Op("A36", "Build with it", "build", head_start=True, tier="rare"),
     Op("A77", "Track, Seed difficulty Easy at Hard movement and skips", "tracker", head_start=True),
     Op("A78", "Build, Seed difficulty Hard at Hard movement and skips, no Track first", "randomizer", head_start=True),
     Op("A79", "Track, Seed difficulty Expert at Hard movement and skips", "tracker", head_start=True),
@@ -164,67 +172,72 @@ OPS = {op.id: op for op in (
     Op("A87", "the Variants view, first open (the built-ins, 3 of yours)", "characters"),   # Step 4.6c: the Variants view
     Op("A88", "Save, after a Body edit", "characters", first=False),
     Op("A89", "New from this on booblord (her files copied)", "characters", first=False, content=True),
-    Op("A90", "Import a variant's zip", "characters", first=False),
-    Op("A91", "Export a variant's zip (the Downloads folder)", "characters", first=False),
-    Op("A92", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True),
+    Op("A90", "Import a variant's zip", "characters", first=False, tier="rare"),
+    Op("A91", "Export a variant's zip (the Downloads folder)", "characters", first=False, tier="rare"),
+    Op("A92", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True,
+       heavy=True),
     Op("A93", "Check it again, unchanged (its answer kept by content, D1015)", "characters", first=False, content=True),
     Op("A96", "a Shape slider's drag (30 input events) on the checked copy -> the nearest shape, marked Preview",
        "characters", first=False, content=True),   # Step 4.6d: the Shape tab (D1011's rough first)
     Op("A95", "let go -> its quick preview (the Check's dress, its vertices moved)", "characters", first=False, bar=True,
-       content=True),   # D999's kind: a new shape's first picture
+       content=True, tier="rare", heavy=True),   # D999's kind: a new shape's first picture
     # Step 4.37e0 (D1194, D1201): a Check after each edit the page makes, each at a value no Check held, and one with
-    # her shipped parts out of reach: bar ops, so the orchestrator reads their medians against D1194's 30 s
+    # her shipped parts out of reach: heavy ops, each held to its tier's line (D1244)
     Op("A98", "Check after a Shape slider's let go (a bust value no Check held)", "characters", first=False, bar=True,
-       content=True, head_start=True),
+       content=True, head_start=True, tier="rare", heavy=True),
     Op("A99", "Check after Scale (a value not checked yet)", "characters", first=False, bar=True, content=True,
-       head_start=True),
+       head_start=True, heavy=True),
     Op("A104", "Check after a Jiggle-tab stiffness (a value not checked yet)", "characters", first=False, bar=True,
-       content=True, head_start=True),
+       content=True, head_start=True, heavy=True),
     Op("A105", "Check after a colour (the Colours tab's wheel)", "characters", first=False, bar=True, content=True,
-       head_start=True),
+       head_start=True, heavy=True),
     Op("A106", "Check booblord's own copy with her parts out of reach (worked out)", "characters", bar=True,
-       content=True, head_start=True),   # each sample a fresh HOME whose Content from holds no part
+       content=True, head_start=True,
+       tier="rare", heavy=True),   # each sample a fresh HOME whose Content from holds no part
     Op("A100", "the Colours tab, another of yours opened on it (its body read, its rows, palette and views drawn)",
        "characters", first=False),   # Step 4.6e: the Variants view's Colours tab
     Op("A101", "a drag on the colour wheel (30 pointer moves) -> its views drawn at its last value", "characters",
        first=False),
-    Op("A102", "Export PNGs (a folder in the Downloads folder)", "characters", first=False),
-    Op("A103", "Import PNG (a row's edited texture, copied into its folder)", "characters", first=False),
-    Op("A110", "the Variants view's Moves tab, first open (the bodies' clips read)", "characters"),   # Step 4.6f
+    Op("A102", "Export PNGs (a folder in the Downloads folder)", "characters", first=False, tier="rare"),
+    Op("A103", "Import PNG (a row's edited texture, copied into its folder)", "characters", first=False, tier="rare"),
+    Op("A110", "the Variants view's Moves tab, first open (the bodies' clips read)", "characters",
+       tier="rare"),   # Step 4.6f
     Op("A111", "a clip of another body picked on Moves (the recipe read again)", "characters", first=False),
-    Op("A112", "the Attacks tab, first open (its weapons read)", "characters"),
+    Op("A112", "the Attacks tab, first open (its weapons read)", "characters", tier="rare"),
     Op("A113", "a weapon picked on Attacks (the recipe read again)", "characters", first=False),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
-    Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
+    Op("A39", "Data tab, first open (the index and the Player view)", "build", tier="rare"),   # Step 4.7a: the Data tab
     Op("A40", "a critter picked, its view", "build", first=False),
     Op("A41", "the picker's search, a few letters", "build", first=False),
-    Op("A42", "All tables: critters_damage's grid", "build", first=False),
+    Op("A42", "All tables: critters_damage's grid", "build", first=False, tier="rare"),
     Op("A43", "an edit committed (the engine's check, the view again)", "build", first=False),
     Op("A44", "Undo (the view again)", "build", first=False),
-    Op("A45", "Build, defaults and 100 data edits", "build", head_start=True),
-    Op("A46", "Load a mods file of 1,000 data edits, its view", "build"),
-    Op("A120", "Data tab, All files… opened (the image's .xbr files)", "build", first=False),   # Step 4.6h
-    Op("A121", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False),
-    Op("A94", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
-    Op("A47", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
-    Op("A48", "Verify every file, first", "image", bar=True),
-    Op("A49", "Verify every file again", "image", first=False),
-    Op("A50", "the image's file list", "image"),
-    Op("A51", "Extract the largest file", "image"),
-    Op("A52", "Open a build… (its recipe)", "build"),
-    Op("A53", "Save a mods file, then Load it (the slower)", "build"),
-    Op("A54", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True),
-    Op("A55", "the last build's report, View", "build", first=False),
+    Op("A45", "Build, defaults and 100 data edits", "build", head_start=True, tier="rare"),
+    Op("A46", "Load a mods file of 1,000 data edits, its view", "build", tier="rare"),
+    Op("A120", "Data tab, All files… opened (the image's .xbr files)", "build", first=False, tier="rare"),   # Step 4.6h
+    Op("A121", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False,
+       tier="rare"),
+    Op("A94", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False,
+       tier="rare"),   # Step 4.6i
+    Op("A47", "Tools tab, the image's info (the kept check)", "image", tier="rare"),   # Step 4.7c: the Tools tab
+    Op("A48", "Verify every file, first", "image", bar=True, tier="rare"),
+    Op("A49", "Verify every file again", "image", first=False, tier="rare"),
+    Op("A50", "the image's file list", "image", tier="rare"),
+    Op("A51", "Extract the largest file", "image", tier="rare"),
+    Op("A52", "Open a build… (its recipe)", "build", tier="rare"),
+    Op("A53", "Save a mods file, then Load it (the slower)", "build", tier="rare"),
+    Op("A54", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True, tier="rare"),
+    Op("A55", "the last build's report, View", "build", first=False, tier="rare"),
     Op("A56", "Track a median seed (plan and tracker)", "tracker", head_start=True),   # AM-HUB-A: the app's work ahead
     Op("A57", "Build a median seed, no Track first", "randomizer", head_start=True),
     Op("A58", "Build a median seed, another seed's work ahead going stale 1 s into the head start", "randomizer",
        head_start=True),
-    Op("A62", "Replace files: a 148 MB file picked, its sha256", "build"),   # Step 4.7d
-    Op("A63", "Build with one 148 MB file replaced", "build", head_start=True),
-    Op("A64", "Saves: a slot's folder opened", "build"),   # Step 4.7e
-    Op("A65", "Saves: the slots of an xemu HDD image", "build"),
-    Op("A66", "Saves: a line edited, then the slot saved", "build"),
+    Op("A62", "Replace files: a 148 MB file picked, its sha256", "build", tier="rare"),   # Step 4.7d
+    Op("A63", "Build with one 148 MB file replaced", "build", head_start=True, tier="rare"),
+    Op("A64", "Saves: a slot's folder opened", "build", tier="rare"),   # Step 4.7e
+    Op("A65", "Saves: the slots of an xemu HDD image", "build", tier="rare"),
+    Op("A66", "Saves: a line edited, then the slot saved", "build", tier="rare"),
     Op("S01", "page start, first visit (the engine load)", "start", bar=True),
     Op("S02", "page start, a return visit", "start", first=False),
     Op("S03", "choose the image, first time", "image", bar=True),
@@ -237,11 +250,12 @@ OPS = {op.id: op for op in (
     Op("S10", "choose keylord (its info)", "characters"),
     Op("S11", "keylord's pictures", "characters"),
     Op("S12", "a reshaped variant's pictures (beamlord)", "characters", content=True),
-    Op("S13", "Install beamlord, the list again", "characters", content=True),
+    Op("S13", "Install beamlord, the list again", "characters", content=True, tier="rare"),
     Op("S51", "a slider moved: the reshape's nearest shape, marked Preview (D1011)", "characters", first=False,
        content=True),
-    Op("S52", "the reshape's exact pictures, first", "characters", bar=True, content=True),   # D999's kind, by D1011
-    Op("S53", "the same reshape's exact pictures again", "characters", first=False, content=True),
+    Op("S52", "the reshape's exact pictures, first", "characters", bar=True, content=True,
+       tier="rare", heavy=True),   # D999's kind, by D1011
+    Op("S53", "the same reshape's exact pictures again", "characters", first=False, content=True, tier="rare"),
     Op("S66", "Reset, keylord's sliders, options and weapon moved -> its defaults and pictures", "characters",
        first=False),   # Step 4.4u2
     Op("S67", "a slider's drag (30 input events) -> the engine's answer to its last value", "characters", first=False),
@@ -250,7 +264,7 @@ OPS = {op.id: op for op in (
     Op("S72", "Build keylord after a number's change (its dress kept)", "build", first=False, head_start=True),
     Op("S15", "Build booblord", "build", content=True, head_start=True),   # her shipped dress (the content repo's entry)
     Op("S16", "Randomizer tab, first ask", "randomizer"),
-    Op("S83", "Open a plan… on the Randomizer tab: its seed and settings shown (Step 4.6j)", "randomizer"),
+    Op("S83", "Open a plan… on the Randomizer tab: its seed and settings shown (Step 4.6j)", "randomizer", tier="rare"),
     Op("S17", "seed typed, its ask", "randomizer"),
     Op("S18", "Track this seed", "tracker", head_start=True),
     Op("S19", "the Tracker view's world map, first open", "tracker"),   # the view's click: no Track work (C10)
@@ -262,80 +276,88 @@ OPS = {op.id: op for op in (
     Op("S73", "the Variants view, first open (the built-ins, 3 of yours)", "characters"),   # Step 4.6c: the Variants view
     Op("S74", "Save, after a Body edit", "characters", first=False),
     Op("S75", "New from this on booblord (her files copied)", "characters", first=False, content=True),
-    Op("S76", "Import a variant's zip", "characters", first=False),
-    Op("S77", "Export a variant's zip (the browser's download)", "characters", first=False, browser_bar=DOWNLOAD_BAR),
-    Op("S78", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True),
+    Op("S76", "Import a variant's zip", "characters", first=False, tier="rare"),
+    Op("S77", "Export a variant's zip (the browser's download)", "characters", first=False, browser_bar=DOWNLOAD_BAR,
+       tier="rare"),
+    Op("S78", "Check booblord's own copy with game data", "characters", first=False, bar=True, content=True,
+       heavy=True),
     Op("S79", "Check it again, unchanged (its answer kept by content, D1015)", "characters", first=False, content=True),
     Op("S82", "a Shape slider's drag (30 input events) on the checked copy -> the nearest shape, marked Preview",
        "characters", first=False, content=True),   # Step 4.6d: the Shape tab (D1011's rough first)
     Op("S81", "let go -> its quick preview (the Check's dress, its vertices moved)", "characters", first=False, bar=True,
-       content=True),   # D999's kind: a new shape's first picture
+       content=True, tier="rare", heavy=True),   # D999's kind: a new shape's first picture
     Op("S84", "Check after a Shape slider's let go (a bust value no Check held)", "characters", first=False, bar=True,
-       content=True, head_start=True),   # Step 4.37e0: A98-A106's
+       content=True, head_start=True, tier="rare", heavy=True),   # Step 4.37e0: A98-A106's
     Op("S85", "Check after Scale (a value not checked yet)", "characters", first=False, bar=True, content=True,
-       head_start=True),
+       head_start=True, heavy=True),
     Op("S86", "Check after a Jiggle-tab stiffness (a value not checked yet)", "characters", first=False, bar=True,
-       content=True, head_start=True),
+       content=True, head_start=True, heavy=True),
     Op("S87", "Check after a colour (the Colours tab's wheel)", "characters", first=False, bar=True, content=True,
-       head_start=True),
+       head_start=True, heavy=True),
     Op("S88", "Check booblord's own copy with her parts out of reach (worked out)", "characters", bar=True,
-       content=True, head_start=True),   # each sample a fresh profile whose server refuses every part
+       content=True, head_start=True,
+       tier="rare", heavy=True),   # each sample a fresh profile whose server refuses every part
     Op("S100", "the Colours tab, another of yours opened on it (its body read, its rows, palette and views drawn)",
        "characters", first=False),   # Step 4.6e: the Variants view's Colours tab
     Op("S101", "a drag on the colour wheel (30 pointer moves) -> its views drawn at its last value", "characters",
        first=False),
     Op("S102", "Export PNGs (the browser's download of their zip)", "characters", first=False,
-       browser_bar=DOWNLOAD_BAR),
-    Op("S103", "Import PNG (a row's edited texture, copied into its folder)", "characters", first=False),
-    Op("S110", "the Variants view's Moves tab, first open (the bodies' clips read)", "characters"),   # Step 4.6f
+       browser_bar=DOWNLOAD_BAR, tier="rare"),
+    Op("S103", "Import PNG (a row's edited texture, copied into its folder)", "characters", first=False, tier="rare"),
+    Op("S110", "the Variants view's Moves tab, first open (the bodies' clips read)", "characters",
+       tier="rare"),   # Step 4.6f
     Op("S111", "a clip of another body picked on Moves (the recipe read again)", "characters", first=False),
-    Op("S112", "the Attacks tab, first open (its weapons read)", "characters"),
+    Op("S112", "the Attacks tab, first open (its weapons read)", "characters", tier="rare"),
     Op("S113", "a weapon picked on Attacks (the recipe read again)", "characters", first=False),
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
-    Op("S26", "the Patches tab's community group, first open -> its list", "build"),   # Step 4.3k: community packs
-    Op("S27", "Install a community pack -> its row tickable", "build"),
-    Op("S28", "tick it -> its rows set and locked", "build"),
-    Op("S29", "Build with it", "build", head_start=True),
+    Op("S26", "the Patches tab's community group, first open -> its list", "build",
+       tier="rare"),   # Step 4.3k: community packs
+    Op("S27", "Install a community pack -> its row tickable", "build", tier="rare"),
+    Op("S28", "tick it -> its rows set and locked", "build", tier="rare"),
+    Op("S29", "Build with it", "build", head_start=True, tier="rare"),
     Op("S30", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("S31", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
-    Op("S32", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
+    Op("S32", "Data tab, first open (the index and the Player view)", "build", tier="rare"),   # Step 4.7a: the Data tab
     Op("S33", "a critter picked, its view", "build", first=False),
     Op("S34", "the picker's search, a few letters", "build", first=False),
-    Op("S35", "All tables: critters_damage's grid", "build", first=False),
+    Op("S35", "All tables: critters_damage's grid", "build", first=False, tier="rare"),
     Op("S36", "an edit committed (the engine's check, the view again)", "build", first=False),
     Op("S37", "Undo (the view again)", "build", first=False),
-    Op("S38", "Build, defaults and 100 data edits", "build", head_start=True),
-    Op("S39", "Load a mods file of 1,000 data edits, its view", "build"),
-    Op("S120", "Data tab, All files… opened (the image's .xbr files)", "build", first=False),   # Step 4.6h
-    Op("S121", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False),
-    Op("S80", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False),   # Step 4.6i
-    Op("S40", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
-    Op("S41", "Verify every file, first", "image", bar=True),
-    Op("S42", "Verify every file again", "image", first=False),
-    Op("S43", "the image's file list", "image"),
-    Op("S44", "Extract the largest file (the browser's download)", "image"),
-    Op("S45", "Open a build… (its recipe)", "build"),
-    Op("S46", "Save a mods file, then Load it (the slower)", "build"),
-    Op("S47", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True),
-    Op("S48", "the last build's report, View", "build", first=False),
+    Op("S38", "Build, defaults and 100 data edits", "build", head_start=True, tier="rare"),
+    Op("S39", "Load a mods file of 1,000 data edits, its view", "build", tier="rare"),
+    Op("S120", "Data tab, All files… opened (the image's .xbr files)", "build", first=False, tier="rare"),   # Step 4.6h
+    Op("S121", "a file of All files opened (its keyed tables, its TOC read from the image)", "build", first=False,
+       tier="rare"),
+    Op("S80", "the Data tab's Changes: a loaded mods file's 1,000 edits listed", "build", first=False,
+       tier="rare"),   # Step 4.6i
+    Op("S40", "Tools tab, the image's info (the kept check)", "image", tier="rare"),   # Step 4.7c: the Tools tab
+    Op("S41", "Verify every file, first", "image", bar=True, tier="rare"),
+    Op("S42", "Verify every file again", "image", first=False, tier="rare"),
+    Op("S43", "the image's file list", "image", tier="rare"),
+    Op("S44", "Extract the largest file (the browser's download)", "image", tier="rare"),
+    Op("S45", "Open a build… (its recipe)", "build", tier="rare"),
+    Op("S46", "Save a mods file, then Load it (the slower)", "build", tier="rare"),
+    Op("S47", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True, tier="rare"),
+    Op("S48", "the last build's report, View", "build", first=False, tier="rare"),
     Op("S49", "Save keylord's build (the browser's download)", "build", browser_bar=DOWNLOAD_BAR),   # X5
     Op("S50", "Save a seed's build (the browser's download)", "randomizer", browser_bar=DOWNLOAD_BAR),
-    Op("S54", "Replace files: a 148 MB file picked, its sha256", "build"),   # Step 4.7d
-    Op("S55", "Build with one 148 MB file replaced", "build", head_start=True),
-    Op("S56", "Saves: a slot's folder opened", "build"),   # Step 4.7e
-    Op("S57", "Saves: the slots of an xemu HDD image", "build"),
-    Op("S58", "Saves: a line edited, then the slot saved", "build"),
+    Op("S54", "Replace files: a 148 MB file picked, its sha256", "build", tier="rare"),   # Step 4.7d
+    Op("S55", "Build with one 148 MB file replaced", "build", head_start=True, tier="rare"),
+    Op("S56", "Saves: a slot's folder opened", "build", tier="rare"),   # Step 4.7e
+    Op("S57", "Saves: the slots of an xemu HDD image", "build", tier="rare"),
+    Op("S58", "Saves: a line edited, then the slot saved", "build", tier="rare"),
     Op("S59", "Build a median seed, another seed's work ahead going stale 1 s into the head start", "randomizer",
        head_start=True),   # "B dropped": A58's
     Op("S60", "Track a median seed (plan and tracker)", "tracker", head_start=True),   # S18's
     Op("S61", "Build a median seed, no Track first", "randomizer", head_start=True),   # S24's
     Op("S62", "Build booblord reshaped (one slider moved), first, on a fresh page", "build", bar=True, content=True,
-       head_start=True),   # D999 on the site (D1021, D1054): A31's
+       head_start=True, tier="rare", heavy=True),   # D999 on the site (D1021, D1054): A31's
     Op("S63", "Build booblord reshaped, first, after her own build in the page", "build", bar=True, content=True,
-       head_start=True),
-    Op("S65", "the same reshape again, in the page that built it", "build", first=False, content=True),   # D999's
+       head_start=True, tier="rare", heavy=True),
+    Op("S65", "the same reshape again, in the page that built it", "build", first=False, content=True,
+       tier="rare"),   # D999's
     # the next op's wait: the same or a new worker, and Firefox's Save greyed while its Blob is made
     Op("R14", "the engine ready again and Save open after Build keylord", "build"),
     Op("R24", "the engine ready again and Save open after a seed's build", "randomizer"),

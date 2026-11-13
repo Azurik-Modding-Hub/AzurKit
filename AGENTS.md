@@ -512,9 +512,11 @@ The how-to is [`docs/SHIMS.md`](docs/SHIMS.md).
   stage and the caps: INTERNALS.md's Commits and landing.
 - **The perf gate (D980-D985, D1170):** once pytest passes, the same run
   times the player-facing operations the changes reach (`scripts/perf.py`,
-  `tests/_perf.py`): an op over 3 s (or its ceiling in
-  `tests/perf_ceilings.toml`), past 1 s with no progress, or whose page froze
-  is a perf-debt row, a lane, not a block. It blocks only on a clear
+  `tests/_perf.py`): an op over its tier's line (3 s for what players do
+  often; INTERNALS.md's table holds the rare ops' looser lines and the
+  Checks', D1244) or its ceiling in `tests/perf_ceilings.toml`, past 1 s
+  with no progress, or whose page froze is a perf-debt row, a lane, not a
+  block. It blocks only on a clear
   regression against the last release (25 % and 0.5 s), an op it measured
   that errs, a memory peak, a native failure or a list that grows; the list only shrinks (`perf.py
   --update-ceilings`, in your own commit).
