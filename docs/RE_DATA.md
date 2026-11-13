@@ -2421,6 +2421,16 @@ positions.
   whole attribute array a level `.sav` restores (SAVE_FORMAT § 4d's
   records), so a save of that level made before the move puts it back
   [inferred]; training_room's fuels are not among them.
+- **A move leaves the generator's cell.** The loader copies the record's
+  u16 at +0x34 into the generator's +0x74 (0x6F7FB-0x6F80A; 0xFFFF takes
+  the context's default, 0x6F810), and 0x6F960 hands each spawn the cell
+  `[[world+0xD4]+0x28] + 0xB4 * u16[gen+0x74]` (0x6FB35-0x6FB50, its call
+  to `critter_spawn` at 0x6FB64), never one found from the position. A
+  move writes only the transform, so the item keeps its old cell. Every
+  USA generator holds an explicit cell, and many levels have several
+  (e2 32, f3 31, e5 23): whether an item moved into another cell than its
+  own is drawn, updated and collected there is [unverified]. training_room
+  has one real cell, so its move below doesn't meet this.
 
 ## A creature fx graph's links and its blast dome (Step 2.145, 2026-10-21)
 

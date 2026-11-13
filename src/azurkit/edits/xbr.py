@@ -28,7 +28,9 @@ the image's XBR files, planned against the vanilla files into one layer
   parent's matrix times each gen point), each any finite number (D23),
   past float32's range written as the infinity it saturates to and noted
   (Q110). A generator whose transform a link places is refused (the link
-  would put it back). The name is the vanilla level's, whatever another
+  would put it back). Its cell (the record's +0x34, which each spawn
+  takes) isn't moved, so a move into another cell of a level of several
+  is unverified in game. The name is the vanilla level's, whatever another
   layer repoints (the randomizer's writer, which never moves a record).
 
 The operations apply in list order: one that gives a byte an earlier one
