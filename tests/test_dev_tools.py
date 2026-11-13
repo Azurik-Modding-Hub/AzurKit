@@ -2132,7 +2132,11 @@ def test_a_perf_stage_past_its_cap_stops_perf_py_so_its_scratch_goes(tmp_path, m
     """Step 4.46a: at its cap the perf stage stops perf.py with SIGTERM (it
     SIGKILLed its group), so perf.py's handler runs its finallys, its
     scratch deleted, and the block says it wrote no result, exit 143; one
-    that ignores it is ended once :data:`fullsuite.PERF_STOP` passes."""
+    that ignores it is ended once :data:`fullsuite.PERF_STOP` passes.
+    Step 4.50c: on Windows, where the gate never runs, ``os.kill``'s SIGTERM
+    is TerminateProcess, so either one ends at once, exit 15, with no
+    handler run (CI run 43391167760's pure Windows job)."""
+    windows = os.name == "nt"
     scratch, fake = tmp_path / "scratch", tmp_path / "fake_perf.py"
     fake.write_text("import pathlib, shutil, signal, sys, time\n"
                     "signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))\n"
@@ -2146,13 +2150,14 @@ def test_a_perf_stage_past_its_cap_stops_perf_py_so_its_scratch_goes(tmp_path, m
     monkeypatch.setattr(fullsuite, "release_reference", lambda *a: None)
     m = {"worktree": str(tmp_path), "perf_args": ["--select", "app:start"]}
     block = fullsuite.perf_stage(tmp_path / "suite-x.meta", m)
-    assert block["failures"] == ["perf.py wrote no result (exit 143): see the log"] and not scratch.exists()
+    assert block["failures"] == [f"perf.py wrote no result (exit {15 if windows else 143}): see the log"]
+    assert windows or not scratch.exists()
     fake.write_text("import signal, time\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\ntime.sleep(60)\n",
                     encoding="utf-8")
     monkeypatch.setattr(fullsuite, "PERF_STOP", 1)
     t0 = time.monotonic()
     assert fullsuite.perf_stage(tmp_path / "suite-y.meta", m)["failures"] == [
-        "perf.py wrote no result (exit -9): see the log"] and time.monotonic() - t0 < 30
+        f"perf.py wrote no result (exit {15 if windows else -9}): see the log"] and time.monotonic() - t0 < 30
 
 
 def test_the_perf_gates_scratch_is_out_of_reach_of_macoss_temp_sweep(tmp_path, monkeypatch):
