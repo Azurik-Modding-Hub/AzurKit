@@ -28,6 +28,7 @@ import plistlib
 import socket
 import socketserver
 import re
+import runpy
 import shlex
 import signal
 import struct
@@ -605,6 +606,18 @@ def test_the_windows_app_opens_no_console_and_what_it_prints_reaches_its_termina
             print("more")
             given.close()
         assert log.read_text(encoding="utf-8") == f"{kept}again\nthe engine's\nmore\n"   # none over another's
+    with monkeypatch.context() as m:   # the app's entry gives itself those streams first: the window's, here
+        m.setattr(sys, "stdout", None)
+        m.setattr(sys, "stderr", None)
+        m.setattr(sys, "argv", ["AzurKit"])
+        m.setenv(app.NO_WINDOW, "1")
+        m.delenv(_stacks.FOLDER, raising=False)
+        with pytest.raises(SystemExit) as exited:
+            runpy.run_path(_entry.__file__, run_name="__main__")
+        given = sys.stderr
+    assert exited.value.code == 1 and given is not None
+    given.close()
+    assert log.read_text(encoding="utf-8").endswith(f"no window while {app.NO_WINDOW} is set (the tests' mode)\n")
 
 
 def test_a_default_save_beside_an_image_named_usa_iso_in_downloads_goes_into_its_azurkit_folder(tmp_path, monkeypatch):
@@ -616,15 +629,16 @@ def test_a_default_save_beside_an_image_named_usa_iso_in_downloads_goes_into_its
     for name in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE"):
         monkeypatch.delenv(name, raising=False)
     (downloads := platformdirs.user_downloads_path()).mkdir(parents=True, exist_ok=True)
-    for name, found in (("USA.iso", False), ("europe.iso", False), ("azurik.iso", True), ("azurik.iso", False)):
+    for name, found, there in (("USA.iso", False, False), ("europe.iso", False, False), ("azurik.iso", True, False),
+                               ("azurik.iso", False, True), ("Azurik.XISO", False, True), ("azurik", False, True)):
         (iso := downloads / name).write_bytes(b"")
         with monkeypatch.context() as m:
             if found:
                 m.setenv("AZURKIT_ISO", str(iso))
-            out = app._suggested(iso, f"{iso.stem} (AzurKit).iso")
+            out = app._suggested(iso)
             gate.require_new_output(out, iso)
-        assert (out.parent, out.name) == (downloads if name == "azurik.iso" and not found else downloads / "AzurKit",
-                                          f"{iso.stem} (AzurKit).iso"), name
+        assert (out.parent, out.name) == (downloads if there else downloads / "AzurKit",
+                                          f"{name.removesuffix('.iso').removesuffix('.XISO')} (AzurKit).iso"), name
         assert out.parent.is_dir()
         iso.unlink()
 
