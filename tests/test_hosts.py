@@ -600,8 +600,11 @@ def test_the_windows_app_opens_no_console_and_what_it_prints_reaches_its_termina
             m.setattr(sys, "stderr", None)
             given = _entry.settle(argv, terminal(False))
             print("again")
+            with log.open("a", encoding="utf-8") as engine:   # the engine's process, the window's child, appends
+                engine.write("the engine's\n")
+            print("more")
             given.close()
-        assert log.read_text(encoding="utf-8") == f"{kept}again\n"
+        assert log.read_text(encoding="utf-8") == f"{kept}again\nthe engine's\nmore\n"   # none over another's
 
 
 def test_a_default_save_beside_an_image_named_usa_iso_in_downloads_goes_into_its_azurkit_folder(tmp_path, monkeypatch):

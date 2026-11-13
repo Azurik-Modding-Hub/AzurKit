@@ -43,18 +43,18 @@ def settle(argv: list[str], attach: Callable[[], TextIO | None] = _parent_consol
     no standard output or error unless whoever starts it hands it some (a pipe or a file: the tests', ``freeze.py
     --check``'s). A command's (any ``argv``) goes to the console of the terminal it was typed in (``attach``), when
     there is one; else, the window's too, to the end of :data:`LOG` in the app's log folder, where a crash's stack is
-    written too (``faulthandler``). Nothing where both streams are there (a terminal's, a pipe's, a console
-    program's), or where the log can't be opened (``print`` then writes nowhere, as before). The stream it gave, or
-    None."""
+    written too (``faulthandler``): every process appends, so none writes over another's lines. Nothing where both
+    streams are there (a terminal's, a pipe's, a console program's), or where the log can't be opened (``print`` then
+    writes nowhere, as before). The stream it gave, or None."""
     if sys.stdout is not None and sys.stderr is not None:
         return None
     if (stream := attach() if argv else None) is None:
         from platformdirs import user_log_path
         try:
             (folder := user_log_path("AzurKit", appauthor=False)).mkdir(parents=True, exist_ok=True)
-            again = not argv and (folder / LOG).is_file() and (folder / LOG).stat().st_size > KEEP
-            stream = open(folder / LOG, "w" if again else "a", encoding="utf-8", errors="replace",   # kept: streams'
-                          buffering=1)
+            if not argv and (log := folder / LOG).is_file() and log.stat().st_size > KEEP:   # the window's launch
+                os.truncate(log, 0)   # starts it again, before its engine's process starts
+            stream = open(folder / LOG, "a", encoding="utf-8", errors="replace", buffering=1)   # kept: the streams'
         except OSError:
             return None
         import faulthandler
