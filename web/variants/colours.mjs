@@ -550,7 +550,7 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
                                               given: { ...given(), iso: app ? image() : null, packs: packs(),
                                                        ...app ? { out } : {} } }, { once: true });
     c.exporting = false;
-    ui.export.disabled = false;
+    ui.export.disabled = !image();
     if ("refused" in reply) return pngSaid(`Not exported: ${reason(reply.refused)}`, true);
     if (app) return pngSaid(`${reply.files.length} PNGs in ${reply.out}: ${reply.files.join(", ")}`);
     const url = URL.createObjectURL(new Blob([bytesOf(reply.zip)], { type: "application/zip" }));
@@ -616,6 +616,7 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
     ui.pickNote.textContent = "";
     showSwaps();
     showWheel();
+    ui.export.disabled = !image() || c.exporting;   // greyed with D979's line until an image is picked
     ui.export.title = image() ? "Each row's texture as its build recolours it, a PNG each" : CHOOSE;
     recolour();
   };

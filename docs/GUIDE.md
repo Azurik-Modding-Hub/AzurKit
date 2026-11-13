@@ -177,9 +177,9 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Colours (the Variants view's Colours tab):** pick a row of the body's textures (or all), then drag on the colour
   wheel to move its main colour, with a bar for brightness and boxes for the hex colour, hue, saturation and value;
   limit it to a range of hues, or click a palette colour to swap it for one you pick on a wheel. The row tiles and the
-  front and back views redraw as you drag. Export PNGs saves each row's texture as built (the app: a folder in
-  Downloads; the web page: a zip), and Import PNG brings an edited one back as that row's texture. Undo (⌘Z or
-  Ctrl+Z) takes back any edit in the view, a drag as one step.
+  front and back views redraw as you drag. Export PNGs (once you pick your image) saves each row's texture as
+  built (the app: a folder in Downloads; the web page: a zip), and Import PNG brings an edited one back as that
+  row's texture. Undo (⌘Z or Ctrl+Z) takes back any edit in the view, a drag as one step.
 - **Three drop-downs:** the models list folds into Species (open), Community and Yours (shut until you open one);
   each heading counts its models and names the one you chose, its group opens when you choose one in it, and a
   search opens the groups it finds models in.
