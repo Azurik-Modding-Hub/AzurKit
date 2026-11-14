@@ -3802,22 +3802,24 @@ def _bind(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> dic
         ks = [k for k in (range(len(final)) if held is None else np.flatnonzero(held).tolist())
               if (held is not None or r.holds(base[k])) and r.selects(mesh.heaviest[k], group_of[k])]
         nearest = _bind_nearest(final, grid, ks)
-        reaches: dict[int, dict[int, float] | None] = {}
-        if r.bind is not None and r.bind.reach > 0.0 and (asked := [k for k in ks if k in nearest]):   # at once
-            mix = _ReachMix(final, grid, [prior.get(j) or mesh.skins[j] for j in range(len(final))], r.bind.reach)
-            reaches = dict(zip(asked, mix.each([(final[k], tuple(math.floor(final[k][c] / BIND_CELL) for c in range(3)))
-                                                for k in asked])))
+        near: dict[int, float] = {}         # each bound vertex's share by its distance to that nearest vertex
         for k in ks:
             if k not in nearest:
                 continue
-            q = final[k]
-            op = r.bind
             g = 1.0
             if surface is not None:
-                n0, n1 = op.near
-                g = 1.0 - _smooth((_near_surface(surface, q, n1) - n0) / (n1 - n0))
+                n0, n1 = r.bind.near
+                g = 1.0 - _smooth((_near_surface(surface, final[k], n1) - n0) / (n1 - n0))
                 if not g > 0.0:
                     continue
+            near[k] = g
+        reaches: dict[int, dict[int, float] | None] = {}
+        if r.bind is not None and r.bind.reach > 0.0 and near:   # at once, only the vertices it binds
+            mix = _ReachMix(final, grid, [prior.get(j) or mesh.skins[j] for j in range(len(final))], r.bind.reach)
+            reaches = dict(zip(near, mix.each([(final[k], tuple(math.floor(final[k][c] / BIND_CELL) for c in range(3)))
+                                               for k in near])))
+        for k, g in near.items():
+            op = r.bind
             got = dict(prior.get(nearest[k]) or mesh.skins[nearest[k]])
             if op is not None and op.reach > 0.0:
                 reached = reaches[k]
