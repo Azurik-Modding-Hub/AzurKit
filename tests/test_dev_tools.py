@@ -1279,31 +1279,42 @@ def test_a_later_pages_scale_check_comes_after_an_untimed_check_of_its_let_go_so
     assert page({"S82": 1, "S81": 1, "S84": 1})[0] == [("drag", 1.4), ("let go", None)]
 
 
-def test_a_page_with_no_let_go_checks_scale_untimed_first_so_its_first_timed_check_carries_its_own_edit(tmp_path):
+def test_a_page_with_no_let_go_checks_scale_first_as_s94_or_untimed_so_each_edit_row_times_its_own_edit(tmp_path):
     """Step 4.55a: the first Check after any edit of her copy works out her whole dress, whichever edit it follows
     (A107 53.7 s, S89 81.1 s, each its page's first), so a page with no let go (a perf.py rerun's or beside page,
-    where the op runs alone) Checks Scale untimed first, and each edit row's sample times its own edit's Check."""
+    where the op runs alone) Checks Scale first, and each edit row's sample times its own edit's Check. That first
+    Check is S94's sample (the path main's S86 beside pages timed, 74-89 s), clicked the head start after its Scale,
+    while S94 needs one, else untimed; after a let go no Check followed, it would carry the Shape edit: no S94."""
     check = _perf.click("var-check")
-    named = {_perf.SCALE_TYPED: "scale", _perf.STIFFNESS_TYPED: "stiffness", _perf.WHEEL_DRAG: "wheel", check: "check"}
+    named = {_perf.SHAPE_DRAG: "drag", _perf.SHAPE_LET_GO: "let go", _perf.SCALE_TYPED: "scale",
+             _perf.STIFFNESS_TYPED: "stiffness", _perf.WHEEL_DRAG: "wheel", check: "check"}
 
-    def page(op):
+    def page(targets):
         log = []
 
         class Logged(_Stub):
             def do(self, action, arg=None):
-                log.append((named.get(action), arg))
+                log.append((named.get(action), arg, self.t))
                 return super().do(action, arg)
-        p = Logged({check: {_perf.VAR_AGAIN: 5000}, _perf.SCALE_TYPED: {_perf.VAR_EDITED: 200}})
-        d = _perf.Driver(_perf.RUNS["webkit"], {op: 1}, tmp_path, tmp_path / "usa.iso", None)
+        p = Logged({_perf.SHAPE_DRAG: {_perf.SHAPE_NEAREST: 100}, _perf.SHAPE_LET_GO: {_perf.SHAPE_PREVIEWED: 1000},
+                    check: {_perf.VAR_AGAIN: 5000}, _perf.SCALE_TYPED: {_perf.VAR_EDITED: 200}})
+        d = _perf.Driver(_perf.RUNS["webkit"], targets, tmp_path, tmp_path / "usa.iso", None)
         d.sleep = lambda seconds: setattr(p, "t", p.t + seconds * 1000)
         d.fresh(p)
-        _perf._edit_checks(d, p, ("S82", "S81", "S84", "S85", "S86", "S87"))
-        return [step for step in log if step[0]], {op: [x["s"] for x in got] for op, got in d.samples.items()}
+        _perf._edit_checks(d, p, ("S82", "S81", "S84", "S85", "S86", "S87", "S89", "S90", "S91", "S92", "S93", "S94"))
+        steps = [step for step in log if step[0]]
+        return ([step[:2] for step in steps], {op: [x["s"] for x in got] for op, got in d.samples.items()},
+                [t - before for (_, _, before), (name, _, t) in zip(steps, steps[1:]) if name == "check"])
     warm = [("scale", _perf.WARM_SCALE), ("check", None)]
-    assert [page(op) for op in ("S85", "S86", "S87")] == [
+    assert [page({op: 1})[:2] for op in ("S85", "S86", "S87")] == [
         (warm + [("scale", 1.1), ("check", None)], {"S85": [5.0]}),
         (warm + [("stiffness", 3.1), ("check", None)], {"S86": [5.0]}),
         (warm + [("wheel", 37), ("check", None)], {"S87": [5.0]})]
+    assert page({"S94": 1, "S86": 1}) == (warm + [("stiffness", 3.1), ("check", None)], {"S94": [5.0], "S86": [5.0]},
+                                          [3000, 3000])
+    assert page({"S82": 1, "S81": 1, "S94": 1})[:2] == (
+        [("drag", 1.4), ("let go", None), ("check", None)], {"S82": [0.1], "S81": [1.0]})
+    assert "A116" in _perf.SCENARIOS["app-variants"][1] and "S94" in _perf.SCENARIOS["site-variants"][1]
 
 
 def test_a_gap_whose_page_froze_says_how_much_cpu_the_browser_ran_in_it(tmp_path, monkeypatch):

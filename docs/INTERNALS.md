@@ -1799,7 +1799,7 @@ are the Characters section's.
     and Attacks tabs' logic under Node), `test_site.py` and `test_hosts.py`
     hold it; `tests/_perf.py`'s A87-A93, A95, A96, S73-S79, S81, S82,
     A110-A113 and S110-S113 time it. Its A98, A99, A104, A105, A107-A109,
-    A114, A115, S84-S87 and S89-S93 time a Check of booblord's copy after
+    A114-A116, S84-S87 and S89-S94 time a Check of booblord's copy after
     each edit the page makes (a Shape slider's let go, Scale, a Jiggle
     stiffness, a colour on the wheel; Step 4.55a's: the Sounds tab's Sound
     line, Import PNG on the Colours tab's last row, a Moves pick, the
@@ -1807,8 +1807,9 @@ are the Characters section's.
     a value no Check held, clicked the head start after it; a later page
     whose let go took no Shape Check Checks it untimed before the next
     edit, so each Check carries its own edit alone, Step 4.49a, and one with
-    no let go Checks Scale untimed first, since the first Check after any
-    edit of her copy works out her whole dress, Step 4.55a), and A106 and
+    no let go Checks Scale first, since the first Check after any edit of
+    her copy works out her whole dress: A116 and S94 time that Check, else
+    it is untimed, Step 4.55a), and A106 and
     S88 one whose Content from holds none of her shipped Check parts (the
     site's `./content-unparted/`, which the perf's server answers as
     `content-source/` but each part a 404): heavy ops, each held to its
@@ -2544,7 +2545,7 @@ are the Characters section's.
   | Kind | Frequent | Rare |
   |---|---|---|
   | An op | 3 s (D981) | 10 s |
-  | A heavy op (frequent: A92, A99, A104, A105, A107, A108, A109, A114, A115, S78, S85, S86, S87, S89, S90, S91, S92, S93; rare: A31, A60, A95, A98, A106, S52, S62, S63, S81, S84, S88) | a moving bar past 3 s; 15 s in the app, 30 s in each browser (D1194) | a moving bar past 10 s; 45 s in the app, 90 s in each browser (D1244's most) |
+  | A heavy op (frequent: A92, A99, A104, A105, A107, A108, A109, A114, A115, A116, S78, S85, S86, S87, S89, S90, S91, S92, S93, S94; rare: A31, A60, A95, A98, A106, S52, S62, S63, S81, S84, S88) | a moving bar past 3 s; 15 s in the app, 30 s in each browser (D1194) | a moving bar past 10 s; 45 s in the app, 90 s in each browser (D1244's most) |
   | A first-time op (D982, D1008, D1067) | a moving bar past 3 s, no bound | the same |
 
   The capped profile answers to three times each line (D984), the lag

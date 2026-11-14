@@ -203,6 +203,10 @@ OPS = {op.id: op for op in (
        head_start=True, heavy=True),
     Op("A115", "Check after an Effects edit (a shield row added, then its first number)", "characters", first=False,
        bar=True, content=True, head_start=True, heavy=True),
+    # Step 4.55a's review: the copy's first edit's Check, her whole dress worked out whichever edit it follows (the
+    # Check each edit row's page with no let go takes before its own, _edit_checks)
+    Op("A116", "Check after the first edit of her checked copy (Scale, right after her own Check)", "characters",
+       first=False, bar=True, content=True, head_start=True, heavy=True),
     Op("A106", "Check booblord's own copy with her parts out of reach (worked out)", "characters", bar=True,
        content=True, head_start=True,
        tier="rare", heavy=True),   # each sample a fresh HOME whose Content from holds no part
@@ -316,6 +320,8 @@ OPS = {op.id: op for op in (
        head_start=True, heavy=True),
     Op("S93", "Check after an Effects edit (a shield row added, then its first number)", "characters", first=False,
        bar=True, content=True, head_start=True, heavy=True),
+    Op("S94", "Check after the first edit of her checked copy (Scale, right after her own Check)", "characters",
+       first=False, bar=True, content=True, head_start=True, heavy=True),   # Step 4.55a's review: A116's
     Op("S88", "Check booblord's own copy with her parts out of reach (worked out)", "characters", bar=True,
        content=True, head_start=True,
        tier="rare", heavy=True),   # each sample a fresh profile whose server refuses every part
@@ -2376,7 +2382,9 @@ SHAPE_PREVIEWED = f"() => {SHAPE_NOTE}.startsWith('A quick preview') || {SHAPE_N
 SHAPE_ENDS = (1.4, 0.6, 1.3, 0.7, 1.2, 0.8, 1.35, 0.65, 1.25, 0.75, 1.15, 0.85, 1.1, 0.9, 1.05, 0.95)
 # Step 4.37e0's other edits before a Check (each value the page function's argument): Scale typed, the Jiggle tab's
 # first row's stiffness typed, the Colours tab's first row picked for its wheel's drag (WHEEL_DRAG)
-WARM_SCALE = 1.05   # Step 4.55a: the untimed Scale a page with no let go Checks before its first timed edit's Check
+#: Step 4.55a: the Scale a page with no let go Checks before its first edit row's Check, that Check timed as A116 or
+#: S94 while it needs a sample, else untimed
+WARM_SCALE = 1.05
 SCALE_TYPED = """(x) => { const b = document.getElementById("var-scale"); b.value = String(x);
   b.dispatchEvent(new Event("input")); }"""
 STIFFNESS = "document.querySelector('#var-springs input')"
@@ -2477,10 +2485,13 @@ def _edit_checks(d: Driver, p: Page, ops: tuple, png: Callable[[Path], object] |
     start after its edit: 4.37e's section 5 (D1194, D1201). A page whose let go no ``shaped`` sample Checked (a
     later page of a changed area's run, where ``shaped`` had its sample on the first, D1215) Checks it untimed before
     the next edit, so each edit's Check carries its own edit alone, as on the first page (Step 4.49a); one with no
-    let go Checks Scale at :data:`WARM_SCALE` untimed first, since the first Check after any edit of her copy works
-    out her whole dress, whichever edit it follows (Step 4.55a: 54-66 s in the app, 81 s in WebKit)."""
+    let go Checks Scale at :data:`WARM_SCALE` first, since the first Check after any edit of her copy works
+    out her whole dress, whichever edit it follows (Step 4.55a: 54-66 s in the app, 81 s in WebKit). That Check is
+    ``first_edit``'s sample (A116, S94: her copy's first edit's Check) while it needs one, else untimed; a run's first
+    page has its let go (whose Check, ``shaped``'s, is that page's first), so ``first_edit`` takes its sample on a
+    later page."""
     drag, let_go, shaped, scaled, jiggled, coloured, *later = ops
-    sounded, textured, moved, attacked, effected = (*later, None, None, None, None, None)[:5]
+    sounded, textured, moved, attacked, effected, first_edit = (*later, None, None, None, None, None, None)[:6]
     p.js(click("var-tab-shape"))
     unchecked = dressed = False   # a let go no Check followed yet; a Check after an edit made on this page
     for end in SHAPE_ENDS:
@@ -2495,7 +2506,7 @@ def _edit_checks(d: Driver, p: Page, ops: tuple, png: Callable[[Path], object] |
     if not dressed and d.needed((scaled, jiggled, coloured, *later)):
         if not unchecked:   # Step 4.55a: no edit since her copy's own Check, so one of Scale (WARM_SCALE) first
             d.act(p, None, SCALE_TYPED, VAR_EDITED, 600, arg=WARM_SCALE, change=True)
-        _checked_again(d, p, None)
+        _checked_again(d, p, first_edit if not unchecked and d.need(first_edit) else None)
     for k in range(1, 9):
         if not d.need(scaled):
             break
@@ -2617,7 +2628,7 @@ def _unparted(d: Driver) -> Path:
 
 def app_variants(d: Driver, app: App, ctx) -> None:
     """The Variants view in the app (Step 4.6c): three of yours in its library, as a Modkit player keeps them (A87);
-    then A88-A115 (:func:`_variant_ops`): Import and Import PNG by path, Export into the Downloads folder."""
+    then A88-A116 (:func:`_variant_ops`): Import and Import PNG by path, Export into the Downloads folder."""
     library = app.home / "Library" / "Application Support" / "AzurKit" / "variants"
     for name, base in YOURS:
         (library / name).mkdir(parents=True, exist_ok=True)
@@ -2643,7 +2654,7 @@ def app_variants(d: Driver, app: App, ctx) -> None:
         p.js(click("var-png-use"))
 
     _variant_ops(d, p, ("A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95", "A98", "A99", "A104", "A105", "A107",
-                        "A108", "A109", "A114", "A115"), imported, exported, lambda: _app_booblord(d, p), png)
+                        "A108", "A109", "A114", "A115", "A116"), imported, exported, lambda: _app_booblord(d, p), png)
     app.quit(p)
 
 
@@ -2666,7 +2677,7 @@ def site_variants(d: Driver, ctx, url: str) -> None:
     """The Variants view on the site (Step 4.6c): three of yours imported, then a later visit opens it, the browser
     opened again on its profile as S02's is (:meth:`Driver.reopen`: a page beside the closed one would carry that one's
     process, 1.5 GiB of capped-site's peak), S73: the library this browser keeps, handed to its engine as the page
-    starts; S74-S93 (:func:`_variant_ops`): Import and Import PNG pick a
+    starts; S74-S94 (:func:`_variant_ops`): Import and Import PNG pick a
     file, Export is the browser's download (its page part to the download's start)."""
     p = _site_page(d, ctx, url, None)
     p.js(click("tab-characters"))
@@ -2696,8 +2707,9 @@ def site_variants(d: Driver, ctx, url: str) -> None:
         caught.value.delete()
 
     _variant_ops(d, p, ("S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81", "S84", "S85", "S86", "S87", "S89",
-                        "S90", "S91", "S92", "S93"), lambda file: p.page.set_input_files("#var-import", str(file)),
-                 exported, lambda: _site_booblord(d, p), lambda file: p.page.set_input_files("#var-png", str(file)))
+                        "S90", "S91", "S92", "S93", "S94"),
+                 lambda file: p.page.set_input_files("#var-import", str(file)), exported, lambda: _site_booblord(d, p),
+                 lambda file: p.page.set_input_files("#var-png", str(file)))
     d.leave(p)
 
 
@@ -2937,7 +2949,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-plan": ("app", ("A97",), app_plan),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A120", "A121", "A94"), app_data),
     "app-variants": ("app", ("A87", "A88", "A89", "A90", "A91", "A92", "A93", "A96", "A95", "A98", "A99", "A104",
-                             "A105", "A107", "A108", "A109", "A114", "A115"), app_variants),
+                             "A105", "A107", "A108", "A109", "A114", "A115", "A116"), app_variants),
     "app-variants-unparted": ("app", ("A106",), app_variants_unparted),
     "app-colours": ("app", ("A100", "A101", "A102", "A103"), app_colours),
     "app-variant-moves": ("app", ("A110", "A111", "A112", "A113"), app_variant_moves),
@@ -2962,7 +2974,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-plan": ("site", ("S83",), site_plan),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39", "S120", "S121", "S80"), site_data),
     "site-variants": ("site", ("S73", "S74", "S75", "S76", "S77", "S78", "S79", "S82", "S81", "S84", "S85", "S86",
-                               "S87", "S89", "S90", "S91", "S92", "S93"), site_variants),
+                               "S87", "S89", "S90", "S91", "S92", "S93", "S94"), site_variants),
     "site-variants-unparted": ("site", ("S88",), site_variants_unparted),
     "site-colours": ("site", ("S100", "S101", "S102", "S103"), site_colours),
     "site-variant-moves": ("site", ("S110", "S111", "S112", "S113"), site_variant_moves),
