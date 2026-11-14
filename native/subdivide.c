@@ -1,5 +1,5 @@
 /* The subdivision's split loop, compiled (D1009, Step 4.55d): tools/characters/mesh_edit.py's _subdivide past its
- * setup (its twin, _split_twin, the loop as it was): every triangle linked to its welded edges, the marks (a region
+ * setup (its twin, the loop inline in _subdivide): every triangle linked to its welded edges, the marks (a region
  * holds its centre and selects its corners and its longest edge in the final shape passes the region's edge, or a
  * hem's open edge does), the heap of the longest first, Rivara's longest-edge propagation from each, each split at its
  * edge's midpoint (PN's where smooth) unless a field or round op tears it or an old point lies there, its copies'
