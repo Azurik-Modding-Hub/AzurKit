@@ -340,21 +340,27 @@ memory peaks stay strict. The gate writes both kinds of row to
 2. ~~The shaped fills' cancel test~~: fixed by 4.37h (e74be8b2).
 3. ~~The Variants Sounds and Effects tabs test `[webkit]`'s KeyError~~:
    fixed by 4.37g (09547c20); its other error is 35.
-4. ~~The two-engine-workers test `[webkit]`~~: fixed by 4.37g (a67c3c4f).
+4. ~~The two-engine-workers test~~: fixed by 4.54a (it failed three times
+   after 4.37g's fix).
 5. ~~The WebKit-ending test's stand-in ids~~: fixed by 4.37k (3cd387c5).
 6. ~~The Variants test's second page in Chromium~~: fixed by 4.6d
    (e7ef87a0).
 7. The frozen app's page saves CPython's image `[firefox]` (the Windows
-   frozen app's first load, ci30's B): not seen in four Windows runs since,
-   the same shape as 10, tracked there (4.37f).
+   frozen app's first load, ci30's B): it failed twice on 11-12's Windows
+   CI, its rerun on a browser that had stopped answering. Since 4.54b that
+   browser is launched again for the rerun and the next test, and CI's log
+   prints a twice-failed test's first try, so its next hit names its cause.
+   The same shape as 10.
 8. Chromium site tests that stalled with no error (ci36's slowed sweep):
    4.37f's slowed rerun and six "no answer in 237-238 s: azurkit.ready"
    flakes in 4.37d's gate met a macOS privacy (TCC) prompt, not starvation
    (4.37o). Another project's headless Chromium asked for the Documents
    folder on the owner's screen, and every Chromium GPU helper launched
-   while the prompt stood waited behind it. Step 4.37p runs Chromium's GPU
-   in the browser's process and names a standing prompt in a stalled call:
-   built and reviewed, not yet queued. ci36's own run can't be rechecked
+   while the prompt stood waited behind it. Step 4.37p, on `main` since
+   11-12, runs Chromium's GPU in the browser's process and names a standing
+   prompt in a stalled call: look for that line at the next Chromium stall
+   (CI's one since is an arm64 `azurkit.ready` miss in test_service_worker,
+   11-13). ci36's own run can't be rechecked
    (the privacy log isn't kept that long). Also unfinished: saving while
    the rest of the image is being hashed.
 9. ~~The pure-tier tests that failed only when slowed (ci27)~~: fixed by
@@ -362,7 +368,10 @@ memory peaks stay strict. The gate writes both kinds of row to
 10. Windows Firefox holds its first request for about 37 s (4.5l, 4.5w),
     and 7 is likely the same: DIRECT isn't shown to prevent it. Windows
     CI's Firefox now logs its requests and loads, and a stalled call prints
-    the log's end (4.37k, 34f9e248), so the next hold names its cause.
+    the log's end (4.37k, 34f9e248). The 11-12 hit's first try kept that
+    end only in the failed tries' file, which nothing printed; since 4.54b
+    CI's log prints a twice-failed test's first try, so the next hold names
+    its cause.
 11. ~~test_dev_tools' flake-stage tests on Windows~~: fixed by 4.5c
     (e9f137bb) and 4.5i (f9cddb6a).
 
@@ -370,9 +379,12 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 12. arm64: the Europe golden `[webkit]`'s five failure modes; SIGBUS;
     WebKit's reload; the WebKit engine trap (ci44); WebKit's JSC fault on
-    macOS 15 (4.5p; a Playwright newer than 1.64.1 is the lever, D1133);
-    Firefox's timer that lost once, after which a lost edit still waits
-    600 s with no Data tab state in `hang()` (4.5g).
+    macOS 15 (4.5p; a Playwright newer than 1.64.1 is the lever, D1133:
+    1.65.1 is out, and arm64 WebKit's "Target crashed" passed its rerun
+    about 8 times in CI from 11-11 to 11-13). ~~Firefox's timer that lost
+    once~~: fixed by 4.54a (the word-list Undo was pressed before it was
+    enabled); a lost edit still waits 600 s with no Data tab state in
+    `hang()` (4.5g).
 13. Intel: page-load stalls; ci19's extra 2 h; WebKit's drawing threads
     outranked (ci21).
 14. Windows: ci34's cause; ci39's load failure.
@@ -411,37 +423,47 @@ memory peaks stay strict. The gate writes both kinds of row to
     `_bare_page`'s new context, init script, routes and new page are
     bounded (4.54d).
 19. ~~test_site's two fresh-page loads at ACT~~: fixed by 4.37k (1f016297).
-20. `tests/ci_durations.json` still names the old private-window test id.
-    Refresh the shard table from a full run's log, with Apple Silicon and
-    Intel times (4.5u, ci35); the port's tests added many minutes to the
-    vanilla tier (4.27b alone about 8 CPU-min).
+20. ~~`tests/ci_durations.json`'s old test id and stale shard table~~:
+    fixed by 4.54d (measured from six CI runs' vanilla jobs).
 
 ### Perf debt
 
-21. Rows the gate recorded: S64 in WebKit froze 423 ms in the head start
-    (stack 2's run); A02 (1.10 s) and A73 (1.52 s) in the app run past 1 s
-    with no progress shown (D980; aecdedf9's run); A95 in the app at
-    5.2-5.7 s in the gates since 4.37d's, 1.0.3's full run too; Firefox's
-    S81 at 42.3 s (4.37b's measure). A110 is fixed (4.37d, 4db4feb3:
-    0.17 s).
-22. **Round 5 never started** (D1103): ROUND-5-PLAN's ten levers r5a-r5j,
-    with r5a (the SND resampler) and r5c (the mesh kernels) first. On their
-    bar in stack 2's run: A31 166.5 s, A60 199.5 s, A92 97.5 s, A95 45.0 s,
-    and in WebKit S52 140.7 s, S62 139.4 s, S63 138.1 s, S78 102.1 s and
-    S81 8.0 s (the first-time reshaped booblord, the Check, group 1).
-23. Saves over budget in fe61354's full runs, disk-bound on a full disk:
-    - S06: WebKit 3.47 s, Chromium 4.15 s.
-    - S49: WebKit 3.72 s, Chromium 4.46 s, lag 3.46 s.
-    - S50: WebKit 3.24-3.49 s, Chromium 4.30 s, lag 3.63 s.
-    - S72 in WebKit and capped froze 272 ms in the head start.
-    - The goal is D1121's strict medians of 2.4 s or less (the 1.0.1
-      survey's 4.5c). WebKit's writer has had no R2-a, and 4.4ci49 has no
-      commit.
-24. Firefox's Saves on their bar: S06 at 6.42-6.57 s, S49 and S50 at about
-    6 s (r2c, round 5).
-25. A71 and A80 were never read with perf.py on a busy box (ci56, ci57).
-    A80's click past its plan is the build (about 1.7 CPU-s).
-26. The fill (ci56, ci57):
+21. Rows the gate recorded:
+    - A95 in the app (a warm quick preview after a Shape let-go): 9.1-10.8 s
+      in 4.48b's and 1.1.1's full gates and 4.52a's run, its bar moving
+      only sometimes: the preview's second step is shorter than one poll
+      (group 8's rare-ops triage, 11-13). Step 4.55b builds its bar, and it
+      lands with group 1's parts re-record.
+    - ~~S79, a Check asked again unchanged, no progress for up to 3.4 s~~:
+      fixed by 4.54e (it now shows a bar).
+    - Stale: S64's 423 ms freeze (seen once, 11-09; it passes at
+      0.003-0.007 s); A02 (0.61-0.91 s, with progress) and A73 (0.06 s)
+      pass; Firefox's S81 is under the rare tier's line with a moving bar
+      (unmeasured since 4.37b's 42.3 s). A110 is fixed (4.37d: 0.17 s).
+22. **Round 5's levers** (D1103, ROUND-5-PLAN's r5a-r5j): r5a (the SND
+    resampler) is done (4.6c); r5c (the mesh kernels) is done in part by
+    round 6's springs and body writes, the rest being group 1's compiled
+    kernels (4.55b-4.55d); r5g (a reshape's pictures ahead of the rest of
+    its dress) is open; r5b, r5d-r5f and r5h-r5j weren't checked lane by
+    lane. Their bar since booblord v10 (4.48b's and 1.1.1's full gates,
+    4.52a's run; group 8's rare-ops triage): A31 41-43 s, A60 43-50 s
+    (across its 45 s line with the load), A92 3.9-4.0 s, A95 9-12 s, and in
+    WebKit S52, S62 and S63 71-76 s, S78 7.5-8.4 s and S81 13-15 s; stack
+    2's run had read A31 166.5 s, A60 199.5 s and S52 140.7 s.
+23. Saves (S06, S49, S50): WebKit's over 3 s are a known flaw now (9.45).
+    Chromium's pass (2.13, 2.29 and 2.09 s medians in group 8's
+    frequent-ops measurement, 11-13) on a thin margin: its browser process
+    spends 2.5-3.2 CPU-s on a Save, so D1109 keeps it in research. A busy
+    disk, not a full one, put them over (reproduced at 184-198 GiB free).
+    S72's freeze isn't in the latest receipts.
+24. Firefox's Saves on their bar (D1053): S06 6.54 s, S49 4.34 s and S50
+    4.51 s medians (group 8's frequent-ops measurement, 11-13). Its bare
+    download takes 3.3-4.6 s, three to four times a plain copy, and its
+    check hashes all 1,195 files each Save.
+25. ~~A71 and A80 never read on a busy box~~: read since, 0.06 s and
+    0.02-0.06 s (1.1.1's full gate and 4.52a's run).
+26. Not debt (A01 passes at 0.66-0.79 s in 1.1.1's full gate and 4.52a's
+    run), ideas for the fill (ci56, ci57):
     - A beside attempt's stop or priority takes effect only at its end.
     - The setup before attempt 0 is serial.
     - `fill.roll` (the GUI's first seed) still runs the twin.
@@ -449,19 +471,19 @@ memory peaks stay strict. The gate writes both kinds of row to
       its own.
     - `fill.c`'s constants (MAX_REPAIRS and its kin) should come from the
       blob (a later pass).
-27. The Characters tab's Reset: its info rows and list colours wait on the
-    engine (0.24-1.08 s). Draw them from the held defaults (the 1.0.1
-    survey's 4.5k).
+27. ~~The Characters tab's Reset waits on the engine~~: stale, A81 and S66
+    pass at 0.007-0.008 s (1.1.1's full gate and 4.52a's run).
 28. `gc.freeze` of the kept Logic: measure gen-2 pauses first (the 1.0.1
     survey's 4.5j; ci27).
 29. The site's Expert seeds: the costliest plan for about 3 s on Pyodide,
     and no site op times them (4.20).
-30. Easy at Hard/Hard with the powers kept: more of its own attempts fail
+30. Not debt (no op over its line), the fill's quality: Easy at Hard/Hard
+    with the powers kept: more of its own attempts fail
     (0.74 s median, 1.68 s max native), and it does 5-9 % more fill work
     (4.20's Q1, kept: 12.3).
-31. The Data tab's Critters and Items pickers fetch `characters/index.json`
-    (31.6 KB) beside the index on open; estimated, never measured
-    (4.24b; A39/S32).
+31. ~~The Data tab's pickers fetch `characters/index.json` on open~~: not
+    debt, A39 (0.07-0.09 s) and S32 (0.14-0.19 s) pass (1.1.1's full gate
+    and 4.52a's run).
 32. CI: about 60 SSH sessions per vanilla job, an unmeasured 1-2 min
     (4.5e). ci19's CI times were inferred, not measured.
 33. The perf gate reads RSS, not footprint (4.4n's Q2, kept for 1.0.0).
@@ -469,12 +491,12 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 ### Flakes found since, each owed a triage
 
-34. `test_site.py::test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_the_build_reads[chromium]`
-    on macOS arm64 (4.37i's CI run 42933579021).
-35. The Variants Sounds and Effects tabs test `[webkit]` (3) failed on
-    c053b9f6's CI (linux-x86_64) with another error: an AssertionError on
-    the Effects list, not the KeyError. [unsure] It is the same race:
-    c053b9f6 predates 4.37g's fix.
+34. ~~The Variants Shape tab's drag test `[chromium]`~~: fixed by 4.54a
+    (a product race: a built-in's late shipped pictures wrote over the
+    drag's Preview note).
+35. ~~The Variants Sounds and Effects tabs test's Effects read, and its
+    Sounds line read as `[[], []]` (group 8's most frequent flake: six
+    times in three days, all three browsers)~~: fixed by 4.54a.
 
 ## 9. Product follow-ups and known flaws
 
@@ -540,14 +562,13 @@ memory peaks stay strict. The gate writes both kinds of row to
 ### The Variants editor
 
 27. Opening another variant mid-Check drops its answer, but the engine's
-    in-flight dress runs on (4.28d). After a drag during the Check, a
-    pictures refusal's "Not drawn" note gives way to the nearest note
-    (4.29).
+    in-flight dress runs on (4.28d). (After a drag during the Check, a
+    pictures refusal's "Not drawn" giving way to the nearest note is no
+    defect: that note is about the values now shown, 4.40b3.)
 28. ~~The fits row's sha and `garret4_reference`'s hoe, unpinned~~: pinned
     by 4.27d (0d2873ec) and 4.52c.
-29. Old own copies of booblord_high (saved before 4.6r, or by Modkit) have
-    no places and refuse. The stores hold reshape parts under old keys, so
-    each misses once. Both are accepted.
+29. ~~Old own copies of booblord_high refuse; old reshape-part keys miss
+    once~~: accepted (4.6r), no lane: a copy made with New from this works.
 30. Looks:
     - The status leads with the recipe hash.
     - "Built-in" and "built in" are both used.
@@ -559,44 +580,25 @@ memory peaks stay strict. The gate writes both kinds of row to
       off), and the app's Attach… pushes the line onto a third (91 px), so
       the map room is shorter (4.25; measured again in 4.53a, Chromium and
       WebKit alike).
-31. 4.6c's leftovers: `variant_save`'s `from` isn't checked as a name.
-    Only a crafted call reaches it, so it gets no lane of its own (D1219);
-    4.38b checks it (32). Done: Undo (since 4.6e, c0f65767), the page's
-    `variants()` manifest (`web/variants.mjs` sends it) and the app's window
-    asking about unsaved edits on close (4.38a, fd1695a0).
-32. Community-only characters (a 1.1 item, D1203): `resolve()` has no
-    third source, so installed recipes that aren't in `variants.json` don't
-    resolve. Step 4.38b resolves them third, each held to its sha, and
-    refuses a built-in's name: built and reviewed, its gate red on two tests
-    (the editor's refusal words, the site's kept-content `[chromium]`); a
-    fix seat committed both fixes, and its browser rerun waits for the
-    window. It then rebases over 4.46d's `content._files` (dropping its own)
-    and the guide's line, and queues again.
+31. ~~4.6c's leftovers~~: done, the last (`variant_save`'s `from` checked
+    as a name) by 4.38b.
+32. ~~Community-only characters~~: fixed by 4.38b.
 
 ### Data, mods and the randomizer
 
 33. There's no page button for mod-template or entity diff; they are CLI
     only (4.6i's default).
-34. `docs/RANDOMIZER_DB.md`'s TODOs: whether the page offers to drop a
-    renamed skip toggle (4.10), the reserved keys `seed` and `[pools]`, and
-    later share-string versions.
+34. ~~`docs/RANDOMIZER_DB.md`'s TODOs~~: fixed by 4.56a (D115's defaults:
+    no drop offered, the reserved keys with no version planned).
 
 ### Docs
 
-35. AGENTS.md's perf paragraph:
-    - Real Safari ends a closed tab's process in about 20-25 s, even with
-      another tab open; only Playwright's WebKit keeps it (the 11-07
-      real-Safari read; D1096 asked for the reason to be written there).
-    - Its list of later visits misses S73.
-    - It still says the site's detailed dress may run out of wasm memory,
-      and that "4.4 waits until every site build fits 6 GiB"; 4.4 has
-      shipped, and the capped site measures 5.16 GiB.
-36. Eight prose cites in `docs/RE_DATA.md`, `RE_MOVEMENT.md` and
-    `RE_XBE.md` name Modkit's archived `LEARNINGS_HISTORY.md`, which AzurKit
-    has no copy of (4.28f).
-37. After a release's `--remove`, `docs/devlog/` is empty and git drops it,
-    so DEVLOG.md's [Unreleased] link to it is dead until the next entry
-    (Modkit's behaviour too).
+35. ~~The perf paragraph's Safari reason, S73 and 4.4's 6 GiB~~ (in
+    INTERNALS.md, not AGENTS.md): fixed by 4.56a.
+36. ~~The prose cites of Modkit's `LEARNINGS_HISTORY.md`~~: fixed by 4.56a
+    (they name Modkit's archive, as does the game-reference skill's).
+37. ~~DEVLOG.md's [Unreleased] link dead after `--remove`~~: fixed by 4.33
+    (it is plain text now).
 
 ### Ideas the session ranked (after the port, D1131)
 
@@ -620,17 +622,38 @@ memory peaks stay strict. The gate writes both kinds of row to
     `variant.json` is parsed with no depth guard (U6) and `installed.json`
     read with no cap or value check (U7); and on Windows a zip unpacked into
     the app's data folder can replace the install's key file (store F2).
-43. **Covered faces removed** (E1, D1237): no Shape op removes faces
-    (`docs/VARIANTS.md`), so a model's faces its clothes always cover are
-    drawn and Checked anyway. A lane that adds one (about 8-10 hours)
-    would take booblord from about 1.49x to about 1.33x vanilla's heaviest
-    vertex cost and a Check about 9 s faster in the app and 14 s on the
-    site (estimates). It follows booblord's rework (2.5).
+43. **Covered faces removed** (E1, D1237): parked by the owner's decision
+    (D1258), to revisit only if a model needs the last few percent. No
+    Shape op removes faces (`docs/VARIANTS.md`), so faces a model's clothes
+    always cover are drawn anyway. Measured on booblord v10 (E1's design,
+    11-13): the faces covered in every frame of her 48 clips are a safe
+    2.6 % (1.479x to 1.458x vanilla's heaviest vertex cost); her shadow LOD
+    cut from each two-sided layer's outer side about 3 % of her bytes a
+    flip (20.00 to 19.38 MB, an estimate; 1.479x to 1.433x by vertex cost),
+    with no recipe change; and no Check gets faster (a fresh dress 69.1 s
+    without, 70.1 s with the faces left out). The once-estimated 1.33x
+    and 9-14 s don't hold: faces picked on the plan's weights leave holes
+    once the rig re-weights her.
 44. **booblord_human's eye-edge texel** (D1255): her rework's larger irises
     (D1252) reach one texel at her eye island's edge, magenta on
     booblord's page, that the human's +22 hue turns a dark maroon (hue
     353.5) instead of brown; no iris radius moves it. It ships as a
     known flaw: a human-only colour op for that texel would clear it.
+45. **WebKit's Saves past 3 s** (S06, S49, S50): all but 9-44 ms of a
+    Save is WebKit's own download of the 2.75-2.93 GB image, at a plain
+    copy's speed. Alone they pass (1.29, 0.90 and 1.67 s medians); beside one
+    other process writing to the disk they read 4.43, 4.32 and 4.90 s
+    (1.1.1's full gate: 4.41, 4.26 and 4.54 s), and no page lever moves
+    them (group 8's frequent-ops measurement, 11-13). Chromium's pass
+    under the line, Firefox's on its bar (D1053).
+46. **A worker's record shown on the newest ask** (4.54e): on the site,
+    for up to about 2.5 s after a Check, its "Keeping the Check" records
+    show on the newest ask, so an unrelated one answered meanwhile (an
+    Install, a picker) shows that line; a Build clicked then does wait on
+    it.
+47. **A 4-45 ms flash** (4.54e): a Check asked again unchanged whose own
+    steps take a few ms flashes its keeping records (one to three frames)
+    before its bar hides.
 
 ## 10. Dev tools, tests and port notes
 
