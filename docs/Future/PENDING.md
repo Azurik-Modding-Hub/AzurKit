@@ -87,11 +87,30 @@ The next session starts here (D1192), so 1.1 can follow.
    each; 11-11: 113-117, 180 and 256 s), each under 90 s with a moving
    bar, so no browser's goes under group 9's known flaws. Firefox's has
    the least margin (9.4 s).
-9. **Paths with no perf row** (4.49a's design): a Check after a sound edit
-   (frequent; 2.6 s natively in 4.37m1's A/B), after a texture row or
-   Import PNG (about 15 s natively, 37.1 s on the site's engine), and after
-   a Moves, Attacks or Effects edit. The gate can't tier what it doesn't
-   time: each wants a row in `tests/_perf.py` with its tier and its line.
+9. **Paths with no perf row** (4.49a's design): Step 4.55a timed the
+   page's. A107/S89 (a sound edit: the Sound line), A108/S90 (Import PNG),
+   A109/S91 (a Moves pick), A114/S92 (the Attacks tab's Damage) and A115/S93
+   (an Effects row added, then its first number) time a Check of booblord's
+   copy after each, at the frequent tier: `perf.check_tiers` starts a new
+   heavy op frequent, and a rare line for those after Import PNG or the
+   Moves, Attacks and Effects tabs is the owner's call. On 11-13 (load
+   5-10) their medians were 3.0-7.4 s in the app, 5.9-17.7 s in WebKit,
+   5.3-15.9 s in Chromium and 6.9-26.3 s in Firefox, each within its line;
+   the closest is Firefox's Check after an Effects edit (S93: 22.0 and
+   30.7 s). What is left:
+   - **The first Check after any edit of her copy** works out her whole
+     dress, whichever edit it follows: 53.7 s (after a sound edit) and
+     66.5 s (after Import PNG) in the app, 81.1 s and 80.9 s in WebKit,
+     where the next edit's Check takes 3-8 s and 6-18 s. A player who Checks
+     her copy and then edits it meets this, a frequent path past its 15 s
+     and 30 s lines. No row times it (it would be a debt row): the driver
+     Checks an untimed Scale first. Its cause is unfound: natively, with no
+     part held in the process, the same Check took her shipped parts in
+     5.1 s.
+   - **A texture row** (the recipe's `textures`) has no control on the page
+     (JSON only, 4.37e's F4), so no row times it: about 21 s natively and
+     37 s on the site's engine (4.37a's P5). Import PNG is a `colours` op on
+     the dressed body, 2.7 s natively.
 
 ## 2. Releases and content
 
