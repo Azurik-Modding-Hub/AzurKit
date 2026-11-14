@@ -702,10 +702,8 @@ memory peaks stay strict. The gate writes both kinds of row to
    public repo holds only `main`.
 5. **The game-data environment allows `p2/*` branches** (D1123): keep that
    while lanes get CI. Its revert is in the handoff log.
-6. **nativekit writes each library in place** (`nativekit.build`), so the
-   next process to load a rewritten macOS dylib is killed (SIGKILL until
-   the file has a new inode; 4.6c). Write it beside and `os.replace`, with
-   one pure test in `tests/test_native.py`. Its lane: 4.59e.
+6. ~~nativekit writes each library in place~~: fixed by 4.59e (it writes
+   each beside and renames it over, so a rewritten dylib is a new file).
 7. **Dev-speed levers:** dx6 and dx7 are stale (2026-11-14): dx6's five
    reshape ops now take 3-7 min of a changed perf stage, and no `--all`
    perf has run since 11-08. Left: **dx8**, the variant golden as one test
