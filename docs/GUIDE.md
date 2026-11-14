@@ -221,8 +221,8 @@ before you pick your image: AzurKit ships the game's original config.xbr, the sa
   as many words as the game holds; a value the cell can't take yet is greyed, saying it needs a new string.
 - **Marks:** ● on what you changed, with the original value; ⚠ where a ticked pack also writes it (your edit wins,
   and the build says so).
-- **Changes:** every value your edits or a loaded mods file change, the original beside it, and its byte edits: what
-  a build will change, before you build (`azurkit diff` prints a mods file's, each edit numbered).
+- **Changes:** every value your edits or a loaded mods file change, the original beside it, and its byte edits and
+  level moves: what a build will change, before you build (`azurkit diff` prints a mods file's, each edit numbered).
 - **Compare two entities:** `azurkit entity diff` sets two critters' (or any two entities') values side by side,
   table by table, with what only one of them has.
 - **A template to edit:** `azurkit mod-template` writes a table's (or one entity's) original values as a mods file;
@@ -267,8 +267,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Builds carry their recipe:** two small files on the disc; `azurkit open`, or picking the build in the page,
   gives it back.
 - **Tamper check:** a build changed after it was made is refused by name.
-- **Share links:** Copy link makes a short link with your packs, settings, seed and character, never your image or
-  a path.
+- **Share links:** Copy link makes a short link with your packs, settings, seed, character and Data edits, never your
+  image or a path; a mods file's byte edits and level moves stay out, refused by name (share the mods file for those).
 - **Starts fresh each visit:** tick Remember settings to keep your setup for next time, never your image.
 - **Game data edits:** a mods file can set any value in `config.xbr` by name, replace bytes in an XBR file, or move
   a level's item or critter; `azurkit build` takes several, applied in order, and says where a later one changes what

@@ -126,6 +126,7 @@ def test_a_refusal_names_what_it_refuses_and_writes_nothing(tmp_path):
         (tools.entity_get(str(image), "golem"), "no gamedata/config.xbr"),
         (tools.xbr_edit(str(xbr), str(xbr), [{"op": "set"}]), "input"),
         (tools.xbr_edit(str(xbr), out, [{"op": "set", "file": "gamedata/config.xbr"}]), "the file is inp"),
+        (tools.xbr_edit(str(xbr), out, []), "{op: set | replace_bytes | move, ...}"),   # every op it takes
         (tools.xbr_edit(str(xbr), out, [{"op": "set", "table": "t", "entity": "e", "prop": "p", "value": math.nan}]),
          "value"),
         (tools.pack_list(category="nope"), "nope"),

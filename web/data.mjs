@@ -4,14 +4,14 @@
 // chosen entity's cells of every table that holds it, as sections of mini-tables; All tables, the 18 tables by
 // category (the list filtered by table name), a table as a grid with an entity a row and a property a column, sorted by
 // a column's header, Changed only; and Changes, every cell the edits change (a loaded mods file's too) with its vanilla
-// value beside it, table by table, and the byte edits a mods file brought: what a build will change, before it. A cell edits on a click, Enter or F2: a number cell takes any number (never
+// value beside it, table by table, and the byte edits and level moves a mods file brought: what a build will change, before it. A cell edits on a click, Enter or F2: a number cell takes any number (never
 // clamped: its range is a hint), a value set is a dropdown (each value the cell can't take yet greyed, saying what it
 // needs), a word list a checklist or a yes/no a checkbox, an empty cell with a known default shows it
 // greyed; the engine checks every edit (tools/data's check) and a refusal is one red line under the cell saying why.
 // A changed cell is marked ● with its vanilla value in its note, a cell a ticked pack's slider also writes ⚠ (the data
 // edit wins: the build says so). Revert (a cell), Reset table, Undo, Redo, Clear edits and the count of edits. The edits
 // are the recipe's xbr set operations, which this tab keeps (ops(), load(ops)) and the page builds with, remembers and
-// links; byte edits a mods file brought list read-only, removable. The tab needs no image: its line says the edits join
+// links; the byte edits and level moves a mods file brought list read-only, counted apart, removable. The tab needs no image: its line says the edits join
 // each build, which waits for the image (D979). All files… under the tables' list (Step 4.6h, Modkit's): every .xbr of
 // the picked image, config.xbr first, each opening to its keyed tables read from the image (only config.xbr holds any
 // in a vanilla image), the search box narrowing them too; a table there shows and edits as any other (another file's
@@ -319,14 +319,17 @@ export function dataTab({ call, root, say, packs, changed, image, app = false })
       : `${a.file.replace(/^gamedata\//, "")} · ${a.name}` }), grid(a)]
       : a.kind === "changes" && !a.sections.length ? [el("p", { className: "note", textContent: UNCHANGED })]
       : a.sections.map((s) => el("section", {}, el("h3", { textContent: s.title }), ...s.blocks.map(block))));
-    const sets = d.ops.filter((op) => op.op === "set").length, bytes = d.ops.length - sets;
+    const sets = d.ops.filter((op) => op.op === "set").length, moves = d.ops.filter((op) => op.op === "move").length;
+    const bytes = d.ops.length - sets - moves;   // a mods file's replace_bytes; a move is a level item's new place
+    const brought = [bytes && `${bytes} byte edit${bytes === 1 ? "" : "s"}`, moves && `${moves} move${moves === 1 ? "" : "s"}`]
+      .filter(Boolean);
     count.textContent = `${sets} edit${sets === 1 ? "" : "s"}`;
     clear.disabled = !d.ops.length;
     undo.disabled = !d.undo.length;
     redo.disabled = !d.redo.length;
     reset.disabled = !d.ops.some(ofTable);
-    others.replaceChildren(...bytes ? [`${bytes} byte edit${bytes === 1 ? "" : "s"} from a mods file (read-only) `,
-                                       button("Remove them", () => commit(d.ops.filter((op) => op.op === "set")))]
+    others.replaceChildren(...brought.length ? [`${brought.join(" and ")} from a mods file (read-only) `,
+                                                button("Remove them", () => commit(d.ops.filter((op) => op.op === "set")))]
       : []);
   };
 

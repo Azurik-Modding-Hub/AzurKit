@@ -202,7 +202,10 @@ def xbr_edit(inp: str, out: str, ops: list) -> dict:
         string cell;
       - {"op": "replace_bytes", "offset", "expected", "value"}: hex bytes at
         a file offset where the file holds "expected" (their hex, up to
-        32 B, or {"sha256", "size"}).
+        32 B, or {"sha256", "size"});
+      - {"op": "move", "entity", "x", "y", "z"}: a level file's item, gem
+        or critter generator, by its critter name or its id g<G>/r<R>, put
+        at x, y, z (its parent transform's place).
     A number is any finite value, never clamped (D23), but what an int32
     cell can't hold (D45). They apply in order: an op a later one
     overwrites is dropped whole and listed in conflicts (D28). Any op that
@@ -217,7 +220,7 @@ def xbr_edit(inp: str, out: str, ops: list) -> dict:
     source, target = _file(inp, "inp"), Path(out)
     _never_over(target, source)
     if not isinstance(ops, list) or not ops:
-        raise ValueError("ops: a list of xbr operations ({op: set | replace_bytes, ...}), not empty")
+        raise ValueError("ops: a list of xbr operations ({op: set | replace_bytes | move, ...}), not empty")
     if named := [k for k, op in enumerate(ops, 1) if isinstance(op, dict) and "file" in op]:
         raise ValueError(f"xbr op {named[0]}: no file (the file is inp)")
     file = f"gamedata/{source.stem}.xbr"   # the name the ops' refusals give it
