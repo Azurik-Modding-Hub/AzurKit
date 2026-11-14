@@ -1423,10 +1423,12 @@ are the Characters section's.
   inline in `_subdivide`, is the reference. Its sets are lists there, an
   edge's triangles sorted each time it is read, so no answer reads an
   order; it grows its buffers where a split finds one short (the caller
-  doubles them and calls again: the loop goes on where it stopped). A
-  region `apart`, a field or round side the kernels don't read, a number
-  not a float or an int within 2**52 or not finite, an edge of more than
-  32 triangles, a NaN key and what the twin raises on are the twin's.
+  doubles them and calls again: the loop goes on where it stopped). More
+  than 63 regions, a region `apart`, a round op of more than 8 sides, a
+  field or round side the kernels don't read, a bone id not an int in
+  0..65535, a number not a float or an int within 2**52 or not finite, an
+  edge of more than 32 triangles, a merged skin of more than 16 bones, a
+  NaN key and what the twin raises on are the twin's.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,
