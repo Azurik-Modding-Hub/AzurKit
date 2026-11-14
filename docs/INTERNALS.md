@@ -1091,7 +1091,9 @@ are the Characters section's.
     or one it requires) is `newer` in the rows (`sdk._content_states`),
     with its line ("v12 needs AzurKit 1.3.0 or newer; this is 1.2.0:
     update AzurKit"); both tabs grey its button with it (the site's from
-    `sdk.content_check`'s `newer`), and `sdk.content_install` and
+    `sdk.content_check`'s `newer`), a chosen
+    built-in variant of it says it in place of picker's "Install it
+    first" (`sdk.pickers`), and `sdk.content_install` and
     `sdk.content_check` refuse it by name before any file is fetched
     (`sdk._content_fits`); an installed copy stays. The hub sets `needs`
     only when its `main` moves at a release's publish, so an app at that

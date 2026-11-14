@@ -1554,7 +1554,8 @@ def test_an_entry_that_needs_a_newer_azurkit_is_greyed_and_refused_before_any_fi
     an entry too new for this AzurKit, and one that requires it, with its line (``sdk.content``'s rows, the site's
     ``sdk.content_check``), and its Install or Update, the app's and the site's, is refused by name before any file is
     fetched, nothing written (D35); an installed older copy stays as it is, and an entry at or below this AzurKit
-    installs as before."""
+    installs as before. A built-in variant chosen in the Characters tab whose entry is too new says the entry's line,
+    not to install it first (``sdk.pickers``)."""
     source, folder = tmp_path / "source", tmp_path / "content"
     monkeypatch.setattr(content, "ROOT", folder)
     monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
@@ -1611,6 +1612,12 @@ def test_an_entry_that_needs_a_newer_azurkit_is_greyed_and_refused_before_any_fi
     assert content.installed()["b"]["version"] == 1 and (folder / "packs/b/pack.json").read_bytes() == b"[1]"
     monkeypatch.setattr(sdk, "__version__", "1.3.0")
     assert [e["state"] for e in sdk.content({"source": str(source)})["entries"]] == ["installed", "update", "install"]
+    worn = {"variants/booblord/variant.json": b"{}", "clips/booblord/a.glb": b"x"}   # a built-in's, its clips beside it
+    for needs, why in (("1.3", "Install Booblord (community) first"),
+                       ("1.4.0", "Booblord (community): v1 needs AzurKit 1.4.0 or newer; this is 1.3.0: update AzurKit")):
+        manifest = _source(source, worn, [{"id": "booblord", "title": "Booblord", "files": list(worn)}])
+        assert sdk.pickers({"character": {"species": "booblord"}, "content": {"manifest": manifest | {
+            "needs": {"booblord": needs}}}})["chosen"]["refused"] == why
 
 
 def test_an_update_only_goes_up_from_where_it_was_installed_and_a_url_source_is_https(tmp_path, monkeypatch):

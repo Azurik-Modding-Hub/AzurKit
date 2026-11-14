@@ -659,7 +659,9 @@ def pickers(given: Mapping, *, progress: Callable[[dict], object] | None = None)
     its title, base and grade or its refusal (``custom``), the chosen model's info
     panel, Weapon box, springs, shapes and the options its recipe decides
     (``chosen``), and the character a build takes from the tab
-    (``character``). A refusal names the field or the image.
+    (``character``). A refusal names the field or the image; a chosen
+    community variant whose entry's Install is greyed as too new for this
+    AzurKit (``"newer"``) says that entry's line, not to install it first.
     ``progress(record)`` hears its steps on an image (``read``, 2 of them):
     the image's model files read (once an image), then the models' view,
     its body's weapons counted inside it ("the weapons, k of n": where the
@@ -678,7 +680,11 @@ def pickers(given: Mapping, *, progress: Callable[[dict], object] | None = None)
 
         manifest = (given.get("content") or {}).get("manifest")
         entries = _content_states(_content_manifest(manifest) if manifest else None, kit.installed())
-        return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
+        view = picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
+        chosen, row = view["chosen"], next((e for e in entries if e["id"] == view["chosen"]["community"]), {})
+        if chosen["variant"] and chosen["refused"] and row.get("state") == "newer":   # picker's "Install it first"
+            chosen["refused"] = f"{row['title']} (community): {row['why']}"   # its Install greyed with this line
+        return view
 
 
 def _under_a_dress(stamp: gate.Stamp, packs: Mapping) -> tuple[object, list[Layer]]:
