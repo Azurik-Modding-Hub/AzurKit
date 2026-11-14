@@ -1098,6 +1098,26 @@ def test_the_position_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
         assert got == [_positions_answer(case) for case in cases]
 
 
+def test_a_beneath_cloth_read_again_answers_alike():
+    """A beneath side's cloth (``mesh_edit._Cloth``) read by the kernel
+    keeps the counts ``az_beneath`` reads it through as ``cloth`` made
+    them (the kernel makes them their starts in place, and a second fill
+    over those would write past its entries), so a second read gives the
+    first's crossings."""
+    from azurkit.tools.characters import mesh_edit as me
+
+    assert native.report()["loaded"]
+    for case in _positions_cases(1455, 5):
+        o, tris = tuple(case["origin"]), [tuple(tuple(p) for p in t) for t in case["tris"]]
+        asked = [(tuple(r), tuple(math.floor(x * me.BENEATH_CELLS) for x in r)) for r in case["rays"]]
+        reader = me._Cloth(tris, o)
+        assert reader.counted is not None
+        counts = bytes(reader.counted[0])
+        first = reader.near(asked)
+        assert bytes(reader.counted[0]) == counts
+        assert reader.near(asked) == first and any(x is not None for x in first)
+
+
 def test_azurkit_native_0_runs_the_twin(monkeypatch):
     monkeypatch.setenv("AZURKIT_NATIVE", "0")
     monkeypatch.setattr(native, "_LIB", None)

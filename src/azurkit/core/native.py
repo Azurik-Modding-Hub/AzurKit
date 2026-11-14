@@ -1205,11 +1205,13 @@ def crossings(corners: array, origin: array, counted: tuple[array, int], u: arra
     """The nearest crossing past ``origin`` of each ray (a unit direction
     of ``u``, 3 doubles each, in its direction cell of ``cell``, 3 ints)
     with the cloth's triangles read through its cell, NaN where none
-    (``az_beneath``, after :func:`cloth`'s ``counted``); ``None`` without
-    the library."""
+    (``az_beneath``, after :func:`cloth`'s ``counted``, which it leaves as
+    it was, so the cloth reads alike again); ``None`` without the
+    library."""
     if (lib := library()) is None:
         return None
     cells, total = counted
+    cells = array("q", cells)      # az_beneath makes the counts their starts in place: its own copy
     nq = len(u) // 3
     near, entries = array("d", bytes(8 * nq)), array("q", bytes(8 * max(total, 1)))
     table = array("d", bytes(96 * max(len(corners) // 9, 1)))

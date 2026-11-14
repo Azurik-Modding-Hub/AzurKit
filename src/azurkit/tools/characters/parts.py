@@ -63,7 +63,7 @@ import pickle
 from collections import OrderedDict
 from pathlib import Path
 
-VERSION = "2-5854fc794054"
+VERSION = "2-9b6643ee7519"
 """The parts' scheme and code, in every key (:func:`key`) and the store's (:func:`_stored`): ``2-`` and the first 12
 hex digits of the sha256 of :data:`SOURCES` (``tests/test_characters.py`` holds it to them, as ``test_art`` holds
 ``ART_VERSION``), so a change to what a dress runs moves every key and ``scripts/record_shipped.py`` records again."""
