@@ -451,12 +451,15 @@ def test_a_runs_pytest_holds_the_suite_lock_alone_and_the_next_pytest_runs_niced
     suite lock go, holding the perf lock through its flake and perf stages,
     so the next run's pytest starts at once, under macOS's utility clamp at
     nice 19 (``fullsuite.beside``), while the first's stages hold it. A
-    stand-in fcntl fails the test if a run waits for a lock another holds."""
+    stand-in fcntl fails the test at once if a run waits for a lock another
+    holds, a poll at the suite lock (``took``'s) among them, so a run that
+    kept the suite lock through its stages fails here, never hangs."""
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     _git(lane, "commit", "-q", "--allow-empty", "-m", "b")
     said = []
 
-    class Flocks:   # one holder a lock file, a try (LOCK_NB) that gets it holds it too; a would-be wait raises
+    class Flocks:   # one holder a lock file, a try (LOCK_NB) that gets it holds it too; a would-be wait raises,
+        # and so does a try at the held suite lock (took() would poll it forever); a try at the perf lock fails
         LOCK_EX, LOCK_NB, LOCK_UN = 2, 4, 8
 
         def __init__(self):
@@ -472,7 +475,7 @@ def test_a_runs_pytest_holds_the_suite_lock_alone_and_the_next_pytest_runs_niced
                     else:
                         said.append(("let go", name))
             elif self.held.get(name) not in (None, f):
-                if op & self.LOCK_NB:
+                if op & self.LOCK_NB and name != "lock":   # perf_busy's try
                     raise BlockingIOError(name)
                 raise AssertionError(f"a run waited for {name}")
             else:
