@@ -739,16 +739,11 @@ memory peaks stay strict. The gate writes both kinds of row to
 12. ~~The suite lock's order~~ (D1222): fixed by Step 4.47a (gates and
     the window poll and take turns); `$EV/tools/window` took its .4.47a
     version, and `land --selftest` passed on `main` (11-14).
-13. **The gate's P2** (D1215, two locks): rebased onto `main` with 4.47a
-    as `p2/4.58c-gate-p2` (Step 4.58c; the xemu oracle also waits on a
-    gate's `perf.lock`, so no sandbox starts beside its flake and perf
-    stages). Its trial pair (11-14) refuses it by D1215's rule, "no perf
-    verdict changes": A107/app read bar solo (3.11 s) and pass beside
-    (2.88 s). Nothing turned slower, and the starved count fell beside (0,
-    against S86/webkit's one solo); ops within 0.2 s of the 3 s line (A105,
-    A107, A108) flip between any two runs. Whether "changes" means "turns
-    worse" is the owner's call; till then the lane waits unqueued, and if
-    adopted it is queued only on an empty queue.
+13. ~~The gate's P2~~ (D1215, two locks): adopted (D1271: D1215's rule
+    reads "no perf verdict turns worse"; its trial pair turned A107/app
+    from bar to pass beside, nothing slower, the starved count down) and
+    landed as Step 4.58c on an empty queue, the xemu oracle also waiting
+    on a gate's `perf.lock`.
 14. ~~The landing queue's loose ends~~: fixed by Step 4.58a's
     `$EV/tools/landq.py` and `waitfor.py` (11-14). landq ends a gate whose
     entry it rebases, moves, drops or holds (by its receipt's pid, checked
