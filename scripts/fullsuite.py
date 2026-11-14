@@ -71,6 +71,14 @@ batch whose head it holds (``scripts/land.py``'s ``cover_for``). A deferred
 receipt's status is 0, but ``land.py`` lands a ``src/`` or ``web/`` stack on it
 only with a later receipt's perf block covering it.
 
+Every pytest run (the gate's and the flake stage's) installs the content CI
+tests with (Step 4.58b, :func:`content`): unless ``$AZURKIT_CONTENT_SOURCE``
+is set, Azurik-Custom-Content at the commit the worktree's own tests.yml pins
+(``CONTENT_COMMIT``), a ``git archive`` of the clone beside the main checkout
+unpacked beside the receipt (``<meta>.content``, removed after), never the
+clone's working tree; the log's first line names it, and a commit the clone
+lacks and can't be fetched ends the run ``error``, naming it, no pytest run.
+
 Every pytest run (the gate's and the flake stage's) reruns a failed test
 once (``tests/_rerun.py``, D1170): one that passes its rerun is flaky, kept
 in the receipt's ``flakes`` and appended to ``flakes.jsonl`` beside the
@@ -170,6 +178,7 @@ SUMMARY = re.compile(r"^=+ (\d+ (?:passed|failed|errors?|skipped|deselected).*? 
 TIER = re.compile(r"^(vanilla|europe): (\d+) run$", re.M)
 PYTEST = ("uv", "run", "--locked", "pytest")   # the worktree's own pytest (uv finds its environment)
 FLAKES = "AZURKIT_FLAKES"   # tests/_rerun.py's: the file a run appends each test that passed its rerun to
+CONTENT = "AZURKIT_CONTENT_SOURCE"   # sdk.SOURCE_ENV: where the tests install content from (:func:`content`)
 FLAKE_LEDGER, DEBT_LEDGER = "flakes.jsonl", "perf-debt.jsonl"   # kept beside the receipts, a row a flake or debt
 #: The flake stage (Step 4.4dx2): most lost CI rounds were tests a stack had just added or edited that failed only on
 #: CI's slow runners, so a changed-area run runs each such test again and again at their pace.
@@ -694,7 +703,7 @@ def describe(m: dict, meta: Path) -> str:
     line = f"fullsuite {m['key']}: {state(m)}" + (f", exit {m['exit_code']}" if m.get("exit_code") is not None else "")
     line += f" [{m['subject']}, {m['mode']}{', ' + str(len(m['pytest_args'])) + ' files' if m['pytest_args'] else ''}"
     line += f"{', ' + ' '.join(m['browsers']) if isinstance(m.get('browsers'), list) else ''}]"
-    if state(m) == "stale":
+    if state(m) in ("stale", "error"):
         line += f"\n  {m.get('note')}"
     elif m.get("summary") is not None or state(m) in FINAL:
         line += (f"\n  {m.get('summary') or 'no summary line'}; vanilla: {m.get('vanilla_run')} run; "
@@ -804,6 +813,28 @@ def _env(cache: Path | None = None) -> dict[str, str]:
     own; with ``cache``, the folder its wheel and database builds keep their
     files in (``web_tools.CACHE``)."""
     return {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"} | ({web_tools.CACHE: str(cache)} if cache else {})
+
+
+def content(wt: Path, folder: Path) -> tuple[str | None, str]:
+    """The content source a run's pytest and flake stage take (Step 4.58b), None to leave their environment's,
+    and the log's line naming it: ``$AZURKIT_CONTENT_SOURCE`` when set; else Azurik-Custom-Content at the commit
+    ``wt``'s own tests.yml pins (``perf.content_commit``: CI's ``CONTENT_COMMIT``), unpacked into the new folder
+    ``folder`` from the clone beside the main checkout (``perf.content_at``: a ``git archive`` of its objects, never
+    its working tree, index or refs; a commit it lacks fetched into a scratch repository there), so a run here tests
+    the content CI does, not whatever the clone has checked out (main 54ee900f passed here on the clone's v10 and
+    failed CI on its pinned v11); with no clone, None (a test that needs one says so). ``RuntimeError`` names a
+    commit it can't unpack or fetch."""
+    if source := os.environ.get(CONTENT):
+        return None, f"fullsuite: content from ${CONTENT}: {source}"
+    if (clone := perf.clone_of(wt)) is None:
+        return None, "fullsuite: content: no Azurik-Custom-Content clone beside the main checkout"
+    commit, how = perf.content_commit(clone, wt)
+    try:
+        into = perf.content_at(clone, commit, folder / commit)
+    except Exception as exc:   # whatever stops it (the fetch, the archive, its unpacking) stops the run by name
+        raise RuntimeError(f"content {commit} ({how}) can't be read from {clone} or fetched from "
+                           f"{perf.CONTENT_URL}: {type(exc).__name__}: {str(exc)[:300]}: no pytest ran") from exc
+    return str(into), f"fullsuite: content {commit[:12]} ({how}), a git archive of {clone}: {into}"
 
 
 def lint(wt: Path) -> tuple[bool, str]:
@@ -1115,16 +1146,27 @@ def run(meta: Path, m: dict) -> dict:
     """Run pytest, then its :func:`stages`, and write the receipt. The run
     and its flake stage share one build cache (``<meta>.cache``, removed
     after), so the stage's slowed runs copy the wheel and database the run
-    built (``web_tools.kept``)."""
+    built (``web_tools.kept``), and one content (:func:`content`,
+    ``<meta>.content``, removed after); content it can't unpack ends the run
+    ``error``, with no pytest."""
     load5 = os.getloadavg()[1] if hasattr(os, "getloadavg") else 0.0
     m |= {"state": "running", "started_at": now(), "load": round(load5, 1), "cap_s": cap(load5)}
     save(meta, m)
-    t0, capped, cache = time.time(), False, meta.with_suffix(".cache")
+    t0, capped, cache, unpacked = time.time(), False, meta.with_suffix(".cache"), meta.with_suffix(".content")
     (flakes := meta.with_suffix(".flakes")).unlink(missing_ok=True)
     try:
         with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
+            try:
+                source, said = content(Path(m["worktree"]), unpacked)
+            except RuntimeError as exc:
+                log.write(f"fullsuite: {exc}\n")
+                save(meta, m := m | {"state": "error", "finished_at": now(), "note": str(exc)})
+                return m
+            log.write(said + "\n")
+            log.flush()
+            m |= {"content": said.removeprefix("fullsuite: ")} | ({"content_source": source} if source else {})
             proc = subprocess.Popen(command(m), cwd=m["worktree"], stdout=log, stderr=subprocess.STDOUT,
-                                    start_new_session=True, env=_env(cache) | {FLAKES: str(flakes)})
+                                    start_new_session=True, env=_env(cache) | {FLAKES: str(flakes)} | _content(m))
             try:
                 code = proc.wait(timeout=m["cap_s"])
             except subprocess.TimeoutExpired:
@@ -1140,9 +1182,15 @@ def run(meta: Path, m: dict) -> dict:
         m = ledger(meta, m)
     finally:
         shutil.rmtree(cache, ignore_errors=True)
+        shutil.rmtree(unpacked, ignore_errors=True)
     m |= {"state": "capped" if capped else "done", "finished_at": now()}
     save(meta, m)
     return m
+
+
+def _content(m: dict) -> dict[str, str]:
+    """The environment a run's pytest and flake stage take its content by (:func:`content`), none to keep theirs."""
+    return {CONTENT: m["content_source"]} if m.get("content_source") else {}
 
 
 def ledger(meta: Path, m: dict) -> dict:
@@ -1247,8 +1295,9 @@ def flake_stage(meta: Path, m: dict) -> dict:
     fails it by name, capped."""
     tests, t0 = m["flake_tests"], time.time()
     deadline, out = t0 + FLAKE_CAP, meta.with_suffix(".flake.out")
-    env = _env(meta.with_suffix(".cache")) | {"PYTHONUNBUFFERED": "1",   # each outcome's line out before an end
-                                              FLAKES: str(meta.with_suffix(".flakes"))}   # its reruns' too (D1170)
+    env = _env(meta.with_suffix(".cache")) | _content(m) | {
+        "PYTHONUNBUFFERED": "1",   # each outcome's line out before an end
+        FLAKES: str(meta.with_suffix(".flakes"))}   # its reruns' too (D1170)
     block = {"tests": tests, "runs": 1 if len(tests) > FLAKE_MANY else FLAKE_RUNS, "done": 0, "failures": [],
              "walls": [], "slowed": [], "workers": FLAKE_WORKERS, "cap_s": FLAKE_CAP}
     if block["runs"] < FLAKE_RUNS:

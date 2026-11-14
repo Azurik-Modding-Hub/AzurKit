@@ -2383,7 +2383,18 @@ are the Characters section's.
   its worktree's HEAD and tree (the diff and untracked files its key hashed)
   again when the lock comes: one that moved while it waited (the landing
   queue rebased the lane) ends `stale`, no pytest run and exit 1, its note
-  naming the command to run again (Step 4.43a).
+  naming the command to run again (Step 4.43a). The run and its flake
+  stage install the content CI tests with (Step 4.58b, `fullsuite.content`):
+  unless `$AZURKIT_CONTENT_SOURCE` is set, Azurik-Custom-Content at the
+  commit the worktree's own `tests.yml` pins (`CONTENT_COMMIT`), a `git
+  archive` of the clone beside the main checkout (perf.py's `content_at`: a
+  commit it lacks fetched into a scratch repository, never the clone's
+  working tree, index or refs) unpacked beside the receipt
+  (`<meta>.content`, removed after), never what the clone has checked out
+  (main 54ee900f passed here on the clone's v10 and failed CI on its pinned
+  v11); the log's first line names the commit, and one it can't unpack or
+  fetch ends the run `error`, its note naming the commit, no pytest run.
+  The perf stage installs its own (below).
 - **The perf gate (D980-D985):** once pytest passes, the same locked run times
   the player-facing operations the changes reach (`scripts/perf.py`; the
   registry, its ids and drivers in `tests/_perf.py`): a change under `src/`
