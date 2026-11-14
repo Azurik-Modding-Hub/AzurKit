@@ -2684,7 +2684,9 @@ def test_the_parts_version_moves_with_the_dress_sources():
     digest of what a dress runs (``parts.SOURCES`` but ``NOT_SOURCES``, the
     version's own line left out), as ``test_art`` holds ``ART_VERSION``, so a
     change to any of it moves every key and ``scripts/record_shipped.py``
-    records again (the variant cases' pin is red until it has); and every
+    records again (the variant cases' pin is red until it has), as does
+    ``scripts/record_goldens.py characters`` (the built-in variants' shipped
+    pictures are keyed on it, Step 4.46a1); and every
     module the swap imports is one of them or one ``parts.OTHERS`` says no
     part reads, so a new one can't slip out of the version."""
     from fnmatch import fnmatch
@@ -2696,7 +2698,8 @@ def test_the_parts_version_moves_with_the_dress_sources():
         re.sub(rb'(?m)^VERSION = "[^"\n]*"$', b'VERSION = ""', p.read_bytes()) if p.name == "parts.py" and
         p.parent.name == "characters" else p.read_bytes()).hexdigest() + "\n" for p in files)
     want = f"2-{hashlib.sha256(lines.encode()).hexdigest()[:12]}"
-    assert parts.VERSION == want, f"parts.VERSION = {want!r}: write it, then scripts/record_shipped.py"
+    assert parts.VERSION == want, (f"parts.VERSION = {want!r}: write it, then scripts/record_shipped.py and "
+                                  "scripts/record_goldens.py characters")
     named = {p.relative_to(package).with_suffix("").as_posix().removesuffix("/__init__").replace("/", ".")
              for p in found}
     assert sorted(m for m in _imported("azurkit.tools.characters._player_character", package)

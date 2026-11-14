@@ -1708,7 +1708,9 @@ are the Characters section's.
     no-image answer (`index.json`), which only `scripts/record_goldens.py`'s
     `characters` family writes (from both images; a variant is dressed
     again only when its recipe as it builds changes, the one it is `from`
-    laid under it) and
+    laid under it, or `parts.VERSION`, what dresses it, or the drawing's
+    files, `record_goldens.DRAWN`: so every `parts.VERSION` move owes
+    `record_goldens.py characters` beside `record_shipped.py`) and
     `tests/test_characters.py` holds to the images and the app's draw: the
     page shows that answer at the tab's first open and a model's shipped
     pictures at its click, with no image and no engine call; G4 stays greyed,
