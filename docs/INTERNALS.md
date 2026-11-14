@@ -2443,22 +2443,28 @@ are the Characters section's.
   start and characters, Step 4.43a; the app's, the randomizer's and the
   characters' rows as before; any other path under `src/` or `web/`, and
   the perf gate's own driver and judge, `tests/_perf.py`, `tests/_page.py`
-  and `scripts/perf.py`, every op, Step 4.46a), but the heavy ops (a Check,
-  a new shape's first build or pictures: `_perf.Op.heavy`, 10-19 min of a
-  stage) only when a characters path changed (D1280, the owner's measure
-  change: their own pair, `HOST:heavy`, `perf.picked`, which only these
-  rows name: `tools/characters/`; `core/native.py`, `core/_native/` and
-  `core/fdlibm.py`, the swap's kernels and sines, a kernel's C source landing
-  with its library; `core/xbr/`, the XBR graphs and writers it dresses with,
-  and `store.py`, where its parts and answers are kept; the app's
-  `procpool.py` and `swapcache.py`, its pool and kept answers; `characters.mjs`, `variants.mjs`, `web/variants/` and
+  and `scripts/perf.py`, every op, Step 4.46a) in the app's serve mode (the
+  worktree's wheel in a scratch venv, so the app reads the database the
+  wheel ships, as a player's install does) and on the site in WebKit, but
+  the heavy ops (a Check, a new shape's first build or pictures:
+  `_perf.Op.heavy`, 10-19 min of a stage) only when a characters path
+  changed (D1280, the owner's measure change: their own pair, `HOST:heavy`,
+  `perf.picked`, which only these rows name: `tools/characters/`;
+  `core/native.py`, `core/_native/` and `core/fdlibm.py`, the swap's kernels
+  and sines, a kernel's C source landing with its library; `core/xbr/`, the
+  XBR graphs and writers it dresses with, and `store.py`, where its parts
+  and answers are kept; the app's `procpool.py` and `swapcache.py`, its pool
+  and kept answers; `characters.mjs`, `variants.mjs`, `web/variants/` and
   `parts.mjs`; `scripts/web_tools.py`, the site's builder, which publishes
-  the shipped parts its Checks fetch (its `.azkp` content kind); and the perf
-  gate's own three files), so any other change
-  leaves them to main's `--all` (a heavy op named in `--ops` needs no
-  `HOST:heavy`; the release's tree beside times only ops the head timed)
-  in the app's serve mode (the worktree's wheel in a scratch venv, so
-  the app reads the database the wheel ships, as a player's install does) and on the site in WebKit, and main's own full
+  the shipped parts its Checks fetch (its `.azkp` content kind); and the
+  perf gate's own three files). The Check's code that every op runs through
+  is no characters path: `sdk.py` (`variant_check`, `_dressing`),
+  `worker.mjs` (its `Parts`, the site's `parts.STORE`), `workers.mjs` (the
+  heavy jobs' routing) and `app/engine.py`, so a change there, as any other,
+  leaves the heavy ops to main's `--all`, and a seat whose fix is a Check's
+  times its Checks itself (`perf.py <lane> --select HOST:characters --ops`
+  their ids: a heavy op named in `--ops` needs no `HOST:heavy`). The
+  release's tree beside times only ops the head timed, and main's own full
   run times every op in four profiles (the app; the site in WebKit, Chromium
   and Firefox; the site with each File read 200 ms late,
   Safari's; capped, `AZURKIT_CORES=4` against 9 s with a 6 GiB memory peak: the
