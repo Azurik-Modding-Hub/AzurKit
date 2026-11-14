@@ -88,7 +88,7 @@ os.environ["AZURKIT_NO_WINDOW"] = "1"   # azurkit.app.NO_WINDOW, before anything
 for _var in ("PWDEBUG", "npm_config_pwdebug", "npm_package_config_pwdebug"):   # Playwright's debug mode
     os.environ.pop(_var, None)          # (and its npm forms): a headed browser and its inspector
 
-from playwright._impl._browser_type import BrowserType as _BrowserType  # noqa: E402
+from playwright._impl.browser_type import BrowserType as _BrowserType  # noqa: E402
 
 from azurkit.core import gate  # noqa: E402
 from scripts import web_tools  # noqa: E402
@@ -149,8 +149,8 @@ def _headless_only(launch):
 
     @functools.wraps(launch)
     def checked(*args, **kwargs):
-        given = signature.bind(*args, **kwargs).arguments
-        dropped = given.get("ignoreDefaultArgs") or ()
+        given = signature.bind_partial(*args, **kwargs).arguments   # pytest_sessionstart's check gives one option
+        dropped = given.get("ignore_default_args") or ()
         if given.get("headless") not in (None, True) or dropped is True or any("headless" in a for a in dropped):
             raise _Headed(f"BrowserType.{launch.__name__}: a browser that isn't headless: no test opens a window on "
                           "the owner's screen (D839)")
@@ -178,7 +178,7 @@ def _direct(launch):
     def direct(*args, **kwargs):
         bound = signature.bind(*args, **kwargs)
         if getattr(bound.arguments["self"], "name", None) == "firefox":
-            bound.arguments["firefoxUserPrefs"] = DIRECT | (bound.arguments.get("firefoxUserPrefs") or {})
+            bound.arguments["firefox_user_prefs"] = DIRECT | (bound.arguments.get("firefox_user_prefs") or {})
         return launch(*bound.args, **bound.kwargs)
     return direct
 
@@ -381,6 +381,9 @@ def browser(request, tmp_path_factory):
     (:func:`pytest_generate_tests`). No window opens. Module-scoped, so a
     module's tests stay together and its other fixtures are made once."""
     from playwright.sync_api import sync_playwright
+
+    # before its Playwright starts, so its connection keeps its driver's transport (close_browser reads the driver)
+    from tests import _page  # noqa: F401
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("PLAYWRIGHT_BROWSERS_PATH", str(web_tools.browsers_dir(ROOT)))   # read as its driver starts
         with sync_playwright() as playwright:
@@ -440,9 +443,10 @@ def close_browser(browser, seconds: float = 120, downloads: Path | None = None) 
     import warnings
 
     from scripts import ci_resources
+    from tests import _page
     driver, name, ended = browser._impl_obj._connection._transport._proc.pid, browser.browser_type.name, []
     try:
-        browser._sync(_closed(browser._impl_obj.close(), driver, seconds, ended))
+        browser._sync(_closed(_page.impl_call(browser._impl_obj.close), driver, seconds, ended))
     except TimeoutError:
         raise AssertionError("\n".join([
             f"no answer in {seconds:.0f} s: the {name} browser's close, its driver {driver}",

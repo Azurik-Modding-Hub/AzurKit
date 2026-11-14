@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import asyncio
 import errno
+import functools
 import hashlib
 import http.server
+import inspect
 import json
 import re
 import subprocess
@@ -24,9 +26,40 @@ import time
 import urllib.parse
 from pathlib import Path
 
+from playwright._impl.out_of_process import PlaywrightClient
+
 from azurkit.app import CONTENT_TYPES, content_type
 
-WEB = Path(__file__).resolve().parent.parent / "web"
+
+def impl_call(method, *args, **options):
+    """``method(*args, **options)``: a call of a Playwright object's (``owner._impl_obj``'s, a page's, a context's, a
+    browser's or a download's), a coroutine not yet started, for :func:`within` and ``_perf.bounded`` to bound, each
+    other parameter it takes with no default given None, as the sync API's own call passes an option left out: from
+    Playwright 1.65 (a line-by-line port of the Node.js client) those methods take every option by its Python name
+    and give none a default."""
+    signature = inspect.signature(method)
+    given = signature.bind_partial(*args, **options).arguments
+    rest = {p.name: None for p in signature.parameters.values()
+            if p.name not in given and p.default is p.empty and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)}
+    return method(*args, **options, **rest)
+
+
+def _keeps_its_transport(init):
+    """``PlaywrightClient.__init__``, its connection keeping the client's transport (``_transport``, whose ``_proc`` is
+    its driver's process) as Playwright's own did before 1.65: :func:`_ended`, :func:`_drivers`,
+    ``conftest.close_browser`` and ``test_site`` read a driver from a page's, a context's or a browser's connection."""
+    @functools.wraps(init)
+    def keeping(self, *args, **kwargs):
+        init(self, *args, **kwargs)
+        self._connection._transport = self._transport
+    keeping.keeps = True
+    return keeping
+
+
+if not getattr(PlaywrightClient.__init__, "keeps", False):   # each Playwright this process starts after this import
+    PlaywrightClient.__init__ = _keeps_its_transport(PlaywrightClient.__init__)
+
+WEB =Path(__file__).resolve().parent.parent / "web"
 ICONS = {"favicon.ico": "16x16 32x32 48x48", "favicon-32.png": "32x32"}   # the favicon (D892): the mark, free
 STALL = 120
 """s a browser may leave one call that has no bound of its own unanswered (an evaluate, past its wait's timeout; a
@@ -320,17 +353,17 @@ def hang(page, last: int = 5) -> str:
     said = []
 
     def state():
-        read = _heard(page, page._impl_obj.evaluate(HANG), HEAR)
+        read = _heard(page, impl_call(page._impl_obj.evaluate, HANG), HEAR)
         if not isinstance(read, dict):
             return read
         status = read.pop("status", None)
         return "\n".join([str(_short(read)), *_status(status)])
 
     for what, read in (("state", state),
-                       ("page errors", lambda: [_short(f"{e.name}: {e.message}", 300)
-                                                for e in (_heard(page, page._impl_obj.page_errors(), HEAR) or [])[-last:]]),
+                       ("page errors", lambda: [_short(f"{e.name}: {e.message}", 300) for e in (
+                           _heard(page, impl_call(page._impl_obj.page_errors), HEAR) or [])[-last:]]),
                        ("console errors", lambda: [_short(m.text, 300) for m in _heard(
-                           page, page._impl_obj.console_messages(), HEAR) or [] if m.type == "error"][-last:])):
+                           page, impl_call(page._impl_obj.console_messages), HEAR) or [] if m.type == "error"][-last:])):
         try:
             said.append(f"{what}: {read()}")
         except TimeoutError:
@@ -420,11 +453,11 @@ def stalled(owner, what: str, seconds: float, ended: tuple[str, ...] = ()) -> st
     said += _asked(since, seconds)
     said += _firefox_said(context)
     try:
-        _heard(context, context._impl_obj.cookies(), PROBE)
+        _heard(context, impl_call(context._impl_obj.cookies), PROBE)
         said.append("its browser still answers")
     except TimeoutError:
         said.append(f"its browser answers nothing either (in {PROBE} s): every later call to it fails at once")
-        context._impl_obj._connection.cleanup(f"the browser stopped answering: {_short(what)}")
+        context._impl_obj._connection.close(f"the browser stopped answering: {_short(what)}")
     except Exception as error:
         said.append(f"its browser: {_short(str(error), 200)}")
     return "\n".join([*said, f"under its driver: {_drivers(context)}"])
@@ -446,7 +479,7 @@ def lost(page, what: str, error, start: float, look=None) -> str:
     the processes under its driver."""
     said = [f"{_short(what)}: {_short(str(error), 300)}"]
     try:
-        origin = _heard(page, page._impl_obj.evaluate("() => performance.timeOrigin"), HEAR) / 1000
+        origin = _heard(page, impl_call(page._impl_obj.evaluate, "() => performance.timeOrigin"), HEAR) / 1000
         said.append(f"its document began {origin - start:.2f} s after the call: the page reloaded or navigated"
                     if origin > start else
                     f"its document began {start - origin:.2f} s before the call: its load, or a reload or navigation "
@@ -525,7 +558,7 @@ def within(owner, call, seconds: float, what: str):
 def answer(page, js: str, arg=None, seconds: float = STALL):
     """``page.evaluate(js, arg)``, unanswered for at most ``seconds`` s (:func:`within`)."""
     from playwright._impl._sync_base import mapping
-    return within(page, page._impl_obj.evaluate(js, mapping.to_impl(arg)), seconds, js)
+    return within(page, impl_call(page._impl_obj.evaluate, js, mapping.to_impl(arg)), seconds, js)
 
 
 def checks(page, counter: str = "azurkitChecks") -> int:
@@ -555,7 +588,7 @@ def checks(page, counter: str = "azurkitChecks") -> int:
 
 def close(page) -> None:
     """``page.close()``, in at most :data:`STALL` s (:func:`within`)."""
-    within(page, page._impl_obj.close(), STALL, "the page's close")
+    within(page, impl_call(page._impl_obj.close), STALL, "the page's close")
 
 
 def load(page, url: str | None = None, until: str = "load", seconds: float | None = None):
@@ -579,8 +612,8 @@ def load(page, url: str | None = None, until: str = "load", seconds: float | Non
     heard = (("request", asking), ("requestfinished", answered), ("requestfailed", answered))
     for event, handler in heard:
         page.on(event, handler)
-    call = (page._impl_obj.reload(timeout=0, waitUntil=until) if url is None
-            else page._impl_obj.goto(url, timeout=0, waitUntil=until))
+    call = (impl_call(page._impl_obj.reload, timeout=0, wait_until=until) if url is None
+            else impl_call(page._impl_obj.goto, url, timeout=0, wait_until=until))
     try:
         return within(page, call, ACT if seconds is None else seconds,
                       "the page's reload" if url is None else f"the page's load of {url}")
@@ -603,7 +636,7 @@ def pick(page, selector: str, path) -> None:
     page on GitHub's Windows runner left a call that had no bound of this side's unanswered an hour, its browser gone
     and its driver unaware (run 41744982709), its picks among those calls. Past it the failure names the pick, the
     page's state and its driver's processes."""
-    within(page, page._impl_obj.set_input_files(selector, str(path), timeout=0), ACT,
+    within(page, impl_call(page._impl_obj.set_input_files, selector, str(path), timeout=0), ACT,
            f"the pick of {Path(path).name} in {selector}")
 
 

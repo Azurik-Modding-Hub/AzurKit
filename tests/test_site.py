@@ -32,7 +32,6 @@ import functools
 import hashlib
 import http.client
 import http.server
-import inspect
 import json
 import os
 import pickle
@@ -196,7 +195,7 @@ waited for a B that never started (run 41521288667). The pool's path with no B i
 
 def _routed(context, url, handler) -> None:
     """``context.route(url, handler)``, answered in ``_page.STALL`` s at most (``_page.within``)."""
-    _page.within(context, context._impl_obj.route(url=url, handler=context._wrap_handler(handler)), _page.STALL,
+    _page.within(context, _page.impl_call(context._impl_obj.route, url, context._wrap_handler(handler)), _page.STALL,
                  "the context's route")
 
 
@@ -233,14 +232,13 @@ class Site:
             if profile:
                 self.context = browser.browser_type.launch_persistent_context(str(profile), headless=True,
                                                                               accept_downloads=True, **options)
-            else:   # the options by the names Playwright's own call gives them, its call's own (ignore_https_errors
-                # its ignoreHTTPSErrors), their values plain data, as it passes them; a name it lacks it refuses
-                call = type(browser._impl_obj).new_context   # the class's: a test may hold the browser's own
-                names = {name.lower(): name for name in inspect.signature(call).parameters}
-                self.context = _perf.bounded(browser, browser._impl_obj.new_context(acceptDownloads=True, **{
-                    names.get(k.replace("_", ""), k): v for k, v in options.items()}), "the browser's new context")
-            _page.within(self.context, self.context._impl_obj.add_init_script(script=FOUR_CORES), _page.STALL,
-                         "the context's init script")
+            else:   # the options by their names, Playwright's own call's (its sync API's), their values plain data,
+                # as it passes them; a name it lacks it refuses
+                self.context = _perf.bounded(browser, _page.impl_call(browser._impl_obj.new_context,
+                                                                      accept_downloads=True, **options),
+                                             "the browser's new context")
+            _page.within(self.context, _page.impl_call(self.context._impl_obj.add_init_script, script=FOUR_CORES),
+                         _page.STALL, "the context's init script")
             _routed(self.context, re.compile(rf"^(?!{re.escape(self.origin)}/)"), self._elsewhere)
         except BaseException:
             self.files.close()
@@ -262,7 +260,7 @@ class Site:
         """A new page, its engine loaded, each call bounded (``_page.within``; its load ``_page.load`` in
         ``_page.STALL``, as the new page has: the page's own files, about 0.4 MB, in 0.1-0.2 s here; the engine's 35 MB
         come after it)."""
-        page = _page.within(self.context, self.context._impl_obj.new_page(), _page.STALL, "a new page")
+        page = _page.within(self.context, _page.impl_call(self.context._impl_obj.new_page), _page.STALL, "a new page")
         _page.load(page, f"{self.origin}/", seconds=_page.STALL)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         return page
@@ -279,7 +277,7 @@ class Site:
 
     def close(self) -> None:
         try:
-            _page.within(self.context, self.context._impl_obj.close(), _page.STALL, "the context's close")
+            _page.within(self.context, _page.impl_call(self.context._impl_obj.close), _page.STALL, "the context's close")
         finally:
             self.files.close()
 
@@ -897,7 +895,8 @@ def test_a_phone_or_a_tablet_gets_one_plain_line_to_use_a_computer(browser, site
                           ({}, False)):
         served = Site(browser, site, **options)
         try:   # a new page's opening and its load, which starts its engine, in Site.open's bounds
-            page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
+            page = _page.within(served.context, _page.impl_call(served.context._impl_obj.new_page), _page.STALL,
+                                "a new page")
             _page.load(page, f"{served.origin}/", seconds=_page.STALL)
             assert _page.answer(page, shown) == [seen, line], options
         finally:
@@ -1474,7 +1473,7 @@ def test_the_released_site_reads_community_content_from_github_or_any_https_repo
             "elsewhere)")
         assert [url for url in heard[before:] if url.startswith(f"{MINE}/") and url != f"{MINE}/manifest.json"] == []
         _page.check_csp(page)
-        _page.within(served.context, page._impl_obj.close(), _page.STALL, "the first page's close")
+        _page.within(served.context, _page.impl_call(page._impl_obj.close), _page.STALL, "the first page's close")
         asked = heard.count(f"{MINE}/manifest.json")
         page = served.open()   # the next visit: Content from remembered, and read from it
         assert _page.answer(page, f"() => {box}.value") == f"{MINE}/"
@@ -2172,7 +2171,7 @@ def test_the_image_checks_count_a_worker_that_ends_while_asked_as_none_and_fail_
     its close before that error or after it (Firefox's order on run 42156372553's Linux tier, 15 runs of 400 here:
     "Execution context was destroyed", the worker still listed; held here, its close heard 0.1 s late), and a
     running worker whose count fails fails it, by its error."""
-    from playwright._impl._page import Worker
+    from playwright._impl.worker import Worker
     from playwright.sync_api import Error
     for name, source in (("ends.js", "Object.defineProperty(self, 'azurkitChecks', { get() { postMessage('asked');"
                                      " return new Promise(() => {}); } });"),   # its count asked, the page ends it
@@ -2183,7 +2182,8 @@ def test_the_image_checks_count_a_worker_that_ends_while_asked_as_none_and_fail_
         (tmp_path / name).write_text(source)
     served = Site(browser, tmp_path)
     try:
-        page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
+        page = _page.within(served.context, _page.impl_call(served.context._impl_obj.new_page), _page.STALL,
+                            "a new page")
         _page.load(page, f"{served.origin}/")
 
         def start(*names: str) -> None:
@@ -2262,10 +2262,10 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     browser and driver, and a new context its browser never answers (:class:`Site`'s, ``_bare_page``'s; their
     routes, init script and new page bounded as well) fails past ``_page.STALL`` naming it and its driver's
     processes, Site's asked for with its options by the names Playwright's own call gives them."""
-    from playwright._impl._helper import DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS
+    from playwright._impl.isomorphic.time import DEFAULT_PLAYWRIGHT_TIMEOUT
 
     from scripts import ci_resources
-    assert _page.ACT * 1000 == DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS   # no wider than the bound the calls had
+    assert _page.ACT * 1000 == DEFAULT_PLAYWRIGHT_TIMEOUT   # no wider than the bound the calls had
 
     def reads(hear: float) -> float:
         """s the reads a stalled call's failure may make take at most, each its bound (:func:`_page.stalled`)."""
@@ -2318,13 +2318,14 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert lines[1].startswith("state: {'asks': [") and lines[-2:-1] == ["its browser still answers"], lines
         assert 2 <= time.monotonic() - t3 < _page.ACT + reads(_page.HEAR)
         with monkeypatch.context() as held_new:   # a new context never answered: Site's is bounded, as its page's
-            asked = []   # by Playwright's names, two that aren't the options' camelCased
+            asked = []   # by the names Playwright's own call gives them, the options' own
             held_new.setattr(browser._impl_obj, "new_context",
                              lambda **given: asked.append(sorted(given)) or asyncio.sleep(600))
             t5 = time.monotonic()
             with pytest.raises(AssertionError) as uncreated:
                 Site(browser, site, ignore_https_errors=False, extra_http_headers={})
-            assert asked == [["acceptDownloads", "extraHTTPHeaders", "ignoreHTTPSErrors", "serviceWorkers"]], asked
+            assert asked == [["accept_downloads", "extra_http_headers", "ignore_https_errors", "service_workers"]], (
+                asked)
             lines = str(uncreated.value).splitlines()
             assert lines[0] == "no answer in 2 s: the browser's new context", lines
             assert len(lines) == 2 and lines[1].startswith("under its driver: "), lines
@@ -2601,7 +2602,7 @@ def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_
 
     async def gone(reload: bool):
         if reload:
-            await page._impl_obj.reload()
+            await _page.impl_call(page._impl_obj.reload)
         raise Error("Execution context was destroyed, most likely because of a navigation.")
     try:
         for reload, said in ((False, "before the call: its load, or a reload or navigation begun before the call"),
@@ -2754,19 +2755,20 @@ def test_each_firefox_a_test_launches_takes_no_proxy_under_its_own_prefs():
     request to a test's host never waits on the system's proxy settings: on GitHub's Windows runner a page's load of
     its 127.0.0.1 host went unanswered 30 s in Firefox, its one request heard 1 s before the failure (run 42409729869).
     Read from the call Playwright's impl is given, a coroutine never started; another browser's launch is as given."""
-    from playwright._impl._browser_type import BrowserType
+    from playwright._impl.browser_type import BrowserType
 
     def prefs(name: str, method: str = "launch", *args, **options):
-        call = getattr(BrowserType, method)(types.SimpleNamespace(name=name), *args, headless=True, **options)
+        owner = types.SimpleNamespace(name=name, _wrap_api_call=lambda call, options: call(None))   # its API call's
+        call = _page.impl_call(getattr(BrowserType, method), owner, *args, headless=True, **options)   # wrapper
         try:
-            return call.cr_frame.f_locals["firefoxUserPrefs"]
+            return call.cr_frame.f_locals["firefox_user_prefs"]
         finally:
             call.close()
 
     own = {"browser.privatebrowsing.autostart": True}
     assert prefs("firefox") == conftest.DIRECT == {"network.proxy.type": 0}
-    assert prefs("firefox", "launch_persistent_context", "profile", firefoxUserPrefs=own) == conftest.DIRECT | own
-    assert [prefs("chromium"), prefs("webkit", firefoxUserPrefs=own)] == [None, own]
+    assert prefs("firefox", "launch_persistent_context", "profile", firefox_user_prefs=own) == conftest.DIRECT | own
+    assert [prefs("chromium"), prefs("webkit", firefox_user_prefs=own)] == [None, own]
 
 
 @pytest.mark.web
@@ -3074,7 +3076,8 @@ def test_the_bottom_bars_stripe_with_no_count_is_a_transform_its_compositor_move
     either: Step 4.4ci21), as Firefox does its own; with a count the stripe goes and the bar has its own look."""
     served = Site(browser, site)
     try:
-        page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
+        page = _page.within(served.context, _page.impl_call(served.context._impl_obj.new_page), _page.STALL,
+                            "a new page")
         _page.load(page, f"{served.origin}/", seconds=_page.STALL)   # it starts its engine, as Site.open's does
         assert _page.answer(page, LOOK, None) == ["none", "block", "stripe", "infinite", [["transform"], ["transform"]]]
         assert _page.answer(page, LOOK, "50")[:2] == ["auto", "none"]
@@ -5621,7 +5624,7 @@ def _bare_page(browser, root: Path):
     server of a process of its own (:class:`_page.Served`), as :class:`Site` serves it."""
     files = _page.Served(root.resolve())
     try:
-        context = _perf.bounded(browser, browser._impl_obj.new_context(), "the browser's new context")
+        context = _perf.bounded(browser, _page.impl_call(browser._impl_obj.new_context), "the browser's new context")
     except BaseException:
         files.close()
         raise
@@ -5629,7 +5632,7 @@ def _bare_page(browser, root: Path):
     _routed(context, f"{files.url}/", lambda route: route.fulfill(body=WORKERS_BARE, content_type="text/html"))
     _routed(context, re.compile(rf"^(?!{re.escape(files.url)}/)"), lambda route: route.continue_()   # the page's own
             if route.request.url.startswith(f"blob:{files.url}/") else route.fulfill(status=404, body=""))  # blob:
-    page = _page.within(context, context._impl_obj.new_page(), _page.STALL, "a new page")
+    page = _page.within(context, _page.impl_call(context._impl_obj.new_page), _page.STALL, "a new page")
     _page.load(page, f"{files.url}/")
     return context, page
 

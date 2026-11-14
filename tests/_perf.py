@@ -594,12 +594,12 @@ def bounded(owner, call, what: str, seconds: float | None = None, look: bool = T
 
 def opened(ctx) -> Page:
     """A new page of the browser context ``ctx``, its opening bounded (:func:`bounded`)."""
-    return Page(bounded(ctx, ctx._impl_obj.new_page(), "the context's new page"))
+    return Page(bounded(ctx, _page.impl_call(ctx._impl_obj.new_page), "the context's new page"))
 
 
 def shut(owner) -> None:
     """``owner`` (a browser context, or the app run's browser) closed, its close bounded (:func:`bounded`)."""
-    bounded(owner, owner._impl_obj.close(), "the browser's close" if hasattr(owner, "contexts") else
+    bounded(owner, _page.impl_call(owner._impl_obj.close), "the browser's close" if hasattr(owner, "contexts") else
             "the context's close")
 
 
@@ -617,7 +617,8 @@ class Page:
         """``page.evaluate(fn, arg)``, unanswered for at most ``seconds`` s (:data:`tests._page.STALL` unless given;
         :func:`bounded`: ``what``, else ``fn``)."""
         from playwright._impl._sync_base import mapping
-        return bounded(self.page, self.page._impl_obj.evaluate(fn, mapping.to_impl(arg)), what or fn, seconds)
+        return bounded(self.page, _page.impl_call(self.page._impl_obj.evaluate, fn, mapping.to_impl(arg)), what or fn,
+                       seconds)
 
     def js(self, fn: str, arg=None):
         return self.ask(fn, arg)
@@ -670,8 +671,8 @@ class Page:
     def saved(self, download, seconds: float) -> Path:
         """``download.path()``: the file once the browser has written it, in at most ``seconds`` s (its wait's own
         timeout), reading no log while an op times it (:func:`bounded`)."""
-        return bounded(self.page, download._impl_obj.path(), f"the download of {download.suggested_filename}",
-                       seconds, look=False)
+        return bounded(self.page, _page.impl_call(download._impl_obj.path),
+                       f"the download of {download.suggested_filename}", seconds, look=False)
 
     def worst(self, t0: float, t1: float) -> float:
         """The freeze probe's worst lateness (ms) of a tick due in ``[t0,
@@ -2944,7 +2945,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
             def launched(profile):   # the site's in a persistent context on a folder: an ephemeral one is WebKit's
                 made = engine.launch_persistent_context(str(profile), headless=True, accept_downloads=True,   # 1 GiB
                                                         downloads_path=str(scratch), **own)                 # no OPFS
-                bounded(made, made._impl_obj.add_init_script(INIT), "the context's init script")
+                bounded(made, _page.impl_call(made._impl_obj.add_init_script, INIT), "the context's init script")
                 return made
 
             for name, (host, ops, scenario) in SCENARIOS.items():
@@ -2958,9 +2959,10 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                         for op in missing:
                             d.record(op, 0.0, [], 0, 0, "needs a clone of Azurik-Custom-Content (perf.py --content)")
                     if browser:
-                        profile, ctx = None, bounded(browser, browser._impl_obj.new_context(acceptDownloads=True),
+                        profile, ctx = None, bounded(browser, _page.impl_call(browser._impl_obj.new_context,
+                                                                              accept_downloads=True),
                                                      "the browser's new context")
-                        bounded(ctx, ctx._impl_obj.add_init_script(INIT), "the context's init script")
+                        bounded(ctx, _page.impl_call(ctx._impl_obj.add_init_script, INIT), "the context's init script")
                         d.reopened = None
                     else:
                         profile = Path(tempfile.mkdtemp(prefix=f"profile-{name}-{n}.", dir=scratch))
