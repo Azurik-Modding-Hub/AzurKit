@@ -379,9 +379,9 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 12. arm64: the Europe golden `[webkit]`'s five failure modes; SIGBUS;
     WebKit's reload; the WebKit engine trap (ci44); WebKit's JSC fault on
-    macOS 15 (4.5p; a Playwright newer than 1.64.1 is the lever, D1133:
-    1.65.1 is out, and arm64 WebKit's "Target crashed" passed its rerun
-    about 8 times in CI from 11-11 to 11-13). ~~Firefox's timer that lost
+    macOS 15 (4.5p; a newer Playwright was the lever, D1133: 4.56b takes
+    1.65.1; arm64 WebKit's "Target crashed" had passed its rerun 9 times in
+    33 CI runs from 11-11 to 11-13: count it again from 4.56b on). ~~Firefox's timer that lost
     once~~: fixed by 4.54a (the word-list Undo was pressed before it was
     enabled); a lost edit still waits 600 s with no Data tab state in
     `hang()` (4.5g).

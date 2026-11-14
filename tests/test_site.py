@@ -2772,6 +2772,22 @@ def test_each_firefox_a_test_launches_takes_no_proxy_under_its_own_prefs():
     assert [prefs("chromium"), prefs("webkit", firefox_user_prefs=own)] == [None, own]
 
 
+
+def test_a_launch_that_drops_headless_any_way_is_refused_before_it_starts():
+    """No test opens a browser window on the owner's screen (D839): Playwright's ``launch`` and
+    ``launch_persistent_context`` refuse a headed launch however it is asked, ``headless`` false or a default argument
+    list that drops ``--headless``: ``ignore_default_args`` true, a list naming it, or anything but a list, which
+    Playwright 1.65 takes as dropping every default (its ``ignoreAllDefaultArgs``) where 1.64's driver refused it
+    (Step 4.56b's review). A refusal comes before the launch, so the owner here is never touched."""
+    from playwright._impl.browser_type import BrowserType
+
+    for method, args in (("launch", ()), ("launch_persistent_context", ("profile",))):
+        for options in ({"headless": False}, {"headless": 0}, {"ignore_default_args": True},
+                        {"ignore_default_args": ["--headless"]}, {"ignore_default_args": "--mute-audio"},
+                        {"ignore_default_args": {"--mute-audio"}}):
+            with pytest.raises(conftest._Headed):
+                _page.impl_call(getattr(BrowserType, method), None, *args, **{"headless": True} | options)
+
 @pytest.mark.web
 def test_a_chromium_page_starts_its_engine_while_its_gpu_helper_is_held(site):
     """Step 4.37p (4.37o): a site page in a Chromium the tests launch starts its engine while a GPU helper process of

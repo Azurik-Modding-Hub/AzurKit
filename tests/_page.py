@@ -59,7 +59,7 @@ def _keeps_its_transport(init):
 if not getattr(PlaywrightClient.__init__, "keeps", False):   # each Playwright this process starts after this import
     PlaywrightClient.__init__ = _keeps_its_transport(PlaywrightClient.__init__)
 
-WEB =Path(__file__).resolve().parent.parent / "web"
+WEB = Path(__file__).resolve().parent.parent / "web"
 ICONS = {"favicon.ico": "16x16 32x32 48x48", "favicon-32.png": "32x32"}   # the favicon (D892): the mark, free
 STALL = 120
 """s a browser may leave one call that has no bound of its own unanswered (an evaluate, past its wait's timeout; a

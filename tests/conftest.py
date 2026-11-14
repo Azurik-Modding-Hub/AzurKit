@@ -150,8 +150,9 @@ def _headless_only(launch):
     @functools.wraps(launch)
     def checked(*args, **kwargs):
         given = signature.bind_partial(*args, **kwargs).arguments   # pytest_sessionstart's check gives one option
-        dropped = given.get("ignore_default_args") or ()
-        if given.get("headless") not in (None, True) or dropped is True or any("headless" in a for a in dropped):
+        dropped = given.get("ignore_default_args") or ()   # True, or anything but a list, drops every default
+        if (given.get("headless") not in (None, True) or not isinstance(dropped, (list, tuple))   # (1.65: its
+                or any("headless" in a for a in dropped)):   # ignoreAllDefaultArgs, --headless with them)
             raise _Headed(f"BrowserType.{launch.__name__}: a browser that isn't headless: no test opens a window on "
                           "the owner's screen (D839)")
         return launch(*args, **kwargs)
@@ -243,9 +244,12 @@ def pytest_sessionstart(session):
     browser (:data:`_NO_WINDOW`, in this run's environment), and a headed
     Playwright launch is refused, else the run stops here."""
     try:
-        _BrowserType.launch(None, headless=False).close()   # unguarded, a coroutine that never runs
+        _BrowserType.launch(None, headless=False).close()   # unguarded, it fails on its None self or never runs
     except _Headed:
         pass
+    except Exception:   # noqa: BLE001   anything but the guard's refusal: the guard didn't hold
+        pytest.exit("Playwright's launch isn't held to headless: no test runs (D839)",
+                    returncode=pytest.ExitCode.USAGE_ERROR)
     else:
         pytest.exit("Playwright's launch isn't held to headless: no test runs (D839)",
                     returncode=pytest.ExitCode.USAGE_ERROR)
