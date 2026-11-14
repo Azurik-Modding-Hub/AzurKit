@@ -10,6 +10,9 @@ Its outcomes stay in the user cache (`AzurKit/reach-engine/`, mode 700), the fro
 folder (`reach-truth/`), and it reads the L3 store's reach models in place (`devkit/reach/models.py`). It is
 shadow only: nothing here writes the randomizer's data.
 
+This page names only the AZ ids its text needs: every open reach, derive and L3 issue (v2, D609) is in
+[`Future/PENDING.md`](Future/PENDING.md)'s group 7, and the paused backlog in its group 6.
+
 Step R2.16a (the R2.16 design; D609, D610, D615) builds the tool that will find which floors are reachable from
 which with the movement the game has, by running the game's own player tick (simulator Level 3) rather than a
 model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.md#reach-engine). It is

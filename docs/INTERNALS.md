@@ -796,10 +796,8 @@ are the Characters section's.
   the tools never import each other. The
   report's `randomizer` and the manifest's `verdicts` carry the verdict, and
   a randomized build's mods file replays its seed and share string.
-  - Not ported: Modkit's `db-extract` (`levels.py`, the generated data's
-    extractor: the data comes by a port), the player-model swap's
-    movement reasons (with the models, Step 4.3) and the slider tracks'
-    safe ranges.
+  - Not ported: the player-model swap's movement reasons (with the models,
+    Step 4.3) and the slider tracks' safe ranges.
   - `tests/test_randomizer.py` holds it to its goldens: `rando_plans.json`
     (seed 2's attempt, plan sha256 and spoiler under the strict, default
     and max settings, and the default plan file byte for byte, on CPython

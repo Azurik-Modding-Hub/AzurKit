@@ -228,6 +228,37 @@ def test_no_refusal_in_the_engine_names_modkits_azurik_mod_command():
     assert found == []
 
 
+SCRIPT = re.compile(r"(?<![\w/.-])scripts/\w+\.py\b")
+"""A path to one of this checkout's scripts (``scripts/sdk_api.py``), not another repository's (``x/scripts/...``)."""
+OWED_SCRIPTS = {"tools/characters/_player_kit.py": "scripts/townsfolk_kit.py"}
+"""Messages that still name a script the checkout lacks, each the file and the script: the townsfolk kit's refusal
+names Modkit's retired authoring script, and an edit there moves ``parts.VERSION``, so it rides on the next re-record
+of the shipped parts. An owed message fixed comes off this map."""
+
+
+def missing_scripts(source: str, rel: str) -> list[tuple[str, int, str]]:
+    """``(rel, line, script)`` for each string of ``source`` outside a docstring (a bare string statement: a module's,
+    class's, function's or attribute's) that names a ``scripts/<name>.py`` the checkout lacks."""
+    tree = ast.parse(source)
+    docs = {id(node.value) for node in ast.walk(tree) if isinstance(node, ast.Expr)}
+    return [(rel, node.lineno, m.group()) for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docs
+            for m in SCRIPT.finditer(node.value) if not (ROOT / m.group()).is_file()]
+
+
+def test_no_message_in_the_engine_names_a_script_the_checkout_lacks():
+    """The planner loader's ``contact_stale`` issue told its reader to re-measure with Modkit's
+    ``scripts/l3_contact.py``, a script AzurKit never had: it names devkit's ``python -m devkit reach l3-contact``,
+    and no string under ``src/azurkit`` but a docstring names a ``scripts/<name>.py`` the checkout lacks, an
+    f-string's parts included, but :data:`OWED_SCRIPTS`'."""
+    assert missing_scripts('"""scripts/gone.py"""\nx.issue("k", f"{a}", "(re-measure: scripts/l3_contact.py)")\n'
+                           'raise OSError(f"{p}: " "scripts/sdk_api.py writes it, see x/scripts/gone.py")', "x.py") == [
+        ("x.py", 2, "scripts/l3_contact.py")]
+    found = [v for path in sorted(SRC.rglob("*.py"))
+             for v in missing_scripts(path.read_text(encoding="utf-8"), path.relative_to(SRC).as_posix())]
+    assert {(rel, script) for rel, _, script in found} == set(OWED_SCRIPTS.items()), found
+
+
 HTML_SINKS = re.compile(r"\b(innerHTML|outerHTML|insertAdjacentHTML|createContextualFragment|parseFromString|srcdoc)\b"
                         r"|\bdocument\s*\.\s*write|javascript:", re.IGNORECASE)
 """What would parse text as HTML or run it as a URL's script in the page (D992's SEC-18)."""

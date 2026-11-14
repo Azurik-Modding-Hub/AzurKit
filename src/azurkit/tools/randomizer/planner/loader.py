@@ -1493,7 +1493,8 @@ class _Checker:
             lvl = f.get("level")
             if f.get("cert") not in self.movement.get(lvl, {}).get("certs", []):
                 self.issue("contact_stale", f"contact.json: {lvl} {f.get('hop')}",
-                           "its certificate is in no movement file of its level (re-measure: scripts/l3_contact.py)")
+                           "its certificate is in no movement file of its level "
+                           "(re-measure: python -m devkit reach l3-contact)")
 
     # ---- hygiene (§4.4, D87): no coordinates and no long hex runs in the hand files ---------------------------
     def hygiene(self) -> None:
