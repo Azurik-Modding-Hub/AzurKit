@@ -2452,7 +2452,9 @@ are the Characters section's.
   with its library; `core/xbr/`, the XBR graphs and writers it dresses with,
   and `store.py`, where its parts and answers are kept; the app's
   `procpool.py` and `swapcache.py`, its pool and kept answers; `characters.mjs`, `variants.mjs`, `web/variants/` and
-  `parts.mjs`; and the perf gate's own three files), so any other change
+  `parts.mjs`; `scripts/web_tools.py`, the site's builder, which publishes
+  the shipped parts its Checks fetch (its `.azkp` content kind); and the perf
+  gate's own three files), so any other change
   leaves them to main's `--all` (a heavy op named in `--ops` needs no
   `HOST:heavy`; the release's tree beside times only ops the head timed)
   in the app's serve mode (the worktree's wheel in a scratch venv, so

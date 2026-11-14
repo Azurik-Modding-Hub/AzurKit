@@ -187,7 +187,8 @@ ALL = {(host, group) for host in ("app", "site") for group in EVERY}   # --all's
 #: the store its parts and answers are kept in (``store.py``); the app's pool for its parallel work and its kept
 #: answers (``procpool.py``, ``swapcache.py``); the Characters tab, its Variants view and the site
 #: worker's Check parts (``characters.mjs``, ``variants.mjs``, ``variants/``, ``parts.mjs``; ``web/characters/``'s
-#: pictures are drawn, not run).
+#: pictures are drawn, not run); and the site's builder, which publishes the shipped parts its Checks fetch
+#: (``web_tools.py``: ``CONTENT_KINDS``' ``.azkp``, ``content_files``).
 REACH = (*((path, ("app", "site"), EVERY) for path in ("tests/_perf.py", "tests/_page.py", "scripts/perf.py")),
          *((path, ("app",), EVERY) for path in ("src/azurkit/app/procpool.py", "src/azurkit/app/swapcache.py")),
          ("src/azurkit/app/", ("app",), None), ("src/azurkit/__main__.py", ("app",), None),
@@ -201,7 +202,7 @@ REACH = (*((path, ("app", "site"), EVERY) for path in ("tests/_perf.py", "tests/
          *((path, ("app", "site"), TRACKED) for path in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs", "web/art/")),
          ("web/parts.mjs", ("site",), ("start", "characters", HEAVY_GROUP)),
          *((path, ("app", "site"), EVERY) for path in ("web/characters.mjs", "web/variants.mjs", "web/variants/")),
-         ("web/", ("app", "site"), None), ("scripts/web_tools.py", ("site",), None))
+         ("web/", ("app", "site"), None), ("scripts/web_tools.py", ("site",), EVERY))
 NATIVE = "src/azurkit/core/_native"   # the compiled kernels' libraries a worktree ships (core/native.py)
 SIDE_MODULE = "emscripten-wasm32.so"  # the site's (its Pyodide's); the app's is this machine's, core.native.target()
 #: What of the release's commit its tree beside is made from (Step 4.47e): the wheel's inputs (``web_tools.wheel``'s
