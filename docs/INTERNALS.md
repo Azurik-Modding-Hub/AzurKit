@@ -2443,7 +2443,18 @@ are the Characters section's.
   start and characters, Step 4.43a; the app's, the randomizer's and the
   characters' rows as before; any other path under `src/` or `web/`, and
   the perf gate's own driver and judge, `tests/_perf.py`, `tests/_page.py`
-  and `scripts/perf.py`, every op, Step 4.46a) in the app's serve mode (the worktree's wheel in a scratch venv, so
+  and `scripts/perf.py`, every op, Step 4.46a), but the heavy ops (a Check,
+  a new shape's first build or pictures: `_perf.Op.heavy`, 10-19 min of a
+  stage) only when a characters path changed (D1280, the owner's measure
+  change: their own pair, `HOST:heavy`, `perf.picked`, which only these
+  rows name: `tools/characters/`; `core/native.py`, `core/_native/` and
+  `core/fdlibm.py`, the swap's kernels and sines, a kernel's C source landing
+  with its library; the app's `procpool.py` and `swapcache.py`, its pool and
+  kept answers; `characters.mjs`, `variants.mjs`, `web/variants/` and
+  `parts.mjs`; and the perf gate's own three files), so any other change
+  leaves them to main's `--all` (a heavy op named in `--ops` needs no
+  `HOST:heavy`; the release's tree beside times only ops the head timed)
+  in the app's serve mode (the worktree's wheel in a scratch venv, so
   the app reads the database the wheel ships, as a player's install does) and on the site in WebKit, and main's own full
   run times every op in four profiles (the app; the site in WebKit, Chromium
   and Firefox; the site with each File read 200 ms late,

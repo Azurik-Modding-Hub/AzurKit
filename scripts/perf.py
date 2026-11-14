@@ -12,7 +12,11 @@ ceilings in ``tests/perf_ceilings.toml``, a list that only shrinks.
 What it times: ``tests/_perf.py``'s registry (``A01``-``A30`` the app's,
 ``S01``-``S25`` the site's), the ops of the groups the worktree's changes
 reach (:func:`select`: ``--base``, default main; or ``--select``; ``--all``
-every op), in the profiles named: ``app`` (the app's serve mode from the
+every op), but the heavy ones (``_perf.Op.heavy``: a Check, a new shape's
+first build or pictures) only where a characters path changed (D1280:
+their own pair, ``HOST:heavy``, :data:`HEAVY_GROUP`; :func:`picked`), so a
+changed area's run elsewhere leaves them to main's ``--all``, in the
+profiles named: ``app`` (the app's serve mode from the
 worktree's wheel in a scratch venv, so it reads the database the wheel ships
 as players get it, with a fresh HOME, its page in WebKit), ``site`` (the site
 built from the same wheel and served on 127.0.0.1, in each of
@@ -160,24 +164,41 @@ BROWSERS = ("webkit", "chromium", "firefox")   # the site's (D994: Firefox)
 #: install (start); each image chosen asks the tracker to draw its maps (image); a seed's build opens its plan in the
 #: tracker and the Randomizer tab's items show art/'s icons (randomizer). No build or characters op calls it.
 TRACKED = ("start", "image", "randomizer", "tracker")
+GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")   # tests/_perf.py's
+#: D1280: the heavy ops' own pair, ``(host, "heavy")`` (``_perf.Op.heavy``: a dress's work the page asks for, a Check
+#: or a new shape's first build or pictures, 10-19 min of a stage): a heavy op is timed only where its group's pair and
+#: this one are both selected (:func:`picked`), and only a characters path's row names it (:data:`REACH`), so a change
+#: elsewhere leaves them to main's every-op run (``--all``, :data:`ALL`)
+HEAVY_GROUP = "heavy"
+EVERY = (*GROUPS, HEAVY_GROUP)   # a row's every op, the heavy ones too
+ALL = {(host, group) for host in ("app", "site") for group in EVERY}   # --all's
 #: Which ops a changed path reaches (section 2.4 of round 1's plan): ``(prefix, hosts, groups)``, the first match;
-#: an unlisted path under ``src/`` or ``web/`` reaches every op, and so does the perf gate's own driver (``_perf``
-#: and the page calls it makes, ``_page``) and judge (this file), whose fault can reach any op (Step 4.46a); any other
-#: path none. A narrower row stands on what
+#: an unlisted path under ``src/`` or ``web/`` reaches every op but the heavy ones (D1280), and the perf gate's own
+#: driver (``_perf``, which drives the heavy ops too, and the page calls it makes, ``_page``) and judge (this file)
+#: every op, whose fault can reach any (Step 4.46a); any other path none. A narrower row stands on what
 #: loads its path (Step 4.43a): ``_stacks.py`` is imported by the app's processes alone (``__main__``, ``app`` and
 #: ``app.engine``), and ``parts.mjs`` by the site's engine worker alone (worker.mjs: its start), whose Check with
 #: game data alone calls it. characters.mjs and variants.mjs stay every op: every build, the work ahead and each
-#: image chosen ask them.
-REACH = (*((path, ("app", "site"), None) for path in ("tests/_perf.py", "tests/_page.py", "scripts/perf.py")),
+#: image chosen ask them. The characters paths, whose rows name the heavy ops' pair (D1280): the swap, its parts and
+#: shipped answers (``tools/characters/``); the compiled kernels it runs, their twins and their one library
+#: (``core/native.py``, ``core/_native/``: a kernel's C source lands with its library, ``nativekit --check``, so
+#: ``native/`` needs no row); its sines and cosines (``core/fdlibm.py``, AZ-830); the app's pool for its parallel work
+#: and its kept answers (``procpool.py``, ``swapcache.py``); the Characters tab, its Variants view and the site
+#: worker's Check parts (``characters.mjs``, ``variants.mjs``, ``variants/``, ``parts.mjs``; ``web/characters/``'s
+#: pictures are drawn, not run).
+REACH = (*((path, ("app", "site"), EVERY) for path in ("tests/_perf.py", "tests/_page.py", "scripts/perf.py")),
+         *((path, ("app",), EVERY) for path in ("src/azurkit/app/procpool.py", "src/azurkit/app/swapcache.py")),
          ("src/azurkit/app/", ("app",), None), ("src/azurkit/__main__.py", ("app",), None),
          ("src/azurkit/_stacks.py", ("app",), None),
          ("src/azurkit/tools/randomizer/", ("app", "site"), ("randomizer", "tracker")),
-         ("src/azurkit/tools/characters/", ("app", "site"), ("characters", "build")),
+         ("src/azurkit/tools/characters/", ("app", "site"), ("characters", "build", HEAVY_GROUP)),
+         *((path, ("app", "site"), EVERY) for path in ("src/azurkit/core/native.py", "src/azurkit/core/_native/",
+                                                         "src/azurkit/core/fdlibm.py")),
          ("src/", ("app", "site"), None),
          *((path, ("app", "site"), TRACKED) for path in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs", "web/art/")),
-         ("web/parts.mjs", ("site",), ("start", "characters")),
+         ("web/parts.mjs", ("site",), ("start", "characters", HEAVY_GROUP)),
+         *((path, ("app", "site"), EVERY) for path in ("web/characters.mjs", "web/variants.mjs", "web/variants/")),
          ("web/", ("app", "site"), None), ("scripts/web_tools.py", ("site",), None))
-GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")   # tests/_perf.py's
 NATIVE = "src/azurkit/core/_native"   # the compiled kernels' libraries a worktree ships (core/native.py)
 SIDE_MODULE = "emscripten-wasm32.so"  # the site's (its Pyodide's); the app's is this machine's, core.native.target()
 #: What of the release's commit its tree beside is made from (Step 4.47e): the wheel's inputs (``web_tools.wheel``'s
@@ -194,13 +215,22 @@ FETCH = ("-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60", "fetch",
 
 
 def select(paths: list[str]) -> set[tuple[str, str]]:
-    """The ``(host, group)`` pairs the changed ``paths`` reach (:data:`REACH`)."""
+    """The ``(host, group)`` pairs the changed ``paths`` reach (:data:`REACH`), the heavy ops' ``(host, "heavy")``
+    only from a characters path (D1280, :data:`HEAVY_GROUP`)."""
     pairs = set()
     for rel in paths:
         if hit := next((rule for rule in REACH if rel == rule[0] or rule[0].endswith("/") and rel.startswith(rule[0])),
                        None):
             pairs |= {(host, group) for host in hit[1] for group in hit[2] or GROUPS}
     return pairs
+
+
+def picked(ops, pairs: set[tuple[str, str]], named: frozenset[str] | set[str] = frozenset()) -> list:
+    """The ``ops`` (``_perf.Op``) ``pairs`` time: each whose ``(host, group)`` is one, a heavy op only with its host's
+    ``(host, "heavy")`` too (D1280) or named in ``named`` (``--ops``: naming one asks for it); with ``named``, only
+    those."""
+    return [op for op in ops if (op.host, op.group) in pairs and (not named or op.id in named)
+            and (not op.heavy or (op.host, HEAVY_GROUP) in pairs or op.id in named)]
 
 
 def contexts(profiles, browsers) -> list[str]:
@@ -947,12 +977,13 @@ def builtins_unread():
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="perf", description=__doc__.split("\n\n")[0])
     ap.add_argument("worktree", type=Path)
-    ap.add_argument("--select", help="HOST:GROUP pairs, comma-separated (default: what --base's changes reach)")
+    ap.add_argument("--select", help="HOST:GROUP pairs, comma-separated, HOST:heavy for that host's heavy ops "
+                    "(D1280; default: what --base's changes reach)")
     ap.add_argument("--base", default="main", help="the changes' base for the selection (default main)")
     ap.add_argument("--all", action="store_true", help="every op, every profile and browser (main's full runs)")
     ap.add_argument("--profiles", help=f"comma-separated of {', '.join(PROFILES)} (default app,site)")
     ap.add_argument("--browsers", help=f"the site's browsers, of {', '.join(BROWSERS)} (default webkit; --all each)")
-    ap.add_argument("--ops", help="only these op ids")
+    ap.add_argument("--ops", help="only these op ids (a heavy one named here needs no HOST:heavy)")
     ap.add_argument("--update-ceilings", action="store_true", help=f"rewrite {CEILINGS} from this run")
     ap.add_argument("--json", type=Path, help="write the result here")
     ap.add_argument("--keep", type=Path, help="keep each run's samples here, and reuse them")
@@ -969,7 +1000,7 @@ def main(argv: list[str] | None = None) -> int:
     from tests import _perf
 
     if args.all:
-        pairs = {(h, g) for h in ("app", "site") for g in GROUPS}
+        pairs = ALL
     elif args.select:
         pairs = {tuple(p.split(":", 1)) for p in args.select.split(",") if p}
     else:
@@ -978,8 +1009,7 @@ def main(argv: list[str] | None = None) -> int:
     browsers = (args.browsers or (",".join(BROWSERS) if args.all else "webkit")).split(",")
     if bad := set(profiles) - set(PROFILES) | set(browsers) - set(BROWSERS):
         ap.error(f"unknown profiles or browsers: {sorted(bad)}")
-    ops = [op for op in _perf.OPS.values() if (op.host, op.group) in pairs
-           and (not args.ops or op.id in args.ops.split(","))]
+    ops = picked(_perf.OPS.values(), pairs, set(args.ops.split(",")) if args.ops else frozenset())
     cases = [(op.id, c) for op in ops for c in contexts(profiles, browsers)
              if (c == "app") == (op.host == "app") or c == "capped"]
     mine = listed((wt / CEILINGS).read_text(encoding="utf-8") if (wt / CEILINGS).is_file() else None)

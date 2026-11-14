@@ -1042,10 +1042,10 @@ def test_a_changed_path_times_only_the_perf_ops_of_the_groups_that_load_it_and_t
     assert perf.select(["src/azurkit/_stacks.py"]) == pairs(("app",), perf.GROUPS)
     for path in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs", "web/art/1-x/w1.png", "web/art/icons.css"):
         assert perf.select([path]) == pairs(both, ("start", "image", "randomizer", "tracker")), path
-    assert perf.select(["web/parts.mjs"]) == pairs(("site",), ("start", "characters"))
+    assert perf.select(["web/parts.mjs"]) == pairs(("site",), ("start", "characters", "heavy"))
     for path in ("web/app.mjs", "web/worker.mjs", "web/characters.mjs", "web/variants.mjs", "src/azurkit/core/native.py",
                  "tests/_perf.py", "tests/_page.py", "scripts/perf.py"):
-        assert perf.select([path]) == every, path
+        assert perf.select([path]) - pairs(both, ("heavy",)) == every, path
     assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set()
     imports = re.compile(r'^import [^;]*? from "\.{1,2}/([\w./]+\.mjs)";', re.M)
     importers = {}
@@ -1060,6 +1060,37 @@ def test_a_changed_path_times_only_the_perf_ops_of_the_groups_that_load_it_and_t
     stacks = {path.relative_to(ROOT / "src" / "azurkit").as_posix() for path in (ROOT / "src").rglob("*.py")
               if re.search(r"^\s*from azurkit import [^\n]*\b_stacks\b", path.read_text(encoding="utf-8"), re.M)}
     assert stacks and all(rel == "__main__.py" or rel.startswith("app/") for rel in stacks), stacks
+
+
+def test_a_changed_area_perf_stage_times_the_heavy_check_ops_only_when_a_characters_path_changed():
+    """D1280: the heavy ops (``_perf.Op.heavy``: every Check after an edit,
+    A98-A116 and S84-S94, and the like) take their own pair, ``HOST:heavy``,
+    which only a characters path reaches (the swap, its kernels and their
+    library, its sines, the app's pool and kept answers for it, the
+    Characters tab's modules and the site worker's Check parts, and the
+    perf gate's own files), each for its row's hosts and groups; a
+    randomizer, page-wide, engine-wide or docs path times every other op it
+    did and none of them; main's ``--all`` and an op named in ``--ops`` keep
+    them."""
+    heavy = {op.id for op in _perf.OPS.values() if op.heavy}
+
+    def timed(pairs, named=frozenset()):
+        return {op.id for op in perf.picked(_perf.OPS.values(), pairs, named)}
+    assert {"A98", "A99", "A104", "A116", "A106", "A31", "S84", "S94", "S88", "S62"} <= heavy
+    for paths, hosts in ((["src/azurkit/tools/characters/mesh_edit.py", "AGENTS.md"], ("app", "site")),
+                         (["src/azurkit/core/_native/macos-arm64.dylib"], ("app", "site")),
+                         (["src/azurkit/core/fdlibm.py"], ("app", "site")),
+                         (["src/azurkit/app/procpool.py"], ("app",)), (["src/azurkit/app/swapcache.py"], ("app",)),
+                         (["web/variants/shape.mjs"], ("app", "site")), (["web/characters.mjs"], ("app", "site")),
+                         (["tests/_perf.py"], ("app", "site"))):
+        assert heavy & timed(perf.select(paths)) == {op for op in heavy if _perf.OPS[op].host in hosts}, paths
+    assert heavy & timed(perf.select(["web/parts.mjs"])) == {op for op in heavy if _perf.OPS[op].host == "site"
+                                                             and _perf.OPS[op].group == "characters"}
+    for paths in (["src/azurkit/tools/randomizer/planner/fill.py"], ["src/azurkit/sdk.py"], ["web/app.mjs"],
+                  ["src/azurkit/app/engine.py"], ["scripts/web_tools.py"]):
+        assert timed(perf.select(paths)) and not timed(perf.select(paths)) & heavy, paths
+    assert perf.select(["docs/GUIDE.md", "AGENTS.md"]) == set()
+    assert timed(perf.ALL) == set(_perf.OPS) and timed({("app", "characters")}, {"A98", "A93"}) == {"A98", "A93"}
 
 
 def test_the_perf_gate_fails_a_run_whose_engine_answers_without_the_native_library_its_worktree_ships():

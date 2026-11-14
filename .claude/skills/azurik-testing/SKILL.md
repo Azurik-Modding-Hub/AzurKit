@@ -189,7 +189,10 @@ For a build, build each seed into a `mktemp -d` output and compare `shasum -a 25
   holds the rare ops' looser lines and the Checks', D1244), its ceiling (`tests/perf_ceilings.toml`)
   or past 1 s with no progress is a perf-debt row (`perf-debt.jsonl` beside the receipts, a lane); only a clear
   regression against main's last passing full run, a memory peak, an error or a list that grows
-  fails it (D1170). A seat runs only `perf.py <lane> --select HOST:GROUP` of its own ops.
+  fails it (D1170). A changed area's run times the heavy ops (a Check, a new shape's first build or
+  pictures: `_perf.Op.heavy`) only when a characters path changed (D1280, `perf.REACH`'s `heavy` rows);
+  main's `--all` times them all. A seat runs only `perf.py <lane> --select HOST:GROUP` of its own ops
+  (`HOST:heavy` adds that host's heavy ones; a heavy op named in `--ops` needs none).
 - **The window:** browser, memory, perf or other heavy runs take `$EV/tools/window take <step>` and
   `window release <step>`, at `-n 2`, after `window status` shows no fullsuite run queued or running.
 - A flake's fix lane finds its cause (a race, a timeout too tight on a busy box, a shared folder);
