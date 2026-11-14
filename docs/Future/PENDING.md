@@ -106,16 +106,20 @@ The next session starts here (D1192), so 1.1 can follow.
      where the next edit's Check takes 3-8 s and 6-18 s. A player who Checks
      her copy and then edits it meets this, a frequent path past its 15 s
      and 30 s lines. A116/S94 time it (Scale, right after her own Check;
-     frequent, so a debt row while over its line, not a block), and each
-     edit row's page with no let go takes that Check first, so the row's
-     own Check carries its edit alone. That moves what main's receipts
+     frequent, so a debt row while over its line, not a block): on 11-13
+     (load 2; one sample each, a sample past 30 s being an op's last)
+     A116 read 44.8 s, S94 82.4 and 85.0 s in WebKit, 89.5 s in Chromium
+     and 120.6 s in Firefox. Each edit row's page with no let go takes
+     that Check first, so the row's own Check carries its edit alone.
+     That moves what main's receipts
      timed: the rerun and beside pages of A99/S85, A104/S86 and A105/S87,
      where the op runs alone, took this path as their first sample (S86
      in WebKit 74-89 s beside, the release's the same, its "beyond" debt
      row's median 40-46 s and 8 rows in the debt ledger by 11-13; A99's
      36-54 s), and now take their own edit's Check (about 5 s). S84 and
      A98 are their page's first edit Check, so they carry it too, beside
-     the Shape edit's own work (not measured apart). Its cause is unfound:
+     the Shape edit's own work (S84 read 100.3 s in WebKit on the page
+     before S94's 85.0 s). Its cause is unfound:
      natively, with no part held in the process, the same Check took her
      shipped parts in 5.1 s.
    - **A texture row** (the recipe's `textures`) has no control on the page
