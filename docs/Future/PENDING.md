@@ -38,17 +38,18 @@ The next session starts here (D1192), so 1.1 can follow.
    their bounds. Rounds go on until every path holds its line with margin;
    then one real-Safari first Check, in one window (D1089, D1202).
 2. **Where it stands** (11-14, Steps 4.55b-4.55d's stack with booblord
-   v10's parts, measured on this Mac): her own copy's first Check reads
-   S78 7.5-8.4 s in WebKit and A92 3.9-4.0 s in the app (1.1.1's and
-   4.52a's receipts). A Check after a Shape edit reads S84 57.6 s in
-   WebKit, 60.5 s in Chromium and 80.6 s in Firefox, A98 21.1 s in the app;
-   one with no parts S88 53.3, 57.2 and 75.8 s; a reshape's first pictures
-   S52 58.2, 58.9 and 81.5 s, A60 30.2 s; its first build A31 22.6 s; the
-   quick preview A95 3.3 s with a moving bar (main: S84 98-108 s in
-   WebKit, A98 40-46 s, A60 43-50 s, A31 41-43 s, A95 9-11 s, its bar
-   moving only sometimes). Natively and serially a Shape-edit Check takes
-   20.7-20.8 s, from 24.0-26.7 s on the stack below the subdivision's
-   kernel.
+   v10's parts, measured on this Mac, parts as after 4.55e's re-record:
+   at the stack's own head they miss until then, and WebKit's S84 reads
+   60.3 s): her own copy's first Check reads S78 7.5-8.4 s in WebKit and
+   A92 3.9-4.0 s in the app (1.1.1's and 4.52a's receipts). A Check after
+   a Shape edit reads S84 57.6 s in WebKit, 60.5 s in Chromium and 80.6 s
+   in Firefox, A98 21.1 s in the app; one with no parts S88 53.3, 57.2 and
+   75.8 s; a reshape's first pictures S52 58.2, 58.9 and 81.5 s, A60
+   30.2 s; its first build A31 22.6 s; the quick preview A95 3.3 s with a
+   moving bar (main: S84 98-108 s in WebKit, A98 40-46 s, A60 43-50 s,
+   A31 41-43 s, A95 9-11 s, its bar moving only sometimes). Natively and
+   serially a Shape-edit Check takes 20.7-20.8 s, from 24.0-26.7 s on the
+   stack below the subdivision's kernel.
 3. **The plan** (4.37e's design): round 6's A (4.37e1), C (4.37e3), F
    (4.37e4) and B2 (4.37m1) landed. D1, E and D2 are built (Steps
    4.55b-4.55d: the mesh plan's position steps, the rig and the
