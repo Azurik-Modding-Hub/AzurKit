@@ -417,6 +417,39 @@ def test_a_field_a_part_leaves_out_moves_no_byte_its_stage_reads(usa_iso, tmp_pa
             assert not stage.startswith("W28") or read[stage] <= kept[1][stage], (row, stage)
 
 
+def test_an_edit_of_your_saved_copy_takes_the_parts_its_check_kept_though_the_page_sends_1_0_as_1_and_minus_0_as_0(
+        usa_iso, tmp_path, monkeypatch):
+    """Step 4.60b: a page hands a recipe back through JS, whose numbers write 1.0 as 1 and -0.0 as 0, and a part's key
+    reads its specs by ``repr``; the sdk gives your variant's edit the forms its ``recipe.json`` holds where the
+    numbers are equal, so the first Check after an edit of yours (a colour) misses only the stage the edit moves
+    (``size``), as a Python caller's does, the sha the editor reads is its Build's, and a Save keeps the file's forms."""
+    mine = json.loads(json.dumps(PARTED)) | {
+        "markers": ["m_damage"], "columns": {"basic1": "spin"},
+        "clips": {"spin": {"generator": "t_spin", "length": 1.0, "turns": 2, "active": [0.25, 0.75],
+                           "box": {"centre": [0.0, 0.0, 0.5], "half": [0.5, 0.5, 0.5]}}}}
+    mine["sfx"]["spin"]["length"] = 1.0
+    mine["mesh"]["ops"][0]["offset"][0] = -0.0
+    edit = mine | {"colours": [{"ops": [{"op": "hsv", "hue": 120}]}]}
+    paged = lambda recipe: json.loads(json.dumps(recipe), parse_float=lambda text: (   # noqa: E731
+        int(float(text)) if float(text).is_integer() else float(text)))
+    assert paged(edit) == edit and json.dumps(paged(edit)) != json.dumps(edit)
+    monkeypatch.setattr(library, "ROOT", tmp_path)
+    monkeypatch.setattr(parts, "STORE", None)
+    monkeypatch.setattr(parts, "HEARD", {})
+    parts.clear()
+    library.save_as("mine", mine)
+    missed = {}
+    for label, recipe in (("as saved", mine), ("edited", edit)):
+        parts.HEARD.clear()
+        sdk._CHECKED.clear()
+        answer = sdk.variant_check(_given(usa_iso, tmp_path, paged(recipe)))
+        missed[label] = {stage for stage, counts in parts.HEARD.items() if counts["miss"]}
+    assert answer["refusal"] is None and missed["edited"] == {"size"}
+    assert sdk.variant_read({"name": "mine", "recipe": paged(mine)})["sha"] == library.find("mine").sha
+    sdk.variant_save({"name": "mine", "recipe": paged(edit)})
+    assert (tmp_path / "mine" / library.RECIPE).read_text(encoding="utf-8") == library.text_of("mine", edit)
+
+
 def test_a_shaped_copys_check_takes_its_plain_bodys_places_from_its_parts_and_prepares_its_mesh_once(usa_iso, tmp_path,
                                                                                                        monkeypatch):
     """Step 4.37e1: a copy with a shape moved places its springs where its build at its shapes' 1.0 does

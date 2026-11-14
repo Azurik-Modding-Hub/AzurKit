@@ -897,12 +897,51 @@ def _editing(given: object, what: str, *, image: bool = True) -> tuple[str, obje
         raise ValueError(f"variant {name!r}: its recipe is not an object of recipe fields")
     if not isinstance(given.get("folder"), str) or not given["folder"]:
         raise ValueError(f"variant {name!r}: folder names no folder for its files (its library folder)")
+    recipe = _as_held(recipe, Path(given["folder"]) / VARIANT_RECIPE, name)   # its parts' keys: the file's forms
     try:
         found = variants.load_variants(json.dumps({name: recipe}), str(Path(given["folder"]) / VARIANT_RECIPE),
                                        tuple(variants.builtins()))
     except (TypeError, RecursionError) as exc:   # the loader's lookup in a list; JSON nested too deep
         raise ValueError(f"variant {name!r}: not a recipe ({type(exc).__name__}: {exc})") from None
-    return name, found[name], dict(recipe)
+    return name, found[name], recipe
+
+
+def _held(file: Path, name: str) -> dict | None:
+    """The recipe ``file`` (a variant folder's ``recipe.json``) holds as ``name``, or ``None`` (none, or not one)."""
+    try:
+        held = json.loads(file.read_text(encoding="utf-8"))[name]
+    except (OSError, ValueError, KeyError, TypeError, RecursionError):
+        return None
+    return held if isinstance(held, dict) else None
+
+
+def _forms(sent: object, held: object) -> object:
+    """``sent`` with each number that equals the one at its place in
+    ``held`` written as ``held`` writes it (a bool is no number here), all
+    else as sent: no value changes, only its form (an int's or a float's,
+    a zero's sign)."""
+    if isinstance(sent, Mapping) and isinstance(held, Mapping):
+        return {k: _forms(v, held[k]) if k in held else v for k, v in sent.items()}
+    if isinstance(sent, list) and isinstance(held, list):
+        return [_forms(v, held[i]) if i < len(held) else v for i, v in enumerate(sent)]
+    if (type(sent) in (int, float) and type(held) in (int, float)) and sent == held:
+        return held
+    return sent
+
+
+def _as_held(recipe: Mapping, file: Path, name: str) -> dict:
+    """``recipe`` as ``file`` holds ``name``'s where they are equal
+    (:func:`_forms`), else as given (Step 4.60b): a page hands a recipe back
+    through JS, whose numbers write 1.0 as 1 and -0.0 as 0, while a dress's
+    parts are keyed by its specs' ``repr`` (``parts.key``), so an edit of
+    yours, its Save and its sha read it in the forms its saved Check, its
+    Build and its shipped parts read."""
+    if (held := _held(file, name)) is None:
+        return dict(recipe)
+    try:
+        return _forms(dict(recipe), held)
+    except RecursionError:   # nested past the stack: the loader refuses it by name
+        return dict(recipe)
 
 
 def _edit_key(given: Mapping, recipe: Mapping | None, leave: tuple[str, ...] = ()) -> str:
@@ -1550,6 +1589,7 @@ def variant_read(given: Mapping) -> dict:
     recipe = given.get("recipe")
     if not isinstance(recipe, Mapping):
         return {"refusal": f"variant {name!r}: its recipe is not an object of recipe fields"}
+    recipe = _as_held(recipe, library.root() / name / library.RECIPE, name)   # the sha its Check and Build give
     try:
         v = library.checked(library.text_of(name, dict(recipe)), name, library.root() / name / library.RECIPE)
         if name in library.species():
@@ -1603,8 +1643,8 @@ def variant_save(given: Mapping) -> dict:
     recipe = given.get("recipe")
     if not isinstance(recipe, Mapping):
         raise ValueError(f"variant {name!r}: its recipe is not an object of recipe fields")
-    if "as" not in given:
-        library.save(name, dict(recipe))
+    if "as" not in given:   # in the forms the file holds where unchanged (_as_held): its parts' keys stay
+        library.save(name, _as_held(recipe, library.root() / name / library.RECIPE, name))
         return _saved(name, given)
     new, source = given["as"], given.get("from")
     if not isinstance(new, str):
@@ -1619,6 +1659,8 @@ def variant_save(given: Mapping) -> dict:
                 raise ValueError(f"from {source!r}: none of your variants has that name, nor does a community "
                                  "character")
             files = Path(held.source).parent
+        else:   # yours: in the forms its file holds (_as_held)
+            recipe = _as_held(recipe, files / library.RECIPE, source)
     library.copy_as(new, dict(recipe), files)
     return _saved(new, given)
 
