@@ -217,10 +217,7 @@ The next session starts here (D1192), so 1.1 can follow.
    drops `db-extract`, the loader's `contact_stale` issue names `python -m
    devkit reach l3-contact`, `docs/REACH.md` points at group 7, and a
    contract test holds the engine's messages to scripts the checkout has).
-   One message stays owed: the townsfolk kit's refusal (`_player_kit.py`)
-   names Modkit's `scripts/townsfolk_kit.py`. Its edit moves
-   `parts.VERSION`, so it rides on the next parts re-record, which drops it
-   from the test's `OWED_SCRIPTS`.
+   One message stays owed: 9.48.
 5. **The reach backlog** lives in the private plan: R1.23-R1.25, TD.2,
    TD.2b, TD.5-TD.7, R2.19a-j, the improvement rounds, the all-level run and
    R2.16g. D1048 paused it, D1143 froze it (no budget, answering D977) and
@@ -603,6 +600,10 @@ memory peaks stay strict. The gate writes both kinds of row to
 47. **A 4-45 ms flash** (4.54e): a Check asked again unchanged whose own
     steps take a few ms flashes its keeping records (one to three frames)
     before its bar hides.
+48. **The townsfolk kit's refusal** (`_player_kit.py`, 4.59d) names
+    Modkit's `scripts/townsfolk_kit.py`. Its edit moves `parts.VERSION`, so
+    it rides on the next parts re-record, which drops it from
+    `tests/test_contracts.py`'s `OWED_SCRIPTS`.
 
 ## 10. Dev tools, tests and port notes
 
