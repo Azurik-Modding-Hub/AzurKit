@@ -14,6 +14,7 @@ from __future__ import annotations
 import email
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -131,6 +132,34 @@ def test_the_wheel_carries_the_package_and_installs_alone_in_a_clean_venv(tmp_pa
     run(python, "-I", "-c", IMPORT_ALL)
     run(python, "-I", "-c", SHIPPED_ONLY)
     assert run(str(scripts / "azurkit"), "--version").strip() == f"azurkit {__version__}"
+
+
+def test_installing_a_built_wheel_leaves_no_copy_of_it_in_uvs_cache(tmp_path):
+    """``web_tools.install`` puts the wheel in with ``--no-cache`` (Step
+    4.58b): every gate, perf run and test builds a throwaway wheel at a new
+    path, and each one cached left an unpacked copy (``archive-v0``) and a
+    pointer (``wheels-v*/url``) in uv's cache for good, 272 of them, 29.7 GB.
+    A tiny project's wheel, installed offline through the helper with a
+    cache of its own, imports from the venv and leaves neither there."""
+    cache, project, wheel = tmp_path / "uv-cache", tmp_path / "project", tmp_path / "tiny-0.1-py3-none-any.whl"
+    project.mkdir()
+    (project / "pyproject.toml").write_text('[project]\nname = "tiny"\nversion = "0.1"\nrequires-python = ">=3.14"\n'
+                                            "dependencies = []\n", encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"} | {"UV_CACHE_DIR": str(cache)}
+    subprocess.run(["uv", "lock", "--offline", "--quiet", "--project", str(project)], env=env, check=True, timeout=300)
+    info = "tiny-0.1.dist-info"
+    with zipfile.ZipFile(wheel, "w") as zf:
+        for name, text in (("tiny/__init__.py", "ANSWER = 42\n"),
+                           (f"{info}/METADATA", "Metadata-Version: 2.1\nName: tiny\nVersion: 0.1\n"),
+                           (f"{info}/WHEEL", "Wheel-Version: 1.0\nGenerator: hand\nRoot-Is-Purelib: true\n"
+                                             "Tag: py3-none-any\n"),
+                           (f"{info}/RECORD", f"tiny/__init__.py,,\n{info}/METADATA,,\n{info}/WHEEL,,\n{info}/RECORD,,\n")):
+            zf.writestr(name, text)
+    python = web_tools.install(wheel, tmp_path / "venv", project, env)
+    assert subprocess.run([python, "-I", "-c", "import tiny; print(tiny.ANSWER)"], capture_output=True, text=True,
+                          check=True, timeout=300).stdout.strip() == "42"
+    assert sorted(p.relative_to(cache).as_posix() for p in [*cache.glob("archive-v0/*"),
+                                                            *cache.glob("wheels-v*/url/*")]) == []
 
 
 # --- Step 4.28f: Modkit's unpinned packaging pin, ported -------------------------------------------------------

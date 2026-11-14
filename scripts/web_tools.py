@@ -407,7 +407,10 @@ def install(wheel: Path, venv: Path, root: Path = ROOT, env: dict[str, str] | No
     ``uv export``'s ``pylock.toml``), then the wheel, which resolves against
     them. Offline, from the wheels ``uv sync --locked`` left in uv's cache: a
     locked sync fetches no index pages, so an install that resolves from the
-    index finds none on a fresh runner (CI, Step 4.4ci2). The venv's python;
+    index finds none on a fresh runner (CI, Step 4.4ci2). The wheel goes in
+    with ``--no-cache``: its dependencies are in the venv by then, and each
+    throwaway wheel cached left an unpacked copy and a pointer in uv's cache
+    for good (272 of them, 29.7 GB, Step 4.58b). The venv's python;
     ``RuntimeError`` gives uv's own words when a step fails."""
     def uv(*argv: str) -> None:
         done = subprocess.run(["uv", *argv], capture_output=True, text=True, timeout=300, env=env)
@@ -420,7 +423,7 @@ def install(wheel: Path, venv: Path, root: Path = ROOT, env: dict[str, str] | No
         uv("export", "--project", str(root), "--frozen", "--format", "pylock.toml", "--no-default-groups",
            "--no-emit-project", "--quiet", "-o", str(lock))
         uv("pip", "install", "--offline", "--quiet", "--python", python, "-r", str(lock))
-    uv("pip", "install", "--offline", "--quiet", "--python", python, str(wheel))
+    uv("pip", "install", "--offline", "--no-cache", "--quiet", "--python", python, str(wheel))
     return python
 
 
