@@ -422,7 +422,8 @@ def test_an_edit_of_your_saved_copy_takes_the_parts_its_check_kept_though_the_pa
     """Step 4.60b: a page hands a recipe back through JS, whose numbers write 1.0 as 1 and -0.0 as 0, and a part's key
     reads its specs by ``repr``; the sdk gives your variant's edit the forms its ``recipe.json`` holds where the
     numbers are equal, so the first Check after an edit of yours (a colour) misses only the stage the edit moves
-    (``size``), as a Python caller's does, the sha the editor reads is its Build's, and a Save keeps the file's forms."""
+    (``size``), as a Python caller's does, the sha the editor reads is its Build's, and a Save keeps the file's forms,
+    as Save as and New from this of it do."""
     mine = json.loads(json.dumps(PARTED)) | {
         "markers": ["m_damage"], "columns": {"basic1": "spin"},
         "clips": {"spin": {"generator": "t_spin", "length": 1.0, "turns": 2, "active": [0.25, 0.75],
@@ -448,6 +449,8 @@ def test_an_edit_of_your_saved_copy_takes_the_parts_its_check_kept_though_the_pa
     assert sdk.variant_read({"name": "mine", "recipe": paged(mine)})["sha"] == library.find("mine").sha
     sdk.variant_save({"name": "mine", "recipe": paged(edit)})
     assert (tmp_path / "mine" / library.RECIPE).read_text(encoding="utf-8") == library.text_of("mine", edit)
+    sdk.variant_save({"name": "mine", "recipe": paged(edit), "as": "mine2", "from": "mine"})
+    assert (tmp_path / "mine2" / library.RECIPE).read_text(encoding="utf-8") == library.text_of("mine2", edit)
 
 
 def test_a_shaped_copys_check_takes_its_plain_bodys_places_from_its_parts_and_prepares_its_mesh_once(usa_iso, tmp_path,
