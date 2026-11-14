@@ -1399,9 +1399,19 @@ are the Characters section's.
   numpy read), the island UVs' conjugate gradients (`az_cg`:
   `_conjugate`, its rows' sums Neumaier's as Python's) and a bind's reach
   mixes (`az_mix`: `_ReachMix.each`, each point's rows in reach, their
-  sums in row order as numpy's `cumsum`), each twin the function it
+  sums in row order as numpy's `cumsum`) and, Step 4.55c, the jiggle
+  bones' shares of a run of vertices (`az_shares`: `_share_rows`' pushes,
+  `_effect`'s, and rounds, `_round_share` on `mesh.c`'s `az_ray`; the
+  segments' shares after it in Python), each twin the function it
   speeds; a division by zero and a direction not finite, which the twin
-  raises on, are the twin's.
+  raises on, are the twin's. The eleventh is the rig's tube riders'
+  (`native/rig.c`, Step 4.55c): each rider's skin vertices within its
+  reach, their weights, sum and the nearest of all (`az_rides`:
+  `jiggle._rides`, its grid's cells and their keys, floor(p / reach),
+  worked out in numpy, a vertex its rank in the twin's sorted order) and a
+  jiggle bone's shares mixed over them (`az_ridden`: `_ridden`'s mix,
+  `_Rode.mixed`); a reach not a finite float, a position not finite and a
+  cell past 2**52 are the twin's.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

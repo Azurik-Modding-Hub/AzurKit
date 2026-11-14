@@ -135,7 +135,7 @@ def tup(x):
     return tuple(tup(v) for v in x) if isinstance(x, list) else x
 
 answers = []
-docs, dress, springs, bodies, positions = json.load(open(json.loads(ARGV)[0]))
+docs, dress, springs, bodies, positions, rig = json.load(open(json.loads(ARGV)[0]))
 for doc, call in docs:
     graphs = tuple(native.Graph(*tup(g)) for g in doc.pop("graphs"))
     t = native.Tables(**{k: tup(v) for k, v in doc.items()} | {"discs": frozenset(doc["discs"])}, graphs=graphs)
@@ -147,7 +147,8 @@ cuts = [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range
 json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answer(case) for case in dress],
             "springs": [_spring_answer(case) for case in springs], "cuts": cuts,
             "bodies": [_body_answer(case) for case in bodies],
-            "positions": [_positions_answer(case) for case in positions]})
+            "positions": [_positions_answer(case) for case in positions],
+            "rig": [_rig_answer(case) for case in rig]})
 """
 
 
@@ -321,13 +322,14 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     cases = list(_cases(1401, 40))
     cases += [(_monotone_of(t), call) for t, call in cases[:30]]
     dress, springs, bodies = list(_dress_cases(1405, 60)), list(_spring_cases(1409, 12)), list(_body_cases(1411, 16))
-    positions = list(_positions_cases(1413, 12))
+    positions, rig = list(_positions_cases(1413, 12)), list(_rig_cases(1417, 12))
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
-    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs, bodies, positions]), encoding="utf-8")
+    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs, bodies, positions, rig]),
+                                                 encoding="utf-8")
     got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer)
                   + inspect.getsource(_spring_answer) + inspect.getsource(_mesh) + inspect.getsource(_body_answer)
-                  + inspect.getsource(_positions_answer) + _UNDER_PYODIDE,
+                  + inspect.getsource(_positions_answer) + inspect.getsource(_rig_answer) + _UNDER_PYODIDE,
                   packages=(_pyodide.numpy(),))
     assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
     assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
@@ -338,6 +340,7 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     assert got["bodies"] == [_body_answer(case) for case in bodies]
     with numpy.errstate(all="ignore"):
         assert got["positions"] == json.loads(json.dumps([_positions_answer(case) for case in positions]))
+        assert got["rig"] == json.loads(json.dumps([_rig_answer(case) for case in rig]))
     from azurkit.tools.characters import decimate
     rng = random.Random(1407)
     assert got["cuts"] == [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
@@ -1117,6 +1120,135 @@ def test_a_beneath_cloth_read_again_answers_alike():
         assert bytes(reader.counted[0]) == counts
         assert reader.near(asked) == first and any(x is not None for x in first)
 
+
+def _rig_cases(seed: int, count: int):
+    """Seeded random inputs of the rig's kernels (``native/rig.c``'s
+    tube riders and ``native/positions.c``'s shares), as JSON: skin
+    vertices in groups 0-2 (some on one place) and tube riders in groups
+    3-4 following some of them within a reach (now and then a whole
+    number, the twin's; one wide enough that a rider's list passes the
+    room first given), some on a skin vertex, some far from any; jiggle
+    bones' shares of the skin mixed over them; and vertices under placed
+    push and round sides (a pair's among them, ``_ray_cases``' sides)
+    whose shares ``_share_rows`` gives a few names, with segments."""
+    rng = random.Random(seed)
+
+    def u(lo=-0.3, hi=0.3):
+        return rng.choice((0.0, -0.0)) if rng.random() < 0.03 else rng.uniform(lo, hi)
+
+    for _ in range(count):
+        plain = []
+        for g in range(3):
+            for i in range(rng.randint(0, 70)):
+                plain.append([g, i, u(), u(), u()] if rng.random() > 0.1 or not plain else [g, i, *plain[-1][2:]])
+        keys = [(sorted(rng.sample(range(3), rng.randint(1, 3))), rng.choice((rng.uniform(0.01, 0.08), 0.05, 1.5)))
+                for _ in range(rng.randint(1, 3))]
+        if rng.random() < 0.1:
+            keys.append(([0], 1))
+        riders = []
+        for g in (3, 4):
+            for i in range(rng.randint(1, 40)):
+                at = list(rng.choice(plain)[2:]) if plain and rng.random() < 0.15 else [u(-0.6, 0.6) for _ in range(3)]
+                plain.append([g, i, *at])
+                follow, reach = rng.choice(keys)
+                riders.append([g, i, follow, reach, rng.choice(("", "", "hang"))])
+        skin = [v for v in plain if v[0] < 3]
+        mines = [[sorted(rng.sample(range(5), rng.randint(1, 4))),
+                  [[g, i, rng.choice((0.0, 1.0, rng.random()))] for g, i, *_ in rng.sample(skin, len(skin) // 2)]]
+                 for _ in range(3)]
+        width = rng.randint(1, 4)
+        names = lambda: sorted(rng.sample(range(width), rng.randint(0, width)))   # noqa: E731
+        pushes = [{"centre": [u(), u(), u()], "direction": [u(), u(), u() + 0.5],
+                   "height": rng.choice((0.0, rng.uniform(-0.06, 0.06))), "depth": rng.choice((0.05, rng.uniform(0.0, 0.1))),
+                   "radius": [rng.uniform(0.05, 0.3) for _ in range(4)], "fold": rng.uniform(0.0, 1.0), "names": names()}
+                  for _ in range(rng.randint(0, 4))]
+        rounds = []
+        for op, side, origin, _ in _ray_cases(rng):
+            pair = rng.random() < 0.4
+            op |= {"pair": pair, "bridge": rng.choice((0.0, rng.uniform(0.0, 0.05)))}
+            rounds.append([op, side, [0.0, u(), u()] if pair else origin, names()])
+        n = rng.randint(1, 60)
+        base = [[u(-0.4, 0.4) for _ in range(3)] for _ in range(n)]
+        shares = {"base": base, "heaviest": [rng.randrange(5) for _ in range(n)], "kept": rng.sample(range(5), rng.randint(0, 2)),
+                  "rides": [[k, rng.randrange(n)] for k in rng.sample(range(n), n // 6)], "pushes": pushes,
+                  "rounds": rounds, "width": width,
+                  "segments": [[[[k, rng.random()] for k in rng.sample(range(n), n // 3)], rng.randrange(width)]
+                               for _ in range(rng.randint(0, 2))]}
+        yield {"plain": plain, "riders": riders, "mines": mines, "shares": shares}
+
+
+def _rig_answer(case: dict) -> list:
+    """jiggle's tube riders (``_rides``, ``_ridden`` over a kept rides
+    dict) and mesh_edit's shares (``_share_rows`` over two spans) on
+    ``case`` (by the library when it's loaded, else the twins): each
+    answer's floats as hex, or the error it raises."""
+    from azurkit.tools.characters import jiggle
+    from azurkit.tools.characters import mesh_edit as me
+
+    def tup(v):
+        return None if v is None else tuple(tup(x) for x in v) if isinstance(v, list) else v
+
+    plain = {(g, i): (x, y, z) for g, i, x, y, z in case["plain"]}
+    riders = {(g, i): (tuple(f), r, h) for g, i, f, r, h in case["riders"]}
+    out, rides = [], {}
+    for groups, mine in case["mines"]:
+        got = jiggle._ridden(riders, {(g, i): x for g, i, x in mine}, plain, set(groups), rides)
+        out.append([[*vid, x.hex()] for vid, x in got.items()])
+    for follow, reach in sorted({f[:2] for f in riders.values()}):
+        got = jiggle._rides(riders, plain, follow, reach)
+        out.append([[list(vid), [[*j, w.hex()] for j, w in near], total.hex(),
+                     None if best is None else [best[0].hex(), *best[1]]]
+                    for vid, near, total, best in (got.rows() if type(got) is jiggle._Rode else got)])
+    sh = case["shares"]
+    sides = [me._Placed(f"ops[{k}]", me.PushOp("b", tuple(op["direction"]), op["height"], tuple(op["radius"]), op["depth"],
+                                               fold=op["fold"]), tuple(op["centre"]), me.push_frame(op["direction"]),
+                        frozenset()) for k, op in enumerate(sh["pushes"])]
+    rounds = []
+    for op, side, origin, _ in sh["rounds"]:
+        behind = None if op["behind"] is None else (*op["behind"][:3], tup(op["behind"][3]))
+        made = me.RoundOp("b", tuple(op["radius"]), 0.0, tuple(op["blend"]), drape=tup(op["drape"]), ease=op["ease"],
+                          inner=op["inner"], back=op["back"], taper=op["taper"], taper_in=op["taper_in"],
+                          taper_back=tuple(op["taper_back"]), taper_low=tuple(op["taper_low"]),
+                          midline=tup(op["midline"]), inner_blend=tup(op["inner_blend"]), gate=tup(op["gate"]),
+                          behind=behind, window=tup(op["window"]), pair=op["pair"], bridge=op["bridge"])
+        rounds.append(me._Placed("ops[0]", made, tuple(side["centre"]), tup(side["frame"]), frozenset(),
+                                 rays=tuple(side["rays"]), origin=tup(origin), inward_sign=side["inward_sign"]))
+    base, n = [tuple(p) for p in sh["base"]], len(sh["base"])
+    shared = (base, sh["heaviest"], set(sh["kept"]), dict(map(tuple, sh["rides"])), sides,
+              [op["names"] for op in sh["pushes"]], rounds, [r[3] for r in sh["rounds"]],
+              [(dict(map(tuple, seg)), at) for seg, at in sh["segments"]], sh["width"])
+    for span in ((0, n // 2), (n // 2, n)):
+        try:
+            out.append([[k, [x.hex() for x in best]] for k, best in me._share_rows(shared, span)])
+        except ZeroDivisionError as exc:
+            out.append(f"{type(exc).__name__}: {exc}")
+    return out
+
+
+def test_the_rig_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
+    """``native/rig.c``'s kernels (``az_rides``: each tube rider's skin
+    vertices in reach, their weights and its nearest; ``az_ridden``: a
+    jiggle bone's shares mixed over them) and ``native/positions.c``'s
+    ``az_shares`` (``_share_rows``' push and round shares) give their
+    twins' answers bit for bit over seeded random inputs, what the twins
+    raise raised alike."""
+    cases, ran = list(_rig_cases(1415, 40)), collections.Counter()
+    def counted(name, real, done):
+        def call(*a):
+            got = real(*a)
+            ran.update([(name, got == done if done is not None else got is not None)])
+            return got
+        return call
+
+    for name, done in (("rides", 0), ("ridden", True), ("shares", None)):
+        monkeypatch.setattr(native, name, counted(name, getattr(native, name), done))
+    assert native.report()["loaded"]
+    got = [_rig_answer(case) for case in cases]
+    assert min(ran[(name, True)] for name in ("rides", "ridden", "shares")) > 30, ran   # most by the library
+    assert any(isinstance(a, str) for g in got for a in g[-2:]), got   # a division by zero the twin raises
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    with numpy.errstate(all="ignore"):
+        assert got == [_rig_answer(case) for case in cases]
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):
     monkeypatch.setenv("AZURKIT_NATIVE", "0")

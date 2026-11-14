@@ -1,7 +1,8 @@
 /* The mesh edit's position steps, compiled (D1009, Step 4.55b): tools/characters/mesh_edit.py's fields (_effect over
  * a run of points: _displace's moves and _det's det J, az_fields), its relax ops' Taubin sweeps (_relax's, az_relax),
- * its beneath sides' nearest cloth crossing (_beneath's grid and its numpy read, az_beneath) and the island UVs'
- * conjugate gradients (_conjugate, az_cg). Every operation is its Python twin's, in the twin's order, on doubles,
+ * its beneath sides' nearest cloth crossing (_beneath's grid and its numpy read, az_beneath), the island UVs'
+ * conjugate gradients (_conjugate, az_cg), a bind's reach mixes (_ReachMix.each, az_mix) and, Step 4.55c, the jiggle
+ * bones' shares (_share_rows' pushes by _effect and rounds by mesh.c's az_ray, az_shares). Every operation is its Python twin's, in the twin's order, on doubles,
  * with no contraction, so the two agree bit for bit (tests/test_native.py); a sum() of floats is Python's (CPython's
  * Neumaier sum since 3.12, from its int start 0). What the twin raises on (a division by zero, a cell of a direction
  * not finite) answers an error code, and its caller runs the twin, which raises it. No libm, no libc, no allocation:
@@ -435,6 +436,82 @@ API i64 az_mix(const double *at, i64 nrows, const double *weights, const unsigne
         got[i] = (unsigned char)any;
         if (any)
             for (i64 b = 0; b < nb; b++) o[b] = o[b] / total;
+    }
+    return 0;
+}
+
+/* ---- the jiggle bones' shares ---------------------------------------------------------------------------------------
+ * shares_each's _share_rows over n points pts (3 each), width names: each point's share of each name, from 0.0, the
+ * larger kept (Python's max(best, x): x only where it is greater), first by each push side s (FIELD_ROW doubles at
+ * push + FIELD_ROW s, its names pnames[pstart[s]..pstart[s + 1])), where it holds the point and its height (the row's
+ * last number) isn't 0: |its move| / |height|; then by each round side r (az_ray's row at rows + rstart[r], its names
+ * qnames[qstart[r]..qstart[r + 1]), its pair's flag, bridge and origin at pair + 5 r): _round_share's, a pair's from
+ * the point's ray and its mirror's (x negated) from its origin, 0.5 where either is at the origin, else w ramp split
+ * smooth((R + k - r) / 2k), its R the two forms' smooth maximum over the bridge; a side's 1.0 at its origin, else
+ * w ramp smooth((R + k - r) / 2k). Into out (n x width). 0; 1 where a name is out of range; 2 where the twin divides
+ * by zero (its caller runs the twin). */
+i64 az_ray(const double *S, double p0, double p1, double p2, i64 given, double g0, double g1, double g2, double *out);
+
+static double smooth(double x) { return x <= 0.0 ? 0.0 : x >= 1.0 ? 1.0 : x * x * (3.0 - 2.0 * x); }   /* _smooth */
+
+static double smooth_max(double a, double b, double k) {   /* _smooth_max */
+    double m = a > b ? a : b;
+    if (k > 0.0) {
+        double h = (k - fab(a - b)) / k;
+        if (h > 0.0) m += h * h * k / 4.0;
+    }
+    return m;
+}
+
+API i64 az_shares(const double *pts, i64 n, i64 width, const double *push, i64 npush, const i64 *pstart,
+                  const i64 *pnames, const double *rows, const i64 *rstart, i64 nround, const double *pair,
+                  const i64 *qstart, const i64 *qnames, double pair_split, double *out) {
+    for (i64 s = 0; s < npush; s++)
+        for (i64 e = pstart[s]; e < pstart[s + 1]; e++)
+            if (pnames[e] < 0 || pnames[e] >= width) return 1;
+    for (i64 s = 0; s < nround; s++)
+        for (i64 e = qstart[s]; e < qstart[s + 1]; e++)
+            if (qnames[e] < 0 || qnames[e] >= width) return 1;
+    for (i64 i = 0; i < n; i++) {
+        const double *p = pts + 3 * i;
+        double *best = out + width * i, d[3], J[3][3], mine[8], other[8];
+        int bad = 0;
+        for (i64 c = 0; c < width; c++) best[c] = 0.0;
+        for (i64 s = 0; s < npush; s++) {
+            const double *R = push + FIELD_ROW * s;
+            int in = effect(p, R, 0, d, J, &bad);
+            if (bad) return 2;
+            double height = R[NUM + 15];
+            if (!in || height == 0.0) continue;
+            double x = root(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / fab(height);
+            for (i64 e = pstart[s]; e < pstart[s + 1]; e++)
+                if (x > best[pnames[e]]) best[pnames[e]] = x;
+        }
+        for (i64 s = 0; s < nround; s++) {
+            const double *S = rows + rstart[s], *pr = pair + 5 * s;
+            double x;
+            if (pr[0] != 0.0) {
+                i64 a = az_ray(S, p[0], p[1], p[2], 1, pr[2], pr[3], pr[4], mine);
+                i64 b = az_ray(S, -p[0], p[1], p[2], 1, pr[2], pr[3], pr[4], other);
+                if (a == 2 || b == 2) return 2;
+                if (a == 1 || b == 1) {
+                    x = 0.5;
+                } else {
+                    double r = mine[3], own = mine[4], k = mine[5], w = mine[6], ramp = mine[7], bridge = pr[1];
+                    double big_r = smooth_max(own, other[4], bridge);
+                    double split = smooth(0.5 + dv(own - other[4], 2.0 * (pair_split > bridge ? pair_split : bridge),
+                                                   &bad));
+                    x = w * ramp * split * smooth(dv(big_r + k - r, 2.0 * k, &bad));
+                }
+            } else {
+                i64 a = az_ray(S, p[0], p[1], p[2], 0, 0.0, 0.0, 0.0, mine);
+                if (a == 2) return 2;
+                x = a == 1 ? 1.0 : mine[6] * mine[7] * smooth(dv(mine[4] + mine[5] - mine[3], 2.0 * mine[5], &bad));
+            }
+            if (bad) return 2;
+            for (i64 e = qstart[s]; e < qstart[s + 1]; e++)
+                if (x > best[qnames[e]]) best[qnames[e]] = x;
+        }
     }
     return 0;
 }

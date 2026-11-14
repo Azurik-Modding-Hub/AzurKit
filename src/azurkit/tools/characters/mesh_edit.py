@@ -5751,6 +5751,18 @@ def _share_rows(shared: tuple, span: tuple[int, int]) -> list[tuple[int, list[fl
     hi): each one's share of each set of names but a kept one's."""
     base, heaviest, kept, rides, sides, side_of, rounds, round_of, segment_of, width = shared
     points = [base[rides[k]] if k in rides else base[k] for k in range(*span) if heaviest[k] not in kept]
+    got = _shares(points, sides, side_of, rounds, round_of, width)
+    if got is not None:   # the compiled kernel's pushes and rounds; the segments as below
+        rows, at = [], 0
+        for k in range(*span):
+            if heaviest[k] in kept:
+                continue
+            best = got[at:at + width].tolist()
+            at += width
+            for share, n in segment_of:
+                best[n] = max(best[n], share.get(k, 0.0))
+            rows.append((k, best))
+        return rows
     for side in rounds:   # each side's rays at once (_rays_ahead), as _round_share asks them
         if side.op.pair:
             _rays_ahead(points, side, side.origin)
@@ -5777,6 +5789,48 @@ def _share_rows(shared: tuple, span: tuple[int, int]) -> list[tuple[int, list[fl
             best[n] = max(best[n], share.get(k, 0.0))
         rows.append((k, best))
     return rows
+
+
+def _shares(points: list[Vec], sides: list[_Placed], side_of: list[list[int]], rounds: list[_Placed],
+            round_of: list[list[int]], width: int):
+    """The compiled kernel's (``core.native.shares``) pushes' and rounds'
+    shares of each of ``points`` for :func:`_share_rows`, ``width`` doubles
+    a point, or ``None`` where the twin answers (a push the kernel doesn't
+    read, a side :func:`_ray_row` gives no row, a number not a float)."""
+    from array import array
+
+    if native.library() is None:
+        return None
+    try:
+        push = array("d", [x for pl in sides for x in _field_row(pl)])
+        rows, rstart, pair = array("d"), array("q", [0]), array("d")
+        for side in rounds:
+            row = _ray_row(side)
+            if row is None:
+                return None
+            rows.extend(row)
+            rstart.append(len(rows))
+            if side.op.pair:
+                bridge, origin = side.op.bridge, side.origin
+                if len(origin) != 3 or not (type(bridge) is float
+                                            or (type(bridge) is int and abs(bridge) <= 1 << 52)):
+                    return None
+                pair.extend((1.0, bridge, *origin))
+            else:
+                pair.extend((0.0,) * 5)
+        pts = array("d", [x for p in points for x in p])
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if len(pts) != 3 * len(points):
+        return None
+    pstart, pnames, qstart, qnames = array("q", [0]), array("q"), array("q", [0]), array("q")
+    for of in side_of:
+        pnames.extend(of)
+        pstart.append(len(pnames))
+    for of in round_of:
+        qnames.extend(of)
+        qstart.append(len(qnames))
+    return native.shares(pts, width, push, pstart, pnames, rows, rstart, pair, qstart, qnames, PAIR_SPLIT)
 
 
 def followers(characters_xbr: bytes, body: str, spec: MeshSpec, base_dir: Path | None = None

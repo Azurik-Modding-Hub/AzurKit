@@ -880,6 +880,12 @@ def _ridden(riders: dict, mine: dict, plain: dict, groups: set[int], rides: dict
             got = _rides(riders, plain, follow, reach)
             if rides is not None:
                 rides[follow, reach] = got
+        if type(got) is _Rode:
+            mixed = got.mixed(mine)
+            if mixed is not None:   # the compiled kernel's mix
+                out.update(mixed)
+                continue
+            got = got.rows()
         for vid, near, total, best in got:
             mixed = 0.0
             for j, w in near:
@@ -896,7 +902,11 @@ def _rides(riders: dict, plain: dict, follow: tuple[int, ...], reach: float) -> 
     (in order): the vertices of those groups in its reach in the order
     :func:`_ridden` mixes them, each with its weight (1 - d^2 /
     reach^2)^2, their weights' sum, and the nearest of them all (its
-    squared distance and vertex, or ``None``)."""
+    squared distance and vertex, or ``None``): the compiled kernel's
+    (:func:`_rides_compiled`), else the twin's."""
+    got = _rides_compiled(riders, plain, follow, reach)
+    if got is not None:
+        return got
     cell = reach
     grid: dict[tuple[int, int, int], list[tuple[int, int]]] = {}
     for vid in sorted(plain):
@@ -927,6 +937,100 @@ def _rides(riders: dict, plain: dict, follow: tuple[int, ...], reach: float) -> 
             span *= 2
         out.append((vid, near, total, best))
     return out
+
+
+@dataclass(frozen=True)
+class _Rode:
+    """:func:`_rides`' answer from the compiled kernel (``core.native.rides``):
+    the riders ``vids`` in order, the skin vertices ``skin`` by rank, and by
+    rider its vertices in reach (ranks ``near`` and weights ``weights`` from
+    ``start``), their sum ``total`` and its nearest (``best_d``, ``best``,
+    -1 none), numpy arrays."""
+
+    vids: list
+    skin: list
+    start: object
+    near: object
+    weights: object
+    total: object
+    best_d: object
+    best: object
+
+    def rows(self) -> list:
+        """The twin's answer: (vertex, [(vertex, weight)], sum, (d, vertex) or ``None``) by rider."""
+        start, near, weights = self.start.tolist(), self.near.tolist(), self.weights.tolist()
+        return [(vid, [(self.skin[j], weights[e]) for e, j in enumerate(near[start[i]:start[i + 1]], start[i])],
+                 total, None if b < 0 else (d, self.skin[b]))
+                for i, (vid, total, d, b) in enumerate(zip(self.vids, self.total.tolist(), self.best_d.tolist(),
+                                                          self.best.tolist()))]
+
+    def mixed(self, mine: dict) -> list | None:
+        """:func:`_ridden`'s mix of ``mine`` over these riders, by the kernel
+        (``core.native.ridden``): (vertex, share) where it's above 0, or
+        ``None`` where the twin mixes."""
+        import numpy as np
+        try:
+            m = np.array([mine.get(v, 0.0) for v in self.skin], dtype=np.float64)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if m.shape != (len(self.skin),):
+            return None
+        n = len(self.vids)
+        out, got = np.zeros(n), np.zeros(n, dtype=np.uint8)
+        if not native.ridden(_at(self.start), _at(self.near) if len(self.near) else None,
+                             _at(self.weights) if len(self.weights) else None, _at(self.total), _at(self.best), n,
+                             _at(m) if len(m) else None, len(m), _at(out), _at(got)):
+            return None
+        return [(self.vids[i], x) for i, x in zip(np.flatnonzero(got).tolist(), out[got != 0].tolist())]
+
+
+def _rides_compiled(riders: dict, plain: dict, follow: tuple[int, ...], reach: float) -> _Rode | None:
+    """:func:`_rides` by the compiled kernel (``core.native.rides``; its
+    grid's cells, floor(p / reach) as the twin's, in numpy), or ``None``
+    where the twin answers (no library, no rider, a reach or position not
+    a finite float, a cell past 2**52)."""
+    import numpy as np
+    if native.library() is None or not (type(reach) is float and math.isfinite(reach) and reach > 0.0):
+        return None
+    vids = sorted(v for v, f in riders.items() if f[:2] == (follow, reach))
+    if not vids:
+        return None
+    skin = [vid for vid in sorted(plain) if vid[0] in follow and vid not in riders]
+    q = [plain[vid] for vid in vids]   # a rider missing from plain: the twin's KeyError
+    try:
+        fp = np.array([plain[vid] for vid in skin], dtype=np.float64).reshape(-1, 3)
+        qp = np.array(q, dtype=np.float64).reshape(-1, 3)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if len(fp) != len(skin) or len(qp) != len(vids) or not (np.isfinite(fp).all() and np.isfinite(qp).all()):
+        return None
+    fk, qk = np.floor(fp / reach), np.floor(qp / reach)
+    if (len(fk) and np.abs(fk).max() >= float(1 << 52)) or np.abs(qk).max() >= float(1 << 52):
+        return None
+    fk, qk = fk.astype(np.int64), np.ascontiguousarray(qk.astype(np.int64))
+    order = np.lexsort((np.arange(len(fk)), fk[:, 2], fk[:, 1], fk[:, 0])).astype(np.int64)
+    keys = fk[order]
+    first = np.flatnonzero(np.concatenate(([True], np.any(keys[1:] != keys[:-1], axis=1)))) if len(keys) else \
+        np.zeros(0, dtype=np.int64)
+    cells = np.ascontiguousarray(keys[first])
+    cstart = np.concatenate((first, [len(fk)])).astype(np.int64)
+    n = len(vids)
+    start, total, best_d, best = (np.zeros(n + 1, dtype=np.int64), np.zeros(n), np.zeros(n),
+                                  np.zeros(n, dtype=np.int64))
+    need = np.zeros(1, dtype=np.int64)
+    cap = 64 * n
+    for _ in range(2):
+        near, weights = np.zeros(max(cap, 1), dtype=np.int64), np.zeros(max(cap, 1))
+        code = native.rides(_at(fp) if len(fp) else None, len(fp), _at(cells) if len(cells) else None, len(cells),
+                            _at(cstart), _at(order) if len(order) else None, _at(qp), _at(qk), n,
+                            reach * reach, _at(start), _at(near), _at(weights), cap, _at(total), _at(best_d),
+                            _at(best), _at(need))
+        if code != 3:
+            break
+        cap = int(need[0])
+    if code != 0:
+        return None
+    return _Rode(vids, skin, start, near[:int(need[0])], weights[:int(need[0])], total, best_d, best)
 
 
 def _before(p, move) -> tuple[float, float, float]:

@@ -49,7 +49,8 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
 }
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
            "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster", "spring", "clear",
-           "strip", "regroup", "checks", "same", "fields", "relax", "beneath", "cg", "mix")
+           "strip", "regroup", "checks", "same", "fields", "relax", "beneath", "cg", "mix", "shares", "rides",
+           "ridden")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -125,7 +126,10 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_relax", [vp, i64, vp, i64, vp, vp, vp, vp, vp, i64, i64, vp]),
                          ("az_beneath_need", [vp, i64, vp, vp]), ("az_beneath", [vp, i64, vp, vp, vp, vp, vp, vp, i64, vp]),
                          ("az_cg", [i64, vp, vp, vp, vp, vp, vp, f64, i64, vp]),
-                         ("az_mix", [vp, i64, vp, vp, i64, vp, vp, i64, vp, vp, i64, f64, vp, vp, vp])):
+                         ("az_mix", [vp, i64, vp, vp, i64, vp, vp, i64, vp, vp, i64, f64, vp, vp, vp]),
+                         ("az_shares", [vp, i64, i64, vp, i64, vp, vp, vp, vp, i64, vp, vp, vp, f64, vp]),
+                         ("az_rides", [vp, i64, vp, i64, vp, vp, vp, vp, i64, f64, vp, vp, vp, i64, vp, vp, vp, vp]),
+                         ("az_ridden", [vp, vp, vp, vp, vp, i64, vp, i64, vp, vp])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
         return None, f"{name} doesn't load: {e}", None
@@ -1245,3 +1249,53 @@ def mix(at: int, nrows: int, weights: int, has: int, nb: int, start: int, rows: 
     if (lib := library()) is None:
         return False
     return lib.az_mix(at, nrows, weights, has, nb, start, rows, ncells, cell, q, nq, r2, out, held, got) == 0
+
+
+def shares(pts: array, width: int, push: array, pstart: array, pnames: array, rows: array, rstart: array,
+           pair: array, qstart: array, qnames: array, pair_split: float) -> array | None:
+    """``mesh_edit._share_rows``' shares of each of the points ``pts`` (3
+    doubles each) for ``width`` names (``az_shares``): by the push sides'
+    rows ``push`` (:data:`FIELD_ROW` doubles each, ``mesh_edit._field_row``'s;
+    side ``s`` names ``pnames[pstart[s]:pstart[s + 1]]``), then the round
+    sides' ray rows (``mesh_edit._ray_row``'s, side ``r``'s at
+    ``rows[rstart[r]:]``; its names ``qnames[qstart[r]:qstart[r + 1]]``,
+    its pair's flag, bridge and origin ``pair[5 r:5 r + 5]``), ``width``
+    doubles a point; ``None`` without the library or where the twin
+    answers (a division by zero)."""
+    if (lib := library()) is None:
+        return None
+    n = len(pts) // 3
+    out = array("d", bytes(8 * n * width))
+    if n == 0 or width == 0:
+        return out
+    code = lib.az_shares(_at(pts), n, width, _at(push), len(push) // FIELD_ROW, _at(pstart), _at(pnames), _at(rows),
+                         _at(rstart), len(qstart) - 1, _at(pair), _at(qstart), _at(qnames), pair_split, _at(out))
+    return out if code == 0 else None
+
+
+def rides(fp: int, nf: int, keys: int, ncells: int, cstart: int, cpts: int, q: int, qc: int, nq: int, r2: float,
+          nstart: int, nj: int, nw: int, cap: int, total: int, bestd: int, bestj: int, need: int) -> int | None:
+    """``jiggle._rides`` of ``nq`` riders ``q`` (``az_rides``, addresses of
+    contiguous buffers: their cells ``qc``; the ``nf`` skin vertices ``fp``
+    by rank, the grid's ``ncells`` cell ``keys`` ascending and their
+    vertices ``cpts[cstart[c]:cstart[c + 1]]``) into ``nstart``, ``nj`` and
+    ``nw`` (each rider's vertices in reach and their weights, room for
+    ``cap``), ``total``, ``bestd`` and ``bestj`` (its nearest, -1 none),
+    ``need`` the lists' length: 0, 3 where ``cap`` is short (call again
+    with ``need``), 1 where an index is out of range; ``None`` without the
+    library."""
+    if (lib := library()) is None:
+        return None
+    return lib.az_rides(fp, nf, keys, ncells, cstart, cpts, q, qc, nq, r2, nstart, nj, nw, cap, total, bestd, bestj,
+                        need)
+
+
+def ridden(nstart: int, nj: int, nw: int, total: int, bestj: int, nq: int, m: int, nf: int, out: int,
+           got: int) -> bool:
+    """``jiggle._ridden``'s mix of the shares ``m`` (by rank, ``nf``
+    doubles) over :func:`rides`' answer for ``nq`` riders (``az_ridden``,
+    addresses) into ``out`` and ``got`` (1 where the share is above 0);
+    False without the library or where the twin answers."""
+    if (lib := library()) is None:
+        return False
+    return lib.az_ridden(nstart, nj, nw, total, bestj, nq, m, nf, out, got) == 0
