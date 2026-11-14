@@ -438,33 +438,42 @@ NEWER = r"""
 const { content } = await import(process.argv[2]);
 const list = JSON.stringify({ format: "azurik-custom-content", schema_version: 1, entries: [
   { id: "a", kind: "pack", title: "a", version: 1, requires: [], files: [] },
-  { id: "b", kind: "pack", title: "b", version: 3, requires: [], files: [] }] });
+  { id: "b", kind: "pack", title: "b", version: 3, requires: [], files: [] },
+  { id: "c", kind: "pack", title: "c", version: 1, requires: [], files: [] },
+  { id: "constructor", kind: "pack", title: "an Object.prototype key", version: 1, requires: [], files: [] }] });
+const newer = { a: "a's line", c: "c's line" };   // the engine's (the worker's to_js: a plain object)
 const store = new Map([["installed", { a: { version: 2, source: "content/", files: {} },
                                        b: { version: 2, source: "content/", files: {} } }]]);
 const kept = { get: async (key) => store.get(key), put: async (kv) => kv.forEach(([k, v]) => store.set(k, v)) };
 const fetched = [];
 const fetch = async (url) => (fetched.push(new URL(url).pathname), { ok: true, status: 200, text: async () => list });
-const c = content({ call: async (_, given) => ({ manifest: JSON.parse(given.manifest) }), app: false,
+const c = content({ call: async (_, given) => ({ manifest: JSON.parse(given.manifest), newer }), app: false,
                     fallback: "content/", kept, fetch, storage: { getItem: () => null },
                     location: { href: "http://site.test/", origin: "http://site.test" } });
 await c.read();
-console.log(JSON.stringify([c.state.entries.map((e) => [e.id, e.state, e.installed]), fetched]));
+console.log(JSON.stringify([c.state.entries.map((e) => [e.id, e.state, e.installed, e.why ?? null]), fetched]));
 """
 
 
 @pytest.mark.web
-def test_the_pages_content_list_offers_no_update_below_the_version_installed(tmp_path):
+def test_the_pages_content_list_offers_no_update_below_the_version_installed_and_greys_only_what_the_engine_names(
+        tmp_path):
     """web/content.mjs on Node: an entry installed at a newer version than
     the source lists (a source rolled back, or another one picked) is
     installed, as the engine's ``content.states`` says (no Update goes
     down, SEC-8), not offered as an "Update to" the engine refuses; an
-    older one is still an update (Step 4.42c)."""
+    older one is still an update (Step 4.42c). An entry the engine's
+    ``newer`` names (its version needs a newer AzurKit) is newer with its
+    line unless installed at its version, and one whose id is a key of
+    ``Object.prototype`` (``constructor``) is not (Step 4.59b)."""
     driver = tmp_path / "newer.mjs"
     driver.write_text(NEWER, encoding="utf-8")
     done = subprocess.run(["node", str(driver), (ROOT / "web" / "content.mjs").as_uri()], capture_output=True,
                           text=True, timeout=60, check=False)
     assert done.returncode == 0, done.stderr[-2000:]
-    assert json.loads(done.stdout) == [[["a", "installed", 2], ["b", "update", 2]], ["/content/manifest.json"]]
+    assert json.loads(done.stdout) == [[["a", "installed", 2, None], ["b", "update", 2, None],
+                                        ["c", "newer", None, "c's line"], ["constructor", "install", None, None]],
+                                       ["/content/manifest.json"]]
 
 
 STALLED = r"""

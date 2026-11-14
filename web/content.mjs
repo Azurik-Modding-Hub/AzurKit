@@ -184,7 +184,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
   const states = () => (s.manifest?.entries ?? []).map((e) => {
     const held = s.installed[e.id]?.version ?? null;
     const state = held === null ? "install" : Number.isInteger(held) && held >= e.version ? "installed" : "update";
-    const why = state === "installed" ? null : s.newer[e.id];
+    const why = state === "installed" || !Object.hasOwn(s.newer, e.id) ? null : s.newer[e.id];   // not a prototype's
     return { ...e, installed: held, state: why ? "newer" : state, ...why ? { why } : {} };
   });
 
