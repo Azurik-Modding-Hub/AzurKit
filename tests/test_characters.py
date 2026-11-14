@@ -2125,6 +2125,16 @@ def test_the_shipped_sizes_are_each_listed_species_and_built_in_variant_on_both_
     assert len(want) == 2 * 183 and {record_shipped._key(row) for row in shipped.table()["size"]} == want
 
 
+def test_no_shipped_row_is_keyed_on_an_installed_entry_its_dress_reads_no_file_of():
+    """A row is taken only where ``shipped.entries`` reads as it was recorded, so the recorder runs with only the
+    entries a dress reads files of installed (booblord's): beamlord's built-in reads none, and recorded with his
+    entry installed his two size rows held ``{"beamlord": {}}``, missed for every player without it, and his size
+    was worked out fresh (Step 4.55e's review)."""
+    empty = [shipped.name(kind, row) for kind in ("size", "plan", "places")
+             for row in shipped.table().get(kind, ()) if not all(row["entries"].values())]
+    assert not empty, empty
+
+
 def test_each_europe_shipped_part_row_is_a_usa_rows_file_and_answer():
     """A part row's ``release`` is the recorder's and the pin's label (the first release whose Checks work it out),
     never a key the readers serve by. The variant-case pin asks USA's rows on USA; Europe's, keyed on Europe's own
