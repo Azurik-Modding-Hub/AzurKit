@@ -75,9 +75,10 @@ Every pytest run (the gate's and the flake stage's) installs the content CI
 tests with (Step 4.58b, :func:`content`): unless ``$AZURKIT_CONTENT_SOURCE``
 is set, Azurik-Custom-Content at the commit the worktree's own tests.yml pins
 (``CONTENT_COMMIT``), a ``git archive`` of the clone beside the main checkout
-unpacked beside the receipt (``<meta>.content``, removed after), never the
-clone's working tree; the log's first line names it, and a commit the clone
-lacks and can't be fetched ends the run ``error``, naming it, no pytest run.
+unpacked beside the receipt (``<meta>.content``, removed before and after),
+never the clone's working tree; the log's first line names it, and a commit
+the clone lacks and can't be fetched ends the run ``error``, naming it, no
+pytest run.
 
 Every pytest run (the gate's and the flake stage's) reruns a failed test
 once (``tests/_rerun.py``, D1170): one that passes its rerun is flaky, kept
@@ -1147,13 +1148,14 @@ def run(meta: Path, m: dict) -> dict:
     and its flake stage share one build cache (``<meta>.cache``, removed
     after), so the stage's slowed runs copy the wheel and database the run
     built (``web_tools.kept``), and one content (:func:`content`,
-    ``<meta>.content``, removed after); content it can't unpack ends the run
-    ``error``, with no pytest."""
+    ``<meta>.content``, removed before and after); content it can't unpack
+    ends the run ``error``, with no pytest."""
     load5 = os.getloadavg()[1] if hasattr(os, "getloadavg") else 0.0
     m |= {"state": "running", "started_at": now(), "load": round(load5, 1), "cap_s": cap(load5)}
     save(meta, m)
     t0, capped, cache, unpacked = time.time(), False, meta.with_suffix(".cache"), meta.with_suffix(".content")
     (flakes := meta.with_suffix(".flakes")).unlink(missing_ok=True)
+    shutil.rmtree(unpacked, ignore_errors=True)   # a killed runner's (SIGKILL, SIGTERM, a reboot) would stop the unpack
     try:
         with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
             try:

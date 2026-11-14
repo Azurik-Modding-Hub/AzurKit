@@ -2390,7 +2390,8 @@ are the Characters section's.
   archive` of the clone beside the main checkout (perf.py's `content_at`: a
   commit it lacks fetched into a scratch repository, never the clone's
   working tree, index or refs) unpacked beside the receipt
-  (`<meta>.content`, removed after), never what the clone has checked out
+  (`<meta>.content`, removed before, so a killed run's leftover can't stop
+  its retry, and after), never what the clone has checked out
   (main 54ee900f passed here on the clone's v10 and failed CI on its pinned
   v11); the log's first line names the commit, and one it can't unpack or
   fetch ends the run `error`, its note naming the commit, no pytest run.

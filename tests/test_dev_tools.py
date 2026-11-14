@@ -569,8 +569,9 @@ def test_a_gate_run_and_its_flake_stage_install_the_content_ci_pins_not_what_the
     commit checked out and an edit of its own (main 54ee900f passed here on
     the clone's v10 and failed CI on its pinned v11). The log's first line
     names the commit, the clone is as it was, and the unpacked tree goes
-    with the run. A pinned commit the clone lacks and can't fetch ends the
-    run ``error``, naming it, with no pytest run."""
+    with the run, and a tree a killed run left (SIGKILL, SIGTERM, a reboot)
+    doesn't stop the same key's retry. A pinned commit the clone lacks and
+    can't fetch ends the run ``error``, naming it, with no pytest run."""
     _quick_flake(monkeypatch)
     monkeypatch.setattr(fullsuite, "WORKERS", 0)
     # fullsuite's own perf module (it imports ``perf`` from its folder, not ``scripts.perf``), so no case fetches
@@ -596,6 +597,9 @@ def test_a_gate_run_and_its_flake_stage_install_the_content_ci_pins_not_what_the
     for pin in (pinned, "0" * 40):
         (wt / perf.WORKFLOW).write_text(f"env:\n  CONTENT_COMMIT: {pin}   # its pin\n", encoding="utf-8")
         meta = tmp_path / f"suite-{pin[:4]}.meta"
+        for left in (pin, f"{pin}.part"):   # what a run killed once it had unpacked, or while it unpacked, leaves
+            (meta.with_suffix(".content") / left).mkdir(parents=True)
+            (meta.with_suffix(".content") / left / "manifest.json").write_text("a killed run's", encoding="utf-8")
         got[pin] = m = fullsuite.run(meta, {"key": "k", "subject": "s", "mode": "changed", "worktree": str(wt),
                                             "browsers": "all", "pytest_args": ["test_x.py"], "perf_args": [],
                                             "flake_tests": ["test_x.py::test_content"]})
