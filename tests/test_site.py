@@ -1422,6 +1422,7 @@ def test_the_released_site_reads_community_content_from_github_or_any_https_repo
     manifest = json.loads((clone / "manifest.json").read_text(encoding="utf-8"))
     titles = {e["id"]: e["title"] for e in manifest["entries"]}
     newer = next(e["version"] for e in manifest["entries"] if e["id"] == "booblord") + 1
+    beam = next(e["version"] for e in manifest["entries"] if e["id"] == "beamlord")   # his, as the repository has him
     theirs = json.dumps(manifest | {"entries": [e | {"version": newer} if e["id"] == "booblord" else e
                                                 for e in manifest["entries"]]})   # booblord one version up
     golden = record_goldens.recorded("pipelines.json")["randomize-full:player-character=booblord"]
@@ -1463,7 +1464,7 @@ def test_the_released_site_reads_community_content_from_github_or_any_https_repo
         assert _page.until(page, f"() => {state('booblord')} === 'Update to v{newer}' && ({read})()", 120) == [
             f"{MINE}/", ""]   # read with no warning
         _page.answer(page, f"() => {entry % 'beamlord'}.querySelector('button').click()")
-        _page.until(page, f"() => {state('beamlord')} === 'installed v1' && {entry % 'beamlord'}.querySelector('.model')",
+        _page.until(page, f"() => {state('beamlord')} === 'installed v{beam}' && {entry % 'beamlord'}.querySelector('.model')",
                     120)
         before = len(heard)
         _page.answer(page, _perf.INSTALL)   # the perf driver's: its wait ends at the refusal, naming it (Step 4.54c)
