@@ -5,10 +5,8 @@ rewrites Step 4.23's list). When it was written (2026-11-09, about 04:00
 PST), `main` was 6a99347f: stack 2 had landed (the Variants editor, the
 whole Modkit port and its test-port lanes 4.27-4.29). v1.0.1 was the last
 release, and stack 3 (4.31, then 4.30) was queued on `main`. Modkit's
-checkout was still on this Mac, to be deleted this session (D1171).
-Everything Modkit had is now AzurKit's or is retired by name in group 13.
-Groups 4 and 5 hold what this session meant to finish before it closed:
-check each one before acting on it.
+checkout was deleted that session (D1171). Everything Modkit had is now
+AzurKit's or is retired by name in group 13.
 
 Step, D, AZ and Q ids are the private ledger's. When an item is done, drop
 it in the commit that does it, and add new items to the group they fit.
@@ -18,9 +16,10 @@ Step 4.47c brought it up to date on 2026-11-11, against the landing
 queue's tail (09564439, behind 1.0.3's release commit 7a4bab60), after
 the 11-10 session's steps 4.37-4.47. A done item is struck to one line
 naming what closed it, so the numbers that tests and decisions cite still
-point; a new item takes the next free number in its group. Groups 4 and 5
-were left as they were. Step 4.47g added the 2026-11-12 session's items
-(2.5, 9.43, 10.14) and brought 10.12 up to date.
+point; a new item takes the next free number in its group. Step 4.47g
+added the 2026-11-12 session's items (2.5, 9.43, 10.14) and brought 10.12
+up to date. Step 4.59a brought groups 2-6 and 11 up to date on 2026-11-14
+against `main` d1823858, after 1.2.0 (D1264's sweep).
 
 ## 1. First: the Variants editor's first Check (D1181, D1192)
 
@@ -130,194 +129,112 @@ The next session starts here (D1192), so 1.1 can follow.
 ## 2. Releases and content
 
 1. ~~1.0.2~~: out on 2026-11-09 (tag `v1.0.2`, 15c16383).
-2. **The content push**: booblord v10 (her rework, 2a0abad) is the
-   content repo's `main` since 1.1.1. v11 (Step 4.55e: her Check parts
-   under the compiled kernels' `parts.VERSION`, beamlord v2's plain
-   notes) is its commit a3bf5e7, which CI's `CONTENT_COMMIT` pins from
-   4.55e's stack on (on the hub as a branch from its gate, as v10 was),
-   and goes to its `main` with 1.2.0 (D1266, D1267). The clone's
-   superseded branches and worktrees go with 11.2.
-3. **1.1** (D1203, D1210, D1244): the release where group 1's tiered
-   lines hold, with the Variants editor's gaps: Undo (there since 4.6e),
-   the app's window asking about unsaved edits on close (4.38a, landed) and
-   community-only characters resolving (9.32).
-4. **1.0.3** (D1196, D1198, D1210, D1218, D1221): the release that fixes
-   the Windows app's Build with a character. Its fixes: the hang (`serve`
-   read its input on fd 0, where numpy's OpenBLAS waits at load: 4.37r,
-   85cc0426, seen passing on Windows CI); pywin32 out of the Windows bundle
-   (4.37h, fb135f4c); and the Windows Firefox save-bar test's race (4.37t,
-   e2a93f07, a test fix, queued). Step 4.47b's release commit (7a4bab60:
-   the version and the developer log's 1.0.3 section) lands ahead of this
-   list's commit, on its full gate. It is pushed to `main` alone, and main's CI decides:
-   green, or red only on the Windows Firefox save-check test and green on
-   one rerun of that job, then tag `v1.0.3` there and publish at once, the
-   notes shown to the owner after; red again, the tag waits for 4.37t on
-   `main`. 4.38b's community-only characters, its two red tests under a fix
-   seat, move to 1.1 (D1203).
-5. **booblord's rework** (D1224-D1242): a refinement and optimization
-   pass of booblord, booblord_high and both human variants, Fable
-   designing and judging and Opus building, the owner picking each round.
-   Round 1 took look A at today's coverage; round 2 the full high ponytail
-   (its "cleft fine" op out), sat once in xemu (its frame cost 20.2 MB
-   against shipped booblord's 31.4 MB, the cost model's line held). Round 3
-   converges on one candidate: the hair one even colour with no streaks,
-   drawn red irises, the back tail narrower and the backpack shallower
-   (D1235-D1239), and the staff out of her body in 79 of her 81 clips.
-   Then the hand-off: she is dressed as the built-in in `variants.json`,
-   sat once in xemu with model_kit rows (the springs on open ground) and a
-   skeptic, graded from that sitting, her goldens recorded, and a new
-   content version replaces booblord in place (D1240, after 4.37m1's).
-   booblord_high carries the same changes and is judged once (D1241); the
-   human variants get their colour check; fixes round 3's judges owe go
-   into the hand-off (D1242).
-6. **Content that fits the app it reaches** (the review of 4.48b, F3):
-   booblord v10 is the first built-in recipe change since 1.0.0, and
-   `content.builtin_refusal` holds a built-in's sha exact, so once the
-   content repo's `main` moves to v10 an AzurKit up to 1.1.0 can't newly
-   install her, and 1.1.1 can't install v9. Each later recipe change does
-   the same. A lane could let an entry name the AzurKit versions it fits
-   (or keep one entry a release line), so an app installs the newest
-   version it accepts; until then a recipe change ships with its release.
+2. ~~The content push~~: booblord v11 (a3bf5e7) is the hub's `main` since
+   1.2.0's publish (2026-11-14, D1266); CI's `CONTENT_COMMIT` pins it.
+3. ~~1.1~~: out on 2026-11-13 (tag `v1.1.0`, d226ddad), with 4.38a and
+   4.38b.
+4. ~~1.0.3~~: out on 2026-11-11 (tag `v1.0.3`, 7a4bab60), with 4.37r and
+   4.37h; 4.37t went out in 1.1.0.
+5. ~~booblord's rework~~: content v10 with 1.1.1 (tag `v1.1.1`, 719cfba5;
+   Step 4.48b); v11 keeps her v10 recipe.
+6. **Content that fits the app it reaches** (4.48b's review, F3):
+   `content.builtin_refusal` holds a built-in's recipe sha exact. With the
+   hub at v11, AzurKit 1.0.0-1.1.0 refuse booblord. They do it only after
+   fetching her files, and the line doesn't say to update. Each later recipe
+   change does the same to the releases before it. Left: a top-level `needs`
+   map in the manifest (`{id: "1.3.0"}`, the oldest AzurKit an entry's
+   version fits; a new entry key would blank every released app's list,
+   which refuses unknown entry keys but ignores top-level ones).
+   `content.check` reads it, the row is greyed with its line, and Install
+   and Update are refused before any fetch. The content repo's
+   `scripts/check.py` takes `needs` (and `description`, which it refuses
+   today). Until then a recipe change ships with its release. Its lane:
+   4.59b.
 
 ## 3. Stack 3 and 4.31's outcome
 
 1. ~~Stack 3~~: landed (5a3b0954); 4.31 and 4.30 are in 1.0.2.
-2. **A31 and A60 were load, not code** (4.31): stack 2's receipt failed
-   D1170's release rule on them (A31 166.5 s against the release's 118.8 s,
-   A60 199.5 s against 115.0 s). 4.31's paired runs in one window put stack
-   2's CPU at or under `main`'s (A31 82.8 against 103.3 CPU-s, A60 102.2
-   against 107.4), while the wall time swung with other projects' load.
-   - 4.31 also fixed perf.py's rerun, which dropped the first sample (a
-     rerun's samples now join the first ones). With that fix, stack 2's run
-     would still have read A31 at 204.7 s and A60 at 174.1 s at that load.
-   - So a gate on a busy box can fail these two again. The cure is round 5
-     (8.22), never an idle rerun or a changed budget (D1107).
-3. **4.30's perf watch:** every tracker op now sends `world()` with the
-   spot needs: 108,878 B of JSON, 69,392 B of it needs, 2.8 times what it
-   was. Read S18-S22, S70 and A23-A25 on stack 3's gate.
+2. ~~A31 and A60 were load, not code~~: stale (2026-11-14). The reference
+   is 1.1.1's run (41.1 s, 50.5 s), and group 1's kernels halved them
+   (4.55e's gate: 21.9 s, 27.5 s). A60's 50.1 s on 1.2.0's full gate is
+   8.22's debt row.
+3. ~~4.30's perf watch~~: read 2026-11-14: `world()`'s size doesn't show.
+   On stack 3's gate S19 read 0.069 s, S21 1.27 s, S70 0.357 s and A25
+   0.351 s, against stack 2's 0.068, 1.40, 0.318 and 0.521; flat since.
 4. **4.30's prose nits:** `characters/draw.py:299` and
    `randomizer/art/draw.py`'s module docstring and `:289` still name the
    deleted `body_preview` and `draw_previews`, and `draft/tiers.toml`'s
-   comment names `tier_gap`. The art file's edit moves ART_VERSION, so it
-   goes with the next art re-record; `tiers.toml` is in the derive stamp.
+   comment names `tier_gap`. Each edit moves a recorded digest: the
+   built-ins' picture keys (record_goldens' `DRAWN`), `ART_VERSION`, and
+   with tiers.toml every level's derive stamp. So they ride on the next lane
+   that re-records art and the characters' pictures, or restacks.
 
-## 4. Modkit's delete and the switch, if this session didn't finish them
+## 4. Modkit's delete and the switch (done 2026-11-09, D1171)
 
-When this list was written, Modkit's checkout was still in place. Of
-these, only 4.1's content install and proof round and 4.3's rename,
-rewrite and link were done.
+1. ~~ModelKit's re-point~~: pushed over SSH (17637b2 on ModelKit's `main`,
+   D1183); its leak guard names AzurKit's two manifests, the skill is
+   installed and the content install is gone. Its own nits: group 10.
+2. ~~Memory~~: AzurKit's project slug holds it, both `autoMemoryDirectory`
+   settings point there, the old folder is kept (D1187).
+3. ~~The xemu fixtures~~: sums 8 of 8 (2026-11-14); every sitting since
+   11-09 boots from them.
+4. ~~Tags~~: Modkit's archived repo holds `main` (f482ea041) and 14 tags,
+   `reach-freeze` among them. `oracle-rando-6` and `modkit-final` were
+   never pushed; the cites carry 8bfef0ca6, `main`'s parent, by sha.
+5. ~~The delete~~: done 2026-11-09 (D1171, D1189); the empty folder is gone.
+6. **Modkit's `$EV` tools** still hold its halves: the modkit profile
+   (`_azlib.py`), fullsuite's Modkit gate with `suite_rules.py` and
+   `suite_graph.py`, landq's Modkit queue and self-test, Modkit branches in
+   prune, waitfor, ledger, brief, land and wfcheck, and 90 `.before-*` and
+   dated copies. Keep `suite-receipts` and waitfor's reader of it. After
+   4.58e's swap; each tool's self-test owed. Its lane: 4.59c.
+7. ~~The archive~~: archived and private (D1185).
+8. ~~Checks that needed Modkit~~: retired by name under D1171 (4.6i's
+   end-to-end build, 4.6r's full build, 4.6j's plan, 4.13b's soak).
+9. ~~Residue~~: in the evidence folder (G9).
+10. ~~The xemu fork drive's discs~~: the drive is deleted (D1190); its zips
+    stay in the evidence folder.
 
-1. **ModelKit's re-point** (4.15a8, D1183, D1188): the lane
-   `mk/4.15a8-azurkit-repoint` (17637b2, reviewed with no defect) isn't
-   pushed. Done: `uv run --locked azurkit content install booblord`
-   (booblord v5) and the proof round on `profiles/booblord` on AzurKit's
-   `main` 6a99347f (round new, build, measure `--tier gate`, sheet: PASS,
-   no fix, reviewed with no defect), which also ran `model pose`. Left, in
-   order:
-   - before Modkit is deleted, re-install ModelKit's leak guard
-     (`hooks/leak_guard.py --install --forbidden`) with AzurKit's
-     byte-equal `src/azurkit/core/manifests/usa.json` and `europe.json`.
-     Its forbidden list names Modkit's manifests, so once they are gone
-     every ModelKit push is refused;
-   - then push the lane over SSH to ModelKit's private repo's `main`,
-     fast-forward its main checkout and run `modelkit install-skill`;
-   - if wanted, undo the content install: remove the user data folder's
-     `content/` booblord folders (variants, clips, sounds) and its
-     `installed.json`.
-   Never tested there: `model rest` through `kit/rest.py` and v4kit's user
-   build cache. Her new base file sits in that step's evidence, outside
-   ModelKit's repo. Nit: `test_azurik_adapter`'s runner stand-in still
-   handles `--export`.
-2. **Memory** (D1187, D1171): copy the shared memory folder to AzurKit's
-   project slug, point AzurKit's and ModelKit's `autoMemoryDirectory` at it
-   (both still named Modkit's slug), keep the old folder as history, and
-   show the owner the MEMORY.md diff in chat. The resume pointer (still
-   session 4718988a, 11-01) and the repo-layout memory change with it.
-3. **The xemu fixtures** (D1177): done: the fixtures folder is renamed
-   `Azurik-fixtures` beside the checkouts, the absolute paths in its
-   `xemu.toml` and that file's line in its `SHA256SUMS.txt` are rewritten,
-   and the user data folder's `xemu-fixtures` link (devkit's harness
-   default) points at it. Left: check the sums, then run a smoke boot (no
-   record of either). 4.17a's report has the commands and the revert.
-4. **Tags** (G8): `oracle-rando-6` at 8bfef0ca6 (AGENTS.md cites it) and
-   `modkit-final` at Modkit's last commit, pushed to Modkit's GitHub repo
-   before it is archived.
-5. **The delete** (D1171, D1189): G11's checks from AzurKit inside the
-   session. Then remove the one exact Modkit checkout path, never a glob
-   (the `-lanes` folder and any other `Azurik_Modkit*` folder share its
-   prefix), and put an empty folder back for the wrap-up; the owner removes
-   it. Leave ghidra, ghidra-backups, the evidence folder, the user data
-   folder and the old memory folder alone.
-6. **Modkit's `$EV` tools** retire with it: fullsuite.py's Modkit path,
-   suite_rules.py, suite_graph.py, the modkit profile, landq's Modkit half
-   and the `.before-*` copies. Keep the evidence folder's suite-receipts:
-   waitfor reads Modkit's old receipts there.
-7. **The archive** (D1185): once Modkit's `main` and tags are confirmed
-   pushed, archive its private GitHub repo (it stays private, read-only).
-8. **Checks that needed Modkit and never ran:** once its checkout is gone
-   they are retired by name under D1171, and AzurKit's own goldens stand.
-   - 4.6i's end-to-end build: Modkit's `patch` against
-     `azurkit build --mods` on the USA image.
-   - 4.6r's full build of booblord_high's own copy.
-   - 4.6j's Modkit `randomize-full --plan`.
-   - 4.13b's effect on the shipped database, and a 1,000-seed soak. After
-     the delete the soak can compare AzurKit only with itself.
-9. **Residue** (G9): copy Modkit's git-ignored `.claude/settings.local.json`
-   and its `.before-2.216` copy into the evidence folder, if wanted.
-   AzurKit's own already hides the 18 skills (D1191).
-10. **The xemu fork drive's discs** (D1051): its x68 states need their
-    discs rebuilt before they're used. Four come from zips. The two fps120
-    states have no zip, and their commit 8959dcb2 is on no branch. Keep the
-    zips and the README outside Modkit.
+## 5. The 2026-11-09 session's wrap-up (done)
 
-## 5. The session's wrap-up, if it didn't run
-
-1. **The handoff log** has nothing after 11-07 13:23. Add the 1.0.1 lanes
-   (4.5n-4.5w), D1153-D1193's lanes, the port lanes, stacks 2 and 3,
-   v1.0.1's publish (2026-11-09 01:33 UTC, from fe61354) and the delete.
-2. **Memory:** add D1171-D1193 and the delete (with 4.2).
-3. **A next-session prompt** (the newest is 11-01): it starts in AzurKit,
-   with group 1 (D1192) and D1075's read (12.7).
-4. **The session's whole run on `main`** after the last landing. AzurKit's
-   fullsuite has no `--main --no-credit` form (10.5): run its whole suite
-   on a worktree at `main`.
-5. Run `prune --session-end`, then `--apply` (D682), and the orphan sweep
-   (`$EV/tools/orphans`).
-6. Remove the lanes and branches after landing (11.2-11.4).
+1. ~~The handoff log~~: its 11-09 summary.
+2. ~~Memory~~: D1171-D1193 and the delete.
+3. ~~A next-session prompt~~: 11-09's; session 05d17dd5 started from it.
+4. ~~The whole run on `main`~~: G1's full receipts up to 15c16383.
+5. ~~prune and the orphan sweep~~: nothing to delete (11-11).
+6. ~~The lanes and branches~~: deleted 2026-11-10 (D1200).
 
 ## 6. Reach
 
-1. **x7's route graphs** (D1172): the L3 store's x7/reach holds AzurKit's
-   22 current reach models (13 GB), and route graphs for airship, a6 and
-   life only. 4.30's `physics.py` edit moves every route graph's key, so
-   once stack 3 lands all 22 are to build: 19 have none and the three go
-   stale.
-   - Build them from a checkout at `main`, at nice 15, with 4.13f's
-     `build_routers.py` (kept in that step's evidence, not tracked):
-     `build_routers.py routers 25 a1 a3 a5 airship a6 d1 d2 e2 e5 e6 e7 f1
-     f2 f3 f4 f6 life town w1 w2 w3 w4`.
-   - About 29 GB, seconds a level. It keeps 25 GiB of disk free, keeps a
-     current key and replaces a stale one.
-   - Until then `load_router` builds a missing graph on first use
-     (2-16.5 s), so nothing breaks.
-2. **The 21 retired proof records** (D1175): 33 L3 marks still resolve to
-   17 of them, and the planner still counts them as proofs. That was
-   4.13f's default (records stay as history, D1173). Reading D1175 as "the
-   marks stop resolving" would fail those 33 marks and move plans.
-3. **Frozen reach data:** 8 levels stop at "no kept reach model's sample
-   is the record's teleport". 4.13a's record replay can't run: all 1,337
-   snapshots are gone.
-4. **4.13e's last re-points:**
-   - AGENTS.md's "Not ported: Modkit's `db-extract`" is stale: devkit's
-     `rando db-extract` is ported.
-   - The planner loader's refusal says "re-measure: scripts/l3_contact.py",
-     Modkit's script.
-   - `docs/REACH.md` names only AZ-720, 723, 737, 813 and 826, not the open
-     reach issues (7).
+1. ~~x7's route graphs~~ (D1172): 4.13f built all 44 (35.4 GiB) from
+   5a3b0954 on 2026-11-09. They are stale again: the 11-10 reboot moved
+   `router_key`'s device number, and 4.52b's `physics.py` edit (e9d55a12)
+   moved every key. Nothing but the frozen research reads them, and
+   `load_router` rebuilds one on first use (0.7-54 s). The rest is 5's.
+2. ~~The 21 retired proof records~~ (D1175): 4.13f's reading stands
+   (675f3e2b): records stay as history, their marks resolve and plans don't
+   move (24 shipped marks rest on 18 of them). Re-proving them is 5's.
+3. ~~Frozen reach data~~: stale since D1175 (675f3e2b). `recheck` passes
+   over every retired record, so no level stops at the teleport. The 1,337
+   conformance snapshots are 5's.
+4. **4.13e's last re-points** (docs and one message). Its lane: 4.59d.
+   - `docs/INTERNALS.md`'s "Not ported: Modkit's `db-extract`" (the
+     randomizer section) is stale: `rando db-extract` is ported (4.13b).
+   - The planner loader's `contact_stale` issue says "re-measure:
+     scripts/l3_contact.py": name `python -m devkit reach l3-contact`.
+   - `docs/REACH.md` names only AZ-720, 723, 737, 813 and 826: point it at
+     group 7's open reach issues.
 5. **The reach backlog** lives in the private plan: R1.23-R1.25, TD.2,
    TD.2b, TD.5-TD.7, R2.19a-j, the improvement rounds, the all-level run and
-   R2.16g. D1048 paused it and D1143 froze it. It waits for v2 (D609) and the
-   owner's reach budget (D977).
+   R2.16g. D1048 paused it, D1143 froze it (no budget, answering D977) and
+   D1212 keeps it frozen until the owner resumes it (v2, D609). Resuming it
+   also:
+   - drops `st_dev` from `router_key` (`devkit/rando/draft/l3_goal.py`, with
+     a test beside its router-key test);
+   - rebuilds x7's graphs (`build_routers.py routers 90 ...`, nice 15, in
+     place);
+   - re-proves the retired records' marks;
+   - re-takes the conformance snapshots.
 
 ## 7. The open issues from Modkit's ledger
 
@@ -526,6 +443,8 @@ memory peaks stay strict. The gate writes both kinds of row to
     (4.5e). ci19's CI times were inferred, not measured.
 33. The perf gate reads RSS, not footprint (4.4n's Q2, kept for 1.0.0).
     Revisit it with 9.35.
+36. S21 (the tracker, a reopen) went from 0.45 s to 1.2-1.6 s within
+    stack 2 (fe61354c -> aecdedf9). Cause unread; it passes its 3 s line.
 
 ### Flakes found since, each owed a triage
 
@@ -759,43 +678,56 @@ memory peaks stay strict. The gate writes both kinds of row to
     still reads `AZURKIT_CONTENT_SOURCE` or the clone's working tree, and
     a stack that only moves `CONTENT_COMMIT` runs no test that reads the
     content (`fullsuite.plan` has no rule for it). A small lane.
+16. **ModelKit's nits** (4.15a8): its adapter test's runner stand-in still
+    handles `--export` (`tests/test_azurik_adapter.py:96`); `model rest`
+    through `kit/rest.py` and v4kit's user build cache haven't run on
+    AzurKit. ModelKit's next round runs them.
+17. **No `--all` perf since 11-08** (911040d5): Chromium, Firefox, the lag
+    ops and the capped profile (D1017's 9 s and 6 GiB, a blocking memory
+    peak) are untimed since v1.0.1, because fullsuite takes `--all` only on
+    main's clean whole run.
 
 ## 11. This Mac and infrastructure
 
-1. **Disk:** 179 GiB free at writing. ModMG's batches in `/private/tmp`
-   are the owner's: never touch them (D1140).
-2. **Ours to remove after landing:** the 11-10 session's lanes and their
-   `p2/*` branches, each once it lands; the content worktrees 4.6p-content
-   and 4.6r-content and ModelKit's 4.15a8 lane, if still there. Done: the
-   worktrees 4.30, 4.31, 4.32, 4.6r, stack2 and stack3 and the 128 old
-   branches (the six kept were read and deleted, D1200).
-3. **Our `/tmp` leftovers:** the 4.6e home folder and the 4.6f take log.
-   An empty `/private/tmp/rp411` (11-06) has an unknown owner: leave it
-   (D147).
+1. **Disk:** the owner's Mac-wide rule, at least 100 GB free counting
+   purgeable and 50 GB truly free (309 GB and 417 GB on 2026-11-14).
+   ModMG's batches in `/private/tmp` are the owner's: never touch them
+   (D1140).
+2. **Ours to remove:** the landed local branch `p2/4.37e0-held-rows` and
+   the content clone's six old `p2/*` branches (main's v8-v11 supersede
+   next-stack's and stack2's v6 and v7 parts); the 11-10 session's lanes,
+   the content worktrees and ModelKit's 4.15a8 lane are gone (2026-11-14).
+   `p2/4.58c-gate-p2` stays for 10.13.
+3. ~~Our `/tmp` leftovers~~: the 4.6e home folder, the 4.6f take log and
+   `/private/tmp/rp411` are gone (2026-11-14).
 4. ~~Six landed lane branches on the public AzurKit repo~~: deleted; the
    public repo holds only `main`.
-5. **The game-data repo's environment allows `p2/*` branches** (D1123):
-   keep that while lanes get CI. Its revert is in the handoff log.
-6. **nativekit writes each library in place,** so a process that has the
-   old macOS dylib loaded is killed. Write the new one beside it and rename
-   (4.6c).
-7. **Dev-speed levers** dx6 (changed-area gates leave the first-time
-   reshape ops to the full run), dx7, and dx8 (the variant golden as one
-   test per case), from the dev-speed survey.
+5. **The game-data environment allows `p2/*` branches** (D1123): keep that
+   while lanes get CI. Its revert is in the handoff log.
+6. **nativekit writes each library in place** (`nativekit.build`), so the
+   next process to load a rewritten macOS dylib is killed (SIGKILL until
+   the file has a new inode; 4.6c). Write it beside and `os.replace`, with
+   one pure test in `tests/test_native.py`. Its lane: 4.59e.
+7. **Dev-speed levers:** dx6 and dx7 are stale (2026-11-14): dx6's five
+   reshape ops now take 3-7 min of a changed perf stage, and no `--all`
+   perf has run since 11-08. Left: **dx8**, the variant golden as one test
+   per case. On CI it is the longest test on every OS (Intel 29 min, Apple
+   Silicon 16), and 3 min of a 22-minute full run here. Measure first: a
+   1-worker part loses the test's 4-process pool. Its lane: 4.59f.
 8. **CI risks** (no work unless they recur):
-   - setup-uv's own uv download sits outside the cache, so an outage can
-     fail it, and the first run after a landing misses the cache on each
-     OS (4.5t).
+   - setup-uv's own uv download sits outside the cache (its manifest is
+     inline since 4.4ci43), so an outage can fail it, and the first run
+     after a landing misses the cache on each OS (4.5t).
    - mcp brings in anyio, whose pytest plugin loads in every session
      (4.11f).
-   - pypi.org:443 may no longer be needed in the harden-runner allow
-     lists (ci55): a security-only item, so no lane (D1162, D1219).
+   - ~~pypi.org:443 in the harden-runner allow lists~~: security-only,
+     dropped (D1162, D1219).
 9. **Content size:** shipped parts carry the recording host's floats
-   (D1016), so a swap change that moves a part needs a re-record. Each
-   heavy built-in's own copy adds about 8.6 MB a release to the content
-   repo.
+   (D1016), so a swap change that moves a part needs a re-record. The hub
+   repo is about 216 MB (2026-11-14). A whole re-record of booblord's parts
+   adds about 100 MB (v6, v10), a two-part one almost nothing (v9, v11).
 10. **D1081:** revisit the Intel Mac app when GitHub retires its Intel Mac
-    runners.
+    runners (`macos-15-intel` still builds it, as for 1.2.0).
 
 ## 12. Owner decisions and standing asks
 
@@ -829,8 +761,9 @@ What only the owner does:
 10. ~~Post the announcements~~: none is drafted (D1208).
 11. The hub notes, only when the owner says (D134).
 12. ModMG's disk use in `/private/tmp` (D1140).
-13. Remove the empty Modkit folder after closing the session (D1189).
-14. See the MEMORY.md diff in chat when the memory moves (4.2, D1171).
+13. ~~Remove the empty Modkit folder~~: gone by the 2026-11-10 session's
+    start.
+14. ~~See the MEMORY.md diff in chat~~: shown on 2026-11-09 (G6).
 
 ## 13. Retired by name with Modkit's delete (D1171)
 
