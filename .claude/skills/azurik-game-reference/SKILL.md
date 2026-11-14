@@ -61,7 +61,7 @@ may not, and game bytes are never printed in logs or chat.
 
 | Need | Go to |
 |---|---|
-| RE narrative per subsystem | `docs/RE_MOVEMENT.md` (movement, armor, fuel, HP, roll, tick rate, gravity, ControllerState), `docs/RE_DATA.md` (config.xbr, prefetch lists, `filelist.txt` and the HDD cache, level loading), `docs/RE_XBE.md` (boot, kernel imports, XBE and COFF layout, cvars, FPS unlock); superseded findings in `docs/Finished/LEARNINGS_HISTORY.md`. Anchors: `grep -n '^#' docs/RE_*.md`. |
+| RE narrative per subsystem | `docs/RE_MOVEMENT.md` (movement, armor, fuel, HP, roll, tick rate, gravity, ControllerState), `docs/RE_DATA.md` (config.xbr, prefetch lists, `filelist.txt` and the HDD cache, level loading), `docs/RE_XBE.md` (boot, kernel imports, XBE and COFF layout, cvars, FPS unlock); superseded findings in Modkit's archived `Finished/LEARNINGS_HISTORY.md` (its private repository, read-only; AzurKit keeps no copy). Anchors: `grep -n '^#' docs/RE_*.md`. |
 | Section map, main loop, fps constants | `docs/RE_XBE.md` § "Decompilation & Analysis" |
 | Field and VA `#define`s for shims | `devkit/re/data/structs.h` (Modkit's `azurik.h`): the `AZURIK_ENT_*`, `AZURIK_ARMOR_*` and `AZURIK_LVL_*` macros, the ArmorMgr-chain comment and `ControllerState`; the VA anchors are `devkit/re/data/anchors.toml` |
 | Callable vanilla functions and their ABI notes | the facts' `functions` (`src/azurkit/core/facts.usa.json`; the `azurik_vanilla.h` shimkit writes from them) and their notes in `devkit/re/data/function_notes.toml`, under the same names (`player_jump_init`, `wing_flap`, `consume_fuel`, `player_walk_state`, `gravity_integrate_raw`, …) |

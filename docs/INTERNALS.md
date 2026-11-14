@@ -1705,10 +1705,12 @@ are the Characters section's.
     F's build drops B's job ahead and no B loads beside it, Step 4.53b),
     keeps the files in IndexedDB and
     writes them into its worker's `content/` once a worker; the app's
-    engine installs into its content folder. A known flaw (D835): on the
-    site a detailed variant's dress (booblord's) may run out of wasm
-    memory; the page then says to use the app. 4.4 waits until every site
-    build fits the capped profile's 6 GiB (D1021: no use-the-app fallback).
+    engine installs into its content folder. A detailed variant's dress
+    (booblord's) is the site's heaviest job: since 4.4 shipped, the perf
+    gate's capped profile holds the site's builds to its 6 GiB peak, and a
+    peak past it blocks (D1021: no use-the-app fallback); a worker that
+    still runs out of wasm memory says the engine stopped, to try again or
+    use the desktop app.
   - **The Variants view** (Step 4.6c, `web/variants.mjs`; Modkit's
     Variants page, D372, D480, D1087): the Characters tab's second view
     beside Models (`char-view-*`, as the Randomizer tab's Settings and
@@ -2365,10 +2367,12 @@ are the Characters section's.
   one its machine kept from running), and logs the
   lateness inside an action's own wait. The site's samples each take a
   persistent browser context on a new folder, with the storage a player's
-  browser has; a later visit (`S02`, `S64`) opens in that browser closed and
-  opened again on the folder, as WebKit keeps a closed page's process, all it
-  held resident, for the site's service worker while a page of the site is
-  open (Step 4.4m). An op
+  browser has; a later visit (`S02`, `S64`, `S73`) opens in that browser
+  closed and opened again on the folder, as Playwright's WebKit keeps a
+  closed page's process, all it held resident, for the site's service worker
+  while a page of the site is open (Step 4.4m); real Safari ends that process
+  in about 20-25 s, even with another tab open (the 11-07 real-Safari read,
+  D1096), so a player's later visit doesn't carry it. An op
   runs three times (once past 30 s) and its median decides, but a changed
   area's run times it once and the rest only when that sample is at or past
   1 s or froze (`perf.alone`, D1215: the block's `one_sample` names the cases

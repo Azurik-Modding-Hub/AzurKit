@@ -20,8 +20,9 @@ in REORG_PLAN Step 3.3d (2026-10-10) without rewording, so "above" or
 "below" may mean a section that is
 now in [`RE_MOVEMENT.md`](RE_MOVEMENT.md) (player movement),
 [`RE_XBE.md`](RE_XBE.md) (the XBE itself) or
-Modkit's `Finished/LEARNINGS_HISTORY.md`
-(superseded findings and retired attempts).
+Modkit's `Finished/LEARNINGS_HISTORY.md` (superseded findings and
+retired attempts), in Modkit's archived private repository, read-only:
+AzurKit keeps no copy, and the prose here gives each outcome.
 
 ---
 
@@ -1668,7 +1669,7 @@ into ``0x001BCDD8`` would load the hub; the disassembly above says
 otherwise, and it was never tried.  The four April-2026 attempts to
 force the hub (JZ NOPs, a cvar thunk, the validator short-circuit, a
 ``FUN_00053750`` trampoline) all landed their bytes with no in-game
-effect (Modkit's `Finished/LEARNINGS_HISTORY.md`
+effect (Modkit's archived `Finished/LEARNINGS_HISTORY.md`, read-only,
 § "enable_dev_menu — retired as unshippable").
 
 ### Why it's a prefetch-manifest orphan

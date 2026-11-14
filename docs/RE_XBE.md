@@ -21,8 +21,9 @@ in REORG_PLAN Step 3.3d (2026-10-10) without rewording, so "above" or
 "below" may mean a section that is
 now in [`RE_MOVEMENT.md`](RE_MOVEMENT.md) (player movement),
 [`RE_DATA.md`](RE_DATA.md) (data files) or
-Modkit's `Finished/LEARNINGS_HISTORY.md`
-(superseded findings and retired attempts).
+Modkit's `Finished/LEARNINGS_HISTORY.md` (superseded findings and
+retired attempts), in Modkit's archived private repository, read-only:
+AzurKit keeps no copy, and the prose here gives each outcome.
 
 ## Decompilation & Analysis
 
@@ -938,7 +939,7 @@ game with the HUD hidden [inferred, untested; docs only, Q226].
 The April-2026 `qol_enable_dev_menu` patch instead rewrote the start
 of the 0xFFFC0 thunk to return 1; since that thunk isn't the getter,
 it could not have worked, and the pack was retired
-(Modkit's `Finished/LEARNINGS_HISTORY.md` §
+(Modkit's archived `Finished/LEARNINGS_HISTORY.md`, read-only, §
 "enable_dev_menu — retired as unshippable").
 
 ### Activation (in-game)
@@ -1147,7 +1148,7 @@ The cvar-"getter" patch that replaced it targeted an `atexit` thunk
 (JZ NOPs, the thunk, the validator short-circuit, the `FUN_00053750`
 trampoline) landed their bytes with no in-game effect, and the pack
 was retired
-(Modkit's `Finished/LEARNINGS_HISTORY.md` §
+(Modkit's archived `Finished/LEARNINGS_HISTORY.md`, read-only, §
 "enable_dev_menu — retired as unshippable").
 
 ### Controller-table offsets (Azurik convention)

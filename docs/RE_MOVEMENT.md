@@ -21,8 +21,9 @@ in REORG_PLAN Step 3.3d (2026-10-10) without rewording, so "above" or
 "below" may mean a section that is
 now in [`RE_DATA.md`](RE_DATA.md) (data files),
 [`RE_XBE.md`](RE_XBE.md) (the XBE itself) or
-Modkit's `Finished/LEARNINGS_HISTORY.md`
-(superseded findings and retired attempts).
+Modkit's `Finished/LEARNINGS_HISTORY.md` (superseded findings and
+retired attempts), in Modkit's archived private repository, read-only:
+AzurKit keeps no copy, and the prose here gives each outcome.
 
 ---
 
@@ -192,7 +193,7 @@ f6):
 
 The April-2026 "independence math" that injected a walk base and a
 roll multiplier so two sliders could scale one field is archived in
-Modkit's `Finished/LEARNINGS_HISTORY.md` §
+Modkit's `Finished/LEARNINGS_HISTORY.md` (its archived repository) §
 "Walk/roll independence math".  Neither leg ships: since Step 2.12
 the roll slider is a shim at 0x8C745 ("Roll, not run" below), and
 since owner decision D53 (2026-10-09) the walk slider sets
@@ -848,7 +849,7 @@ Its only direct callers are `wing_flap`'s two calls, 0x89354 (cost
 sustained drain of timed armors is separate, in
 `player_armor_state_tick` (0x83D80).  The deleted `infinite_fuel` pack
 forced this function to return 1 without consuming
-(Modkit's `Finished/LEARNINGS_HISTORY.md` §
+(Modkit's archived `Finished/LEARNINGS_HISTORY.md`, read-only, §
 "Retired physics sliders").
 
 ### Air fluttering: a mid-air recast gives the flaps back (2026-10-24, Step R2.18)
