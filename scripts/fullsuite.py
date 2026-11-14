@@ -817,25 +817,28 @@ def _env(cache: Path | None = None) -> dict[str, str]:
 
 
 def content(wt: Path, folder: Path) -> tuple[str | None, str]:
-    """The content source a run's pytest and flake stage take (Step 4.58b), None to leave their environment's,
-    and the log's line naming it: ``$AZURKIT_CONTENT_SOURCE`` when set; else Azurik-Custom-Content at the commit
-    ``wt``'s own tests.yml pins (``perf.content_commit``: CI's ``CONTENT_COMMIT``), unpacked into the new folder
-    ``folder`` from the clone beside the main checkout (``perf.content_at``: a ``git archive`` of its objects, never
-    its working tree, index or refs; a commit it lacks fetched into a scratch repository there), so a run here tests
-    the content CI does, not whatever the clone has checked out (main 54ee900f passed here on the clone's v10 and
-    failed CI on its pinned v11); with no clone, None (a test that needs one says so). ``RuntimeError`` names a
-    commit it can't unpack or fetch."""
+    """The content source a run's pytest and flake stage take (Step 4.58b), None to leave their environment's, and the
+    log's line naming it and where it came from: ``$AZURKIT_CONTENT_SOURCE`` when set; else Azurik-Custom-Content at the
+    commit ``wt``'s own tests.yml pins (``perf.content_commit``: CI's ``CONTENT_COMMIT``), unpacked into the new folder
+    ``folder`` from the clone beside the main checkout (``perf.content_at``: a ``git archive`` of its objects, never its
+    working tree, index or refs; a commit it lacks fetched into a scratch repository there), so a run here tests the
+    content CI does, not whatever the clone has checked out (main 54ee900f passed here on the clone's v10 and failed CI
+    on its pinned v11); with no clone, None (a test that needs one says so). ``RuntimeError`` names a commit it can't
+    unpack or fetch."""
     if source := os.environ.get(CONTENT):
         return None, f"fullsuite: content from ${CONTENT}: {source}"
     if (clone := perf.clone_of(wt)) is None:
         return None, "fullsuite: content: no Azurik-Custom-Content clone beside the main checkout"
     commit, how = perf.content_commit(clone, wt)
+    whence = f"a git archive of {clone}" if subprocess.run(   # where perf.content_at takes it from
+        ["git", "-C", str(clone), "cat-file", "-e", f"{commit}^{{commit}}"], capture_output=True).returncode == 0 \
+        else f"fetched from {perf.CONTENT_URL} (not in {clone})"
     try:
         into = perf.content_at(clone, commit, folder / commit)
     except Exception as exc:   # whatever stops it (the fetch, the archive, its unpacking) stops the run by name
         raise RuntimeError(f"content {commit} ({how}) can't be read from {clone} or fetched from "
                            f"{perf.CONTENT_URL}: {type(exc).__name__}: {str(exc)[:300]}: no pytest ran") from exc
-    return str(into), f"fullsuite: content {commit[:12]} ({how}), a git archive of {clone}: {into}"
+    return str(into), f"fullsuite: content {commit[:12]} ({how}), {whence}: {into}"
 
 
 def lint(wt: Path) -> tuple[bool, str]:

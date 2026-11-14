@@ -568,14 +568,15 @@ def test_a_gate_run_and_its_flake_stage_install_the_content_ci_pins_not_what_the
     of the clone beside the main checkout, though the clone has a later
     commit checked out and an edit of its own (main 54ee900f passed here on
     the clone's v10 and failed CI on its pinned v11). The log's first line
-    names the commit, the clone is as it was, and the unpacked tree goes
-    with the run, and a tree a killed run left (SIGKILL, SIGTERM, a reboot)
+    names the commit and where it came from (a commit the clone lacks is
+    fetched), the clone is as it was, and the unpacked tree goes with the
+    run, and a tree a killed run left (SIGKILL, SIGTERM, a reboot)
     doesn't stop the same key's retry. A pinned commit the clone lacks and
     can't fetch ends the run ``error``, naming it, with no pytest run."""
     _quick_flake(monkeypatch)
     monkeypatch.setattr(fullsuite, "WORKERS", 0)
-    # fullsuite's own perf module (it imports ``perf`` from its folder, not ``scripts.perf``), so no case fetches
-    monkeypatch.setattr(fullsuite.perf, "CONTENT_URL", str(remote := tmp_path / "no-remote"))
+    # fullsuite's own perf module (it imports ``perf`` from its folder, not ``scripts.perf``): no case reaches GitHub
+    monkeypatch.setattr(fullsuite.perf, "CONTENT_URL", str(remote := tmp_path / "content-remote"))
     monkeypatch.delenv(fullsuite.CONTENT, raising=False)
     clone, wt = tmp_path / "Azurik-Custom-Content", tmp_path / "AzurKit"   # the clone beside the main checkout
     _git(tmp_path, "init", "-q", "-b", "main", str(clone))
@@ -584,6 +585,11 @@ def test_a_gate_run_and_its_flake_stage_install_the_content_ci_pins_not_what_the
         _git(clone, "add", "manifest.json")
         _git(clone, "commit", "-q", "-m", name)
     pinned = _git(clone, "rev-parse", "HEAD~1")
+    _git(tmp_path, "init", "-q", "-b", "main", str(remote))   # content's main, with a commit the clone lacks
+    (remote / "manifest.json").write_text("fetched", encoding="utf-8")
+    _git(remote, "add", "manifest.json")
+    _git(remote, "commit", "-q", "-m", "fetched")
+    fetched = _git(remote, "rev-parse", "HEAD")
     (clone / "manifest.json").write_text("the clone's own edit", encoding="utf-8")
     _git(tmp_path, "init", "-q", str(wt))
     (wt / "test_x.py").write_text("import os\nfrom pathlib import Path\n\n\ndef test_content():\n    assert (Path(os."
@@ -607,11 +613,15 @@ def test_a_gate_run_and_its_flake_stage_install_the_content_ci_pins_not_what_the
         m["log"] = meta.with_suffix(".log").read_text(encoding="utf-8")
     m = got[pinned]
     assert (m["state"], m["exit_code"], m["flake"]["passed"], m["flake"]["done"]) == ("done", 0, True, fullsuite.FLAKE_RUNS)
-    assert m["log"].startswith(f"fullsuite: content {pinned[:12]} (pinned), a git archive of "), m["log"][:300]
+    assert m["log"].startswith(f"fullsuite: content {pinned[:12]} (pinned), a git archive of {clone}: "), m["log"][:300]
     m = got["0" * 40]
     assert (m["state"], fullsuite.status_code(m), "test_x" in m["log"]) == ("error", 1, False)
     assert m["note"].startswith(f"content {'0' * 40} (pinned) can't be read from ") and m["note"].endswith("no pytest ran")
     assert f" or fetched from {remote}: " in m["note"], m["note"]   # the stand-in remote, never GitHub's
+    (wt / perf.WORKFLOW).write_text(f"env:\n  CONTENT_COMMIT: {fetched}   # its pin\n", encoding="utf-8")
+    into, said = fullsuite.content(wt, tmp_path / "fetched.content")
+    assert said == f"fullsuite: content {fetched[:12]} (pinned), fetched from {remote} (not in {clone}): {into}"
+    assert (Path(into) / "manifest.json").read_text(encoding="utf-8") == "fetched"
     assert state() == before
 
 
