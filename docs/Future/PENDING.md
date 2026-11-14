@@ -678,6 +678,7 @@ memory peaks stay strict. The gate writes both kinds of row to
     (1.1.1's full gate: 4.41, 4.26 and 4.54 s), and no page lever moves
     them (group 8's frequent-ops measurement, 11-13). Chromium's pass
     under the line, Firefox's on its bar (D1053).
+    No more research on them (D1263).
 46. **A worker's record shown on the newest ask** (4.54e): on the site,
     for up to about 2.5 s after a Check, its "Keeping the Check" records
     show on the newest ask, so an unrelated one answered meanwhile (an
@@ -823,7 +824,7 @@ Standing asks:
 
 What only the owner does:
 
-9. File the Chromium bug from its draft (D1111).
+9. ~~File the Chromium bug from its draft~~: dropped (D1269).
 10. ~~Post the announcements~~: none is drafted (D1208).
 11. The hub notes, only when the owner says (D134).
 12. ModMG's disk use in `/private/tmp` (D1140).
