@@ -77,6 +77,23 @@ def build(check: bool = False) -> list[Path]:
         if not lib.is_file() or lib.read_bytes() != data:
             stale.append(lib)
             if not check:
-                lib.parent.mkdir(parents=True, exist_ok=True)
-                lib.write_bytes(data)
+                _replace(lib, data)
     return stale
+
+
+def _replace(lib: Path, data: bytes) -> None:
+    """Write ``data`` beside ``lib`` and rename it over, so the path takes a
+    new file and the old one keeps its bytes: macOS kills the next process
+    to load a dylib rewritten in place (SIGKILL until the file is a new
+    inode), and one that loaded it keeps its pages. The scratch file goes on
+    any error."""
+    lib.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{lib.name}.", dir=lib.parent)
+    try:
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        os.chmod(tmp, 0o644)   # mkstemp's 0600; the libraries are committed 100644
+        os.replace(tmp, lib)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise

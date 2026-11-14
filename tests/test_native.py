@@ -11,6 +11,7 @@ import collections
 import inspect
 import json
 import math
+import os
 import random
 import re
 
@@ -1622,6 +1623,44 @@ def test_an_engine_process_whose_twin_answers_shows_in_its_servers_report_and_fa
 
 def test_nativekit_rebuilds_each_committed_library_to_its_bytes():
     assert nativekit.build(check=True) == []
+
+
+def test_nativekit_writes_each_library_beside_and_renames_it_over_so_the_old_file_keeps_its_bytes(monkeypatch, tmp_path):
+    """A dylib rewritten in place killed the next process to load it
+    (SIGKILL until the file had a new inode, 4.6c): each stale library is a
+    new file renamed over the old, which a holder (a link here, which works
+    on Windows too, where an open file can't be renamed over) still reads
+    whole, and no scratch file is left, also when the rename fails."""
+    out = tmp_path / "out"
+    monkeypatch.setattr(nativekit, "OUT", out)
+    monkeypatch.setattr(nativekit, "PAGE_OUT", out / "md5.wasm")
+    monkeypatch.setattr(nativekit, "compile", lambda name: f"new {name}".encode())
+    monkeypatch.setattr(nativekit, "_zig", lambda name, *_: f"new {name}".encode())
+    names = sorted([*nativekit.TARGETS, "md5.wasm"])
+    out.mkdir()
+    (tmp_path / "held").mkdir()
+    for name in names:
+        (out / name).write_bytes(f"old {name}".encode())
+        os.link(out / name, tmp_path / "held" / name)
+    before = {name: (out / name).stat().st_ino for name in names}
+
+    assert sorted(lib.name for lib in nativekit.build()) == names
+    for name in names:
+        assert (out / name).stat().st_ino != before[name], name
+        assert (tmp_path / "held" / name).read_bytes() == f"old {name}".encode()
+        assert (out / name).read_bytes() == f"new {name}".encode()
+    assert sorted(p.name for p in out.iterdir()) == names
+
+    def refused(*_):
+        raise OSError("refused")
+
+    monkeypatch.setattr(nativekit, "compile", lambda name: f"newer {name}".encode())
+    with monkeypatch.context() as m:
+        m.setattr(os, "replace", refused)
+        with pytest.raises(OSError, match="refused"):
+            nativekit.build()
+    assert sorted(p.name for p in out.iterdir()) == names
+    assert all((out / name).read_bytes() == f"new {name}".encode() for name in names)
 
 
 def test_each_macos_library_leaves_room_after_its_load_commands_for_the_freezes_signature():
