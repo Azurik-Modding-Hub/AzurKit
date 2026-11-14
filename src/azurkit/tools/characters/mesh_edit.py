@@ -5796,10 +5796,11 @@ def _shares(points: list[Vec], sides: list[_Placed], side_of: list[list[int]], r
     """The compiled kernel's (``core.native.shares``) pushes' and rounds'
     shares of each of ``points`` for :func:`_share_rows`, ``width`` doubles
     a point, or ``None`` where the twin answers (a push the kernel doesn't
-    read, a side :func:`_ray_row` gives no row, a number not a float)."""
+    read, a side :func:`_ray_row` gives no row, a number not a float, sides
+    and their names out of step: the twin's zip stops at the shorter)."""
     from array import array
 
-    if native.library() is None:
+    if native.library() is None or len(sides) != len(side_of) or len(rounds) != len(round_of):
         return None
     try:
         push = array("d", [x for pl in sides for x in _field_row(pl)])

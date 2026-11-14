@@ -1252,18 +1252,23 @@ def test_the_rig_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
         assert got == [_rig_answer(case) for case in cases]
 
 
-@pytest.mark.parametrize("case", ["a share of None", "a share as text", "a position as text"])
+@pytest.mark.parametrize("case", ["a share of None", "a share as text", "a position as text", "names of no round"])
 def test_an_input_the_rig_kernels_dont_take_answers_as_their_twins(case, monkeypatch):
-    """What a caller of ``native/rig.c``'s kernels hands them that the
-    twins' arithmetic refuses (a share or position numpy's float() would
-    take) runs the twin: the same answer, or the same error."""
+    """What a caller of ``native/rig.c``'s kernels or ``az_shares`` hands
+    them that they don't take (a share or position the twins' arithmetic
+    refuses but numpy's float() would take; a round's names with no round,
+    which the twin's zip leaves) runs the twin: the same answer, or the
+    same error."""
     from azurkit.tools.characters import jiggle
+    from azurkit.tools.characters import mesh_edit as me
 
     plain = {(0, 0): (0.0, 0.0, 0.0), (0, 1): (0.01, 0.0, 0.0), (1, 0): (0.005, 0.0, 0.0)}
     riders = {(1, 0): ((0,), 0.05, "")}
     call ={"a share of None": lambda: jiggle._ridden(riders, {(0, 0): None, (0, 1): 0.5}, plain, {0}),
             "a share as text": lambda: jiggle._ridden(riders, {(0, 0): "0.5", (0, 1): 0.5}, plain, {0}),
-            "a position as text": lambda: jiggle._rides(riders, plain | {(0, 1): ("0.01", 0.0, 0.0)}, (0,), 0.05)}[case]
+            "a position as text": lambda: jiggle._rides(riders, plain | {(0, 1): ("0.01", 0.0, 0.0)}, (0,), 0.05),
+            "names of no round": lambda: me._share_rows(([(0.01, 0.0, 0.0)], [0], set(), {}, [], [], [], [[0]], [], 1),
+                                                        (0, 1))}[case]
 
     def answer():
         try:
