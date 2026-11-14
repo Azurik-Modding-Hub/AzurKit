@@ -37,23 +37,25 @@ The next session starts here (D1192), so 1.1 can follow.
    rerun and no line change but the owner's; on CI's runners the tests keep
    their bounds. Rounds go on until every path holds its line with margin;
    then one real-Safari first Check, in one window (D1089, D1202).
-2. **Where it stands** (4.37a, 11-10, with booblord v8's parts installed):
-   S78, her own copy, 5.25 s in WebKit, 5.70 s in Chromium and 11.74 s in
-   Firefox; A92 5.44 s in the app. On the site's engine (Pyodide on Node) a
-   first Check with no parts takes about 100 s, after Scale x1.2 29.9 s, a
-   texture row 37.1 s, a colour row 7.0 s and a Shape slider 233.0 s. Two of
-   round 6's kernels have landed: the springs (4.37e3) and the body writes
-   (4.37e4).
-3. **The plan** (4.37e's design): round 6's other lanes: A, a shaped copy's
-   places from its plain body (4.37e1, built, its site A/B and goldens pin
-   owed); B2, a Jiggle-tab edit keeps every part (6); the mesh plan, rig
-   and paint kernels (D1, D2, E, G), work ahead (H) and the clip import
-   (K). After round 6 every path is under 30 s in each browser but a Shape
-   edit (about 72, 76 and 94-144 s in WebKit, Chromium and Firefox) and
-   heavy content with no parts (about 40, 43 and 52-80 s), estimated.
-   Round 7 (R7a-c: whole-function ports of the plan and the rig, the glue,
-   the site's helper workers) is designed on azurik-judge (D1207) once
-   round 6 is measured.
+2. **Where it stands** (11-14, Steps 4.55b-4.55d's stack with booblord
+   v10's parts, measured on this Mac): her own copy's first Check reads
+   S78 7.5-8.4 s in WebKit and A92 3.9-4.0 s in the app (1.1.1's and
+   4.52a's receipts). A Check after a Shape edit reads S84 57.6 s in
+   WebKit, 60.5 s in Chromium and 80.6 s in Firefox, A98 21.1 s in the app;
+   one with no parts S88 53.3, 57.2 and 75.8 s; a reshape's first pictures
+   S52 58.2, 58.9 and 81.5 s, A60 30.2 s; its first build A31 22.6 s; the
+   quick preview A95 3.3 s with a moving bar (main: S84 98-108 s in
+   WebKit, A98 40-46 s, A60 43-50 s, A31 41-43 s, A95 9-12 s with none).
+   Natively and serially a Shape-edit Check takes 20.7-20.8 s, from
+   24.0-26.7 s on the stack below the subdivision's kernel.
+3. **The plan** (4.37e's design): round 6's A (4.37e1), C (4.37e3), F
+   (4.37e4) and B2 (4.37m1) landed. D1, E and D2 are built (Steps
+   4.55b-4.55d: the mesh plan's position steps, the rig and the
+   subdivision compiled, bit for bit their twins, and the quick preview's
+   moving bar), waiting for their parts re-record (4.55e) and the gate.
+   Open: G (the paint for wasm), H (the Check ahead), K (the clip import),
+   round 5's pictures-first (r5g) and R7b (later by reference). 4.37e's
+   forecasts are superseded by item 2's numbers; round 7 is undesigned.
 4. **Levers named so far:**
    - a narrower key for a texture or colour edit, which redoes both
      restyles and the LODs (about 15 s, 4.6n): 4.37m's second lane, after
@@ -79,12 +81,12 @@ The next session starts here (D1192), so 1.1 can follow.
    4.37m1 lands, then keyed on `parts.VERSION` instead of on what draws
    them, which as built makes every later `tools/characters` edit owe a
    characters re-record.
-8. **The Firefox Shape-edit gap** (D1209, D1244): its line is now a rare
-   Check's 90 s (S84). It read 256 s in Firefox and 180 s in Chromium on
-   11-11, before round 6 landed (about 160 s and 115-120 s now, estimated
-   from 4.37e0's ratios, unmeasured); WebKit reads 113-117 s. Main's
-   every-browser run measures it against 90 s; one still over goes under
-   group 9's known flaws with its number (D835), with no full engine port.
+8. **The Firefox Shape-edit gap** (D1209, D1244): its line is a rare
+   Check's 90 s (S84). With Steps 4.55b-4.55d's kernels in it reads 57.6 s
+   in WebKit, 60.5 s in Chromium and 80.6 s in Firefox (11-14, one sample
+   each; 11-11: 113-117, 180 and 256 s), each under 90 s with a moving
+   bar, so no browser's goes under group 9's known flaws. Firefox's has
+   the least margin (9.4 s).
 9. **Paths with no perf row** (4.49a's design): a Check after a sound edit
    (frequent; 2.6 s natively in 4.37m1's A/B), after a texture row or
    Import PNG (about 15 s natively, 37.1 s on the site's engine), and after
