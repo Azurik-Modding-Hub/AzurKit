@@ -1043,9 +1043,11 @@ def test_a_changed_path_times_only_the_perf_ops_of_the_groups_that_load_it_and_t
     for path in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs", "web/art/1-x/w1.png", "web/art/icons.css"):
         assert perf.select([path]) == pairs(both, ("start", "image", "randomizer", "tracker")), path
     assert perf.select(["web/parts.mjs"]) == pairs(("site",), ("start", "characters", "heavy"))
-    for path in ("web/app.mjs", "web/worker.mjs", "web/characters.mjs", "web/variants.mjs", "src/azurkit/core/native.py",
-                 "tests/_perf.py", "tests/_page.py", "scripts/perf.py"):
-        assert perf.select([path]) - pairs(both, ("heavy",)) == every, path
+    for path in ("web/app.mjs", "web/worker.mjs"):   # every op but the heavy ones (D1280)
+        assert perf.select([path]) == every, path
+    for path in ("web/characters.mjs", "web/variants.mjs", "src/azurkit/core/native.py", "tests/_perf.py",
+                 "tests/_page.py", "scripts/perf.py"):
+        assert perf.select([path]) == pairs(both, perf.EVERY), path
     assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set()
     imports = re.compile(r'^import [^;]*? from "\.{1,2}/([\w./]+\.mjs)";', re.M)
     importers = {}
