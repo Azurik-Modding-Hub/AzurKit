@@ -2401,7 +2401,7 @@ FX_ADD = """() => { const a = document.getElementById("var-fx-add"); if (!a.open
 FX_SHIELD = "document.querySelector('#var-fx-add button[data-template=\"bubble\"]:not(:disabled)')"
 FX_TYPED = """(x) => { const b = document.querySelector("#var-fx-rows .var-fx-param input[type=text]");
   b.value = String(x); b.dispatchEvent(new Event("change")); }"""
-YOURS =(("mine_a", "keylord"), ("mine_b", "golem"), ("mine_c", "town_female_2"))
+YOURS = (("mine_a", "keylord"), ("mine_b", "golem"), ("mine_c", "town_female_2"))
 
 
 def _recipe_file(d: Driver, name: str, base: str = "keylord") -> Path:
