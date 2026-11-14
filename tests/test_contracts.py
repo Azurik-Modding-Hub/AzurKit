@@ -233,7 +233,7 @@ SCRIPT = re.compile(r"(?<![\w/.-])scripts/\w+\.py\b")
 OWED_SCRIPTS = {"tools/characters/_player_kit.py": "scripts/townsfolk_kit.py"}
 """Messages that still name a script the checkout lacks, each the file and the script: the townsfolk kit's refusal
 names Modkit's retired authoring script, and an edit there moves ``parts.VERSION``, so it rides on the next re-record
-of the shipped parts. An owed message fixed comes off this map."""
+of the shipped parts (PENDING's known flaw 48). An owed message fixed comes off this map."""
 
 
 def missing_scripts(source: str, rel: str) -> list[tuple[str, int, str]]:
@@ -250,7 +250,7 @@ def test_no_message_in_the_engine_names_a_script_the_checkout_lacks():
     """The planner loader's ``contact_stale`` issue told its reader to re-measure with Modkit's
     ``scripts/l3_contact.py``, a script AzurKit never had: it names devkit's ``python -m devkit reach l3-contact``,
     and no string under ``src/azurkit`` but a docstring names a ``scripts/<name>.py`` the checkout lacks, an
-    f-string's parts included, but :data:`OWED_SCRIPTS`'."""
+    f-string's parts included, but for those :data:`OWED_SCRIPTS` lists."""
     assert missing_scripts('"""scripts/gone.py"""\nx.issue("k", f"{a}", "(re-measure: scripts/l3_contact.py)")\n'
                            'raise OSError(f"{p}: " "scripts/sdk_api.py writes it, see x/scripts/gone.py")', "x.py") == [
         ("x.py", 2, "scripts/l3_contact.py")]
