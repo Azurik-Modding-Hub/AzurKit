@@ -1987,7 +1987,8 @@ are the Characters section's.
   and worked out kept after its answer, a refusal's too). A build's changed files are hashed there too (`sdk.image_staged`,
   `edits.staged`), one at a time, each handed over only for its digest. It posts its start's steps, a kept image's walk and a build's, a
   plan's and a tracker's stages as `core/progress.py`'s record, a Check's four keeping steps after its answer
-  (its parts and its dress, each worked out, then written to IndexedDB) and its pictures each as it starts, since a
+  (its parts and its dress, each worked out, then written to IndexedDB) and its pictures (only right after a Check it
+  answered: a replacement worker refuses a cancelled Check's with none) each as it starts, since a
   Check asked meanwhile waits behind them (in the pool's queue for that worker, behind the pictures it holds), and its
   bar moves with them (Step 4.54e: S79), and each build's answer reports the heap,
   by which the pool keeps the worker or replaces it. A worker whose engine's wasm traps (Pyodide's fatal error: each

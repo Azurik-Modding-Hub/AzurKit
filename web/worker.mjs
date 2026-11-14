@@ -1123,12 +1123,12 @@ function library({ engine }, { folders }) {
   for (const why of engine({ type: "library", folders }).dropped) console.warn(`AzurKit left out ${why}`);
 }
 
-// A Characters tab's call, the image mounted for it (none picked: no image).
-function character(loaded, data) {
+// A Characters tab's call, the image mounted for it (none picked: no image); drawing: a Check's own pictures.
+function character(loaded, data, drawing = false) {
   const { py, engine } = loaded;
   if (!data.file) return post({ type: "reply", call: data.call, reply: engine(data) });
   if (data.type === "variant_check") return checked(loaded, data);
-  if (data.type === "variant_pictures") keeping(4, "Drawing the variant");   // the last of a Check's after its answer
+  if (drawing) keeping(4, "Drawing the variant");   // the last of a Check's after its answer
   mounted(py, data.file, (iso) => post({ type: "reply", call: data.call, reply: engine({ ...data, iso }) }));
 }
 
@@ -1139,8 +1139,11 @@ function character(loaded, data) {
 // ones it took and worked out kept after its answer, a refusal's too (a refusal itself is never a part). Those four
 // steps, then its pictures (character()), are each posted as they start (keeping()), since a Check asked meanwhile
 // waits behind them (in the pool's queue for this worker, behind the pictures it holds) though the engine answers it
-// at once: its bar moves with them (D980; S79 showed one line with no percent for up to 3.4 s, Step 4.54e).
+// at once: its bar moves with them (D980; S79 showed one line with no percent for up to 3.4 s, Step 4.54e). Its
+// pictures only when they come right after a Check it answered: those of one cancelled or stopped reach a worker that
+// keeps no Check, which refuses them, and the line would show on the ask behind them (a Build clicked again).
 const keeping = (done, label = "Keeping the Check") => stage("dress", label, done, 5);
+let checkedLast = false;   // whether this worker's last ask was a Check it answered (handle() reads and clears it)
 async function checked({ py, engine }, data) {
   let hint = null, parted = null;
   try {
@@ -1170,6 +1173,7 @@ async function checked({ py, engine }, data) {
     } catch {}   // a dress not kept is a dress made again
   }
   keeping(4);
+  checkedLast = !("refused" in reply || reply.refusal);
 }
 
 // A file picked to replace one of the image's, in memory for one ask or build, and its sha256 in WebCrypto.
@@ -1400,6 +1404,8 @@ try {
       }).catch((error) => post(failure(error, data)));
   };
   const handle = (data) => {
+    const drawing = checkedLast && data.type === "variant_pictures";   // a Check's own pictures, asked right after it
+    checkedLast = false;
     try {
       if (data.type === "warm") return void loaded.engine(data);
       if (data.type === "content") return content(loaded, data);
@@ -1407,7 +1413,7 @@ try {
       if (CHARACTER.includes(data.type) || VARIANTS.includes(data.type)) {   // answered whatever happens: the page waits
         const refused = (error) => post({ type: "reply", call: data.call, reply: refusal(error) });
         try {
-          return character(loaded, data)?.catch(refused);
+          return character(loaded, data, drawing)?.catch(refused);
         } catch (error) {
           return refused(error);
         }

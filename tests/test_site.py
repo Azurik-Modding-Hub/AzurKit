@@ -1650,6 +1650,37 @@ def test_a_check_asked_while_the_last_ones_dress_is_kept_and_drawn_shows_a_bar_t
         served.close()
 
 
+def test_pictures_a_worker_that_kept_no_check_refuses_show_no_drawing_line_on_the_ask_behind_them(
+        browser, site, usa_iso):
+    """A Check's pictures, asked with it, go to a worker that keeps no Check where that Check ended with no answer
+    (Build's Cancel during it, or its worker stopped: the pool's replacement takes them), which refuses them, and the
+    page draws nothing. The worker posts "Drawing the variant" only for the pictures right after a Check it answered, so
+    an ask waiting behind them (a Build clicked again; the pickers here) never shows that line (Step 4.54e's review)."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.pick(page, "#iso", usa_iso)
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        refused, behind, lines = page.evaluate("""async () => {
+            const row = document.getElementById("progress-row"), line = document.getElementById("progress-line");
+            const lines = [], file = azurkit.file;
+            new MutationObserver(() => {
+                if (!row.hidden && lines.at(-1) !== line.textContent) lines.push(line.textContent);
+            }).observe(row, { subtree: true, childList: true, characterData: true, attributes: true });
+            const cancelled = Promise.resolve({ refused: "Cancelled" });   // the Check's answer: no pictures ask shown
+            const views = azurkit.engine.call("variant_pictures", { file, given: { name: "booblord", packs: [] } },
+                                              { after: cancelled });
+            const pickers = azurkit.engine.call("pickers", { file, given: {} });
+            return [(await views).refused ?? null, (await pickers).refused ?? null, lines];
+        }""")
+        assert (refused or "").endswith("no Check of it is kept (none yet, or it changed since): Check with game data "
+                                        "dresses it") and behind is None, (refused, behind)
+        assert not any(seen.startswith("Drawing the variant") for seen in lines), lines
+        _page.check_csp(page)
+    finally:
+        served.close()
+
+
 CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length,
     document.getElementById("char-count").textContent, ["char-front", "char-back"].map((id) => document.getElementById(id)
     .getContext("2d").getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0)),
