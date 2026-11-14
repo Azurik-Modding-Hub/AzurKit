@@ -45,9 +45,10 @@ The next session starts here (D1192), so 1.1 can follow.
    one with no parts S88 53.3, 57.2 and 75.8 s; a reshape's first pictures
    S52 58.2, 58.9 and 81.5 s, A60 30.2 s; its first build A31 22.6 s; the
    quick preview A95 3.3 s with a moving bar (main: S84 98-108 s in
-   WebKit, A98 40-46 s, A60 43-50 s, A31 41-43 s, A95 9-12 s with none).
-   Natively and serially a Shape-edit Check takes 20.7-20.8 s, from
-   24.0-26.7 s on the stack below the subdivision's kernel.
+   WebKit, A98 40-46 s, A60 43-50 s, A31 41-43 s, A95 9-11 s, its bar
+   moving only sometimes). Natively and serially a Shape-edit Check takes
+   20.7-20.8 s, from 24.0-26.7 s on the stack below the subdivision's
+   kernel.
 3. **The plan** (4.37e's design): round 6's A (4.37e1), C (4.37e3), F
    (4.37e4) and B2 (4.37m1) landed. D1, E and D2 are built (Steps
    4.55b-4.55d: the mesh plan's position steps, the rig and the
