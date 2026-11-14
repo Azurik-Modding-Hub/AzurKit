@@ -182,8 +182,10 @@ ALL = {(host, group) for host in ("app", "site") for group in EVERY}   # --all's
 #: image chosen ask them. The characters paths, whose rows name the heavy ops' pair (D1280): the swap, its parts and
 #: shipped answers (``tools/characters/``); the compiled kernels it runs, their twins and their one library
 #: (``core/native.py``, ``core/_native/``: a kernel's C source lands with its library, ``nativekit --check``, so
-#: ``native/`` needs no row); its sines and cosines (``core/fdlibm.py``, AZ-830); the app's pool for its parallel work
-#: and its kept answers (``procpool.py``, ``swapcache.py``); the Characters tab, its Variants view and the site
+#: ``native/`` needs no row); its sines and cosines (``core/fdlibm.py``, AZ-830); the XBR graphs and writers it dresses
+#: with (``core/xbr/``: ``clone.py`` only the swap imports, ``append.py``, ``graph.py`` and ``nodes.py`` nearly so);
+#: the store its parts and answers are kept in (``store.py``); the app's pool for its parallel work and its kept
+#: answers (``procpool.py``, ``swapcache.py``); the Characters tab, its Variants view and the site
 #: worker's Check parts (``characters.mjs``, ``variants.mjs``, ``variants/``, ``parts.mjs``; ``web/characters/``'s
 #: pictures are drawn, not run).
 REACH = (*((path, ("app", "site"), EVERY) for path in ("tests/_perf.py", "tests/_page.py", "scripts/perf.py")),
@@ -193,7 +195,8 @@ REACH = (*((path, ("app", "site"), EVERY) for path in ("tests/_perf.py", "tests/
          ("src/azurkit/tools/randomizer/", ("app", "site"), ("randomizer", "tracker")),
          ("src/azurkit/tools/characters/", ("app", "site"), ("characters", "build", HEAVY_GROUP)),
          *((path, ("app", "site"), EVERY) for path in ("src/azurkit/core/native.py", "src/azurkit/core/_native/",
-                                                         "src/azurkit/core/fdlibm.py")),
+                                                         "src/azurkit/core/fdlibm.py", "src/azurkit/core/xbr/",
+                                                         "src/azurkit/store.py")),
          ("src/", ("app", "site"), None),
          *((path, ("app", "site"), TRACKED) for path in ("web/tracker.mjs", "web/mapview.mjs", "web/art.mjs", "web/art/")),
          ("web/parts.mjs", ("site",), ("start", "characters", HEAVY_GROUP)),

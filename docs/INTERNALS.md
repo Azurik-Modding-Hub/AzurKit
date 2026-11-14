@@ -2449,8 +2449,9 @@ are the Characters section's.
   change: their own pair, `HOST:heavy`, `perf.picked`, which only these
   rows name: `tools/characters/`; `core/native.py`, `core/_native/` and
   `core/fdlibm.py`, the swap's kernels and sines, a kernel's C source landing
-  with its library; the app's `procpool.py` and `swapcache.py`, its pool and
-  kept answers; `characters.mjs`, `variants.mjs`, `web/variants/` and
+  with its library; `core/xbr/`, the XBR graphs and writers it dresses with,
+  and `store.py`, where its parts and answers are kept; the app's
+  `procpool.py` and `swapcache.py`, its pool and kept answers; `characters.mjs`, `variants.mjs`, `web/variants/` and
   `parts.mjs`; and the perf gate's own three files), so any other change
   leaves them to main's `--all` (a heavy op named in `--ops` needs no
   `HOST:heavy`; the release's tree beside times only ops the head timed)

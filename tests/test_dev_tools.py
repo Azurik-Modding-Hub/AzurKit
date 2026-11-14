@@ -1066,7 +1066,8 @@ def test_a_changed_area_perf_stage_times_the_heavy_check_ops_only_when_a_charact
     """D1280: the heavy ops (``_perf.Op.heavy``: every Check after an edit,
     A98-A116 and S84-S94, and the like) take their own pair, ``HOST:heavy``,
     which only a characters path reaches (the swap, its kernels and their
-    library, its sines, the app's pool and kept answers for it, the
+    library, its sines, its XBR graphs and writers, the store its parts
+    are kept in, the app's pool and kept answers for it, the
     Characters tab's modules and the site worker's Check parts, and the
     perf gate's own files), each for its row's hosts and groups; a
     randomizer, page-wide, engine-wide or docs path times every other op it
@@ -1080,6 +1081,7 @@ def test_a_changed_area_perf_stage_times_the_heavy_check_ops_only_when_a_charact
     for paths, hosts in ((["src/azurkit/tools/characters/mesh_edit.py", "AGENTS.md"], ("app", "site")),
                          (["src/azurkit/core/_native/macos-arm64.dylib"], ("app", "site")),
                          (["src/azurkit/core/fdlibm.py"], ("app", "site")),
+                         (["src/azurkit/core/xbr/graph.py"], ("app", "site")), (["src/azurkit/store.py"], ("app", "site")),
                          (["src/azurkit/app/procpool.py"], ("app",)), (["src/azurkit/app/swapcache.py"], ("app",)),
                          (["web/variants/shape.mjs"], ("app", "site")), (["web/characters.mjs"], ("app", "site")),
                          (["tests/_perf.py"], ("app", "site"))):
