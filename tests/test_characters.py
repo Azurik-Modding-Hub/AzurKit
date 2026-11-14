@@ -2062,7 +2062,8 @@ def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, eur
     (in their grades), the no-image view itself, and each body's two pictures, ``picker.preview``'s (the app's
     draw) from USA's image, and from Europe's the same bytes (off the recording host, close enough:
     :func:`tests.test_art._apart`, D1016; Windows' zlib-ng deflates otherwise). A built-in variant's are drawn again
-    only when its recipe changes (its dress takes minutes), so here they are the recorded ones."""
+    only when its recipe, what dresses it or the drawing changes (``record_goldens.recipe_keys``: its dress takes
+    minutes), so here they are the recorded ones."""
     from azurkit.tools.characters import picker
 
     made = record_goldens.characters(record_goldens.Images({gate.USA: usa_iso, gate.EUROPE: europe_iso}), 1)
@@ -2147,19 +2148,29 @@ def test_each_built_ins_notes_are_short_and_for_players():
             r"\b[DWXQ]\d+|Step|owner|\"|triangle|sculpt|recipe", variant.notes), name
 
 
-def test_a_variants_shipped_pictures_are_drawn_again_when_the_recipe_it_is_from_changes():
+def test_a_variants_shipped_pictures_are_drawn_again_when_its_recipe_what_dresses_it_or_the_drawing_changes(
+        monkeypatch):
     """``scripts/record_goldens.py`` draws a built-in variant's shipped pictures again when its key in
     ``web/characters/index.json`` changes: the sha256 of its recipe as it builds, so booblord's three looks
     ``from`` her are drawn again with her (Step 4.3: her vase dropped, which none of their own entries names),
-    and beamlord's, from none, is his entry's but its title and notes, whose change draws nothing."""
+    and beamlord's, from none, is his entry's but its title and notes, whose change draws nothing; and of
+    ``parts.VERSION`` and the drawing's files (``DRAWN``), so a change to how the swap dresses or the tab draws a
+    body dresses all five again (Step 4.46a1: kept pictures were held only to themselves), and a file neither
+    reads (the editor's, a grade) none."""
     doc = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))
     keys = record_goldens.recipe_keys(doc)
-    assert keys["beamlord"] == _sha256(json.dumps({k: v for k, v in doc["beamlord"].items()
-                                                   if k not in _player_variants.LABELS}, sort_keys=True).encode())
+    here = Path(parts.__file__).parent
+    drawn = _sha256(b"".join(hashlib.sha256((here / n).read_bytes()).digest() for n in record_goldens.DRAWN))
+    assert keys["beamlord"] == _sha256(json.dumps({"drawn": drawn, "parts": parts.VERSION, "recipe": {
+        k: v for k, v in doc["beamlord"].items() if k not in _player_variants.LABELS}}, sort_keys=True).encode())
+    assert {f"tools/characters/{n}" for n in record_goldens.DRAWN} <= set(parts.NOT_SOURCES)
     assert record_goldens.recipe_keys({n: r | {"notes": "another", "title": "Another"} for n, r in doc.items()}) == keys
-    doc["booblord"]["mesh"]["drop"] = []
-    assert sorted(n for n, key in record_goldens.recipe_keys(doc).items() if key != keys[n]) == [
+    booblord = json.loads(json.dumps(doc))
+    booblord["booblord"]["mesh"]["drop"] = []
+    assert sorted(n for n, key in record_goldens.recipe_keys(booblord).items() if key != keys[n]) == [
         "booblord", "booblord_high", "booblord_high_human", "booblord_human"]
+    monkeypatch.setattr(parts, "VERSION", "another")
+    assert all(key != keys[n] for n, key in record_goldens.recipe_keys(doc).items())
 
 
 def test_the_g4_buttons_values_are_their_goldens_garret_match(usa_iso):

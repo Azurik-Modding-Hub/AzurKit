@@ -123,6 +123,10 @@ ULPS, NEAR_ZERO = 4, 1e-9   # how far a float may be off, at most: "a few ULPs",
 ART = "web/art"   # the tracker's shipped pictures, from the checkout's root
 PICTURES = "web/characters"   # the Characters tab's
 SPECIES = "src/azurkit/tools/characters/species.json"   # picker.SPECIES
+DRAWN = ("picker.py", "draw.py", "render.py")
+"""The files under ``tools/characters/`` that draw a dressed body's pictures (``picker.preview``) and that
+``parts.SOURCES`` leaves out: with ``parts.VERSION`` (what dresses it) they key a built-in variant's shipped pictures
+(:func:`recipe_keys`, Step 4.46a1)."""
 LONGEST = ("w1", "d2", "w3", "w4")   # the parts that draw longest (CPython 44, 33, 27, 25 s), started first
 # Modkit's flags -> player_physics's sliders: apply-physics's, then randomize-full's
 APPLY = {"gravity": "gravity", "walk_speed": "walk_speed_scale", "swim_speed": "swim_speed_scale",
@@ -777,12 +781,18 @@ def _variant(job: tuple[str, str]) -> tuple[str, dict | str]:
 def recipe_keys(doc: Mapping) -> dict[str, str]:
     """Each built-in variant's key in ``web/characters/index.json``: the sha256 of its recipe as it builds
     (``recipe_of``: one ``from`` another with that one laid under it), so a look from booblord is drawn again when
-    hers changes (Step 4.3's vase), not only when its own entry does; its title and notes draw nothing."""
+    hers changes (Step 4.3's vase), not only when its own entry does; its title and notes draw nothing. With it,
+    ``parts.VERSION`` and the :data:`DRAWN` files' sha256, so a change to how the swap dresses a body or the tab
+    draws it dresses the variants again too, with the parts' re-record (Step 4.46a1: kept pictures were held only
+    to themselves), and the editor's or the grades' files draw none."""
     from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import parts
 
-    return {name: hashlib.sha256(json.dumps({k: v for k, v in variants.recipe_of(dict(doc), name, "built-in")[0].items()
-                                             if k not in variants.LABELS}, sort_keys=True).encode()).hexdigest()
-            for name in doc}
+    drawn = hashlib.sha256(b"".join(hashlib.sha256((Path(parts.__file__).parent / name).read_bytes()).digest()
+                                    for name in DRAWN)).hexdigest()
+    return {name: hashlib.sha256(json.dumps({"drawn": drawn, "parts": parts.VERSION, "recipe": {
+        k: v for k, v in variants.recipe_of(dict(doc), name, "built-in")[0].items() if k not in variants.LABELS}},
+        sort_keys=True).encode()).hexdigest() for name in doc}
 
 
 def characters(images: Images, workers: int) -> dict[str, bytes]:
@@ -794,7 +804,7 @@ def characters(images: Images, workers: int) -> dict[str, bytes]:
     body's two pictures (``picker.preview`` on the USA image, the app's
     draw: Europe's are the same, ``tests/test_characters.py``), each
     built-in variant's (:func:`_variant`; none for one the engine refuses),
-    drawn again only when its recipe as it builds changes (:func:`recipe_keys`),
+    drawn again only when its recipe as it builds, what dresses it or the drawing changes (:func:`recipe_keys`),
     and ``index.json``: the engine's view with no image and
     no content installed (``picker.view``, garret4 at every default), each
     species' and variant's pictures' file name and each variant's recipe
