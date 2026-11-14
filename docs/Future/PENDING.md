@@ -37,11 +37,10 @@ The next session starts here (D1192), so 1.1 can follow.
    rerun and no line change but the owner's; on CI's runners the tests keep
    their bounds. Rounds go on until every path holds its line with margin;
    then one real-Safari first Check, in one window (D1089, D1202).
-2. **Where it stands** (11-14, Steps 4.55b-4.55d's stack with booblord
-   v10's parts, measured on this Mac, parts as after 4.55e's re-record:
-   at the stack's own head they miss until then, and WebKit's S84 reads
-   60.3 s): her own copy's first Check reads S78 7.5-8.4 s in WebKit and
-   A92 3.9-4.0 s in the app (1.1.1's and 4.52a's receipts). A Check after
+2. **Where it stands** (11-14, Steps 4.55b-4.55d's stack with its parts
+   re-recorded, 4.55e's booblord v11, measured on this Mac): her own
+   copy's first Check reads S78 7.9 s in WebKit and A92 4.4 s in the app
+   (4.55e; main's receipts 7.5-8.4 s and 3.9-4.0 s). A Check after
    a Shape edit reads S84 57.6 s in WebKit, 60.5 s in Chromium and 80.6 s
    in Firefox, A98 21.1 s in the app; one with no parts S88 53.3, 57.2 and
    75.8 s; a reshape's first pictures S52 58.2, 58.9 and 81.5 s, A60
@@ -54,7 +53,8 @@ The next session starts here (D1192), so 1.1 can follow.
    (4.37e4) and B2 (4.37m1) landed. D1, E and D2 are built (Steps
    4.55b-4.55d: the mesh plan's position steps, the rig and the
    subdivision compiled, bit for bit their twins, and the quick preview's
-   moving bar), waiting for their parts re-record (4.55e) and the gate.
+   moving bar), with their parts re-recorded (4.55e: booblord's content
+   v11), waiting for the gate.
    Open: G (the paint for wasm), H (the Check ahead), K (the clip import),
    round 5's pictures-first (r5g) and R7b (later by reference). 4.37e's
    forecasts are superseded by item 2's numbers; round 7 is undesigned.
@@ -79,10 +79,8 @@ The next session starts here (D1192), so 1.1 can follow.
    Intel Mac, Windows and Linux apps miss the shipped parts (4.37f's C.3;
    the site takes them), and the Intel app's first Check passes 120 s on CI
    (C.12).
-7. **A variant's pictures, dressed** (4.45's S6, Step 4.46a1): held until
-   4.37m1 lands, then keyed on `parts.VERSION` instead of on what draws
-   them, which as built makes every later `tools/characters` edit owe a
-   characters re-record.
+7. ~~A variant's pictures, dressed~~: fixed by 4.46a1, carried in 4.55e
+   (keyed on `parts.VERSION` and the drawing's files).
 8. **The Firefox Shape-edit gap** (D1209, D1244): its line is a rare
    Check's 90 s (S84). With Steps 4.55b-4.55d's kernels in it reads 57.6 s
    in WebKit, 60.5 s in Chromium and 80.6 s in Firefox (11-14, one sample
@@ -99,10 +97,11 @@ The next session starts here (D1192), so 1.1 can follow.
 
 1. ~~1.0.2~~: out on 2026-11-09 (tag `v1.0.2`, 15c16383).
 2. **The content push**: booblord v10 (her rework, 2a0abad) is the
-   content repo's `booblord-v10` branch, the commit CI pins; its `main`
-   stays v9 (27a53b7, what 1.1.0 installs) until 1.1.1 is out, then
-   fast-forwards to it, since 1.1.0 refuses v10's recipe and 1.1.1 v9's.
-   The clone's superseded branches and worktrees go with 11.2.
+   content repo's `main` since 1.1.1. v11 (Step 4.55e: her Check parts
+   under the compiled kernels' `parts.VERSION`, beamlord v2's plain
+   notes) goes to its `main` with 1.2.0, and CI's `CONTENT_COMMIT` with
+   it (D1266, D1267). The clone's superseded branches and worktrees go
+   with 11.2.
 3. **1.1** (D1203, D1210, D1244): the release where group 1's tiered
    lines hold, with the Variants editor's gaps: Undo (there since 4.6e),
    the app's window asking about unsaved edits on close (4.38a, landed) and
