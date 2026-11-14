@@ -151,9 +151,11 @@ export function communityGroup({ root, call, shared, say, catalog, settled }) {
         e.title }), el("span", { className: "by", textContent: `community · ${[e.author, e.licence, `v${e.version}`]
         .filter(Boolean).join(" · ")}` })));
       item.dataset.community = e.id;
-      if (e.state !== "installed" || !usable) {
-        const action = el("button", { type: "button", disabled: Boolean(shared.state.installing) || g.locked,
-          textContent: e.state === "update" ? `Update to v${e.version}` : "Install" });
+      if (e.state !== "installed" || !usable) {   // newer: greyed with the engine's line (web/content.mjs's states)
+        const update = e.state === "update" || e.state === "newer" && e.installed != null;
+        const action = el("button", { type: "button", title: e.state === "newer" ? e.why : "",
+          disabled: Boolean(shared.state.installing) || g.locked || e.state === "newer",
+          textContent: update ? `Update to v${e.version}` : "Install" });
         action.addEventListener("click", () => install(e));
         if (!e.gone) item.append(action);
       } else {
@@ -170,9 +172,11 @@ export function communityGroup({ root, call, shared, say, catalog, settled }) {
         });
         item.append(opener);
         if (e.description) item.append(el("p", { className: "what", textContent: e.description }));
+        if (e.state === "newer") item.append(el("p", { className: "what", textContent: e.why }));
         item.append(list);
       } else {
-        const why = pick?.refused ?? (e.description ? `${e.description} ${FIRST}.` : `${FIRST}.`);
+        const why = e.state === "newer" && !pick ? e.why
+          : pick?.refused ?? (e.description ? `${e.description} ${FIRST}.` : `${FIRST}.`);
         item.append(el("p", { className: "what", textContent: why }));
       }
       return item;

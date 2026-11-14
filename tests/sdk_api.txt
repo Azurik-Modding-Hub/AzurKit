@@ -464,8 +464,10 @@ Azurik-Custom-Content as the Characters tab lists it (D913): the
 (``tools.characters.content.check``; the last one fetched, kept in the
 content folder, when the source can't be read, with ``why``), each
 entry's state against what the content folder holds (``entries``:
-install, installed at its version, or update, kept until its Update)
-and ``installed`` (the folder's ``installed.json``). CPython's: the
+install, installed at its version, update, kept until its Update, or
+newer, its version too new for this AzurKit, with its line, as its
+``needs`` says: :func:`_content_states`) and ``installed`` (the
+folder's ``installed.json``). CPython's: the
 site's page fetches, and its worker checks (:func:`content_check`).
 
 
@@ -476,15 +478,20 @@ Install (or Update) the entry ``given["id"]`` of the content source
 folder, with the entries it requires: every file's size and sha256
 checked before anything is written (D35), ``installed.json`` written
 last (``tools.characters.content.install``); :func:`content`'s view
-after it. A refusal names the entry and the file.
+after it. A refusal names the entry and the file, or, before any file
+is fetched, the entry (or one it requires) whose version needs a newer
+AzurKit (the manifest's ``needs``).
 
 
 def content_check(given: 'Mapping') -> 'dict':
 
 The site's half of Install (its page fetches, this checks):
-``given["manifest"]`` checked, and with ``id`` the install held first
-(``tools.characters.content.held_to``): none it writes goes below its
-installed version or, with ``source`` (the page's Content from), comes
+``given["manifest"]`` checked (with no ``id``: ``{"manifest", "install":
+[], "newer": {id: line}}``, each entry too new for this AzurKit as
+:func:`content`'s ``entries`` give it, by the content folder's record),
+and with ``id`` the install held first: none it writes needs a newer
+AzurKit (its ``needs``) or (``tools.characters.content.held_to``) goes
+below its installed version or, with ``source`` (the page's Content from), comes
 from another source than the one it was installed from or writes over a
 file another installed entry holds (SEC-8), which the page asks with no
 ``files`` before it fetches any, as :func:`content_install` holds an
@@ -695,7 +702,8 @@ read, named, never bytes).
 def content_refusal(entry: 'Mapping', files: 'Mapping[str, bytes]') -> 'str | None':
 
 Why a content entry can't be installed, or ``None``: a variant's
-recipe (``content.builtin_refusal``), a community pack
+recipe (``content.builtin_refusal``: its line says to update AzurKit,
+as a recipe that moved fits a newer one), a community pack
 (``community.refusal``). ``content.verify``'s ``refusal``.
 
 

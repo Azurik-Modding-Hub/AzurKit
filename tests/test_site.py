@@ -1289,7 +1289,8 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     address) come under the species, beside Content from (D1035), each marked
     community; Install of an entry whose
     file isn't its manifest's sha256, or is past its listed size (read no further, Step 4.3m, SEC-9), is refused by
-    name and keeps nothing, and Beamlord's installs, its variant
+    name and keeps nothing, one whose version needs a newer AzurKit (the manifest's needs, Step 4.59b) shows its
+    Install greyed with its line (D979), and Beamlord's installs, its variant
     then listed under it, installed v1, and a page opened again hands it to its engine before the tab is opened (a
     build from another tab reads it); a species picked shows its Weapon box and its two pictures (the site's own,
     Step 4.3f), and Content from and its Reset stay in the list's column, the pictures in theirs and every G4 button
@@ -1301,7 +1302,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     repo = tmp_path / "repo"
     files = {"variants/beamlord/variant.json": json.dumps({"beamlord": json.loads(
         _player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"]}).encode(), "variants/tamper/variant.json": b"{}",
-             "variants/big/variant.json": b"{}"}
+             "variants/big/variant.json": b"{}", "variants/later/variant.json": b"{}"}
     for path, data in files.items():
         (repo / path).parent.mkdir(parents=True, exist_ok=True)
         (repo / path).write_bytes(data)
@@ -1310,8 +1311,9 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         entry | {"id": "beamlord", "kind": "variant", "title": "Beamlord", "files": [{"path": "variants/beamlord/variant.json"}]},
         entry | {"id": "tamper", "kind": "variant", "title": "Tampered", "files": [
             {"path": "variants/tamper/variant.json"}]},
-        entry | {"id": "big", "kind": "variant", "title": "Too big", "files": [{"path": "variants/big/variant.json"}]}]},
-        lambda path: (repo / path).read_bytes())
+        entry | {"id": "big", "kind": "variant", "title": "Too big", "files": [{"path": "variants/big/variant.json"}]},
+        entry | {"id": "later", "kind": "variant", "title": "Later", "files": [{"path": "variants/later/variant.json"}]}]},
+        lambda path: (repo / path).read_bytes()) | {"needs": {"later": "99.0.0"}}   # beside the entries (the sdk's)
     (repo / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (repo / "variants/tamper/variant.json").write_bytes(b"[]")   # its bytes other than its manifest's
     (repo / "variants/big/variant.json").write_bytes(b"{}" + b" " * 64)   # past its manifest's size
@@ -1329,7 +1331,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         _page.pick(page, "#iso", usa_iso)
         _page.click(page, "tab-characters")
         _page.until(page, "() => Boolean(azurkit.characters.state.view?.from) && azurkit.characters.state.view.community"
-                          ".length === 3", 300)   # the engine's answer, the image read
+                          ".length === 4", 300)   # the engine's answer, the image read
         _page.click(page, "char-objects")   # every species, the objects too (D1034)
         assert page.evaluate("""() => [document.querySelectorAll("#char-species .model").length,
             document.querySelectorAll("#char-species .model.untested").length]""") == [178, 73]
@@ -1343,7 +1345,13 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
             assert [(g, on, round(r, 2)) for g, on, r in page.evaluate(GRADE_GROUNDS) if r < 4.5] == [], theme
             _page.click(page, "theme")
         assert page.evaluate(COMMUNITY) == [["beamlord", "community", "Install", []],
-                                            ["tamper", "community", "Install", []], ["big", "community", "Install", []]]
+                                            ["tamper", "community", "Install", []], ["big", "community", "Install", []],
+                                            ["later", "community", "Install", []]]
+        newer = f"v1 needs AzurKit 99.0.0 or newer; this is {sdk.__version__}: update AzurKit"
+        assert page.evaluate("""() => { const e = document.querySelector('#char-community .entry[data-entry="later"]');
+            return [e.querySelector("button").disabled, e.querySelector("button").title,
+                    [...e.querySelectorAll(".what")].map((w) => w.textContent)]; }""") == [
+            True, newer, ["Azurik-Modding-Hub · MIT · v1", newer]]
         page.evaluate("""() => document.querySelector('#char-community .entry[data-entry="tamper"] button').click()""")
         _page.until(page, "() => document.getElementById('status').textContent.startsWith('Tampered: nothing')", 120)
         assert re.search(r"tamper: variants/tamper/variant\.json's sha256 [0-9a-f]{12} isn't the manifest's",
@@ -1357,7 +1365,8 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         page.evaluate("""() => document.querySelector('#char-community .entry[data-entry="beamlord"] button').click()""")
         _page.until(page, """() => document.querySelector('#char-community .entry[data-entry="beamlord"] .model')""", 120)
         assert page.evaluate(COMMUNITY) == [["beamlord", "community", "installed v1", ["beamlord"]],
-                                            ["tamper", "community", "Install", []], ["big", "community", "Install", []]]
+                                            ["tamper", "community", "Install", []], ["big", "community", "Install", []],
+                                            ["later", "community", "Install", []]]
         page.evaluate("() => document.querySelector('#char-species .model[data-model=\"keylord\"]').click()")
         _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'keylord'", 120)
         assert page.evaluate("() => document.querySelectorAll('#char-weapon option').length") > 1

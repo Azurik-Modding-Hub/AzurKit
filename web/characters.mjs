@@ -285,14 +285,20 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     const groups = view.community.flatMap((e) => {
       const whole = matches(e.title, e.id), variants = e.variants.filter((v) => whole || matches(v.name, v.title));
       if (!whole && !variants.length) return [];
-      const state = e.state === "install" ? "Install" : e.state === "update" ? `Update to v${e.version}` : null;
-      const action = state && el("button", { type: "button", textContent: state, disabled: !!c.installing });
+      // newer: its version needs a newer AzurKit (the manifest's needs), so Install or Update is greyed with the
+      // engine's line (D979), which an installed older copy keeps working under
+      const newer = e.state === "newer";
+      const state = e.state === "install" || newer && e.installed == null ? "Install"
+        : e.state === "update" || newer ? `Update to v${e.version}` : null;
+      const action = state && el("button", { type: "button", textContent: state, disabled: !!c.installing || newer,
+                                             title: newer ? e.why : "" });
       action?.addEventListener("click", () => install(e));
       const item = el("div", { className: "entry" },
                       el("span", {}, el("span", { className: "community", textContent: "community " }), e.title),
                       action ?? el("span", { className: "note",
                                              textContent: c.installing === e.id ? "installing…" : `installed v${e.installed}` }),
                       el("span", { className: "what", textContent: `${e.author} · ${e.licence} · v${e.version}` }),
+                      ...newer ? [el("span", { className: "what", textContent: e.why })] : [],
                       ...variants.map(model));
       item.dataset.entry = e.id;
       return [item];

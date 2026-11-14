@@ -1078,6 +1078,26 @@ are the Characters section's.
     computer (`sdk._secure`, a redirect's end too). The engine opens no connection: the sdk's CPython calls fetch,
     and the site's page fetches and its worker checks
     (`sdk.content_check`).
+  - **Content that fits the app** (Step 4.59b): a manifest's top-level
+    `needs` (`{id: "1.3.0"}`, the oldest AzurKit an entry's version fits)
+    is top-level because a released AzurKit refuses an entry key it
+    doesn't know but reads past a top-level one. The sdk reads it
+    (`sdk._content_manifest`: an unlisted id or a release not of dotted
+    whole numbers refused) and keeps it with the checked manifest, so the
+    page hands it back with each call; it lives in the sdk, not
+    `content.py`, whose bytes are among `parts.SOURCES` (an edit there
+    moves every Check part's key and owes a re-record). An entry whose
+    Install or Update would write a version too new for `__version__` (it,
+    or one it requires) is `newer` in the rows (`sdk._content_states`),
+    with its line ("v12 needs AzurKit 1.3.0 or newer; this is 1.2.0:
+    update AzurKit"); both tabs grey its button with it (the site's from
+    `sdk.content_check`'s `newer`), and `sdk.content_install` and
+    `sdk.content_check` refuse it by name before any file is fetched
+    (`sdk._content_fits`); an installed copy stays. The hub sets `needs`
+    only when its `main` moves at a release's publish, so an app at that
+    release fits; `content.builtin_refusal` stays the proof behind it for
+    the apps up to 1.2.0, and `sdk.content_refusal` adds "update AzurKit"
+    to its line.
   - **Shipped answers** (D995, `tools/characters/shipped.py`): each
     species' and built-in variant's size at its defaults and booblord's
     whole plan at the page's defaults (the packs on by default) are made

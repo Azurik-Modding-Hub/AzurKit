@@ -1544,6 +1544,71 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
     assert "beamlord" not in content.installed()
 
 
+def test_an_entry_that_needs_a_newer_azurkit_is_greyed_and_refused_before_any_file_is_fetched(tmp_path, monkeypatch):
+    """PENDING 2.6 (Step 4.59b): the manifest's top-level ``needs`` (the oldest AzurKit an entry's version fits; a
+    released AzurKit reads past a top-level key) is kept with the checked manifest, a bad one refused by name; it greys
+    an entry too new for this AzurKit, and one that requires it, with its line (``sdk.content``'s rows, the site's
+    ``sdk.content_check``), and its Install or Update, the app's and the site's, is refused by name before any file is
+    fetched, nothing written (D35); an installed older copy stays as it is, and an entry at or below this AzurKit
+    installs as before."""
+    source, folder = tmp_path / "source", tmp_path / "content"
+    monkeypatch.setattr(content, "ROOT", folder)
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
+    monkeypatch.setattr(sdk, "__version__", "1.2.0")
+    fetch = sdk._fetch
+
+    def manifest_only(where):   # the app's install: its manifest read, any other file a fault
+        def fetched(path, size=None):
+            assert path == content.MANIFEST, f"{path} was fetched"
+            return fetch(where)(path, size)
+        return fetched
+
+    def published(version: int, release) -> dict:   # the source at b's version, its needs at release
+        files = {"packs/a/pack.json": b"{}", "packs/b/pack.json": b"[%d]" % version, "packs/c/pack.json": b"[]"}
+        made = _source(source, files, [{"id": "a", "files": ["packs/a/pack.json"], "requires": ["b"]},
+                                       {"id": "b", "version": version, "files": ["packs/b/pack.json"]},
+                                       {"id": "c", "files": ["packs/c/pack.json"]}]) | {"needs": {"b": release}}
+        (source / content.MANIFEST).write_text(json.dumps(made), encoding="utf-8")
+        return made
+
+    def refused(manifest: dict, name: str, why: str) -> None:   # the app's install, and the site's hold before its fetch
+        monkeypatch.setattr(sdk, "_fetch", manifest_only)
+        for install in (lambda: sdk.content_install({"id": name, "source": str(source)}),
+                        lambda: sdk.content_check({"manifest": json.dumps(manifest), "id": name})):
+            with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+                install()
+        monkeypatch.setattr(sdk, "_fetch", fetch)
+
+    for bad, why in (({"c": "1.3.0", "d": "1.3.0"}, "manifest: needs names 'd', an entry it lists not"),
+                     ({"b": "v1.3"}, "manifest: needs: entry 'b''s AzurKit 'v1.3' is no release of dotted whole "
+                                     "numbers (1.3.0)")):
+        with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+            sdk.content_check({"manifest": json.dumps(published(1, "1.3.0") | {"needs": bad})})
+    manifest = published(1, "1.3.0")
+    line = "v1 needs AzurKit 1.3.0 or newer; this is 1.2.0: update AzurKit"
+    view = sdk.content({"source": str(source)})
+    assert view["manifest"]["needs"] == {"b": "1.3.0"}   # kept, so the page hands it back with each call
+    rows = [(e["id"], e["state"], e.get("needs"), e.get("why")) for e in view["entries"]]
+    assert rows == [("a", "newer", None, f"it requires b, whose {line}"), ("b", "newer", "1.3.0", line),
+                    ("c", "install", None, None)]
+    assert sdk.content_check({"manifest": json.dumps(manifest)})["newer"] == {name: why for name, _, _, why in rows[:2]}
+    refused(manifest, "a", f"a: it requires b, whose {line}")
+    refused(manifest, "b", f"b: {line}")
+    assert content.installed() == {} and not (folder / "packs").exists()
+    published(1, "1.2")   # at this AzurKit: installed as before
+    view = sdk.content_install({"id": "a", "source": str(source)})
+    assert [(e["id"], e["state"]) for e in view["entries"]] == [("a", "installed"), ("b", "installed"),
+                                                                ("c", "install")]
+    manifest = published(2, "1.3")   # b's v2 too new: its v1 stays, and so does a, which an install would move to it
+    assert [(e["id"], e["state"], e["installed"]) for e in sdk.content({"source": str(source)})["entries"]] == [
+        ("a", "installed", 1), ("b", "newer", 1), ("c", "install", None)]
+    refused(manifest, "b", "b: v2 needs AzurKit 1.3 or newer; this is 1.2.0: update AzurKit")
+    refused(manifest, "a", "a: it requires b, whose v2 needs AzurKit 1.3 or newer; this is 1.2.0: update AzurKit")
+    assert content.installed()["b"]["version"] == 1 and (folder / "packs/b/pack.json").read_bytes() == b"[1]"
+    monkeypatch.setattr(sdk, "__version__", "1.3.0")
+    assert [e["state"] for e in sdk.content({"source": str(source)})["entries"]] == ["installed", "update", "install"]
+
+
 def test_an_update_only_goes_up_from_where_it_was_installed_and_a_url_source_is_https(tmp_path, monkeypatch):
     """SEC-8: a manifest listing an older version offers no Update, and an install from it (the app's, the site's
     check) is refused by name; so is one from another source than the entry's own (the app's, and the site's check

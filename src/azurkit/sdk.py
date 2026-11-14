@@ -677,7 +677,7 @@ def pickers(given: Mapping, *, progress: Callable[[dict], object] | None = None)
         from azurkit.tools.characters import picker
 
         manifest = (given.get("content") or {}).get("manifest")
-        entries = kit.states(kit.check(manifest) if manifest else None, kit.installed())
+        entries = _content_states(_content_manifest(manifest) if manifest else None, kit.installed())
         return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
 
 
@@ -1447,7 +1447,8 @@ def variants(given: Mapping | None = None) -> dict:
 
     manifest = ((given or {}).get("content") or {}).get("manifest") if isinstance(given, Mapping) else None
     record = kit.installed()
-    entries, held = kit.states(kit.check(manifest) if manifest else None, record), picker._variants_of(kit.ROOT, record)
+    entries = _content_states(_content_manifest(manifest) if manifest else None, record)
+    held = picker._variants_of(kit.ROOT, record)
     community = {}
     for name in kinds.builtins():
         entry = picker._entry_of(name, entries, held)
@@ -2538,11 +2539,113 @@ def community() -> dict:
 
 def content_refusal(entry: Mapping, files: Mapping[str, bytes]) -> str | None:
     """Why a content entry can't be installed, or ``None``: a variant's
-    recipe (``content.builtin_refusal``), a community pack
+    recipe (``content.builtin_refusal``: its line says to update AzurKit,
+    as a recipe that moved fits a newer one), a community pack
     (``community.refusal``). ``content.verify``'s ``refusal``."""
     from azurkit.tools.characters import content as kit
 
-    return kit.builtin_refusal(entry, files) or communal.refusal(entry, files)
+    if (why := kit.builtin_refusal(entry, files)) is not None:
+        return f"{why}: update AzurKit"
+    return communal.refusal(entry, files)
+
+
+_RELEASE = re.compile(r"[0-9]{1,6}(?:\.[0-9]{1,6}){0,3}\Z")
+"""An AzurKit release a content manifest's ``needs`` names: dotted whole numbers (``1.3.0``)."""
+
+
+def _content_manifest(raw: object) -> dict:
+    """``raw`` (a content manifest's text or object) checked
+    (``tools.characters.content.check``), with its top-level ``needs``
+    (``{id: "1.3.0"}``, the oldest AzurKit an entry's version fits) kept
+    where it holds any: each id a listed entry's and each release dotted
+    whole numbers (:data:`_RELEASE`), refused by name otherwise. Top-level,
+    as a released AzurKit refuses an entry key it doesn't know but reads
+    past a top-level one (PENDING 2.6, Step 4.59b); read here, not in
+    ``content.py``, whose bytes are among ``parts.SOURCES`` (an edit there
+    moves every Check part's key and owes a re-record)."""
+    from azurkit.tools.characters import content as kit
+
+    manifest = kit.check(raw)
+    doc = raw if isinstance(raw, Mapping) else json.loads(raw)   # as check read it: JSON, its depth held
+    if not isinstance(wanted := doc.get("needs", {}), Mapping):
+        raise ValueError("manifest: needs is no object of entries' ids and the AzurKit each needs")
+    ids = {e["id"] for e in manifest["entries"]}
+    for name, release in wanted.items():
+        if name not in ids:
+            raise ValueError(f"manifest: needs names {name!r}, an entry it lists not")
+        if not isinstance(release, str) or not _RELEASE.match(release):
+            raise ValueError(f"manifest: needs: entry {name!r}'s AzurKit {release!r} is no release of dotted whole "
+                             "numbers (1.3.0)")
+    return manifest | ({"needs": dict(wanted)} if wanted else {})
+
+
+def _release(version: str) -> tuple[int, ...]:
+    """``version``'s leading dotted whole numbers (``1.3.0rc1``: 1.3.0), its
+    trailing zeros dropped, so 1.3 and 1.3.0 are one release."""
+    found = re.match(r"[0-9]+(?:\.[0-9]+)*", version)
+    parts = [int(p) for p in found.group().split(".")] if found else []
+    while parts and parts[-1] == 0:
+        parts.pop()
+    return tuple(parts)
+
+
+def _too_new(e: Mapping, release: str | None) -> str | None:
+    """Why entry ``e``'s version doesn't fit this AzurKit (``__version__``;
+    the oldest it fits ``release``), or ``None``."""
+    if release is None or _release(__version__) >= _release(release):
+        return None
+    return f"v{e['version']} needs AzurKit {release} or newer; this is {__version__}: update AzurKit"
+
+
+def _content_fits(manifest: Mapping, entry: str, record: Mapping) -> None:
+    """Refuse by name, before anything is fetched, an install of ``entry``
+    of ``manifest`` (:func:`_content_manifest`'s) that writes an entry (it,
+    or one it requires that ``record``, the content folder's
+    ``installed.json``, doesn't hold at its version: ``content.writes``)
+    whose version its ``needs`` holds to a newer AzurKit, naming it; an
+    installed copy stays as it is."""
+    from azurkit.tools.characters import content as kit
+
+    if not (wanted := manifest.get("needs")):
+        return
+    entries = {e["id"]: e for e in manifest["entries"]}
+    for e in sorted(kit.writes([entries[name] for name in kit.needs(entry, entries)], entry, record),
+                    key=lambda e: e["id"] != entry):   # the entry's own first
+        if (line := _too_new(e, wanted.get(e["id"]))) is not None:
+            raise ValueError(f"{entry}: {line}" if e["id"] == entry
+                             else f"{entry}: it requires {e['id']}, whose {line}")
+
+
+def _content_states(manifest: Mapping | None, record: Mapping) -> list[dict]:
+    """``content.states`` of ``manifest`` (:func:`_content_manifest`'s),
+    each listed entry with its ``needs`` where it has one, and one whose
+    Install or Update :func:`_content_fits` refuses ``"newer"``, its line in
+    ``why`` (an installed copy at its version stays ``"installed"``): one
+    walk, those required first, so a lattice of requires costs its size
+    (D992's SEC-6)."""
+    from azurkit.tools.characters import content as kit
+
+    rows = kit.states(manifest, record)
+    if not manifest or not (wanted := manifest.get("needs")):
+        return rows
+    entries = {e["id"]: e for e in manifest["entries"]}
+    own = {name: line for name, release in wanted.items() if (line := _too_new(entries[name], release)) is not None}
+
+    below: dict[str, str | None] = {}   # the too-new entry an install of each writes as one it requires, if any
+
+    def through(r: str) -> str | None:   # r, too new and written (not held at its version, as content.writes), or below
+        held = record.get(r)
+        written = not isinstance(held, Mapping) or held.get("version") != entries[r]["version"]
+        return r if r in own and written else below[r]
+    for name in kit._walk(list(entries), entries) if own else ():
+        below[name] = next(filter(None, map(through, entries[name]["requires"])), None)
+    for row in rows[:len(entries)]:   # the listed entries' rows, in its order; an unlisted installed one's after
+        name = row["id"]
+        row |= {"needs": wanted[name]} if name in wanted else {}
+        why = own.get(name) or (f"it requires {below[name]}, whose {own[below[name]]}" if below.get(name) else None)
+        if why and row["state"] != "installed":
+            row |= {"state": "newer", "why": why}
+    return rows
 
 
 def _secure(url: str) -> bool:
@@ -2633,8 +2736,10 @@ def content(given: Mapping | None = None) -> dict:
     (``tools.characters.content.check``; the last one fetched, kept in the
     content folder, when the source can't be read, with ``why``), each
     entry's state against what the content folder holds (``entries``:
-    install, installed at its version, or update, kept until its Update)
-    and ``installed`` (the folder's ``installed.json``). CPython's: the
+    install, installed at its version, update, kept until its Update, or
+    newer, its version too new for this AzurKit, with its line, as its
+    ``needs`` says: :func:`_content_states`) and ``installed`` (the
+    folder's ``installed.json``). CPython's: the
     site's page fetches, and its worker checks (:func:`content_check`)."""
     from azurkit.tools.characters import content as kit
 
@@ -2642,17 +2747,17 @@ def content(given: Mapping | None = None) -> dict:
     source, why, manifest = _source(given.get("source")), None, None
     try:
         raw = _fetch(source)(kit.MANIFEST, kit.MAX_MANIFEST)
-        manifest = kit.check(raw)
+        manifest = _content_manifest(raw)
         kit.ROOT.mkdir(parents=True, exist_ok=True)
         (kit.ROOT / kit.MANIFEST).write_bytes(raw)   # the last fetched, listed while the source can't be read
     except (OSError, ValueError) as exc:
         why = f"can't read {source}: {exc}"
         try:
-            manifest = kit.check((kit.ROOT / kit.MANIFEST).read_bytes())
+            manifest = _content_manifest((kit.ROOT / kit.MANIFEST).read_bytes())
         except (OSError, ValueError):
             manifest = None
     record = kit.installed()
-    return {"source": source, "manifest": manifest, "why": why, "entries": kit.states(manifest, record),
+    return {"source": source, "manifest": manifest, "why": why, "entries": _content_states(manifest, record),
             "installed": record}
 
 
@@ -2662,14 +2767,17 @@ def content_install(given: Mapping) -> dict:
     folder, with the entries it requires: every file's size and sha256
     checked before anything is written (D35), ``installed.json`` written
     last (``tools.characters.content.install``); :func:`content`'s view
-    after it. A refusal names the entry and the file."""
+    after it. A refusal names the entry and the file, or, before any file
+    is fetched, the entry (or one it requires) whose version needs a newer
+    AzurKit (the manifest's ``needs``)."""
     from azurkit.tools.characters import content as kit
 
     if not isinstance(given, Mapping) or not isinstance(given.get("id"), str):
         raise ValueError("content: name the entry to install")
     source = _source(given.get("source"))
     fetch = _fetch(source)
-    manifest = kit.check(fetch(kit.MANIFEST, kit.MAX_MANIFEST))
+    manifest = _content_manifest(fetch(kit.MANIFEST, kit.MAX_MANIFEST))
+    _content_fits(manifest, given["id"], kit.installed())   # before any file is fetched
     sizes = {f["path"]: f["size"] for e in manifest["entries"] for f in e["files"]}
     kit.install(manifest, given["id"], lambda path, size=None: fetch(path, sizes.get(path) if size is None else size),
                 source=source, refusal=content_refusal)   # each file read to at most its listed size (SEC-9)
@@ -2678,9 +2786,12 @@ def content_install(given: Mapping) -> dict:
 
 def content_check(given: Mapping) -> dict:
     """The site's half of Install (its page fetches, this checks):
-    ``given["manifest"]`` checked, and with ``id`` the install held first
-    (``tools.characters.content.held_to``): none it writes goes below its
-    installed version or, with ``source`` (the page's Content from), comes
+    ``given["manifest"]`` checked (with no ``id``: ``{"manifest", "install":
+    [], "newer": {id: line}}``, each entry too new for this AzurKit as
+    :func:`content`'s ``entries`` give it, by the content folder's record),
+    and with ``id`` the install held first: none it writes needs a newer
+    AzurKit (its ``needs``) or (``tools.characters.content.held_to``) goes
+    below its installed version or, with ``source`` (the page's Content from), comes
     from another source than the one it was installed from or writes over a
     file another installed entry holds (SEC-8), which the page asks with no
     ``files`` before it fetches any, as :func:`content_install` holds an
@@ -2693,13 +2804,15 @@ def content_check(given: Mapping) -> dict:
 
     if not isinstance(given, Mapping):
         raise ValueError("content: a JSON object")
-    manifest = kit.check(given.get("manifest"))
+    manifest = _content_manifest(given.get("manifest"))
     if "id" not in given:
-        return {"manifest": manifest, "install": []}
+        return {"manifest": manifest, "install": [], "newer": {
+            e["id"]: e["why"] for e in _content_states(manifest, kit.installed()) if e["state"] == "newer"}}
     if not isinstance(source := given.get("source"), str | None):
         raise ValueError("content: the source is a URL")
     entries = {e["id"]: e for e in manifest["entries"]}
     chosen, record = [entries[name] for name in kit.needs(given["id"], entries)], kit.installed()
+    _content_fits(manifest, given["id"], record)   # before any file is fetched, as the app's
     kit.held_to(kit.writes(chosen, given["id"], record), record, source)   # before any file is read, as the app's
     if "files" in given:
         kit.verify(manifest, given["id"], given["files"] or {}, content_refusal)

@@ -158,7 +158,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
   kept ??= app ? null : keeper();
   get ??= (...args) => globalThis.fetch(...args);
   const store = () => storage ?? globalThis.localStorage;
-  const s = { source: base, manifest: null, why: null, entries: [], installed: {}, installing: null };
+  const s = { source: base, manifest: null, why: null, entries: [], installed: {}, installing: null, newer: {} };
   let reads = 0;   // a read's answer or failure is dropped once a later read or an Install has begun
   const listeners = new Set();
   const changed = () => {
@@ -178,11 +178,14 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
     });
 
   // Each entry with its state against what is kept: install, installed (at its version or a newer one: no Update goes
-  // down, SEC-8, as the engine's content.states says) or update (an older one).
+  // down, SEC-8, as the engine's content.states says), update (an older one) or newer, the engine's line (newer: its
+  // Install or Update writes a version the manifest's needs holds to a newer AzurKit, refused before any fetch), so
+  // each tab greys its Install or Update with that line (D979).
   const states = () => (s.manifest?.entries ?? []).map((e) => {
     const held = s.installed[e.id]?.version ?? null;
-    return { ...e, installed: held, state: held === null ? "install"
-      : Number.isInteger(held) && held >= e.version ? "installed" : "update" };
+    const state = held === null ? "install" : Number.isInteger(held) && held >= e.version ? "installed" : "update";
+    const why = state === "installed" ? null : s.newer[e.id];
+    return { ...e, installed: held, state: why ? "newer" : state, ...why ? { why } : {} };
   });
 
   // The source's list: the app's engine reads it (a URL or a folder), the site fetches it (where's address: any https
@@ -210,6 +213,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
       if (mine !== reads) return s;
       if ("refused" in checked) throw new Error(checked.refused);
       s.manifest = checked.manifest;
+      s.newer = checked.newer ?? {};
       await kept.put([["manifest", text]]).catch(() => {});
     } catch (error) {
       if (mine !== reads) return s;   // its failure dropped as its answer is: s.source is a later read's now

@@ -687,6 +687,8 @@ def _content(args: argparse.Namespace) -> int:
             folder = Path(args.target or ".")
             raw = json.loads((folder / content.MANIFEST).read_text(encoding="utf-8"))
             manifest = content.filled(raw, lambda path: (folder / path).read_bytes()) if args.write else content.check(raw)
+            if isinstance(raw, dict) and "needs" in raw:   # its top-level needs, checked by the sdk and kept (--write)
+                manifest = sdk.content_check({"manifest": manifest | {"needs": raw["needs"]}})["manifest"]
             for entry in manifest["entries"]:
                 content.verify(manifest, entry["id"], {f["path"]: (folder / f["path"]).read_bytes()
                                                        for e in manifest["entries"] for f in e["files"]},
@@ -709,7 +711,8 @@ def _content(args: argparse.Namespace) -> int:
         print(f"azurkit: {view['why']}", file=sys.stderr)
     for e in view["entries"]:
         state = {"install": "not installed", "installed": f"installed v{e['installed']}",
-                 "update": f"installed v{e['installed']}, update to v{e['version']}"}[e["state"]]
+                 "update": f"installed v{e['installed']}, update to v{e['version']}",
+                 "newer": e.get("why", "")}[e["state"]]
         print(f"{e['id']:<18} {e['kind']:<8} {state:<28} {e['title']} ({e['author']}, {e['licence']})")
     return 0
 
