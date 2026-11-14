@@ -1254,7 +1254,8 @@ def test_a_later_pages_scale_check_comes_after_an_untimed_check_of_its_let_go_so
     sample from the first page while S81's let go takes more, so that page's Scale Check (S85) once carried the
     unchecked Shape edit too (106.5 s against 16.1 s on the first page). Such a page Checks its last let go untimed
     before the next edit, so S85 times Scale's Check alone, as on the first page; a page with no edit Check after it
-    takes no extra Check."""
+    takes no extra Check. A page with no let go (Step 4.55a) Checks Scale untimed first: the first Check after any edit
+    of her copy works out her whole dress, whichever edit it follows."""
     check = _perf.click("var-check")
     named = {_perf.SHAPE_DRAG: "drag", _perf.SHAPE_LET_GO: "let go", _perf.SCALE_TYPED: "scale", check: "check"}
 
@@ -1277,6 +1278,7 @@ def test_a_later_pages_scale_check_comes_after_an_untimed_check_of_its_let_go_so
         [("drag", 1.4), ("let go", None), ("check", None), ("scale", 1.1), ("check", None)],
         {"S84": [106.5], "S82": [0.1], "S81": [1.0], "S85": [5.0]})
     assert page({"S82": 1, "S81": 1, "S84": 1})[0] == [("drag", 1.4), ("let go", None)]
+    assert page({"S85": 1})[0] == [("scale", 1.05), ("check", None), ("scale", 1.1), ("check", None)]   # Step 4.55a
 
 
 def test_a_gap_whose_page_froze_says_how_much_cpu_the_browser_ran_in_it(tmp_path, monkeypatch):

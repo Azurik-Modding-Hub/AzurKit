@@ -2376,6 +2376,7 @@ SHAPE_PREVIEWED = f"() => {SHAPE_NOTE}.startsWith('A quick preview') || {SHAPE_N
 SHAPE_ENDS = (1.4, 0.6, 1.3, 0.7, 1.2, 0.8, 1.35, 0.65, 1.25, 0.75, 1.15, 0.85, 1.1, 0.9, 1.05, 0.95)
 # Step 4.37e0's other edits before a Check (each value the page function's argument): Scale typed, the Jiggle tab's
 # first row's stiffness typed, the Colours tab's first row picked for its wheel's drag (WHEEL_DRAG)
+WARM_SCALE = 1.05   # Step 4.55a: the untimed Scale a page with no let go Checks before its first timed edit's Check
 SCALE_TYPED = """(x) => { const b = document.getElementById("var-scale"); b.value = String(x);
   b.dispatchEvent(new Event("input")); }"""
 STIFFNESS = "document.querySelector('#var-springs input')"
@@ -2388,7 +2389,8 @@ FIRST_ROW = "document.querySelector('#var-rows button[data-row]:not([data-row=\"
 SFX_TYPED = """(x) => { const b = document.getElementById("var-sfx-0"); b.value = String(x);
   b.dispatchEvent(new Event("change")); }"""
 LAST_ROW = """() => { const b = [...document.querySelectorAll('#var-rows button[data-row]:not([data-row=""])')].at(-1);
-  b.click(); const row = Number(b.dataset.row); return [row, ...azurkit.variants.colours.answer.rows[row].size]; }"""
+  const row = Number(b.dataset.row), size = azurkit.variants.colours.answer.rows[row].size; b.click();
+  return [row, ...size]; }"""
 MOVES_PICKS = (("idle_2", "stretch (gltf)"), ("victory_1", "touchdown (gltf)"), ("idle_3", "look_back (gltf)"),
                ("victory_2", "stretch (gltf)"), ("idle_4", "hip_idle (gltf)"), ("victory_3", "look_back (gltf)"),
                ("idle_5", "sit_cross (gltf)"), ("victory_4", "sash_fix (gltf)"))
@@ -2474,11 +2476,13 @@ def _edit_checks(d: Driver, p: Page, ops: tuple, png: Callable[[Path], object] |
     (``effected``: its first sample adds a shield row, the rest type its first number). Each Check comes D1014's head
     start after its edit: 4.37e's section 5 (D1194, D1201). A page whose let go no ``shaped`` sample Checked (a
     later page of a changed area's run, where ``shaped`` had its sample on the first, D1215) Checks it untimed before
-    the next edit, so each edit's Check carries its own edit alone, as on the first page (Step 4.49a)."""
+    the next edit, so each edit's Check carries its own edit alone, as on the first page (Step 4.49a); one with no
+    let go Checks Scale at :data:`WARM_SCALE` untimed first, since the first Check after any edit of her copy works
+    out her whole dress, whichever edit it follows (Step 4.55a: 54-66 s in the app, 81 s in WebKit)."""
     drag, let_go, shaped, scaled, jiggled, coloured, *later = ops
     sounded, textured, moved, attacked, effected = (*later, None, None, None, None, None)[:5]
     p.js(click("var-tab-shape"))
-    unchecked = False   # a let go no Check followed yet
+    unchecked = dressed = False   # a let go no Check followed yet; a Check after an edit made on this page
     for end in SHAPE_ENDS:
         if not d.needed((drag, let_go, shaped)):
             break
@@ -2487,8 +2491,10 @@ def _edit_checks(d: Driver, p: Page, ops: tuple, png: Callable[[Path], object] |
         unchecked = True
         if d.need(shaped) and not d.needed((drag, let_go)):
             _checked_again(d, p, shaped)
-            unchecked = False
-    if unchecked and d.needed((scaled, jiggled, coloured, *later)):
+            unchecked, dressed = False, True
+    if not dressed and d.needed((scaled, jiggled, coloured, *later)):
+        if not unchecked:   # Step 4.55a: no edit since her copy's own Check, so one of Scale (WARM_SCALE) first
+            d.act(p, None, SCALE_TYPED, VAR_EDITED, 600, arg=WARM_SCALE, change=True)
         _checked_again(d, p, None)
     for k in range(1, 9):
         if not d.need(scaled):
