@@ -691,11 +691,10 @@ memory peaks stay strict. The gate writes both kinds of row to
    purgeable and 50 GB truly free (309 GB and 417 GB on 2026-11-14).
    ModMG's batches in `/private/tmp` are the owner's: never touch them
    (D1140).
-2. **Ours to remove:** the landed local branch `p2/4.37e0-held-rows` and
-   the content clone's six old `p2/*` branches (main's v8-v11 supersede
-   next-stack's and stack2's v6 and v7 parts); the 11-10 session's lanes,
+2. ~~Ours to remove~~: the landed local branch `p2/4.37e0-held-rows`, the
+   content clone's six old `p2/*` branches (main's v8-v11 supersede
+   next-stack's and stack2's v6 and v7 parts), the 11-10 session's lanes,
    the content worktrees and ModelKit's 4.15a8 lane are gone (2026-11-14).
-   `p2/4.58c-gate-p2` stays for 10.13.
 3. ~~Our `/tmp` leftovers~~: the 4.6e home folder, the 4.6f take log and
    `/private/tmp/rp411` are gone (2026-11-14).
 4. ~~Six landed lane branches on the public AzurKit repo~~: deleted; the
@@ -704,9 +703,10 @@ memory peaks stay strict. The gate writes both kinds of row to
    while lanes get CI. Its revert is in the handoff log.
 6. ~~nativekit writes each library in place~~: fixed by 4.59e (it writes
    each beside and renames it over, so a rewritten dylib is a new file).
-7. **Dev-speed levers:** dx6 and dx7 are stale (2026-11-14): dx6's five
-   reshape ops now take 3-7 min of a changed perf stage, and no `--all`
-   perf has run since 11-08. Left: **dx8**, the variant golden as one test
+7. **Dev-speed levers:** dx7 is stale (2026-11-14). dx6: a changed-area
+   perf stage skips the heavy Check ops unless a characters path changed
+   (D1280, the owner's measure change), lane 4.60a. Left too: **dx8**,
+   the variant golden as one test
    per case. On CI it is the longest test on every OS (Intel 29 min, Apple
    Silicon 16), and 3 min of a 22-minute full run here. Measure first: a
    1-worker part loses the test's 4-process pool. Its lane: 4.59f.
