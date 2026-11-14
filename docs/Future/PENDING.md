@@ -213,13 +213,14 @@ The next session starts here (D1192), so 1.1 can follow.
 3. ~~Frozen reach data~~: stale since D1175 (675f3e2b). `recheck` passes
    over every retired record, so no level stops at the teleport. The 1,337
    conformance snapshots are 5's.
-4. **4.13e's last re-points** (docs and one message). Its lane: 4.59d.
-   - `docs/INTERNALS.md`'s "Not ported: Modkit's `db-extract`" (the
-     randomizer section) is stale: `rando db-extract` is ported (4.13b).
-   - The planner loader's `contact_stale` issue says "re-measure:
-     scripts/l3_contact.py": name `python -m devkit reach l3-contact`.
-   - `docs/REACH.md` names only AZ-720, 723, 737, 813 and 826: point it at
-     group 7's open reach issues.
+4. ~~4.13e's last re-points~~: done by 4.59d (INTERNALS' "Not ported"
+   drops `db-extract`, the loader's `contact_stale` issue names `python -m
+   devkit reach l3-contact`, `docs/REACH.md` points at group 7, and a
+   contract test holds the engine's messages to scripts the checkout has).
+   One message stays owed: the townsfolk kit's refusal (`_player_kit.py`)
+   names Modkit's `scripts/townsfolk_kit.py`. Its edit moves
+   `parts.VERSION`, so it rides on the next parts re-record, which drops it
+   from the test's `OWED_SCRIPTS`.
 5. **The reach backlog** lives in the private plan: R1.23-R1.25, TD.2,
    TD.2b, TD.5-TD.7, R2.19a-j, the improvement rounds, the all-level run and
    R2.16g. D1048 paused it, D1143 froze it (no budget, answering D977) and
