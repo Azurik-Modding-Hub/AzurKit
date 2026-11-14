@@ -1233,6 +1233,7 @@ def test_the_rig_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     twins' answers bit for bit over seeded random inputs, what the twins
     raise raised alike."""
     cases, ran = list(_rig_cases(1415, 40)), collections.Counter()
+
     def counted(name, real, done):
         def call(*a):
             got = real(*a)
@@ -1249,6 +1250,33 @@ def test_the_rig_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):
         assert got == [_rig_answer(case) for case in cases]
+
+
+@pytest.mark.parametrize("case", ["a share of None", "a share as text", "a position as text"])
+def test_an_input_the_rig_kernels_dont_take_answers_as_their_twins(case, monkeypatch):
+    """What a caller of ``native/rig.c``'s kernels hands them that the
+    twins' arithmetic refuses (a share or position numpy's float() would
+    take) runs the twin: the same answer, or the same error."""
+    from azurkit.tools.characters import jiggle
+
+    plain = {(0, 0): (0.0, 0.0, 0.0), (0, 1): (0.01, 0.0, 0.0), (1, 0): (0.005, 0.0, 0.0)}
+    riders = {(1, 0): ((0,), 0.05, "")}
+    call ={"a share of None": lambda: jiggle._ridden(riders, {(0, 0): None, (0, 1): 0.5}, plain, {0}),
+            "a share as text": lambda: jiggle._ridden(riders, {(0, 0): "0.5", (0, 1): 0.5}, plain, {0}),
+            "a position as text": lambda: jiggle._rides(riders, plain | {(0, 1): ("0.01", 0.0, 0.0)}, (0,), 0.05)}[case]
+
+    def answer():
+        try:
+            got = call()
+        except Exception as exc:
+            return type(exc).__name__
+        return got.rows() if type(got) is jiggle._Rode else got
+
+    assert native.report()["loaded"]
+    kernel = answer()
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    assert kernel == answer()
+
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):
     monkeypatch.setenv("AZURKIT_NATIVE", "0")

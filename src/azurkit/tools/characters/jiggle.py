@@ -897,7 +897,7 @@ def _ridden(riders: dict, mine: dict, plain: dict, groups: set[int], rides: dict
     return out
 
 
-def _rides(riders: dict, plain: dict, follow: tuple[int, ...], reach: float) -> list:
+def _rides(riders: dict, plain: dict, follow: tuple[int, ...], reach: float) -> list | _Rode:
     """Each vertex of ``riders`` that follows ``follow`` within ``reach``
     (in order): the vertices of those groups in its reach in the order
     :func:`_ridden` mixes them, each with its weight (1 - d^2 /
@@ -969,11 +969,11 @@ class _Rode:
         (``core.native.ridden``): (vertex, share) where it's above 0, or
         ``None`` where the twin mixes."""
         import numpy as np
-        try:
-            m = np.array([mine.get(v, 0.0) for v in self.skin], dtype=np.float64)
+        from array import array
+
+        try:   # array("d") refuses the shares the twin's sum refuses (a str, None), as numpy's float() doesn't
+            m = np.frombuffer(array("d", [mine.get(v, 0.0) for v in self.skin]), dtype=np.float64)
         except (TypeError, ValueError, OverflowError):
-            return None
-        if m.shape != (len(self.skin),):
             return None
         n = len(self.vids)
         out, got = np.zeros(n), np.zeros(n, dtype=np.uint8)
@@ -997,12 +997,8 @@ def _rides_compiled(riders: dict, plain: dict, follow: tuple[int, ...], reach: f
         return None
     skin = [vid for vid in sorted(plain) if vid[0] in follow and vid not in riders]
     q = [plain[vid] for vid in vids]   # a rider missing from plain: the twin's KeyError
-    try:
-        fp = np.array([plain[vid] for vid in skin], dtype=np.float64).reshape(-1, 3)
-        qp = np.array(q, dtype=np.float64).reshape(-1, 3)
-    except (TypeError, ValueError, OverflowError):
-        return None
-    if len(fp) != len(skin) or len(qp) != len(vids) or not (np.isfinite(fp).all() and np.isfinite(qp).all()):
+    fp, qp = _doubles([plain[vid] for vid in skin]), _doubles(q)
+    if fp is None or qp is None or not (np.isfinite(fp).all() and np.isfinite(qp).all()):
         return None
     fk, qk = np.floor(fp / reach), np.floor(qp / reach)
     if (len(fk) and np.abs(fk).max() >= float(1 << 52)) or np.abs(qk).max() >= float(1 << 52):
@@ -1031,6 +1027,23 @@ def _rides_compiled(riders: dict, plain: dict, follow: tuple[int, ...], reach: f
     if code != 0:
         return None
     return _Rode(vids, skin, start, near[:int(need[0])], weights[:int(need[0])], total, best_d, best)
+
+
+def _doubles(points: list):
+    """``points`` (3 numbers each) as an (n, 3) float64 numpy array for
+    :func:`_rides_compiled`, by way of ``array("d")``, which refuses the
+    numbers the twin's arithmetic refuses (a str, ``None``), as numpy's
+    float() doesn't; or ``None`` where the twin answers (a point not 3
+    such numbers)."""
+    import numpy as np
+    from array import array
+
+    try:
+        if any(len(p) != 3 for p in points):
+            return None
+        return np.frombuffer(array("d", [x for p in points for x in p]), dtype=np.float64).reshape(-1, 3)
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 def _before(p, move) -> tuple[float, float, float]:
