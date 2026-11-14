@@ -137,19 +137,15 @@ The next session starts here (D1192), so 1.1 can follow.
    4.37h; 4.37t went out in 1.1.0.
 5. ~~booblord's rework~~: content v10 with 1.1.1 (tag `v1.1.1`, 719cfba5;
    Step 4.48b); v11 keeps her v10 recipe.
-6. **Content that fits the app it reaches** (4.48b's review, F3):
-   `content.builtin_refusal` holds a built-in's recipe sha exact. With the
-   hub at v11, AzurKit 1.0.0-1.1.0 refuse booblord. They do it only after
-   fetching her files, and the line doesn't say to update. Each later recipe
-   change does the same to the releases before it. Left: a top-level `needs`
-   map in the manifest (`{id: "1.3.0"}`, the oldest AzurKit an entry's
-   version fits; a new entry key would blank every released app's list,
-   which refuses unknown entry keys but ignores top-level ones).
-   `content.check` reads it, the row is greyed with its line, and Install
-   and Update are refused before any fetch. The content repo's
-   `scripts/check.py` takes `needs` (and `description`, which it refuses
-   today). Until then a recipe change ships with its release. Its lane:
-   4.59b.
+6. ~~Content that fits the app it reaches~~: done in Step 4.59b. The
+   manifest's top-level `needs` (`{id: "1.3.0"}`) greys an entry too new
+   for the app with "update AzurKit", and Install and Update refuse it
+   before any fetch; the sdk reads it, as `content.py` is among
+   `parts.SOURCES`. The content repo's `scripts/check.py` takes `needs`
+   and `description` (its commit c096e10, pushed when 4.59b lands). It
+   helps the apps after 1.2.0: the hub sets `needs` when its `main` moves
+   at a release's publish, and an app up to 1.2.0 still refuses a moved
+   recipe after the fetch, its line unchanged.
 
 ## 3. Stack 3 and 4.31's outcome
 
