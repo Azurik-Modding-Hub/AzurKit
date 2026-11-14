@@ -286,13 +286,25 @@ def test_a_pad_string_is_controllerstates_floats_and_the_stick_a_real_pad_gives(
 def test_the_harness_passes_its_offline_selftest_with_no_xemu_and_no_fixtures(capsys):
     """Step 4.14a2 (D11): the harness's own logic against stand-ins, launching no xemu and reading no fixtures: the
     scratch config (volume 0, the keyboard pad on scancodes no key reaches), the sandbox proof, the slots and their
-    admission (D108 as D174 and D263 amend it: a third sandbox waits while either suite's lock is held, Modkit's or
-    AzurKit's), the queue and the owner demo's lease, QMP, the gdbstub and the pad, readiness, parks, relaunches and
+    admission (D108 as D174 and D263 amend it: a third sandbox waits while any suite's lock is held, Modkit's or
+    AzurKit's pytest's or stages'), the queue and the owner demo's lease, QMP, the gdbstub and the pad, readiness, parks, relaunches and
     the teardown, the code check, a Europe disc's addresses and a build of the other release refused by name."""
     from devkit.xemu import oracle   # macOS's own calls: imported here, so the file collects on every platform
 
     assert oracle.selftest() == 0, "\n".join(line for line in capsys.readouterr().out.splitlines()
                                              if line.startswith("FAIL"))
+
+
+@pytest.mark.xemu
+def test_a_third_sandbox_waits_through_a_gates_flake_and_perf_stages_as_through_its_pytest():
+    """D1215's P2: a gate's pytest holds its receipts folder's suite lock and its flake and perf stages the perf
+    lock alone (scripts/fullsuite.py), so the suite locks the oracle's admission reads (each one's hold makes a
+    third sandbox wait: its offline selftest) are that folder's two, not the suite lock alone."""
+    from devkit.xemu import oracle
+    from scripts import fullsuite
+
+    receipts = fullsuite.receipts(oracle.ROOT)
+    assert oracle.SUITE_LOCKS[1:] == (receipts / "lock", receipts / fullsuite.PERF_LOCK)
 
 
 @pytest.mark.xemu

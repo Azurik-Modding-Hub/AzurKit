@@ -2403,7 +2403,8 @@ are the Characters section's.
   `taskpolicy -c utility` at nice 19 while another run holds the perf lock
   (`fullsuite.beside`, the receipt's `beside`; nice 10 otherwise). Only a
   holder of the suite lock takes the perf lock, so a pytest that starts
-  with it free keeps it free, and `window take` holds both.
+  with it free keeps it free, `window take` holds both, and the xemu
+  oracle's admission reads both (`SUITE_LOCKS`).
 - **The perf gate (D980-D985):** once pytest passes, the same run, under the perf lock, times
   the player-facing operations the changes reach (`scripts/perf.py`; the
   registry, its ids and drivers in `tests/_perf.py`): a change under `src/`

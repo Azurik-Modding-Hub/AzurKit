@@ -230,9 +230,12 @@ uv run --locked python -m devkit xemu oracle tags                      # the ora
   image and pictures grow, so it never fills the disk mid-sitting;
 - fewer than two sandboxes run (two may always run, whatever the load:
   D174, amending D108's one), or all of these hold:
-  - no full test suite runs: nothing holds `/tmp/az-fullsuite.lock`,
-    which agents' full runs take with `lockf -k` (the first two
-    sandboxes aren't held back by it: suites queue on the lock);
+  - no full test suite runs: nothing holds a suite's lock
+    (`SUITE_LOCKS`): `/tmp/az-fullsuite.lock`, which Modkit's full runs
+    take with `lockf -k`, or AzurKit's receipts folder's `lock`, a
+    gate's pytest's, and `perf.lock`, its flake and perf stages' (the
+    first two sandboxes aren't held back by them: suites queue on the
+    lock);
   - at least 4 CPU cores are free (D263, amending D174's load test on
     the fork's advice): the CPU count times the share of CPU time idle
     over 1 s (mach `host_statistics`, `HOST_CPU_LOAD_INFO`, two samples;

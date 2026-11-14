@@ -268,10 +268,10 @@ MIN_FREE_CORES = 4
 CPU_WINDOW_S = 1.0
 ALWAYS = 2   # sandboxes that may always run, whatever the load (D174, amending D108's one)
 # The suites' locks: Modkit's agents run its full suite under `lockf -k` on the first (while Modkit lives);
-# AzurKit's scripts/fullsuite.py holds its receipts folder's (AZURKIT_RECEIPTS, else in the common git folder) for
-# each run, an flock.
-SUITE_LOCKS = (Path("/tmp/az-fullsuite.lock"),
-               Path(os.environ.get("AZURKIT_RECEIPTS") or _COMMON_GIT / "azurkit-receipts") / "lock")
+# AzurKit's scripts/fullsuite.py, two flocks in its receipts folder (AZURKIT_RECEIPTS, else in the common git
+# folder): `lock` for a run's pytest, then `perf.lock` alone for its flake and perf stages (D1215's P2).
+_RECEIPTS = Path(os.environ.get("AZURKIT_RECEIPTS") or _COMMON_GIT / "azurkit-receipts")
+SUITE_LOCKS = (Path("/tmp/az-fullsuite.lock"), _RECEIPTS / "lock", _RECEIPTS / "perf.lock")
 PRIVATE_TAG = "vanilla-rzp-"   # agent-made states on a private drive (Q250, D102)
 CD = "ide0-cd1"   # the DVD drive's QMP device
 
@@ -890,8 +890,9 @@ def free_ram() -> int:
 
 def suite_running() -> Path | None:
     """The one of ``SUITE_LOCKS`` a test suite holds (Modkit's runs take
-    theirs with ``lockf -k``, AzurKit's fullsuite.py its own: both flocks),
-    or None: a shared non-blocking flock on each, dropped at once. No lock
+    theirs with ``lockf -k``, AzurKit's fullsuite.py the suite lock for its
+    pytest and the perf lock for its flake and perf stages: all flocks), or
+    None: a shared non-blocking flock on each, dropped at once. No lock
     file, no suite."""
     import fcntl   # POSIX's (the module loads on Windows)
 
@@ -7133,7 +7134,7 @@ def selftest() -> int:
     try:
         SHA_CACHE = tmp / "xemu-sha256.json"   # never the user cache dir's
         FORK_REQUESTS = tmp / "evidence"   # never the evidence archive's
-        SUITE_LOCKS = (tmp / "suite.lock", tmp / "azurkit-suite.lock")   # none yet: no suite runs
+        SUITE_LOCKS = (tmp / "suite.lock", tmp / "azurkit-suite.lock", tmp / "azurkit-perf.lock")   # none yet
         OWNER_DEMO = xemu_queue.OWNER_DEMO = tmp / "leases" / "owner-demo.json"   # never the fork's real one
         fx, w = tmp / "fx", tmp / "azx-st.1"
         fx.mkdir()
@@ -7911,12 +7912,13 @@ def selftest() -> int:
         _unlock(c)
         check("slots: one launch at a time", a is not None and b is None and c is not None)
         helds = []
-        for lock in SUITE_LOCKS:   # Modkit's and AzurKit's
+        for lock in SUITE_LOCKS:   # Modkit's, and AzurKit's pytest's and its stages'
             fd = os.open(lock, os.O_RDWR | os.O_CREAT, 0o644)
             fcntl.flock(fd, fcntl.LOCK_EX)   # what `lockf -k` or fullsuite.py holds while a suite runs
             helds.append((admission(2, 1.0, 24, 64 * gib), admission(1, 1.0, 24, 64 * gib)))
             os.close(fd)
-        check("slots: a third waits while a full suite holds its lock, Modkit's or AzurKit's; the first two don't",
+        check("slots: a third waits while a full suite holds its lock, Modkit's, or AzurKit's for a gate's pytest "
+              "or its flake and perf stages (P2); the first two don't",
               all("full suite" in (held[0] or "") and str(lock) in (held[0] or "") and held[1] is None
                   for lock, held in zip(SUITE_LOCKS, helds))
               and admission(2, 1.0, 24, 64 * gib) is None, f"{helds}")
