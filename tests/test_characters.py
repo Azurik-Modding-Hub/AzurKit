@@ -1507,7 +1507,8 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
     refused naming it and nothing is written (D35); an install writes the entry and the one it requires and
     ``installed.json`` last (each version and file's sha256); a newer version upstream leaves the installed copy
     as it was until its Update, which drops the files that version no longer lists; and a built-in variant's
-    entry whose recipe isn't the engine's (its sha) is refused by name."""
+    entry whose recipe isn't the engine's (its sha) is refused by name, its line saying to update AzurKit, and
+    one whose recipe file is no JSON or no object is refused saying only that."""
     source, folder = tmp_path / "source", tmp_path / "content"
     monkeypatch.setattr(content, "ROOT", folder)
     monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
@@ -1536,12 +1537,15 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
     assert view["installed"]["a"]["version"] == 2 and not (folder / "packs/a/old.md").exists()
     assert (folder / "packs/a/pack.json").read_bytes() == b'{"v": 2}'
     recipe = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"] | {"scale": 1.5}
-    _source(source, {"variants/beamlord/variant.json": json.dumps({"beamlord": recipe}).encode()},
-            [{"id": "beamlord", "kind": "variant", "files": ["variants/beamlord/variant.json"]}])
-    with pytest.raises(ValueError, match=r"^beamlord: variants/beamlord/variant\.json's beamlord is recipe "
-                                         r"[0-9a-f]{12}, not the built-in beamlord's 628f6d09ad7b"):
-        sdk.content_install({"id": "beamlord", "source": str(source)})
-    assert "beamlord" not in content.installed()
+    for recipes, why in (   # only a moved recipe's line says to update AzurKit, which a newer one fits (Step 4.59b)
+            (json.dumps({"beamlord": recipe}).encode(), r"'s beamlord is recipe [0-9a-f]{12}, not the built-in "
+             r"beamlord's 628f6d09ad7b: AzurKit builds the built-in until the recipes move out of it: update AzurKit"),
+            (b"{", r" is no JSON \(.+\)"), (b"[]", " is no object of recipes")):
+        _source(source, {"variants/beamlord/variant.json": recipes},
+                [{"id": "beamlord", "kind": "variant", "files": ["variants/beamlord/variant.json"]}])
+        with pytest.raises(ValueError, match=rf"^beamlord: variants/beamlord/variant\.json{why}\Z"):
+            sdk.content_install({"id": "beamlord", "source": str(source)})
+        assert "beamlord" not in content.installed()
 
 
 def test_an_entry_that_needs_a_newer_azurkit_is_greyed_and_refused_before_any_file_is_fetched(tmp_path, monkeypatch):

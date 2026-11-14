@@ -1097,7 +1097,8 @@ are the Characters section's.
     only when its `main` moves at a release's publish, so an app at that
     release fits; `content.builtin_refusal` stays the proof behind it for
     the apps up to 1.2.0, and `sdk.content_refusal` adds "update AzurKit"
-    to its line.
+    to its line for a built-in's recipe that moved (not to a recipe file
+    that is no JSON, which no update mends).
   - **Shipped answers** (D995, `tools/characters/shipped.py`): each
     species' and built-in variant's size at its defaults and booblord's
     whole plan at the page's defaults (the packs on by default) are made

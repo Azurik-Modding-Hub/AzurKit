@@ -2539,14 +2539,19 @@ def community() -> dict:
 
 def content_refusal(entry: Mapping, files: Mapping[str, bytes]) -> str | None:
     """Why a content entry can't be installed, or ``None``: a variant's
-    recipe (``content.builtin_refusal``: its line says to update AzurKit,
-    as a recipe that moved fits a newer one), a community pack
+    recipe (``content.builtin_refusal``: a built-in's recipe that moved
+    says to update AzurKit, as a newer one fits it; a recipe file that is
+    no JSON or no object of recipes says only that), a community pack
     (``community.refusal``). ``content.verify``'s ``refusal``."""
     from azurkit.tools.characters import content as kit
 
     if (why := kit.builtin_refusal(entry, files)) is not None:
-        return f"{why}: update AzurKit"
+        return f"{why}: update AzurKit" if why.endswith(_MOVED) else why
     return communal.refusal(entry, files)
+
+
+_MOVED = "until the recipes move out of it"
+"""How ``content.builtin_refusal``'s line ends for a built-in's recipe that moved: the one a newer AzurKit fits."""
 
 
 _RELEASE = re.compile(r"[0-9]{1,6}(?:\.[0-9]{1,6}){0,3}\Z")
