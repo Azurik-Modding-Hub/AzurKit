@@ -1216,13 +1216,15 @@ def test_the_sites_patches_tab_installs_a_community_pack_from_its_own_address_an
     until its Install, which refuses a pack.json no community pack may be by name and keeps nothing; ticked, it sets and
     locks the rows it names; a Build carries its layer and its game files are the app's engine's for the same recipe;
     a link carries it by its sha12 and opens with it ticked; a reopened page restores it, handed to its engine first,
-    and its untick gives the rows back."""
+    and its untick gives the rows back. A pack whose version needs a newer AzurKit (the manifest's needs) shows its
+    Install greyed with its line (D979, Step 4.59b)."""
     from azurkit import sdk
 
     from tests import test_community as made
 
     source, manifest = made._installed(tmp_path, monkeypatch, {
-        "hard": made.HARD, "bad": made._pack({"qol_memory_upper64_gpu": {}})})
+        "hard": made.HARD, "bad": made._pack({"qol_memory_upper64_gpu": {}}), "later": made.HARD})
+    (source / "manifest.json").write_text(json.dumps(manifest | {"needs": {"later": "99.0.0"}}), encoding="utf-8")
     sdk.content_install({"id": "hard", "source": str(source)})
     defaults = {pack["name"]: {} for pack in sdk.catalog()["packs"] if pack["default_on"]}   # the page's own ticks
     expected = sdk.image({"iso": str(usa_iso), "packs": defaults, "community": [{"id": "hard"}]})[1]["result"]
@@ -1245,6 +1247,10 @@ def test_the_sites_patches_tab_installs_a_community_pack_from_its_own_address_an
         page.evaluate("() => { document.getElementById('community-group').open = true; }")
         _page.until(page, f"() => {row}?.querySelector('input').disabled && {row}.textContent.includes('Install it first')",
                     120)
+        newer = f"v1 needs AzurKit 99.0.0 or newer; this is {sdk.__version__}: update AzurKit"
+        assert page.evaluate("""() => { const e = document.querySelector('.cpack[data-community="later"]');
+            return [e.querySelector("button").disabled, e.querySelector("button").title,
+                    e.querySelector(".what").textContent]; }""") == [True, newer, newer]
         page.evaluate("""() => document.querySelector('.cpack[data-community="bad"] button').click()""")
         _page.until(page, "() => document.getElementById('status').textContent.startsWith('bad: nothing')", 120)
         assert "needs 'qol_memory_upper64'" in page.evaluate("() => document.getElementById('status').textContent")
