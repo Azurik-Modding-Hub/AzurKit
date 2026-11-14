@@ -1073,7 +1073,8 @@ def test_a_changed_area_perf_stage_times_the_heavy_check_ops_only_when_a_charact
     own files), each for its row's hosts and groups; a
     randomizer, page-wide, engine-wide or docs path times every other op it
     did and none of them; main's ``--all`` and an op named in ``--ops`` keep
-    them."""
+    them, and ``HOST:heavy`` adds only the heavy ops of its host's selected
+    groups."""
     heavy = {op.id for op in _perf.OPS.values() if op.heavy}
 
     def timed(pairs, named=frozenset()):
@@ -1094,6 +1095,8 @@ def test_a_changed_area_perf_stage_times_the_heavy_check_ops_only_when_a_charact
         assert timed(perf.select(paths)) and not timed(perf.select(paths)) & heavy, paths
     assert perf.select(["docs/GUIDE.md", "AGENTS.md"]) == set()
     assert timed(perf.ALL) == set(_perf.OPS) and timed({("app", "characters")}, {"A98", "A93"}) == {"A98", "A93"}
+    assert not timed({("app", "heavy")}) and heavy & timed({("app", "characters"), ("app", "heavy")}) == {
+        op for op in heavy if (_perf.OPS[op].host, _perf.OPS[op].group) == ("app", "characters")}   # --select's
 
 
 def test_the_perf_gate_fails_a_run_whose_engine_answers_without_the_native_library_its_worktree_ships():

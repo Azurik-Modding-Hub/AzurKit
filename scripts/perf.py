@@ -981,8 +981,8 @@ def builtins_unread():
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="perf", description=__doc__.split("\n\n")[0])
     ap.add_argument("worktree", type=Path)
-    ap.add_argument("--select", help="HOST:GROUP pairs, comma-separated, HOST:heavy for that host's heavy ops "
-                    "(D1280; default: what --base's changes reach)")
+    ap.add_argument("--select", help="HOST:GROUP pairs, comma-separated, HOST:heavy adding the heavy ops of that "
+                    "host's selected groups (D1280; default: what --base's changes reach)")
     ap.add_argument("--base", default="main", help="the changes' base for the selection (default main)")
     ap.add_argument("--all", action="store_true", help="every op, every profile and browser (main's full runs)")
     ap.add_argument("--profiles", help=f"comma-separated of {', '.join(PROFILES)} (default app,site)")
