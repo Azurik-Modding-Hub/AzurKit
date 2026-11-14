@@ -9,7 +9,7 @@ import functools
 import sys
 from pathlib import Path
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 
 STAMP = "commit.txt"
 """The file beside this one in a wheel or the frozen app that names the

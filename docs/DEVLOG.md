@@ -10,6 +10,111 @@ Each change's entry is its own file in `devlog/`, never a line here:
 `devlog/<section>/<step>-<slug>.md`, its section `added`, `changed`, `removed` or `fixed`, its name in lower-case
 letters, digits, dots and hyphens, the file one Markdown bullet. A release joins them into a section below.
 
+## [1.2.0 (November 14, 2026)]
+
+### Added
+- **A Modkit mod file's level moves build** (Step 4.41b, AZ-009): a new `xbr` operation, `{"op": "move", "file":
+  "gamedata/<level>.xbr", "entity", "x", "y", "z"}` (`edits/xbr.py`), puts a level's `critterGenerator`, named by its
+  id `g<G>/r<R>` or a critter name exactly one vanilla generator holds, at `x, y, z` by writing its parent
+  transform's `translateX..Z` (the game places a spawn at the parent's matrix times its gen point, 0x6F960; the
+  generator's own `localPositionX..Z` are never read there). It is planned on the vanilla level, so the name means
+  the vanilla generator whatever the randomizer's writer or an earlier mods file repoints, any finite value (D23),
+  past float32 the infinity it saturates to with a layer note (Q110), NaN and inf refused; a shared name (listing
+  its ids), no such generator, a record that is no generator, a transform a link places and a file with no node
+  section are refused by name. Modkit's importer makes each `level_patches` move one, refusing a rename by itself
+  where it refused the whole mod file; a seed with a move gives a `why_not` reason, so `logic_verified` is false;
+  the Data tab and a community pack say a move by its entity and place, and a community pack's layer keeps a move's
+  note, naming the pack. The goldens record the four USA cases and the Europe case that move training_room's
+  `large_air_fuel` whole (`LEVEL_PATCHED` is gone). Tests:
+  `test_a_level_move_means_the_vanilla_generator_whether_split_across_mod_files_or_after_the_randomizer`,
+  `test_a_community_packs_move_past_float32_is_written_as_infinity_and_its_layer_notes_it_naming_the_pack`.
+- A vanilla test pins weapon-fit's garret4 reference: he holds the farmer's hoe on his staff's carriers (his staff cut) and each clip asked for gives its deep ticks and lowest z, the hoe's its own (PENDING 9.28's second half, Step 4.52c).
+- CI's log prints each test that failed twice with its first try's error lines (`python -m tests._rerun --first`, from the failed tries' file the run already wrote), which pytest's failures and the summary never showed: a stall's first words (what stopped, WebKit's ended pages, Firefox's log) now reach the log (D1260, Step 4.54b).
+- **The perf gate times a Check after each of the Variants editor's other edits** (Step 4.55a, PENDING 1.9):
+  A107/S89 after a sound edit (the Sounds tab's Sound line), A108/S90 after Import PNG (another grey texture of the
+  Colours tab's last row each sample), A109/S91 after a Moves pick, A114/S92 after the Attacks tab's Damage and
+  A115/S93 after an Effects edit (a shield row added, then its first number), each on booblord's copy at a value no
+  Check held, clicked D1014's head start after its edit: heavy ops at the frequent tier (15 s in the app, 30 s in each
+  browser; a new heavy op starts frequent, `perf.check_tiers`). The first Check after any edit of her copy works out
+  her whole dress (54-66 s in the app, 81 s in WebKit; PENDING 1.9): A116/S94 time it (Scale, right after her own
+  Check, frequent), and each edit row's page with no Shape let go takes that Check first, so the rerun and beside
+  pages of A99/S85, A104/S86 and A105/S87, which timed it as their first sample on main (S86's WebKit debt row, 74-89 s
+  beside), now time their own edit's Check. Tests:
+  `test_the_perf_gates_check_after_an_edit_rows_click_3_s_after_it_at_new_values_and_s88_finds_no_part`,
+  `test_a_page_with_no_let_go_checks_scale_first_as_s94_or_untimed_so_each_edit_row_times_its_own_edit`.
+
+### Changed
+- The four settings and share-string tests that read devkit's toy randomizer database move from `test_randomizer.py` into `tests/test_rando_db.py`, beside its one `TOYDB`, so the gate's changed-area run picks them when only the toy database changes (PENDING 10.7, Step 4.52c).
+- The Variants view's looks: Save sits with New, Save as and Delete in the file row, the Notes box shows five lines,
+  the line beside Gameplay reads as a sentence ("Only the player's balthazar wears these colours; NPCs keep
+  theirs."), and the search box keeps one place and width in the Models and Variants views (Step 4.53a).
+- CI's shard table, `tests/ci_durations.json`, is measured again from six recent runs' vanilla jobs on all four runners (54 jobs, runs 43327936166 to 43431651205): it drops the old private-window test's id and gives each macOS runner's part 1 its pure tier's longer head (Intel 7,334 s, Apple Silicon 2,350 s), averaged over runners whose Intel pure tier took 4,276 to 12,745 s, so no one slow runner sets the cut (PENDING group 8's row 20, Step 4.54d).
+- A Shape edit's Check and quick preview move the mesh faster: the mesh edit's fields, relax sweeps, beneath crossings,
+  island UVs' conjugate gradients and binds' reach mixes run compiled (`native/positions.c`, bit for bit their Python
+  twins), and the relax's welded graph and the islands' and binds' region tests run in numpy (round 6's K4,
+  Step 4.55b).
+- A Shape edit's Check rigs the jiggle bones faster: the tube riders' skin in reach and their mix
+  (`native/rig.c`) and the bones' shares of the vertices (`az_shares`, `native/positions.c`) run compiled, bit for
+  bit their Python twins (round 6's K6, Step 4.55c).
+- A Shape edit's Check prepares the mesh faster: the subdivision's split loop (the marks, the longest-edge walks, the
+  splits and each new point's final position) runs compiled (`native/subdivide.c`), bit for bit its Python twin
+  (round 6's K5, Step 4.55d).
+- **Booblord's shipped Check parts are recorded again for the compiled position, rig and subdivision kernels** (Step 4.55e, D1259): `shipped.json`'s keys move to the new `parts.VERSION`, and her content entry goes to version 11, which carries the two parts whose bytes hold a key; beamlord's entry goes to version 2 with his plain notes. With an older app, version 11's Checks work those two small parts out fresh.
+- **The web tests drive Playwright 1.65.1** (Step 4.56b, tests only; D1133's lever for PENDING 8.12's Apple Silicon WebKit "Target crashed" flakes): Chromium's headless shell 158 (build 1254), Firefox 159 (1572) and WebKit 27.2 (2388), into `.tools/playwright` by `scripts/web_tools.py` as before, CI's web tools cache key moving with the version. Its Python client is now a line-by-line port of the Node.js one, and pyee is no longer a dependency: the tests' calls to its objects go through `tests/_page.py`'s `impl_call` (those methods now take every option by its Python name with no default), a Playwright client's connection keeps its driver's transport as before (what a stalled call's failure and a browser's close read the driver by), a stopped browser's connection closes by its `close`, and the launch guards read `ignore_default_args` and `firefox_user_prefs`.
+
+### Fixed
+- The RE header and shimkit's `azurik_vanilla.h` name `ControllerState`'s D-pad fields by the axis each holds: `dpad_x` at +0x10, `dpad_y` at +0x14, the xemu oracle's `pad()` too (AZ-234, Step 4.41a).
+- The RE header declares the XBR loader's structures as the game reads them: `XbrTocEntry` (an XBR's 16-byte TOC entry), `XbrTocRun` (the 28-byte loaded run `load_asset_by_fourcc` strides, once `IndexEntry`) and `IndexXbrRecord` (index.xbr's 20-byte record, once `IndexRecord`) (AZ-247, Step 4.41a).
+- **The built-in variants' shipped pictures are drawn again when the swap or the drawing changes** (Step 4.46a1, carried in Step 4.55e): the recorder kept a variant's two pictures while its recipe stood, so a change to how the swap dresses or the tab draws a body (as the idle pose once did) left the Characters tab showing an older look than the build dresses, and the check compared those pictures to themselves. Each variant's key now also holds `parts.VERSION`, which moves with what a dress runs and re-records the parts at the same time, and the drawing's own files, so such a change dresses the five again; an edit to the Variants editor or a grade draws none.
+- CI's fetch of Azurik-Custom-Content gives up a transfer under 1000 bytes a second for 60 s, so its retry runs where a stalled fetch could wait out the vanilla job's 330 minutes (Step 4.52a; PENDING 9's known flaw 19).
+- The spoiler's openers asked twice at once (the app's work ahead and the View's) keep every rule set either compiled in the one record a settings change drops, so none stays in the app's memory for good (Step 4.52a; PENDING 9's known flaw 15).
+- A save edit refuses an output that names the slot's own folder in another letter case on a disk that folds case (macOS's), as it refused the same case (Step 4.52a; PENDING 9's known flaw 23).
+- The Windows app reads its processes' peak memory (the peak working set), so a pool child past 256 MiB leaves after its part and a heavy job's work ahead stays off a machine under 16 GiB, as on macOS and Linux (Step 4.52a; PENDING 9's known flaw 14).
+- Beamlord's notes in the Characters tab and the Variants view are plain words for players, 288 characters with no
+  decision ids, as booblord's are; his recipe's sha and every build of him are unchanged (Step 4.52b).
+- Six refusals of a variant's glTF mesh or clip name devkit's `python -m devkit models model` command (`clips`,
+  `check`, `import`, `export`) in place of Modkit's `azurik-mod model`, gone with Modkit (Step 4.52b).
+- The physics calculator's refusal of a movement slider it doesn't map names AzurKit's own
+  `azurkit/tools/randomizer/physics.py` table in place of Modkit's `azurik_mod` path (Step 4.52b).
+- The content-reads test (a file read stops at its listed size, a too deep or too big manifest refused by name) clears `AZURKIT_CONTENT_SOURCE` first, so it passes with that variable set instead of reading the variable's source and failing on "manifest: no entry 'a'" (Step 4.52c).
+- The Colours tab's Export PNGs and Import PNG are greyed until you pick your image, each tip saying so, as Check
+  with game data is (D979, Step 4.53a).
+- A search typed in the Models view before its list answers opens the groups it finds models in once the list, or
+  the community content, arrives (Step 4.53a).
+- A site build with no build file (no character, a private window, WebKit on Windows) makes each piece's Blob straight
+  from the engine's heap: no second copy of its bytes waits in the worker for a GC (Step 4.53b).
+- On the site, a Characters change after a pause longer than the tab's rest lets the build ahead it started go on,
+  unkept, instead of ending its worker, whose pages WebKit kept beside the next one's (Step 4.53b).
+- The site's Update from another source than an entry's own is refused before any of its files is fetched, as the
+  app's is: the worker's content check holds the install first (Step 4.53b).
+- The app's default Save of an image named usa.iso or europe.iso in Downloads (or the one `AZURKIT_ISO` names there)
+  goes into Downloads' AzurKit folder, where it used to be refused for sitting beside the original (Step 4.53c,
+  PENDING 9's 22).
+- The Windows app opens no console window beside it (closing that one quit the app): it is a windowed program, as the
+  Mac's is, its commands print in the terminal they are run from, and what it prints with nowhere else to goes to
+  `app.log` in its log folder, with a crash's stack (Step 4.53c, PENDING 9's 20).
+- **The Data tab's site tests press a bar button only once it is enabled** (Step 4.54a, PENDING 8.12's Firefox Undo, 4 CI hits): an edit's commit sets the build's edits at once but enables Undo only after the tab's view is read again, so an Undo pressed in between was lost and the word-list test waited 600 s for an edit that stayed; the press now waits for the button (a missing one fails at once, by name).
+- **A Shape drag made while a built-in's pictures are still coming keeps its Preview note** (Step 4.54a, PENDING 8.34): the Variants view fetched and drew a built-in's shipped pictures after it opened and then wrote "From the front and from behind, as it ships." over a drag made meanwhile, unmarked; now the shipped pictures land only if no newer picture was drawn or asked, and once they land the Shape tab shows its nearest shape on them, marked Preview, with the drag's note.
+- **The two-engine-workers test drops B's plan as the pool sends it** (Step 4.54a, PENDING 8.4, 3 CI hits since Step 4.37g): it polled B's job every 1 ms from a second call, and B's plan of seed 2 (70-85 ms) could start and end before or between the polls, leaving the call waiting 120 s; the test now asks for the plan and makes the change a microtask after the pool's own send to B, in one call, so no message of B's can come between.
+- **The Sounds and Effects tabs' site test waits for its JSON Apply to take** (Step 4.54a, PENDING 8.35 and its Sounds line, group 8's most frequent flake: 6 times in 3 days, all three browsers): Apply puts the recipe in place only once the engine has read it, and the note the test waited on already read "Every field, as the recipe file holds it." before the press, so the Sounds line (`[[], []]`) and the Effects menu's Beam: Laser row were sometimes read from the old recipe; the test now waits until the page holds the applied recipe (or the note says why it kept the old one).
+- A module's test browser that stopped answering is launched again for the next test that takes it, the stalled test's one rerun too (D1260): the stalled call still fails its try by name (D1072), but the rerun and the module's later tests no longer fail at once on the stopped browser, as CI run 43431651205's Windows WebKit tests did; its close ends what an ended parent left running before its driver exits (Step 4.54b).
+- The perf gate's fetch of a content commit its clone lacks ends a transfer under 1000 bytes a second for 60 s, as CI's content fetch does, in place of waiting out its 600 s timeout per tree (Step 4.54c).
+- The perf driver's waits for booblord's Install end at once when the page shows the install's refusal, the sample's error naming it, instead of waiting out their 600-1800 s for a model that never comes (Step 4.54c).
+- The perf gate builds the last release's site beside the head with the head's built-in variant check off (`content.builtin_refusal`), since that site checks its pinned content with the head's engine: a release whose pinned booblord isn't the head's built-in no longer fails its whole site build, so every site op keeps the release's timing beside it; the release's own page still refuses at Install (Step 4.54c).
+- The perf gate's two trees, the head and the last release's beside it, each install the content their own CI pins (`tests.yml`'s `CONTENT_COMMIT`, else the content clone's newest commit at that tree's commit's date), a `git archive` of the clone unpacked into the run's scratch, never its working tree; a release whose built-in booblord isn't the content's no longer waits 1800 s on an install it refuses (Step 4.54c).
+- The site tests' new context, its init script, its routes and the bare page's new page each answer within the bound a page's own calls have, so a browser that stopped answering fails a test by name with its driver's processes rather than waiting unbounded (PENDING group 8's row 18, Step 4.54d).
+- The site tests' row for a new context its browser never answers allows for its site server's own close, up to 10 s, as well as the call's bound and its driver's listing, so a slow listing no longer fails it a fraction of a second past its line (Step 4.54d).
+- The site tests' fresh browser context takes each option by the name Playwright's own call gives it (`ignore_https_errors` as `ignoreHTTPSErrors`, `base_url` as `baseURL`), read from that call, where camelCasing the option's name refused four of them (Step 4.54d).
+- The stack-dump test's child sleeps and cancels its dumps on one line, so a last dump that lands between the two still finds the main thread at the line it asserts (the flake ledger's #10; CI on x86 and arm64, Step 4.54d).
+- The unanswered-call site test holds each stalled call's failure to its bound plus the sum of the reads that failure may make, each in its own bound (the page's state, WebKit's log, macOS's privacy prompts, the browser's probe, its driver's processes), where a flat 20 s line sat under that sum and failed a call whose reads took their time (the flake ledger's #14: 20.4 s here, 26.7 s on CI's Intel Mac, Step 4.54d).
+- The untrusted-content test times each row with the collector held, after one collection of what the earlier tests left, and a slow row's message gives its time on one repeat (the flake ledger's #15 and #16: one row at 0.622 s of thread time, about 150 times its own work, Step 4.54d).
+- On the site, a Check asked right after another (unchanged, say) waits while the worker keeps the last Check's parts and dress and draws its pictures, and its bar now moves with each of those steps ("Keeping the Check", then "Drawing the variant") instead of one line with no percent for up to 3.4 s (perf row S79: "bar" in WebKit, Chromium and Firefox, Step 4.54e).
+- The Shape tab's quick preview counts its position steps as it moves the vertices ("Moving its vertices (k of 9)"),
+  so its bar moves on the app too, where the drawing alone is shorter than one poll of the page (A95's perf-debt row,
+  Step 4.55b).
+- **A mods file's level moves are named as moves** (Step 4.56a): the Data tab's line counted a move among a mods file's "byte edits (read-only)"; it now counts them apart ("2 byte edits and 1 move from a mods file (read-only)"), and the MCP server's `xbr_edit` names `move` beside `set` and `replace_bytes` in its description, its empty-list refusal and `docs/MCP.md`. The guide says a share link keeps the Data edits and refuses a mods file's byte edits and moves by name, as designed.
+- **The rerun rule's own test counts each try in a file of its own** (Step 4.56c): xdist's two workers appended one tries file, and on Windows' runner one worker's line could overwrite the other's, so a first try went uncounted and the test failed twice (CI run on d8e01c36, pure, windows-x86_64).
+
 ## [1.1.1 (November 13, 2026)]
 
 ### Added
