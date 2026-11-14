@@ -936,7 +936,13 @@ def _as_held(recipe: Mapping, file: Path, name: str) -> dict:
     parts are keyed by its specs' ``repr`` (``parts.key``), so an edit of
     yours, its Save and its sha read it in the forms its saved Check, its
     Build and its shipped parts read."""
-    if (held := _held(file, name)) is None:
+    return _like(recipe, _held(file, name))
+
+
+def _like(recipe: Mapping, held: Mapping | None) -> dict:
+    """``recipe`` in ``held``'s number forms where they are equal
+    (:func:`_forms`), else as given (``held`` ``None``: all as given)."""
+    if held is None:
         return dict(recipe)
     try:
         return _forms(dict(recipe), held)
@@ -1533,13 +1539,7 @@ def variant_open(given: Mapping) -> dict:
     name = _named(given, "variant_open")
     held = None if name in kinds.builtins() or (library.root() / name).is_dir() else kit.variant(name)
     if held is not None:
-        doc = json.loads(Path(held.source).read_text(encoding="utf-8"))
-        recipe, parent = doc[name], held.files
-        if parent and parent not in kinds.builtins():   # from a recipe of its entry: laid whole, as it builds,
-            recipe = kinds.recipe_of(doc, name, held.source)[0]   # its springs where that one's build puts them
-            if (placed := kinds.placing(held)) is not None and placed.name == parent:   # (library.own_copy's)
-                recipe = {**recipe, "places": {"of": parent, "mesh": doc[parent]["mesh"],
-                                               "jiggle": doc[parent]["jiggle"]}}
+        recipe = _community(name, held)
         folder = str(Path(held.source).parent)
         shown = {"name": UNSAVED, "recipe": recipe, "folder": folder}
         return {"name": name, "kind": "community", "recipe": recipe, "folder": folder, "read": variant_read(shown)}
@@ -1559,6 +1559,22 @@ def variant_open(given: Mapping) -> dict:
     shown = {"name": name if kind == "yours" else UNSAVED, "recipe": recipe, "folder": folder}
     return {"name": name, "kind": kind, "recipe": recipe, "folder": folder,
             "read": variant_read({**shown, "built_in": name} if kind == "built-in" else shown)}
+
+
+def _community(name: str, held) -> dict:
+    """The recipe the community-only character ``name`` (``held``, its
+    ``Variant``) opens as: as its entry holds it, one ``from`` another of its
+    entry laid whole, as it builds, its springs where that one's build puts
+    them (``library.own_copy``'s)."""
+    from azurkit.tools.characters import _player_variants as kinds
+
+    doc = json.loads(Path(held.source).read_text(encoding="utf-8"))
+    recipe, parent = doc[name], held.files
+    if parent and parent not in kinds.builtins():   # from a recipe of its entry
+        recipe = kinds.recipe_of(doc, name, held.source)[0]
+        if (placed := kinds.placing(held)) is not None and placed.name == parent:
+            recipe = {**recipe, "places": {"of": parent, "mesh": doc[parent]["mesh"], "jiggle": doc[parent]["jiggle"]}}
+    return recipe
 
 
 def variant_read(given: Mapping) -> dict:
@@ -1659,6 +1675,7 @@ def variant_save(given: Mapping) -> dict:
                 raise ValueError(f"from {source!r}: none of your variants has that name, nor does a community "
                                  "character")
             files = Path(held.source).parent
+            recipe = _like(recipe, _community(source, held))   # in the forms it opens in (_as_held)
         else:   # yours: in the forms its file holds (_as_held)
             recipe = _as_held(recipe, files / library.RECIPE, source)
     library.copy_as(new, dict(recipe), files)

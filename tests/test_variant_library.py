@@ -293,7 +293,8 @@ def test_an_installed_community_only_character_is_worn_by_name_as_its_entry_afte
     the Variants view lists and opens it (its folder the entry's) and its Check takes it by name, a share link
     carries it by name and sha, and New from this copies it as yours. One ``from`` another of its entry (booblord
     and booblord_high's layout) opens laid whole, as it builds, its springs where that one's build puts them, so
-    an edit of it Checks and New from this copies it."""
+    an edit of it Checks and New from this copies it, in the number forms its entry holds though the page sends 1.0
+    as 1 and -0.0 as 0 (Step 4.60b: its copy's parts are keyed as its own Check's)."""
     installs("mine_lord", MINE)
     worn = variants.resolve("mine_lord")
     assert (worn.base, worn.scale, worn.source) == ("keylord", 1.2, str(installs.root / "variants/mine_lord/variant.json"))
@@ -328,7 +329,12 @@ def test_an_installed_community_only_character_is_worn_by_name_as_its_entry_afte
         False, "pair", None)
     edited = sdk._editing({"name": "unsaved", "recipe": {**opened["recipe"], "title": "Mine"}, "folder": opened["folder"]},
                           "variant_check", image=False)[1]
-    sdk.variant_save({"name": "unsaved", "recipe": opened["recipe"], "as": "my_high", "from": "pair_high"})
+    paged = json.loads(json.dumps(opened["recipe"]), parse_float=lambda text: (
+        int(float(text)) if float(text).is_integer() else float(text)))   # the page's JS numbers
+    assert paged == opened["recipe"] and json.dumps(paged) != json.dumps(opened["recipe"])
+    sdk.variant_save({"name": "unsaved", "recipe": paged, "as": "my_high", "from": "pair_high"})
+    assert (library.root() / "my_high" / library.RECIPE).read_text(encoding="utf-8") == library.text_of(
+        "my_high", opened["recipe"])
     assert len({repr((p.name, p.mesh, p.jiggle)) for p in map(variants.placing, (
         variants.resolve("pair_high"), edited, variants.resolve("my_high")))}) == 1
 
