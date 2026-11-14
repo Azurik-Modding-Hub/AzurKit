@@ -1024,8 +1024,8 @@ are the Characters section's.
     `sdk._as_held` gives yours the forms its `recipe.json` holds wherever
     the numbers are equal (Step 4.60b): an edit's Check (`_editing`), its
     `variant_read` sha and its Save, Save as and New from this ask the
-    keys its saved Check and its Build kept, and her own copy's first
-    edit takes her body's parts. A Check of what it
+    keys its saved Check and its Build kept, and booblord's own copy's
+    first edit takes her body's parts. A Check of what it
     checked last, unchanged (`sdk._check_key`, by content), answers at
     once, and a dress kept before (`characters.cache_key`; the site's
     worker keeps a Check's dress in IndexedDB as `build()` keeps a
