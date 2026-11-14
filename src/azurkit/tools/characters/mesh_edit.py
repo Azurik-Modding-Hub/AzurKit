@@ -3786,6 +3786,7 @@ def _bind(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> dic
             raise ValueError(f"mesh.ops[{i}]: a layer binds to its own group only with a reach (its weights mixed "
                              "within it)")
     last, prior = None, {}
+    at = np.array(base, np.float64).reshape(-1, 3)
     for r in regions:
         if r.bind is not last:        # the weights the binds before this one left (a mirror's two regions share)
             last, prior = r.bind, dict(out)
@@ -3797,7 +3798,9 @@ def _bind(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> dic
         if not grid:
             continue
         surface = _surface_grid(mesh, final, to) if r.bind is not None and r.bind.near is not None else None
-        ks = [k for k in range(len(final)) if r.holds(base[k]) and r.selects(mesh.heaviest[k], group_of[k])]
+        held = _holding(r, at)
+        ks = [k for k in (range(len(final)) if held is None else np.flatnonzero(held).tolist())
+              if (held is not None or r.holds(base[k])) and r.selects(mesh.heaviest[k], group_of[k])]
         nearest = _bind_nearest(final, grid, ks)
         reaches: dict[int, dict[int, float] | None] = {}
         if r.bind is not None and r.bind.reach > 0.0 and (asked := [k for k in ks if k in nearest]):   # at once
@@ -4039,8 +4042,49 @@ def _island_of(mesh: _Mesh, spec: MeshSpec, base: list[Vec]) -> list[int]:
     """Each triangle's island (its index in :func:`_island_sides`) or -1:
     the first side whose region holds its base centroid and selects its
     corners, a mirrored pair's by the side of x = 0 its centroid lies on,
-    and whose ``uv`` box (if any) holds its corners' UVs."""
+    and whose ``uv`` box (if any) holds its corners' UVs (every triangle at
+    once, in numpy's elementwise operations, the loop's own in its order:
+    a centroid ``sum()``'s, Neumaier's)."""
     sides = _island_sides(mesh, spec)
+    group_of = [g for g, _ in mesh.ids]
+    tris = np.array(mesh.triangles, np.int64).reshape(-1, 3)
+    out = np.full(len(tris), -1, np.int64)
+    if not sides or not len(tris):
+        return out.tolist()
+    corners = np.array(base, np.float64).reshape(-1, 3)[tris]
+    centre = []
+    for c in range(3):      # sum() of the three corners: 0 + the first, then Neumaier's compensation
+        f, comp = 0.0 + corners[:, 0, c], np.zeros(len(tris))
+        for i in (1, 2):
+            e = corners[:, i, c]
+            t = f + e
+            comp = comp + np.where(np.abs(f) >= np.abs(e), (f - t) + e, (e - t) + f)
+            f = t
+        centre.append(np.where((comp != 0.0) & np.isfinite(comp), f + comp, f) / 3.0)
+    centre = np.column_stack(centre)
+    uv = np.array(mesh.uvs, np.float64).reshape(-1, 2)[tris]
+    open_ = np.ones(len(tris), bool)
+    for k, (r, _, box) in enumerate(sides):
+        held = _holding(r, centre)
+        if held is None:    # a half axis of 0, which the loop divides by
+            return _island_of_each(mesh, sides, base)
+        picks: dict[tuple[int, int], bool] = {}
+        for hg in zip(mesh.heaviest, group_of):
+            if hg not in picks:
+                picks[hg] = r.selects(*hg)
+        hit = open_ & held & np.array([picks[hg] for hg in zip(mesh.heaviest, group_of)], bool)[tris].all(axis=1)
+        if box is not None:
+            hit &= ((box[0] <= uv[:, :, 0]) & (uv[:, :, 0] <= box[2]) & (box[1] <= uv[:, :, 1])
+                    & (uv[:, :, 1] <= box[3])).all(axis=1)
+        if not abs(r.centre[0]) <= COPIES:
+            hit &= (centre[:, 0] >= 0.0) == (r.centre[0] > 0.0)
+        out[hit] = k
+        open_ &= ~hit
+    return out.tolist()
+
+
+def _island_of_each(mesh: _Mesh, sides: list, base: list[Vec]) -> list[int]:
+    """:func:`_island_of`, a triangle at a time (where a region's half axis is 0: the loop raises as it divides)."""
     group_of = [g for g, _ in mesh.ids]
     out = []
     for tri in mesh.triangles:
@@ -4056,6 +4100,17 @@ def _island_of(mesh: _Mesh, spec: MeshSpec, base: list[Vec]) -> list[int]:
                 break
         out.append(got)
     return out
+
+
+def _holding(r: _Region, points: np.ndarray) -> np.ndarray | None:
+    """:meth:`_Region.holds` of each row of ``points`` (n x 3) at once, in
+    numpy's elementwise operations (the method's own, in its order), or
+    ``None`` where a half axis is 0 (the method divides by it)."""
+    c, rad = r.centre, r.radius
+    if any(x == 0 for x in rad):
+        return None
+    q = [(points[:, j] - c[j]) / rad[j] for j in range(3)]
+    return q[0] * q[0] + q[1] * q[1] + q[2] * q[2] < 1.0
 
 
 def _split_islands(mesh: _Mesh, spec: MeshSpec, base: list[Vec]) -> tuple[_Mesh, list[Vec]]:
