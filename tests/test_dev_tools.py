@@ -573,7 +573,8 @@ def test_a_gate_run_and_its_flake_stage_install_the_content_ci_pins_not_what_the
     run ``error``, naming it, with no pytest run."""
     _quick_flake(monkeypatch)
     monkeypatch.setattr(fullsuite, "WORKERS", 0)
-    monkeypatch.setattr(perf, "CONTENT_URL", str(tmp_path / "no-remote"))
+    # fullsuite's own perf module (it imports ``perf`` from its folder, not ``scripts.perf``), so no case fetches
+    monkeypatch.setattr(fullsuite.perf, "CONTENT_URL", str(remote := tmp_path / "no-remote"))
     monkeypatch.delenv(fullsuite.CONTENT, raising=False)
     clone, wt = tmp_path / "Azurik-Custom-Content", tmp_path / "AzurKit"   # the clone beside the main checkout
     _git(tmp_path, "init", "-q", "-b", "main", str(clone))
@@ -606,6 +607,7 @@ def test_a_gate_run_and_its_flake_stage_install_the_content_ci_pins_not_what_the
     m = got["0" * 40]
     assert (m["state"], fullsuite.status_code(m), "test_x" in m["log"]) == ("error", 1, False)
     assert m["note"].startswith(f"content {'0' * 40} (pinned) can't be read from ") and m["note"].endswith("no pytest ran")
+    assert f" or fetched from {remote}: " in m["note"], m["note"]   # the stand-in remote, never GitHub's
     assert state() == before
 
 
