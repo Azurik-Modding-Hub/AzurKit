@@ -99,9 +99,10 @@ The next session starts here (D1192), so 1.1 can follow.
 2. **The content push**: booblord v10 (her rework, 2a0abad) is the
    content repo's `main` since 1.1.1. v11 (Step 4.55e: her Check parts
    under the compiled kernels' `parts.VERSION`, beamlord v2's plain
-   notes) goes to its `main` with 1.2.0, and CI's `CONTENT_COMMIT` with
-   it (D1266, D1267). The clone's superseded branches and worktrees go
-   with 11.2.
+   notes) is its commit a3bf5e7, which CI's `CONTENT_COMMIT` pins from
+   4.55e's stack on (on the hub as a branch from its gate, as v10 was),
+   and goes to its `main` with 1.2.0 (D1266, D1267). The clone's
+   superseded branches and worktrees go with 11.2.
 3. **1.1** (D1203, D1210, D1244): the release where group 1's tiered
    lines hold, with the Variants editor's gaps: Undo (there since 4.6e),
    the app's window asking about unsaved edits on close (4.38a, landed) and

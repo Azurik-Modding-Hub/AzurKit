@@ -332,7 +332,7 @@ jobs:
         # push ahead of AzurKit's re-record, or between two parts, tested other content than this commit's. The commit
         # whose re-record needs a newer entry (scripts/record_shipped.py --content) moves the pin.
         env:
-          CONTENT_COMMIT: 2a0abad923baa90a3a36ba266b1976f72a94d20a   # booblord v10, beamlord v1 (2026-11-13): its main from AzurKit 1.1.1
+          CONTENT_COMMIT: a3bf5e7717b4c4aff6f73de670a1c6f7d3aa2e1c   # booblord v11, beamlord v2 (2026-11-14): its main from AzurKit 1.2.0
         run: |
           . scripts/ci_retry.sh
           # Step 4.52a: a transfer under 1000 bytes a second for 60 s ends its try, as the game data's ssh ends a silent
