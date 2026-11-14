@@ -152,14 +152,13 @@ def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake
     pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
     pytester.makepyfile(test_r="""
         import os
+        import uuid
 
         import pytest
 
-        def tried(name):
-            with open(os.environ["TRIES"], "a") as f:
-                f.write(name + "\\n")
-            with open(os.environ["TRIES"]) as f:
-                return f.read().split().count(name)
+        def tried(name):   # each try a file of its own: xdist's workers appending one file lose a line on Windows
+            open(os.path.join(os.environ["TRIES"], name + "." + uuid.uuid4().hex), "x").close()
+            return sum(seen.split(".")[0] == name for seen in os.listdir(os.environ["TRIES"]))
 
         @pytest.fixture(scope="module")
         def shaky():
@@ -192,12 +191,13 @@ def test_a_failed_test_runs_once_more_and_one_that_passes_it_is_a_recorded_flake
     for args, code, outcomes in ((("-n", "2"), 1, {"passed": 4, "failed": 1, "rerun": 4}),
                                  (("-k", "not always"), 0, {"passed": 4, "rerun": 3, "deselected": 1})):
         tries, flakes = tmp_path / f"tries{code}", tmp_path / f"flakes{code}.tsv"
+        tries.mkdir()
         monkeypatch.setenv("TRIES", str(tries))
         monkeypatch.setenv("AZURKIT_FLAKES", str(flakes))
         run = pytester.runpytest_subprocess("-p", "no:cacheprovider", *args, timeout=300)
         out = run.stdout.str()
         assert (run.ret, {k: n for k, n in run.parseoutcomes().items() if k != "warnings"}) == (code, outcomes), out
-        assert Counter(tries.read_text().split()) == {"once": 2, "shaky": 2, "setup": 1, "sticky": 2, "steady": 1} | (
+        assert Counter(seen.name.split(".")[0] for seen in tries.iterdir()) == {"once": 2, "shaky": 2, "setup": 1, "sticky": 2, "steady": 1} | (
             {"always": 2} if code else {}), args
         assert sorted(line.split("\t") for line in flakes.read_text(encoding="utf-8").splitlines()) == flaky, args
         assert out.index("vanilla: 0 run") < out.index("flaky: 3 passed on their one rerun") < out.index(
