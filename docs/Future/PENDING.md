@@ -736,28 +736,34 @@ memory peaks stay strict. The gate writes both kinds of row to
     onboarding (D107); Q236 (ghidra-sync's variable renames) and Q77/V15
     (Dependabot for `uv.lock`); V21 (the HDD cache) and V22 (a boot hang)
     as unresolved facts.
-12. **The suite lock's order** (D1222): macOS's flock hands a released
-    lock to its first blocked waiter, even a stopped one, so a window seat
-    waited hours behind every queued gate. Step 4.47a, queued last, makes
-    gates and the window poll and take turns. Owed: `$EV/tools/window`
-    took its .4.47a version, and every queued lane now carries 4.47a.
-    Owed: `land --selftest` on `main`.
-13. **The gate's P2** (D1215, two locks): its commit (8102f56e on
-    `p2/4.43b-gate-cuts-p2-p1-p4`) waits for a drained queue and its trial
-    pair (about an hour of window), adopted only if no perf verdict turns
-    slower and the starved count doesn't grow. Rebased over 4.47a, it owes
-    the test patch 4.47a's report gives. `$EV/tools/landq.py` takes its
-    .4.43b version once 4.43b1 (P4 and P1) is on `main`.
-14. **The landing queue's loose ends** (`$EV/tools/landq.py`, seen
-    2026-11-12): a queued or running gate of an entry that was rebased,
-    moved or dropped keeps its place and takes turns at the suite lock,
-    and landq never ends it (the orchestrator killed each by its pid);
-    landq doesn't check an entry's tip and liveness again just before it
-    rebases or gates it; its runner held about 790 MB after 13 hours, and
-    each poll costs CPU; one rebase stopped with "Could not execute the
-    todo command" and no conflict named, where the same rebase by hand
-    went clean (4.37m1); and no command holds an entry already queued
-    (D1238's pause stopped the gates' runners with SIGSTOP instead).
+12. ~~The suite lock's order~~ (D1222): fixed by Step 4.47a (gates and
+    the window poll and take turns); `$EV/tools/window` took its .4.47a
+    version, and `land --selftest` passed on `main` (11-14).
+13. **The gate's P2** (D1215, two locks): rebased onto `main` with 4.47a
+    as `p2/4.58c-gate-p2` (Step 4.58c; the xemu oracle also waits on a
+    gate's `perf.lock`, so no sandbox starts beside its flake and perf
+    stages). Its trial pair (11-14) refuses it by D1215's rule, "no perf
+    verdict changes": A107/app read bar solo (3.11 s) and pass beside
+    (2.88 s). Nothing turned slower, and the starved count fell beside (0,
+    against S86/webkit's one solo); ops within 0.2 s of the 3 s line (A105,
+    A107, A108) flip between any two runs. Whether "changes" means "turns
+    worse" is the owner's call; till then the lane waits unqueued, and if
+    adopted it is queued only on an empty queue.
+14. ~~The landing queue's loose ends~~: fixed by Step 4.58a's
+    `$EV/tools/landq.py` and `waitfor.py` (11-14). landq ends a gate whose
+    entry it rebases, moves, drops or holds (by its receipt's pid, checked
+    first), checks an entry's tip again just before it rebases, gates or
+    lands it, keeps git's whole error and retries once with `--onto` a
+    rebase that stops with no conflict named (the cause: a run still
+    writing in the lane), reads each gate's mode in a child process (its
+    runner stays near 44 MB), and holds an entry (`land --queue hold` and
+    `unhold`) in place of SIGSTOP; `waitfor` reads a gate in its flake or
+    perf stage as running. It also took 4.43b's P1, one perf stage a batch.
+15. **The content a run tests** (Step 4.58b): a gate unpacks `tests.yml`'s
+    `CONTENT_COMMIT` from the sibling clone, but a plain `pytest` run
+    still reads `AZURKIT_CONTENT_SOURCE` or the clone's working tree, and
+    a stack that only moves `CONTENT_COMMIT` runs no test that reads the
+    content (`fullsuite.plan` has no rule for it). A small lane.
 
 ## 11. This Mac and infrastructure
 
