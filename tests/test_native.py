@@ -144,11 +144,15 @@ import random
 from azurkit.tools.characters import decimate
 rng = random.Random(1407)
 cuts = [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
+import collections
+ran, real = collections.Counter(), native.subdivide
+native.subdivide = lambda *a: ran.update([got := real(*a)]) or got
 json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answer(case) for case in dress],
             "springs": [_spring_answer(case) for case in springs], "cuts": cuts,
             "bodies": [_body_answer(case) for case in bodies],
             "positions": [_positions_answer(case) for case in positions],
-            "rig": [_rig_answer(case) for case in rig], "subdivide": [_subdivide_answer(case) for case in subdivide]})
+            "rig": [_rig_answer(case) for case in rig], "subdivide": [_subdivide_answer(case) for case in subdivide],
+            "subdivided": ran})
 """
 
 
@@ -343,7 +347,9 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     with numpy.errstate(all="ignore"):
         assert got["positions"] == json.loads(json.dumps([_positions_answer(case) for case in positions]))
         assert got["rig"] == json.loads(json.dumps([_rig_answer(case) for case in rig]))
-    assert got["subdivide"] == json.loads(json.dumps([_subdivide_answer(case) for case in subdivide]))
+    assert got["subdivide"] == (twin := json.loads(json.dumps([_subdivide_answer(case) for case in subdivide])))
+    ran = got["subdivided"]   # by the wasm library, some grown, and the twin only where it raises
+    assert ran.get("0", 0) > 0 and ran.get("5", 0) > 0 and ran.get("1", 0) <= sum(isinstance(a, str) for a in twin), ran
     from azurkit.tools.characters import decimate
     rng = random.Random(1407)
     assert got["cuts"] == [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
@@ -1468,11 +1474,15 @@ def test_the_subdivide_kernel_gives_its_twins_answer_bit_for_bit(monkeypatch):
 
 
 _BOOBLORD_UNDER_PYODIDE = """
+import collections
 import json
+from azurkit.core import native
+ran, real = collections.Counter(), native.subdivide
+native.subdivide = lambda *a: ran.update([got := real(*a)]) or got
 characters, recipe, shapes = json.loads(ARGV)
 with open(characters, "rb") as f:
     characters = f.read()
-json.dumps(_booblord_subdivided(characters, recipe, json.loads(shapes)))
+json.dumps({"answers": _booblord_subdivided(characters, recipe, json.loads(shapes)), "ran": ran})
 """
 
 
@@ -1539,8 +1549,10 @@ def test_the_subdivide_kernel_gives_its_twins_answer_on_booblords_shapes_here_an
     (xbr := tmp_path / "characters.xbr").write_bytes(characters)
     got = pyodide(str(xbr), str(recipe), json.dumps(shapes), packages=(_pyodide.numpy(),),
                   python=inspect.getsource(_booblord_subdivided) + _BOOBLORD_UNDER_PYODIDE)
+    wasm = collections.Counter({int(code): n for code, n in got["ran"].items()})
+    assert wasm[0] >= 6 and wasm[5] >= 3 and wasm[1] == 0, wasm   # by the wasm library too, not its twin
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
-    assert kernel == got == _booblord_subdivided(characters, str(recipe), shapes)
+    assert kernel == got["answers"] == _booblord_subdivided(characters, str(recipe), shapes)
 
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):
