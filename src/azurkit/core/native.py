@@ -50,7 +50,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
 KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs",
            "ray", "rays", "decimate", "thin", "smooth", "dxt", "atan2", "raster", "spring", "clear",
            "strip", "regroup", "checks", "same", "fields", "relax", "beneath", "cg", "mix", "shares", "rides",
-           "ridden")
+           "ridden", "subdivide")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -129,7 +129,8 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_mix", [vp, i64, vp, vp, i64, vp, vp, i64, vp, vp, i64, f64, vp, vp, vp]),
                          ("az_shares", [vp, i64, i64, vp, i64, vp, vp, vp, vp, i64, vp, vp, vp, f64, vp]),
                          ("az_rides", [vp, i64, vp, i64, vp, vp, vp, vp, i64, f64, vp, vp, vp, i64, vp, vp, vp, vp]),
-                         ("az_ridden", [vp, vp, vp, vp, vp, i64, vp, i64, vp, vp])):
+                         ("az_ridden", [vp, vp, vp, vp, vp, i64, vp, i64, vp, vp]),
+                         ("az_subdivide", [vp, vp, vp])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
         return None, f"{name} doesn't load: {e}", None
@@ -1299,3 +1300,28 @@ def ridden(nstart: int, nj: int, nw: int, total: int, bestj: int, nq: int, m: in
     if (lib := library()) is None:
         return False
     return lib.az_ridden(nstart, nj, nw, total, bestj, nq, m, nf, out, got) == 0
+
+
+# tools/characters/mesh_edit.py's subdivision (native/subdivide.c, Step 4.55d): its split loop on the buffers
+# mesh_edit._split_compiled packs, by these names (subdivide.c's P_* and S_*, in their order).
+SUBDIVIDE_BUFFERS = ("wid", "gs", "heavy", "sstart", "sbone", "sw", "nrm", "uv", "base", "fin", "have", "wpos", "wnrm",
+                     "rep", "adj", "hash", "tri", "ver", "ex", "ey", "eref", "ehead", "enext", "ntri", "nnext", "hkey",
+                     "ht", "hver", "reg", "sel", "cls", "fstart", "fidx", "rows", "rstart", "rround", "rside", "sbase",
+                     "srow", "spair", "sbridge", "sorigin", "rays", "stack", "open")
+SUBDIVIDE_NUMBERS = ("phase", "nv0", "nv", "capv", "nw", "capw", "nt", "capt", "ne", "cape", "nn", "capn", "free", "nh",
+                     "caph", "nsk", "capsk", "hcap", "rehash", "nreg", "hems", "smooths", "ng", "nb", "nrounds",
+                     "added", "maxadd", "lepp", "t0", "gotsm", "depth", "nopen")
+SUBDIVIDE_DEPTH = 64                      # subdivide.c's STACK: the walk's deepest stack (mesh_edit.LEPP_MAX within it)
+
+
+def subdivide(p: array, s: array, d: array) -> int | None:
+    """``mesh_edit._subdivide``'s split loop (``az_subdivide``) on the
+    buffers whose addresses ``p`` holds (:data:`SUBDIVIDE_BUFFERS`' order),
+    from where its numbers ``s`` (:data:`SUBDIVIDE_NUMBERS`') say it
+    stopped, ``d`` its STRETCH, TORN, SLIVER and a walk's length: 0 once
+    done (called again at its end phase: the open edges written), 1 where
+    the twin answers, 5 where a buffer is short (grow it and call again);
+    ``None`` without the library."""
+    if (lib := library()) is None:
+        return None
+    return lib.az_subdivide(_at(p), _at(s), _at(d))

@@ -313,6 +313,9 @@ squared is a sliver (a crack vanilla fills): ``subdivide`` leaves it."""
 SUBDIVIDE_MAX = 400_000
 """The most vertices the ``subdivide`` ops may add (a guard against an
 ``edge`` so short it never ends; D35 refuses past it)."""
+SPLIT_ROOM = 1024
+"""The room past four times its mesh the compiled subdivision's loop
+starts with (each of its buffers doubles where a split finds it short)."""
 PASSES_MAX = 100
 """The most passes a ``relax`` op (``passes``) or a ``hem`` (``relax``) may
 run; a recipe's loader refuses more by name (the shipped recipes run 20 and
@@ -2887,9 +2890,6 @@ def _subdivide(mesh: _Mesh, spec: MeshSpec, base: list[Vec]) -> tuple[_Mesh, lis
             if not edge_tris[e]:
                 del edge_tris[e]
 
-    for t in range(len(tris)):
-        link(t)
-
     edged: dict[tuple[tuple[int, ...], float], dict] = {}   # apart's open edges: their final points in cells of band
 
     def near_edge(apart: tuple[tuple[int, ...], float], p: Vec) -> bool:
@@ -3081,51 +3081,56 @@ def _subdivide(mesh: _Mesh, spec: MeshSpec, base: list[Vec]) -> tuple[_Mesh, lis
             touched += [t, len(tris) - 1]
         return touched
 
-    heap: list[tuple[float, int, int]] = []
-    for t in range(len(tris)):
-        got = mark(t)
-        if got is not None:
-            heap.append((-got[0], t, 0))
-    heapq.heapify(heap)
-    while heap:
-        _, t0, ver = heapq.heappop(heap)
-        if ver != version[t0]:
-            continue
-        got = mark(t0)
-        if got is None:
-            continue
-        # Rivara's longest-edge propagation: split an edge only where it is the longest of every triangle on it
-        stack = [t0]
-        while stack:
-            t = stack[-1]
-            e = longest(t)
-            nxt = next((n for n in sorted(edge_tris.get(e, ())) if n != t and longest(n) != e), None)
-            if nxt is not None and len(stack) < LEPP_MAX:
-                stack.append(nxt)        # its neighbour's longest edge first
+    relaxed = any(r.hem.relax for r in hems)
+    opened = _split_compiled(regions, placed, rounds, (ids, keys, pos, nrm, uvs, skins, heavy, basep, group_of, wid_of,
+                                                       wpos, wnrm, tris, counts, rep), relaxed)
+    if opened is None:      # its twin
+        for t in range(len(tris)):
+            link(t)
+        heap: list[tuple[float, int, int]] = []
+        for t in range(len(tris)):
+            got = mark(t)
+            if got is not None:
+                heap.append((-got[0], t, 0))
+        heapq.heapify(heap)
+        while heap:
+            _, t0, ver = heapq.heappop(heap)
+            if ver != version[t0]:
                 continue
-            touched = split(e, got[1])
-            if touched is None:        # torn, or an old point: remembered, never split; the chain's start again
-                if e not in refused:
-                    refused.add(e)
-                    heapq.heappush(heap, (-got[0], t0, version[t0]))
-                break
-            stack.pop()                # t lay on e: split
-            for n in touched:
-                got2 = mark(n)
-                if got2 is not None:
-                    heapq.heappush(heap, (-got2[0], n, version[n]))
+            got = mark(t0)
+            if got is None:
+                continue
+            # Rivara's longest-edge propagation: split an edge only where it is the longest of every triangle on it
+            stack = [t0]
+            while stack:
+                t = stack[-1]
+                e = longest(t)
+                nxt = next((n for n in sorted(edge_tris.get(e, ())) if n != t and longest(n) != e), None)
+                if nxt is not None and len(stack) < LEPP_MAX:
+                    stack.append(nxt)        # its neighbour's longest edge first
+                    continue
+                touched = split(e, got[1])
+                if touched is None:        # torn, or an old point: remembered, never split; the chain's start again
+                    if e not in refused:
+                        refused.add(e)
+                        heapq.heappush(heap, (-got[0], t0, version[t0]))
+                    break
+                stack.pop()                # t lay on e: split
+                for n in touched:
+                    got2 = mark(n)
+                    if got2 is not None:
+                        heapq.heappush(heap, (-got2[0], n, version[n]))
+        opened = [(e, min(ts)) for e, ts in edge_tris.items() if _open(e)] if relaxed else []
     smooth = {k for k in range(len(ids)) if k >= len(mesh.ids) or any(
         r.smooth and r.holds(basep[k]) and r.selects(heavy[k], group_of[k]) for r in regions)}
     for r in hems:      # the hems' loops relaxed at the base, their ends where they leave the region kept
         if not r.hem.relax:
             continue
         ring: dict[int, set[int]] = {}
-        for e, ts in edge_tris.items():
-            if _open(e):
-                t = min(ts)
-                if all(r.selects(heavy[v], group_of[v]) for v in tris[t]):
-                    ring.setdefault(e[0], set()).add(e[1])
-                    ring.setdefault(e[1], set()).add(e[0])
+        for e, t in opened:
+            if all(r.selects(heavy[v], group_of[v]) for v in tris[t]):
+                ring.setdefault(e[0], set()).add(e[1])
+                ring.setdefault(e[1], set()).add(e[0])
         free = sorted(w for w, nb in ring.items() if len(nb) == 2 and r.holds(wpos[w]))
         fans: dict[int, list[tuple[int, int, int]]] = {}       # each loop point's faces (welded), their first facing
         on_loop = set(free)
@@ -3155,6 +3160,169 @@ def _subdivide(mesh: _Mesh, spec: MeshSpec, base: list[Vec]) -> tuple[_Mesh, lis
     out = _Mesh(mesh.body, mesh.lods, groups, tuple(ids), tuple(keys), tuple(pos), tuple(nrm), tuple(uvs),
                 tuple(skins), tuple(heavy), tuple(tris), mesh.names, mesh.parents, mesh.origins, mesh.binds)
     return out, basep, smooth
+
+
+def _split_compiled(regions: list[_Region], placed: list[_Placed], rounds: list[list[_Placed]], state: tuple,
+                    opened: bool) -> list | None:
+    """:func:`_subdivide`'s split loop by the compiled kernel
+    (``core.native.subdivide``, ``native/subdivide.c``): the loop's new
+    vertices, points and triangles written into ``state``'s lists (ids,
+    keys, positions, normals, UVs, skins, heaviest bones, base positions,
+    groups, welded points, the points' positions and normals, triangles,
+    group counts, each point's first vertex) as the twin's loop writes
+    them, and (``opened``) each welded edge one face bounds with its least
+    triangle; ``None``, the lists untouched, where the twin runs: no
+    library, a region ``apart``, numbers the kernel doesn't read (a field
+    or round side's row, a number not a float or an int within 2**52 or
+    not finite), or what the twin raises on."""
+    from array import array
+
+    if native.library() is None or len(regions) > 63 or any(r.apart is not None for r in regions) \
+            or any(len(sides) > 8 for sides in rounds) or not 1 <= LEPP_MAX <= native.SUBDIVIDE_DEPTH:
+        return None
+    ids, keys, pos, nrm, uvs, skins, heavy, basep, group_of, wid_of, wpos, wnrm, tris, counts, rep = state
+
+    def floats(values, n: int) -> list[float]:
+        out = [float(x) if type(x) is int and abs(x) <= 1 << 52 else x for x in values]
+        if len(out) != n or not all(type(x) is float and math.isfinite(x) for x in out):
+            raise TypeError("a number the kernel doesn't read")
+        return out
+
+    def room(typecode: str, n: int, given=()) -> array:      # ``given``, then zeros up to n items (at least one)
+        a = array(typecode, given)
+        a.frombytes(bytes(a.itemsize * max(0, max(n, 1) - len(a))))
+        return a
+
+    nv0, nw0, nt0 = len(ids), len(wpos), len(tris)
+    groups = sorted(set(group_of))
+    slot = {g: i for i, g in enumerate(groups)}
+    bones = {b for skin in skins for b in skin} | set(heavy)
+    if not bones or not all(type(b) is int and 0 <= b < 1 << 16 for b in bones):
+        return None
+    nb, ng = max(bones) + 1, len(groups)
+    cv, cw, ct = 4 * nv0 + SPLIT_ROOM, 4 * nw0 + SPLIT_ROOM, 4 * nt0 + SPLIT_ROOM
+    try:
+        reg = array("d", [x for r in regions for x in floats((*r.centre, *r.radius, r.edge), 7)])
+        rows = array("d", [x for pl in placed for x in _field_row(pl)] or [0.0])
+        sbase, srow, spair, sbridge, sorigin, rays = [], [], [], [], [], array("d")
+        for sides in rounds:
+            sbase.append(len(srow))
+            for side in sides:
+                row = _ray_row(side)
+                if row is None:
+                    return None
+                srow.append(len(rays))
+                rays.extend(row)
+                spair.append(1 if side.op.pair else 0)
+                sbridge.extend(floats((side.op.bridge,), 1))
+                sorigin.extend(floats(side.origin or (0.0, 0.0, 0.0), 3))
+        sel, cls = room("q", nb * ng), room("q", nb * ng)
+        kinds: dict[tuple, int] = {}
+        fstart, fidx, rstart, rround, rside = [0], [], [0], [], []
+        for b in range(nb):
+            for g in groups:
+                j = b * ng + slot[g]
+                sel[j] = sum(1 << i for i, r in enumerate(regions) if r.selects(b, g))
+                key = (tuple(i for i, op in enumerate(placed) if op.selects(b, g)),
+                       tuple((i, j2) for i, sides in enumerate(rounds) for j2, side in enumerate(sides)
+                             if side.selects(b, g)))
+                if key not in kinds:
+                    kinds[key] = len(kinds)
+                    fidx += key[0]
+                    fstart.append(len(fidx))
+                    for i, j2 in key[1]:
+                        rround.append(i)
+                        rside.append(j2)
+                    rstart.append(len(rround))
+                cls[j] = kinds[key]
+        sstart, sbone, sw = [0], [], []
+        for skin in skins:
+            sbone += skin
+            sw += floats(skin.values(), len(skin))
+            sstart.append(len(sbone))
+        buf = {"wid": room("q", cv, wid_of), "gs": room("q", cv, [slot[g] for g in group_of]),
+               "heavy": room("q", cv, heavy), "sstart": room("q", cv + 1, sstart),
+               "sbone": room("q", len(sbone) + 4 * cv, sbone), "sw": room("d", len(sw) + 4 * cv, sw),
+               "nrm": room("d", 3 * cv, [x for n in nrm for x in floats(n, 3)]),
+               "uv": room("d", 2 * cv, [x for uv in uvs for x in floats(uv, 2)]),
+               "base": room("d", 3 * cv, [x for b in basep for x in floats(b, 3)]), "fin": room("d", 3 * cv),
+               "have": room("q", cv), "wpos": room("d", 3 * cw, [x for w in wpos for x in floats(w, 3)]),
+               "wnrm": room("d", 3 * cw, [x for n in wnrm for x in floats(n, 3)]),
+               "rep": room("q", cw, [rep[w] for w in range(nw0)]), "adj": room("q", cw, [-1] * nw0),
+               "hash": room("q", 1 << (4 * cw).bit_length()), "tri": room("q", 3 * ct, [v for t in tris for v in t]),
+               "ver": room("q", ct), "ex": room("q", 3 * ct), "ey": room("q", 3 * ct), "eref": room("q", 3 * ct),
+               "ehead": room("q", 3 * ct), "enext": room("q", 3 * ct), "ntri": room("q", 3 * ct),
+               "nnext": room("q", 3 * ct), "hkey": room("d", ct), "ht": room("q", ct), "hver": room("q", ct),
+               "reg": reg if regions else room("d", 1), "sel": sel, "cls": cls, "fstart": array("q", fstart),
+               "fidx": room("q", 1, fidx), "rows": rows, "rstart": array("q", rstart), "rround": room("q", 1, rround),
+               "rside": room("q", 1, rside), "sbase": room("q", 1, sbase), "srow": room("q", 1, srow),
+               "spair": room("q", 1, spair), "sbridge": room("d", 1, sbridge), "sorigin": room("d", 1, sorigin),
+               "rays": rays if len(rays) else room("d", 1), "stack": room("q", native.SUBDIVIDE_DEPTH),
+               "open": room("q", 3)}
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if len(buf["tri"]) != 3 * ct or any(len(t) != 3 for t in tris):
+        return None
+    numbers = {"nv0": nv0, "nv": nv0, "capv": cv, "nw": nw0, "capw": cw, "nt": nt0, "capt": ct, "cape": 3 * ct,
+               "capn": 3 * ct, "free": -1, "caph": ct, "nsk": len(sbone), "capsk": len(sbone) + 4 * cv,
+               "hcap": len(buf["hash"]), "nreg": len(regions),
+               "hems": sum(1 << i for i, r in enumerate(regions) if r.hem is not None),
+               "smooths": sum(1 << i for i, r in enumerate(regions) if r.smooth), "ng": ng, "nb": nb,
+               "nrounds": len(rounds), "maxadd": SUBDIVIDE_MAX, "lepp": LEPP_MAX}
+    s = array("q", [numbers.get(name, 0) for name in native.SUBDIVIDE_NUMBERS])
+    d = array("d", [STRETCH, TORN, SLIVER, 0.0])
+    at = {name: i for i, name in enumerate(native.SUBDIVIDE_NUMBERS)}
+
+    def grown() -> None:      # every buffer of the loop's twice its room (a split found one short)
+        caps = {"capv": ("wid", "gs", "heavy", "nrm", "uv", "base", "fin", "have"),
+                "capw": ("wpos", "wnrm", "rep", "adj"), "capt": ("tri", "ver"),
+                "cape": ("ex", "ey", "eref", "ehead", "enext"), "capn": ("ntri", "nnext"),
+                "caph": ("hkey", "ht", "hver"), "capsk": ("sbone", "sw")}
+        for cap, names in caps.items():
+            s[at[cap]] *= 2
+            for name in names:
+                a = buf[name]
+                a.frombytes(bytes(a.itemsize * len(a)))
+        buf["sstart"].frombytes(bytes(8 * (s[at["capv"]] + 1 - len(buf["sstart"]))))
+        buf["hash"] = room("q", 1 << (4 * s[at["capw"]]).bit_length())
+        s[at["hcap"]], s[at["rehash"]] = len(buf["hash"]), 1
+
+    while True:
+        p = array("q", [buf[name].buffer_info()[0] for name in native.SUBDIVIDE_BUFFERS])
+        code = native.subdivide(p, s, d)
+        if code != 5:
+            break
+        grown()
+    if code != 0:
+        return None
+    nv, nw, nt = s[at["nv"]], s[at["nw"]], s[at["nt"]]
+    edges = []
+    if opened:
+        buf["open"] = room("q", 3 * s[at["ne"]])
+        p = array("q", [buf[name].buffer_info()[0] for name in native.SUBDIVIDE_BUFFERS])
+        if native.subdivide(p, s, d) != 0:
+            return None
+        flat = buf["open"]
+        edges = [((flat[j], flat[j + 1]), flat[j + 2]) for j in range(0, 3 * s[at["nopen"]], 3)]
+    w, n, uv, b, sb, ss = buf["wpos"], buf["nrm"], buf["uv"], buf["sbone"], buf["sw"], buf["sstart"]
+    points = [(w[j], w[j + 1], w[j + 2]) for j in range(3 * nw0, 3 * nw, 3)]
+    for m in range(nv0, nv):
+        wm, g = buf["wid"][m], groups[buf["gs"][m]]
+        ids.append((g, counts[g]))
+        counts[g] += 1
+        keys.append(b"N" + struct.pack("<I", wm))
+        pos.append(points[wm - nw0])
+        basep.append(points[wm - nw0])
+        nrm.append((n[3 * m], n[3 * m + 1], n[3 * m + 2]))
+        uvs.append((uv[2 * m], uv[2 * m + 1]))
+        skins.append({b[j]: sb[j] for j in range(ss[m], ss[m + 1])})
+        heavy.append(buf["heavy"][m])
+        group_of.append(g)
+        wid_of.append(wm)
+    wpos += points
+    tri = buf["tri"]
+    tris[:] = zip(tri[0:3 * nt:3], tri[1:3 * nt:3], tri[2:3 * nt:3])
+    return edges
 
 
 def _smooth_normals(mesh: _Mesh, after: list[Vec], which: set[int],

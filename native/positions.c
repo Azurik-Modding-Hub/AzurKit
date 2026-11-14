@@ -2,9 +2,10 @@
  * a run of points: _displace's moves and _det's det J, az_fields), its relax ops' Taubin sweeps (_relax's, az_relax),
  * its beneath sides' nearest cloth crossing (_beneath's grid and its numpy read, az_beneath), the island UVs'
  * conjugate gradients (_conjugate, az_cg), a bind's reach mixes (_ReachMix.each, az_mix) and, Step 4.55c, the jiggle
- * bones' shares (_share_rows' pushes by _effect and rounds by mesh.c's az_ray, az_shares). Every operation is its
- * Python twin's, in the twin's order, on doubles, with no contraction, so the two agree bit for bit
- * (tests/test_native.py); a sum() of floats is Python's (CPython's Neumaier sum since 3.12, from its int start 0).
+ * bones' shares (_share_rows' pushes by _effect and rounds by mesh.c's az_ray, az_shares) and, Step 4.55d, a point's
+ * fields' move for native/subdivide.c (az_moved). Every operation is its Python twin's, in the twin's order, on
+ * doubles, with no contraction, so the two agree bit for bit (tests/test_native.py); a sum() of floats is Python's
+ * (CPython's Neumaier sum since 3.12, from its int start 0).
  * What the twin raises on (a division by zero, a cell of a direction not finite) answers an error code, and its
  * caller runs the twin, which raises it. No libm, no libc, no allocation: the caller passes every buffer. Built by
  * nativekit (C99, zig cc). */
@@ -198,6 +199,23 @@ API i64 az_fields(const double *rows, i64 nops, const i64 *start, const i64 *idx
             out[4 * i + 3] = inside ? 1.0 : 0.0;
         }
     }
+    return 0;
+}
+
+/* _displace's point of p under the n op rows idx (FIELD_ROW doubles each, of rows) into out, as az_fields moves it
+ * (Step 4.55d: native/subdivide.c's final positions). 0, or 2 where the twin divides by zero. */
+i64 az_moved(const double *rows, const i64 *idx, i64 n, const double *p, double *out) {
+    double d[3], J[3][3], dx = 0.0, dy = 0.0, dz = 0.0;
+    int bad = 0;
+    for (i64 k = 0; k < n; k++) {
+        if (!effect(p, rows + FIELD_ROW * idx[k], 0, d, J, &bad)) {
+            if (bad) return 2;
+            continue;
+        }
+        if (bad) return 2;
+        dx += d[0], dy += d[1], dz += d[2];
+    }
+    out[0] = p[0] + dx, out[1] = p[1] + dy, out[2] = p[2] + dz;
     return 0;
 }
 

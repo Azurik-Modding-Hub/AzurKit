@@ -135,7 +135,7 @@ def tup(x):
     return tuple(tup(v) for v in x) if isinstance(x, list) else x
 
 answers = []
-docs, dress, springs, bodies, positions, rig = json.load(open(json.loads(ARGV)[0]))
+docs, dress, springs, bodies, positions, rig, subdivide = json.load(open(json.loads(ARGV)[0]))
 for doc, call in docs:
     graphs = tuple(native.Graph(*tup(g)) for g in doc.pop("graphs"))
     t = native.Tables(**{k: tup(v) for k, v in doc.items()} | {"discs": frozenset(doc["discs"])}, graphs=graphs)
@@ -148,7 +148,7 @@ json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answ
             "springs": [_spring_answer(case) for case in springs], "cuts": cuts,
             "bodies": [_body_answer(case) for case in bodies],
             "positions": [_positions_answer(case) for case in positions],
-            "rig": [_rig_answer(case) for case in rig]})
+            "rig": [_rig_answer(case) for case in rig], "subdivide": [_subdivide_answer(case) for case in subdivide]})
 """
 
 
@@ -323,13 +323,15 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     cases += [(_monotone_of(t), call) for t, call in cases[:30]]
     dress, springs, bodies = list(_dress_cases(1405, 60)), list(_spring_cases(1409, 12)), list(_body_cases(1411, 16))
     positions, rig = list(_positions_cases(1413, 12)), list(_rig_cases(1417, 12))
+    subdivide = list(_subdivide_cases(1421, 12))
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
-    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs, bodies, positions, rig]),
+    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress, springs, bodies, positions, rig, subdivide]),
                                                  encoding="utf-8")
     got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer)
                   + inspect.getsource(_spring_answer) + inspect.getsource(_mesh) + inspect.getsource(_body_answer)
-                  + inspect.getsource(_positions_answer) + inspect.getsource(_rig_answer) + _UNDER_PYODIDE,
+                  + inspect.getsource(_positions_answer) + inspect.getsource(_rig_answer)
+                  + inspect.getsource(_subdivide_answer) + _UNDER_PYODIDE,
                   packages=(_pyodide.numpy(),))
     assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
     assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
@@ -341,6 +343,7 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     with numpy.errstate(all="ignore"):
         assert got["positions"] == json.loads(json.dumps([_positions_answer(case) for case in positions]))
         assert got["rig"] == json.loads(json.dumps([_rig_answer(case) for case in rig]))
+    assert got["subdivide"] == json.loads(json.dumps([_subdivide_answer(case) for case in subdivide]))
     from azurkit.tools.characters import decimate
     rng = random.Random(1407)
     assert got["cuts"] == [repr(decimate.decimate(_mesh(rng), 0.3, max_error=0.004)) for _ in range(3)]
@@ -1281,6 +1284,263 @@ def test_an_input_the_rig_kernels_dont_take_answers_as_their_twins(case, monkeyp
     kernel = answer()
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     assert kernel == answer()
+
+
+def _subdivide_cases(seed: int, count: int):
+    """Seeded random inputs of the subdivision's split loop
+    (``native/subdivide.c``), as JSON: a bent sheet of n x n points over
+    bones a-d (its left half a's, its right b's, c and d mixed in), a UV
+    seam down one column (its points copied), a second group over its
+    middle rows whose faces are the first's wound the other way (twin
+    faces), now and then a crack's flat triangle whose middle point is an
+    edge's float32 midpoint and a base point moved off float32; subdivide
+    ops (smooth or not, mirrored, on some bones or groups), hems (relaxed
+    or not), scale, push and taper ops on one bone or all and round ops
+    (a mirrored pair with its bridge among them), and the room its loop
+    starts with (0: it grows)."""
+    import struct
+
+    def f32(p):
+        return list(struct.unpack("<3f", struct.pack("<3f", *p)))
+
+    rng = random.Random(seed)
+    for _ in range(count):
+        n, step = rng.randint(4, 8), rng.uniform(0.02, 0.05)
+        pos, uv, grid = [], [], {}
+        for j in range(n):
+            for i in range(n):
+                x = (i - (n - 1) / 2) * step + rng.uniform(-0.15, 0.15) * step
+                grid[i, j] = len(pos)
+                pos.append(f32((x, 0.4 * x * x + rng.uniform(-0.1, 0.1) * step, 1.0 + j * step)))
+                uv.append([i / n, j / n])
+        seam, tris = rng.randint(1, n - 2), []
+        copies = {}
+        for j in range(n):     # the seam's points copied: the cells right of it use the copies
+            copies[seam, j] = len(pos)
+            pos.append(list(pos[grid[seam, j]]))
+            uv.append([1.0, j / n])
+        for j in range(n - 1):
+            for i in range(n - 1):
+                at = {(a, b): copies[a, b] if a == seam and i >= seam else grid[a, b] for a in (i, i + 1)
+                      for b in (j, j + 1)}
+                tris += [[at[i, j], at[i + 1, j + 1], at[i + 1, j]], [at[i, j], at[i, j + 1], at[i + 1, j + 1]]]
+        first = len(pos)
+        rows = range(rng.randint(0, n - 3), n)
+        layer = {}
+        for (i, j), k in grid.items():     # the second group: its own copies of the middle rows, faces turned
+            if j in rows and rng.random() < 0.9:
+                layer[k] = len(pos)
+                pos.append(list(pos[k]))
+                uv.append(list(uv[k]))
+        tris += [[layer[a], layer[c], layer[b]] for a, b, c in tris if a in layer and b in layer and c in layer]
+        if rng.random() < 0.4:     # a crack's sliver: a point at an edge's float32 midpoint, a flat triangle
+            a, b = grid[1, 1], grid[2, 1]
+            tris.append([a, len(pos), b])
+            pos.append(f32([(pos[a][c] + pos[b][c]) / 2.0 for c in range(3)]))
+            uv.append([0.5, 0.5])
+        group = [0] * first + [1] * (len(pos) - first)
+        skins, heavy = [], []
+        for p in pos:
+            main = 0 if p[0] < 0.0 else 1
+            skin = {main: rng.uniform(0.5, 1.0)}
+            for b in rng.sample((2, 3), rng.randint(0, 2)):
+                skin[b] = rng.uniform(0.0, 0.4) if rng.random() < 0.9 else skin[main]
+            skins.append([[b, w] for b, w in skin.items()])
+            heavy.append(min(skin, key=lambda b: (-skin[b], b)))
+        nrm = [[rng.uniform(-0.2, 0.2), rng.choice((1.0, 1.0, -1.0)), rng.uniform(-0.2, 0.2)] for _ in pos]
+        nrm[rng.randrange(len(nrm))] = [0.0, 0.0, 0.0]
+        base = [list(p) for p in pos]
+        for k in rng.sample(range(len(base)), 3):
+            base[k] = [x + rng.uniform(-0.2, 0.2) * step for x in base[k]]
+        mid, span = [0.0, 0.0, 1.0 + (n - 1) * step / 2], (n - 1) * step
+
+        def place(kind):
+            op = {"kind": kind, "bone": rng.choice("abcd"),
+                  "offset": [rng.uniform(-0.6, 0.6) * span, rng.uniform(-0.3, 0.3) * span,
+                             mid[2] + rng.uniform(-0.4, 0.4) * span],
+                  "radius": [rng.uniform(0.3, 0.8) * span for _ in range(3)], "mirror": rng.random() < 0.3,
+                  "only": rng.choice(((), (), ("a",), ("b",), ("a", "c"))),
+                  "groups": rng.choice(((), (), (0,), (1,), (0, 1)))}
+            if op["mirror"] and abs(op["offset"][0]) < 0.01:
+                op["offset"][0] = 0.02
+            return op
+
+        ops = []
+        for _ in range(rng.randint(1, 3)):
+            ops.append(place("subdivide") | {"edge": rng.uniform(0.3, 0.9) * step, "smooth": rng.random() < 0.5})
+        if rng.random() < 0.5:
+            ops.append(place("hem") | {"edge": rng.uniform(0.3, 0.9) * step, "relax": rng.choice((0, 2))})
+        for _ in range(rng.randint(0, 3)):
+            ops.append(place(rng.choice(("scale", "push", "taper"))) | {
+                "factors": [rng.uniform(0.7, 1.4) for _ in range(3)], "profile": rng.choice(("cone", "smooth")),
+                "direction": [rng.uniform(-0.3, 0.3), 1.0, rng.uniform(-0.3, 0.3)],
+                "height": rng.uniform(-0.6, 0.6) * step,
+                "depth": rng.uniform(0.2, 1.0) * span, "fold": rng.random(), "plateau": rng.uniform(0.0, 0.2) * span,
+                "half": rng.uniform(0.1, 0.5) * span, "reach": sorted(rng.uniform(0.1, 0.6) * span for _ in range(2))})
+        for _ in range(rng.randint(0, 2)):
+            pair = rng.random() < 0.4
+            op = place("round") | {"pair": pair, "radius": [rng.uniform(0.2, 0.5) * span for _ in range(4)],
+                                   "blend": [rng.uniform(0.05, 0.3) * span for _ in range(2)],
+                                   "bridge": rng.uniform(0.0, 0.2) * span if pair or rng.random() < 0.3 else 0.0}
+            op["origin"] = rng.uniform(0.0, 0.5) * op["radius"][1]
+            op["offset"][1] = -rng.uniform(0.3, 0.6) * span      # its rays start behind the sheet
+            if pair or op["bridge"] > 0.0:
+                op["mirror"], op["offset"][0] = True, rng.choice((-1, 1)) * rng.uniform(0.2, 0.5) * span
+            ops.append(op)
+        yield {"pos": pos, "uv": uv, "nrm": nrm, "skins": skins, "heavy": heavy, "group": group, "tris": tris,
+               "base": base, "ops": ops, "room": rng.choice((0, 1024))}
+
+
+def _subdivide_answer(case: dict):
+    """mesh_edit._subdivide on ``case``'s sheet (by the library when it's
+    loaded, else the twin): the mesh it makes (ids, weld keys, positions,
+    normals, UVs, skins, heaviest bones, triangles, group counts), its base
+    positions and the vertices whose normals turn smooth, each float's bits
+    as hex; or the error it raises."""
+    import struct
+
+    from azurkit.tools.characters import mesh_edit as me
+    from azurkit.tools.characters.characters import MeshGroup
+
+    def hexed(v):
+        return [x.hex() for x in v]
+
+    kinds = {"subdivide": me.SubdivideOp, "hem": me.HemOp, "scale": me.ScaleOp, "push": me.PushOp,
+             "taper": me.TaperOp, "round": me.RoundOp}
+    ops = []
+    for op in case["ops"]:
+        common = {"offset": tuple(op["offset"]), "mirror": op["mirror"], "only": tuple(op["only"]),
+                  "groups": tuple(op["groups"])}
+        if op["kind"] in ("subdivide", "hem"):
+            more = {"smooth": op["smooth"]} if op["kind"] == "subdivide" else {"relax": op["relax"]}
+            ops.append(kinds[op["kind"]](op["bone"], tuple(op["radius"]), op["edge"], **common, **more))
+        elif op["kind"] == "scale":
+            ops.append(me.ScaleOp(op["bone"], tuple(op["radius"]), tuple(op["factors"]), profile=op["profile"],
+                                  **common))
+        elif op["kind"] == "push":
+            ops.append(me.PushOp(op["bone"], tuple(op["direction"]), op["height"], (*op["radius"], op["radius"][0]),
+                                 op["depth"], fold=op["fold"], **common))
+        elif op["kind"] == "taper":
+            ops.append(me.TaperOp(op["bone"], tuple(op["factors"][:2]), op["plateau"], op["half"], tuple(op["reach"]),
+                                  offset=common["offset"], only=common["only"], groups=common["groups"]))
+        else:
+            ops.append(me.RoundOp(op["bone"], tuple(op["radius"]), op["origin"], tuple(op["blend"]), pair=op["pair"],
+                                  bridge=op["bridge"], **common))
+    pos = [tuple(p) for p in case["pos"]]
+    counts = [case["group"].count(g) for g in (0, 1)]
+    mesh = me._Mesh("sheet", 1, tuple(MeshGroup(0, g, (0, 1, 2, 3), 0, 0, counts[g]) for g in (0, 1)),
+                    tuple((g, k - (counts[0] if g else 0)) for k, g in enumerate(case["group"])),
+                    tuple(struct.pack("<3f", *p) for p in pos), tuple(pos), tuple(map(tuple, case["nrm"])),
+                    tuple(map(tuple, case["uv"])), tuple({b: w for b, w in s} for s in case["skins"]),
+                    tuple(case["heavy"]), tuple(map(tuple, case["tris"])), tuple("abcd"), (-1, -1, -1, -1),
+                    ((0.0, 0.0, 0.0),) * 4, ((1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                                             1.0),) * 4)
+    room, most = me.SPLIT_ROOM, me.SUBDIVIDE_MAX
+    me.SPLIT_ROOM, me.SUBDIVIDE_MAX = case["room"], 20_000    # a sheet's ops that never stop end there
+    try:
+        out, base, smooth = me._subdivide(mesh, me.MeshSpec(ops=tuple(ops)), [tuple(p) for p in case["base"]])
+    except (ValueError, ZeroDivisionError) as exc:
+        return f"{type(exc).__name__}: {exc}"
+    finally:
+        me.SPLIT_ROOM, me.SUBDIVIDE_MAX = room, most
+    return [[list(i) for i in out.ids], [k.hex() for k in out.keys], [hexed(p) for p in out.positions],
+            [hexed(p) for p in out.normals], [hexed(p) for p in out.uvs],
+            [[[b, w.hex()] for b, w in s.items()] for s in out.skins], list(out.heaviest),
+            [list(t) for t in out.triangles], [g.count for g in out.groups], [hexed(p) for p in base], sorted(smooth)]
+
+
+def test_the_subdivide_kernel_gives_its_twins_answer_bit_for_bit(monkeypatch):
+    """``native/subdivide.c``'s ``az_subdivide`` (``mesh_edit._subdivide``'s
+    split loop: the marks, the heap, the longest-edge walks, the splits
+    with their torn and old-point refusals, their copies, and the points'
+    final positions by the fields and rounds) gives its twin's answer bit
+    for bit over a seeded table of topologies (seams, twin faces, cracks,
+    groups, hems, pairs), its buffers grown where they start short."""
+    cases, ran = list(_subdivide_cases(1419, 40)), collections.Counter()
+    real = native.subdivide
+    monkeypatch.setattr(native, "subdivide", lambda *a: ran.update([got := real(*a)]) or got)
+    assert native.report()["loaded"]
+    got = [_subdivide_answer(case) for case in cases]
+    assert ran[0] > 30 and ran[5] > 0 and ran[1] == 0, ran   # each by the library, some grown
+    assert sum(len(g[0]) > len(c["pos"]) for g, c in zip(got, cases)) > 30, "the table splits"
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    assert got == [_subdivide_answer(case) for case in cases]
+
+
+_BOOBLORD_UNDER_PYODIDE = """
+import json
+characters, recipe, shapes = json.loads(ARGV)
+with open(characters, "rb") as f:
+    characters = f.read()
+json.dumps(_booblord_subdivided(characters, recipe, json.loads(shapes)))
+"""
+
+
+def _booblord_subdivided(characters: bytes, recipe: str, shapes: list) -> list[str]:
+    """Booblord's mesh (her recipe, the variant.json at ``recipe``) on
+    vanilla's female_2 subdivided at each of ``shapes``' values (by the
+    library when it's loaded, else the twin): each answer's sha256 over its
+    ids, weld keys, triangles, group counts and every float's bits."""
+    import hashlib
+
+    from azurkit.tools.characters import _player_variants as pv
+    from azurkit.tools.characters import mesh_edit as me
+
+    def hexed(rows):
+        return [[x.hex() for x in row] for row in rows]
+
+    with open(recipe, encoding="utf-8") as f:
+        variant = pv.load_variants(f.read(), recipe)["booblord"]
+    out = []
+    for values in shapes:
+        spec = pv.reshaped(variant, values).mesh
+        mesh = me._read_mesh(characters, "townspeople/female_2")
+        base, _ = me._base(mesh, spec, None)
+        mesh, base = me._drop(mesh, spec, base)
+        made, base, smooth = me._subdivide(mesh, spec, list(base))
+        out.append(hashlib.sha256(repr((made.ids, made.keys, made.triangles, [g.count for g in made.groups],
+                                        hexed(made.positions), hexed(made.normals), hexed(made.uvs),
+                                        [[(b, w.hex()) for b, w in s.items()] for s in made.skins], made.heaviest,
+                                        hexed(base), sorted(smooth))).encode()).hexdigest())
+    return out
+
+
+def test_the_subdivide_kernel_gives_its_twins_answer_on_booblords_shapes_here_and_under_pyodide(
+        usa_iso, pyodide, tmp_path, monkeypatch):
+    """``az_subdivide`` on booblord's own mesh recipe (Azurik-Custom-Content's:
+    ``$AZURKIT_CONTENT_SOURCE``, else its clone beside the main checkout) at
+    seeded shape values between 0.5 and 1.4: here and as the side module
+    under Pyodide it gives the twin's answer bit for bit, every buffer
+    grown on the way (her mesh splits to eight times its vertices)."""
+    import os
+    import subprocess
+    from pathlib import Path
+
+    from azurkit import sdk
+    from azurkit.core import iso
+
+    source = os.environ.get(sdk.SOURCE_ENV) or str(Path(subprocess.run(
+        ["git", "-C", str(Path(__file__).resolve().parents[1]), "rev-parse", "--path-format=absolute",
+         "--git-common-dir"], capture_output=True, text=True, check=True).stdout.strip()).parent.parent
+        / "Azurik-Custom-Content")
+    recipe = Path(source) / "variants" / "booblord" / "variant.json"
+    if not recipe.is_file():
+        pytest.fail(f"booblord's recipe isn't at {recipe} (set {sdk.SOURCE_ENV}, or clone Azurik-Custom-Content beside "
+                    "the main checkout)", pytrace=False)
+    rng = random.Random(1423)
+    shapes = [{name: round(rng.uniform(0.5, 1.4), 2) for name in ("bust", "hips", "butt")} for _ in range(3)]
+    with iso.Reader(usa_iso) as r:
+        characters = r.read("gamedata/characters.xbr")
+    ran = collections.Counter()
+    real = native.subdivide
+    monkeypatch.setattr(native, "subdivide", lambda *a: ran.update([got := real(*a)]) or got)
+    kernel = _booblord_subdivided(characters, str(recipe), shapes)
+    assert ran[0] >= 6 and ran[5] >= 3 and ran[1] == 0, ran
+    (xbr := tmp_path / "characters.xbr").write_bytes(characters)
+    got = pyodide(str(xbr), str(recipe), json.dumps(shapes), packages=(_pyodide.numpy(),),
+                  python=inspect.getsource(_booblord_subdivided) + _BOOBLORD_UNDER_PYODIDE)
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    assert kernel == got == _booblord_subdivided(characters, str(recipe), shapes)
 
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):

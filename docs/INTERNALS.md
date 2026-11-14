@@ -1411,7 +1411,22 @@ are the Characters section's.
   worked out in numpy, a vertex its rank in the twin's sorted order) and a
   jiggle bone's shares mixed over them (`az_ridden`: `_ridden`'s mix,
   `_Rode.mixed`); a reach not a finite float, a position not finite and a
-  cell past 2**52 are the twin's.
+  cell past 2**52 are the twin's. The twelfth is the subdivision's split
+  loop (`native/subdivide.c`, Step 4.55d): `mesh_edit._subdivide` past its
+  setup, on the buffers `_split_compiled` packs (`az_subdivide`: the
+  triangles on their welded edges, the marks, heapq's heap, the
+  longest-edge walks, each split with its torn and old-point refusals and
+  its copies' skins, normals and UVs, and the open edges for the hems'
+  relax after it, in Python), each point's final position worked out as
+  the twin asks it (`_displace` by `positions.c`'s `az_moved`, the rounds'
+  sides without their bridge on `mesh.c`'s `az_ray`); the twin, the loop
+  inline in `_subdivide`, is the reference. Its sets are lists there, an
+  edge's triangles sorted each time it is read, so no answer reads an
+  order; it grows its buffers where a split finds one short (the caller
+  doubles them and calls again: the loop goes on where it stopped). A
+  region `apart`, a field or round side the kernels don't read, a number
+  not a float or an int within 2**52 or not finite, an edge of more than
+  32 triangles, a NaN key and what the twin raises on are the twin's.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,
