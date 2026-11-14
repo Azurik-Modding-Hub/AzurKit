@@ -2171,7 +2171,7 @@ def test_the_image_checks_count_a_worker_that_ends_while_asked_as_none_and_fail_
     its close before that error or after it (Firefox's order on run 42156372553's Linux tier, 15 runs of 400 here:
     "Execution context was destroyed", the worker still listed; held here, its close heard 0.1 s late), and a
     running worker whose count fails fails it, by its error."""
-    from playwright._impl.worker import Worker
+    from playwright._impl.protocol_channels import WorkerChannel
     from playwright.sync_api import Error
     for name, source in (("ends.js", "Object.defineProperty(self, 'azurkitChecks', { get() { postMessage('asked');"
                                      " return new Promise(() => {}); } });"),   # its count asked, the page ends it
@@ -2200,9 +2200,10 @@ def test_the_image_checks_count_a_worker_that_ends_while_asked_as_none_and_fail_
 
         start("ends.js", "counts.js")
         assert _page.checks(page) == 2 and [w.url.rpartition("/")[2] for w in page.workers] == ["counts.js"]
-        heard, late = Worker._on_close, 0.1   # s: past the ask's error, within ms of the close's message either side
-        with monkeypatch.context() as held:
-            held.setattr(Worker, "_on_close", lambda worker: asyncio.get_running_loop().call_later(late, heard, worker))
+        hears, late = WorkerChannel.onClose, 0.1   # s: past the ask's error, within ms of the close's message either side
+        with monkeypatch.context() as held:   # a worker made now hears its close late
+            held.setattr(WorkerChannel, "onClose", lambda channel, heard: hears(
+                channel, lambda: asyncio.get_running_loop().call_later(late, heard)))
             start("ends.js")
             assert _page.checks(page) == 2 and [w.url.rpartition("/")[2] for w in page.workers] == ["counts.js"]
         start("fails.js")
