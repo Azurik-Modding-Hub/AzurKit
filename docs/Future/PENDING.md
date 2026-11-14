@@ -28,7 +28,9 @@ The next session starts here (D1192), so 1.1 can follow.
 
 1. **The target** (D1244, amending D1194 and D1201; D1204): tiered by how
    often players meet it. A Check players meet often (her own copy's first,
-   after Scale, a Jiggle stiffness or a colour) takes 30 s at most in each
+   after her copy's first edit, after Scale, a Jiggle stiffness or a colour,
+   and by default, as Step 4.55a's rows start, after a sound, Import PNG,
+   Moves, Attacks or Effects edit) takes 30 s at most in each
    of WebKit, Chromium and Firefox and 15 s in the app; a rare one (after a
    Shape edit, one with no shipped parts) and a reshape's first build and
    pictures 90 s and 45 s. The perf gate holds each op to its tier's line,
