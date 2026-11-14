@@ -2,11 +2,12 @@
  * a run of points: _displace's moves and _det's det J, az_fields), its relax ops' Taubin sweeps (_relax's, az_relax),
  * its beneath sides' nearest cloth crossing (_beneath's grid and its numpy read, az_beneath), the island UVs'
  * conjugate gradients (_conjugate, az_cg), a bind's reach mixes (_ReachMix.each, az_mix) and, Step 4.55c, the jiggle
- * bones' shares (_share_rows' pushes by _effect and rounds by mesh.c's az_ray, az_shares). Every operation is its Python twin's, in the twin's order, on doubles,
- * with no contraction, so the two agree bit for bit (tests/test_native.py); a sum() of floats is Python's (CPython's
- * Neumaier sum since 3.12, from its int start 0). What the twin raises on (a division by zero, a cell of a direction
- * not finite) answers an error code, and its caller runs the twin, which raises it. No libm, no libc, no allocation:
- * the caller passes every buffer. Built by nativekit (C99, zig cc). */
+ * bones' shares (_share_rows' pushes by _effect and rounds by mesh.c's az_ray, az_shares). Every operation is its
+ * Python twin's, in the twin's order, on doubles, with no contraction, so the two agree bit for bit
+ * (tests/test_native.py); a sum() of floats is Python's (CPython's Neumaier sum since 3.12, from its int start 0).
+ * What the twin raises on (a division by zero, a cell of a direction not finite) answers an error code, and its
+ * caller runs the twin, which raises it. No libm, no libc, no allocation: the caller passes every buffer. Built by
+ * nativekit (C99, zig cc). */
 #include <stdint.h>
 
 #if defined(_WIN32)
