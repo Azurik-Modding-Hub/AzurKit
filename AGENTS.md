@@ -14,10 +14,11 @@ design change updates it there.
 
 **The guide's features:** a change a player would notice adds or updates its
 line in `docs/GUIDE.md`, in the same commit, and README's short Features
-list only when it changes what a line there says: README stays a page of
-about 60-90 lines for players (what it is, what you need, how to use it, the
-main features, help, the licence), with links absolute (PyPI shows it). Each
-line is plain and short, with no step, D or AZ ids, and true on `main`.
+list only when it changes what a line there says: README stays a short,
+simple page for players (what it is, what you need, how to use it, the main
+features, help, the licence), with nothing a player doesn't need and links
+absolute (PyPI shows it). Each line is plain and short, with no step, D or
+AZ ids, and true on `main`.
 
 ## Where knowledge lives
 
