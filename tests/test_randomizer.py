@@ -298,6 +298,25 @@ def test_easy_keeps_normals_own_plan_only_where_it_scores_below_each_of_easys_so
             assert (judge.score(own.placement) > judge.score(today.placement)) == taken, (tier, seed)
 
 
+def test_an_easy_fill_says_it_compares_normals_plan_after_its_last_try():
+    """D1160's Normal plan, Easy's last candidate: once Easy's 3 tries pass, the bar says it is comparing with Normal's
+    plan (no longer "try 3 of 3") while Normal's attempts run, never going back; seed "7" at Standard keeps Normal's
+    plan, and its spoiler's summary line says its attempt is the candidate kept, Easy's or Normal's own."""
+    logic, easy = kept_logic(), Settings(0, "standard", {}, seed_difficulty=1)
+    told: list[dict] = []
+    with progress.noting(progress.Steps(told.append)) as steps:
+        steps("plan")
+        made = fill._fill(logic, "7", easy, fill._Making(logic, ("7", fill.settings_digest(easy))))
+    labels = [r["label"].removeprefix("Planning the seed (").removesuffix(")") for r in told[1:]]
+    at = labels.index("shaping the seed: comparing with Normal's plan")
+    assert "shaping the seed: try 3 of 3" in labels[:at] and not any("try " in x for x in labels[at:]), labels[at:]
+    assert any(x.startswith("shaping the seed: comparing with Normal's plan, placing the items, ") for x in labels[at:])
+    shares = [r["done"] / max(r["total"], 1) for r in told]
+    assert shares == sorted(shares)
+    summary = randomizer.spoiler(plan_doc(made, logic.db))[0]
+    assert f"attempt {made.attempt} (the candidate kept, Easy's or Normal's own), " in summary, summary
+
+
 def test_with_the_elemental_powers_kept_each_level_plans_a_seed_whose_attempts_of_today_all_meet_the_trap_gate():
     """D1160: with the elemental powers kept at Hard movement and skips, each of seed "52"'s 20 attempts of today (and
     seed "2"'s with the upgrades kept too) opens a realm before the kept power that gets the player back out, with no

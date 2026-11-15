@@ -6,7 +6,10 @@ trailing newline):
 
 - ``format`` (``azurik-rando-plan/1``) and ``generator`` (the fill's
   version, :data:`~.fill.GENERATOR`);
-- ``seed`` (the user's string) and ``attempt`` (the first that passed);
+- ``seed`` (the user's string) and ``attempt`` (the kept plan's: the first
+  that passed; with a seed difficulty that keeps the best of several
+  candidates, the kept one's, which for an Easy seed that keeps Normal's own
+  plan is Normal's attempt, ``fill._Accept``);
 - ``settings`` (D144's options, as a settings file holds them), ``share``
   (their share string, with any movement sliders) and ``settings_digest``
   (of the settings it was filled at: under moved movement sliders, their
@@ -816,8 +819,13 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
         kits = ", ".join(logic.skip_tables[sid].get("requires", "true") for sid in ids)
         families["+".join(logic.skip_tables[ids[0]].get("tricks", ()))].append(
             pid if ids == [pid] else f"{pid} ({kits})")
+    # whose attempt it is where the level keeps the best of several candidates (fill._Accept; Easy's last is Normal's
+    # own plan): Normal's and Hard's line as before
+    kept_of = "" if difficulty.BOUNDS[st.seed_difficulty] == 1 else \
+        " (the candidate kept, Easy's or Normal's own)" if st.seed_difficulty == 1 else " (the candidate kept)"
     lines = [
-        f"plan {doc['sha256'][:12]}: seed {doc['seed']!r}, attempt {doc['attempt']}, {doc['generator']}",
+        f"plan {doc['sha256'][:12]}: seed {doc['seed']!r}, attempt {doc['attempt']}{kept_of}, "
+        f"{doc['generator']}",
         f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {plan.asked.movement_tier}, dark_fire 1, "
         + (f"seed_difficulty {SEED_DIFFICULTY_NAMES[st.seed_difficulty]}, " if st.seed_difficulty else "")
         + ("save_warp on, " if st.save_warp else "") +

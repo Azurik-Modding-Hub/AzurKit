@@ -798,6 +798,14 @@ class _Count:
             self.making.text = self.say.removesuffix(", ")
         progress.note(self.say.removesuffix(", "))
 
+    def comparing(self) -> None:
+        """Easy's last candidate, Normal's own plan (:meth:`_Run.normal_plan`): its words for the notes of Normal's
+        attempts, which count on from the last try's share, so the bar never goes back (a cancel point)."""
+        self.say = f"{NOTE}: comparing with Normal's plan, "
+        if self.making is not None:
+            self.making.text = self.say.removesuffix(", ")
+        progress.note(self.say.removesuffix(", "))
+
 
 class _BesideCount(_Count):
     """An attempt's count beside others (:data:`BESIDE`): each step a note its thread hears and one more for the
@@ -1420,8 +1428,10 @@ class _Accept:
         if not self.candidates:
             return None
         candidates = self.candidates
-        if self.run.normal is not None and (o := self.run.normal_plan(self.seed)) is not None:
-            candidates = [*candidates, self._made(o)]
+        if self.run.normal is not None:
+            self.run.count.comparing()
+            if (o := self.run.normal_plan(self.seed)) is not None:
+                candidates = [*candidates, self._made(o)]
         placements, score = [made.placement for made in candidates], self.run.judge.score
         scores = [score(p) for p in placements] if self.beside is None else self.beside.again(score, placements)
         pick = (min if self.run.level == 1 else max)(range(len(scores)), key=scores.__getitem__)
