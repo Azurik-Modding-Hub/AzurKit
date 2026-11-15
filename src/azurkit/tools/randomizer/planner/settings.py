@@ -61,7 +61,9 @@ NAMES = {"fragments": "disc fragments", "powers": "elemental powers", "gems": "g
 UPGRADES = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # "upgrades"; the other power_* "powers"
 SEED_DIFFICULTIES = (0, 1, 2, 3)   # Normal (today's seeds), Easy, Hard, Expert (D1157)
 SEED_DIFFICULTY_NAMES = ("Normal", "Easy", "Hard", "Expert")   # a level's name, as a file and the tab hold it
-SEED_DIFFICULTY_FILL = 2           # level > 0's algorithm: bumped when the same inputs give such a seed another placement
+SEED_DIFFICULTY_FILL = 3           # level > 0's algorithm: bumped when the same inputs give such a seed another placement
+WARPLESS_FILL = 2                  # fill 3 moved only seeds with the save warp counted (its detours, 4.64d), so
+#                                    one without it keeps fill 2 (seed_difficulty_fill): its plans and links as they were
 OLDER_LEVELS = {2: 2, 3: 3, 4: 3}  # v1.0.0's levels (fill 1: Standard, Hard, Frame-perfect) -> the nearest level now
 RATING_NAMES = ("None", "Safe", "Standard", "Hard", "Frame-perfect")   # a rating's name, 0 none
 RETIRED_KEYS = ("name", "default", "knobs", "tricks")             # the presets' keys (D113, D144)
@@ -77,7 +79,7 @@ SHARE_VERSION_WARP = 5         # version 4's layout (its seed difficulty byte 0 
 SHARE_WARP = 1
 SHARE_VERSION_DIFFICULTY = 4   # a seed difficulty over 0: the head, the toggles, a literal category mask (a bit per
 #                                CATEGORIES entry, never folded), the slider count (0 too) and sliders, then one byte,
-#                                SEED_DIFFICULTY_FILL << 3 | the level
+#                                seed_difficulty_fill() << 3 | the level
 # The movement sliders (physics.SLIDERS) by their share-string index: append only, an index never changes
 SHARE_SLIDERS = (
     ("player_physics", "walk_speed_scale"), ("player_physics", "gravity"), ("player_physics", "jump_speed_scale"),
@@ -88,6 +90,13 @@ SHARE_SLIDERS = (
     ("air_shield_flaps", "air_shield_1_flaps"), ("air_shield_flaps", "air_shield_2_flaps"),
     ("air_shield_flaps", "air_shield_3_flaps"), ("fps_unlock", "target_fps"),
     ("player_physics", "roll_time_scale"), ("player_physics", "climb_speed_scale"))
+
+
+def seed_difficulty_fill(save_warp: bool) -> int:
+    """The fill a seed above Normal is made at, as its settings digest, plan file and share string name it:
+    :data:`SEED_DIFFICULTY_FILL` with the save-point warp counted, else :data:`WARPLESS_FILL` (whose placements
+    fill 3 left as they were, so a link or plan made at fill 2 without the warp still opens)."""
+    return SEED_DIFFICULTY_FILL if save_warp else WARPLESS_FILL
 
 
 def category(item: str) -> str | None:
@@ -346,7 +355,7 @@ def _payload(settings: Settings, registry: list[str]) -> bytearray:
         for index, v in sliders:
             out += bytes([index]) + struct.pack("<d", v)
     if level or warp:
-        out.append(SEED_DIFFICULTY_FILL << 3 | level if level else 0)
+        out.append(seed_difficulty_fill(warp) << 3 | level if level else 0)
     if warp:
         out.append(SHARE_WARP)
     return out
@@ -448,8 +457,8 @@ def share_decode(text: str, skips: Mapping[str, Mapping], told: list | None = No
                 older, level = (k, raw[k]), OLDER_LEVELS[level]
                 if told is not None:
                     told.append(raw[k] & 7)
-            elif made != SEED_DIFFICULTY_FILL:
-                fail(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill {SEED_DIFFICULTY_FILL}: "
+            elif made != (want := seed_difficulty_fill(raw[0] == SHARE_VERSION_WARP)):
+                fail(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill {want}: "
                      "the same seed would place items differently")
             elif level not in SEED_DIFFICULTIES[1:]:
                 fail(f"seed difficulty {level} is not one of 1, 2, 3")

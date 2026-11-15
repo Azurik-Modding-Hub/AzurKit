@@ -134,12 +134,12 @@ from azurkit.tools.randomizer.planner.settings import (
     CATEGORIES,
     DARK_FIRE,
     NAMES,
-    SEED_DIFFICULTY_FILL,
     SEED_DIFFICULTY_NAMES,
     Settings,
     category,
     category_table,
     pick_of,
+    seed_difficulty_fill,
     skips_on,
 )
 from azurkit.tools.randomizer.planner.solver import Logic, Reach, trick_free
@@ -239,7 +239,7 @@ def settings_table(settings: Settings) -> dict:
         table["exclude_categories"] = kept
     if settings.seed_difficulty:
         table["seed_difficulty"] = SEED_DIFFICULTY_NAMES[settings.seed_difficulty]
-        table["seed_difficulty_fill"] = SEED_DIFFICULTY_FILL
+        table["seed_difficulty_fill"] = seed_difficulty_fill(settings.save_warp)
     if settings.save_warp:
         table["save_warp"] = True
     return table

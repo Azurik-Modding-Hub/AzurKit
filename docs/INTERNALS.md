@@ -711,8 +711,11 @@ are the Characters section's.
     Easy, 2 Hard or 3 Expert, each offered at any settings. A settings file
     and the tab's table name it (`"Easy"`, `"Hard"`, `"Expert"`) only above
     Normal, and the plan's `settings` then also holds `seed_difficulty_fill`
-    (`settings.SEED_DIFFICULTY_FILL`, 2), as does share version 4's last
-    byte (`fill << 3 | level`); another fill is refused by name, except
+    (`settings.seed_difficulty_fill`: `SEED_DIFFICULTY_FILL`, 3, with the
+    save warp counted, else `WARPLESS_FILL`, 2, as fill 3 moved only the
+    warp's seeds), as does the level byte of share versions 4 and 5
+    (`fill << 3 | level`), and the settings digest the fill's streams read;
+    another fill is refused by name, except
     v1.0.0's (fill 1, a file's or plan's integer: 2 Standard, 3 Hard, 4
     Frame-perfect), which loads at the nearest level now
     (`settings.OLDER_LEVELS`: Hard, Expert, Expert), the tab's `note`
@@ -722,7 +725,10 @@ are the Characters section's.
     an allowed trick is a hard one, so tricks follow from placement, with no
     forcing of their own) and its *detour* (`difficulty.detours`, on its
     level's node graph: 0 on a shortest way through, twice a side room's
-    depth; `OFF_PATH` 2 or more is off the path). In the progression pass
+    depth; with the save warp counted each save platform it leaves from is
+    a way out of its level and town's platform a way in, as the solver's
+    warp edges are, so a spot at a save platform is no detour; `OFF_PATH` 2
+    or more is off the path). In the progression pass
     each key item takes a spot by its attempt's lean (`difficulty.lean_mode`:
     Easy the lowest (missed, round + detour), Hard weighted w * w + 1, Expert
     the highest w, w = 4 * missed + round + min(detour, 6); strict below
@@ -771,7 +777,9 @@ are the Characters section's.
     tracker's Spoiler waits on nothing and works out what isn't kept yet.
     Any change that gives the same inputs another level > 0 placement (the
     leans, the schedule, the bounds, the score, the measures) bumps
-    `SEED_DIFFICULTY_FILL` and leaves `GENERATOR` alone. No movement data
+    `SEED_DIFFICULTY_FILL` and leaves `GENERATOR` alone; settings whose
+    placements it leaves as they were may keep the fill they had
+    (`WARPLESS_FILL`), so their links and plans still open. No movement data
     rates plain platforming, so with no trick allowed the levels differ by
     chain and off the path alone. `tests/test_randomizer.py` pins the levels'
     order, plans, strings and files; `tests/_perf.py`'s A70-A80 time the

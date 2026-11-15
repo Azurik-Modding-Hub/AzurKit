@@ -317,6 +317,26 @@ def test_an_easy_fill_says_it_compares_normals_plan_after_its_last_try():
     assert f"attempt {made.attempt} (the candidate kept, Easy's or Normal's own), " in summary, summary
 
 
+def test_with_the_save_warp_counted_a_spot_beside_a_save_platform_is_no_detour():
+    """D1154's warp in Seed difficulty's detours (4.64d): counted, each save platform it leaves from is a way out of its
+    level and town's platform a way in, as the solver's warp edges are, so a spot at a save platform is on no detour
+    (some were off the path without it), no spot's detour grows, fewer are off the path, and the detours kept for one
+    set of options are never another's; a fill above Normal reads them, so the warp's seeds are fill 3's."""
+    logic = kept_logic()
+    off = Settings(0, "standard", {}, seed_difficulty=2)
+    before = dict(difficulty.detours(logic, off))
+    after = difficulty.detours(logic, dataclasses.replace(off, save_warp=True))
+    platforms = {a for a, _ in logic.warps}
+    beside = [loc for loc in logic.pool if logic.db.node_of[loc] in platforms]
+    far = difficulty.OFF_PATH
+    assert beside and all(after[loc] == 0 for loc in beside) and any(before[loc] >= far for loc in beside)
+    assert all(after[loc] <= before[loc] for loc in before)
+    assert sum(d >= far for d in after.values()) < sum(d >= far for d in before.values())
+    assert difficulty.detours(logic, off) == before
+    assert fill.settings_table(dataclasses.replace(off, save_warp=True))["seed_difficulty_fill"] == 3
+    assert fill.settings_table(off)["seed_difficulty_fill"] == 2
+
+
 def test_with_the_elemental_powers_kept_each_level_plans_a_seed_whose_attempts_of_today_all_meet_the_trap_gate():
     """D1160: with the elemental powers kept at Hard movement and skips, each of seed "52"'s 20 attempts of today (and
     seed "2"'s with the upgrades kept too) opens a realm before the kept power that gets the player back out, with no
@@ -626,7 +646,8 @@ def test_seed_difficulty_rides_strings_and_files_and_v1_levels_load_at_the_neare
     sliders; versions 0-3 decode to Normal and encode as before. A file names the level, only above Normal. v1.0.0's
     levels (a fill 1 byte, a file's or a plan file's integer) load at the nearest one now, Standard as Hard, Hard and
     Frame-perfect as Expert, a string canonical against its own byte and the tab saying so; a byte of another fill or
-    level, a plan of another fill and a file's 1, "2", true or "Medium" are refused by name."""
+    level, a plan of another fill and a file's 1, "2", true or "Medium" are refused by name. Fill 3 (4.64d) moved only
+    the seeds with the save warp counted: a fill 2 link or plan without it opens, one with it is refused by name."""
     logic = kept_logic()
     skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
     pick = next(p for p, ids in picks(skips).items() if turnable(skips[ids[0]]) and skips[ids[0]]["difficulty"] == 2)
@@ -646,8 +667,12 @@ def test_seed_difficulty_rides_strings_and_files_and_v1_levels_load_at_the_neare
         assert share_decode(old, skips).seed_difficulty == 0
         assert share_encode(share_decode(old, skips), skips) == old
 
-    def raw(last: int, head: int = 0x13) -> str:   # hard, ceiling 3
-        return "AZR-" + base64.b32encode(bytes([4, head, 0, 0, last])).decode().rstrip("=")
+    def raw(last: int, head: int = 0x13, warp: bool = False) -> str:   # hard, ceiling 3
+        return "AZR-" + base64.b32encode(bytes([5 if warp else 4, head, 0, 0, last, *[1] * warp])).decode().rstrip("=")
+
+    hard = Settings(3, "hard", {}, seed_difficulty=2)
+    assert share_decode(raw(2 << 3 | 2), skips) == hard and share_encode(hard, skips) == raw(2 << 3 | 2)
+    assert share_decode(raw(3 << 3 | 2, warp=True), skips) == dataclasses.replace(hard, save_warp=True)
 
     for old, level in ((2, 2), (3, 3), (4, 3)):   # v1.0.0's Standard, Hard, Frame-perfect
         told = []
@@ -656,7 +681,8 @@ def test_seed_difficulty_rides_strings_and_files_and_v1_levels_load_at_the_neare
         "Made with the older Seed difficulty Standard: it loads as Hard, the nearest level now")
     for text, why in ((raw(2 << 3), "seed difficulty 0 is not"), (raw(2 << 3 | 5), "seed difficulty 5 is not"),
                       (raw(1 << 3 | 1), "fill 1; this AzurKit plans with fill 2"),
-                      (raw(3 << 3 | 3), "fill 3; this AzurKit plans with fill 2")):
+                      (raw(3 << 3 | 3), "fill 3; this AzurKit plans with fill 2"),
+                      (raw(2 << 3 | 2, warp=True), "fill 2; this AzurKit plans with fill 3")):
         with pytest.raises(ValueError, match=why):
             share_decode(text, skips)
     doc = plan_doc(fill.Fill("1", Settings(3, "hard", {}, seed_difficulty=3), 0, {}), logic.db)
@@ -668,6 +694,11 @@ def test_seed_difficulty_rides_strings_and_files_and_v1_levels_load_at_the_neare
     with pytest.raises(PlanError, match="fill 1; this AzurKit plans with fill 2"):
         load_plan(edited(seed_difficulty_fill=1), logic.db)
     assert load_plan(edited(seed_difficulty=4, seed_difficulty_fill=1), logic.db).settings.seed_difficulty == 3
+    assert load_plan(edited(), logic.db).settings.seed_difficulty == 3
+    with pytest.raises(PlanError, match="fill 2; this AzurKit plans with fill 3"):
+        load_plan(edited(save_warp=True), logic.db)
+    assert plan_doc(fill.Fill("1", dataclasses.replace(hard, save_warp=True), 0, {}), logic.db)["settings"][
+        "seed_difficulty_fill"] == 3
 
     table = {"format": "azurik-rando-settings/1", "skip_ceiling": 0, "movement_tier": "safe", "dark_fire": 1}
     assert settings_from_table(table, skips).seed_difficulty == 0

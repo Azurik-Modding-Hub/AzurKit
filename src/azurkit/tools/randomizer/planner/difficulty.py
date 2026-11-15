@@ -128,9 +128,11 @@ def detours(logic: Logic, settings: Settings) -> dict[str, int]:
     requirement held), the fewest of hops(t1 -> node) + hops(node -> t2) - hops(t1 -> t2) over its entries t1 (the
     nodes an exit from another level arrives at, the world's start and hub) and exits t2 (the nodes an exit leaves
     from, the start and hub), t1 = t2 counting 0 hops: 0 on a shortest way through, twice its depth for a side room or
-    a dead end; 0 where none is found. Worked out once for the last Logic, database and options."""
+    a dead end; 0 where none is found. With the save-point warp counted (``settings.save_warp``, D1154) each save
+    platform it leaves from (``logic.warps``) is an exit too and town's platform an entry, as the solver's warp edges
+    are, so a spot beside a save platform is no detour. Worked out once for the last Logic, database and options."""
     db, skips = logic.db, logic.skip_tables
-    key = (settings.movement_tier, tuple(skips_on(settings, skips)))
+    key = (settings.movement_tier, tuple(skips_on(settings, skips)), settings.save_warp)
     if (kept := _DETOURS[0]) is not None and kept[0]() is logic and kept[1]() is db and kept[2] == key:
         return kept[3]
     level_of = {n["id"]: lvl for lvl in sorted(db.levels) for n in db.levels[lvl].get("node", ())}
@@ -159,6 +161,11 @@ def detours(logic: Logic, settings: Settings) -> dict[str, int]:
         if special in level_of:
             arrive[level_of[special]].add(special)
             depart[level_of[special]].add(special)
+    for a, b in logic.warps if settings.save_warp else ():
+        if a in level_of:
+            depart[level_of[a]].add(a)
+        if b in level_of:
+            arrive[level_of[b]].add(b)
     nodes_of = collections.defaultdict(set)
     for n, lvl in level_of.items():
         nodes_of[lvl].add(n)

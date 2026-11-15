@@ -59,13 +59,13 @@ from azurkit.tools.randomizer.planner.fill import (
 from azurkit.tools.randomizer.planner.grammar import DISCS, atoms, parse
 from azurkit.tools.randomizer.planner.settings import (
     CATEGORIES,
-    SEED_DIFFICULTY_FILL,
     SEED_DIFFICULTY_NAMES,
     Settings,
     SettingsError,
     picks,
     picks_on,
     registry_tag,
+    seed_difficulty_fill,
     settings_from_table,
     share_encode,
     share_sliders,
@@ -132,9 +132,10 @@ def load_plan(source: Path | str | Mapping, db) -> Plan:
     table = dict(doc["settings"])
     made = table.pop("seed_difficulty_fill", None)
     level = table.get("seed_difficulty")
-    if level and made != (1 if isinstance(level, int) else SEED_DIFFICULTY_FILL):   # v1.0.0's: fill 1, a rating
+    want = seed_difficulty_fill(table.get("save_warp") is True)
+    if level and made != (1 if isinstance(level, int) else want):   # v1.0.0's: fill 1, a rating
         raise PlanError(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill "
-                        f"{SEED_DIFFICULTY_FILL}: the same seed would place items differently")
+                        f"{want}: the same seed would place items differently")
     try:     # the movement sliders it was asked under ride in its share string (AZ-383)
         asked = replace(settings_from_table(table, skips, "plan settings"), sliders=share_sliders(doc["share"], skips))
     except SettingsError as exc:
