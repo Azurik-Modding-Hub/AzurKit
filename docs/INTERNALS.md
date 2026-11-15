@@ -1534,7 +1534,10 @@ are the Characters section's.
     a whole 0-or-1 setting named `toggle_<other>` shows as a small L3
     toggle at the end of `<other>`'s row, not a row of its own (D909: the
     page pairs them from the catalog, never by pack). Build and Save sit in
-    a bar along the window's bottom (D903). It is dark whatever the
+    a bar along the window's bottom (D903). On a phone or a tablet (no
+    hover, a coarse pointer: `web/app.css`'s `#computers`) one plain line
+    atop the toolbar says to open the page on a Mac or PC (D1000: AzurKit
+    is for computers); the guide leaves it out. It is dark whatever the
     system's setting until the toolbar's toggle picks light (D897),
     remembered by the site in the browser's storage and by the app in its
     config (`host.json`'s `theme`, `api/theme`: its page's address is new
