@@ -511,11 +511,9 @@ memory peaks stay strict. The gate writes both kinds of row to
 14. ~~`procpool._peak()` returns 0 on Windows~~: fixed by 4.52a.
 15. ~~OPENERS: the stale openers' compiled set leaks~~: fixed by 4.52a,
     but for two calls that end within one thread switch (no lock).
-16. **A Firefox Save whose `flat.mjs` never loads stays greyed** (4.5u:
-    past 90 s, its bar at 0): `written()` has no bound on its worker's
-    start, and a first visit's page isn't sw.js's (it never claims), so it
-    fetches `flat.mjs` from the network. A start bound that falls back to
-    the old copy closes it (D1164). Lane 4.64a.
+16. ~~A Firefox Save whose `flat.mjs` never loads stays greyed~~: fixed
+    by 4.64a (`written()` gives up on a worker silent 20 s after its
+    start, and the page makes the old copy, D1164).
 17. **A closed Firefox tab leaves its last build's ~835 MB file in OPFS**
     until the next load or a Clear (4.5q; accepted design, no lane: a
     Save's download may still read it, and only an unsaved build's file
