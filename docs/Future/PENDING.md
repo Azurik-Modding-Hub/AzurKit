@@ -745,16 +745,27 @@ memory peaks stay strict. The gate writes both kinds of row to
    while lanes get CI. Its revert is in the handoff log.
 6. ~~nativekit writes each library in place~~: fixed by 4.59e (it writes
    each beside and renames it over, so a rewritten dylib is a new file).
-7. **Dev-speed levers:** dx7 is stale (2026-11-14). dx6 is done (Step
+7. ~~Dev-speed levers~~: dx7 is stale (2026-11-14). dx6 is done (Step
    4.60a, D1280): a changed area's perf stage times the heavy Check ops
    only when a characters path changed (the swap, `core/xbr`, its kernels,
    the store, the app's pool, the Characters tab's modules, `parts.mjs`,
    `web_tools.py` and the perf gate's own files); a change to `sdk.py`,
    `worker.mjs`, `workers.mjs` or `app/engine.py` leaves them to main's
-   `--all`. Left: **dx8**, the variant golden as one test per case. On CI
-   it is the longest test on every OS (Intel 29 min, Apple Silicon 16),
-   and 3 min of a 22-minute full run here. Measure first: a
-   1-worker part loses the test's 4-process pool. Its lane: 4.59f.
+   `--all`. ~~dx8, the variant golden as one test per case~~: measured,
+   no split (Step 4.59f, 2026-11-14).
+   - On run 43647927362 (c0532b6a) it takes 5-12 min a runner. Only
+     Apple Silicon's longest part holds it (400 s of 116 min); Intel's
+     longest part is 3 of 3, which holds no variant test.
+   - Split by case, it loses its 4-process pool: the 12 USA builds take
+     324 s one at a time against 103 s here, about 1.5-3.5 min more on
+     every OS's longest part.
+   - Its check that each of USA's 85 shipped part rows is held by a fresh
+     dress spans 5 or more builds (10 rows held by one own copy alone),
+     so it holds only over the whole test.
+   - The stale shard table it found (`tests/ci_durations.json` said
+     `[usa]` took Intel 1753 s and Apple Silicon 945, where the run took
+     718 and 400) is measured again from main's three latest green runs
+     (Step 4.63a: Intel 751 s, Apple Silicon 380).
 8. **CI risks** (no work unless they recur):
    - setup-uv's own uv download sits outside the cache (its manifest is
      inline since 4.4ci43), so an outage can fail it, and the first run
