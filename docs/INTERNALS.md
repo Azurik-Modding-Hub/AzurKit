@@ -736,7 +736,7 @@ are the Characters section's.
     Normal, and the plan's `settings` then also holds `seed_difficulty_fill`
     (`settings.seed_difficulty_fill`: `SEED_DIFFICULTY_FILL`, 3, with the
     save warp counted, else `WARPLESS_FILL`, 2, as fill 3 moved only the
-    warp's seeds), as does the level byte of share versions 4 and 5
+    warp's seeds), as does the level byte of share versions 4, 5 and 6
     (`fill << 3 | level`), and the settings digest the fill's streams read;
     another fill is refused by name, except
     v1.0.0's (fill 1, a file's or plan's integer: 2 Standard, 3 Hard, 4
