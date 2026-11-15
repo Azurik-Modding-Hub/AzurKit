@@ -209,7 +209,7 @@ The next session starts here (D1192), so 1.1 can follow.
    drops `db-extract`, the loader's `contact_stale` issue names `python -m
    devkit reach l3-contact`, `docs/REACH.md` points at group 7, and a
    contract test holds the engine's messages to scripts the checkout has).
-   9.48's message, the last owed, is fixed by 4.64e (8d7edfdb).
+   9.48's message, the last owed, is fixed by 4.64e (63837c32).
 5. **The reach backlog** lives in the private plan: R1.23-R1.25, TD.2,
    TD.2b, TD.5-TD.7, R2.19a-j, the improvement rounds, the all-level run and
    R2.16g. D1048 paused it, D1143 froze it (no budget, answering D977) and
@@ -461,7 +461,7 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 1. ~~Refusals name Modkit's commands~~: fixed by 4.52b.
 2. ~~"WHITE cycles" in the build's character note~~: fixed by 4.64e
-   (8d7edfdb): X36's clause says "LB cycles its N attack sets",
+   (63837c32): X36's clause says "LB cycles its N attack sets",
    `SETS_SAID` reads either word, so a stored answer still counts, and
    the comments under `tools/characters/` name LB.
 3. ~~Beamlord's notes show decision ids~~: fixed by 4.52b, and the content
@@ -616,7 +616,7 @@ memory peaks stay strict. The gate writes both kinds of row to
     dress 69.1 s without, 70.1 s with the faces left out). Faces picked on
     the plan's weights leave holes once the rig re-weights her.
 44. ~~booblord_human's eye-edge texel~~ (D1255): cleared by 4.64e
-    (099635f3, f519e254; D1281). A swap at the end of her row 1 colours
+    (afa9f214, ca1225ce; D1281). A swap at the end of her row 1 colours
     takes texel (76,32) alone to her iris rim's brown: her exported page
     differs only there, and DXT1 re-fits that texel's 4x4 block (14 of
     its other 15 texels moved, none farther from its own colour).
@@ -632,7 +632,7 @@ memory peaks stay strict. The gate writes both kinds of row to
     frequent-ops measurement, 11-13). Chromium's pass under the line,
     Firefox's on its bar (D1053).
 46. ~~A worker's record shown on the newest ask~~: fixed by 4.64f
-    (92ec911e, c5e2819d): the pool passes a worker's records with the
+    (52ffa428, 044be507): the pool passes a worker's records with the
     asks waiting on it (its job's and those queued behind F, never one B
     takes once free), and the page shows them only there (S79 unchanged).
 47. **A 4-45 ms flash** (4.54e; accepted, no lane): a Check asked again
@@ -641,7 +641,7 @@ memory peaks stay strict. The gate writes both kinds of row to
     first keeping record would clear it, at the cost of 4.54e's pinned
     record order and S79's bar.
 48. ~~The townsfolk kit's refusal names Modkit's
-    `scripts/townsfolk_kit.py`~~: fixed by 4.64e (8d7edfdb): it says to
+    `scripts/townsfolk_kit.py`~~: fixed by 4.64e (63837c32): it says to
     reinstall AzurKit, and `OWED_SCRIPTS` is empty.
 
 ## 10. Dev tools, tests and port notes
@@ -828,7 +828,7 @@ default here until the owner overrules it (D115):
     visible xemu and the real admin prompt, asked again once group 9's
     lanes (4.64a-4.64g) have landed (D1205, D1268, D1272).
 18. ~~booblord_human's eye texel (9.44, D1255)~~: cleared by 4.64e's
-    colour op (099635f3), the owner carrying her grade (D1281).
+    colour op (afa9f214), the owner carrying her grade (D1281).
 19. Seed difficulty's detours with the save warp ticked (9.6): fixed the
     narrow way (4.64d). `SEED_DIFFICULTY_FILL` goes to 3, so Easy, Hard
     and Expert share links made with the warp ticked refuse, by name;
@@ -837,7 +837,7 @@ default here until the owner overrules it (D115):
     to v12: 1.3.1 is cut once group 9's lanes land, published when CI is
     green with the orchestrator's notes, and content main moves to v12 at
     once (as D1266, D1275). 4.64e made v12: CI's pin is 40f91f9
-    (42c8d5f7), and its needs commit baef191 holds v12 to AzurKit 1.3.1
+    (45f98c0b), and its needs commit baef191 holds v12 to AzurKit 1.3.1
     for main at publish.
 
 ## 13. Retired by name with Modkit's delete (D1171)
