@@ -1045,8 +1045,10 @@ are the Characters section's.
     and booblord's own copy's first edit takes her body's parts. An edit
     of a community-only character, sent unsaved from its entry's folder,
     checks in the forms it opened in (`sdk._opened_from`: of that entry's
-    characters, the one whose fields the edit keeps most of; Step 4.70a),
-    so its first Check after an edit asks the keys its own Check kept;
+    characters, the one the kept Check took while the entry holds it, one
+    checked by name itself, else the one whose fields the edit keeps most
+    of; Step 4.70a), so its first Check after an edit asks the keys its
+    own Check kept, and its Colours and Shape views find that Check;
     its `variant_read` sha, asked with no folder, keeps the page's forms.
     A Check of what it
     checked last, unchanged (`sdk._check_key`, by content), answers at

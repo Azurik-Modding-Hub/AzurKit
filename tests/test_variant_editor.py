@@ -433,6 +433,19 @@ def _paged(recipe):
         int(float(text)) if float(text).is_integer() else float(text)))
 
 
+def _entry(tmp_path, monkeypatch, recipes: dict) -> None:
+    """``recipes`` installed as the community entry mine_lord's ``variant.json``, its content and yours in ``tmp_path``."""
+    from azurkit.tools.characters import content
+
+    files = {"variants/mine_lord/variant.json": json.dumps(recipes).encode()}
+    monkeypatch.setattr(library, "ROOT", tmp_path / "variants")
+    monkeypatch.setattr(content, "ROOT", tmp_path / "content")
+    manifest = content.filled({"format": content.FORMAT, "schema_version": 1, "entries": [
+        {"id": "mine_lord", "kind": "variant", "title": "Mine", "author": "a player", "licence": "MIT", "version": 1,
+         "requires": [], "files": [{"path": path} for path in files]}]}, files.__getitem__)
+    content.install(manifest, "mine_lord", files.__getitem__, content.ROOT)
+
+
 def test_an_edit_of_your_saved_copy_takes_the_parts_its_check_kept_though_the_page_sends_1_0_as_1_and_minus_0_as_0(
         usa_iso, tmp_path, monkeypatch):
     """Step 4.60b: a page hands a recipe back through JS, whose numbers write 1.0 as 1 and -0.0 as 0, and a part's key
@@ -468,19 +481,7 @@ def test_an_edit_of_a_community_only_character_takes_the_parts_its_check_kept_th
     its entry's characters the one whose fields the edit keeps most of (here not the first its file holds, a twin in
     the page's forms with its arms moved), so the first Check after an edit of it (a colour) misses only the stage the
     edit moves (``size``), as 4.60b's of yours does."""
-    from azurkit.tools.characters import content
-
-    twin = _paged(FORMED) | {"arms": {"out_deg": 12.0}}
-    files = {"variants/mine_lord/variant.json": json.dumps({"mine_twin": twin, "mine_lord": FORMED}).encode()}
-    for path, data in files.items():
-        (tmp_path / "repo" / path).parent.mkdir(parents=True)
-        (tmp_path / "repo" / path).write_bytes(data)
-    monkeypatch.setattr(library, "ROOT", tmp_path / "variants")
-    monkeypatch.setattr(content, "ROOT", tmp_path / "content")
-    manifest = content.filled({"format": content.FORMAT, "schema_version": 1, "entries": [
-        {"id": "mine_lord", "kind": "variant", "title": "Mine", "author": "a player", "licence": "MIT", "version": 1,
-         "requires": [], "files": [{"path": path} for path in files]}]}, files.__getitem__)
-    content.install(manifest, "mine_lord", files.__getitem__, content.ROOT)
+    _entry(tmp_path, monkeypatch, {"mine_twin": _paged(FORMED) | {"arms": {"out_deg": 12.0}}, "mine_lord": FORMED})
     monkeypatch.setattr(parts, "STORE", None)
     monkeypatch.setattr(parts, "HEARD", {})
     parts.clear()
@@ -493,6 +494,27 @@ def test_an_edit_of_a_community_only_character_takes_the_parts_its_check_kept_th
         answer = sdk.variant_check({"iso": str(usa_iso), **given})
         missed[label] = {stage for stage, counts in parts.HEARD.items() if counts["miss"]}
     assert answer["refusal"] is None and len(missed["opened"]) > 1 and missed["edited"] == {"size"}
+
+
+def test_an_edit_of_a_community_only_character_keeps_the_character_its_check_took_so_its_shape_and_colours_answer(
+        usa_iso, tmp_path, monkeypatch):
+    """Step 4.70a's review: an entry lists first a twin of mine_lord in the page's forms (mine_red, its colours another
+    hue), so an edit of mine_lord moving its arms and its colours keeps as many of the twin's fields as of its own, and
+    the field count alone would take the twin's forms. An edit's calls take the character the kept Check took (one by
+    name: itself) while its entry holds it, so after a Check of mine_lord by name the Shape tab's quick preview of
+    that edit moves its dress, and after a Check of the edit's arms alone the Colours tab's live recolour of it
+    recolours that Check's dress, neither asking for a fresh Check."""
+    hued = FORMED | {"colours": [{"ops": [{"op": "hsv", "hue": 200}]}]}
+    _entry(tmp_path, monkeypatch, {"mine_red": _paged(hued) | {"colours": [{"ops": [{"op": "hsv", "hue": 40}]}]},
+                                   "mine_lord": hued})
+    monkeypatch.setattr(parts, "STORE", None)
+    opened = sdk.variant_open({"name": "mine_lord"})
+    arms, edit = opened["recipe"] | {"arms": {"out_deg": 30.0}}, {"iso": str(usa_iso), "name": sdk.UNSAVED,
+                                                                  "folder": opened["folder"]}
+    assert sdk.variant_check({"iso": str(usa_iso), "name": "mine_lord"})["refusal"] is None
+    assert sdk.variant_preview(edit | {"recipe": _paged(arms | HUED)})["front"]
+    assert sdk.variant_check(edit | {"recipe": _paged(arms)})["refusal"] is None
+    assert sdk.variant_colours(edit | {"recipe": _paged(arms | HUED)})["dressed"]
 
 
 def test_a_shaped_copys_check_takes_its_plain_bodys_places_from_its_parts_and_prepares_its_mesh_once(usa_iso, tmp_path,

@@ -877,6 +877,13 @@ def _editing(given: object, what: str, *, image: bool = True) -> tuple[str, obje
     loader checks a recipe file: an unknown field or value, a number not
     finite, a built-in's name, each refused by name (D23, D35). Its name,
     the ``Variant`` and the recipe (``None``: a built-in's)."""
+    return _edited(given, what, image=image)[:3]
+
+
+def _edited(given: object, what: str, *, image: bool = True) -> tuple[str, object, dict | None, tuple | None]:
+    """:func:`_editing`'s answer and the community-only character whose
+    forms it takes (``(folder, name)``, its entry's folder; one by
+    ``name``: itself; ``None``: none), which a Check keeps (Step 4.70a)."""
     from azurkit.tools.characters import _player_variants as variants
 
     if not isinstance(given, Mapping) or not isinstance(given.get("name"), str) or not given["name"]:
@@ -887,23 +894,24 @@ def _editing(given: object, what: str, *, image: bool = True) -> tuple[str, obje
     if "recipe" not in given:
         from azurkit.tools.characters import content as kit
 
-        found = variants.builtins().get(name) or kit.variant(name)
-        if found is None:
+        if (found := variants.builtins().get(name)) is not None:
+            return name, found, None, None
+        if (found := kit.variant(name)) is None:
             raise ValueError(f"variant {name!r}: no built-in or community character has that name (give its recipe "
                              "and folder)")
-        return name, found, None
+        return name, found, None, (str(Path(found.source).parent), name)
     recipe = given["recipe"]
     if not isinstance(recipe, Mapping):
         raise ValueError(f"variant {name!r}: its recipe is not an object of recipe fields")
     if not isinstance(given.get("folder"), str) or not given["folder"]:
         raise ValueError(f"variant {name!r}: folder names no folder for its files (its library folder)")
-    recipe = _as_opened(recipe, Path(given["folder"]), name)   # its parts' keys: the forms it opened in
+    recipe, opened = _as_opened(recipe, Path(given["folder"]), name)   # its parts' keys: the forms it opened in
     try:
         found = variants.load_variants(json.dumps({name: recipe}), str(Path(given["folder"]) / VARIANT_RECIPE),
                                        tuple(variants.builtins()))
     except (TypeError, RecursionError) as exc:   # the loader's lookup in a list; JSON nested too deep
         raise ValueError(f"variant {name!r}: not a recipe ({type(exc).__name__}: {exc})") from None
-    return name, found[name], recipe
+    return name, found[name], recipe, opened
 
 
 def _held(file: Path, name: str) -> dict | None:
@@ -939,35 +947,43 @@ def _as_held(recipe: Mapping, file: Path, name: str) -> dict:
     return _like(recipe, _held(file, name))
 
 
-def _as_opened(recipe: Mapping, folder: Path, name: str) -> dict:
+def _as_opened(recipe: Mapping, folder: Path, name: str) -> tuple[dict, tuple | None]:
     """An edit's ``recipe`` (its files in ``folder``) in the forms it was
     opened in where they are equal (:func:`_forms`): yours as its
     ``recipe.json`` holds ``name`` (:func:`_as_held`), else an installed
     entry's own character, sent :data:`UNSAVED` from its entry's folder, as
-    it opens (:func:`_opened_from`), else as given (Step 4.70a)."""
-    held = _held(folder / VARIANT_RECIPE, name)
-    return _like(recipe, held if held is not None else _opened_from(recipe, folder))
+    it opens (:func:`_opened_from`), else as given (Step 4.70a); and that
+    character (``(folder, name)``; ``None``: none)."""
+    if (held := _held(folder / VARIANT_RECIPE, name)) is not None:
+        return _like(recipe, held), None
+    took, opened = _opened_from(recipe, folder) or (None, None)
+    return _like(recipe, opened), took and (str(folder), took)
 
 
-def _opened_from(recipe: Mapping, folder: Path) -> dict | None:
-    """The recipe the community-only character an edit in ``folder`` was
-    opened as (:func:`_community`, :func:`variant_open`'s: ``folder`` its
-    installed entry's), of that entry's characters the one whose fields the
-    edit keeps most of (an edit moves a field or a few), the first on a
-    tie; ``None``: ``folder`` is no installed entry's."""
+def _opened_from(recipe: Mapping, folder: Path) -> tuple[str, dict] | None:
+    """The community-only character an edit in ``folder`` was opened as
+    and its recipe (:func:`_community`, :func:`variant_open`'s: ``folder``
+    its installed entry's): the one the kept Check took while the entry
+    holds it, so one edit's calls ask one Check's keys, else of that
+    entry's characters the one whose fields the edit keeps most of (an
+    edit moves a field or a few), the first on a tie; ``None``: ``folder``
+    is no installed entry's."""
     from azurkit.tools.characters import content as kit
 
     if (entry := kit.entry_of(str(folder / Path(kit.RECIPES).name))) is None:
         return None
+    rows = [row for row in kit.community() if row.entry == entry[0] and row.refusal is None]
+    kept = _CHECKED.get("last")
+    rows = [row for row in rows if kept is not None and kept["opened"] == (str(folder), row.name)] or rows
     opened = []
-    for row in kit.community():
-        if row.entry == entry[0] and row.refusal is None:
-            try:
-                opened.append(_community(row.name, row.variant))
-            except (OSError, ValueError, KeyError):   # its file gone or altered since: the loader says why
-                continue
+    for row in rows:
+        try:
+            opened.append((row.name, _community(row.name, row.variant)))
+        except (OSError, ValueError, KeyError):   # its file gone or altered since: the loader says why
+            continue
     try:
-        return max(opened, key=lambda was: sum(k in recipe and recipe[k] == v for k, v in was.items()), default=None)
+        return max(opened, key=lambda was: sum(k in recipe and recipe[k] == v for k, v in was[1].items()),
+                   default=None)
     except RecursionError:   # nested past the stack: the loader refuses it by name
         return None
 
@@ -1116,7 +1132,7 @@ def variant_check(given: Mapping, *, progress: Callable[[dict], object] | None =
     from azurkit.tools.characters import model_inspect as mi
 
     with noting(Steps(progress)) as steps:
-        name, variant, recipe = _editing(given, "variant_check")
+        name, variant, recipe, opened = _edited(given, "variant_check")
         place = _place(given)   # the image checked and the packs read first: their refusals are raised
         asked = _check_key(given, name, recipe)
         if (last := _CHECKED.get("last")) is not None and last["asked"] == asked:   # checked last, unchanged
@@ -1148,7 +1164,8 @@ def variant_check(given: Mapping, *, progress: Callable[[dict], object] | None =
                             "edit": _edit_key(given, recipe), "variant": variant, "body": body,
                             "base": None, "pictures": None, "characters": characters_xbr, "kept": None,
                             "drawn": (lambda: colour_preview.base(characters_xbr, body, True)) if dresses else
-                            (lambda: _base_of(given, name, variant, recipe)), "asked": asked, "answer": answer}
+                            (lambda: _base_of(given, name, variant, recipe)), "asked": asked, "answer": answer,
+                            "opened": opened}
         return dict(answer)
 
 
