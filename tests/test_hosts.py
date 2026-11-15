@@ -269,6 +269,19 @@ def _home(monkeypatch, home: Path) -> None:
             monkeypatch.setenv(f"WIN_PD_OVERRIDE_{kind}", str(home / kind))
 
 
+def _shut(page, server=None) -> None:
+    """``page``, the module browser's ``new_page`` (None: none opened yet), closed with the context it owns, within a
+    bound (``_perf.shut``; one closed already: nothing), then ``server`` (the app's, if given) closed though the page's
+    close failed: a test's ``finally`` closes both so. A page left open kept its renderer to the module's end, and now
+    fails its test's teardown (Step 4.73a, ``tests/conftest.py``'s ``_nothing_left_behind``)."""
+    try:
+        if page is not None:
+            _perf.shut(page.context)
+    finally:
+        if server is not None:
+            server.close()
+
+
 def test_a_closed_servers_late_write_lands_in_its_own_tests_home_not_the_next_ones(tmp_path, monkeypatch, pytester):
     """Step 4.5d: in a run of two tests with this file's fixture, a page's
     ``api/tracked`` the first test's server took just before its close, its
@@ -914,6 +927,7 @@ def test_a_late_answer_for_the_image_picked_before_is_dropped(browser, tmp_path,
         else:
             route.fulfill(json={"packs": {}})
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         page.route("**/api/vanilla", vanilla)
@@ -932,7 +946,7 @@ def test_a_late_answer_for_the_image_picked_before_is_dropped(browser, tmp_path,
             document.getElementById('build').disabled, document.getElementById('picked').textContent
             .includes('AzurKit build')]""") == [None, True, False, False]
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_a_failed_restore_at_launch_still_readies_the_page(browser, tmp_path, monkeypatch):
@@ -943,6 +957,7 @@ def test_a_failed_restore_at_launch_still_readies_the_page(browser, tmp_path, mo
     4.42c)."""
     _home(monkeypatch, tmp_path / "home")
     server = app.serve(_page.WEB)
+    page = None
     try:
         replies = []
         _post(server.url, "api/setup", {"remember": True, "setup": {"ticked": ["fps_unlock"], "values": {}, "xbr": []}},
@@ -960,7 +975,7 @@ def test_a_failed_restore_at_launch_still_readies_the_page(browser, tmp_path, mo
             document.getElementById('status').textContent.startsWith("The app's engine didn't answer")]""") == [
             False, False, True]
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_a_seed_past_256_characters_leaves_the_rest_of_the_setup_remembered(browser, tmp_path, monkeypatch):
@@ -971,6 +986,7 @@ def test_a_seed_past_256_characters_leaves_the_rest_of_the_setup_remembered(brow
     while it stood, unsaid (Step 4.42c)."""
     _home(monkeypatch, tmp_path / "home")
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         page.route("**/api/vanilla", lambda route: route.fulfill(json={"packs": {}}))   # the start image unread
@@ -987,7 +1003,7 @@ def test_a_seed_past_256_characters_leaves_the_rest_of_the_setup_remembered(brow
             _page.fill(page, "rando-seed", typed)
             assert isinstance(_page.until(page, f"() => ({kept})({json.dumps(seed)})", 60)["settings"], dict)
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_window_opens_on_the_remembered_themes_ground(monkeypatch):
@@ -1287,6 +1303,7 @@ def test_the_apps_relaunch_starts_at_the_defaults_with_remember_settings_unticke
     shown = """() => [document.getElementById("status").textContent, document.getElementById("remember").checked]"""
     for launch in (1, 2):
         server = app.serve(_page.WEB)
+        page = None
         try:
             page = browser.new_page()
             _page.load(page, server.url)
@@ -1301,9 +1318,8 @@ def test_the_apps_relaunch_starts_at_the_defaults_with_remember_settings_unticke
                 _page.click(page, "remember")
                 _until(lambda: app._kept() == {"theme": "light"})
             _page.check_csp(page)
-            page.close()   # its pagehide would keep the setup now
         finally:
-            server.close()
+            _shut(page, server)   # its pagehide would keep the setup now
 
 
 def _beamlord_source(tmp_path: Path, monkeypatch) -> Path:
@@ -1371,6 +1387,7 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
 
     app._remember(content_source=str(_beamlord_source(tmp_path, monkeypatch)))
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -1386,9 +1403,8 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
         _page.until(page, f"() => {entry}?.querySelector('.model[data-model=\"beamlord\"]')", 120)
         assert page.evaluate(CHARS_LAYOUT)[3] is True
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_saves_read_a_folder_and_an_hdd_image_and_save_a_new_folder_by_path(tmp_path, monkeypatch):
@@ -1538,6 +1554,7 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
 
     for launch in (1, 2):
         server = app.serve(_page.WEB)
+        page = None
         try:
             page = browser.new_page()
             _page.load(page, server.url)
@@ -1578,9 +1595,8 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
             _page.until(page, "() => azurkit.kept?.includes('community')", 60)   # remembered a moment after the change
             kept(f"launch {launch}'s build")   # the build's own remember (the image's path) keeps the rest
             _page.check_csp(page)
-            page.close()
         finally:
-            server.close()
+            _shut(page, server)
     assert app._kept()["setup"]["values"]["player_max_hp"]["starting_hp"] == 175   # as it was before the pack
 
 
@@ -1593,6 +1609,7 @@ def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browse
         .split(" · ")[0], document.querySelectorAll("#char-species .model").length]"""
     for launch, ticked in ((1, False), (2, True)):
         server = app.serve(_page.WEB)
+        page = None
         try:
             page = browser.new_page()
             _page.load(page, server.url)
@@ -1609,14 +1626,14 @@ def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browse
                 time.sleep(0.1)
             assert app._kept().get("show_objects") is want, launch
             _page.check_csp(page)
-            page.close()
+            _shut(page)
             if launch == 2:
                 replies = []
                 _post(server.url, "api/show_objects", {"show": "yes"}, replies)
                 assert replies == [{"refused": "show_objects: show is true or false"}]
                 assert "show_objects" not in app._kept()
         finally:
-            server.close()
+            _shut(page, server)
 
 
 def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks_one_on_your_image(
@@ -1647,6 +1664,7 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
             time.sleep(0.05)
         assert (server.unsaved, page.evaluate(VARIANTS_CLOSING)) == (unsaved, unsaved)
 
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -1738,7 +1756,7 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
         told(False)
         _page.check_csp(page)
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_moves_and_attacks_tabs_offer_the_images_bodies_and_weapons_and_save_what_they_pick(
@@ -1753,6 +1771,7 @@ def test_the_apps_moves_and_attacks_tabs_offer_the_images_bodies_and_weapons_and
     _home(monkeypatch, tmp_path / "home")
     data = Path(platformdirs.user_data_dir("AzurKit", appauthor=False))
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -1808,7 +1827,7 @@ def test_the_apps_moves_and_attacks_tabs_offer_the_images_bodies_and_weapons_and
             {"jump": "g4_jump"}, {"g4_jump": {"generator": "bake", "body": "garret4", "clip": "jump"}}, False)
         _page.check_csp(page)
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds_a_spring_on_its_bases_bones(
@@ -1836,6 +1855,7 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
     monkeypatch.delenv("AZURKIT_ISO", raising=False)
     monkeypatch.delenv("AZURKIT_ISO_EUROPE", raising=False)
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -1906,7 +1926,7 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
         assert page.evaluate("() => azurkit.variants.state.recipe.jiggle") == her
         _page.check_csp(page)
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_pngs_out_and_back(
@@ -1944,6 +1964,7 @@ def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_png
         return {k: v for k, v in op.items() if (k, v) not in (("hue", 0), ("sat", 1))}
 
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -2051,7 +2072,7 @@ def test_the_apps_colours_tab_moves_a_rows_colour_on_its_wheel_and_takes_its_png
         assert [o["op"] for e in saved for o in e["ops"]] == ["hsv", "swap"] and saved[0]["ops"][0]["hue"] == 120
         _page.check_csp(page)
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(browser, tmp_path, monkeypatch):
@@ -2067,6 +2088,7 @@ def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(brow
         .observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "value"] });
     }"""
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         page.add_init_script(f"({bar})()")
@@ -2078,7 +2100,7 @@ def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(brow
             assert page.evaluate("() => document.getElementById('progress-row').hidden")
         _page.check_csp(page)
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_about_names_its_version_commit_and_platform_or_says_no_git_can_name_it(browser, tmp_path,
@@ -2094,6 +2116,7 @@ def test_the_apps_about_names_its_version_commit_and_platform_or_says_no_git_can
         document.getElementById("about-version").textContent]"""
     where = "() => document.getElementById('about-platform').textContent"
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         azurkit.commit.cache_clear()
@@ -2109,7 +2132,7 @@ def test_the_apps_about_names_its_version_commit_and_platform_or_says_no_git_can
             None, f"This is AzurKit {version}, its commit is unknown (built or run without git)."]
         _page.check_csp(page)
     finally:
-        server.close()
+        _shut(page, server)
         azurkit.commit.cache_clear()
 
 
@@ -2952,6 +2975,7 @@ def test_randomize_ticked_with_no_seed_in_the_apps_page_stops_the_build_ahead(br
         while True:
             job.progress(progress_record("dress"))
             time.sleep(0.01)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -2968,9 +2992,8 @@ def test_randomize_ticked_with_no_seed_in_the_apps_page_stops_the_build_ahead(br
             on.dispatchEvent(new Event("change", { bubbles: true }));
         }""")
         assert job.done.wait(60) and isinstance(job.error, engine.Cancelled) and server.slots.job("build") is job
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_a_kill_of_a_quiet_job_cancels_it_and_runs_the_call_the_player_waits_on_again():
@@ -3507,6 +3530,7 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
     shown = """() => [document.getElementById("track-dot").textContent, document.getElementById("track-dot").className,
                       document.getElementById("track-line").textContent, azurkit.tracker.state.level,
                       document.querySelector("#track-level .you")?.textContent ?? null]"""
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -3563,9 +3587,8 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
         assert tracking.digest(page.evaluate("() => azurkit.tracker.state.view")) == tracking.digest(
             sdk.tracker({"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}}))
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 # A level map's canvas, as the tests read it: what each overlay the pointer finds says (its tip), and a click there
@@ -3632,6 +3655,7 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
     monkeypatch.setattr(game, "Session", Session)
     monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page(viewport={"width": 1100, "height": 820})
         _page.load(page, server.url)
@@ -3697,9 +3721,8 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
         assert page.evaluate("() => azurkit.tracker.state.marks.gems") == {gem["id"]: [0.75]}
         _page.until(page, f"() => ({COUNTER})().endsWith(' · Gems 1 of {gems}')")
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_tracker_opens_any_levels_map_with_the_vanilla_games_items_before_a_plan(browser, tmp_path, monkeypatch):
@@ -3713,6 +3736,7 @@ def test_the_apps_tracker_opens_any_levels_map_with_the_vanilla_games_items_befo
     (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
     bare = sdk.tracker({})
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page(viewport={"width": 1100, "height": 820})
         _page.load(page, server.url)
@@ -3734,9 +3758,8 @@ def test_the_apps_tracker_opens_any_levels_map_with_the_vanilla_games_items_befo
         at, _, _, spots, _ = page.evaluate(BROWSED)
         assert at == "e6" and spots and {m["ring"] for m in spots} <= {"near", "skip", "far"}
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 class _Played:
@@ -3774,17 +3797,21 @@ def _live_map(browser, tmp_path, monkeypatch, played: _Played, doc: dict):
 
     monkeypatch.setattr(game, "Session", Session)
     monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
-    server = app.serve(_page.WEB)
-    page = browser.new_page(viewport={"width": 1100, "height": 820})
-    _page.load(page, server.url)
-    _page.until(page, "() => globalThis.azurkit?.ready", 120)
-    _page.click(page, "tab-randomizer")
-    _page.click(page, "rando-view-tracker")
-    page.set_input_files("#track-open", str(tmp_path / "plan.json"))
-    _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
-    _page.click(page, "track-live")
-    _page.until(page, f"() => azurkit.tracker.state.live?.here === '{played.level}'"
-                      f" && azurkit.tracker.map.level === '{played.level}'")
+    server, page = app.serve(_page.WEB), None
+    try:
+        page = browser.new_page(viewport={"width": 1100, "height": 820})
+        _page.load(page, server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
+        _page.click(page, "track-live")
+        _page.until(page, f"() => azurkit.tracker.state.live?.here === '{played.level}'"
+                          f" && azurkit.tracker.map.level === '{played.level}'")
+    except BaseException:
+        _shut(page, server)
+        raise
     return server, page
 
 
@@ -3882,9 +3909,8 @@ def test_follow_shows_the_floor_the_player_stands_on_and_keeps_a_floor_picked_by
         played.level, played.at = "town", (tx0 + px / ts, ty1 - py / ts, z)
         _page.until(page, f"() => azurkit.tracker.map.level === 'town' && azurkit.tracker.map.floor === {temple}")
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_moves_a_zoomed_map(
@@ -3935,9 +3961,8 @@ def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_mo
             idle, asking = page.evaluate(busy)
             assert idle == asking, width
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_tracker_bar_keeps_one_line_at_1100_px_with_live_on_and_attach_shown(browser, tmp_path, monkeypatch):
@@ -3960,9 +3985,8 @@ def test_the_apps_tracker_bar_keeps_one_line_at_1100_px_with_live_on_and_attach_
         assert seen["attach"] and seen["line"] and seen["line"].startswith(seen["tip"]), seen
         assert seen["lines"] < 2 and max(seen["centres"]) - min(seen["centres"]) < 6, seen
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_other_floors_items_show_faintly_fainter_with_distance_with_no_tooltip_or_click(browser, tmp_path, monkeypatch):
@@ -4021,8 +4045,7 @@ def test_other_floors_items_show_faintly_fainter_with_distance_with_no_tooltip_o
         page.evaluate("""() => document.querySelector('#map-switches input[data-kind="item"]').click()""")
         assert page.evaluate(read) == {}
     finally:
-        page.close()
-        server.close()
+        _shut(page, server)
 
 
 # From now on, what the tracker shows at each change of its page (``globalThis.shown``): the Got line's text and
@@ -4105,9 +4128,8 @@ def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what
         line, count, _ = _page.until(page, first)
         assert [line[1], count and count[1]] == ["none", 0], (line, count)   # a plain highlight, nothing animated
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_live_opens_each_session_on_the_marks_journal_and_reads_the_game_again_after_a_reset(tmp_path, monkeypatch):
@@ -4886,6 +4908,7 @@ def test_play_on_the_apps_page_tracks_the_saved_builds_seed_with_live_on_and_liv
     monkeypatch.setattr(link, "open_first", nothing)
     server = app.serve(_page.WEB)
     live = "(sha) => azurkit.tracker.state.plan?.sha256 === sha && document.getElementById('track-live').checked"
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -4928,9 +4951,8 @@ def test_play_on_the_apps_page_tracks_the_saved_builds_seed_with_live_on_and_liv
         assert _page.until(page, "() => document.getElementById('tools-logs-line').textContent") == (
             f"Each build's log is kept in {app.logs.folder()}")
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 # The tracker's poll (tracker.mjs' POLL_MS) is the page's one interval of 700 ms: each one set and not yet cleared,
@@ -4978,6 +5000,7 @@ def test_live_unticked_while_its_on_call_is_held_stays_off_and_polls_nothing(bro
         end = time.monotonic() + 60
         while not done() and time.monotonic() < end:
             time.sleep(0.02)
+    page = None
     try:
         page = browser.new_page()
         page.add_init_script(f"({POLLS})()")
@@ -4997,10 +5020,9 @@ def test_live_unticked_while_its_on_call_is_held_stays_off_and_polls_nothing(bro
         assert page.evaluate("() => [document.getElementById('track-live').checked, azurkit.tracker.state.live, "
                              "polls()]") == [False, None, 0]
         assert calls == ["on", "off", "on answered", "off"] and server.feed is None
-        page.close()
     finally:
         held.set()
-        server.close()
+        _shut(page, server)
 
 
 # The tracker's looks (Step 4.2c2's looks seat), as the page measures them: WCAG's contrast ratio of each world-map
@@ -5061,6 +5083,7 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
     level = next(s["level"] for s in sdk.tracker({"plan": doc, "spoiler": True})["spots"].values() if s["icon"].startswith("key_"))
     monkeypatch.setattr(app.pictures, "folder", lambda: tmp_path / "no-maps")   # no pictures: the chips show
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -5097,9 +5120,8 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
         assert where and all(text == tip for text, tip in where) and apart < 1, (where, apart)
         assert page.evaluate(TRACKER_HEADS) == [600, True]
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_saves_never_replace_the_image_its_build_read_nor_a_file_another_dialog_chose(tmp_path, monkeypatch):
@@ -5285,6 +5307,7 @@ def test_a_randomized_build_moves_the_tracker_to_its_exact_plan_and_each_plans_m
     head = "() => azurkit.tracker.state.view?.head.sha256 === %s && !azurkit.tracker.state.running"
     marks = "(sha) => azurkit.tracker.state.kept.marks[sha]?.collected ?? []"
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page(viewport={"width": 1100, "height": 820})
         _page.load(page, server.url)
@@ -5335,9 +5358,8 @@ def test_a_randomized_build_moves_the_tracker_to_its_exact_plan_and_each_plans_m
         _page.until(page, settled, 60)
         assert sorted(page.evaluate(marks, older["sha256"])) == sorted([first, second])
         assert page.evaluate("() => azurkit.tracker.state.marks.collected") == [second]
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_pictures_replace_it(
@@ -5378,6 +5400,7 @@ def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_
             === {json.dumps(preview)}; }}"""
     note = "() => document.getElementById('char-preview-note').textContent"
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         for path, answer in (("pickers", pickers), ("preview", preview),
@@ -5434,9 +5457,8 @@ def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_
         assert wanted == ['[["bust",1.45]]'] and len(asked) == 3
         _page.until(page, shows(1.45, False), 30)
         assert len(asked) == 4
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_the_apps_tools_track_an_opened_randomized_build_on_its_own_plan(browser, tmp_path, monkeypatch):
@@ -5461,6 +5483,7 @@ def test_the_apps_tools_track_an_opened_randomized_build_on_its_own_plan(browser
     for name, layer in (("seeded", seeded), ("plain", plain)):
         edits.build(stamp, [layer], tmp_path / f"{name}.iso")
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -5484,9 +5507,8 @@ def test_the_apps_tools_track_an_opened_randomized_build_on_its_own_plan(browser
                                                            "(seeded.iso): the Randomizer tab's Tracker"]
         assert opened("plain") == [True, "This build isn't randomized: it has no plan to track"]
         _page.check_csp(page)
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
 
 
 def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never_fall_back_inside_a_stage(tmp_path,
@@ -5577,6 +5599,7 @@ def test_the_apps_track_this_seed_bar_follows_its_plan_from_the_click_and_the_fi
     monkeypatch.setenv("AZURKIT_NATIVE", "0")
     monkeypatch.setattr(native, "_LIB", None)
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -5587,9 +5610,8 @@ def test_the_apps_track_this_seed_bar_follows_its_plan_from_the_click_and_the_fi
         page.evaluate(BARS, "track-seed")
         _page.until(page, "() => document.getElementById('track-head').textContent.trim()", 300)
         bars = page.evaluate("() => bars")
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
     shown = [b for b in bars if b is not None]
     counted = {int(b[1]) for b in shown if b[1] is not None and "(placing the items, " in b[2]}
     assert (shown[0][0] < 250, shown[0][2].startswith("Planning the seed"), len(counted) >= 2,
@@ -5611,6 +5633,7 @@ def test_the_apps_plan_file_spoiler_bar_follows_the_logic_read_from_the_pick(bro
     plan = tmp_path / "azurkit plan.json"
     plan.write_text(json.dumps(record_goldens.recorded(record_goldens.PLANS)["default"]["plan"]), encoding="utf-8")
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -5622,9 +5645,8 @@ def test_the_apps_plan_file_spoiler_bar_follows_the_logic_read_from_the_pick(bro
         _page.until(page, "() => azurkit.tools.state.spoiler", 300)
         bars, picking = page.evaluate("() => [bars, picking]")
         assert page.evaluate(_perf.CALLS) == native.report()   # what the perf gate's native assert reads as a page leaves
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
     shown = [b for b in bars if b is not None]
     asked = next(ms for ms, path in picking["requests"] if path == "api/plan_spoiler")
     polled = next(ms for ms, path in picking["requests"] if path == "api/progress" and ms >= asked)
@@ -5652,6 +5674,7 @@ def test_the_apps_bar_polls_any_asks_record_from_its_click_so_a_counted_1_2_s_ca
         return {"files": 0}
     monkeypatch.setattr(sdk, "verify_all", counted)
     server = app.serve(_page.WEB)
+    page = None
     try:
         page = browser.new_page()
         _page.load(page, server.url)
@@ -5662,9 +5685,8 @@ def test_the_apps_bar_polls_any_asks_record_from_its_click_so_a_counted_1_2_s_ca
                       ".then((reply) => { azurkit.verified = reply; }); }", str(tmp_path / "usa.iso"))
         _page.until(page, "() => azurkit.verified && !azurkit.asks.size", 60)
         bars, picking, verified = page.evaluate("() => [bars, picking, azurkit.verified]")
-        page.close()
     finally:
-        server.close()
+        _shut(page, server)
     assert verified == {"files": 0}, verified   # the counted call's answer, not a refusal
     asked = next(ms for ms, path in picking["requests"] if path == "api/verify_all")
     values = {}   # each value the bar took, at the ms it first took it
@@ -5690,6 +5712,7 @@ def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_
     cell = ["settings_foo", "initial hp"]
     for launch in (1, 2):
         server = app.serve(_page.WEB)
+        page = None
         try:
             page = browser.new_page()
             _page.load(page, server.url)
@@ -5726,9 +5749,8 @@ def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_
                 assert _page.until(page, f"() => ({DATA_FILES})()[2].length && ({DATA_FILES})()") == [
                     "data-files", "", [f"▸ {f['file'].removeprefix('gamedata/')}" for f in files]]
             _page.check_csp(page)
-            page.close()
         finally:
-            server.close()
+            _shut(page, server)
 
 
 
