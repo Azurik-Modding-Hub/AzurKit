@@ -499,8 +499,9 @@ memory peaks stay strict. The gate writes both kinds of row to
     its wheel, booblord's first dress after a Shape edit, this Mac at 24
     or 4 cores): the dress takes 22-24 s, its longest record gaps 5.4-5.7 s
     and 4.8-5.3 s, so only a change in a gap's first 0.7 s still kills it;
-    a seed's Track clicked at that change answers in 1.5 s (1.4 s where the
-    dress stops clean), and the next new seed's in 0.6 s on the new engine
+    a seed's Track clicked at that change answers before the kill, in 1.5 s
+    beside the running dress (1.4 s where the dress stops clean), and the
+    next new seed's in 0.6 s on the new engine
     (0.1 s on the kept one), all under the 3 s line. No records inside the
     dress, so nothing rides 4.64e.
 11. ~~Site builds without OPFS still copy twice~~: fixed by 4.53b; the
