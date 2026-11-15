@@ -453,8 +453,10 @@ def movement_reasons(packs: Mapping[str, Mapping[str, float]], catalog: Sequence
     slider not given holds its default) leave a plan's logic unverified, by
     the packs' ``catalog`` (each pack's name, category and sliders, each with
     its ``default`` and ``logic_floor``): first, any gameplay slider moved
-    (a movement slider, or one of a pack outside the "qol" category; an L3
-    toggle isn't one), under which a seed isn't promised beatable (D1064);
+    (a movement slider, or one of a pack outside the "qol" and "randomizer"
+    categories: the logic counts a Randomizer patch by its tick, and its
+    sliders tune only what that logic gates; an L3 toggle isn't one), under
+    which a seed isn't promised beatable (D1064);
     then a slider the tier doesn't read (``movement.MODELLED``: the roll,
     the swim; the enemies) past its floor, below vanilla's (``"min"``) or
     above (``"max"``), and a speed slider at 0 or less whose move never ends
@@ -464,7 +466,7 @@ def movement_reasons(packs: Mapping[str, Mapping[str, float]], catalog: Sequence
 
     moved = sliders(packs)
     for pack in catalog:
-        if pack.get("category") != "qol" and (values := {name: v for name, v in packs.get(pack["name"], {}).items()
+        if pack.get("category") not in ("qol", "randomizer") and (values := {name: v for name, v in packs.get(pack["name"], {}).items()
                                                           if (pack["name"], name) not in physics.SLIDERS
                                                           and not name.startswith("toggle_")}):
             moved[pack["name"]] = values

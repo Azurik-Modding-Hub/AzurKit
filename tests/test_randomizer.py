@@ -1051,7 +1051,8 @@ def test_moved_movement_sliders_plan_the_nearest_tiers_seed_by_the_physics_table
     so and that it isn't promised beatable; a build with those sliders
     plans the same and refuses a share string made for other sliders, its
     first reason naming each gameplay slider moved (a non-movement one's
-    too, whose plan is the default's; not a QoL one's), then those the tier
+    too, whose plan is the default's; not a QoL or Randomizer patch's,
+    whose tick the logic counts), then those the tier
     doesn't read past their ``logic_floor`` and a speed slider at 0 or less
     (D83(c))."""
     from azurkit.tools.randomizer import movement, physics
@@ -1087,7 +1088,8 @@ def test_moved_movement_sliders_plan_the_nearest_tiers_seed_by_the_physics_table
     view = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"], "packs": JUMP})
     assert (view["share"], view["why_not"]) == (share, [moved, line])
     packs = {"player_physics": {"roll_speed_scale": 0.5, "roll_time_scale": 0.0, "climb_speed_scale": 0.0}
-             | JUMP["player_physics"], "enemy_scaling": {"boss_health_scale": 2.0}, "qol_photo_mode": {"fly_speed": 2.0}}
+             | JUMP["player_physics"], "enemy_scaling": {"boss_health_scale": 2.0}, "qol_photo_mode": {"fly_speed": 2.0},
+             "death_realm": {"spideyzar_damage_scale": 6.0}}   # a Randomizer patch's slider isn't a gameplay one
     assert generator.movement_reasons(packs, sdk.catalog()["packs"]) == [
         "you moved sliders (enemy_scaling boss_health_scale 2, player_physics climb_speed_scale 0, player_physics "
         "jump_speed_scale 1.3, player_physics roll_speed_scale 0.5, player_physics roll_time_scale 0), and "
