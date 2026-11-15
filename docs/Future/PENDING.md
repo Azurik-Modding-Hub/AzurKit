@@ -470,20 +470,20 @@ memory peaks stay strict. The gate writes both kinds of row to
 4. ~~Booblord's own four spin picks unwatched on the vase-less body~~: sat
    by 4.48b's record (2026-11-12: 6, 6, 6 and 30 at 1.5 m on all four);
    the irises' re-key carried with no spin build (D1256).
-5. **4.20's nits:** an Easy plan that keeps Normal's own records Normal's
-   attempt number (the plan's `attempt`, documented as "the first that
-   passed", and its summary line); the bar sits at "try 3 of 3" while Easy
-   works out Normal's plan (`normal_plan`); in the app those attempts run
-   serially beside the pending ones (perf only: no op times an Easy plan).
-   Lane 4.64d takes the first two (the words, and a note before
-   `normal_plan`); the third stays named.
-6. **The save warp and detours:** with the warp counted, Seed difficulty's
-   detours still don't count a level's save platforms as exits (4.20's
-   DESIGN 1.3); the solver and D169's marks already count the warp
-   (4.18b). A fix moves warp-ticked Easy, Hard and Expert placements, so it
-   bumps `SEED_DIFFICULTY_FILL`, at 2 since 1.0.2. Lane 4.64d, the narrow
-   way (12.19): only those levels' share links made with the warp ticked
-   refuse, by name.
+5. **4.20's nits:** ~~an Easy plan that keeps Normal's own records
+   Normal's attempt number; the bar sits at "try 3 of 3" while Easy works
+   out Normal's plan~~: fixed by 4.64d (the plan's `attempt` is documented
+   as the kept candidate's, an Easy or Expert spoiler's summary line says
+   so, and the bar says "comparing with Normal's plan"). Left: in the app
+   Normal's attempts run serially beside the pending ones (perf only: no
+   op times an Easy plan).
+6. ~~The save warp and detours~~: fixed by 4.64d, the narrow way (12.19):
+   with the warp counted, each save platform it leaves from is a way out
+   of its level and town's platform a way in. Warp-ticked Easy, Hard and
+   Expert seeds are Seed difficulty's fill 3 (`SEED_DIFFICULTY_FILL`),
+   their fill 2 links and plans refused by name; seeds without the warp
+   keep fill 2 (`WARPLESS_FILL`), as their placements didn't move, so
+   their links still open.
 7. ~~The chain's drain hit gives a light reaction~~: by design (4.3chain):
    D1045's chain on a hit needs the stun, and the game's heavy flinch
    would hold the chain's next hits for 2.58 s (AZ-765).
