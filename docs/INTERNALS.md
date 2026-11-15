@@ -767,7 +767,9 @@ are the Characters section's.
     the app's engine on its threads (`procpool.Beside`), the site's worker
     one at a time: the same plan at any width. Every plan's spoiler and
     tracker show one measured line (`difficulty.profile`, `line`): "Hard: 19
-    key-item steps, 17 off the path, needs Roll jumps twice", the tricks
+    key-item steps, 17 off the path, needs Roll jumps twice" (off the path
+    on the settings' detours, so with the warp ticked it counts the warp,
+    Normal's too: its plan, file and string stay as they were), the tricks
     (play_2's step-ups' openers, `difficulty.openers`, in `TRICK_NAMES`'
     short words) named only with the spoiler shown, else "needs tricks at N
     points", left out when no trick is allowed. A spoiler's openers read one
