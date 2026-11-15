@@ -463,9 +463,29 @@ vanilla's ESP and returns to 0x8D65C. His hits with no critter as their
 source (a damage platform's) aren't scaled. Each landing holds the scene
 pointer's address and the five speed constants (Europe's 0x19A958-60,
 0x1A4A18 and 0x1A4A14) [verified static 2026-11-15: `python -m devkit
-re xbe dis` on both releases; unverified in game: the rates, waits,
-moves and costs it gives, and whether his fight movement reads the
-species speeds, are Step 4.71c's sitting].
+re xbe dis` on both releases].
+
+In game [seen in xemu, sitting 4.71c and its skeptic: builds with only
+the pack, from vanilla, on floor 9, life a fragment short and with all
+five discs, at three steps of the sliders, the defaults' (damage 6,
+speed 2.5, longest wait 1 s, movement 2.5) the highest]: one disc
+short, AI+0x180 is exactly the speed slider × 1.0, 1.25 or 1.5 by his
+health from his third tick (his first two read vanilla's 1.0), AI+0x178
+is at most the wait slider on every tick but the one that draws it, and
+each hit his critter sources costs exactly trunc(k × the cost after the
+armor): his 10, 15 and 40 cost 60, 90 and 240 at 6, so one hit kills a
+full 200 HP player, against 5-10 hits with all five discs. His chase
+reads the species speeds (p90 7.0 m/s × the movement slider). His state
+changes within every 10 s, his boss intro plays and nothing faults.
+Standing in his reach, the player dies in about a tenth of vanilla's
+time. With all five discs every line is vanilla's (the raise-only 1.0,
+1.25 and 1.5, waits drawn uncapped in 3-15 s, costs ×1, the species'
+7.0), and both kills, one disc short and with all five (assisted), load
+the ending's movie chain. Known flaws: at the defaults his attack
+starts come about 2x as often as vanilla's (14.6 against 6.9 a minute),
+not 3x: the wait cap shortens his waits (3.6x the draws), but his
+approach and his clips bound the rate; and his hits whose source isn't
+his critter (2.5-5.4 % of his damage) aren't scaled.
 
 #### The bosses that size themselves (Step 2.205b, 2026-10-27, AZ-786)
 

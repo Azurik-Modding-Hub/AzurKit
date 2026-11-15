@@ -2068,10 +2068,20 @@ Not randomizable (destination is the shell, not a level).
   touch of the seal opens the field at any disc count and no help popup
   shows over it; the field's own look and sound stay vanilla's. Its
   shim's half is `RE_XBE.md` § "Spideyzar's speed, his attacks and the
-  damage the player takes" [unverified in game for the pack's build:
-  whether a pad walk touches the seal, opens the field and crosses it
-  from the new-game save is Step 4.71c's sitting; r212a placed the
-  player on the seal].
+  damage the player takes". Seen in xemu, sitting 4.71c (a build with
+  only the pack, from vanilla, at the new-game save with no fragment and
+  no power): `toD1_levelSwitch` fires from town's grate deck; after
+  d1's arrival ride a pad walk touches the seal, `Seal_toggle` and
+  `ChromaticGate_toggle` go to goal 1, `FieldShape.gameSolid` reads 0.0
+  3 s later and no help popup shows, and the same walk crosses the
+  field. On vanilla the popup stops that walk and the field stays
+  solid. A seed with the randomizer's death realm tick opens the seal at
+  its plan's short discs, its own `d1.xbr` writes beside the ten. Not
+  yet shown: the walk from town's plaza onto the deck at 0 discs (every
+  run there was placed on the deck), which a re-run of the sitting's
+  town walk is to show. A player with only the pack can drop into d2
+  before holding what its way out needs (a known flaw; the randomizer's
+  logic keeps town's door to d1 on the four powers).
 - **Floor 9.** `spideyzarGeneratorShape.enable` (799, saved) is
   `DisablingElevator_andCombiner` (795): the elevator call
   `CallFloor_orCombiner` (787) in [8.5, 9.5) AND a positional link from
