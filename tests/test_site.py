@@ -239,7 +239,10 @@ class Site:
                          _page.STALL, "the context's init script")
             _routed(self.context, re.compile(rf"^(?!{re.escape(self.origin)}/)"), self._elsewhere)
         except BaseException:
-            self.files.close()
+            if hasattr(self, "context"):   # a step after the context's opening failed: it closes too (close)
+                self.close()
+            else:
+                self.files.close()
             raise
 
     def _elsewhere(self, route, request) -> None:
@@ -5765,12 +5768,35 @@ def _bare_page(browser, root: Path):
         files.close()
         raise
     context.on("close", lambda _: files.close())
-    _routed(context, f"{files.url}/", lambda route: route.fulfill(body=WORKERS_BARE, content_type="text/html"))
-    _routed(context, re.compile(rf"^(?!{re.escape(files.url)}/)"), lambda route: route.continue_()   # the page's own
-            if route.request.url.startswith(f"blob:{files.url}/") else route.fulfill(status=404, body=""))  # blob:
-    page = _page.within(context, _page.impl_call(context._impl_obj.new_page), _page.STALL, "a new page")
-    _page.load(page, f"{files.url}/")
+    try:
+        _routed(context, f"{files.url}/", lambda route: route.fulfill(body=WORKERS_BARE, content_type="text/html"))
+        _routed(context, re.compile(rf"^(?!{re.escape(files.url)}/)"), lambda route: route.continue_()   # the page's
+                if route.request.url.startswith(f"blob:{files.url}/") else route.fulfill(status=404, body=""))  # blob:
+        page = _page.within(context, _page.impl_call(context._impl_obj.new_page), _page.STALL, "a new page")
+        _page.load(page, f"{files.url}/")
+    except BaseException:   # a step after the context's opening failed: it closes too, then the files
+        try:
+            _perf.shut(context)
+        finally:
+            files.close()
+        raise
     return context, page
+
+
+def test_a_site_or_bare_page_whose_setup_fails_after_its_context_opened_closes_it_and_its_files(
+        browser, monkeypatch, tmp_path):
+    """Step 4.73a: :class:`Site` and :func:`_bare_page` close the context they opened, and their files' server, when a
+    later step of their setup fails (their route, here), so neither holds its memory into the module's later tests:
+    ``tests/conftest.py``'s ``_nothing_left_behind`` fails this test if either is left (the server a process of its
+    own, on Linux and macOS)."""
+    def refused(*_) -> None:
+        raise RuntimeError("the route refused")
+    monkeypatch.setitem(globals(), "_routed", refused)
+    before = list(browser.contexts)
+    for made in (lambda: Site(browser, tmp_path), lambda: _bare_page(browser, tmp_path)):
+        with pytest.raises(RuntimeError, match="the route refused"):
+            made()
+        assert browser.contexts == before
 
 
 WORKERS_HARNESS = """
