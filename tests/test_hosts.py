@@ -2540,6 +2540,49 @@ def test_a_pool_child_grown_past_the_line_leaves_with_its_results_and_a_small_on
         procpool.stop()
 
 
+def _logged_child(conn, path: str) -> None:   # a pool child, its stderr (what multiprocessing prints of it) to ``path``
+    from azurkit.app import procpool
+
+    sys.stderr = open(path, "w", encoding="utf-8", buffering=1)
+    procpool._work(conn)
+
+
+def _after(folder: str, _item) -> None:   # a pool item: "started", then on once its parent has closed its end
+    Path(folder, "started").touch()
+    end = time.monotonic() + 60
+    while not Path(folder, "closed").exists() and time.monotonic() < end:
+        time.sleep(0.01)
+
+
+def test_a_pool_child_stopped_at_its_part_leaves_with_no_traceback_and_one_whose_work_raises_reports_failed(tmp_path):
+    """Step 4.70b: a call stopped while a child is at its part (the app's
+    stop of its build ahead) closes that child's pipe; the child, sending
+    its results to the closed end, leaves quietly, where it printed two
+    BrokenPipeError tracebacks (its send, then its ``failed``). A part
+    whose work raises still answers ``failed``, so it runs in the parent."""
+    from azurkit.app import procpool
+
+    here, there = procpool._CONTEXT.Pipe()
+    child = procpool._CONTEXT.Process(target=_logged_child, args=(there, str(tmp_path / "stderr")), daemon=True)
+    child.start()
+    there.close()
+    try:
+        here.send((operator.truediv, 1, [0], procpool.RETIRE, False))
+        assert here.poll(60) and here.recv() == ("failed", None)
+        here.send((_after, str(tmp_path), [0], procpool.RETIRE, False))
+        end = time.monotonic() + 60
+        while not (tmp_path / "started").exists() and time.monotonic() < end:
+            time.sleep(0.01)
+        here.close()   # as procpool._Child.stop does
+        (tmp_path / "closed").touch()
+        child.join(60)
+    finally:
+        if child.is_alive():
+            child.kill()
+            child.join()
+    assert (child.exitcode, (tmp_path / "stderr").read_text(encoding="utf-8")) == (0, "")
+
+
 def _spun(here: int, seconds: float) -> bool:   # a pool item: ``seconds`` on the pool's clock; whether it ran in ``here``
     from azurkit.app import procpool
 

@@ -378,23 +378,44 @@ def stop() -> None:
         child.stop()
 
 
+_GONE = (BrokenPipeError, ConnectionResetError, EOFError)
+"""What a child's pipe raises once its parent has closed its end (a call
+that stopped it at its part, or the pool's stop): the child leaves quietly
+(Step 4.70b); any other failure stays loud."""
+
+
+def _tell(conn, answer) -> bool:
+    """Send ``answer`` to the parent: False once it has closed its end (:data:`_GONE`)."""
+    try:
+        conn.send(answer)
+    except _GONE:
+        return False
+    return True
+
+
 def _work(conn) -> None:
     """A child: each part's results, or ``failed`` (its items then run in
     the parent), holding none of a part's inputs or results while it waits
     for the next; ``leaving`` with the results, then gone, once it has
     peaked (``host.peak``) at the line its parent sent with the part (the
     parent's :data:`RETIRE`) or past it, or after a low part where POSIX's nice has
-    no way back (it would answer the next click's parts low)."""
+    no way back (it would answer the next click's parts low). It leaves
+    quietly once its parent has closed its end (:data:`_GONE`, at a send or
+    at its next recv): a call stopped it at its part, as the app's stop of
+    its build ahead does."""
     from .engine import orphaned
 
     orphaned()
     while True:
         try:
             fn, shared, items, line, low = conn.recv()
-        except (EOFError, OSError):
+        except _GONE:
             return
+        except OSError:   # any other fault of the pipe: loud
+            raise
         except Exception:   # a part that doesn't unpickle here
-            conn.send(("failed", None))
+            if not _tell(conn, ("failed", None)):
+                return
             continue
         was = host.background() if low else None
         try:
@@ -405,10 +426,9 @@ def _work(conn) -> None:
         fn = shared = items = None   # the part's inputs, never held while this child waits for the next part
         leaving = out[0] == "done" and (host.peak() >= line or low and sys.platform not in ("darwin", "win32"))
         try:
-            conn.send(("leaving", out[1]) if leaving else out)
+            told = _tell(conn, ("leaving", out[1]) if leaving else out)
         except Exception:   # results that don't pickle
-            conn.send(("failed", None))
-            leaving = False
+            told, leaving = _tell(conn, ("failed", None)), False
         out = None   # nor its results
-        if leaving:
+        if leaving or not told:
             return
