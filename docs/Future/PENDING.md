@@ -19,7 +19,10 @@ naming what closed it, so the numbers that tests and decisions cite still
 point; a new item takes the next free number in its group. Step 4.47g
 added the 2026-11-12 session's items (2.5, 9.43, 10.14) and brought 10.12
 up to date. Step 4.59a brought groups 2-6 and 11 up to date on 2026-11-14
-against `main` d1823858, after 1.2.0 (D1264's sweep).
+against `main` d1823858, after 1.2.0 (D1264's sweep). Step 4.63b brought
+group 9 up to date on 2026-11-14 against `main` dd5f925a (1.3.0), D1264's
+last sweep: each item still open names the lane that closes it
+(4.64a-4.64g), and group 12 holds its questions' defaults.
 
 ## 1. First: the Variants editor's first Check (D1181, D1192)
 
@@ -51,11 +54,11 @@ The next session starts here (D1192), so 1.1 can follow.
    serially a Shape-edit Check takes 20.7-20.8 s, from 24.0-26.7 s on the
    stack below the subdivision's kernel.
 3. **The plan** (4.37e's design): round 6's A (4.37e1), C (4.37e3), F
-   (4.37e4) and B2 (4.37m1) landed. D1, E and D2 are built (Steps
+   (4.37e4) and B2 (4.37m1) landed. D1, E and D2 landed in 1.2.0 (Steps
    4.55b-4.55d: the mesh plan's position steps, the rig and the
    subdivision compiled, bit for bit their twins, and the quick preview's
    moving bar), with their parts re-recorded (4.55e: booblord's content
-   v11), waiting for the gate.
+   v11).
    Open: G (the paint for wasm), H (the Check ahead), K (the clip import),
    round 5's pictures-first (r5g) and R7b (later by reference). 4.37e's
    forecasts are superseded by item 2's numbers; round 7 is undesigned.
@@ -67,19 +70,17 @@ The next session starts here (D1192), so 1.1 can follow.
      published nothing (4.37m). Her own copy's first Check does the whole
      work: 2.2 s native, 5.3 s on the site's engine (4.37a);
    - perf rows that time a Check after a Shape, Scale, Jiggle or colour edit
-     and one with no parts (A98, A99, A104-A106, S84-S88): 4.37e0, built,
-     not yet queued.
+     and one with no parts (A98, A99, A104-A106, S84-S88): 4.37e0, on
+     `main` since 1.1.
 5. **The parts' download:** a first Check's 24.5 MB of parts come with no
    bar, and no pytest drives a real browser through a shipped fetch (S78 is
    the only proof).
 6. **Parts keyed by their inputs** (D1195): Step 4.37m1 keys every Check
    part on its stage's inputs alone, so the recording host's parts serve
    every platform, close enough off it (D1016); its first commit is the
-   jiggle half (B2). Built, in flight: its re-record, `record_goldens.py
-   --check` and two heavy pins haven't run (no window). Until it lands, the
-   Intel Mac, Windows and Linux apps miss the shipped parts (4.37f's C.3;
-   the site takes them), and the Intel app's first Check passes 120 s on CI
-   (C.12).
+   jiggle half (B2). It landed in 1.1 (e6e28279, 3683263c), so the Intel
+   Mac, Windows and Linux apps take the shipped parts too (4.37f's C.3);
+   C.12, the Intel app's first Check past 120 s on CI, was read before it.
 7. ~~A variant's pictures, dressed~~: fixed by 4.46a1, carried in 4.55e
    (keyed on `parts.VERSION` and the drawing's files).
 8. **The Firefox Shape-edit gap** (D1209, D1244): its line is a rare
@@ -321,18 +322,32 @@ memory peaks stay strict. The gate writes both kinds of row to
     WebKit's reload; the WebKit engine trap (ci44); WebKit's JSC fault on
     macOS 15 (4.5p; a newer Playwright was the lever, D1133: 4.56b takes
     1.65.1; arm64 WebKit's "Target crashed" had passed its rerun 9 times in
-    33 CI runs from 11-11 to 11-13: count it again from 4.56b on). ~~Firefox's timer that lost
+    33 CI runs from 11-11 to 11-13; counted again from 4.56b: 2 in 12 arm64
+    vanilla jobs over main's six runs to 11-14, both in run 43617501572, a
+    worker thread's SIGSEGV at 0x50 and one with no crash report, neither
+    JSC's StackVisitor assertion; the `Error.stackTraceLimit = 0` lever in
+    WebKit's engine worker covers only that assertion, ci47's, so try it
+    only if a report names it again, 9.12). ~~Firefox's timer that lost
     once~~: fixed by 4.54a (the word-list Undo was pressed before it was
     enabled); a lost edit still waits 600 s with no Data tab state in
     `hang()` (4.5g).
 13. Intel: page-load stalls; ci19's extra 2 h; WebKit's drawing threads
     outranked (ci21).
-14. Windows: ci34's cause; ci39's load failure.
+14. Windows: ci34's cause; ci39's load failure; Firefox's temp disk
+    (9.13): it dips 4-7 GiB through a vanilla shard and is mostly given
+    back (main's runs to 11-14: lowest 21.2-26.2 GiB of 27.4-30.4, at most
+    4.3 GiB held at a shard's end), and the pack golden's 60-minute hang
+    hasn't come back since 4.4ci18; if a shard runs short, a
+    diagnostics-only commit names what holds it (the 1.0.1 survey's 4.5d).
 15. WebKit: network-process endings (ci41: a RequestedByNetworkProcess
     ending still costs 120 s); why WebKit leaves the page's process (ci18);
     what triggers the zero-headed message (4.5s: if it recurs, the call
     fails at once naming it and D1170's rerun records it; 4.37k retired
-    `_page.past_refusal`'s unrecorded redo); ci31's Characters stall; the
+    `_page.past_refusal`'s unrecorded redo); the pool's cut mode at S62 on
+    the capped site (9.11: B's stale build ahead dropped at a heavy ask,
+    `web/workers.mjs:358`; never sampled, 4.3r4s's review), self-reporting
+    since a peak past 6 GiB blocks (the capped site read 5.76 GiB on main's
+    --all run of 11-14); ci31's Characters stall; the
     parts test's closed page `[webkit]` on macOS arm64 (4.37f's C.13).
 16. Others: ci17's three; what held ci27's GIL; ci37's CI ValueError;
     4.5m's second failure; 4.5n's frozen capped A32; S59 under 20 extra
@@ -445,85 +460,117 @@ memory peaks stay strict. The gate writes both kinds of row to
 ### Known flaws (named under D835, listed until fixed)
 
 1. ~~Refusals name Modkit's commands~~: fixed by 4.52b.
-2. **"WHITE cycles"** in the build's character log line and comments
-   (4.18a): D1153 wants modern pad names (LB). Rewording moves the shipped
-   plan answers' digests, so they need a re-record.
-3. ~~Beamlord's notes show decision ids~~: fixed by 4.52b; the content
-   repo's copy follows at his next content version.
-4. **Booblord's own four spin picks** carry their grades across the vase
-   drop ("her mesh, not her moves"); no sitting has watched them on the
-   vase-less body (4.27d; D835, D856: the owner may want one).
-5. **4.20's nits:** a plan Easy keeps from Normal records Normal's attempt
-   number; the bar sits at "try 3 of 3" during `normal_plan`; the app runs
-   `normal_plan` serially beside the pending attempts.
-6. **The save warp and detours:** detours don't count save platforms as
-   exits yet (4.20's DESIGN 1.3). 4.18b counts the warp only in D169's
-   proof guard.
-7. **The chain's drain hit** gives a light reaction where the game gives a
-   heavy flinch.
-8. **The Live tracker's 'loading' fix** (f07a354) has never been checked
-   on a live xemu.
+2. **"WHITE cycles"** in the build's character note (X36's clause, which
+   the page shows after a build and `SETS_SAID` reads back) and in
+   comments under `tools/characters/` (4.18a): D1153 wants modern pad
+   names (LB). The edit moves `parts.VERSION`, so it rides on the next
+   parts re-record with 48, `SETS_SAID` reading either word. Lane 4.64e.
+3. ~~Beamlord's notes show decision ids~~: fixed by 4.52b, and the content
+   repo's copy by his v2 (4.55e).
+4. ~~Booblord's own four spin picks unwatched on the vase-less body~~: sat
+   by 4.48b's record (2026-11-12: 6, 6, 6 and 30 at 1.5 m on all four);
+   the irises' re-key carried with no spin build (D1256).
+5. **4.20's nits:** an Easy plan that keeps Normal's own records Normal's
+   attempt number (the plan's `attempt`, documented as "the first that
+   passed", and its summary line); the bar sits at "try 3 of 3" while Easy
+   works out Normal's plan (`normal_plan`); in the app those attempts run
+   serially beside the pending ones (perf only: no op times an Easy plan).
+   Lane 4.64d takes the first two (the words, and a note before
+   `normal_plan`); the third stays named.
+6. **The save warp and detours:** with the warp counted, Seed difficulty's
+   detours still don't count a level's save platforms as exits (4.20's
+   DESIGN 1.3); the solver and D169's marks already count the warp
+   (4.18b). A fix moves warp-ticked Easy, Hard and Expert placements, so it
+   bumps `SEED_DIFFICULTY_FILL`, at 2 since 1.0.2. Lane 4.64d, the narrow
+   way (12.19): only those levels' share links made with the warp ticked
+   refuse, by name.
+7. ~~The chain's drain hit gives a light reaction~~: by design (4.3chain):
+   D1045's chain on a hit needs the stun, and the game's heavy flinch
+   would hold the chain's next hits for 2.58 s (AZ-765).
+8. **The Live tracker's 'loading' fix** (ed1b044f, main's copy of
+   f07a354) has never been checked on a live xemu: one sandboxed sitting
+   (Live on the sandbox's shared RAM, about 60 polls standing in w2, then
+   a level exit) closes it, with no owner (the Play and Attach demo stays
+   the owner's, 12.17). Lane 4.64g.
 9. ~~Characters: a pause past REST still starts a build the next move
    drops~~: fixed by 4.53b.
-10. **A stale first dress caught in a gap** takes the kill, and the next
-    seed's click reads the logic again (45 s).
-11. ~~Site builds without OPFS still copy twice~~: fixed by 4.53b. **Cut
-    mode and S62's other mode are unproven** (4.3r4s).
-12. **The arm64 WebKit engine trap:** `Error.stackTraceLimit = 0` in the
-    engine worker's realm would turn the page crash into a RuntimeError that
-    D1126's restart handles. A WebContent crash still takes the page with it
-    (the 1.0.1 survey's 4.5a).
-13. **Windows Firefox loses 6-15 GiB of temp disk** through the pack
-    golden, and hangs for 60 minutes (D1105). Land a diagnostics-only
-    commit first (the survey's 4.5d).
+10. **A stale first dress caught in a gap** of its records (26-30 s,
+    4.3r4) takes `ahead.GRACE`'s kill, and the next seed's click starts a
+    new engine (the logic's read is 0.8 s now, not 45 s). A `noting`
+    around the dress doesn't help (4.3r4 train 2's review): measure
+    today's gap and click first, then accept it or add records inside its
+    longest stage. Lane 4.64c measures and decides; records inside the
+    stage would ride 4.64e.
+11. ~~Site builds without OPFS still copy twice~~: fixed by 4.53b; the
+    pool's unsampled cut mode is a watch line (8.15).
+12. ~~The arm64 WebKit engine trap~~: a watch line (8.12); its
+    `Error.stackTraceLimit = 0` lever waits for a crash report that names
+    JSC's StackVisitor again.
+13. ~~Windows Firefox loses 6-15 GiB of temp disk and hangs~~: the hang
+    gone since 4.4ci18, the temp a watch line (8.14).
 14. ~~`procpool._peak()` returns 0 on Windows~~: fixed by 4.52a.
 15. ~~OPENERS: the stale openers' compiled set leaks~~: fixed by 4.52a,
     but for two calls that end within one thread switch (no lock).
-16. **A Firefox Save whose `flat.mjs` fetch never answers stays greyed**
-    (4.5u; accepted, since sw.js serves `flat.mjs` on the real site).
+16. **A Firefox Save whose `flat.mjs` never loads stays greyed** (4.5u:
+    past 90 s, its bar at 0): `written()` has no bound on its worker's
+    start, and a first visit's page isn't sw.js's (it never claims), so it
+    fetches `flat.mjs` from the network. A start bound that falls back to
+    the old copy closes it (D1164). Lane 4.64a.
 17. **A closed Firefox tab leaves its last build's ~835 MB file in OPFS**
-    until the next load or a Clear (4.5q; accepted design).
+    until the next load or a Clear (4.5q; accepted design, no lane: a
+    Save's download may still read it, and only an unsaved build's file
+    could go at pagehide, at best effort).
 18. ~~The site's Update fetches every file of an entry~~: fixed by 4.53b.
 19. ~~The HTTPS content clone has no low-speed bound~~: fixed by 4.52a.
 20. ~~The Windows and Linux frozen apps are console builds~~: fixed by 4.53c.
-21. **The app's own server answers over HTTP/1.0** (ci42).
+21. ~~The app's own server answers over HTTP/1.0~~: fixed by 4.5b
+    (fd5f5ec4).
 22. ~~A player's image named usa.iso or europe.iso in Downloads~~: fixed by 4.53c.
 23. ~~A save edit's output guard doesn't fold case on macOS~~: fixed by 4.52a.
 24. **source_hashes** is checked against both releases' vanilla files
-    (4.6i; accepted).
-25. **A row's "main colour" can be a tinted near-black** (4.6e; Modkit's
-    rule, accepted).
-26. **The reach aim's string drifts in rare cases** (`docs/REACH.md`).
+    (4.6i; accepted, no lane): a mods file is release-free, so only a pin
+    of `index.xbr` can pass on the other release, where its operations'
+    own originals still refuse other bytes.
+25. **A row's "main colour" can be a tinted near-black** (4.6e): the
+    Colours wheel takes the palette's first colour of saturation 0.15 or
+    more with no value floor, so town_female_3's row 1 turns on a colour
+    of value 0.02, and its hex box scales the row's value about 40 times.
+    A value floor (0.1) moves only that row of hers. Lane 4.64b.
+26. **The reach aim's string drifts in rare cases** (2 of f2's 8,519 aim
+    jobs; `docs/REACH.md`): parked with the frozen reach engine (D1143,
+    D1278); its fix rides the next change to `aim.py`.
 
 ### The Variants editor
 
 27. Opening another variant mid-Check drops its answer, but the engine's
-    in-flight dress runs on (4.28d). (After a drag during the Check, a
-    pictures refusal's "Not drawn" giving way to the nearest note is no
-    defect: that note is about the values now shown, 4.40b3.)
+    dress runs on, so the new one's Check waits behind it (up to a first
+    Check's time). Accepted (D835), no lane: a cancel for one call costs
+    about what it saves (the warm engine and its kept dress, 4.40b3).
+    (After a drag during the Check, a pictures refusal's "Not drawn"
+    giving way to the nearest note is no defect: that note is about the
+    values now shown, 4.40b3.)
 28. ~~The fits row's sha and `garret4_reference`'s hoe, unpinned~~: pinned
     by 4.27d (0d2873ec) and 4.52c.
 29. ~~Old own copies of booblord_high refuse; old reshape-part keys miss
     once~~: accepted (4.6r), no lane: a copy made with New from this works.
-30. Looks:
-    - The status leads with the recipe hash.
-    - "Built-in" and "built in" are both used.
-    - `colours.mjs` rounds ties away from zero where Python rounds to even
-      (the hex box only).
-    - The effect colour uses the browser's picker, not Modkit's wheel.
-    - Live's tab, not the editor's: at 1100 px with Live on, Live's 32rem
-      status line wraps its bar onto a second line (57 px, 31 with Live
-      off), and the app's Attach… pushes the line onto a third (91 px), so
-      the map room is shorter (4.25; measured again in 4.53a, Chromium and
-      WebKit alike).
+30. Looks: the status says "built in" where the list says "Built-in"; at
+    1100 px with Live on, Live's 32rem status line wraps its bar onto a
+    second line (57 px, 31 with Live off) and the app's Attach… onto a
+    third (91 px), so the map room is shorter (4.25; measured again in
+    4.53a, Chromium and WebKit alike). Lane 4.64b takes those two. The
+    rest are accepted, no lane: the status leads with the recipe hash (the
+    perf gate's Check predicate and the tests key on it); the hex box
+    rounds exact ties away from zero, one unit in the last place (4.6e's
+    review); the effect colour keeps the browser's own picker (native; the
+    Colours tab has the wheel).
 31. ~~4.6c's leftovers~~: done, the last (`variant_save`'s `from` checked
     as a name) by 4.38b.
 32. ~~Community-only characters~~: fixed by 4.38b.
 
 ### Data, mods and the randomizer
 
-33. There's no page button for mod-template or entity diff; they are CLI
-    only (4.6i's default).
+33. ~~No page button for mod-template or entity diff~~: CLI only, a
+    default the owner may overrule (12.15).
 34. ~~`docs/RANDOMIZER_DB.md`'s TODOs~~: fixed by 4.56a (D115's defaults:
     no drop offered, the reserved keys with no version planned).
 
@@ -539,62 +586,72 @@ memory peaks stay strict. The gate writes both kinds of row to
 ### Ideas the session ranked (after the port, D1131)
 
 38. ~~Support plumbing~~: dropped, not built (D1206).
-39. "Play it in xemu" help after a Save: Machine > Load Disc, and 128 MiB
-    for big bodies.
-40. Play and Attach have never met a real xemu or the real admin prompt
-    (4.6k). The owner's demo (D205) waits for a session when the owner has
-    time (D1205).
-41. A headline randomizer mode and a speedrun kit (the session's idea
-    ranking). When features open again, the open death realm (D201) comes
-    first.
+39. "Play it in xemu" help after a Save: Machine > Load Disc…, and xemu's
+    memory at 128 MiB for More RAM and big bodies (the ranking's default:
+    the words now, no owner call). Lane 4.64b.
+40. ~~Play and Attach have never met a real xemu or the real admin
+    prompt~~ (4.6k): the owner's demo (12.17).
+41. ~~A headline randomizer mode and a speedrun kit~~: no new player
+    features yet, a default the owner may overrule (12.16).
 
 ### Known flaws found since (D835)
 
-42. **Audit pass 2's hostile-input findings** (4.45) get no lane (D1219):
-    the site's manifest read has no size cap for a hostile Content from
-    address (U5); two entries' paths that differ only by Unicode form or a
-    trailing dot or space share a file in the content folder, and one entry
-    listing both spellings fails its install part way (U3); an entry's
-    `variant.json` is parsed with no depth guard (U6) and `installed.json`
-    read with no cap or value check (U7); and on Windows a zip unpacked into
-    the app's data folder can replace the install's key file (store F2).
+42. **Audit pass 2's hostile-input findings** (4.45): parked, no lane
+    (D1219), all still open in 1.3.0: the site's manifest read takes the
+    whole reply before the engine's 1 MiB cap (U5); two entries' paths
+    that differ only by Unicode form or a trailing dot or space share a
+    file in the content folder, and one entry listing both spellings fails
+    its install part way (U3); an entry's `variant.json` is parsed with no
+    depth guard (U6) and `installed.json` read with no cap or value check
+    (U7); and on Windows a zip unpacked into the app's data folder can
+    replace the install's key file (store F2). U3, U6 and U7 are in
+    `content.py`, a parts source, so a fix there rides a parts re-record.
 43. **Covered faces removed** (E1, D1237): parked by the owner's decision
     (D1258), to revisit only if a model needs the last few percent. No
     Shape op removes faces (`docs/VARIANTS.md`), so faces a model's clothes
     always cover are drawn anyway. Measured on booblord v10 (E1's design,
     11-13): the faces covered in every frame of her 48 clips are a safe
-    2.6 % (1.479x to 1.458x vanilla's heaviest vertex cost); her shadow LOD
-    cut from each two-sided layer's outer side about 3 % of her bytes a
-    flip (20.00 to 19.38 MB, an estimate; 1.479x to 1.433x by vertex cost),
-    with no recipe change; and no Check gets faster (a fresh dress 69.1 s
-    without, 70.1 s with the faces left out). The once-estimated 1.33x
-    and 9-14 s don't hold: faces picked on the plan's weights leave holes
-    once the rig re-weights her.
+    2.6 % (1.479x to 1.458x vanilla's heaviest vertex cost); a shadow LOD
+    that keeps only each two-sided layer's outer shell, about 3 % of her
+    bytes a flip (20.00 to 19.38 MB, an estimate; 1.479x to 1.433x by
+    vertex cost), with no recipe change; and no Check gets faster (a fresh
+    dress 69.1 s without, 70.1 s with the faces left out). Faces picked on
+    the plan's weights leave holes once the rig re-weights her.
 44. **booblord_human's eye-edge texel** (D1255): her rework's larger irises
-    (D1252) reach one texel at her eye island's edge, magenta on
+    (D1252) reach one texel, (76,32) at her eye island's edge, magenta on
     booblord's page, that the human's +22 hue turns a dark maroon (hue
-    353.5) instead of brown; no iris radius moves it. It ships as a
-    known flaw: a human-only colour op for that texel would clear it.
-45. **WebKit's Saves past 3 s** (S06, S49, S50): all but 9-44 ms of a
-    Save is WebKit's own download of the 2.75-2.93 GB image, at a plain
-    copy's speed. Alone they pass (1.29, 0.90 and 1.67 s medians); beside one
-    other process writing to the disk they read 4.43, 4.32 and 4.90 s
-    (1.1.1's full gate: 4.41, 4.26 and 4.54 s), and no page lever moves
-    them (group 8's frequent-ops measurement, 11-13). Chromium's pass
-    under the line, Firefox's on its bar (D1053).
-    No more research on them (D1263).
+    353.5) instead of brown; no iris radius moves it. It ships as a known
+    flaw. A human-only colour op for that texel would clear it, but it
+    moves her recipe and booblord_high_human's (a parts re-record, a grade
+    row, and a content version apps up to 1.3.0 grey), so it rides the
+    next parts re-record, its grade from a short sitting (12.18). Lane
+    4.64e, which keeps it a known flaw if no op confines itself to that
+    texel.
+45. **WebKit's Saves past 3 s** (S06, S49, S50): parked (D1263: no more
+    research), their debt rows kept. All but 9-44 ms of a Save is WebKit's
+    own download of the 2.75-2.93 GB image, at a plain copy's speed. Alone
+    they pass (1.29, 0.90 and 1.67 s medians); beside one other process
+    writing to the disk they read 4.43, 4.32 and 4.90 s (1.1.1's full
+    gate: 4.41, 4.26 and 4.54 s), and no page lever moves them (group 8's
+    frequent-ops measurement, 11-13). Chromium's pass under the line,
+    Firefox's on its bar (D1053).
 46. **A worker's record shown on the newest ask** (4.54e): on the site,
     for up to about 2.5 s after a Check, its "Keeping the Check" records
-    show on the newest ask, so an unrelated one answered meanwhile (an
-    Install, a picker) shows that line; a Build clicked then does wait on
-    it.
-47. **A 4-45 ms flash** (4.54e): a Check asked again unchanged whose own
-    steps take a few ms flashes its keeping records (one to three frames)
-    before its bar hides.
+    show on the newest worker ask, so an unrelated one answered meanwhile
+    (an Install, a picker) shows that line; a Build clicked then does wait
+    on it. The fix routes a worker's records only to the asks queued
+    behind its job (`web/workers.mjs`, `posted()` in `web/app.mjs`). Lane
+    4.64f, after 4.64b.
+47. **A 4-45 ms flash** (4.54e; accepted, no lane): a Check asked again
+    unchanged whose own steps take a few ms flashes its keeping records
+    (one to three frames) before its bar hides. A worker-side delay of the
+    first keeping record would clear it, at the cost of 4.54e's pinned
+    record order and S79's bar.
 48. **The townsfolk kit's refusal** (`_player_kit.py`, 4.59d) names
     Modkit's `scripts/townsfolk_kit.py`. Its edit moves `parts.VERSION`, so
-    it rides on the next parts re-record, which drops it from
-    `tests/test_contracts.py`'s `OWED_SCRIPTS`.
+    it rides on the next parts re-record with 2 (a VERSION move whose
+    content version older apps work out fresh), which drops it from
+    `tests/test_contracts.py`'s `OWED_SCRIPTS`. Lane 4.64e.
 
 ## 10. Dev tools, tests and port notes
 
@@ -754,6 +811,32 @@ What only the owner does:
 13. ~~Remove the empty Modkit folder~~: gone by the 2026-11-10 session's
     start.
 14. ~~See the MEMORY.md diff in chat~~: shown on 2026-11-09 (G6).
+
+Group 9's questions for the owner (2026-11-14), each answered by the
+default here until the owner overrules it (D115):
+
+15. 4.6i's default: mod-template and entity diff stay command-line only
+    (9.33): the Data tab's edits saved as a mods file cover mod-template's
+    use, and entity diff is a modder's read (D882 leans the other way).
+16. D1131's default: fixes first, no new player features until PENDING's
+    lanes are done (9.41). When they open, the open death realm (D201)
+    comes first, then the practice pack and a race code from the plan's
+    sha; the Live autosplit timer only if racers ask.
+17. The real-xemu Play and Attach demo (D205; 9.40): the owner's, at a
+    visible xemu and the real admin prompt, asked again once group 9's
+    lanes (4.64a-4.64g) have landed (D1205, D1268, D1272).
+18. booblord_human's eye texel (9.44, D1255): cleared in the next parts
+    re-record by a colour op on that texel alone, its grade from a short
+    sitting of about 5 boots (D117) unless the owner carries it as D1256
+    did.
+19. Seed difficulty's detours with the save warp ticked (9.6): fixed the
+    narrow way (4.64d). `SEED_DIFFICULTY_FILL` goes to 3, so Easy, Hard
+    and Expert share links made with the warp ticked refuse, by name;
+    links without the warp keep working.
+20. Group 9's re-record (9.2, 9.48, 9.44; 4.64e) moves booblord's content
+    to v12: 1.3.1 is cut once group 9's lanes land, published when CI is
+    green with the orchestrator's notes, and content main moves to v12 at
+    once (as D1266, D1275).
 
 ## 13. Retired by name with Modkit's delete (D1171)
 
