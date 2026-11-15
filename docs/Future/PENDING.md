@@ -22,11 +22,16 @@ up to date. Step 4.59a brought groups 2-6 and 11 up to date on 2026-11-14
 against `main` d1823858, after 1.2.0 (D1264's sweep). Step 4.63b brought
 group 9 up to date on 2026-11-14 against `main` dd5f925a (1.3.0), D1264's
 last sweep: each item still open names the lane that closes it
-(4.64a-4.64g), and group 12 holds its questions' defaults.
+(4.64a-4.64g), and group 12 holds its questions' defaults. Step 4.74a
+brought it up to date at the 2026-11-15 session's wrap-up (D1304), against
+`main` ffa5f9ba: the death realm unlock (4.71a-e, 9.49) and 4.73a had
+landed, 1.3.1 was out, and 1.4.0 was cut in the same lane (2.9). The next
+session starts at group 6.
 
-## 1. First: the Variants editor's first Check (D1181, D1192)
+## 1. The Variants editor's first Check (D1181, D1192)
 
-The next session starts here (D1192), so 1.1 can follow.
+1.1 is out (2.3), and every path holds its line. What is left here is
+polish, after the next session's research (group 6, D1304).
 
 1. **The target** (D1244, amending D1194 and D1201; D1204): tiered by how
    often players meet it. A Check players meet often (her own copy's first,
@@ -39,20 +44,24 @@ The next session starts here (D1192), so 1.1 can follow.
    one past it a debt row (Step 4.49a; INTERNALS.md's tiers). It is
    measured on this Mac, busy, beside other projects' load (D1107): no idle
    rerun and no line change but the owner's; on CI's runners the tests keep
-   their bounds. Rounds go on until every path holds its line with margin;
-   then one real-Safari first Check, in one window (D1089, D1202).
-2. **Where it stands** (11-14, Steps 4.55b-4.55d's stack with its parts
-   re-recorded, 4.55e's booblord v11, measured on this Mac): her own
-   copy's first Check reads S78 7.9 s in WebKit and A92 4.4 s in the app
-   (4.55e; main's receipts 7.5-8.4 s and 3.9-4.0 s). A Check after
-   a Shape edit reads S84 57.6 s in WebKit, 60.5 s in Chromium and 80.6 s
-   in Firefox, A98 21.1 s in the app; one with no parts S88 53.3, 57.2 and
-   75.8 s; a reshape's first pictures S52 58.2, 58.9 and 81.5 s, A60
-   30.2 s; its first build A31 22.6 s; the quick preview A95 3.3 s with a
-   moving bar (main: S84 98-108 s in WebKit, A98 40-46 s, A60 43-50 s,
-   A31 41-43 s, A95 9-11 s, its bar moving only sometimes). Natively and
-   serially a Shape-edit Check takes 20.7-20.8 s, from 24.0-26.7 s on the
-   stack below the subdivision's kernel.
+   their bounds. Rounds go on until every path holds its line with margin.
+   ~~Then one real-Safari first Check, in one window (D1089, D1202)~~:
+   done on 11-15 on 1.3.1's site in Safari 27.2 (the session's Safari
+   read). Her copy's first Check S78 took 15.9 s, the same Check again S79
+   1.9 s, a let go S81 4.9 s and the Check after it S84 41.3 s, each within
+   its line with a moving bar, and the tab survived (one WebContent
+   process, 2.77 GiB peak footprint). What it leaves is 1.5's.
+2. **Where it stands** (main's `--all` run of 11-14 on e2881d3e, 1.3.0's
+   parent, medians on this Mac): her own copy's first Check reads S78 3.9 s
+   in WebKit, 3.7 s in Chromium and 5.9 s in Firefox, A92 2.2 s in the app.
+   A Check after a Shape edit reads S84 37.6, 40.0 and 52.0 s, A98 14.1 s
+   in the app; one with no parts S88 49.7, 53.0 and 75.8 s; a reshape's
+   first pictures S52 59.5, 60.0 and 83.8 s, A60 28.4 s; its first build
+   A31 22.4 s; the quick preview A95 1.3 s. The same run's release
+   reference (1.1.1's) read S84 107.7 s in WebKit, A98 45.3 s, A60 50.5 s,
+   A31 41.1 s and A95 10.4 s. Natively and serially a Shape-edit Check
+   takes 20.7-20.8 s, from 24.0-26.7 s on the stack below the
+   subdivision's kernel.
 3. **The plan** (4.37e's design): round 6's A (4.37e1), C (4.37e3), F
    (4.37e4) and B2 (4.37m1) landed. D1, E and D2 landed in 1.2.0 (Steps
    4.55b-4.55d: the mesh plan's position steps, the rig and the
@@ -69,26 +78,29 @@ The next session starts here (D1192), so 1.1 can follow.
    - beamlord has no Check parts: her Check reaches only `size`, so D1197
      published nothing (4.37m). Her own copy's first Check does the whole
      work: 2.2 s native, 5.3 s on the site's engine (4.37a);
-   - perf rows that time a Check after a Shape, Scale, Jiggle or colour edit
-     and one with no parts (A98, A99, A104-A106, S84-S88): 4.37e0, on
-     `main` since 1.1.
+   - ~~perf rows that time a Check after a Shape, Scale, Jiggle or colour
+     edit and one with no parts~~: done by 4.37e0 (A98, A99, A104-A106,
+     S84-S88), on `main` since 1.1.
 5. **The parts' download:** a first Check's 24.5 MB of parts come with no
    bar, and no pytest drives a real browser through a shipped fetch (S78 is
-   the only proof).
-6. **Parts keyed by their inputs** (D1195): Step 4.37m1 keys every Check
-   part on its stage's inputs alone, so the recording host's parts serve
-   every platform, close enough off it (D1016); its first commit is the
-   jiggle half (B2). It landed in 1.1 (e6e28279, 3683263c), so the Intel
-   Mac, Windows and Linux apps take the shipped parts too (4.37f's C.3);
-   C.12, the Intel app's first Check past 120 s on CI, was read before it.
+   the only proof). The session's Safari read (1.1) measured it once: on
+   the live site real Safari's first Check took 15.9 s, against Playwright
+   WebKit's 7.7 s from a local clone, its first 6.6 s an indeterminate bar
+   (likely the fetch, not shown). That is within 30 s with 14 s of margin,
+   so no debt row; the download's own bar is the open lever.
+6. ~~Parts keyed by their inputs~~ (D1195): landed in 1.1 (4.37m1;
+   e6e28279, 3683263c). Each Check part is keyed on its stage's inputs
+   alone, so every app takes the recording host's parts, close enough off
+   it (D1016).
 7. ~~A variant's pictures, dressed~~: fixed by 4.46a1, carried in 4.55e
    (keyed on `parts.VERSION` and the drawing's files).
 8. **The Firefox Shape-edit gap** (D1209, D1244): its line is a rare
-   Check's 90 s (S84). With Steps 4.55b-4.55d's kernels in it reads 57.6 s
-   in WebKit, 60.5 s in Chromium and 80.6 s in Firefox (11-14, one sample
-   each; 11-11: 113-117, 180 and 256 s), each under 90 s with a moving
-   bar, so no browser's goes under group 9's known flaws. Firefox's has
-   the least margin (9.4 s).
+   Check's 90 s (S84). On main's 11-14 `--all` it reads 37.6 s in WebKit,
+   40.0 s in Chromium and 52.0 s in Firefox (one sample each; 11-11:
+   113-117, 180 and 256 s), each under 90 s with a moving bar, so no
+   browser's goes under group 9's known flaws. The rare Check with the
+   least margin is now Firefox's S52, a reshape's first pictures, at
+   83.8 s (6.2 s), then its S63 at 79.3 s and S62 at 77.2 s.
 9. **Paths with no perf row** (4.49a's design): Step 4.55a timed the
    page's. A107/S89 (a sound edit: the Sound line), A108/S90 (Import PNG),
    A109/S91 (a Moves pick), A114/S92 (the Attacks tab's Damage) and A115/S93
@@ -122,8 +134,9 @@ The next session starts here (D1192), so 1.1 can follow.
 ## 2. Releases and content
 
 1. ~~1.0.2~~: out on 2026-11-09 (tag `v1.0.2`, 15c16383).
-2. ~~The content push~~: booblord v11 (a3bf5e7) is the hub's `main` since
-   1.2.0's publish (2026-11-14, D1266); CI's `CONTENT_COMMIT` pins it.
+2. ~~The content push~~: the hub's `main` is booblord v12 (baef191, which
+   needs 1.3.1) since 1.3.1's publish (2.8), after v11 (a3bf5e7) from
+   1.2.0's (D1266); CI's `CONTENT_COMMIT` pins v13 (2.9).
 3. ~~1.1~~: out on 2026-11-13 (tag `v1.1.0`, d226ddad), with 4.38a and
    4.38b.
 4. ~~1.0.3~~: out on 2026-11-11 (tag `v1.0.3`, 7a4bab60), with 4.37r and
@@ -139,14 +152,31 @@ The next session starts here (D1192), so 1.1 can follow.
    helps the apps after 1.2.0: the hub sets `needs` when its `main` moves
    at a release's publish, and an app up to 1.2.0 still refuses a moved
    recipe after the fetch, its line unchanged.
+7. ~~1.3.0~~: out on 2026-11-15 (tag `v1.3.0`, dd5f925a; published
+   12:18Z, D1275, D1291), the last Intel Mac app (D1290).
+8. ~~1.3.1~~: out on 2026-11-15 (tag `v1.3.1`, a794cee5; published
+   17:27Z; D1282, D1300). It drops Intel Macs (D1290) and carries group
+   9's fixes and the polish batch 4.70a-c: the community-only forms, the
+   pool's quiet stop, and the lock's cryptography cap lifted as cleanup
+   (D1299), which closed the three Dependabot cryptography alerts. Content
+   `main` moved to booblord v12 (baef191), which needs it. Its CI passed
+   Linux's three parts at the first try (run 43730247885); main's run
+   before it lost Linux's runner once (43713171050, green on its rerun;
+   8.37).
+9. **1.4.0**: cut by Step 4.74a with the death realm unlock (4.71a-e,
+   9.49; D1301-D1306) and 4.73a's test guard (8.18), published when its CI
+   is green (D1145, D1170). Booblord's content entry goes to v13 (4.71e's
+   re-record, 10.18): CI's `CONTENT_COMMIT` pins cffa6e4 (v13, its needs
+   still 1.3.1), and at 1.4.0's publish content `main` moves to db880f7
+   (v13 needing 1.4.0), so the apps up to 1.3.1 keep v12.
 
 ## 3. Stack 3 and 4.31's outcome
 
 1. ~~Stack 3~~: landed (5a3b0954); 4.31 and 4.30 are in 1.0.2.
 2. ~~A31 and A60 were load, not code~~: stale (2026-11-14). The reference
    is 1.1.1's run (41.1 s, 50.5 s), and group 1's kernels halved them
-   (4.55e's gate: 21.9 s, 27.5 s). A60's 50.1 s on 1.2.0's full gate is
-   8.22's debt row.
+   (4.55e's gate: 21.9 s, 27.5 s). A60 reads 28.4 s on main's 11-14
+   `--all`, with a bar, under its 45 s line, and no debt row.
 3. ~~4.30's perf watch~~: read 2026-11-14: `world()`'s size doesn't show.
    On stack 3's gate S19 read 0.069 s, S21 1.27 s, S70 0.357 s and A25
    0.351 s, against stack 2's 0.068, 1.40, 0.318 and 0.521; flat since.
@@ -176,7 +206,8 @@ The next session starts here (D1192), so 1.1 can follow.
    `suite_rules.py` and `suite_graph.py`, landq's Modkit queue and
    self-test and the Modkit branches of prune, ledger, brief and land;
    waitfor still reads `suite-receipts`. Every tool's self-test passed on
-   the live set. Left: thinning the `.before-*` copies to the newest each.
+   the live set. The `.before-*` copies were thinned to the newest each at
+   the 11-15 wrap-up.
 7. ~~The archive~~: archived and private (D1185).
 8. ~~Checks that needed Modkit~~: retired by name under D1171 (4.6i's
    end-to-end build, 4.6r's full build, 4.6j's plan, 4.13b's soak).
@@ -193,13 +224,23 @@ The next session starts here (D1192), so 1.1 can follow.
 5. ~~prune and the orphan sweep~~: nothing to delete (11-11).
 6. ~~The lanes and branches~~: deleted 2026-11-10 (D1200).
 
-## 6. Reach
+## 6. Reach and the randomizer's research (the next session, D1304)
+
+The next session starts here (D1304): randomizer and reach research
+loops, the reach engine unfrozen. Its order: 6.6's edits, then 6.5's four
+resume steps, then group 7's reach and derive ids, 9.26, 6.7, 6.8 and
+9.49's next steps, 10.3, 10.11's P7(b), "0 logic bugs" (D522), V21 and
+V22, then 8.29, with 3.4's nits on the first lane that restacks or
+re-records the art. Beside it: D1075's read at its start (12.7), the Linux
+memory lane (8.37), S82 if it repeats (8.38) and the parts' narrower key
+(10.18).
 
 1. ~~x7's route graphs~~ (D1172): 4.13f built all 44 (35.4 GiB) from
    5a3b0954 on 2026-11-09. They are stale again: the 11-10 reboot moved
    `router_key`'s device number, and 4.52b's `physics.py` edit (e9d55a12)
    moved every key. Nothing but the frozen research reads them, and
-   `load_router` rebuilds one on first use (0.7-54 s). The rest is 5's.
+   `load_router` rebuilds one on first use (0.7-54 s). The 11-15 wrap-up
+   kept them (D1305); the rest is 5's.
 2. ~~The 21 retired proof records~~ (D1175): 4.13f's reading stands
    (675f3e2b): records stay as history, their marks resolve and plans don't
    move (24 shipped marks rest on 18 of them). Re-proving them is 5's.
@@ -213,21 +254,40 @@ The next session starts here (D1192), so 1.1 can follow.
    9.48's message, the last owed, is fixed by 4.64e (63837c32).
 5. **The reach backlog** lives in the private plan: R1.23-R1.25, TD.2,
    TD.2b, TD.5-TD.7, R2.19a-j, the improvement rounds, the all-level run and
-   R2.16g. D1048 paused it, D1143 froze it (no budget, answering D977) and
-   D1212 keeps it frozen until the owner resumes it (v2, D609). Resuming it
-   also:
+   R2.16g. D1048 paused it, D1143 froze it (no budget, answering D977),
+   D1212 and D1278 kept it frozen, and D1304 resumes it for the next
+   session's research loops (v2, D609). Resuming it also:
    - drops `st_dev` from `router_key` (`devkit/rando/draft/l3_goal.py`, with
      a test beside its router-key test);
    - rebuilds x7's graphs (`build_routers.py routers 90 ...`, nice 15, in
      place);
    - re-proves the retired records' marks;
    - re-takes the conformance snapshots.
+6. **The unfreeze edits** (D1304), owed before the first reach lane, each
+   to say the engine is open for research: AGENTS.md's Porting from Modkit
+   line ("the reach engine (`devkit/reach`) is frozen (D1143)"), the
+   `azurik-orchestration` skill's frozen line (`.claude/`, a protected
+   path), `devkit/reach/README.md`'s head, `docs/INTERNALS.md`'s freeze
+   line and the brief's annex A1. AGENTS.md sits near its 40k-character
+   limit, so a new rule there cuts text elsewhere.
+7. **toD1's door is in the sewer, not the temple** (sitting 4.71c-R1a's
+   skeptic): the logic leaves toD1 from town_z020 (Z021, the temple,
+   `town.toml`) and puts D1_Town's arrival there (`d1.toml`), but d1's
+   elevator deck is in the sewer (Z003), which a player with no kit leaves
+   only through d1 (air 1 or more). It is harmless with the death realm's
+   door, whose counted realm still needs 3 of each element (`solver.py`);
+   a door loosened below air 1 moves both to Z003 first.
+8. **The derive's drops from town's plaza into the sewer are false** (the
+   same skeptic): under each of its 4 drops the first solid is a LandShape
+   (gameSolid 1.0, nothing drives it) at +12.2-12.3 m (the sitting's drop
+   rays). A derive fix bumps `DERIVE_VERSION`.
 
 ## 7. The open issues from Modkit's ledger
 
 The private ledger (D952) holds Modkit's 29 open issues. After 1.1 the
 work comes here and to group 9's known flaws and editor leftovers, reach
-staying frozen (D1212); 4.40b's triage readies their lanes.
+staying frozen (D1212); 4.40b's triage readies their lanes. The reach and
+derive ids are the next session's (group 6, D1304).
 
 - Inherited by AzurKit (3):
   - ~~AZ-009: level patches address entities by their current name, not
@@ -358,16 +418,25 @@ memory peaks stay strict. The gate writes both kinds of row to
     flake's first try's error lines are kept now, 4.37k); the collected-spot
     test's hand click `[firefox]` on Windows (8a3128b; its failure now names
     Show collected and the fresh pickups, 4.37k).
+39. test_hosts' Variants view test
+    (`test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks_one_on_your_image`):
+    120 s timeouts `[chromium]` (11-10) and `[webkit]` (11-11), each
+    passing its rerun; quiet since, with no fix named.
 
 ### Test-harness follow-ups
 
 17. ~~`_page`'s load, ending and redo gaps (N1-N3, 4.5p)~~: fixed by 4.37k
     (062dac4e, 3540afb1, 6aac6518; 2d1f3ebf retired the redo).
 18. Silent waits:
-    - Four bare `browser.new_context()` calls (test_hosts, test_site and
-      two in test_service_worker) (ci14).
-    - `_bare_page` callers' unbounded `context.close()`, two in test_site
-      (ci15).
+    - ~~Four bare `browser.new_context()` calls (test_hosts, test_site and
+      two in test_service_worker) (ci14)~~ and ~~`_bare_page` callers'
+      unbounded `context.close()`, two in test_site (ci15)~~: fixed by
+      4.73a (2d6a3379: each takes `_perf.new_context` and `_perf.shut`).
+    - ~~test_hosts' app-page tests left their `browser.new_page()` open
+      (nine) or closed it only on success, and `Site` and `_bare_page` left
+      their context open when a later setup step failed~~: fixed by 4.73a
+      (0c653205, 67705df4); conftest's `_nothing_left_behind` now fails and
+      closes any context or process a test leaves (dcf47935, 2b2146a7).
     - Direct `route`, `add_init_script` and `new_page` calls (about 40,
       30 and 50 grep hits) and the direct evaluates (ci14).
     - Two `page.goto` calls that keep Playwright's 30 s, in test_hosts and
@@ -381,15 +450,33 @@ memory peaks stay strict. The gate writes both kinds of row to
 19. ~~test_site's two fresh-page loads at ACT~~: fixed by 4.37k (1f016297).
 20. ~~`tests/ci_durations.json`'s old test id and stale shard table~~:
     fixed by 4.54d (measured from six CI runs' vanilla jobs).
+37. **Linux's vanilla part with test_site.py's Chromium tests runs short of
+    memory** (part 2 of 2 under 1.3.0, part 3 of 3 since; D1293: worth
+    finding as polish). It dipped to 2.2 GiB free (job 132838907070), and
+    its first try lost the runner 27 min in (run 43713171050, green on its
+    rerun); 1.3.0's two-part run fell to 0.9 GiB and was shut down (run
+    43675884120). 1.3.1's CI passed all three Linux parts at the first try
+    (run 43730247885).
+    - Free memory sits near 8 GiB through the light Chromium tests, dips
+      in the heavy last ones (the image walk, a save while hashing, the
+      weapon, the pieces) and comes back to 12.8 GiB at the module's close.
+    - Placing the cause in Chromium rests on the durations table's pace: CI
+      keeps no per-test times or per-process memory. On this Mac the same
+      233 tests carry nothing from test to test, and since 4.73a conftest
+      fails and closes any context or process a test leaves (18).
+    - The lever isn't built. First, Linux's minute line also prints
+      `/proc/meminfo`'s Shmem and the tier's processes' memory by kind
+      (`scripts/ci_resources.py`) for one run; then a Chromium relaunch
+      every 10 tests (or under 6 GiB free, conftest's D1260 path) or a
+      fourth part, which splits the Chromium tests 34/19. A relaunch helps
+      only if the memory is a held floor, not the heavy tests' own peak.
 
 ### Perf debt
 
 21. Rows the gate recorded:
-    - A95 in the app (a warm quick preview after a Shape let-go): 9.1-10.8 s
-      in 4.48b's and 1.1.1's full gates and 4.52a's run, its bar moving
-      only sometimes: the preview's second step is shorter than one poll
-      (group 8's rare-ops triage, 11-13). Step 4.55b builds its bar, and it
-      lands with group 1's parts re-record.
+    - ~~A95 in the app (a warm quick preview after a Shape let-go), 9.1-10.8
+      s with a bar moving only sometimes~~: fixed by 4.55b's bar and group
+      1's kernels (1.2.0): 1.3 s, a pass, on main's 11-14 `--all`.
     - ~~S79, a Check asked again unchanged, no progress for up to 3.4 s~~:
       fixed by 4.54e (it now shows a bar).
     - Stale: S64's 423 ms freeze (seen once, 11-09; it passes at
@@ -401,19 +488,22 @@ memory peaks stay strict. The gate writes both kinds of row to
     round 6's springs and body writes, the rest being group 1's compiled
     kernels (4.55b-4.55d); r5g (a reshape's pictures ahead of the rest of
     its dress) is open; r5b, r5d-r5f and r5h-r5j weren't checked lane by
-    lane. Their bar since booblord v10 (4.48b's and 1.1.1's full gates,
-    4.52a's run; group 8's rare-ops triage): A31 41-43 s, A60 43-50 s
-    (across its 45 s line with the load), A92 3.9-4.0 s, A95 9-12 s, and in
-    WebKit S52, S62 and S63 71-76 s, S78 7.5-8.4 s and S81 13-15 s; stack
-    2's run had read A31 166.5 s, A60 199.5 s and S52 140.7 s.
-23. Saves (S06, S49, S50): WebKit's over 3 s are a known flaw now (9.45).
-    Chromium's pass (2.13, 2.29 and 2.09 s medians in group 8's
-    frequent-ops measurement, 11-13) on a thin margin: its browser process
-    spends 2.5-3.2 CPU-s on a Save, so D1109 keeps it in research. A busy
-    disk, not a full one, put them over (reproduced at 184-198 GiB free).
-    S72's freeze isn't in the latest receipts.
-24. Firefox's Saves on their bar (D1053): S06 6.54 s, S49 4.34 s and S50
-    4.51 s medians (group 8's frequent-ops measurement, 11-13). Its bare
+    lane. Their bar on main's 11-14 `--all`, after group 1's kernels
+    (1.2.0): A31 22.4 s, A60 28.4 s, A92 2.2 s, A95 1.3 s, and in WebKit
+    S52 59.5 s, S62 54.5 s, S63 51.6 s, S78 3.9 s and S81 2.0 s, each
+    within its line. 1.1.1's full gate had read A31 41-43 s, A60 43-50 s
+    and S52, S62 and S63 71-76 s, and stack 2's run A31 166.5 s, A60
+    199.5 s and S52 140.7 s.
+23. Saves (S06, S49, S50): WebKit's are a parked known flaw (9.45), though
+    main's 11-14 `--all` read them at 1.03, 1.03 and 1.18 s. Chromium's
+    pass (1.73, 1.90 and 1.86 s there; 2.13, 2.29 and 2.09 s medians in
+    group 8's frequent-ops measurement, 11-13) on a thin margin: its
+    browser process spends 2.5-3.2 CPU-s on a Save, so D1109 keeps it in
+    research. A busy disk, not a full one, put them over (reproduced at
+    184-198 GiB free). S72's freeze isn't in the latest receipts.
+24. Firefox's Saves on their bar (D1053): S06 3.57 s, S49 3.53 s and S50
+    3.42 s on main's 11-14 `--all` (6.54, 4.34 and 4.51 s medians in group
+    8's frequent-ops measurement, 11-13). Its bare
     download takes 3.3-4.6 s, three to four times a plain copy, and its
     check hashes all 1,195 files each Save.
 25. ~~A71 and A80 never read on a busy box~~: read since, 0.06 s and
@@ -442,10 +532,17 @@ memory peaks stay strict. The gate writes both kinds of row to
     and 4.52a's run).
 32. CI: about 60 SSH sessions per vanilla job, an unmeasured 1-2 min
     (4.5e). ci19's CI times were inferred, not measured.
-33. The perf gate reads RSS, not footprint (4.4n's Q2, kept for 1.0.0).
-    Revisit it with 9.35.
+33. ~~The perf gate reads RSS, not footprint~~ (4.4n's Q2, kept for
+    1.0.0): accepted, no lane (D115's default at the 11-15 wrap-up). The
+    9.35 it waited on, INTERNALS' perf paragraph, was fixed by 4.56a with
+    no change to what the gate reads, so nothing is left to revisit it
+    with.
 36. S21 (the tracker, a reopen) went from 0.45 s to 1.2-1.6 s within
     stack 2 (fe61354c -> aecdedf9). Cause unread; it passes its 3 s line.
+38. **S82 in Firefox** (a Shape slider's drag on the checked copy): "no
+    progress" at 1.27 s, under its 3 s line, on main's 11-14 `--all`, that
+    run's one debt row (D1170). Not read again since: the next `--all`
+    reads it, and it gets a lane if it repeats.
 
 ### Flakes found since, each owed a triage
 
@@ -475,8 +572,9 @@ memory peaks stay strict. The gate writes both kinds of row to
    out Normal's plan~~: fixed by 4.64d (the plan's `attempt` is documented
    as the kept candidate's, an Easy or Expert spoiler's summary line says
    so, and the bar says "comparing with Normal's plan"). Left: in the app
-   Normal's attempts run serially beside the pending ones (perf only: no
-   op times an Easy plan).
+   Normal's attempts run serially beside the pending ones (perf only: A77
+   times an Easy seed's Track, 0.06 s, but behind its head start, so no op
+   times the serial work).
 6. ~~The save warp and detours~~: fixed by 4.64d, the narrow way (12.19):
    with the warp counted, each save platform it leaves from is a way out
    of its level and town's platform a way in. Warp-ticked Easy, Hard and
@@ -496,7 +594,7 @@ memory peaks stay strict. The gate writes both kinds of row to
    in level. The fixtures have no w2 state, so the switch was the debug
    menu's warp, which posts a levelSwitch's request; it shows the symptom
    gone on main, with no pre-fix control run. The Play and Attach demo
-   stays the owner's (12.17).
+   was dropped (D1306, 12.17).
 9. ~~Characters: a pause past REST still starts a build the next move
    drops~~: fixed by 4.53b.
 10. ~~A stale first dress caught in a gap of its records takes
@@ -570,10 +668,38 @@ memory peaks stay strict. The gate writes both kinds of row to
 
 ### Data, mods and the randomizer
 
-33. ~~No page button for mod-template or entity diff~~: CLI only, a
-    default the owner may overrule (12.15).
+33. ~~No page button for mod-template or entity diff~~: CLI only, the
+    owner's decision (D1287, 12.15).
 34. ~~`docs/RANDOMIZER_DB.md`'s TODOs~~: fixed by 4.56a (D115's defaults:
     no drop offered, the reserved keys with no version planned).
+49. **The death realm unlock** (D201, D1301-D1306; AZ-836, AZ-837), on
+    `main` for 1.4.0. The pack (4.71a: 0538efd2, f43c9747, af02e39d,
+    fc1f9007) opens d1's seal without the five discs and makes Spideyzar
+    far harder until all five; the randomizer's tick (4.71b: 15a9f1b2,
+    15a1e81a, f23d18f1), off by default, counts the realm in the logic.
+    4.71d set the defaults (a0fb00a6: damage 6, speed 2.5, longest wait
+    1 s, movement 2.5) and wrote the outcome (b6f5f659, 2fb8e7b1); 4.71e's
+    facts moved `parts.VERSION` (bc814e11, ab7d95ed, cd5ea928, ffa5f9ba;
+    10.18). Sittings 4.71c and 4.71c-R1a with their skeptics passed R1 (a,
+    b, c), R3 at L3, R4's exact lines and R5; U1 is closed (town's door
+    needs nothing at 0 discs, even in vanilla), and 4.71d's defaults build
+    the game files the sitting ran.
+    - Open: R2 (the bridge drop and d2's six lens keys); R6 (d1's moved
+      gems r1056 and r1099, not collected); R7 (skipped); the optional
+      re-runs (R3-L3-S1 from 5 or more fight starts, R4's times with 5 or
+      more checkpoints a side, the restore path); and the design's R3
+      attack line amended to "attack picks at least 3x R4's".
+    - The next session's (with 6.7 and 6.8): the realm's four fuel-spot
+      proofs, as tick-only marks that keep `db_digest` and unticked seeds
+      as today (no d1 or d2 spot is a proven non-gem spot, so the tick
+      moves no item yet); loosening the conservative kit in d1 and d2; the
+      maps' settings-free tips.
+    - Known flaws (D835): at L3 Spideyzar's attack starts are about 2x
+      vanilla's (14.6 against 6.9 a minute), not 3x, as his approach and
+      clips bound the rate; his sourceless hits aren't scaled (2.5-5.4 % of
+      his damage); a player with the pack alone can drop into d2 without
+      the kit (U6), d2's way back needing its six lens keys; with the tick
+      on, the maps' tips still name the discs.
 
 ### Docs
 
@@ -589,9 +715,11 @@ memory peaks stay strict. The gate writes both kinds of row to
 38. ~~Support plumbing~~: dropped, not built (D1206).
 39. ~~"Play it in xemu" help after a Save~~: added by 4.64b.
 40. ~~Play and Attach have never met a real xemu or the real admin
-    prompt~~ (4.6k): the owner's demo (12.17).
-41. ~~A headline randomizer mode and a speedrun kit~~: no new player
-    features yet, a default the owner may overrule (12.16).
+    prompt~~ (4.6k): the owner's demo is dropped (D1306, 12.17); headless
+    sittings check them.
+41. ~~A headline randomizer mode and a speedrun kit~~: the practice pack,
+    race code and Live autosplit are dropped (D1304); the death realm
+    unlock came first and landed (49, D1301; 12.16).
 
 ### Known flaws found since (D835)
 
@@ -625,13 +753,14 @@ memory peaks stay strict. The gate writes both kinds of row to
     1024 page. The owner carried Booblord Human's grade with no build;
     Booblord High Human's build is unchanged.
 45. **WebKit's Saves past 3 s** (S06, S49, S50): parked (D1263: no more
-    research), their debt rows kept. All but 9-44 ms of a Save is WebKit's
-    own download of the 2.75-2.93 GB image, at a plain copy's speed. Alone
-    they pass (1.29, 0.90 and 1.67 s medians); beside one other process
-    writing to the disk they read 4.43, 4.32 and 4.90 s (1.1.1's full
-    gate: 4.41, 4.26 and 4.54 s), and no page lever moves them (group 8's
-    frequent-ops measurement, 11-13). Chromium's pass under the line,
-    Firefox's on its bar (D1053).
+    research). Main's 11-14 `--all` read them under the line (1.03, 1.03
+    and 1.18 s), so no debt row stands now. All but 9-44 ms of a Save is
+    WebKit's own download of the 2.75-2.93 GB image, at a plain copy's
+    speed. Alone they pass (1.29, 0.90 and 1.67 s medians); beside one
+    other process writing to the disk they read 4.43, 4.32 and 4.90 s
+    (1.1.1's full gate: 4.41, 4.26 and 4.54 s), and no page lever moves
+    them (group 8's frequent-ops measurement, 11-13). Chromium's pass under
+    the line, Firefox's on its bar (D1053).
 46. ~~A worker's record shown on the newest ask~~: fixed by 4.64f
     (52ffa428, 044be507): the pool passes a worker's records with the
     asks waiting on it (its job's and those queued behind F, never one B
@@ -644,6 +773,22 @@ memory peaks stay strict. The gate writes both kinds of row to
 48. ~~The townsfolk kit's refusal names Modkit's
     `scripts/townsfolk_kit.py`~~: fixed by 4.64e (63837c32): it says to
     reinstall AzurKit, and `OWED_SCRIPTS` is empty.
+50. **An Install clicked during a Build fetches only once that Build
+    ends, and the pick's build can be dropped young** when changes come in
+    a burst within REST of the pick (4.53b).
+51. **On Windows with no WebView2 runtime, the app's browser fallback
+    can't be seen** (4.53c): Windows 11 and current Windows 10 ship the
+    runtime, and the fix (a message box in place of the endless wait) is
+    Windows UI that no test here or on CI reaches.
+52. **Over a long load Live shows "paused", never "loading"** (4.64g's
+    sitting): it reads the old level as held until the new level's first
+    read. Cosmetic: a lane only if the owner wants "loading" shown during a
+    load.
+53. **An edited community-only character's recipe sha is the page's
+    forms'** (4.70a): the page asks `variant_read` with no folder, so the
+    status line's "recipe <sha>" can differ from the Check's and the Save
+    as copy's. Cosmetic (no part reads it); its fix is the page sending the
+    folder.
 
 ## 10. Dev tools, tests and port notes
 
@@ -720,10 +865,33 @@ memory peaks stay strict. The gate writes both kinds of row to
     handles `--export` (`tests/test_azurik_adapter.py:96`); `model rest`
     through `kit/rest.py` and v4kit's user build cache haven't run on
     AzurKit. ModelKit's next round runs them.
-17. **No `--all` perf since 11-08** (911040d5): Chromium, Firefox, the lag
-    ops and the capped profile (D1017's 9 s and 6 GiB, a blocking memory
-    peak) are untimed since v1.0.1, because fullsuite takes `--all` only on
-    main's clean whole run.
+17. ~~No `--all` perf since 11-08~~ (911040d5): main's `--all` ran on
+    11-14 on e2881d3e, 1.3.0's parent (Chromium, Firefox, the lag ops and
+    the capped profile with D1017's 9 s and 6 GiB), and its perf passed
+    with one debt row (8.38). fullsuite still takes `--all` only on main's
+    clean whole run.
+18. **`parts.VERSION` digests `core/facts.*.json` whole**
+    (`parts.SOURCES`), so any pack's new facts site or function forces
+    booblord's content re-record: 4.71e's death realm sites and
+    `ai_think_base` re-keyed all 105 rows and took her to v13 (2.9), though
+    only her two parts that hold keys changed bytes. The next session's
+    lane: narrow it to the facts parts the swap reads (its functions,
+    hooks and kernel slots and the swap's sites), which moves `VERSION`
+    once more (a re-record and a content version). It carries what waits
+    for a re-record: `parts.py`'s docstring line "the same bits
+    everywhere" (4.60b), INTERNALS' "booblord and her own copy share her
+    body", true only until the copy is edited or saved from the page, and
+    `sdk.py`'s `needs` logic moved into `content.py` (4.59b).
+19. **The landing queue's loose ends after Step 4.70d**
+    (`$EV/tools/landq.py`, swapped live 11-15: a red parent's children
+    are held, a plain rebase names each commit it drops, a hold costs no
+    perf try and an orphaned perf stage runs again alone): a stopped (not
+    red) parent's children still land alone; the entries behind a held
+    child wait in order; `stacked` is read at add time only; an orphaned
+    flake stage still costs a whole re-gate (`scripts/fullsuite.py` can't
+    run it alone); `waitfor`'s docstring and `land.py`'s usage line lag;
+    and 4.70d's swap script's `--rollback` checks no process and verifies
+    no sha.
 
 ## 11. This Mac and infrastructure
 
@@ -777,7 +945,9 @@ memory peaks stay strict. The gate writes both kinds of row to
    adds about 100 MB (v6, v10), a two-part one almost nothing (v9, v11).
 10. ~~D1081: revisit the Intel Mac app when GitHub retires its Intel Mac
     runners~~: D1290 drops it at 1.3.1 (4.67a): 1.3.0 is Intel Macs' last
-    app, and no CI job runs on `macos-15-intel`.
+    app, and no CI job runs on `macos-15-intel`. The lock's cryptography<49
+    cap went with it in 4.70c (50.0.2; cleanup, D1299), closing its three
+    Dependabot alerts.
 
 ## 12. Owner decisions and standing asks
 
@@ -818,28 +988,25 @@ What only the owner does:
 Group 9's questions for the owner (2026-11-14), each answered by the
 default here until the owner overrules it (D115):
 
-15. 4.6i's default: mod-template and entity diff stay command-line only
-    (9.33): the Data tab's edits saved as a mods file cover mod-template's
-    use, and entity diff is a modder's read (D882 leans the other way).
-16. D1131's default: fixes first, no new player features until PENDING's
-    lanes are done (9.41). When they open, the open death realm (D201)
-    comes first, then the practice pack and a race code from the plan's
-    sha; the Live autosplit timer only if racers ask.
-17. The real-xemu Play and Attach demo (D205; 9.40): the owner's, at a
-    visible xemu and the real admin prompt, asked again once group 9's
-    lanes (4.64a-4.64g) have landed (D1205, D1268, D1272).
+15. ~~4.6i's default: mod-template and entity diff stay command-line only
+    (9.33)~~: decided by the owner (D1287).
+16. ~~D1131's default: fixes first, no new player features until
+    PENDING's lanes are done (9.41)~~: the death realm unlock came first
+    and landed (9.49, D1301-D1303); the practice pack, race code and Live
+    autosplit are dropped (D1304).
+17. ~~The real-xemu Play and Attach demo (D205; 9.40)~~: dropped (D1306),
+    with the Spideyzar fight D1303 had added: sittings and a skeptic set
+    his numbers (9.49), and headless sittings check Play and Attach.
 18. ~~booblord_human's eye texel (9.44, D1255)~~: cleared by 4.64e's
     colour op (afa9f214), the owner carrying her grade (D1281).
 19. Seed difficulty's detours with the save warp ticked (9.6): fixed the
     narrow way (4.64d). `SEED_DIFFICULTY_FILL` goes to 3, so Easy, Hard
     and Expert share links made with the warp ticked refuse, by name;
     links without the warp keep working.
-20. Group 9's re-record (9.2, 9.48, 9.44; 4.64e) moves booblord's content
-    to v12: 1.3.1 is cut once group 9's lanes land, published when CI is
-    green with the orchestrator's notes, and content main moves to v12 at
-    once (as D1266, D1275). 4.64e made v12: CI's pin is 40f91f9
-    (45f98c0b), and its needs commit baef191 holds v12 to AzurKit 1.3.1
-    for main at publish.
+20. ~~Group 9's re-record (9.2, 9.48, 9.44; 4.64e) moves booblord's
+    content to v12~~: done. 1.3.1 was cut after 4.70a-c (D1300) and
+    published on 11-15 when green, and content `main` moved to v12
+    (baef191) at its publish (2.8).
 
 ## 13. Retired by name with Modkit's delete (D1171)
 
