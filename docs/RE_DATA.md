@@ -2076,12 +2076,14 @@ Not randomizable (destination is the shell, not a level).
   3 s later and no help popup shows, and the same walk crosses the
   field. On vanilla the popup stops that walk and the field stays
   solid. A seed with the randomizer's death realm tick opens the seal at
-  its plan's short discs, its own `d1.xbr` writes beside the ten. Not
-  yet shown: the walk from town's plaza onto the deck at 0 discs (every
-  run there was placed on the deck), which a re-run of the sitting's
-  town walk is to show. A player with only the pack can drop into d2
-  before holding what its way out needs (a known flaw; the randomizer's
-  logic keeps town's door to d1 on the four powers).
+  its plan's short discs, its own `d1.xbr` writes beside the ten. Sitting
+  4.71c-R1a shows the walk to it: from the temple, pad input alone at 0
+  discs and 0 powers rides its three lifts down to the plaza, drops into
+  the sewer and jumps the deck's rim, and `toD1_levelSwitch` fires, on
+  vanilla too, so town's door needs nothing. A player with only the
+  pack can drop into d2 before holding what its way out needs (a known
+  flaw; the randomizer's logic keeps town's door to d1 on the four
+  powers).
 - **Floor 9.** `spideyzarGeneratorShape.enable` (799, saved) is
   `DisablingElevator_andCombiner` (795): the elevator call
   `CallFloor_orCombiner` (787) in [8.5, 9.5) AND a positional link from
