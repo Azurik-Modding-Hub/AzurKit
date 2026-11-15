@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import multiprocessing
 import multiprocessing.connection
+import multiprocessing.reduction
 import os
 import sys
 import threading
@@ -385,9 +386,13 @@ that stopped it at its part, or the pool's stop): the child leaves quietly
 
 
 def _tell(conn, answer) -> bool:
-    """Send ``answer`` to the parent: False once it has closed its end (:data:`_GONE`)."""
+    """Send ``answer`` to the parent: False once it has closed its end
+    (:data:`_GONE`). It pickles first, outside the guard (``conn.send``'s
+    bytes), so a result whose pickling raises one of them is a result that
+    doesn't pickle, never the pipe's."""
+    buf = multiprocessing.reduction.ForkingPickler.dumps(answer)
     try:
-        conn.send(answer)
+        conn.send_bytes(buf)
     except _GONE:
         return False
     return True

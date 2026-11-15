@@ -2583,6 +2583,39 @@ def test_a_pool_child_stopped_at_its_part_leaves_with_no_traceback_and_one_whose
     assert (child.exitcode, (tmp_path / "stderr").read_text(encoding="utf-8")) == (0, "")
 
 
+class _PipeFaultWhenPickled:   # a pool item's result whose pickling raises BrokenPipeError, its pipe still open
+    def __reduce__(self):
+        raise BrokenPipeError("not the pipe's")
+
+
+def _pipe_fault(_shared, _item) -> _PipeFaultWhenPickled:   # a pool item
+    return _PipeFaultWhenPickled()
+
+
+def test_a_pool_child_whose_results_raise_a_pipe_error_as_they_pickle_answers_failed_and_stays(tmp_path):
+    """Step 4.70b: results that raise BrokenPipeError while they pickle,
+    the pipe still open, are results that don't pickle: the child answers
+    ``failed`` (the part runs in the parent) and takes the next part,
+    where it left with no word, its parent reading EOF."""
+    from azurkit.app import procpool
+
+    here, there = procpool._CONTEXT.Pipe()
+    child = procpool._CONTEXT.Process(target=_logged_child, args=(there, str(tmp_path / "stderr")), daemon=True)
+    child.start()
+    there.close()
+    try:
+        here.send((_pipe_fault, None, [0], procpool.RETIRE, False))
+        assert here.poll(60) and here.recv() == ("failed", None)
+        here.send((operator.add, 1, [2], procpool.RETIRE, False))
+        assert here.poll(60) and here.recv() == ("done", [3])
+        here.close()
+        child.join(60)
+    finally:
+        if child.is_alive():
+            child.kill()
+            child.join()
+    assert (child.exitcode, (tmp_path / "stderr").read_text(encoding="utf-8")) == (0, "")
+
 def _spun(here: int, seconds: float) -> bool:   # a pool item: ``seconds`` on the pool's clock; whether it ran in ``here``
     from azurkit.app import procpool
 
