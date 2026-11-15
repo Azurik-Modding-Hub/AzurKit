@@ -3860,6 +3860,31 @@ def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_mo
         server.close()
 
 
+def test_the_apps_tracker_bar_keeps_one_line_at_1100_px_with_live_on_and_attach_shown(browser, tmp_path, monkeypatch):
+    """Step 4.64b (4.25's look, measured again in 4.53a): at 1100 px with Live on and Attach… shown, the tracker's bar
+    (Spoiler to Live's line) keeps one line, Live's line shrunk into the room left (its whole text its tip), where its
+    32rem took the bar onto a second line and Attach… onto a third, the map's room the shorter."""
+    monkeypatch.setattr(app.xemu, "can_attach", lambda: True)
+    entry = json.loads((app.pictures.folder() / "maps.json").read_text())["levels"]["w2"]
+    (x0, y1, s), (w, h) = entry["frame"], entry["size"]
+    played = _Played("w2", (x0 + w / 2 / s, y1 - h / 2 / s, 0.0))
+    server, page = _live_map(browser, tmp_path, monkeypatch, played, _profile("default"))
+    bar = """() => { const row = document.getElementById("track-live-bar").parentElement, line = row.querySelector(
+        "#track-line"), shown = [...row.querySelectorAll("label, button, input, #track-line")].filter((e) =>
+        e.getClientRects().length && getComputedStyle(e).display !== "none").map((e) => e.getBoundingClientRect());
+      return { attach: !document.getElementById("track-attach").hidden, line: line.textContent, tip: line.title,
+               lines: row.getBoundingClientRect().height / Math.max(...shown.map((r) => r.height)),
+               centres: shown.map((r) => Math.round(r.top + r.height / 2)) }; }"""
+    try:
+        seen = page.evaluate(bar)
+        assert seen["attach"] and seen["line"] and seen["line"].startswith(seen["tip"]), seen
+        assert seen["lines"] < 2 and max(seen["centres"]) - min(seen["centres"]) < 6, seen
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
+
 def test_other_floors_items_show_faintly_fainter_with_distance_with_no_tooltip_or_click(browser, tmp_path, monkeypatch):
     """D1044 (the owner: "yes, faintly, more faint the further away the floor
     is, and hovering over them should not have a tooltip"): a level's map
