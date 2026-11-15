@@ -787,7 +787,8 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
     until toggled back; faint text reads at least 4.5:1 on every ground it
     sits on, in light and in dark. The toolbar's tabs are the catalog's, in D901's order and
     only those whose area works (D902): Patches, Randomizer, About. The Patches tab
-    groups the packs by Modkit's categories, in the catalog's order, each
+    groups the packs by the catalog's categories (Modkit's three, then the
+    Randomizer's, D1289), in the catalog's order, each
     group folding and counting its packs ticked; a pack with settings has a
     Settings opener with the count of their rows (an L3 toggle sits in its
     setting's, D909), which shows them beside the list and
