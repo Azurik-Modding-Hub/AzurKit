@@ -36,15 +36,17 @@
 // it gets no answer, and its failure ({type: "failed", shared}) is told, ending no job. An ask resolves with its
 // job's last message, or {type: "cancelled"} (Cancel), or
 // {type: "stopped", message} (its worker stopped: a once or heavy ask, or one stopped twice); answer() hears each of
-// its other messages first, progress() its records.
+// its other messages first, progress(record, asks) its records, with the asks that wait on them (each one's ask, the
+// page's own handle): its own, and F's, those queued behind it (a Check's after its answer: its pictures, a Check or a
+// Build clicked again), never one the other worker answers meanwhile (Step 4.64f).
 //
 // workers({start, ready, told, free, restarted, cores, settle, keep, grown, tally, ends, held}) -> {ask, want,
 // cancel, share, hold, took, up, state, close}: start(role) makes a worker ("f" or "b"); ready(data) hears F's ready,
-// again when B takes F's place; told(data, role) hears what no job asked for (a CSP report, F's failed load, F's
-// start's records); free(gone) hears a kept answer's messages when nothing can take them any more; restarted(data,
-// redo) a trapped worker's failure, and the type of the page's job it sends again (redo), if any. All are called
-// after the pool's own step (a microtask later), so they may call the pool. held(messages) is the bytes an answer holds
-// in memory (bytesOf by default).
+// again when B takes F's place; told(data, role, asks) hears what no job asked for (a CSP report, F's failed load,
+// F's start's records, a record with the asks queued behind it); free(gone) hears a kept answer's messages when
+// nothing can take them any more; restarted(data, redo) a trapped worker's failure, and the type of the page's job it
+// sends again (redo), if any. All are called after the pool's own step (a microtask later), so they may call the pool.
+// held(messages) is the bytes an answer holds in memory (bytesOf by default).
 export const KEEP = 2 ** 30;          // a grown worker's heap: B isn't promoted past it, nor two of them kept
 export const SLACK = 2 ** 26;         // a heap this much over the other's is the heavy jobs' (oneHeap())
 export const GROWN = 3 * 2 ** 30;     // a worker whose heap reaches it after a job is replaced: a kept heap's own line
@@ -147,6 +149,9 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const total = () => heapOf(f) + heapOf(b) + held + keptBytes();
   const heavyF = () => Boolean(f?.job?.heavy) || queue.some((job) => job.heavy);
   const shown = (job) => !job.ahead || job.adopted;   // a job the page waits on: its records and answers go to it
+  // The page's asks a slot's record reaches: its job's, and F's queue's, which wait behind it (Step 4.64f).
+  const waiting = (slot) => [slot.job, ...(slot === f ? queue : [])].filter((job) => job && shown(job) && job.ask)
+    .map((job) => job.ask);
   const small = (slot) => Number.isFinite(slot.heap) && slot.heap < keep;
   const stays = (slot) => Number.isFinite(slot.heap) && slot.heap < grown;
   const listed = (key) => key !== null && list.some((item) => item.key === key);
@@ -225,7 +230,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
           for (const job of queue.splice(0)) job.resolve(data);
         }
       } else if (data?.type !== "progress" || slot.role === "f") {   // B's start shows no bar: nothing waits on it
-        later(told, data, slot.role);
+        later(told, data, slot.role, waiting(slot));
       }
       return pump();
     }
@@ -236,10 +241,10 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     // worker runs, sent after it, goes on (it ended that job and replaced F, Step 4.46c).
     if (data?.type === "failed" && data.shared) return later(told, data, slot.role);
     const job = slot.job;
-    if (!job) return later(told, data, slot.role);
+    if (!job) return later(told, data, slot.role, waiting(slot));
     if (data?.type === "progress") {
       job.record = data;
-      if (shown(job)) job.progress?.(data);
+      if (shown(job)) job.progress?.(data, waiting(slot));
       return;
     }
     if (data?.type === "failed") return finish(slot, job, data, true);
@@ -319,7 +324,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const demote = (job) => {
     for (const data of job.messages) ahead.add(data);
     job.resolve({ type: "cancelled" });
-    Object.assign(job, { ahead: true, adopted: false, progress: null, answer: null, resolve: () => {} });
+    Object.assign(job, { ahead: true, adopted: false, progress: null, answer: null, resolve: () => {}, ask: null });
     taken.delete(job.key);
     counts.demoted += 1;
   };
@@ -385,8 +390,9 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
 
   const pool = {
     // An ask of the page's. With a key: B's finished job of that key answers it at once, a running one is followed.
+    // ask: the page's handle for it, passed with each record that reaches it (progress()'s asks).
     ask: (message, { key = null, heavy = false, anywhere = false, aside = false, once = false, progress = null,
-                     answer = null, transfer = null, ends: end = last } = {}) => new Promise((settle) => {
+                     answer = null, transfer = null, ends: end = last, ask = null } = {}) => new Promise((settle) => {
       const resolve = (data) => {   // its end, however it ends: the list then decides, as want() would have meanwhile
         if (!listed(key) && !asked(key)) taken.delete(key);
         settle(data);
@@ -406,14 +412,14 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
         if (job?.ahead && !job.adopted && job.key === key) {
           taken.add(key);
           Object.assign(job, { adopted: true, heavy: job.heavy || heavy, once, progress, answer, resolve,
-                               own: message });
-          if (job.record) progress?.(job.record);
+                               own: message, ask });
+          if (job.record) progress?.(job.record, waiting(b));
           for (const data of job.messages) answer?.(data);
           return;
         }
         taken.add(key);
       }
-      queue.push({ message, key, heavy, anywhere, aside, once, progress, answer, transfer, ends: end, resolve,
+      queue.push({ message, key, heavy, anywhere, aside, once, progress, answer, transfer, ends: end, resolve, ask,
                    ahead: false, adopted: false, messages: [], record: null, tries: 0 });
       pump();
     }),

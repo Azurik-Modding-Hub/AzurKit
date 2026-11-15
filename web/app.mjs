@@ -256,7 +256,6 @@ const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with
 // first record, else after 1 s. Shown from the click too: Track this seed's plan and a plan file's spoiler (the logic's
 // read), and the site's Save's check, which is over when it is: no later Build, Cancel, pick or engine's ready ends it
 const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler", "save_check", "flat"]);
-const PAGES = new Set(["save_check", "flat"]);   // the page's own waits, with their own records: never a worker's
 let asked = 0, ticking = null;
 // A slow launch of the app's (D980: past 1 s an op shows where it is): one whose server had run SLOW_LAUNCH s by its
 // host.json answer (its age) shows its stages on the bar, the host read and the page drawn of the three (its setup
@@ -322,11 +321,13 @@ async function tick() {
 
 // The site's worker's record: its start's on the worker's start ask (siteEngine's, answered at ready); else the
 // build's while one runs; else a check's (before the call it came with: its own, gone with the worker's next answer,
-// else a moment after it is whole or 1.5 s after its last), else the newest ask's that is the worker's.
-function posted(step, start = null) {
-  const asks = [...state.asks.values()];
-  let ask = step.stage === "start" ? state.asks.get(start) : asks.findLast((a) => a.kind === "build")
-    ?? (step.stage === "check" ? asks.findLast((a) => a.kind === "check") : asks.findLast((a) => !PAGES.has(a.kind)));
+// else a moment after it is whole or 1.5 s after its last), else the newest of the asks waiting on that worker (the
+// pool's asks: its job's and, F's, those queued behind it), never one the other worker answers meanwhile nor the
+// page's own waits (Step 4.64f: a Check's keeping records showed on an Install's list or a picker asked meanwhile).
+function posted(step, start = null, asks = []) {
+  const waits = new Set(asks.map((ask) => state.asks.get(ask()))), all = [...state.asks.values()];
+  let ask = step.stage === "start" ? state.asks.get(start) : all.findLast((a) => a.kind === "build")
+    ?? (step.stage === "check" ? all.findLast((a) => a.kind === "check") : all.findLast((a) => waits.has(a)));
   if (!ask && step.stage === "check") ask = state.asks.get(asking("check"));
   if (!ask) return;
   ask.record = step;
@@ -400,10 +401,10 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       state.workers = (state.workers ?? 0) + 1;   // the workers that took F's place, for the tests
       ready(...engine);
     },
-    told: (data) => {
+    told: (data, role, asks) => {
       if (data.type === "progress") {
         const { type, ...step } = data;
-        posted(step, starting);
+        posted(step, starting, asks);
       } else if (data.type === "csp") {
         state.violations.push(`worker: ${data.directive} ${data.blocked}`);
         failed(`The page's security policy refused ${data.directive} in the engine`);
@@ -425,7 +426,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     },
   });
   state.pool = pool;   // for the tests
-  const progress = ({ type, ...step }) => posted(step);
+  const progress = ({ type, ...step }, asks) => posted(step, null, asks);
   const plain = ({ type, heap, ...rest }) => rest;
   const stopped = (data) => data.type === "failed" ? data.message
     : `The engine stopped (${data.message || "out of memory?"}): try again, or use the desktop app`;
@@ -453,7 +454,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     answered(waits.get(kind));
     const id = asking(kind);
     waits.set(kind, id);
-    return asked(message, options, done).finally(() => {
+    return asked(message, { ...options, ask: () => id }, done).finally(() => {
       if (waits.get(kind) !== id) return;
       answered(id);
       waits.delete(kind);
@@ -513,7 +514,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       after?.then((first) => { if (!done && !("refused" in first || first.refusal)) id = asking(type); });
       const aside = ASIDE.has(type) && !body.file;
       pool.ask({ type, call: ++calls, ...body }, {
-        once, heavy: once, anywhere: SMALL.has(type) || aside, aside, progress,
+        once, heavy: once, anywhere: SMALL.has(type) || aside, aside, progress, ask: () => id,
         key: type === "plan" ? key({ plan: body.recipe }) : type === "tracker" ? viewKey(body.given) : null,
       }).then((data) => {
         if (data.type !== "reply" || body.file) unchecked();   // one that stood on no image may overtake a check (Step 4.3r4m)

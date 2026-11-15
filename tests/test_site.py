@@ -1699,6 +1699,75 @@ def test_pictures_a_worker_that_kept_no_check_refuses_show_no_drawing_line_on_th
         served.close()
 
 
+def test_an_ask_answered_while_the_last_check_is_kept_never_shows_its_keeping_line(browser, site, usa_iso):
+    """A Check's worker keeps its parts and dress and draws its pictures after its answer, and the records it posts
+    meanwhile show only on the asks waiting on it (the pictures here; a Check or a Build behind them, 4.54e's bar): an
+    ask the other worker answers meanwhile, the pickers asked one after another here (an Install's list, a picker),
+    never shows "Keeping the Check" or "Drawing the variant", though the bar shows them (PENDING 9.46: they showed on
+    the newest ask)."""
+    meanwhile = """() => {   // from the Check's answer, while its worker keeps and draws it: pickers B answers, in turn
+        const v = azurkit.variants.state, check = document.getElementById("var-check"), pool = azurkit.pool;
+        const row = document.getElementById("progress-row"), line = document.getElementById("progress-line");
+        const seen = self.meanwhile = { done: false, asks: [], lines: [] }, set = azurkit.asks.set.bind(azurkit.asks);
+        let last = null, flying = false;
+        azurkit.asks.set = (id, ask) => {   // each pickers ask's records, as the page sets them
+          if (ask.kind === "pickers") {
+            const log = last = { onB: false, labels: [] };
+            let record = ask.record;
+            Object.defineProperty(ask, "record", { enumerable: true, get: () => record,
+                                                   set: (r) => { record = r; if (r) log.labels.push(r.label); } });
+          }
+          return set(id, ask);
+        };
+        const asking = async () => {
+          while (pool.state().f?.job === "variant_pictures") {
+            if (!pool.state().b?.loaded || pool.state().b.job) {
+              await new Promise((r) => setTimeout(r, 5));
+              continue;
+            }
+            const answer = azurkit.engine.call("pickers", { given: { iso: null } });
+            last.onB = flying = pool.state().b?.job === "pickers";
+            seen.asks.push(last);
+            await answer;
+            flying = false;
+          }
+          seen.done = true;
+        };
+        new MutationObserver((_, observer) => {
+          if (check.disabled || !v.checked) return;
+          observer.disconnect();
+          asking();
+        }).observe(check, { attributes: true, attributeFilter: ["disabled"] });
+        new MutationObserver(() => {
+          if (flying && !row.hidden && seen.lines.at(-1) !== line.textContent) seen.lines.push(line.textContent);
+        }).observe(row, { subtree: true, childList: true, characterData: true, attributes: true });
+    }"""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.pick(page, "#iso", usa_iso)
+        _page.click(page, "char-view-variants")
+        _page.until(page, "() => azurkit.variants.state.list", 120)
+        _page.click(page, "var-new")
+        keylord = "document.querySelector('#var-ask .picker-entry[data-name=\"keylord\"]')"
+        _page.until(page, f"() => {keylord}", 60)
+        page.evaluate(f"() => {keylord}.click()")
+        _variants_shown(page, status="unsaved: Save as keeps it")
+        _page.until(page, "() => !document.getElementById('var-check').disabled", 300)
+        _page.until(page, "() => { const b = azurkit.pool.state().b; return Boolean(b?.loaded && !b.job); }", 300)
+        page.evaluate(meanwhile)
+        _page.click(page, "var-check")
+        _page.until(page, "() => self.meanwhile.done", 600)
+        asks, lines = page.evaluate("() => [self.meanwhile.asks.filter((a) => a.onB), self.meanwhile.lines]")
+        assert asks and any(seen.startswith("Keeping the Check") for seen in lines), (asks, lines)
+        assert not [label for ask in asks for label in ask["labels"]
+                    if label.startswith(("Keeping the Check", "Drawing the variant"))], asks
+        _page.check_csp(page)
+    finally:
+        served.close()
+
+
 CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length,
     document.getElementById("char-count").textContent, ["char-front", "char-back"].map((id) => document.getElementById(id)
     .getContext("2d").getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0)),
