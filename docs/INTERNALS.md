@@ -641,8 +641,12 @@ are the Characters section's.
     tier's). The roll, climb and swim feed no tier. A seed with any
     gameplay slider moved isn't promised beatable: the spoiler's line, the
     tab's and a build's first `why_not` say so, and its `logic_verified`
-    is false; true means every slider at its default and the plan
-    verified, with no later layer over it.
+    is false; true means every such slider at its default and the plan
+    verified, with no later layer over it. A Quality of Life or
+    Randomizer patch's slider isn't one (`generator.movement_reasons`
+    skips their categories): the logic counts the Randomizer patches by
+    their tick, and their sliders (the death realm unlock's Spideyzar
+    ones) tune only what that logic gates.
   - `planner/`, `data/`, `writer.py`, `physics.py`, `movement.py`,
     `layer.py`, `tracker.py` and `live/`'s `game.py`, `link.py`, `pages.py`
     and `recipes.py` were ported from Modkit at the cut (Porting from
