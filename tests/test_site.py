@@ -4169,7 +4169,8 @@ def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_nev
     and named with a bar of its own, which a worker's record doesn't take over and which counts the copy's bytes to the
     end (a keylord build's copy took 0.56-1.18 s, R14's wait: Step 4.4m). So in every browser a click's download and
     check start in its tick. Firefox's Blob reads the bytes between its kept copies from a build file of their own
-    (Step 4.5q), kept while its build is and removed once a change forgets an unsaved one; no other browser makes one."""
+    (Step 4.5q), kept while its build is and removed once a change forgets an unsaved one; no other browser makes one.
+    Once saved, one line says how to play it in xemu (Step 4.64b)."""
     held = """() => { const real = LockManager.prototype.request;
         LockManager.prototype.request = function (name, ...rest) {
             if (globalThis.release || !name.startsWith("azurkit-build-") || rest[0]?.mode !== "shared") {
@@ -4211,9 +4212,14 @@ def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_nev
             _page.built(page)
         else:
             assert between is None
+        helped = "() => [document.getElementById('play-help').hidden, document.getElementById('play-help').textContent]"
+        assert page.evaluate(helped) == [True, ""]
         with page.expect_download(timeout=600_000) as caught:
             assert page.evaluate("() => { document.querySelector('#save').click(); return azurkit.saveCheck; }") == "running"
         assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
+        assert page.evaluate(helped) == [False, "To play it: in xemu, Machine › Load Disc… and the image you saved. Set "
+                                                "xemu's memory to 128 MiB (Machine › Settings… › System) for More RAM "
+                                                "and large characters."]   # Step 4.64b: the next step, once saved
         caught.value.delete()
     finally:
         served.close()

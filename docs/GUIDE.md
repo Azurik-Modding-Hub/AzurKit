@@ -265,6 +265,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Clashes named:** when two changes touch the same spot, the later one wins and the build says so.
 - **In game:** after a build, one line lists the controls it adds, such as the save warp, LB's attack sets, the
   speed toggle and photo mode.
+- **Play it in xemu:** after a Save, one line says how: Machine › Load Disc… and the image you saved (in the app,
+  Play too), with xemu's memory at 128 MiB for More RAM and large characters.
 - **Builds carry their recipe:** two small files on the disc; `azurkit open`, or picking the build in the page,
   gives it back.
 - **Tamper check:** a build changed after it was made is refused by name.
