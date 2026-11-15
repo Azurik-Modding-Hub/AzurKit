@@ -8,7 +8,7 @@ almost any creature to play as. It builds a new image from your own copy of the 
 app, for you to play in xemu.
 
 **Version 1.0:** [open it in your browser](https://azurik-modding-hub.github.io/AzurKit/) or
-[download the app](https://github.com/Azurik-Modding-Hub/AzurKit/releases) for macOS, Windows or Linux.
+[download the app](https://github.com/Azurik-Modding-Hub/AzurKit/releases) for Apple Silicon Macs, Windows or Linux.
 
 ## What you need
 
