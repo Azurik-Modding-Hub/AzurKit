@@ -201,8 +201,9 @@ For a build, build each seed into a `mktemp -d` output and compare `shasum -a 25
 
 ## 10. CI's tiers
 
-`tests.yml` runs `pytest -m "not vanilla and not ghidra"` (and `not xemu` off macOS) on the four
-runners, and on a push in this repository the vanilla tier as parts (`--shard=LABEL:K/N`, cut by
+`tests.yml` runs `pytest -m "not vanilla and not ghidra"` (and `not xemu` off macOS) on the three
+runners (Apple Silicon Mac, Windows, Linux; no Intel Mac since 1.3.1), and on a push in this
+repository the vanilla tier as parts (`--shard=LABEL:K/N`, cut by
 `tests/ci_durations.json`, which `scripts/ci_shards.py` refreshes from a run's logs) with the images
 rebuilt from the private game-data repo. A failed test gets its one rerun there too; the job's
 summary lists each that passed it. `tests/test_tiers.py` and `tests/test_contracts.py` pin the

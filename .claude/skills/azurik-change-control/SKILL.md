@@ -92,7 +92,7 @@ never game bytes.
   Landing), removes the lane and deletes the branch; a stack on an unlanded branch lands after it.
   Then the orchestrator pushes `main` to Azurik-Modding-Hub/AzurKit; lanes never push. The landing
   queue (`$EV/tools/land --queue`) takes AzurKit under `AZ_REPO=azurkit` (Step 4.16b).
-- **CI** (AGENTS.md's CI): `tests.yml` (the pure tier on four runners on every push and pull
+- **CI** (AGENTS.md's CI): `tests.yml` (the pure tier on three runners on every push and pull
   request, the vanilla tiers as shards on a push here), `checks.yml` (the leak guard, `nativekit
   --check`), `apps.yml` (the frozen apps on `main`), `release.yml` (a `v*` tag, a publishing, a
   dispatch's dry run). Free runners only, at most two lane branches pushed at once (D1127); a job

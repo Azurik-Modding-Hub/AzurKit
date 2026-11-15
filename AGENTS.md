@@ -529,7 +529,8 @@ The how-to is [`docs/SHIMS.md`](docs/SHIMS.md).
   (D1170): a release is a tag on a commit that is on `main`, cut from main
   whenever its tests pass.
 - **CI (D1022-D1024):** `tests.yml` runs the pure tier on every push and
-  pull request on the four platforms the apps ship for, and the vanilla and
+  pull request on the three platforms the apps ship for (Apple Silicon Macs,
+  Windows, Linux: Intel Macs' last app is 1.3.0, D1290), and the vanilla and
   europe tiers on a push to `main` or a lane branch in this repository alone
   (D1123), the images rebuilt from the game-data repo's parts with
   `GAMEDATA_DEPLOY_KEY` (the only secret a workflow reads), never cached,

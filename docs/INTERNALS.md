@@ -1345,6 +1345,9 @@ are the Characters section's.
   add, which rounds otherwise than Python), no fast math and the targets'
   baseline CPUs; `--check` rebuilds them to the same bytes. A kernel is a
   pure function over caller buffers (no allocation, no libc).
+  macOS x86_64's library stays in the wheel untested on an Intel Mac since
+  1.3.1 (no CI runner is one, D1290): the same kernels built for x86_64 are
+  tested on Linux's and Windows' runners.
   `core/native.py` loads this platform's library with ctypes on both hosts,
   and each kernel keeps its Python twin there, the reference: the twin runs
   without a library, when the library can't hold a call's numbers, and
@@ -2400,7 +2403,8 @@ are the Characters section's.
   says which (`browsers`). Once a changed-area run's tests pass, its flake
   stage (Step 4.4dx2) runs each test function the stack adds or edits (a
   `def test*` whose source differs from the base's; a helper's change adds
-  none) 5 times, slowed toward CI's Intel runners' pace, on 3 workers, in
+  none) 5 times, slowed toward CI's Intel runners' pace (kept since that runner went,
+  Step 4.67a), on 3 workers, in
   every browser its parameters name (Step 4.4dx4); one that reaches no
   module- or session-scoped fixture of the suite's own (`browser`,
   `pyodide`, `frozen_app`, `site`, `shipped_database`...; `usa_iso` and
@@ -2706,11 +2710,11 @@ are the Characters section's.
   release: only `release.yml`, below, deploys the site (Pages stays off
   until then, D1026), uploads to PyPI or makes a release, and no workflow
   tags. `.github/workflows/tests.yml` runs the
-  pure tier on every push to `main` or a lane branch (`p2/*`) and every pull request on the four
-  platforms the apps ship for (macOS on Apple Silicon and on Intel,
-  Windows x64, Linux x64; the web tier with Node 24 and
+  pure tier on every push to `main` or a lane branch (`p2/*`) and every pull request on the three
+  platforms the apps ship for (macOS on Apple Silicon, Windows x64, Linux
+  x64; Intel Macs' runner went at 1.3.1, Step 4.67a, D1290; the web tier with Node 24 and
   `scripts/web_tools.py`'s Pyodide and browsers), and on a push to `main`
-  or a lane branch in this repository alone (D1123) the vanilla and europe tiers on the same four:
+  or a lane branch in this repository alone (D1123) the vanilla and europe tiers on the same three:
   Azurik-Custom-Content at the commit the content step's `CONTENT_COMMIT`
   pins (Step 4.46a: every part reads one content, whatever its main does
   meanwhile; the commit whose `record_shipped.py --content` re-record needs a
@@ -2771,17 +2775,18 @@ are the Characters section's.
   tier each macOS runner's part 1 runs its pure tier first (after the
   setup, before the key or an image, behind that job's harden-runner) and
   the pure job runs Windows' and Linux's alone: a push asks for 5 macOS
-  jobs, where 7 left two waiting 20-33 min. `ci_shards` gives that part
+  jobs, where 7 left two waiting 20-33 min, and 2 (Apple Silicon's parts)
+  since Intel Macs' runner went (Step 4.67a). `ci_shards` gives that part
   less of the tier by the table's `head`, the pure tier's seconds there.
-  A lane branch whose name ends in a runner's word (`-arm64`, `-intel`,
+  A lane branch whose name ends in a runner's word (`-arm64`,
   `-windows`, `-linux`: `p2/4.4ci47-webkit-arm64`) runs only that runner's
   rows and Linux's pure tier (Step 4.4dx9), so a lane chasing one runner's
   failure leaves main's macOS slots free; it tests no other runner on CI,
   while main and every other lane branch run everything, so main's run
-  before a release covers all four.
+  before a release covers all three.
   `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
-  --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four
+  --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the three
   apps (`scripts/freeze.py --check`, which refuses one whose compiled library
   doesn't load) on a push to `main`, each a 14-day workflow
   artifact with its sha256. `pins.yml` (Step 4.24c) runs on a push to
@@ -2793,7 +2798,8 @@ are the Characters section's.
   asks weekly for a newer release of each action pinned by commit sha and
   opens a pull request once that release is a week old. `release.yml` (Step 4.3r4j; D885) starts only
   on a `v*` tag and on a release's publishing: a tag whose name is
-  pyproject's version and whose commit is on `main` builds the four apps,
+  pyproject's version and whose commit is on `main` builds the three apps
+  (1.3.0's was the last with Intel Macs' `-macos-x86_64.zip`, D1290),
   the wheel, the sdist, `SHA256SUMS`, their attestations and a draft
   release; the owner's Publish on it uploads that draft's wheel and sdist
   to PyPI by trusted publishing and then deploys the site to Pages. A
