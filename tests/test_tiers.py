@@ -574,8 +574,9 @@ def test_ci_runs_the_pure_tier_once_on_each_runner_and_a_push_asks_for_at_most_5
     first job writes both matrices (``scripts/ci_matrix.py``, its ``$GITHUB_OUTPUT`` lines read here): where the
     vanilla tier runs (its job's own ``if:``) each macOS runner's part 1 runs its pure tier first, so for a push to
     main, a lane's push and a pull request alike the pure tier runs once on each runner, and a push asks for 5 macOS
-    jobs, 2 since Intel Macs' runner went (Step 4.67a): Apple Silicon's two parts. That step runs in the vanilla job, whose first step starts harden-runner's block, after the setup and before
-    the tier's folder, the content, the key and the images, with the pure job's command on the pure tier's workers;
+    jobs, 2 since Intel Macs' runner went (Step 4.67a): Apple Silicon's two parts. That step runs in the vanilla
+    job, whose first step starts harden-runner's block, after the setup and before the tier's folder, the content,
+    the key and the images, with the pure job's command on the pure tier's workers;
     ``tests/ci_durations.json`` gives each such runner's part 1 a head, the pure tier's seconds."""
     from scripts import ci_matrix, ci_shards
     text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
