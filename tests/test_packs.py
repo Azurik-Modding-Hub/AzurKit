@@ -32,6 +32,7 @@ from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
 from azurkit.tools.characters import model_inspect, ports
 from azurkit.tools.mods import engine
+from azurkit.tools.randomizer import generator
 from scripts import gen_facts, record_goldens
 from tests import _g1
 
@@ -389,7 +390,8 @@ def test_a_slider_writes_any_finite_value_at_its_site_and_a_virtual_one_reaches_
     assert type(got[0]) is int
     with pytest.raises(TypeError, match="custom_apply takes"):
         engine.Pack("x", "", sites=(_slider("speed", 0x1010),), custom_apply=lambda xbe_view, sped: None)
-    with pytest.raises(TypeError, match=re.escape("pack 'x': no category 'memory' (the categories: player, enemies, qol)")):
+    with pytest.raises(TypeError, match=re.escape(
+            "pack 'x': no category 'memory' (the categories: player, enemies, qol, randomizer)")):
         engine.Pack("x", "", category="memory")
 
 
@@ -562,6 +564,19 @@ def test_every_text_the_patches_tab_shows_is_one_short_line_with_no_tag_range_or
     assert len(texts) > 100 and [t for t in texts if len(t) > 80 or "\n" in t] == []
     assert [t for t in texts if re.search(r"\bany\b|from \d", t) or any(
         word in t for word in ("[", "range", "unrestricted", "xperimental", "commonly", "logic-safe"))] == []
+
+
+def test_the_randomizer_category_holds_only_the_patches_the_randomizers_logic_counts():
+    """D1289: the packs' Randomizer category, last in the order a UI shows
+    them, holds the patches the randomizer's logic counts while they are
+    ticked: today only the save-point warp, the generator's ``WARP_PACK``,
+    whose name stays ``qol_save_warp`` (recipes, share links and settings
+    name it). Its other conveniences stay in Quality of Life."""
+    assert [(c["id"], c["title"]) for c in sdk.catalog()["categories"]] == [
+        ("player", "Player"), ("enemies", "Enemies"), ("qol", "Quality of Life"), ("randomizer", "Randomizer")]
+    assert [name for name, p in mods.PACKS.items() if p.category == "randomizer"] == [generator.WARP_PACK]
+    stay = ("fps_unlock", "qol_pickup_anims", "qol_gem_popups", "qol_other_popups")
+    assert {mods.PACKS[name].category for name in stay} == {"qol"}
 
 
 # --- Step 4.28f: Modkit's unpinned pack behaviours, ported ------------------------------------------------------

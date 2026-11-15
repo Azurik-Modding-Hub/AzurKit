@@ -4,8 +4,8 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 
 ## Patches and sliders
 
-- **17 patch packs:** every one works on both releases, USA and Europe, in three groups: Player, Enemies and
-  Quality of Life.
+- **17 patch packs:** every one works on both releases, USA and Europe, in four groups: Player, Enemies, Quality of
+  Life and Randomizer, the last for the patches the randomizer's logic counts.
 - **Frame-rate unlock:** 60 FPS by default, or any whole frame rate up to 1,905, with game time keeping pace.
 - **Gravity:** set the world's gravity; your jump and flap heights stay the same.
 - **Movement:** walk, jump, swim, climb and roll speed, roll distance, air control, flap height and ceiling, and
@@ -15,7 +15,8 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 - **Air shield flaps:** how many wing flaps each air shield tier gives.
 - **Damage enemies take:** multipliers for neutral hits, weaknesses and immunities, across all 33 of your attacks.
 - **Enemy and boss scaling:** health, damage, attack speed, move speed and size, set apart for enemies and bosses.
-- **Save-point warp:** on a save platform, hold LT and press A, B, X, Y to go to town and back.
+- **Save-point warp:** on a save platform, hold LT and press A, B, X, Y to go to town and back. It sits in the
+  Randomizer group, since a randomized build counts it in its logic.
 - **Photo mode:** click both sticks to freeze the game, hide the HUD and fly the camera, slower or faster.
 - **Fewer popups:** hide the first-time gem popups, and the tutorial, key, health and power-up ones.
 - **Skip the waits:** skip the pickup celebration (the item still counts) and the unskippable Adrenium logo at boot.

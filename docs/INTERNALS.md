@@ -1522,7 +1522,9 @@ are the Characters section's.
     Characters, Data, Tools, About), each only once its area works (D902:
     flip its flag in the step that makes it work, with a panel in
     `index.html`); the Patches tab groups the packs by their category
-    (`mods.CATEGORIES`, Modkit's), each group folding, and a pack's
+    (`mods.CATEGORIES`: Modkit's three, then Randomizer, D1289, the packs
+    the randomizer's logic counts while ticked, today `qol_save_warp`,
+    whose name the recipes keep), each group folding, and a pack's
     Settings opener (with the count of their rows) shows its sliders beside
     the list; a pack's settings are locked (disabled, still readable) until
     its pack is ticked, keeping their values while it is unticked (D907);

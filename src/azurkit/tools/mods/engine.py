@@ -69,10 +69,13 @@ XBE = "default.xbe"
 CONFIG = "gamedata/config.xbr"
 INT32 = (-2**31, 2**31 - 1)
 #: Each pack's category (:attr:`Pack.category`), with its title and line, in the order a UI shows them: Modkit's
-#: (``azurik_mod/patching/category.py``, its GUI's tabs; the player's model is the Characters tab's here).
+#: three (``azurik_mod/patching/category.py``, its GUI's tabs; the player's model is the Characters tab's here),
+#: then the Randomizer's (D1289): the patches the randomizer's logic counts while they are ticked, last, beside the
+#: Randomizer tab that follows the Patches tab. A category decides no byte of a build.
 CATEGORIES = {"player": ("Player", "Player movement, physics and stats."),
               "enemies": ("Enemies", "Enemies' health, damage, speed and size, and the damage they take."),
-              "qol": ("Quality of Life", "Frame rate, the boot logo, popups and other conveniences.")}
+              "qol": ("Quality of Life", "Frame rate, the boot logo, popups and other conveniences."),
+              "randomizer": ("Randomizer", "Patches the randomizer's logic counts while ticked: the save-point warp.")}
 
 
 class PackError(ValueError):

@@ -4,7 +4,9 @@ platform becomes the one return point and the game loads town, arriving on
 town's save platform; the same on town's platform returns to the stored one.
 The return point is a global-map entry, so a save keeps it. Off by default;
 a randomized build that applies it plans with the warp counted (the
-randomizer's ``save_warp``, D1154).
+randomizer's ``save_warp``, D1154), so it sits in the Randomizer category
+(D1289); its name stays ``qol_save_warp``, which recipes, presets, share
+links, mods files and the randomizer's settings name.
 
 Two hooks into one shim (``shims/qol_save_warp.c``), each landing its own
 copy: the player tick's call of the armor-state tick (0x8C2EC) watches for
@@ -26,4 +28,5 @@ PACK = Pack(
                            symbol="_c_save_warp_tick@4"),
            TrampolinePatch(label="Save-point warp: the arrival (the scene tick's level load)", va=0x00055F80,
                            shim="qol_save_warp", symbol="_c_save_warp_load@16")),
+    category="randomizer",
 )
