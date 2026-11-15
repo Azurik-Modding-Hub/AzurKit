@@ -331,8 +331,8 @@ memory peaks stay strict. The gate writes both kinds of row to
     once~~: fixed by 4.54a (the word-list Undo was pressed before it was
     enabled); a lost edit still waits 600 s with no Data tab state in
     `hang()` (4.5g).
-13. Intel: page-load stalls; ci19's extra 2 h; WebKit's drawing threads
-    outranked (ci21).
+13. ~~Intel: page-load stalls; ci19's extra 2 h; WebKit's drawing threads
+    outranked (ci21)~~: retired by 4.67a, no Intel runner from 1.3.1 (D1290).
 14. Windows: ci34's cause; ci39's load failure; Firefox's temp disk
     (9.13): it dips 4-7 GiB through a vanilla shard and is mostly given
     back (main's runs to 11-14: lowest 21.2-26.2 GiB of 27.4-30.4, at most
@@ -754,8 +754,7 @@ memory peaks stay strict. The gate writes both kinds of row to
    `--all`. ~~dx8, the variant golden as one test per case~~: measured,
    no split (Step 4.59f, 2026-11-14).
    - On run 43647927362 (c0532b6a) it takes 5-12 min a runner. Only
-     Apple Silicon's longest part holds it (400 s of 116 min); Intel's
-     longest part is 3 of 3, which holds no variant test.
+     Apple Silicon's longest part holds it (400 s of 116 min).
    - Split by case, it loses its 4-process pool: the 12 USA builds take
      324 s one at a time against 103 s here, about 1.5-3.5 min more on
      every OS's longest part.
@@ -763,9 +762,9 @@ memory peaks stay strict. The gate writes both kinds of row to
      dress spans 5 or more builds (10 rows held by one own copy alone),
      so it holds only over the whole test.
    - The stale shard table it found (`tests/ci_durations.json` said
-     `[usa]` took Intel 1753 s and Apple Silicon 945, where the run took
-     718 and 400) is measured again from main's three latest green runs
-     (Step 4.63a: Intel 751 s, Apple Silicon 380).
+     `[usa]` took Apple Silicon 945 s, where the run took 400) is measured
+     again from main's three latest green runs (Step 4.63a: Apple Silicon
+     380 s; the Intel runner's table went in 4.67a).
 8. **CI risks** (no work unless they recur):
    - setup-uv's own uv download sits outside the cache (its manifest is
      inline since 4.4ci43), so an outage can fail it, and the first run
@@ -778,8 +777,9 @@ memory peaks stay strict. The gate writes both kinds of row to
    (D1016), so a swap change that moves a part needs a re-record. The hub
    repo is about 216 MB (2026-11-14). A whole re-record of booblord's parts
    adds about 100 MB (v6, v10), a two-part one almost nothing (v9, v11).
-10. **D1081:** revisit the Intel Mac app when GitHub retires its Intel Mac
-    runners (`macos-15-intel` still builds it, as for 1.2.0).
+10. ~~D1081: revisit the Intel Mac app when GitHub retires its Intel Mac
+    runners~~: D1290 drops it at 1.3.1 (4.67a): 1.3.0 is Intel Macs' last
+    app, and no CI job runs on `macos-15-intel`.
 
 ## 12. Owner decisions and standing asks
 
