@@ -653,9 +653,10 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     pack builds its G1 case on both releases with CPython's report (one
     that requires others, with them), and Save
     (offered in the Downloads folder) writes the USA build of every pack
-    where the page names, CPython's image byte for byte, but never over a
-    file that is there; Copy link gives the site's link to that build's
-    recipe and hashes (``sdk.preset_encode``), and the saved build, typed
+    where the page names, CPython's image byte for byte, its next step's
+    line naming Play and xemu at 256 MiB (qol_memory_upper256 among the
+    packs), but never over a file that is there; Copy link gives the
+    site's link to that build's recipe and hashes (``sdk.preset_encode``), and the saved build, typed
     as the image, offers its recipe (``sdk.open_build``), which ticks every
     pack again. The page opens dark (D897), and its toggle picks light. The
     next launch starts from the image the last build read, opens in the
@@ -704,6 +705,9 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
                 sha256 = hashlib.file_digest(f, "sha256").hexdigest()
             assert saved == report | {"out": str(out), "size": made.size, "sha256": sha256}
             assert (out.stat().st_size, sha256) == (made.size, made.sha256())
+            assert page.evaluate("() => document.getElementById('play-help').textContent") == (
+                "To play it: Play, or in xemu, Machine › Load Disc… and the image you saved. Set xemu's memory to 256 "
+                "MiB (Machine › Settings… › System) for More RAM and large characters.")   # every pack: upper256's too
             assert _save(page) == f"{out} exists: choose another name, or delete it first"
             _page.click(page, "share")
             assert _page.until(page, "() => azurkit.link") == app.SITE + sdk.preset_encode(

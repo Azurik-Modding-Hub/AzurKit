@@ -960,7 +960,7 @@ function forget() {
   $("out-row").hidden = true;
   spoiler(null);
   ingame([]);
-  playHelp(false);
+  playHelp(null);
 }
 
 // D1153: the in-game controls the build adds (sdk._ingame: the save warp, LB's attack sets, L3's speed toggle, the
@@ -971,12 +971,15 @@ function ingame(controls) {
 }
 
 // After a Save, its next step (the app's Play first): xemu's own labels, its Machine menu's Load Disc... and
-// Settings..., whose System tab holds its System Memory; a build forgotten hides it, as it does the In game line
-function playHelp(saved) {
-  $("play-help").textContent = !saved ? "" : `To play it: ${state.app ? "Play, or " : ""}in xemu, Machine › Load Disc… `
-    + "and the image you saved. Set xemu's memory to 128 MiB (Machine › Settings… › System) for More RAM and large "
-    + "characters.";
-  $("play-help").hidden = !saved;
+// Settings..., whose System tab holds its System Memory, 256 MiB for a build `made` with qol_memory_upper256 (the
+// only one whose body may need it: model_inspect.lines_ram), else 128; a build forgotten (null) hides it, as it does
+// the In game line
+function playHelp(made) {
+  const mib = made?.layers.some((layer) => layer.id === "pack qol_memory_upper256") ? 256 : 128;
+  $("play-help").textContent = !made ? "" : `To play it: ${state.app ? "Play, or " : ""}in xemu, Machine › Load Disc… `
+    + `and the image you saved. Set xemu's memory to ${mib} MiB (Machine › Settings… › System) for More RAM and `
+    + "large characters.";
+  $("play-help").hidden = !made;
 }
 
 // Set the page to a recipe: tick exactly the packs `on` names, set each setting to `values`' value, else its default,
@@ -1471,7 +1474,7 @@ async function checkSave(build, name) {
     say(state.saveCheck, true);
   } else if (state.build === build) {
     say(`Saved ${name} (${bytes(build.size)}), each of its files the build's; your browser's download shows its progress`);
-    playHelp(true);
+    playHelp(build.report);
   }
   const tracked = state.tracking;   // what waited for the check
   state.tracking = null;
@@ -1484,7 +1487,7 @@ function saved({ saved: done }) {
   state.played = { out: done.out, plan: state.build?.report.plan ?? null };   // what Play plays (the app's)
   state.tools.built(done, done);   // the save's report (its build's, or the one it built again) and where it went
   report(`Saved ${done.out} · ${bytes(done.size)} · sha256 ${done.sha256.slice(0, 12)}`);
-  playHelp(true);
+  playHelp(done);
 }
 
 async function saveInApp() {
