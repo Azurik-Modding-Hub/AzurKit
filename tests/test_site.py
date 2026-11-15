@@ -234,9 +234,7 @@ class Site:
                                                                               accept_downloads=True, **options)
             else:   # the options by their names, Playwright's own call's (its sync API's), their values plain data,
                 # as it passes them; a name it lacks it refuses
-                self.context = _perf.bounded(browser, _page.impl_call(browser._impl_obj.new_context,
-                                                                      accept_downloads=True, **options),
-                                             "the browser's new context")
+                self.context = _perf.new_context(browser, accept_downloads=True, **options)
             _page.within(self.context, _page.impl_call(self.context._impl_obj.add_init_script, script=FOUR_CORES),
                          _page.STALL, "the context's init script")
             _routed(self.context, re.compile(rf"^(?!{re.escape(self.origin)}/)"), self._elsewhere)
@@ -2189,13 +2187,17 @@ def test_the_site_serves_the_favicon_the_page_links(browser, site):
     byte for byte ``web/``'s. (A context with no route: Playwright aborts a
     request whose address ends in ``/favicon.ico`` once a context routes.)"""
     files = _page.Served(site)
-    context = browser.new_context(service_workers="block")   # its icons, not sw.js's first visit (its own file's)
+    try:
+        context = _perf.new_context(browser, service_workers="block")   # its icons, not sw.js's first visit's
+    except BaseException:
+        files.close()
+        raise
     try:
         page = context.new_page()
         _page.load(page, f"{files.url}/")
         _page.check_icons(page)
     finally:
-        context.close()
+        _perf.shut(context)
         files.close()
 
 
@@ -2348,9 +2350,11 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     frozen app page's first load) fail so past ``_page.ACT``, Playwright's own bound for them, naming the file or the
     address, the load also the requests it waits on (Step 4.4ci30), and a browser's close its
     driver never answers (the ``browser`` fixture's, ``conftest.close_browser``) fails past its bound naming its
-    browser and driver, and a new context its browser never answers (:class:`Site`'s, ``_bare_page``'s; their
-    routes, init script and new page bounded as well) fails past ``_page.STALL`` naming it and its driver's
-    processes, Site's asked for with its options by the names Playwright's own call gives them."""
+    browser and driver, and a new context its browser never answers (``_perf.new_context``: :class:`Site`'s,
+    ``_bare_page``'s and every other the site's, the app's and the service worker's tests make; Site's and the bare
+    page's routes, init script and new page bounded as well) fails past ``_page.STALL`` naming it and its driver's
+    processes, Site's asked for with its options by the names Playwright's own call gives them, and a context's close
+    it never answers (``_perf.shut``, a bare context's) fails past it naming it and that its browser still answers."""
     from playwright._impl.isomorphic.time import DEFAULT_PLAYWRIGHT_TIMEOUT
 
     from scripts import ci_resources
@@ -2420,6 +2424,19 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
             assert len(lines) == 2 and lines[1].startswith("under its driver: "), lines
             # the call's STALL, its driver's listing in SAY_S and its server's start and, as it fails, close (its 10 s)
             assert 2 <= time.monotonic() - t5 < _page.STALL + ci_resources.SAY_S + 10
+        spare = _perf.bounded(browser, _page.impl_call(browser._impl_obj.new_context), "a spare context", seconds=120)
+        try:
+            with monkeypatch.context() as held_close:   # a context's close never answered: a bare context's
+                held_close.setattr(spare._impl_obj, "close", lambda **_: asyncio.sleep(600))
+                t6 = time.monotonic()
+                with pytest.raises(AssertionError) as unclosed_context:
+                    _perf.shut(spare)
+                lines = str(unclosed_context.value).splitlines()
+                assert lines[0] == "no answer in 2 s: the context's close", lines
+                assert lines[-2:-1] == ["its browser still answers"] and lines[-1].startswith("under its driver: ")
+                assert 2 <= time.monotonic() - t6 < _page.STALL + reads(_page.HEAR)
+        finally:
+            _perf.bounded(spare, _page.impl_call(spare._impl_obj.close), "the spare context's close", seconds=120)
         monkeypatch.setattr(_page, "HEAR", 1)   # the held navigation's state read below may end unread in 1 s
         monkeypatch.setattr(browser._impl_obj, "close", lambda **_: asyncio.sleep(600))   # a close never answered
         # what the close may wait on, listed in 5 s (its 10 s outside the test), the close's 1 s with it inside the
@@ -5743,7 +5760,7 @@ def _bare_page(browser, root: Path):
     server of a process of its own (:class:`_page.Served`), as :class:`Site` serves it."""
     files = _page.Served(root.resolve())
     try:
-        context = _perf.bounded(browser, _page.impl_call(browser._impl_obj.new_context), "the browser's new context")
+        context = _perf.new_context(browser)
     except BaseException:
         files.close()
         raise
@@ -5790,7 +5807,7 @@ def _on_stubs(browser, rows: str) -> dict:
     try:
         return page.evaluate(f"async () => {{{WORKERS_HARNESS}{rows}\n    return out;\n}}")
     finally:
-        context.close()
+        _perf.shut(context)
 
 
 WORKERS_ROWS = """
@@ -6992,7 +7009,7 @@ def test_two_real_engine_workers_plan_a_seed_alike_and_a_change_drops_bs_plan_mi
         assert page.evaluate("() => smoke.told") == ["progress"] * 4   # F's start's steps; neither B's
         page.evaluate("() => smoke.pool.close()")
     finally:
-        context.close()
+        _perf.shut(context)
 
 
 VARIANTS_SHOWN = """() => { const v = azurkit.variants.state, $ = (id) => document.getElementById(id);

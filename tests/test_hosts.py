@@ -672,7 +672,7 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     box = Sandbox(tmp_path, monkeypatch)
     out = tmp_path / "out" / f"{usa_iso.stem} (AzurKit).iso"
     out.parent.mkdir()
-    context, requests = browser.new_context(), []
+    context, requests = _perf.new_context(browser), []
     context.on("request", lambda request: requests.append(request.url))
     try:
         with box.serving(app_path) as url:
@@ -740,7 +740,7 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
                 list(mods.PACKS), f"Restored your last setup: {len(mods.PACKS)} packs on. Reset to defaults clears it.",
                 True]
     finally:
-        context.close()
+        _perf.shut(context)
         out.unlink(missing_ok=True)
     assert _tree(app_path) == before
     assert box.left() == []

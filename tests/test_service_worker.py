@@ -27,7 +27,7 @@ import pytest
 from playwright.sync_api import Error as PlaywrightError
 
 from scripts import web_tools
-from tests import _page
+from tests import _page, _perf
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 META = re.search(r'<meta http-equiv="Content-Security-Policy"[^>]*>', (WEB / "index.html").read_text()).group(0)
@@ -185,11 +185,16 @@ class Host:
 @contextlib.contextmanager
 def hosted(browser, root: Path):
     """A fresh browser context and the host serving ``root``."""
-    host, context = Host(root), browser.new_context()
+    host = Host(root)
+    try:
+        context = _perf.new_context(browser)
+    except BaseException:
+        host.close()
+        raise
     try:
         yield host, context
     finally:
-        context.close()
+        _perf.shut(context)
         host.close()
 
 
@@ -500,7 +505,7 @@ def test_a_check_waits_for_a_found_release_to_show_on_its_workers_registration(b
     """``registration.update()`` can resolve before the worker's own registration shows the release it found (WebKit's,
     a worker restarted after its 30 s idle, about one check in four, on every slower machine's first one too): the
     check still says so; with none found it says none, a moment later."""
-    context = browser.new_context()
+    context = _perf.new_context(browser)
     try:
         answers = context.new_page().evaluate("""async (source) => {
           const check = (shows) => new Promise((done) => {
@@ -513,7 +518,7 @@ def test_a_check_waits_for_a_found_release_to_show_on_its_workers_registration(b
           return [await check(true), await check(false)];
         }""", (WEB / web_tools.WORKER).read_text(encoding="utf-8"))
     finally:
-        context.close()
+        _perf.shut(context)
     assert [answer["update"] for answer in answers] == [True, False]
 
 

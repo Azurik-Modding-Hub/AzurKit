@@ -625,6 +625,12 @@ def opened(ctx) -> Page:
     return Page(bounded(ctx, _page.impl_call(ctx._impl_obj.new_page), "the context's new page"))
 
 
+def new_context(browser, **options):
+    """A new context of ``browser`` with ``options`` (by the names Playwright's own call gives them), its opening
+    bounded (:func:`bounded`): a bare ``browser.new_context()`` has no bound of its own. Its close: :func:`shut`."""
+    return bounded(browser, _page.impl_call(browser._impl_obj.new_context, **options), "the browser's new context")
+
+
 def shut(owner) -> None:
     """``owner`` (a browser context, or the app run's browser) closed, its close bounded (:func:`bounded`)."""
     bounded(owner, _page.impl_call(owner._impl_obj.close), "the browser's close" if hasattr(owner, "contexts") else
