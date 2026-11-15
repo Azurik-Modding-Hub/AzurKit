@@ -209,7 +209,7 @@ The next session starts here (D1192), so 1.1 can follow.
    drops `db-extract`, the loader's `contact_stale` issue names `python -m
    devkit reach l3-contact`, `docs/REACH.md` points at group 7, and a
    contract test holds the engine's messages to scripts the checkout has).
-   One message stays owed: 9.48.
+   9.48's message, the last owed, is fixed by 4.64e (8d7edfdb).
 5. **The reach backlog** lives in the private plan: R1.23-R1.25, TD.2,
    TD.2b, TD.5-TD.7, R2.19a-j, the improvement rounds, the all-level run and
    R2.16g. D1048 paused it, D1143 froze it (no budget, answering D977) and
@@ -460,11 +460,10 @@ memory peaks stay strict. The gate writes both kinds of row to
 ### Known flaws (named under D835, listed until fixed)
 
 1. ~~Refusals name Modkit's commands~~: fixed by 4.52b.
-2. **"WHITE cycles"** in the build's character note (X36's clause, which
-   the page shows after a build and `SETS_SAID` reads back) and in
-   comments under `tools/characters/` (4.18a): D1153 wants modern pad
-   names (LB). The edit moves `parts.VERSION`, so it rides on the next
-   parts re-record with 48, `SETS_SAID` reading either word. Lane 4.64e.
+2. ~~"WHITE cycles" in the build's character note~~: fixed by 4.64e
+   (8d7edfdb): X36's clause says "LB cycles its N attack sets",
+   `SETS_SAID` reads either word, so a stored answer still counts, and
+   the comments under `tools/characters/` name LB.
 3. ~~Beamlord's notes show decision ids~~: fixed by 4.52b, and the content
    repo's copy by his v2 (4.55e).
 4. ~~Booblord's own four spin picks unwatched on the vase-less body~~: sat
@@ -487,11 +486,16 @@ memory peaks stay strict. The gate writes both kinds of row to
 7. ~~The chain's drain hit gives a light reaction~~: by design (4.3chain):
    D1045's chain on a hit needs the stun, and the game's heavy flinch
    would hold the chain's next hits for 2.58 s (AZ-765).
-8. **The Live tracker's 'loading' fix** (ed1b044f, main's copy of
-   f07a354) has never been checked on a live xemu: one sandboxed sitting
-   (Live on the sandbox's shared RAM, about 60 polls standing in w2, then
-   a level exit) closes it, with no owner (the Play and Attach demo stays
-   the owner's, 12.17). Lane 4.64g.
+8. ~~The Live tracker's 'loading' fix~~ (ed1b044f): seen by 4.64g's
+   sitting (2026-11-15). Main 6255372e's randomized build (76919fc26491)
+   ran in a real-time oracle sandbox, Live on its shared RAM: every poll
+   of the rows in w2 read in level (the session's first poll aside, by
+   the 2-poll settle), 60 of 60 standing and 60 of 60 moving (swimming,
+   up to 32 m), and across a level switch to w1 one "loading" poll, then
+   in level. The fixtures have no w2 state, so the switch was the debug
+   menu's warp, which posts a levelSwitch's request; it shows the symptom
+   gone on main, with no pre-fix control run. The Play and Attach demo
+   stays the owner's (12.17).
 9. ~~Characters: a pause past REST still starts a build the next move
    drops~~: fixed by 4.53b.
 10. ~~A stale first dress caught in a gap of its records takes
@@ -611,16 +615,14 @@ memory peaks stay strict. The gate writes both kinds of row to
     vertex cost), with no recipe change; and no Check gets faster (a fresh
     dress 69.1 s without, 70.1 s with the faces left out). Faces picked on
     the plan's weights leave holes once the rig re-weights her.
-44. **booblord_human's eye-edge texel** (D1255): her rework's larger irises
-    (D1252) reach one texel, (76,32) at her eye island's edge, magenta on
-    booblord's page, that the human's +22 hue turns a dark maroon (hue
-    353.5) instead of brown; no iris radius moves it. It ships as a known
-    flaw. A human-only colour op for that texel would clear it, but it
-    moves her recipe and booblord_high_human's (a parts re-record, a grade
-    row, and a content version apps up to 1.3.0 grey), so it rides the
-    next parts re-record, its grade from a short sitting (12.18). Lane
-    4.64e, which keeps it a known flaw if no op confines itself to that
-    texel.
+44. ~~booblord_human's eye-edge texel~~ (D1255): cleared by 4.64e
+    (099635f3, f519e254; D1281). A swap at the end of her row 1 colours
+    takes texel (76,32) alone to her iris rim's brown: her exported page
+    differs only there, and DXT1 re-fits that texel's 4x4 block (14 of
+    its other 15 texels moved, none farther from its own colour).
+    Booblord High Human inherits the swap, which reaches no texel of her
+    1024 page. The owner carried Booblord Human's grade with no build;
+    Booblord High Human's build is unchanged.
 45. **WebKit's Saves past 3 s** (S06, S49, S50): parked (D1263: no more
     research), their debt rows kept. All but 9-44 ms of a Save is WebKit's
     own download of the 2.75-2.93 GB image, at a plain copy's speed. Alone
@@ -629,23 +631,18 @@ memory peaks stay strict. The gate writes both kinds of row to
     gate: 4.41, 4.26 and 4.54 s), and no page lever moves them (group 8's
     frequent-ops measurement, 11-13). Chromium's pass under the line,
     Firefox's on its bar (D1053).
-46. **A worker's record shown on the newest ask** (4.54e): on the site,
-    for up to about 2.5 s after a Check, its "Keeping the Check" records
-    show on the newest worker ask, so an unrelated one answered meanwhile
-    (an Install, a picker) shows that line; a Build clicked then does wait
-    on it. The fix routes a worker's records only to the asks queued
-    behind its job (`web/workers.mjs`, `posted()` in `web/app.mjs`). Lane
-    4.64f, after 4.64b.
+46. ~~A worker's record shown on the newest ask~~: fixed by 4.64f
+    (92ec911e, c5e2819d): the pool passes a worker's records with the
+    asks waiting on it (its job's and those queued behind F, never one B
+    takes once free), and the page shows them only there (S79 unchanged).
 47. **A 4-45 ms flash** (4.54e; accepted, no lane): a Check asked again
     unchanged whose own steps take a few ms flashes its keeping records
     (one to three frames) before its bar hides. A worker-side delay of the
     first keeping record would clear it, at the cost of 4.54e's pinned
     record order and S79's bar.
-48. **The townsfolk kit's refusal** (`_player_kit.py`, 4.59d) names
-    Modkit's `scripts/townsfolk_kit.py`. Its edit moves `parts.VERSION`, so
-    it rides on the next parts re-record with 2 (a VERSION move whose
-    content version older apps work out fresh), which drops it from
-    `tests/test_contracts.py`'s `OWED_SCRIPTS`. Lane 4.64e.
+48. ~~The townsfolk kit's refusal names Modkit's
+    `scripts/townsfolk_kit.py`~~: fixed by 4.64e (8d7edfdb): it says to
+    reinstall AzurKit, and `OWED_SCRIPTS` is empty.
 
 ## 10. Dev tools, tests and port notes
 
@@ -830,10 +827,8 @@ default here until the owner overrules it (D115):
 17. The real-xemu Play and Attach demo (D205; 9.40): the owner's, at a
     visible xemu and the real admin prompt, asked again once group 9's
     lanes (4.64a-4.64g) have landed (D1205, D1268, D1272).
-18. booblord_human's eye texel (9.44, D1255): cleared in the next parts
-    re-record by a colour op on that texel alone, its grade from a short
-    sitting of about 5 boots (D117) unless the owner carries it as D1256
-    did.
+18. ~~booblord_human's eye texel (9.44, D1255)~~: cleared by 4.64e's
+    colour op (099635f3), the owner carrying her grade (D1281).
 19. Seed difficulty's detours with the save warp ticked (9.6): fixed the
     narrow way (4.64d). `SEED_DIFFICULTY_FILL` goes to 3, so Easy, Hard
     and Expert share links made with the warp ticked refuse, by name;
@@ -841,7 +836,9 @@ default here until the owner overrules it (D115):
 20. Group 9's re-record (9.2, 9.48, 9.44; 4.64e) moves booblord's content
     to v12: 1.3.1 is cut once group 9's lanes land, published when CI is
     green with the orchestrator's notes, and content main moves to v12 at
-    once (as D1266, D1275).
+    once (as D1266, D1275). 4.64e made v12: CI's pin is 40f91f9
+    (42c8d5f7), and its needs commit baef191 holds v12 to AzurKit 1.3.1
+    for main at publish.
 
 ## 13. Retired by name with Modkit's delete (D1171)
 
