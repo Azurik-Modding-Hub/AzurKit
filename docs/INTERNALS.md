@@ -2092,9 +2092,10 @@ are the Characters section's.
   answered: a replacement worker refuses a cancelled Check's with none) each as it starts, since a
   Check asked meanwhile waits behind them (in the pool's queue for that worker, behind the pictures it holds), and its
   bar moves with them (Step 4.54e: S79). The pool passes a worker's records with the asks that wait on them (each
-  ask's handle: its job's and, F's, those queued behind it), and the page shows one that is no build's, start's or
-  image check's only on the newest of those, so an ask the other worker answers meanwhile (an Install's list, a
-  picker) shows its own, never the keeping steps (Step 4.64f). Each build's answer reports the heap,
+  ask's handle: its job's and, F's, those queued behind it but for the ones B takes once it is free), and the page
+  shows one that is no build's, start's or image check's only on the newest of those, so an ask the other worker
+  answers meanwhile (an Install's list, a picker), queued or not, shows its own, never the keeping steps (Step 4.64f).
+  Each build's answer reports the heap,
   by which the pool keeps the worker or replaces it. A worker whose engine's wasm traps (Pyodide's fatal error: each
   later call of it fails) says so in each failure it posts (a tab's ask's too, whose other failures are refusals),
   naming the call and Python's innermost frames, and the pool replaces it at once, its job or none, and sends the page's job to the next engine once, the page saying so

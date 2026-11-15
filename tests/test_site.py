@@ -6181,6 +6181,44 @@ def test_a_change_soon_after_a_pick_drops_its_build_ahead_so_a_build_at_its_head
     assert _on_stubs(browser, WORKERS_YOUNG)["young"] == [["build p"], [True, 1, 3], ["build q"], []]
 
 
+WORKERS_WAITING = """
+    {   // the asks each of F's records reaches while B is busy: never a queued one B takes once free
+        const { pool, f, b } = make(), seen = [];
+        const on = (name, options = {}) => ({ ask: () => name, ...options,
+            progress: (data, asks) => seen.push([name, data.stage, asks.map((ask) => ask())]) });
+        const small = { anywhere: true }, aside = { anywhere: true, aside: true }, heavy = { once: true, heavy: true };
+        const reply = { type: "reply", heap: 2 ** 25 };
+        const asked = [pool.ask({ type: "variant_check" }, on("check", heavy)),
+                       pool.ask({ type: "variant_pictures" }, on("pictures")),
+                       pool.ask({ type: "content" }, on("list", aside)),   // B takes it
+                       pool.ask({ type: "tracker" }, on("view", small))];  // queued: F builds, B is busy
+        f.say({ type: "progress", stage: "dress" });
+        b.say(reply);                                                     // B takes the view
+        f.say(reply);                                                     // the Check's answer: F runs its pictures
+        asked.push(pool.ask({ type: "pickers" }, on("picker", aside)),    // queued: B is busy
+                   pool.ask({ type: "variant_check" }, on("again", heavy)));
+        f.say({ type: "progress", stage: "keep" });
+        b.say(reply);                                                     // B takes the picker
+        f.say({ type: "progress", stage: "draw" });
+        for (const worker of [b, f, f]) worker.say(reply);
+        out.waiting = [seen, f.tags(), b.tags(), (await Promise.all(asked)).map((data) => data.type)];
+    }
+"""
+"""The next test's scenario on :data:`WORKERS_HARNESS`'s stub workers."""
+
+
+def test_a_workers_record_reaches_the_asks_waiting_on_it_never_a_queued_one_the_other_worker_takes(browser):
+    """Review F1 of Step 4.64f: a record of F's reaches its job's ask and
+    those queued behind it (a Check clicked again, 4.54e's bar), never a
+    queued ask B takes once it is free, while B is busy: a small one while
+    F builds, an aside one (a picker) while F keeps a Check and draws its
+    pictures, which showed a frozen "Keeping the Check" once B took it."""
+    assert _on_stubs(browser, WORKERS_WAITING)["waiting"] == [
+        [["check", "dress", ["check", "pictures"]], ["pictures", "keep", ["pictures", "again"]],
+         ["pictures", "draw", ["pictures", "again"]]],
+        ["variant_check", "variant_pictures", "variant_check"], ["content", "tracker", "pickers"], ["reply"] * 6]
+
+
 def test_a_job_ahead_that_failed_or_whose_worker_stopped_isnt_tried_again_while_its_key_stays_listed(browser):
     """A job ahead that fails on B, or whose B stops (out of memory, say),
     isn't sent to the next B while the page's list still holds its key

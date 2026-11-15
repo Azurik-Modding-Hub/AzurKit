@@ -149,9 +149,14 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const total = () => heapOf(f) + heapOf(b) + held + keptBytes();
   const heavyF = () => Boolean(f?.job?.heavy) || queue.some((job) => job.heavy);
   const shown = (job) => !job.ahead || job.adopted;   // a job the page waits on: its records and answers go to it
-  // The page's asks a slot's record reaches: its job's, and F's queue's, which wait behind it (Step 4.64f).
-  const waiting = (slot) => [slot.job, ...(slot === f ? queue : [])].filter((job) => job && shown(job) && job.ask)
-    .map((job) => job.ask);
+  // A queued ask B answers once it is free (pump()): a small one while F builds, an aside one (it reads no image)
+  // while F runs anything.
+  const spare = (job) => job.anywhere && !job.heavy
+    && (!f?.loaded || Boolean(f.job?.heavy) || job.aside && Boolean(f.job));
+  // The page's asks a slot's record reaches: its job's, and F's queue's, which wait behind it, but for those a B there
+  // (loaded or loading) takes once it is free, whose records are their own (Step 4.64f).
+  const waiting = (slot) => [slot.job, ...(slot === f ? queue.filter((job) => !(b && spare(job))) : [])]
+    .filter((job) => job && shown(job) && job.ask).map((job) => job.ask);
   const small = (slot) => Number.isFinite(slot.heap) && slot.heap < keep;
   const stays = (slot) => Number.isFinite(slot.heap) && slot.heap < grown;
   const listed = (key) => key !== null && list.some((item) => item.key === key);
@@ -363,10 +368,9 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
       if (job.heavy && b?.job?.ahead && !b.job.adopted) dropB();   // none beside F's build: B's job ahead goes
       run(f, job);
     }
-    // A small ask while F builds, or an aside one (it reads no image) while F runs anything: B answers it.
-    const building = !f?.loaded || f.job?.heavy;
-    const spare = queue.findIndex((job) => job.anywhere && !job.heavy && (building || job.aside && f.job));
-    if (spare >= 0 && b?.loaded && !b.job) run(b, queue.splice(spare, 1)[0]);
+    // A small ask while F builds, or an aside one (it reads no image) while F runs anything: B answers it (spare()).
+    const one = queue.findIndex(spare);
+    if (one >= 0 && b?.loaded && !b.job) run(b, queue.splice(one, 1)[0]);
     if (total() >= tally && b && !b.job) dropB("retired");
     if (!b && !noB && f?.loaded && !heavyF() && total() + base < tally) b = spawn("b");
     if (!b?.loaded || b.job || heavyF() || total() >= tally) return;
