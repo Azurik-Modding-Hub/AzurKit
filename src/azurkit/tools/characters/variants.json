@@ -1513,7 +1513,8 @@
     "ops": [{"op": "hsv", "hue": 22, "sat": 0.75, "value": 0.55, "window": [330, 10], "soft": 4, "sat_min": 0.4},
             {"op": "hsv", "sat": 2.0, "window": [190, 300], "soft": 12, "sat_min": 0.15, "value_min": 0.15},
             {"op": "hsv", "sat": 0.6875, "value": 1.333, "window": [190, 300], "soft": 12, "sat_min": 0.66},
-            {"op": "hsv", "hue": 140, "sat": 0.8, "value": 1.05, "window": [190, 300], "soft": 12, "spread": 0.25}]},
+            {"op": "hsv", "hue": 140, "sat": 0.8, "value": 1.05, "window": [190, 300], "soft": 12, "spread": 0.25},
+            {"op": "swap", "from": [0.2524, 0.1181, 0.1271], "to": [0.33, 0.1615, 0.11], "reach": 0.03}]},
    {"row": 2, "ops": [{"op": "hsv", "hue": 210, "sat": 0.85, "value": 1.15}]}
   ]
  },

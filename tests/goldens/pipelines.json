@@ -110,10 +110,10 @@
   "gamedata/index/index.xbr": "b780e79cb0f648b6862484b9ac5f2232971a75757324a0bcd704733e3e7c3b1a"
  },
  "randomize-full:player-character=booblord_human": {
-  "ISO": "6c00254343e94612c412af8c3f1af55d91715db52a7873dc8ee1d87679797cd9",
+  "ISO": "d9ab9267ab4adc3244b2bf47b2e81fba287da7c163787394896088d066759135",
   "default.xbe": "9113d78b0b8dd2f6b3fb56c215c6a5a8271bfa62e126e8855e9ca1e9b6882ff9",
-  "filelist.txt": "847799a2649b263d9aaf58e469a7c36cd427f87c1dc4aa2f85dfd5f32e4160fe",
-  "gamedata/characters.xbr": "0cac330473c76c14fe0300097e52bbbbc9381b802e9472d3ad842052422d9f11",
+  "filelist.txt": "b0e4b3553124efc6de221476ff1ed9ce864c40a592087b2a8b79cebb1bb6dd1d",
+  "gamedata/characters.xbr": "319c53ce30560246cec3b45eba052f0cf19f669a117f0c58d50b32ae3e825590",
   "gamedata/config.xbr": "1566f731c18e68030cc9373c114894820f33abe8aca92d32f8bb7816a89dd280",
   "gamedata/fx.xbr": "079e47c958ac568e47aea6eb7be595249e2643db464e1c9b681c6dacfa6fd626",
   "gamedata/index/index.xbr": "ad1dee4d977fd0965523db71db261126122296fe565ff90086b0bbd575b5d49f"
