@@ -445,7 +445,13 @@ Europe): 0x37950 is `ai_think_base`, thiscall with no stack argument
 (its two returns, 0x37A31 and 0x37A68, are plain `RET`; 0x2BBF2 and
 0x26099 set only ECX before calling it), and it runs his state machine
 through vtable +0x24 that tick, so the writes made before it reach the
-same tick. It sets AI+0x180 to the speed slider × vanilla's own 1.0,
+same tick's state machine. The one exception is its 0x379E9 branch: when
+the critter's +0x1EC holds an object and either the byte +0x7A of the
+critter's +0x178 record is set or that object's vtable +0x10 test
+passes, it calls vtable +0x28 instead, sets AI+0xB4 to 1 and returns,
+and his state machine doesn't run that tick [verified static 2026-11-15:
+`xbe dis 0x37950 --count 100` on both releases]. It sets AI+0x180 to
+the speed slider × vanilla's own 1.0,
 1.25 or 1.5 by his health (an absolute value, so it holds at 1/60 under
 `fps_unlock`; above 1.5 vanilla's block leaves it alone), caps AI+0x178
 at the wait slider, and writes the movement slider × the species'

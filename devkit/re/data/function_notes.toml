@@ -1239,11 +1239,15 @@ drain shim (Step 2.153, X37) compares a toucher's controller's slot with it, so 
 no-hit window."""
 ai_think_base = """\
 The common AI think: a critter's think calls it each tick, and it runs the controller's state machine through vtable \
-+0x24 that tick.  __thiscall: ECX the AI controller, no stack argument; plain RET at both exits (0x37A31, 0x37A68) \
-[verified 2026-11-15: ``python -m devkit re xbe calls --to 0x37950`` (12 calls) and ``insns --mnemonic ret --range \
-0x37950:0x37A70`` on both releases; the same VA in Europe].  0x2BBF2 and 0x26099 set only ECX (``mov ecx, ebx``) \
-before their calls.  The death realm unlock's shim (Step 4.71a, AZ-836) takes Spideyzar's think's CALL at 0x2BBF4 and \
-jumps here after writing his speed, wait and movement, so they reach the same tick."""
++0x24 that tick, except on its 0x379E9 branch: when the critter's +0x1EC holds an object and either the byte +0x7A of \
+the critter's +0x178 record is set or that object's vtable +0x10 test passes, it calls vtable +0x28 instead, sets \
+AI+0xB4 to 1 and returns (0x37A31), and the +0x24 loop (0x37A56-0x37A60) doesn't run that tick.  __thiscall: ECX the \
+AI controller, no stack argument; plain RET at both exits (0x37A31, 0x37A68) [verified 2026-11-15: ``python -m devkit \
+re xbe calls --to 0x37950`` (12 calls), ``insns --mnemonic ret --range 0x37950:0x37A70`` and ``dis 0x37950 --count \
+100`` on both releases; the same VA in Europe].  0x2BBF2 and 0x26099 set only ECX (``mov ecx, ebx``) before their \
+calls.  The death realm unlock's shim (Step 4.71a, AZ-836) takes Spideyzar's think's CALL at 0x2BBF4 and jumps here \
+after writing his speed, wait and movement, so the state machine reads them the same tick wherever the +0x24 loop \
+runs."""
 critter_play_fx = """\
 Plays an fx at a critter.  __thiscall: ECX the critter, the fx key (a string, e.g. \"fx/damage/fx_fire_3\") on the \
 stack; it plays it at the critter's bind interface (+0x170) through the fx system 0x649E0 and pops the key (RET 4 at \
