@@ -68,7 +68,7 @@ from tests._xiso import fill, image
 from tests.test_randomizer import BROWSED, TRACKER, _profile, shows_gems, tracker_states
 
 ROOT = Path(__file__).resolve().parent.parent
-NEVER = ("unicorn", "capstone", "zig", "tkinter", "_tkinter", "_gdbm", "_dbm")
+NEVER = ("unicorn", "capstone", "zig", "cryptography", "tkinter", "_tkinter", "_gdbm", "_dbm")
 OURS = {"azurkit", "__main__", "web", freeze.ICON.name}
 # The bootloader is under PyInstaller's Bootloader Exception; the loader and runtime hooks it bundles are Apache-2.0.
 PYINSTALLER_RUNTIME = ("pyimod", "pyiboot", "pyi_rth_", "_pyi_rth_utils")
@@ -507,8 +507,8 @@ def test_ci_prints_each_failure_though_a_summary_outruns_its_head():
 
 def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, tmp_path, verify_argv, verdicts,
                                                                     monkeypatch):
-    """The app holds no Unicorn, zig, capstone or GPL code (each name in it
-    is Python's, PyInstaller's runtime, AzurKit's, a distribution's whose
+    """The app holds no Unicorn, zig, capstone, cryptography (devkit's, which
+    :data:`freeze.EXCLUDE` leaves out) or GPL code (each name in it is Python's, PyInstaller's runtime, AzurKit's, a distribution's whose
     licence isn't GPL or a library :data:`LINKED` names, libquadmath's LGPL
     the one GNU licence, in numpy's Linux wheel; the runtime's readline is
     editline). On macOS its
