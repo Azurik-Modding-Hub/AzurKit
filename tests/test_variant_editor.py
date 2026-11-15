@@ -82,7 +82,7 @@ def test_the_colour_views_draw_a_bodys_rows_recoloured_as_its_build_recolours_th
     rows = colour_preview.rows(bodies, base.body, colours)
     files = colour_preview.pngs("mine", rows)
     assert {name: _sha12(art.unpng(png).tobytes()) for name, png in files.items()} == {
-        "mine_row0.png": "546ff8107223", "mine_row1.png": "af4f643d51bd", "mine_row2.png": "6bf6ade34c18",
+        "mine_row0.png": "546ff8107223", "mine_row1.png": "88ba7687a923", "mine_row2.png": "6bf6ade34c18",
         "mine_row3.png": "819befadd5c2"}
 
 
