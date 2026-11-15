@@ -574,17 +574,17 @@ def test_ci_runs_the_pure_tier_once_on_each_runner_and_a_push_asks_for_at_most_5
     first job writes both matrices (``scripts/ci_matrix.py``, its ``$GITHUB_OUTPUT`` lines read here): where the
     vanilla tier runs (its job's own ``if:``) each macOS runner's part 1 runs its pure tier first, so for a push to
     main, a lane's push and a pull request alike the pure tier runs once on each runner, and a push asks for 5 macOS
-    jobs, 2 since Intel Macs' runner went (Step 4.67a): Apple Silicon's two parts. That step runs in the vanilla
-    job, whose first step starts harden-runner's block, after the setup and before the tier's folder, the content,
-    the key and the images, with the pure job's command on the pure tier's workers;
+    jobs, 2 once Intel Macs' runner went (Step 4.67a) and 3 since Apple Silicon's tier runs in 3 parts (Step 4.69a).
+    That step runs in the vanilla job, whose first step starts harden-runner's block, after the setup and before the
+    tier's folder, the content, the key and the images, with the pure job's command on the pure tier's workers;
     ``tests/ci_durations.json`` gives each such runner's part 1 a head, the pure tier's seconds."""
     from scripts import ci_matrix, ci_shards
     text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
     jobs, runs = _jobs(text), _vanilla_runs(text)
     images = {image for image, *_ in ci_matrix.RUNNERS.values()}
     for case, (event, repository, ref, macos) in enumerate((
-            ("push", ci_matrix.REPOSITORY, "refs/heads/main", 2),
-            ("push", ci_matrix.REPOSITORY, "refs/heads/p2/4.4dx5-mac-slots", 2),
+            ("push", ci_matrix.REPOSITORY, "refs/heads/main", 3),
+            ("push", ci_matrix.REPOSITORY, "refs/heads/p2/4.4dx5-mac-slots", 3),
             ("pull_request", ci_matrix.REPOSITORY, "refs/pull/7/merge", 1),
             ("push", "someone/AzurKit", "refs/heads/main", 1))):
         out = tmp_path / f"output{case}"

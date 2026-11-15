@@ -11,7 +11,8 @@ one, on the run's critical path (runs 42198913490, 42222637371 and 42313664434).
 tier each macOS runner's part 1 runs its pure tier first (its row's ``pure``: the pure tier's workers), before the
 key or an image is on the runner, and scripts/ci_shards.py gives that part less of the vanilla tier by the pure
 tier's seconds (``tests/ci_durations.json``'s ``head``): the pure job runs only Windows' and Linux's. Since Intel
-Macs' runner went (Step 4.67a) a push asks for Apple Silicon's 2 macOS jobs alone.
+Macs' runner went (Step 4.67a) a push asks for Apple Silicon's macOS jobs alone, 3 of the 5 since its 3 parts (Step
+4.69a).
 
 A lane branch whose name ends in a runner's word (:data:`NAMED`: ``p2/4.4ci47-webkit-arm64``) runs only that runner's
 rows and Linux's pure tier (Step 4.4dx9, D1123's scope): two lanes' 7 macOS jobs each sat on main's 5 slots, and one
@@ -33,10 +34,17 @@ RUNNERS = {
     # of 13.2, seldom near it, so two. Whole, the vanilla tier took Apple Silicon 1:52-2:08 of tests, Windows 1:02-1:26
     # and Linux 1:26-1:28 (runs on 899cf05, bde5dae, b33204e and da30856), each job's setup and images 6-14 min more:
     # so 2 parts each (Step 4.4ci35), about an hour each. Intel Macs' runner (macos-15-intel, 3 parts) is gone since
-    # 1.3.1 (Step 4.67a, D1290: AzurKit 1.3.0's app is their last), so Apple Silicon's are the only macOS jobs.
-    "macos-arm64": ("macos-15", 2, 1, 2),
+    # 1.3.1 (Step 4.67a, D1290: AzurKit 1.3.0's app is their last), so Apple Silicon's are the only macOS jobs, and
+    # Apple Silicon and Linux run 3 parts each since (Step 4.69a, D1293), a push's macOS jobs 3 of the 5. By the table
+    # (tests/ci_durations.json, its part 1's head first), Apple Silicon's 2 parts were 2211 + 4271 and 6488 s on its
+    # one worker, its part 2 the run's longest at 1:48 of tests, and its 3 are 2211 + 2109, 4322 and 4328 s, 1:12 each,
+    # the pure tier's head still under a third; Linux's 2 were 5605 and 5370 s (1:33), its 3 are 3661, 3657 and 3657 s
+    # (1:01), each part's one worker running fewer tests: 1.3.0's Linux part 2 fell from 13.1 GiB free to 0.9 in its
+    # 40 min, in test_site.py's Chromium tests, which part 3 now reaches 459 s in where that part did 2005 s in.
+    # Windows' 2 stay, 6534 and 6524 s on its 2 workers, about 55 min each.
+    "macos-arm64": ("macos-15", 2, 1, 3),
     "windows-x86_64": ("windows-latest", 3, 2, 2),
-    "linux-x86_64": ("ubuntu-latest", 3, 1, 2),
+    "linux-x86_64": ("ubuntu-latest", 3, 1, 3),
 }
 NAMED = {"arm64": "macos-arm64", "windows": "windows-x86_64", "linux": "linux-x86_64"}
 """The last word of a lane branch's name that picks its runner."""
