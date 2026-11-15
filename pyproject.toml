@@ -55,7 +55,8 @@ icon = [
 # The developer side (D950, D990): `devkit/`, dev only, never in the wheel or the app (devkit/README.md). capstone
 # disassembles (BSD), Unicorn runs the simulator's CPU (GPL-2: never shipped), mcp serves the azurik MCP server
 # (devkit/mcp; MIT). One group, installed by default, so a broken install fails devkit's tests rather than skipping
-# them. mcp brings cryptography, which pywebview imports when it is installed: scripts/freeze.py leaves it out.
+# them. mcp brings cryptography (pyjwt[crypto]), which pywebview imports when it is installed: scripts/freeze.py
+# leaves it out, so the app never holds it.
 devkit = [
     "capstone==5.0.9",
     "unicorn==2.1.4",
@@ -65,10 +66,6 @@ devkit = [
 [tool.uv]
 required-version = ">=0.13"
 default-groups = ["dev", "app", "devkit"]
-# cryptography 49 and later ship no Intel Mac wheel, and every CI sync is --no-build, so this cap let the Intel Mac
-# runner sync (D1081). That runner is gone since 1.3.1 (Step 4.67a, D1290), so the cap may go, in a lock change of its
-# own. devkit's mcp needs cryptography (pyjwt[crypto]); the app never holds it (scripts/freeze.py leaves it out).
-constraint-dependencies = ["cryptography<49"]
 
 # proxy-tools' one release, 0.1.0 (2014), is an sdist alone, so every sync built it, asking PyPI's index for
 # setuptools: the one index ask a locked sync made (run 42335356378's Intel job failed on it). vendor/ keeps the wheel
