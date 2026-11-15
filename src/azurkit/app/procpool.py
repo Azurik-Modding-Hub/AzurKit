@@ -416,7 +416,7 @@ def _work(conn) -> None:
             fn, shared, items, line, low = conn.recv()
         except _GONE:
             return
-        except OSError:   # any other fault of the pipe: loud
+        except OSError:   # any other fault of the pipe, or one a part raises as it unpickles: loud
             raise
         except Exception:   # a part that doesn't unpickle here
             if not _tell(conn, ("failed", None)):
