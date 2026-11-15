@@ -10,6 +10,33 @@ Each change's entry is its own file in `devlog/`, never a line here:
 `devlog/<section>/<step>-<slug>.md`, its section `added`, `changed`, `removed` or `fixed`, its name in lower-case
 letters, digits, dots and hyphens, the file one Markdown bullet. A release joins them into a section below.
 
+## [1.4.0 (November 15, 2026)]
+
+### Added
+- The death realm unlock (`death_realm`, off by default, in the Patches tab's Randomizer group; D201): d1's death seal opens without the five discs, its ten disc tests in `d1.xbr` made true by a new engine site kind (`XbrPatch`, a fixed write into a level XBR over the bytes it expects), and Spideyzar fights far harder until the player holds all five: a shim on his think's call of the base think (0x2BBF4) sets his clips' rate, caps his wait between attacks and scales his walk and run speed, and one on the player's hit past its damage (0x8D657, Europe 0x8D607, beside enemy_scaling's 0x8D648) scales what his hits cost after the armor; his health stays vanilla's. Four sliders set it, their defaults chosen by the stack's sitting in xemu (Step 4.71a, AZ-836).
+- The randomizer's logic counts the death realm unlock while `death_realm` is on (off by default, D1301, D1302): d1's
+  seal asks no disc, town's door to d1 only the four powers, and Spideyzar's kill, the victory, all five discs; a
+  build applying the pack plans with it, settings or a plan counting it without the pack are refused, its spoiler
+  says so, and settings files write `death_realm = true` and share strings take version 6 only when it is on, so
+  every other seed, file and string is as before (Step 4.71b, AZ-837).
+- The Randomizer tab's Death realm open row mirrors the death_realm patch as the Save-point warp's row mirrors its
+  own: ticking either box ticks both, the tab's settings count the realm while it is ticked, and a loaded setting
+  that counts it ticks the patch, marked ● (Step 4.71b, AZ-837, D1302).
+
+### Changed
+- A randomized build's logic no longer counts a moved slider of a Randomizer-category patch (the death realm unlock's Spideyzar sliders) as a gameplay slider that leaves the seed unpromised: the logic counts those patches by their tick, and their sliders tune only what it gates (Step 4.71a, AZ-836).
+- The death realm unlock's four Spideyzar sliders default to the numbers its xemu sitting chose: damage 6x, speed
+  2.5x, longest wait 1 s and movement 2.5x, the lowest step tried at which a player one disc short, standing in his
+  reach, dies in about a tenth of vanilla's time (to one 240 HP hit); with all five discs every number is vanilla's
+  (Step 4.71d, AZ-836).
+- Booblord's shipped Check parts and plan answers are recorded again under the new `parts.VERSION` (Step 4.71e): the death realm unlock's new patch sites and its game function `ai_think_base` changed the facts files, which are part of what a dress runs, so `shipped.json`'s keys move and her content entry goes to version 13 with the files that moved. Nothing a player sees changes. Version 13 needs AzurKit 1.4.0: an older app keeps version 12, whose parts match it.
+
+### Fixed
+- Every browser context a page test makes opens and closes within a bound (Step 4.73a, PENDING 8.18): the site's favicon test, the app's saved-build test and the service worker's two contexts took `browser.new_context()` and `close()` with no bound of their own, and `_bare_page`'s two callers closed theirs unbounded; each now takes `_perf.new_context` (`Site`'s and `_bare_page`'s too) and `_perf.shut`, so a browser that never answers fails the call by name past `_page.STALL`. `test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its_bound` holds a held close.
+- `tests/test_hosts.py`'s app-page tests close their page, and the context it owns, within a bound in their `finally` before their server's close (Step 4.73a): nine left it open to the module's end and the rest closed it only when they passed, and `_live_map` closes its page and server when a step after them fails; `tests/conftest.py`'s `_nothing_left_behind` holds them.
+- A test that leaves a context of its module's browser open, or a process it started running, now fails at its teardown naming each, and the context is closed and the process ended (Step 4.73a): `tests/conftest.py`'s `_nothing_left_behind`, the contexts on every OS and the processes on Linux and macOS, a guard so nothing a test opens holds its memory into the module's later tests. `test_a_test_that_leaves_a_browser_context_open_or_a_process_running_fails_its_teardown_and_both_end` holds it.
+- `tests/test_site.py`'s `Site` and `_bare_page` close the context they opened, and their files' server, when a later step of their setup fails (Step 4.73a); `test_a_site_or_bare_page_whose_setup_fails_after_its_context_opened_closes_it_and_its_files` holds it.
+
 ## [1.3.1 (November 15, 2026)]
 
 ### Added
