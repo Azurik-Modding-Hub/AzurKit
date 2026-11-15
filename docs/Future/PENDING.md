@@ -111,8 +111,9 @@ The next session starts here (D1192), so 1.1 can follow.
      s), her own Check unchanged (A92 4.1 s, S78 7.3 s). Left: a copy
      saved from the page under 1.2.0 or before keeps the page's forms, so
      its first Check works the dress out once more (not migrated, D115);
-     an edited community-only character (sent "unsaved") still checks in
-     the page's forms (a lane after 1.3.0; none ships parts today).
+     ~~an edited community-only character (sent "unsaved") still checks in
+     the page's forms~~: fixed by Step 4.70a (D1288), its first Check after
+     an edit missing 1 part (the edit's own stage) where it missed 10.
    - **A texture row** (the recipe's `textures`) has no control on the page
      (JSON only, 4.37e's F4), so no row times it: about 21 s natively and
      37 s on the site's engine (4.37a's P5). Import PNG is a `colours` op on
