@@ -781,7 +781,9 @@ are the Characters section's.
     leans, the schedule, the bounds, the score, the measures) bumps
     `SEED_DIFFICULTY_FILL` and leaves `GENERATOR` alone; settings whose
     placements it leaves as they were may keep the fill they had
-    (`WARPLESS_FILL`), so their links and plans still open. No movement data
+    (`WARPLESS_FILL`), so their links and plans still open, and nothing ties
+    the two: a bump that also moves a seed without the warp sets
+    `WARPLESS_FILL` to the bumped fill too. No movement data
     rates plain platforming, so with no trick allowed the levels differ by
     chain and off the path alone. `tests/test_randomizer.py` pins the levels'
     order, plans, strings and files; `tests/_perf.py`'s A70-A80 time the

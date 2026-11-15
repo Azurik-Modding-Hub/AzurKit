@@ -63,7 +63,9 @@ SEED_DIFFICULTIES = (0, 1, 2, 3)   # Normal (today's seeds), Easy, Hard, Expert 
 SEED_DIFFICULTY_NAMES = ("Normal", "Easy", "Hard", "Expert")   # a level's name, as a file and the tab hold it
 SEED_DIFFICULTY_FILL = 3           # level > 0's algorithm: bumped when the same inputs give such a seed another placement
 WARPLESS_FILL = 2                  # fill 3 moved only seeds with the save warp counted (its detours, 4.64d), so
-#                                    one without it keeps fill 2 (seed_difficulty_fill): its plans and links as they were
+#                                    one without it keeps fill 2 (seed_difficulty_fill): its plans and links as they were.
+#                                    Nothing ties the two: a bump that also moves a seed without the warp sets this to
+#                                    the bumped SEED_DIFFICULTY_FILL too, else its old links open and place it anew
 OLDER_LEVELS = {2: 2, 3: 3, 4: 3}  # v1.0.0's levels (fill 1: Standard, Hard, Frame-perfect) -> the nearest level now
 RATING_NAMES = ("None", "Safe", "Standard", "Hard", "Frame-perfect")   # a rating's name, 0 none
 RETIRED_KEYS = ("name", "default", "knobs", "tricks")             # the presets' keys (D113, D144)
