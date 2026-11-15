@@ -1,9 +1,9 @@
 # A release of AzurKit (Step 4.3r4j; D1022, D885, D1026), in two runs, each only on what starts it:
-# - A pushed v* tag builds the draft. check: the tag names pyproject's version and its commit is on main. apps: the four
-#   apps, each frozen on its own OS (Mac arm64, Mac Intel, Windows x64, Linux x64), unsigned (D885). python: the wheel and
-#   the sdist. site: the site, built here only so a broken one stops the draft. sums: SHA256SUMS over the apps, the
-#   wheel and the sdist, checked. attest: the build's provenance over every file, SHA256SUMS too. draft: a DRAFT GitHub
-#   release holding them. Nothing public changes.
+# - A pushed v* tag builds the draft. check: the tag names pyproject's version and its commit is on main. apps: the three
+#   apps, each frozen on its own OS (Mac arm64, Windows x64, Linux x64; Intel Macs' went at 1.3.1, D1290), unsigned
+#   (D885). python: the wheel and the sdist. site: the site, built here only so a broken one stops the draft. sums:
+#   SHA256SUMS over the apps, the wheel and the sdist, checked. attest: the build's provenance over every file,
+#   SHA256SUMS too. draft: a DRAFT GitHub release holding them. Nothing public changes.
 # - The owner's Publish on that draft goes live. check runs again and the site is rebuilt from the tag's commit, pypi
 #   uploads the draft's own wheel and sdist (read back and checked against their attestation) by trusted publishing, and
 #   only after that upload pages deploys the site.
@@ -115,7 +115,6 @@ jobs:
       matrix:
         include:
           - {os: macos-15, label: macos-arm64}
-          - {os: macos-15-intel, label: macos-x86_64}
           - {os: windows-latest, label: windows-x86_64}
           - {os: ubuntu-latest, label: linux-x86_64}
     defaults:

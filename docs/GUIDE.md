@@ -307,8 +307,9 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **No console window on Windows:** the app opens its window alone; what it would print goes to `app.log` in its
   log folder, which the Tools tab opens, and its commands print in the terminal you run them from (to wait for one
   and get its exit code, run it with `start /wait` in cmd or `Start-Process -Wait -PassThru` in PowerShell).
-- **Unsigned apps:** CI builds the app for Apple Silicon and Intel Macs, Windows and Linux, unsigned, each with a
-  checksum and a build attestation ([Download and check it](#download-and-check-it), below).
+- **Unsigned apps:** CI builds the app for Apple Silicon Macs, Windows and Linux, unsigned, each with a checksum and
+  a build attestation ([Download and check it](#download-and-check-it), below).
+- **Intel Macs:** use AzurKit in your browser, or AzurKit 1.3.0's app from Releases, the last one built for them.
 - **Greyed until it can work:** Build, Save and the original values wait on your image (or a build) and say so.
 - **Progress bars:** a build, a save and the tracker's Track show their step and percent, as your image's first check
   does on the web page; in the app that check, like anything slower than a second, shows what it is doing.
@@ -361,7 +362,8 @@ These hold from the first release:
 
 - **Download only from [Releases](https://github.com/Azurik-Modding-Hub/AzurKit/releases).** An app is code that runs as
   you, and a copy posted anywhere else may not be ours. Each release holds `AzurKit-<version>-macos-arm64.zip`,
-  `-macos-x86_64.zip` (Intel), `-windows-x86_64.zip` and `-linux-x86_64.tar.gz`, the wheel and sdist, and `SHA256SUMS`.
+  `-windows-x86_64.zip` and `-linux-x86_64.tar.gz`, the wheel and sdist, and `SHA256SUMS` (up to 1.3.0, also
+  `-macos-x86_64.zip` for Intel Macs).
 - **The command line alone:** `uv tool install azurkit` or `pipx install azurkit` (Python 3.14), from PyPI.
 - **Opening it the first time:** the apps are unsigned. On a Mac, open it, then choose Open Anyway in System Settings ›
   Privacy & Security; never turn Gatekeeper off. On Windows, choose More info › Run anyway.

@@ -25,7 +25,8 @@ the tracker's maps and icons).
 
 - **In your browser:** [azurik-modding-hub.github.io/AzurKit](https://azurik-modding-hub.github.io/AzurKit/).
   Nothing to install, nothing uploaded, no tracking, and it works offline once loaded.
-- **The app:** the same page in its own window, for macOS (Apple Silicon or Intel), Windows and Linux (below).
+- **The app:** the same page in its own window, for Macs with Apple Silicon, Windows and Linux (below). On an Intel
+  Mac, use it in your browser, or AzurKit 1.3.0's app, the last one for Intel Macs.
 - **The command line:** `uv tool install azurkit` or `pipx install azurkit` (Python 3.14), then `azurkit --help`.
 - **Play:** open the image you built in xemu. With xemu's memory at 128 MiB, levels get room past 64 MiB. Real
   Xbox hardware isn't tested.

@@ -1,5 +1,6 @@
-# The four apps (Step 4.4ci; D1022), each frozen by scripts/freeze.py on its own OS on a push to main in this
-# repository: macOS on Apple Silicon (macos-15) and on Intel (macos-15-intel), Windows x64 and Linux x64. Each is kept
+# The three apps (Step 4.4ci; D1022), each frozen by scripts/freeze.py on its own OS on a push to main in this
+# repository: macOS on Apple Silicon (macos-15), Windows x64 and Linux x64 (Intel Macs' went at 1.3.1, Step 4.67a,
+# D1290: AzurKit 1.3.0's app is their last). Each is kept
 # as a workflow artifact for 14 days, an archive with its sha256 beside it (also in the run's summary): never a
 # release, a tag or a PyPI upload, and unsigned (D885). The release job, with its attestations, is release.yml.
 # No secret; actions pinned by commit sha, their release beside it.
@@ -45,7 +46,6 @@ jobs:
       matrix:
         include:
           - {os: macos-15, label: macos-arm64}
-          - {os: macos-15-intel, label: macos-x86_64}
           - {os: windows-latest, label: windows-x86_64}
           - {os: ubuntu-latest, label: linux-x86_64}
     defaults:
