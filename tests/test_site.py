@@ -5122,7 +5122,9 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
     one is refused, naming the file; Close plan unlocks the tab again.
     Step 4.18b: the Save-point warp box starts unticked and mirrors the
     qol_save_warp pack, its tick the pack's and the settings' save_warp,
-    the pack's untick its own (D1154, D1155)."""
+    the pack's untick its own (D1154, D1155); Step 4.71b: the Death realm
+    open box likewise mirrors death_realm and the settings' death_realm
+    (D1302)."""
     on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
     other = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"],
                                      "packs": on | {"player_physics": {"jump_speed_scale": 1.3}}})["share"]
@@ -5147,18 +5149,21 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         _page.click(page, "tab-randomizer")
         assert _page.until(page, SETTLED, 120)["share"] == other and f"⚠ {note}" not in page.evaluate(WARNED)
         _page.tick(page, list(on))
-        warp = """() => [document.getElementById("rando-warp").checked,
-                         document.querySelector("#packs input[data-pack=qol_save_warp]").checked]"""
-        assert page.evaluate(warp) == [False, False]   # off by default, Randomize or not (D1155)
-        _page.click(page, "rando-warp")
-        view = _page.until(page, SETTLED, 120)
-        assert page.evaluate(warp) == [True, True] and view["settings"]["save_warp"] is True
-        assert view["share"] == sdk.randomizer_settings({"settings": view["settings"], "packs": mods.normalize(
-            on | {"qol_save_warp": {}})})["share"] != "AZR-AAEA"
-        _page.click(page, "tab-patches")
-        _page.tick(page, list(on))
-        _page.click(page, "tab-randomizer")
-        assert "save_warp" not in _page.until(page, SETTLED, 120)["settings"] and page.evaluate(warp) == [False, False]
+        rows = [["rando-warp", "qol_save_warp", "save_warp"], ["rando-realm", "death_realm", "death_realm"]]
+        ticks = """(rows) => rows.map(([box, pack]) => [document.getElementById(box).checked,
+            document.querySelector(`#packs input[data-pack=${pack}]`).checked])"""
+        assert page.evaluate(ticks, rows) == [[False, False]] * 2   # off by default, Randomize or not (D1155, D1302)
+        for row, (box, pack, key) in enumerate(rows):
+            _page.click(page, box)
+            view = _page.until(page, SETTLED, 120)
+            assert page.evaluate(ticks, rows)[row] == [True, True] and view["settings"][key] is True
+            assert view["share"] == sdk.randomizer_settings({"settings": view["settings"], "packs": mods.normalize(
+                on | {pack: {}})})["share"] != "AZR-AAEA"
+            _page.click(page, "tab-patches")
+            _page.tick(page, list(on))
+            _page.click(page, "tab-randomizer")
+            assert key not in _page.until(page, SETTLED, 120)["settings"]
+            assert page.evaluate(ticks, rows) == [[False, False]] * 2
 
         assert page.evaluate("() => [...document.querySelectorAll('#rando-items .count')].map((c) => c.textContent)") == [
             f"{row[3]:,}" for row in sdk.catalog()["randomizer"]["items"]]
