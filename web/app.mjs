@@ -1240,10 +1240,10 @@ function report(text, error = false) {
 // quiet box, and on a busy one R24 waited 4-7 s for it (Step 4.5q). A private window
 // refuses the origin's private file system (and keeps a Response's Blob in memory, a part that brings the parent's copy
 // back on top of the tab's: 7.2 GiB against the plain Blob's 4.8), so it keeps the plain Blob. Where the file system
-// is there but the writer fails (a full disk's quota, a refused handle, its worker stopped), the bytes go into a
-// Response's Blob, Firefox's temporary file, as before Step 4.5q (copied()); its failure too leaves the plain Blob, so
-// Save always opens (Step 4.5u). The worker joined the build's Blob (Step 4.3r4l); its pieces are its slices, each
-// segment's, a copy's a slice of the File.
+// is there but the writer fails (a full disk's quota, a refused handle, its worker stopped or not started in its bound),
+// the bytes go into a Response's Blob, Firefox's temporary file, as before Step 4.5q (copied()); its failure too leaves
+// the plain Blob, so Save always opens (Step 4.5u, D1164). The worker joined the build's Blob (Step 4.3r4l); its
+// pieces are its slices, each segment's, a copy's a slice of the File.
 const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3, FLAT_RUN = 16 << 20;
 async function byReference(segments, blob, heard = () => {}) {
   await navigator.storage.getDirectory();

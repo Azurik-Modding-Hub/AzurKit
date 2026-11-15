@@ -44,21 +44,29 @@ export function letGo(name, saved = false) {
 // {file, name}. A worker writes it (flat.mjs), heard(share) after each run of up to run bytes; started from its own URL
 // on a page sw.js controls, else from a blob: URL so it keeps the page's CSP, and held here until it ends: Firefox
 // collects a Worker nothing holds (hasher.mjs). A failure lets go of the file and throws: a worker refused or stopped, a
-// message the page can't read, the file system's refusal (a full disk's quota), each by name (Step 4.5u).
-const writers = new Set();
+// message the page can't read, the file system's refusal (a full disk's quota), each by name (Step 4.5u), and a worker
+// that hasn't spoken within START_MS of its start (flat.mjs says {ready} as it loads): a page sw.js doesn't control (a
+// first visit's, as it never claims one) fetches flat.mjs from the network, and a fetch that never answers held Save
+// greyed past 90 s, its bar at 0; its caller then makes the old copy, so Save can't hang on it (D1164).
+const writers = new Set(), START_MS = 20 * 1000;
 export async function written(blob, run, heard = () => {}) {
   const name = `${PREFIX}${crypto.randomUUID()}.bin`;
   await hold(name);   // before the file exists: no sweep removes it under its writer
   const entry = new URL("flat.mjs", import.meta.url).href;
   const url = navigator.serviceWorker?.controller?.scriptURL === new URL("sw.js", import.meta.url).href ? entry
     : URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
-  let worker = null;
+  let worker = null, bound = 0;
   try {
     worker = new Worker(url, { type: "module" });
     writers.add(worker);
     return await new Promise((resolve, reject) => {
-      worker.onmessage = ({ data }) => "share" in data ? heard(data.share)
-        : data.file ? resolve({ file: data.file, name }) : reject(new Error(data.error));
+      bound = setTimeout(() => reject(new Error("the build file's worker didn't start")), START_MS);
+      worker.onmessage = ({ data }) => {
+        clearTimeout(bound);
+        if ("share" in data) heard(data.share);
+        else if (data.file) resolve({ file: data.file, name });
+        else if (!data.ready) reject(new Error(data.error));
+      };
       worker.onmessageerror = () => reject(new Error("the build file's worker sent what the page can't read"));
       worker.onerror = (e) => {
         e.preventDefault();
@@ -70,6 +78,7 @@ export async function written(blob, run, heard = () => {}) {
     letGo(name);
     throw error;
   } finally {
+    clearTimeout(bound);
     writers.delete(worker);
     worker?.terminate();
     if (url !== entry) URL.revokeObjectURL(url);

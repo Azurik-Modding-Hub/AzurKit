@@ -2122,8 +2122,10 @@ are the Characters section's.
     than the plain Blob's), so one, told by that file system refusing it,
     keeps the plain Blob and its parent's copy. Where the writer fails (a
     full disk's quota, a refused handle, its worker stopped, each reported
-    to the page) the bytes go into a `Response.blob()` as before 4.5q, so
-    Save always opens (Step 4.5u).
+    to the page, or its worker silent 20 s after its start: `flat.mjs` says
+    `{ready}` as it loads, and a page `sw.js` doesn't control, a first
+    visit's, fetches it from the network, D1164) the bytes go into a
+    `Response.blob()` as before 4.5q, so Save always opens (Step 4.5u).
   - **No stream through `sw.js`** (D1049, D1053; Step 4.3r4p's W-SAVE,
     keylord's and a seed's Save, three each, the Blob against the build's
     Blob streamed by `sw.js` to a hidden frame's download, its last bytes

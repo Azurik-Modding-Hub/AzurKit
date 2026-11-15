@@ -4226,13 +4226,15 @@ FULL = """FileSystemSyncAccessHandle.prototype.write = function () {
 """flat.mjs's first lines in the next test: its build file takes no byte, as a write past a full disk's room is refused."""
 
 
-@pytest.mark.parametrize("refused", ["private", "full"])
+@pytest.mark.parametrize("refused", ["private", "full", "stalled"])
 def test_a_save_holds_where_the_origins_file_system_refuses_the_build_file(browser, site, usa_iso, tmp_path, refused):
     """D1057: Firefox's private window refuses the origin's private file system, and keeps ``Response.blob()`` in
     memory, so a Blob of few parts would hold more than the plain one (7.2 GiB against 4.8): there the page makes none
     (no build file for its bytes between the copies, nor a copy of them), and the Save holds. Where the file system is
-    there but takes no byte (a full disk), the build file is let go, its bytes go into a Response's Blob, Firefox's
-    temporary file, as before Step 4.5q, and Save opens and holds (Step 4.5u). Only Firefox makes either."""
+    there but takes no byte (a full disk), or its writer never starts (``flat.mjs``'s fetch never answers, as a page
+    ``sw.js`` doesn't control fetches it: its start bound lowered here), the build file is let go, its bytes go into a
+    Response's Blob, Firefox's temporary file, as before Step 4.5q, and Save opens and holds (Step 4.5u, D1164). Only
+    Firefox makes either."""
     firefox = browser.browser_type.name == "firefox"
     prefs = {"firefox_user_prefs": {"browser.privatebrowsing.autostart": True}} if firefox and refused == "private" else {}
     served = Site(browser, site, tmp_path / "profile", **prefs)
@@ -4240,6 +4242,12 @@ def test_a_save_holds_where_the_origins_file_system_refuses_the_build_file(brows
         if refused == "full":
             flat = (site / "flat.mjs").read_text(encoding="utf-8")
             served.context.route("**/flat.mjs", lambda route: route.fulfill(body=FULL + flat, content_type="text/javascript"))
+        if refused == "stalled":
+            outputs, bound = (site / "outputs.mjs").read_text(encoding="utf-8"), "START_MS = 20 * 1000"
+            assert outputs.count(bound) == 1
+            lowered = outputs.replace(bound, "START_MS = 1000")
+            served.context.route("**/outputs.mjs", lambda route: route.fulfill(body=lowered, content_type="text/javascript"))
+            served.context.route("**/flat.mjs", lambda route: None)   # never answered
         page = served.open()
         page.evaluate("""() => { const lock = LockManager.prototype.request, blob = Response.prototype.blob;
             globalThis.made = globalThis.copied = 0;
@@ -4254,9 +4262,9 @@ def test_a_save_holds_where_the_origins_file_system_refuses_the_build_file(brows
         with page.expect_download(timeout=600_000) as caught:
             page.evaluate("() => document.querySelector('#save').click()")
         assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
-        made = int(firefox and refused == "full")
+        made = int(firefox and refused != "private")
         assert page.evaluate("() => [made, copied, azurkit.build.between ?? null]") == [made, made, None]
-        if refused == "full":
+        if refused != "private":
             _page.until(page, f"async () => (await ({BUILD_FILES})()).length === 0", 60)   # the refused file removed
         caught.value.delete()
     finally:
