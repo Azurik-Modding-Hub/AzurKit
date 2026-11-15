@@ -505,6 +505,8 @@ whose close or kill ends it a moment later)."""
 KEPT = re.compile(r"\bmultiprocessing\.(?:resource_tracker|forkserver) import main\b")
 """multiprocessing's resource tracker and forkserver: one of each a process, started at its first use and kept to the
 process's end by Python's own design, so never a test's leftover."""
+SHUT_S = 30
+"""s the check waits for each context a test left open to close (a context's close took under 1 s here)."""
 _AT_CALL = pytest.StashKey[tuple]()   # (this process's children, the module browser's open contexts) as the call began
 
 
@@ -583,6 +585,19 @@ def _contexts(launched) -> list | None:
         return None
 
 
+def _shut_left(context) -> str:
+    """``context``, one a test left open, closed in at most :data:`SHUT_S` s: ``""``, else why it isn't."""
+    import asyncio
+
+    try:
+        context._sync(asyncio.wait_for(context._impl_obj.close(reason=None), SHUT_S))
+        return ""
+    except TimeoutError:
+        return f"its close unanswered in {SHUT_S} s"
+    except Exception as error:   # its browser's own error, said
+        return f"its close failed: {type(error).__name__}: {str(error)[:200]}"
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item):
     """What :func:`_nothing_left_behind` holds the test's teardown to: this process's children and its module
@@ -595,11 +610,11 @@ def pytest_runtest_call(item):
 def _nothing_left_behind(request):
     """Step 4.73a: once a test's own fixtures are torn down (this autouse one's teardown is their last), its call has
     left no context of its module's browser open and no process running (Linux and macOS, :func:`_children`), else
-    its teardown fails naming each, each such process ended with what runs under it once :data:`ENDS_S` s have
-    passed: either would hold its memory into the module's later tests, on CI's one worker the part's whole run (CI's
-    Linux part with test_site.py's tests fell from 13.7 to 0.9 GiB free and its runner was shut down, run
-    43675884120). What a browser or another process running before the call starts is that one's own, and
-    multiprocessing's tracker and forkserver live with this process by design (:data:`KEPT`)."""
+    its teardown fails naming each, each such context closed (:func:`_shut_left`) and each such process ended with
+    what runs under it once :data:`ENDS_S` s have passed: either would hold its memory into the module's later tests,
+    on CI's one worker the rest of its part. A guard: its first run found test_hosts.py's app pages left open, each
+    holding its renderer to the module's end. What a browser or another process running before the call starts is
+    that one's own, and multiprocessing's tracker and forkserver live with this process by design (:data:`KEPT`)."""
     yield
     if (at_call := request.node.stash.get(_AT_CALL, None)) is None:   # its call never ran: its setup failed
         return
@@ -608,7 +623,9 @@ def _nothing_left_behind(request):
     said = []
     if opened := [c for c in _contexts(request.node.funcargs.get("browser")) or () if c not in contexts]:
         name = request.node.funcargs["browser"].browser_type.name
-        said.append(f"left open: {len(opened)} context(s) of its module's {name} browser (close each in a finally)")
+        unshut = [why for why in map(_shut_left, opened) if why]
+        said.append(f"left open, closed: {len(opened)} context(s) of its module's {name} browser (close each in a "
+                    f"finally){''.join(f'; not closed: {why}' for why in unshut)}")
     end = time.monotonic() + ENDS_S
     while (left := [pid for pid in _children(os.getpid()) - children if _runs(pid)]) and time.monotonic() < end:
         time.sleep(0.1)

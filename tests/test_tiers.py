@@ -337,16 +337,18 @@ def test_a_module_browser_that_stopped_answering_is_launched_again_for_its_rerun
                      "launched again") == 1, out
 
 
-def test_a_test_that_leaves_a_browser_context_open_or_a_process_running_fails_its_teardown_and_the_process_ends(
+def test_a_test_that_leaves_a_browser_context_open_or_a_process_running_fails_its_teardown_and_both_end(
         pytester, monkeypatch, tmp_path):
     """Step 4.73a (``tests/conftest.py``'s ``_nothing_left_behind``): a test
     whose call leaves a context of its module's browser open, or a process
-    it started running, fails at its teardown naming each, and the process is
-    ended; a test that closes and waits for what it starts passes, and a
-    context an earlier test left fails only that test. Windows lists no
-    process's children but in a list of every one: there the contexts alone."""
+    it started running, fails at its teardown naming each, and the context is
+    closed and the process ended; a test that closes and waits for what it
+    starts passes, and a context an earlier test left fails only that test,
+    the later one finding it closed. Windows lists no process's children but
+    in a list of every one: there the contexts alone."""
     pytester.makeconftest("from tests.conftest import _nothing_left_behind, pytest_runtest_call  # noqa: F401\n")
     pytester.makepyfile(test_l="""
+        import asyncio
         import os
         import subprocess
         import sys
@@ -363,12 +365,23 @@ def test_a_test_that_leaves_a_browser_context_open_or_a_process_running_fails_it
             def is_connected(self):
                 return True
 
+        class Context:   # a stand-in context: its close, run as Playwright's sync objects run their calls
+            def __init__(self, browser):
+                self.browser, self._impl_obj = browser, self
+                browser.contexts.append(self)
+
+            async def close(self, reason):
+                self.browser.contexts.remove(self)
+
+            def _sync(self, call):
+                return asyncio.run(call)
+
         @pytest.fixture(scope="module")
         def browser():
             return Browser()
 
         def test_leaves_a_context(browser):
-            browser.contexts.append(object())
+            Context(browser)
 
         def test_leaves_a_process():
             child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(300)"])
@@ -376,8 +389,8 @@ def test_a_test_that_leaves_a_browser_context_open_or_a_process_running_fails_it
                 f.write(str(child.pid))
 
         def test_closes_what_it_opens(browser):
-            context = object()
-            browser.contexts.append(context)
+            assert not browser.contexts   # the one the first test left was closed at its teardown
+            context = Context(browser)
             subprocess.run([sys.executable, "-c", "pass"], check=True, timeout=60)
             browser.contexts.remove(context)
     """)
@@ -389,7 +402,7 @@ def test_a_test_that_leaves_a_browser_context_open_or_a_process_running_fails_it
     failed = {name: f"ERROR at teardown of {name}" in out
               for name in ("test_leaves_a_context", "test_leaves_a_process", "test_closes_what_it_opens")}
     assert failed == {"test_leaves_a_context": True, "test_leaves_a_process": lists, "test_closes_what_it_opens": False}
-    assert "left open: 1 context(s) of its module's chromium browser (close each in a finally)" in out, out
+    assert "left open, closed: 1 context(s) of its module's chromium browser (close each in a finally)\n" in out, out
     from tests import conftest
     pid = int(left.read_text())
     assert (f"left running, ended: id {pid}: " in out, conftest._runs(pid) if lists else False) == (lists, False), out
