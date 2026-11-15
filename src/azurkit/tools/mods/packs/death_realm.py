@@ -23,7 +23,12 @@ walk and run speeds; the player's hit, past its damage (0x8D657, Europe
 the armor. The pack hands the shim the scene pointer's address and
 vanilla's five speed constants, each release's own. A damage k whose
 product with the largest damage record no int32 holds fails by name (D45).
-What the game makes of it is unverified until the sitting (Step 4.71c).
+Seen in xemu (sitting 4.71c): a pad walk opens the seal at 0 discs, and one
+disc short his rate, waits, moves and costs are exactly the sliders'; with
+all five he is vanilla's. The defaults are the one step of the sitting's
+three at which a player standing in his reach dies in about a tenth of
+vanilla's time. Known flaws: his attack starts come about 2x as often as
+vanilla's, not 3x, and his hits that no critter of his sources aren't scaled.
 """
 
 from __future__ import annotations
@@ -42,16 +47,16 @@ SEAL = tuple(XbrPatch(label=f"d1's seal: {what} test {k + 1}", file=D1, offset=a
              for k in range(5))
 
 UNTIL = "until you hold all five discs."
-DAMAGE = ParametricPatch(name="spideyzar_damage_scale", label="Spideyzar's damage", default=4.0, slider_min=1.0,
+DAMAGE = ParametricPatch(name="spideyzar_damage_scale", label="Spideyzar's damage", default=6.0, slider_min=1.0,
                          slider_max=10.0, slider_step=0.5, unit="x", vanilla=1.0,
                          description=f"What his hits cost you, after your armor, {UNTIL}")
-SPEED = ParametricPatch(name="spideyzar_speed_scale", label="Spideyzar's speed", default=2.0, slider_min=1.0,
+SPEED = ParametricPatch(name="spideyzar_speed_scale", label="Spideyzar's speed", default=2.5, slider_min=1.0,
                         slider_max=4.0, slider_step=0.25, unit="x", vanilla=1.0,
                         description=f"How fast all his moves play {UNTIL}")
-WAIT = ParametricPatch(name="spideyzar_attack_wait", label="Spideyzar's longest wait", default=2.0, slider_min=0.0,
+WAIT = ParametricPatch(name="spideyzar_attack_wait", label="Spideyzar's longest wait", default=1.0, slider_min=0.0,
                        slider_max=15.0, slider_step=0.5, unit="s", vanilla=15.0,
                        description=f"The most seconds he waits between attacks {UNTIL}")
-MOVE = ParametricPatch(name="spideyzar_move_scale", label="Spideyzar's movement", default=2.0, slider_min=1.0,
+MOVE = ParametricPatch(name="spideyzar_move_scale", label="Spideyzar's movement", default=2.5, slider_min=1.0,
                        slider_max=4.0, slider_step=0.25, unit="x", vanilla=1.0,
                        description=f"How fast he walks and runs {UNTIL}")
 

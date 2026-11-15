@@ -1186,7 +1186,7 @@ def test_moved_movement_sliders_plan_the_nearest_tiers_seed_by_the_physics_table
     assert (view["share"], view["why_not"]) == (share, [moved, line])
     packs = {"player_physics": {"roll_speed_scale": 0.5, "roll_time_scale": 0.0, "climb_speed_scale": 0.0}
              | JUMP["player_physics"], "enemy_scaling": {"boss_health_scale": 2.0}, "qol_photo_mode": {"fly_speed": 2.0},
-             "death_realm": {"spideyzar_damage_scale": 6.0}}   # a Randomizer patch's slider isn't a gameplay one
+             "death_realm": {"spideyzar_damage_scale": 8.0}}   # a Randomizer patch's slider isn't a gameplay one
     assert generator.movement_reasons(packs, sdk.catalog()["packs"]) == [
         "you moved sliders (enemy_scaling boss_health_scale 2, player_physics climb_speed_scale 0, player_physics "
         "jump_speed_scale 1.3, player_physics roll_speed_scale 0.5, player_physics roll_time_scale 0), and "
