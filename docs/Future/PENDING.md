@@ -495,9 +495,10 @@ memory peaks stay strict. The gate writes both kinds of row to
 9. ~~Characters: a pause past REST still starts a build the next move
    drops~~: fixed by 4.53b.
 10. ~~A stale first dress caught in a gap of its records takes
-    `ahead.GRACE`'s kill~~: accepted as measured by 4.64c (the app from
-    its wheel, booblord's first dress after a Shape edit, this Mac at 24
-    or 4 cores): the dress takes 22-24 s, its longest record gaps 5.4-5.7 s
+    `ahead.GRACE`'s kill~~: accepted as measured by 4.64c (the app on
+    this Mac, its wheel and the checkout at 24 cores and the checkout at
+    4, booblord's first dress after a Shape edit; the kill's clicks on the
+    wheel): the dress takes 22-24 s, its longest record gaps 5.4-5.7 s
     and 4.8-5.3 s, so only a change in a gap's first 0.7 s still kills it;
     a seed's Track clicked at that change answers before the kill, in 1.5 s
     beside the running dress (1.4 s where the dress stops clean), and the
