@@ -1237,6 +1237,13 @@ The common AI hit handler, slot +0x18 of eight AI controller vtables (0x19FAE8, 
 2026-10-22: ``python -m devkit re xbe fn`` and ``find-refs --va 0x38C60 --data``; the same VA in Europe].  The player-model \
 drain shim (Step 2.153, X37) compares a toucher's controller's slot with it, so it passes only a common AI critter's \
 no-hit window."""
+ai_think_base = """\
+The common AI think: a critter's think calls it each tick, and it runs the controller's state machine through vtable \
++0x24 that tick.  __thiscall: ECX the AI controller, no stack argument; plain RET at both exits (0x37A31, 0x37A68) \
+[verified 2026-11-15: ``python -m devkit re xbe calls --to 0x37950`` (12 calls) and ``insns --mnemonic ret --range \
+0x37950:0x37A70`` on both releases; the same VA in Europe].  0x2BBF2 and 0x26099 set only ECX (``mov ecx, ebx``) \
+before their calls.  The death realm unlock's shim (Step 4.71a, AZ-836) takes Spideyzar's think's CALL at 0x2BBF4 and \
+jumps here after writing his speed, wait and movement, so they reach the same tick."""
 critter_play_fx = """\
 Plays an fx at a critter.  __thiscall: ECX the critter, the fx key (a string, e.g. \"fx/damage/fx_fire_3\") on the \
 stack; it plays it at the critter's bind interface (+0x170) through the fx system 0x649E0 and pops the key (RET 4 at \
