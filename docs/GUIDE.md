@@ -42,14 +42,13 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 - **Seed difficulty:** Easy, Normal, Hard or Expert, with any settings. Harder levels put key items deeper in the
   chain of finds, in side rooms and dead ends, and behind the hardest tricks you allowed, so you need those tricks
   more; Easy puts them early and close. Normal is the default, and every seed stays beatable.
-- **36 rated skips:** each on or off, or by group, whose tick turns on all of its: power storage, roll and flap
-  tricks, barriers, dark rooms, out of bounds, super jumps.
-- **Dark areas:** they need Fire 1, unless a dark-room skip is on; then no fire.
+- **36 rated skips:** each on or off, or a whole group at once: power storage, roll and flap tricks, barriers, dark
+  rooms, out of bounds, super jumps.
+- **Dark areas:** they need Fire 1 unless a dark-room skip is on.
 - **Obsidian cost:** any number per lock (the game's is 10).
 - **Save-point warp:** off by default; tick it (it ticks its pack too) and the logic and Seed difficulty count it,
   which can add seed variety.
-- **Seeds:** any text is a seed (an empty one is refused, never a default), or New draws one; the same seed and
-  settings give the same game everywhere.
+- **Seeds:** any text is a seed, or New draws one; the same seed and settings give the same game everywhere.
 - **Share strings and files:** one `AZR-` string holds every setting; settings files save and load,
   Azurik_Modkit's too.
 - **Plan files:** Open a plan… builds a plan file (`azurkit plan`'s, Azurik_Modkit's too) exactly, its seed and
@@ -58,14 +57,14 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
   until you do. Keeping obsidians vanilla is one: most of the spots the disc fragments and elemental powers may take
   hold an obsidian, so tick Obsidians, or keep those two vanilla too.
 - **Works with movement mods:** your jump, speed, gravity and flap settings pick the movement difficulty the seed is
-  made at (stronger moves play like Hard or Frame-perfect, weaker like Safe), never refused; a seed with any moved
-  setting isn't promised beatable, and the page and spoiler say so.
+  made at (stronger moves play like Hard or Frame-perfect, weaker like Safe, the tier below Standard), never
+  refused; a seed with any moved setting isn't promised beatable, and the page and spoiler say so.
 - **Sealed items stay sealed:** an item placed in an ice or acid block, a gem rock or behind a force field can be
   picked up only once it opens.
-- **Character builds share alike:** the share string carries the body you wear, so a seed you track or share
-  wearing it is the one its build places.
-- **Checked before it's saved:** the finished image is read back against its plan, and any mismatch no later
-  change explains stops the build.
+- **Character builds share alike:** the body you wear folds its size into the share string, so a seed you track or
+  share wearing it is the one its build places.
+- **Checked before it's saved:** the finished image is read back against its plan, and a mismatch your packs,
+  character or edits don't explain stops the build, saying where.
 - **Logic verdict:** whether the logic still holds, and why not (a pack over an item spot, an unmodelled setting,
   a costlier lock, a worn body).
 - **One build:** randomize and patch together, on USA or Europe.
@@ -75,7 +74,7 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 ## Item tracker
 
 - **Track any seed:** a randomized build (the one you just built, or any you open on the Tools tab: Track this
-  build), a seed you haven't built yet, or a plan file.
+  build), a seed you haven't built yet (Track this seed), or a plan file.
 - **What a seed took:** under the head line, how many key-item steps the seed has, how many key items lie off the way
   through and how many points need a trick; with Spoiler on, which tricks, e.g. "needs Roll jumps twice".
 - **Where you stand:** what you've collected and what you can reach right now, sphere by sphere.
@@ -87,7 +86,7 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
   in full, with the item the unmodified game puts at each spot.
 - **Level maps:** floors, zoom and pan; click a spot to mark it, or an exit to jump to its level. Each item shows
   on the floor of the room it stands in, and each floor's button shows how many are left on it; the other floors'
-  items show faintly, fainter the further the floor. The maps stay sharp when zoomed in.
+  items show faintly, fainter the further the floor.
 - **Every lock labelled:** exits, barriers, key locks and disc seals show what they need, and so does each spot
   you hover; save points and teleporters are marked.
 - **World map:** each level with a badge of the spots you can reach now.
@@ -95,7 +94,7 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 - **Gems:** a coloured dot for each of the 1,215 gem spots, and the gems taken and left on each level.
 - **Collected spots leave the map:** Show collected brings them back, dimmed. A pickup Live sees flashes on the map
   and says what you got.
-- **Remembers your marks** for your last 20 seeds, never your image; Reset clears them.
+- **Remembers your marks** for your last 20 seeds; Reset clears them.
 - **Live, in the app:** marks what you pick up in a running xemu and shows where you are, with Find me and Follow,
   which switches the map to the floor you stand on.
 - **Live only reads:** it never writes to xemu or pauses the game.
@@ -121,7 +120,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Any weapon on any model:** all five are listed even before you pick your image, a pick nobody has seen in game
   says (not tested), and Preview shows the weapon in a small popup.
 - **Objects tucked away:** the 76 pickups, keys and statues you can wear stay out of the list until you tick Show
-  objects (remembered); one you already wear stays listed.
+  objects (remembered).
 - **See it first:** the chosen model from the front and from behind, before you pick your image; G4 and how a
   weapon fits say they need your image.
 - **Match Garret in one click:** a G4 button beside model size, attack reach, damage and speed sets the body to
@@ -130,7 +129,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   weaponless townsfolk fight bare-handed, and the air elemental's gust whirls up a tornado; nothing to download.
 - **Two ways to play:** the creature's own moves (the default), or Garret's exact moves in its skin.
 - **Any size:** the body's own or Garret's height, times any scale you like.
-- **Borrowed moves:** Garret's moves fill a body's gaps, fitted onto 36 different skeletons.
+- **Borrowed moves:** Garret's moves fill a body's gaps.
 - **Speed that fits:** walk and roll speed scale with the body, and the speed toggle flips to its own pace.
 - **Weapons:** Garret's Axion staff, the farmer's hoe, Balthazar's magic, the spin attack or bare hands.
 - **Attacks:** reach, damage and speed multipliers.
@@ -142,32 +141,30 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Voice:** the creature's own sounds, or Garret's.
 - **Target RAM:** the machine the build is for, From your packs (the default), 64 MiB for a retail Xbox, or 128 or
   256 MiB for xemu; it moves only how large a model may be (`"ram": 64`), and another model and Reset keep it.
-- **Variants:** Beamlord, and Booblord (blue skin, a high black ponytail, red eyes, an orange top and sash over
-  black satin shorts) as she is, in high detail, in human colours (tan skin, brown eyes, an indigo top and sash) or
-  both, each a recipe over a creature's body applied to your own copy; or your own: a recipe file, or a variant you
-  saved, worn by name (a folder each in `variants` in AzurKit's data folder, where Modkit saves them), its shapes
-  sized as you like. Booblord's four need her own moves and voice, extra files from our Azurik-Custom-Content; a
-  build without them stops, naming the file.
-- **Make your own (the Variants view):** beside Models, a list of the built-in variants and yours, each in its
-  grade's colour as in Models (one that won't load is marked, saying why). New starts one on any species' body, New
-  from this copies the one open with all its files so every field is yours, Save, Save as and Delete (after a yes)
-  keep your library, and Import and Export move one as a zip (naming any file in it made from the game's, which
-  isn't yours to share). Body sets its size, scale, arms out, rotate, title and notes, Gameplay its mode, Shape a
-  slider for each of its shapes (a drag shows the nearest shape at once, marked Preview; let go, a quick preview of
-  it once checked, else the Check) with its mesh's ops, Jiggle each spring's stiffness, damping and strength (add one
-  on a free bone, or remove one), Moves and Attacks the clip each move and attack plays (its own, or once you pick
-  your image another body's, Garret's too; Attacks also sets its weapon and attack numbers and switches), Sounds its
-  own or Garret's sounds, a silent voice, a WAV per role (Add WAV copies one into its folder) and a made sound's
-  numbers, Effects its fireball, shield or beam rows on the attack columns you tick (each row's template, colour and
-  numbers; a Check shows the bytes each adds), and JSON shows the whole recipe (Apply checks it first and keeps the
-  old one if it's refused). The status line gives its grade, and whether it's saved and checked; Check with game
-  data (once you pick your image) dresses it as a build would, answers, then draws it: a first Check of new content
-  takes a while, with a bar; one of a built-in, its own copy or a copy of a variant checked before, or one after you
-  change a spring's numbers, a colour or a sound, takes a few seconds; checking it again unchanged answers at once,
-  or in a couple of seconds right after a Check. Unsaved edits are asked about before you leave them, build that
-  variant, or close the page or the app's window. The web page keeps your variants in your browser (Clear in the
-  Tools tab removes them: Export one to keep a copy). Yours show under the models too, as Yours, and Edit… opens a
-  chosen variant here.
+- **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both; or your own: a recipe
+  file, or a variant you saved, worn by name (a folder each in `variants` in AzurKit's data folder, where Modkit
+  saves them), its shapes sized as you like (a moved shape shows the nearest one at once, marked Preview, until its
+  own pictures are drawn). Booblord's four need her own moves and voice, extra files from our Azurik-Custom-Content;
+  a build without them stops, naming the file.
+- **Make your own (the Variants view):** beside Models, a list of the built-in variants and yours, each in its grade's
+  colour as in Models (one that won't load is marked, saying why). New starts one on any species' body, New from this
+  copies the one open with all its files so every field is yours, Save, Save as and Delete (after a yes) keep your
+  library, and Import and Export move one as a zip (naming any file in it made from the game's, which isn't yours to
+  share). Body sets its size, scale, arms out, rotate, title and notes, Gameplay its mode, Shape a slider for each of
+  its shapes (a drag shows the nearest shape at once, marked Preview; letting go draws a quick preview, or runs the
+  Check if it isn't checked yet) with its mesh's ops, Jiggle each spring's stiffness, damping and strength (add one on
+  a free bone, or remove one), Moves and Attacks the clip each move and attack plays (its own, or once you pick your
+  image another body's, Garret's too; Attacks also sets its weapon and attack numbers and switches), Sounds its own or
+  Garret's sounds, a silent voice, a WAV per role (Add WAV copies one into its folder) and a made sound's numbers,
+  Effects its fireball, shield or beam rows on the attack columns you tick (each row's template, colour and numbers; a
+  Check shows the bytes each adds), and JSON shows the whole recipe (Apply checks it first and keeps the old one if
+  it's refused). The status line gives its grade, and whether it's saved and checked; Check with game data (once you
+  pick your image) dresses it as a build would, answers, then draws it: a first Check of new content takes a while,
+  with a bar; one of a built-in, its own copy or a copy of a variant checked before, or one after you change a
+  spring's numbers, a colour or a sound, takes a few seconds; checking it again unchanged answers at once, or in a
+  couple of seconds right after a Check. Unsaved edits are asked about before you leave them, build that variant, or
+  close the page or the app's window. The web page keeps your variants in your browser (Clear in the Tools tab removes
+  them: Export one to keep a copy). Yours show under the models too, as Yours, and Edit… opens a chosen variant here.
   Writing a recipe by hand, or sharing one: [VARIANTS.md](VARIANTS.md).
 - **Colours (the Variants view's Colours tab):** pick a row of the body's textures (or all), then drag on the colour
   wheel to move its main colour (its most common colour that isn't a grey or a near-black), with a bar for
@@ -176,18 +173,16 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   drag. Once you pick your image, Export PNGs saves each row's texture as built (the app: a folder in Downloads;
   the web page: a zip), and Import PNG brings an edited one back as that row's texture. Undo (⌘Z or Ctrl+Z) takes
   back any edit in the view, a drag as one step.
-- **Three drop-downs:** the models list folds into Species (open), Community and Yours (shut until you open one);
-  each heading counts its models and names the one you chose, its group opens when you choose one in it, and a
-  search opens the groups it finds models in.
-- **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install
-  and Update (or `azurkit content install booblord`); every file is checked first, so a bad download keeps nothing,
-  and an installed one stays at its version until you update it. An update only goes up, from where it was
-  installed. An entry whose new version needs a newer AzurKit shows its Install or Update greyed, saying to update
-  AzurKit, and nothing downloads; one you have stays as it is. The web page reads ours from GitHub, or any https
-  repository you set as Content from. A repository's own characters work too: listed under their entry and in the
-  Variants view, built, checked and shared by name like ours; one whose files changed since its install, or named
-  like ours, yours or a species, is refused, saying why. In the browser, Booblord's pictures and G4 values can run
-  out of memory: the app draws them.
+- **Three drop-downs:** the models list folds into Species, Community and Yours; a search opens the groups it finds
+  models in.
+- **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install and
+  Update (or `azurkit content install booblord`); every file is checked first, so a bad download keeps nothing, and an
+  installed one stays at its version until you update it. An update only goes up, from where it was installed, and a
+  web source is https. An entry whose new version needs a newer AzurKit shows its Install or Update greyed, saying to
+  update AzurKit; one you have stays as it is. Ours come from GitHub, or any repository you set as Content from. A
+  repository's own characters work too: listed under their entry and in the Variants view, built, checked and shared
+  by name like ours; one whose files changed since its install, or named like ours, yours or a species, is refused,
+  saying why. In the browser, Booblord's pictures and G4 values can run out of memory: the app draws them.
 - **Ready-made bodies:** every body's size at its defaults ships with AzurKit, and Booblord's whole build at the
   defaults comes with her download, so their first Build is quicker.
 - **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
@@ -200,13 +195,13 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 ## Data
 
 In the page's Data tab, in the browser and the app alike, or read from the command line (`azurkit data`). It works
-before you pick your image: AzurKit ships the game's original config.xbr, the same on both releases.
+before you pick your image, and its numbers are the same on both releases.
 
 - **Views:** the Player, Critters, Items, Armor and Weapons, each entity's numbers from every table that holds them,
   with a search box; All tables, each as a grid you can sort, or show only what you changed.
 - **Pictures:** the Critters and Items lists show each one's body, before you pick your image too.
 - **All files:** with your image picked, every .xbr file of it and each one's tables (only config.xbr has any on the
-  original disc); greyed until you pick it. On the command line, `azurkit data --iso PATH --files` or `--file FILE`.
+  original disc). On the command line, `azurkit data --iso PATH --files` or `--file FILE`.
 - **Read a build:** on the command line, `azurkit data --iso PATH` reads any image's tables, a build's too, and
   `--input FILE` a loose .xbr file; `azurkit diff` and `entity diff` take one too. They never write it.
 - **Edit any cell:** any number, never clamped; only a value the game can't store is refused, saying why. Each cell
@@ -221,15 +216,15 @@ before you pick your image: AzurKit ships the game's original config.xbr, the sa
   table by table, with what only one of them has.
 - **A template to edit:** `azurkit mod-template` writes a table's (or one entity's) original values as a mods file;
   change what you like and build with it.
-- **Undo and Redo,** Revert a cell, Reset a table, Clear edits. Your edits join each build after the packs, and a
-  link, a mods file and the remembered setup keep them.
+- **Undo and Redo,** Revert a cell, Reset a table, Clear edits; a link, a mods file and the remembered setup keep
+  them.
 
 ## Tools
 
 In the page's Tools tab, in the browser and the app alike, or from the command line (`azurkit files`).
 
 - **Your image:** its release, size and kind (original, an AzurKit build with what made it, or modded with the first
-  file that differs); greyed until you pick it.
+  file that differs).
 - **Verify every file:** all 1,195 checked against the original disc, with a bar.
 - **Its files:** the whole list, with a filter; Extract one (the browser downloads it from your own file, the app
   writes it where you choose, never over your image).
@@ -237,7 +232,7 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
   spoiler and the last build's report.
 - **Build logs, in the app:** each build's log (its recipe and report, or why it failed, and where it was saved) is
   kept on your computer; open the folder or the last one from the Tools tab.
-- **AzurKit's storage:** what AzurKit keeps on this computer, by name, and Clear; never your image.
+- **AzurKit's storage:** what AzurKit keeps on this computer, by name, and Clear, which never touches your image.
 
 ## Building and sharing
 
@@ -260,22 +255,18 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Play it in xemu:** after a Save, one line says how: Machine › Load Disc… and the image you saved (in the app,
   Play too), with xemu's memory at 128 MiB for More RAM and large characters, or 256 MiB for a build with the
   optional 256 MiB.
-- **Builds carry their recipe:** `azurkit open`, or picking the build in the page, gives it back.
-- **Tamper check:** a build changed after it was made is refused by name.
+- **Builds carry their recipe:** `azurkit open`, or picking the build in the page, gives it back; a build changed
+  after it was made is refused by name.
 - **Share links:** Copy link makes a short link with your packs, settings, seed, character and Data edits, never your
   image or a path; a mods file's byte edits and level moves stay out, refused by name (share the mods file for those).
 - **Starts fresh each visit:** tick Remember settings to keep your setup for next time, never your image.
 - **Game data edits:** a mods file can set any value in `config.xbr` by name, replace bytes in an XBR file, or move
   a level's item or critter; `azurkit build` takes several, applied in order, and says where a later one changes what
   an earlier one set.
-- **Modkit's mod files:** a mod file from Azurik_Modkit loads and builds too (its patches, sections,
-  `_keyed_patches`, `xbr_edits` and its level's moves, each by the name the original level gives it, even in a
-  randomized build); what AzurKit can't apply as written, such as a rename, is refused by name.
-- **Same bytes everywhere:** the page, the app and the command line make the identical image; only a character's
-  build may differ in its last digits in the browser or on another computer.
-- **Nothing to compile:** AzurKit's compiled code ships prebuilt for each computer and the browser, so nothing
-  compiles on yours.
-- **Fast:** from the command line on our Mac: a patched image in about 3 s, a swap in 8 s, a seed under 30 s.
+- **Modkit's mod files:** a mod file from Azurik_Modkit, the toolkit AzurKit replaces, loads and builds too, its
+  level moves even in a randomized build; what AzurKit can't apply as written, such as a rename, is refused by name.
+- **Same bytes everywhere:** the page, the app and the command line make the identical image; with a character, a
+  few of its numbers may round differently in the browser or on another computer.
 
 ## Where it runs
 
@@ -293,12 +284,13 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **No console window on Windows:** the app opens its window alone; what it would print goes to `app.log` in its
   log folder, which the Tools tab opens, and its commands print in the terminal you run them from (to wait for one
   and get its exit code, run it with `start /wait` in cmd or `Start-Process -Wait -PassThru` in PowerShell).
-- **Unsigned apps:** for Apple Silicon Macs, Windows and Linux, each with a checksum and a build attestation
-  ([Download and check it](#download-and-check-it), below).
-- **Intel Macs:** use AzurKit in your browser, or AzurKit 1.3.0's app from Releases, the last one built for them.
-- **Greyed until it can work:** Build, Save and the original values wait on your image (or a build) and say so.
-- **Progress bars:** a build, a save, the tracker's Track and your image's first check show their step and percent;
-  in the app, anything slower than a second shows what it is doing.
+- **Apps:** for Apple Silicon Macs, Windows and Linux ([Download and check it](#download-and-check-it), below).
+- **Intel Macs:** use AzurKit in your browser, or AzurKit 1.3.0's app from Releases
+  (`AzurKit-1.3.0-macos-x86_64.zip`), the last one built for them.
+- **Greyed until it can work:** what needs your image (or a build), such as Build, Save and the original values,
+  waits for it and says so.
+- **Progress bars:** a build, a save and the tracker's Track show their step and percent, and anything else slower
+  than a second shows what it is doing.
 - **Cancel any time:** Cancel stops a build or a save (in the app, a build at once); closing the app mid-build or
   mid-save leaves no half-written file.
 - **The app stays quick while it builds:** picking an image and the other tabs answer at once.
@@ -308,14 +300,13 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
   second or two.
 - **Dressed once, on the web page too:** the last 32 characters you built are kept in your browser, so building one
   again, on a later visit too, skips dressing it.
-- **A private app:** its page is served only to itself.
-- **Dark or light:** your pick is remembered, and both are easy to read.
-- **Platform:** About names where AzurKit runs: the app its system and processor, the web page Pyodide in your
-  browser.
+- **Dark or light:** your pick is remembered.
+- **Platform:** About names where AzurKit runs.
 
 ## The command line
 
-Install it with `uv tool install azurkit` or `pipx install azurkit` (Python 3.14), from PyPI; the app doubles as it.
+Install it with `uv tool install azurkit` or `pipx install azurkit` (Python 3.14), from PyPI. The app doubles as it:
+give its program a command, such as `AzurKit verify` (on a Mac, `AzurKit.app/Contents/MacOS/AzurKit verify`).
 `azurkit --help` lists every command.
 
 ```bash
@@ -335,8 +326,6 @@ azurkit files | data | save              # an image's files, config.xbr's tables
 azurkit content [install ID | update ID] [--source URL|DIR]   # Azurik-Custom-Content's entries
 ```
 
-A flag is read only as spelled: `--no-def` is refused, never taken for `--no-defaults`.
-A mods file a build can't read is named in the error, with the line where it goes wrong.
 A build never writes over its game image, nor beside a vanilla image named `usa.iso` or `europe.iso` (or the one
 `AZURKIT_ISO` or `AZURKIT_ISO_EUROPE` names), nor anywhere in an `iso` folder that holds one.
 
@@ -344,9 +333,8 @@ A build never writes over its game image, nor beside a vanilla image named `usa.
 
 - **Download only from [Releases](https://github.com/Azurik-Modding-Hub/AzurKit/releases).** An app is code that runs as
   you, and a copy posted anywhere else may not be ours. Each release holds `AzurKit-<version>-macos-arm64.zip`,
-  `-windows-x86_64.zip` and `-linux-x86_64.tar.gz`, the wheel and sdist, and `SHA256SUMS` (up to 1.3.0, also
-  `-macos-x86_64.zip` for Intel Macs).
-- **The command line alone:** `uv tool install azurkit` or `pipx install azurkit` (Python 3.14), from PyPI.
+  `-windows-x86_64.zip` and `-linux-x86_64.tar.gz`, the wheel and sdist, and `SHA256SUMS`.
+- **The command line alone:** install it from PyPI ([The command line](#the-command-line)).
 - **Opening it the first time:** the apps are unsigned. On a Mac, open it, then choose Open Anyway in System Settings ›
   Privacy & Security; never turn Gatekeeper off. On Windows, choose More info › Run anyway.
 - **Checking it:** GitHub signed a record of the run that built each file, so this says it came from this repository's
