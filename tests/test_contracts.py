@@ -643,9 +643,8 @@ def test_each_release_job_starts_behind_harden_runner_the_dry_runs_blocking_all_
     assert [name for name in first if bool(hosts[name]) != (name in DRY_RUN)] == []
 
 
-UV_RUNNERS = {"aarch64-apple-darwin": "tar.gz", "x86_64-apple-darwin": "tar.gz", "x86_64-pc-windows-msvc": "zip",
-              "x86_64-unknown-linux-gnu": "tar.gz"}
-"""uv's artifact for each runner the workflows run on, and its archive's format."""
+UV_RUNNERS = {"aarch64-apple-darwin": "tar.gz", "x86_64-pc-windows-msvc": "zip", "x86_64-unknown-linux-gnu": "tar.gz"}
+"""uv's artifact for each runner the workflows run on, and its archive's format (no Intel Mac's since Step 4.67a)."""
 
 
 def test_every_setup_uv_step_reads_its_manifest_inline_the_record_of_the_uv_it_installs_alike_in_every_workflow():
