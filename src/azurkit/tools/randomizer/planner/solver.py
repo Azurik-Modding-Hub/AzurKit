@@ -69,6 +69,17 @@ D169's checks count it as they count the skips: a mark holds under it, or
 (a route mark with an ``unless``) only for its ``only`` items
 (:meth:`Logic.without`).
 
+**The death realm unlock** (D201, D1301, D1302; ``Settings.death_realm``, the
+pack ``death_realm``, whose ten curve keys open d1's seal at any disc count):
+with it counted, the seal (:data:`DEATH_SEAL`) needs only its hand
+requirement and light, town's door to d1 (:data:`DEATH_DOOR`) only what its
+requirement holds beside the discs (the four powers, which keep a player
+without the realm's kit out of d2's one-way drop), and Spideyzar's kill
+(:data:`DEATH_KILL`, the victory) the seal's own generated requirement, all
+five discs at 4, so a seed is won with the five as before. Nothing else
+changes: no edge, item or spot, so the flags forced on entry and the regions
+are as they were.
+
 **The cost** (plan §2.13): a backward search from the start, in which an
 edge is passable on the items held and the flags its own source node can
 set, finds most safe nodes with no closure (the fast path), and a closure
@@ -117,6 +128,9 @@ TRICK_FREE = Settings(0, "frame_perfect", {})     # no skip, every player tier's
 SWITCH = "(on) "                                  # a switchable option set's flag for a skip it turns on: this, its id
 STRICTEST = Settings(0, "safe", {})               # no skip, the safe tier (rule 10's options)
 WARP_TOWN = ("town", "Temple")                    # the save-point warp's town: its level and save point (the shim's)
+DEATH_SEAL = "d1.seal"                            # the death realm unlock's (module doc): the seal it opens,
+DEATH_DOOR = "town/g1/r3059"                      # town's exit to d1, its disc conjuncts dropped,
+DEATH_KILL = "d1.spideyzar.killed"                # and the victory that takes the seal's five discs over
 NAMED_KEPT = 1024                                     # :meth:`Logic._named`'s sets, then it starts again
 _ALL = 1 << 30                                        # a counter "with every item"
 
@@ -143,8 +157,10 @@ _true.ast, _false.ast = ("true",), ("false",)
 
 
 def trick_free(settings: Settings) -> Settings:
-    """:data:`TRICK_FREE` with what ``settings`` count beside the skips: the save-point warp (not a skip)."""
-    return replace(TRICK_FREE, save_warp=True) if settings.save_warp else TRICK_FREE
+    """:data:`TRICK_FREE` with what ``settings`` count beside the skips: the save-point warp and the death realm
+    unlock (not skips)."""
+    return replace(TRICK_FREE, save_warp=settings.save_warp, death_realm=settings.death_realm) \
+        if settings.save_warp or settings.death_realm else TRICK_FREE
 
 
 def _all(rules: Iterable[Rule]) -> Rule:
@@ -272,6 +288,7 @@ class _Rules:
 
     def __init__(self, logic: Logic, settings: Settings, physical: bool = False, switchable: bool = False):
         self.logic, self.db, self.physical, self.switchable = logic, logic.db, physical, switchable
+        self.realm = settings.death_realm     # the death realm unlock counted (module doc)
         self.on = frozenset(skips_on(settings, logic.skip_tables))
         self.tier = MOVEMENT_TIERS.index(settings.movement_tier) + 1
         self.memo: dict[tuple, Rule] = {}
@@ -311,7 +328,8 @@ class _Rules:
             else:
                 self.credits.append((oid, lg.canon(o["at"]), terminal, _all(
                     [self.expr(o.get("requires", "true")), self.light_at(o["at"]),
-                     *(self.opened(b, lg.canon(o["at"])) for b in lg.required_for.get(oid, ()))])))
+                     *(self.opened(b, lg.canon(o["at"])) for b in lg.required_for.get(oid, ())),
+                     *([self.expr(self.base(db.hand[DEATH_SEAL][2]))] if self.realm and oid == DEATH_KILL else [])])))
         self.locations: list[tuple[str, str, Rule]] = []
         for loc, lvl in sorted(lg.pool.items()):
             if lvl in db.stubs:
@@ -440,6 +458,8 @@ class _Rules:
         count, less the refund keys still on their spots (``Logic.keys``;
         physically, one key opens it)."""
         o = self.db.hand[bid][2]
+        if self.realm and bid == DEATH_SEAL:   # the death realm unlock: no disc (module doc)
+            return self.expr(o.get("requires", "true"))
         bump = None if self.physical else self.logic.keys.get(bid)
         return _all([self.expr(self.base(o), bump), self.expr(o.get("requires", "true"))])
 
@@ -471,10 +491,22 @@ class _Rules:
         a, b = lg.canon(e["from"]) if e["from"] else lvl, lg.canon(e["to"])
         if a == b:
             return None
-        return a, b, _all([self.expr(e.get("requires", "true")),
+        needs = self.expr(e.get("requires", "true")) if not (self.realm and e.get("exit") == DEATH_DOOR) \
+            else self.ast(_discless(e.get("requires", "true")))
+        return a, b, _all([needs,
                            *(self.passes(x, e["from"], e["to"]) for x in e.get("through", [])),
                            *(_flag(x) for x in (() if self.physical else e.get("assumes", ()))),
                            self.light(e.get("dark", False))])
+
+
+def _discless(text: str) -> tuple:
+    """The death realm unlock's town door (:data:`DEATH_DOOR`): its requirement, a top-level AND, without its
+    disc counters; any other shape is refused, so data drift fails loudly."""
+    a = parse(text)
+    discs = set(DISCS.values())
+    if a[0] != "and" or not any(x[0] == "counter" and x[1] in discs for x in a[1]):
+        raise ValueError(f"the death realm's door {DEATH_DOOR}: its requirement {text!r} is no AND of the discs")
+    return "and", tuple(x for x in a[1] if not (x[0] == "counter" and x[1] in discs))
 
 
 @dataclass
@@ -596,7 +628,8 @@ class Logic:
         ``physical``, its skips switchable when ``switchable``), compiled
         once: the fill reaches many placements under the same options."""
         key = (settings.skip_ceiling, settings.movement_tier, tuple(sorted(settings.skip_override.items())),
-               physical, *(("switchable",) if switchable else ()), *(("warp",) if settings.save_warp else ()))
+               physical, *(("switchable",) if switchable else ()), *(("warp",) if settings.save_warp else ()),
+               *(("realm",) if settings.death_realm else ()))
         if (got := self._compiled.get(key)) is None:   # one look: a spoiler's openers drop other settings' on their thread
             got = self._compiled[key] = _Rules(self, settings, physical, switchable)
         return got
@@ -869,7 +902,8 @@ class Logic:
         nodes, locations and items in sorted order) and each rule its
         closures' ``ast``, numbered children first."""
         key = (settings.skip_ceiling, settings.movement_tier, tuple(sorted(settings.skip_override.items())),
-               *(("switchable",) if switchable else ()), *(("warp",) if settings.save_warp else ()))
+               *(("switchable",) if switchable else ()), *(("warp",) if settings.save_warp else ()),
+               *(("realm",) if settings.death_realm else ()))
         if (got := self._native.get(key)) is not None:
             return got
         logic, phys = self.rules(settings, switchable=switchable), self.rules(settings, True, switchable)
@@ -1125,7 +1159,8 @@ class Logic:
             self._add(collections.Counter(), kout, *self.vanilla[loc])
         st, memo = settings, self._kit_memo
         reads, opts = self.reads(st), (st.skip_ceiling, st.movement_tier,
-                                       tuple(sorted(st.skip_override.items())), st.save_warp)
+                                       tuple(sorted(st.skip_override.items())), st.save_warp,
+                                       *(("realm",) if st.death_realm else ()))
         every = {it["name"]: self.items[it["name"]] for it in self.db.items["item"] if it["class"] == "progression"}
         prog = every if items is None else {name: every[name] for name in items}
         if loc in self.prefilled:

@@ -50,6 +50,8 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 - **Obsidian cost:** any number per lock (the game's is 10).
 - **Save-point warp:** off by default; tick it (it ticks its pack too) and the logic and Seed difficulty count it,
   which can add seed variety.
+- **Death realm:** off by default; tick it (it ticks its pack too) and the logic counts d1 and d2 open before the five
+  discs; Spideyzar's kill still needs all five.
 - **Seeds:** any text is a seed, or New draws one; the same seed and settings give the same game everywhere.
 - **Share strings and files:** one `AZR-` string holds every setting; settings files save and load,
   Azurik_Modkit's too.

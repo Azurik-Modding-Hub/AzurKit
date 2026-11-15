@@ -537,6 +537,12 @@ Pool locations [verified, `db_extract.py`]:
 - **`dark_fire` and the nolight skips.** A `dark` edge, and everything done at a `dark` node, needs `fire>=<dark_fire>`; when its `dark` names a nolight skip, `fire>=<dark_fire> | skip:<that skip>` (the `nolight` family's `clause_rule` in `tricks.toml`, adopted at Step R1.5: `dark = "<skip id>"`, §4.2; two nodes set it, w1's `w1_dark_cave` with `w1.dark_cave_nolight` and e7's `e7_dark_room` with `e7.dark_room_nolight`). A nolight skip the settings turn on, by the ceiling or a toggle, lifts the fire requirement for its own dark area only (the loader refuses it on another level's node or edge, or away from its `tricks.toml` `dark_node`, §9 rule 3), and every other dark area still needs `dark_fire`. The two nolight skips in logic are `w1.dark_cave_nolight` (2) and `e7.dark_room_nolight` (3), so the defaults lift neither.
   - The range is 1–3 [inferred: the light armor has three levels, 5/10/20 s per cast at fire 1/2/3, the `nolight` family's `mechanism`]. 0 is refused, because it would open every dark area without a confirmed nolight skip (default taken under D115).
 - **Monotone.** Raising `skip_ceiling` or `movement_tier`, or turning a skip on, never shrinks R or Safe, because the `skip:` atom appears only un-negated (plan §2.15). Raising `dark_fire` never grows them [inferred].
+- **The Randomizer patches' ticks** (off by default, not options of their own: each is its pack's tick, and a build
+  that applies the pack plans with it): `save_warp` (D1154, the pack `qol_save_warp`) gives each save platform with a
+  node an edge to town's; `death_realm` (D1302, Step 4.71b, the pack `death_realm`) opens d1's seal with no disc,
+  town's door to d1 with only the four powers, and moves the five discs (each at 4) onto Spideyzar's kill, the
+  victory. A settings file writes each as `<key> = true` only when it is on, so every other file, settings digest and
+  plan stays as it was.
 - **Not options:** the proven-spot rule for majors (§4.7), `saveanywhere` (its skips are only `manual` or `held`) and the per-trick maximum tier (retired by D113).
 
 ### 7.2 Settings files (`settings/*.toml`)
@@ -584,6 +590,13 @@ The share string is a settings file's compact, versioned and lossless text form,
   | then | only in versions 1–3: `exclude_categories` as a mask, bit i for the i-th of `fragments`, `powers`, `gems`, `obsidians`, `consumables`, `upgrades` (bit 5, Step 2.90a: append only); no bit past them, and in version 1 never 0 (that is version 0). In versions 1 and 2 the `powers` bit keeps the upgrades too (a format `/1` file's meaning), so both kept set bit 1 alone (bits 1 and 5 together are not canonical) and the upgrades alone set bit 5; version 3 holds the elemental powers kept alone |
   | then | only in versions 2 and 3: the count n of movement sliders (n ≥ 1 in version 2) set otherwise than vanilla (one byte), then n of: the slider's index in `settings.SHARE_SLIDERS` (one byte; the 15 of `physics.SLIDERS`, append only) and its value (float64, little-endian), indices strictly increasing. The logic of the plan is re-checked under them (Step R1.14b), so the string replays the plan; a settings file can't hold them (it stays `/1`), a plan file's `share` and a build's placement file (`sliders`) do |
 
+- **Versions 4, 5 and 6** (D1157, D1154, D1302): version 4 is a seed difficulty over Normal: version 3's fields with
+  a literal category mask (a bit per category, never folded) and a slider count (0 too), then one byte,
+  `seed_difficulty_fill << 3 | level`. Version 5 is version 4's layout (its level byte 0 at Normal), then an options
+  byte, `1` (the save-point warp counted), its only value. Version 6 is version 5's layout with the death realm
+  counted: its options byte holds `2` (the realm, required) and `1` when the warp is counted too, and that bit names
+  the fill its level byte was made at. Each is written only when its field is on, so every older string stays as it
+  was; an older AzurKit refuses version 6 as an unknown version.
 - **Canonical.** A decoder refuses an out-of-range field, trailing bytes, and any string that doesn't re-encode to itself, so each set of options has exactly one string.
 - **The registry tag.** It ties a string with toggles to the database it was made for: another database refuses it ("made for another skip registry: load the settings file instead"). A string with no toggle carries no tag and works with any database. The settings file is the durable form; the string is the compact one. A string made before its batches (Step R1.31: the tag of every skip's own id, sorted, `710ca8a0` for that step's 42) still decodes against the same skips: its indices name the variants, and each loads as its batch (§7.2); the string is canonical against that registry.
 - **Sizes.** With no toggle the payload is 2 bytes: `AZR-` and 4 characters. The defaults are `AZR-AAEA` (D186's standard movement; `AZR-AAIA`, D144's hard, still decodes) [verified, `rando check`, 2026-10-13]. Toggles add a 4-byte tag and a count, then 1 byte each while the gap from the previous toggle is under 64 skips (2 bytes under 8,192); a scratch example's 4 toggles, each 1 byte, made 22 characters in all [verified, a round trip through `share_encode` and `share_decode`, 2026-10-12].

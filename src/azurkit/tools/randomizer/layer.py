@@ -133,6 +133,7 @@ def settings_doc(settings: Settings) -> dict:
     form, kept = category_table(settings.exclude_categories)
     level = {"seed_difficulty": SEED_DIFFICULTY_NAMES[settings.seed_difficulty]} if settings.seed_difficulty else {}
     warp = {"save_warp": True} if settings.save_warp else {}
+    warp |= {"death_realm": True} if settings.death_realm else {}
     return {"format": form, "skip_ceiling": settings.skip_ceiling,
             "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE, **level, **warp,
             "exclude_categories": kept, "skip_override": dict(sorted(settings.skip_override.items()))}
@@ -145,6 +146,7 @@ def settings_text(settings: Settings) -> str:
              f'movement_tier = "{t["movement_tier"]}"', f"dark_fire = {t['dark_fire']}",
              *([f'seed_difficulty = "{t["seed_difficulty"]}"'] if "seed_difficulty" in t else []),
              *(["save_warp = true"] if t.get("save_warp") else []),
+             *(["death_realm = true"] if t.get("death_realm") else []),
              "exclude_categories = [" + ", ".join(f'"{c}"' for c in t["exclude_categories"]) + "]",
              "", "[skip_override]"]
     lines += [f'"{sid}" = {"true" if on else "false"}' for sid, on in t["skip_override"].items()]

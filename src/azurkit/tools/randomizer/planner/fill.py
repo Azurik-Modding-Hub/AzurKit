@@ -230,7 +230,7 @@ def settings_table(settings: Settings) -> dict:
     setting without it keeps its digest (and both powers rows kept are
     format /1's ``powers``, so an old setting's too, Step 2.90a); a seed
     difficulty's name and its fill's version likewise only above Normal, so a
-    Normal plan is today's, and ``save_warp`` only when on (D1154)."""
+    Normal plan is today's, and ``save_warp`` and ``death_realm`` only when on (D1154, D1302)."""
     form, kept = category_table(settings.exclude_categories)
     table = {"format": form, "skip_ceiling": settings.skip_ceiling,
              "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE,
@@ -242,6 +242,8 @@ def settings_table(settings: Settings) -> dict:
         table["seed_difficulty_fill"] = seed_difficulty_fill(settings.save_warp)
     if settings.save_warp:
         table["save_warp"] = True
+    if settings.death_realm:
+        table["death_realm"] = True
     return table
 
 

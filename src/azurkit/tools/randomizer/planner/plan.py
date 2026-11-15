@@ -829,7 +829,7 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
         f"{doc['generator']}",
         f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {plan.asked.movement_tier}, dark_fire 1, "
         + (f"seed_difficulty {SEED_DIFFICULTY_NAMES[st.seed_difficulty]}, " if st.seed_difficulty else "")
-        + ("save_warp on, " if st.save_warp else "") +
+        + ("save_warp on, " if st.save_warp else "") + ("death_realm on, " if st.death_realm else "") +
         f"toggles: {toggles}" + (f", kept vanilla: {kept}" if kept else "") + f"; share {doc['share']} "
         f"(skip registry tag {registry_tag(picks(logic.skip_tables)).hex()})",
         f"database {doc['db_digest'][:12]}: the plan places {len(plan.placement)} locations of "
@@ -843,6 +843,9 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
         lines.append(f"the save-point warp is counted (qol_save_warp: LT + A, B, X, Y on a save platform goes to "
                      f"town's and back): a node that reaches a save platform is no trap once town gets back to the "
                      f"start; {sum(map(bool, rows))} of its {len(rows)} save platforms have a node and count")
+    if st.death_realm:
+        lines.append("the death realm is open (death_realm): d1's seal asks no disc, town's door to d1 only the four "
+                     "powers, and Spideyzar's kill all five discs at 4 fragments")
     if any("saveanywhere" in fam.split("+") for fam in families):
         lines.append("warning: a saveanywhere skip is on (plan §2.14): it never counts as an escape")
     reach, spheres_ = _playthrough(plan, logic)

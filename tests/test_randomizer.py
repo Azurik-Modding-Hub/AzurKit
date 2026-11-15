@@ -649,7 +649,8 @@ def test_seed_difficulty_rides_strings_and_files_and_v1_levels_load_at_the_neare
     levels (a fill 1 byte, a file's or a plan file's integer) load at the nearest one now, Standard as Hard, Hard and
     Frame-perfect as Expert, a string canonical against its own byte and the tab saying so; a byte of another fill or
     level, a plan of another fill and a file's 1, "2", true or "Medium" are refused by name. Fill 3 (4.64d) moved only
-    the seeds with the save warp counted: a fill 2 link or plan without it opens, one with it is refused by name."""
+    the seeds with the save warp counted: a fill 2 link or plan without it opens, one with it is refused by name; a
+    version 6 string (the death realm counted, Step 4.71b) takes its fill from its options byte's warp bit."""
     logic = kept_logic()
     skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
     pick = next(p for p, ids in picks(skips).items() if turnable(skips[ids[0]]) and skips[ids[0]]["difficulty"] == 2)
@@ -676,6 +677,11 @@ def test_seed_difficulty_rides_strings_and_files_and_v1_levels_load_at_the_neare
     assert share_decode(raw(2 << 3 | 2), skips) == hard and share_encode(hard, skips) == raw(2 << 3 | 2)
     assert share_decode(raw(3 << 3 | 2, warp=True), skips) == dataclasses.replace(hard, save_warp=True)
 
+    def realm(last: int, options: int) -> str:   # version 6: its options byte's warp bit names the level byte's fill
+        return "AZR-" + base64.b32encode(bytes([6, 0x13, 0, 0, last, options])).decode().rstrip("=")
+    assert share_decode(realm(2 << 3 | 2, 2), skips) == dataclasses.replace(hard, death_realm=True)
+    assert share_decode(realm(3 << 3 | 2, 3), skips) == dataclasses.replace(hard, save_warp=True, death_realm=True)
+
     for old, level in ((2, 2), (3, 3), (4, 3)):   # v1.0.0's Standard, Hard, Frame-perfect
         told = []
         assert share_decode(raw(1 << 3 | old), skips, told).seed_difficulty == level and told == [old]
@@ -684,7 +690,9 @@ def test_seed_difficulty_rides_strings_and_files_and_v1_levels_load_at_the_neare
     for text, why in ((raw(2 << 3), "seed difficulty 0 is not"), (raw(2 << 3 | 5), "seed difficulty 5 is not"),
                       (raw(1 << 3 | 1), "fill 1; this AzurKit plans with fill 2"),
                       (raw(3 << 3 | 3), "fill 3; this AzurKit plans with fill 2"),
-                      (raw(2 << 3 | 2, warp=True), "fill 2; this AzurKit plans with fill 3")):
+                      (raw(2 << 3 | 2, warp=True), "fill 2; this AzurKit plans with fill 3"),
+                      (realm(3 << 3 | 2, 2), "fill 3; this AzurKit plans with fill 2"),
+                      (realm(2 << 3 | 2, 3), "fill 2; this AzurKit plans with fill 3")):
         with pytest.raises(ValueError, match=why):
             share_decode(text, skips)
     doc = plan_doc(fill.Fill("1", Settings(3, "hard", {}, seed_difficulty=3), 0, {}), logic.db)
@@ -778,6 +786,95 @@ def test_the_save_warp_counted_frees_the_traps_a_save_platform_leaves_and_rides_
     with pytest.raises(ValueError, match="the plan's settings count the save-point warp"):
         generator.prepare({"plan": doc}, {})
     assert generator.prepare({"plan": doc}, {generator.WARP_PACK: {}}).recipe == {"plan": doc}
+
+
+def test_the_death_realm_counted_opens_d1_without_the_discs_and_keeps_the_win_on_all_five():
+    """D201, D1301, D1302 (Step 4.71b, AZ-837): with the death realm counted, d1's seal needs no disc and town's door
+    to d1 only the four powers; with every fragment but the guardians' gone and the powers held, floor 9 and every d1
+    and d2 spot are reached, yet Spideyzar's kill and the victory still need all five discs. It changes no flag forced
+    on entry and no region. A plan of it (Normal and Hard) verifies and names it in its spoiler; share version 6 and a
+    file carry it (written only when on), its options byte refused without the realm's bit or with an unknown one; a
+    build applying death_realm plans with it, settings or a plan counting it without the pack are refused, and the
+    tracker reads it. Off, plans are as before (the goldens; the eighty plans' test)."""
+    logic = kept_logic()
+    db = logic.db
+    skips = {sid: s for sid, (_, s) in db.skips.items()}
+    realm = dataclasses.replace(solver.TRICK_FREE, death_realm=True)
+    assert logic._forced_on_entry(logic.rules(realm)) == logic.forced
+    assert logic._regions(logic.rules(realm)) == logic.regions
+    assert logic._forced_on_entry(logic.rules(realm, physical=True)) == logic.forced_phys
+    on = dataclasses.replace(db.defaults, death_realm=True)
+    powers = {name: 3 for name in ("air", "water", "fire", "earth")}
+    discs = {counter: 4 for counter in ("disca", "disce", "discf", "discl", "discw")}
+
+    def opens(settings: Settings, counters: dict) -> list[bool]:   # the seal's credit, then town's door to d1
+        rules = logic.rules(settings)
+        seal = next(r for flag, _, _, r in rules.credits if flag == f"{solver.DEATH_SEAL}.open")
+        door = [r for b, r in rules.adj["town_z020"] if b == "d1_core"]
+        return [seal(counters, set()), *(r(counters, set()) for r in door)]
+    assert opens(on, powers) == [True, True] and opens(db.defaults, powers) == [False, False]
+    assert opens(db.defaults, powers | discs) == [True, True] and opens(on, {"fire": 3}) == [True, False]
+    prog = sorted(it["name"] for it in db.items["item"] if it["class"] == "progression")
+    vanilla = logic.vanilla_placement()
+    gone = {loc: None if item.startswith("frag_") and loc not in logic.guardian else item
+            for loc, item in vanilla.items()}
+    realm_spots = {loc for loc, lvl in logic.pool.items() if lvl in ("d1", "d2")}
+    held = [name for name in prog if name.startswith("power_")]
+    closed, opened = logic.reach(db.defaults, gone, items=held), logic.reach(on, gone, items=held)
+    assert ("d1_floor9" in closed.nodes, realm_spots & closed.locations) == (False, set())
+    assert ("d1_floor9" in opened.nodes, realm_spots <= opened.locations) == (True, True)
+    assert (solver.DEATH_KILL in opened.flags, opened.victory, logic.reach(on, vanilla).victory) == (False, False, True)
+
+    table = {"format": "azurik-rando-settings/1", "skip_ceiling": 0, "movement_tier": "standard", "dark_fire": 1}
+    for level in ({}, {"seed_difficulty": "Hard"}):
+        doc = randomizer.plan({"seed": "2", "settings": table | {"death_realm": True} | level})
+        plan = load_plan(doc, logic.db)
+        assert doc["settings"]["death_realm"] is True and plan.settings.death_realm
+        assert not fill.verify(logic, plan.settings, plan.placement)
+        lines = randomizer.spoiler(doc)
+        assert "death_realm on, " in lines[1] and any(line.startswith("the death realm is open") for line in lines)
+    assert tracking.tracker_of(doc).settings.death_realm
+    pick = next(p for p, ids in picks(skips).items() if turnable(skips[ids[0]]) and skips[ids[0]]["difficulty"] == 2)
+    for st in (on, Settings(4, "frame_perfect", {pick: True}, frozenset({"powers"}), JUMP, 3, True, True)):
+        text = share_encode(st, skips)
+        assert base64.b32decode(text[4:] + "=" * (-len(text[4:]) % 8))[0] == 6 and share_decode(text, skips) == st
+    for options in (1, 4, 6):   # the warp alone (version 5's), an unknown bit
+        bad = "AZR-" + base64.b32encode(bytes([6, 0x08, 0, 0, 0, options])).decode().rstrip("=")
+        with pytest.raises(ValueError, match="an option this AzurKit doesn't know"):
+            share_decode(bad, skips)
+    assert "death_realm" not in layer.settings_text(db.defaults)
+    assert "death_realm" not in PLANS["default"]["plan"]["settings"]
+    assert randomizer.literal(on)["death_realm"] is True and "death_realm" not in randomizer.literal(db.defaults)
+    assert settings_from_table(tomllib.loads(layer.settings_text(on)), skips) == on
+    with pytest.raises(ValueError, match="death_realm: 1 is not true or false"):
+        settings_from_table(table | {"death_realm": 1}, skips)
+    doc = randomizer.plan({"seed": "2", "settings": table | {"death_realm": True}})
+    built = generator.prepare({"seed": "2"}, {generator.REALM_PACK: {}})
+    assert built.plan.settings.death_realm and built.plan.doc["sha256"] == doc["sha256"]
+    with pytest.raises(ValueError, match="doesn't apply death_realm: add that pack .or untick the death realm"):
+        generator.prepare({"seed": "2", "share": doc["share"]}, {})
+    with pytest.raises(ValueError, match="the plan's settings count the death realm unlock"):
+        generator.prepare({"plan": doc}, {})
+    assert generator.prepare({"plan": doc}, {generator.REALM_PACK: {}}).recipe == {"plan": doc}
+
+
+def test_a_death_realm_seed_builds_with_its_pack_whose_seal_lands_beside_the_plans_d1_spots_verified(usa_iso):
+    """D201, D1302 (Step 4.71b, AZ-837): a seed built with death_realm alone plans with the realm counted, and the
+    pack's ten seal keys land in d1.xbr beside the plan's own d1 writes with no conflict: the image reads back to the
+    plan, its logic verified."""
+    from azurkit.tools.mods.packs import death_realm
+
+    skips = {sid: s for sid, (_, s) in kept_logic().db.skips.items()}
+    made, report = sdk.image(cli.recipe(str(usa_iso), [generator.REALM_PACK], [], False, randomizer={"seed": "2"}))
+    plan = report["randomizer"]
+    assert (report["conflicts"], plan["conflicts"], plan["logic_verified"], plan["why_not"]) == ([], [], True, [])
+    assert share_decode(plan["share"], skips).death_realm
+    with iso.Reader(made) as r, iso.Reader(usa_iso) as v:
+        built, sealed = r.read(death_realm.D1), bytearray(v.read(death_realm.D1))
+    for site in death_realm.SEAL:
+        sealed[site.offset:site.offset + len(site.value)] = site.value
+    assert [built[s.offset:s.offset + len(s.value)] for s in death_realm.SEAL] == [s.value for s in death_realm.SEAL]
+    assert len(built) == len(sealed) and built != bytes(sealed)   # the plan's d1 spots written too
 
 
 def _share(sliders: dict) -> str:

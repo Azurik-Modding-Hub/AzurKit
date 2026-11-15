@@ -111,7 +111,8 @@ def rung(settings: Settings, rating: int, skips: Mapping[str, Mapping]) -> Setti
     on = picks_on(settings, skips)
     off = {pid: False for pid, value in settings.skip_override.items()
            if value and pid in on and min(skips[sid].get("difficulty", 0) for sid in on[pid]) >= rating}
-    return Settings(ceiling, tier, {**settings.skip_override, **off}, save_warp=settings.save_warp)
+    return Settings(ceiling, tier, {**settings.skip_override, **off}, save_warp=settings.save_warp,
+                    death_realm=settings.death_realm)
 
 
 def ladder(settings: Settings, skips: Mapping[str, Mapping]) -> tuple[Settings, ...]:

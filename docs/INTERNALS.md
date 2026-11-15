@@ -647,6 +647,18 @@ are the Characters section's.
     skips their categories): the logic counts the Randomizer patches by
     their tick, and their sliders (the death realm unlock's Spideyzar
     ones) tune only what that logic gates.
+  - **The Randomizer patches' ticks** (D1154, D1302; `generator.TICKS`):
+    `Settings.save_warp` and `Settings.death_realm`, each counted while its
+    pack is ticked and written to a settings table, the settings digest and
+    a share string (version 5, version 6 for the realm) only when on, so an
+    unticked seed's plans, files and strings are as before. With the death
+    realm counted (`solver.py`'s module doc), d1's seal needs no disc,
+    town's door to d1 only the four powers (`DEATH_DOOR`'s disc conjuncts
+    dropped, any other shape refused), and Spideyzar's kill the seal's own
+    generated five discs; no spot moves into the pool and no version is
+    bumped. The maps' static tips (`needs.py`, `spot_needs.json`) are
+    settings-free, so with it ticked the seal's and town's d1 ring still
+    name the discs (a known flaw).
   - `planner/`, `data/`, `writer.py`, `physics.py`, `movement.py`,
     `layer.py`, `tracker.py` and `live/`'s `game.py`, `link.py`, `pages.py`
     and `recipes.py` were ported from Modkit at the cut (Porting from

@@ -28,6 +28,12 @@ save-point warp of the pack ``qol_save_warp`` in the logic (the solver's
 warp edges): off by default. A file writes ``save_warp = true`` only when it
 is on, and a share string takes version 5 then.
 
+``Settings.death_realm`` (D1301, D1302) counts the pack ``death_realm``'s
+unlock in the logic: d1's seal asks no disc, town's door to d1 only the four
+powers, and Spideyzar's kill all five discs (the solver's realm). Off by
+default; a file writes ``death_realm = true`` only when it is on, and a share
+string takes version 6 then.
+
 D275 (Step R1.31): skips that cross the same thing and differ only in the
 kit they need are variants of one batch (each variant's ``batch`` and
 ``batch_name``). A toggle, and so a share string's registry, names a pick:
@@ -79,6 +85,9 @@ SHARE_VERSION_ELEMENTAL = 3    # version 2 (its slider count may be 0) whose mas
 SHARE_VERSION_WARP = 5         # version 4's layout (its seed difficulty byte 0 at level 0), then an options byte:
 #                                SHARE_WARP, the save-point warp counted (D1154), its only bit
 SHARE_WARP = 1
+SHARE_VERSION_REALM = 6        # version 5's layout (and its literal mask), its options byte SHARE_REALM | SHARE_WARP
+SHARE_REALM = 2                # the death realm unlock counted (D1302): set in every version 6 string
+SHARE_OPTIONS = (SHARE_VERSION_WARP, SHARE_VERSION_REALM)   # the versions with an options byte, last
 SHARE_VERSION_DIFFICULTY = 4   # a seed difficulty over 0: the head, the toggles, a literal category mask (a bit per
 #                                CATEGORIES entry, never folded), the slider count (0 too) and sliders, then one byte,
 #                                seed_difficulty_fill() << 3 | the level
@@ -126,6 +135,7 @@ class Settings:
     sliders: Mapping[str, Mapping[str, float]] = field(default_factory=dict)   # {pack: {slider: value}}, AZ-383
     seed_difficulty: int = 0   # D1157: one of SEED_DIFFICULTIES
     save_warp: bool = False    # D1154: the logic counts the save-point warp (the pack qol_save_warp)
+    death_realm: bool = False  # D1302: the logic counts the death realm unlock (the pack death_realm)
 
 
 D144_DEFAULTS = Settings(0, "standard", {})   # D186: standard movement (was hard, D144)
@@ -208,7 +218,8 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
     for key in table:
         if key in RETIRED_KEYS:
             out.append(("settings_retired_key", key, "a retired preset key (D144: no presets)"))
-        elif key not in ("format", "skip_override", "exclude_categories", "seed_difficulty", "save_warp", *OPTIONS):
+        elif key not in ("format", "skip_override", "exclude_categories", "seed_difficulty", "save_warp", "death_realm",
+                         *OPTIONS):
             out.append(("unknown_key", key, "not a settings key"))
     if table.get("format") not in (SETTINGS_FORMAT, SETTINGS_FORMAT_ELEMENTAL):
         out.append(("unknown_format", "format", f"{table.get('format')!r}, not {SETTINGS_FORMAT!r} "
@@ -228,8 +239,9 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
     if level not in SEED_DIFFICULTY_NAMES and not _int_in(level, (0, *OLDER_LEVELS)):
         out.append(("settings_bad_seed_difficulty", "seed_difficulty",
                     f"{level!r} is not one of {', '.join(SEED_DIFFICULTY_NAMES)}"))
-    if not isinstance(table.get("save_warp", False), bool):
-        out.append(("settings_bad_save_warp", "save_warp", f"{table['save_warp']!r} is not true or false"))
+    for key in ("save_warp", "death_realm"):
+        if not isinstance(table.get(key, False), bool):
+            out.append((f"settings_bad_{key}", key, f"{table[key]!r} is not true or false"))
     excluded = table.get("exclude_categories", [])
     if not (isinstance(excluded, list) and all(c in CATEGORIES for c in excluded)
             and excluded == sorted(set(excluded), key=CATEGORIES.index)):
@@ -282,7 +294,8 @@ def settings_from_table(table: Mapping, skips: Mapping[str, Mapping], where: str
         excluded.add("upgrades")      # /1's powers keep the upgrades too
     return Settings(table["skip_ceiling"], table["movement_tier"],
                     _folded(table.get("skip_override", {}), skips), frozenset(excluded),
-                    seed_difficulty=level_of(table.get("seed_difficulty", 0), told), save_warp=table.get("save_warp", False))
+                    seed_difficulty=level_of(table.get("seed_difficulty", 0), told),
+                    save_warp=table.get("save_warp", False), death_realm=table.get("death_realm", False))
 
 
 def skips_on(settings: Settings, skips: Mapping[str, Mapping]) -> list[str]:
@@ -336,12 +349,13 @@ def _encode(settings: Settings, registry: list[str]) -> str:
 def _payload(settings: Settings, registry: list[str]) -> bytearray:
     toggles = settings.skip_override
     head = settings.skip_ceiling | MOVEMENT_TIERS.index(settings.movement_tier) << 3 | (0x80 if toggles else 0)   # bits 5-6: D1061
-    level, warp = settings.seed_difficulty, settings.save_warp
+    level, warp, realm = settings.seed_difficulty, settings.save_warp, settings.death_realm
     form, kept = category_table(settings.exclude_categories)
-    mask = sum(1 << CATEGORIES.index(c) for c in (settings.exclude_categories if level or warp else kept))
+    mask = sum(1 << CATEGORIES.index(c) for c in (settings.exclude_categories if level or warp or realm else kept))
     sliders = sorted((SHARE_SLIDERS.index((pack, name)), float(v))
                      for pack, values in settings.sliders.items() for name, v in values.items())
-    version = SHARE_VERSION_WARP if warp else SHARE_VERSION_DIFFICULTY if level else SHARE_VERSION_ELEMENTAL if form == SETTINGS_FORMAT_ELEMENTAL \
+    version = SHARE_VERSION_REALM if realm else SHARE_VERSION_WARP if warp else SHARE_VERSION_DIFFICULTY if level \
+        else SHARE_VERSION_ELEMENTAL if form == SETTINGS_FORMAT_ELEMENTAL \
         else SHARE_VERSION_SLIDERS if sliders else SHARE_VERSION_CATEGORIES if mask else SHARE_VERSION
     out = bytearray([version, head])
     if toggles:
@@ -352,14 +366,14 @@ def _payload(settings: Settings, registry: list[str]) -> bytearray:
             prev = index
     if version != SHARE_VERSION:
         out.append(mask)
-    if sliders or version in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
+    if sliders or version in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, *SHARE_OPTIONS):
         out.append(len(sliders))
         for index, v in sliders:
             out += bytes([index]) + struct.pack("<d", v)
-    if level or warp:
+    if level or warp or realm:
         out.append(seed_difficulty_fill(warp) << 3 | level if level else 0)
-    if warp:
-        out.append(SHARE_WARP)
+    if warp or realm:
+        out.append((SHARE_WARP if warp else 0) | (SHARE_REALM if realm else 0))
     return out
 
 
@@ -372,8 +386,8 @@ def share_sliders(text: str, skips: Mapping[str, Mapping]) -> dict[str, dict[str
     except ValueError:
         version = b""
     return {p: dict(v) for p, v in share_decode(text, skips).sliders.items()} \
-        if version in (bytes([SHARE_VERSION_SLIDERS]), bytes([SHARE_VERSION_ELEMENTAL]),
-                       bytes([SHARE_VERSION_DIFFICULTY]), bytes([SHARE_VERSION_WARP])) else {}
+        if version and version[0] in (SHARE_VERSION_SLIDERS, SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY,
+                                      *SHARE_OPTIONS) else {}
 
 
 def share_decode(text: str, skips: Mapping[str, Mapping], told: list | None = None) -> Settings:
@@ -395,11 +409,11 @@ def share_decode(text: str, skips: Mapping[str, Mapping], told: list | None = No
     except ValueError as exc:
         fail(f"not base32 ({exc})")
     if len(raw) < 2 or raw[0] not in (SHARE_VERSION, SHARE_VERSION_CATEGORIES, SHARE_VERSION_SLIDERS,
-                                      SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
+                                      SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, *SHARE_OPTIONS):
         fail(f"unknown version {raw[0] if raw else None!r}")
     head, k = raw[1], 2
     table = {"format": SETTINGS_FORMAT_ELEMENTAL
-             if raw[0] in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP) else SETTINGS_FORMAT,
+             if raw[0] in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, *SHARE_OPTIONS) else SETTINGS_FORMAT,
              "skip_ceiling": head & 7, "movement_tier": MOVEMENT_TIERS[head >> 3 & 3],
              "dark_fire": (head >> 5 & 3) + 1, "skip_override": {}}
     if head & 0x80:
@@ -438,7 +452,7 @@ def share_decode(text: str, skips: Mapping[str, Mapping], told: list | None = No
         table["exclude_categories"] = [c for i, c in enumerate(CATEGORIES) if raw[k] >> i & 1]
         k += 1
     sliders: dict[str, dict[str, float]] = {}
-    if raw[0] in (SHARE_VERSION_SLIDERS, SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
+    if raw[0] in (SHARE_VERSION_SLIDERS, SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, *SHARE_OPTIONS):
         count, k = (raw[k], k + 1) if k < len(raw) else (-1, k)
         if count < (raw[0] == SHARE_VERSION_SLIDERS) or k + 9 * count > len(raw):
             fail("no movement slider, or a truncated one")
@@ -450,26 +464,32 @@ def share_decode(text: str, skips: Mapping[str, Mapping], told: list | None = No
             pack, name = SHARE_SLIDERS[index]
             sliders.setdefault(pack, {})[name] = value
     older = None    # a v1.0.0 level's byte and where it lies
-    if raw[0] in (SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
+    # the options byte follows the level's: a version 6 string's warp bit names the fill its level was made at
+    warp = raw[0] == SHARE_VERSION_WARP or (raw[0] == SHARE_VERSION_REALM and k + 1 < len(raw)
+                                             and bool(raw[k + 1] & SHARE_WARP))
+    if raw[0] in (SHARE_VERSION_DIFFICULTY, *SHARE_OPTIONS):
         if k >= len(raw):
             fail("no seed difficulty")
         level, made = raw[k] & 7, raw[k] >> 3
-        if raw[k] or raw[0] == SHARE_VERSION_DIFFICULTY:     # version 5's 0 is Normal
+        if raw[k] or raw[0] == SHARE_VERSION_DIFFICULTY:     # version 5's and 6's 0 is Normal
             if made == 1 and level in OLDER_LEVELS and raw[0] == SHARE_VERSION_DIFFICULTY:   # v1.0.0 had no version 5
                 older, level = (k, raw[k]), OLDER_LEVELS[level]
                 if told is not None:
                     told.append(raw[k] & 7)
-            elif made != (want := seed_difficulty_fill(raw[0] == SHARE_VERSION_WARP)):
+            elif made != (want := seed_difficulty_fill(warp)):
                 fail(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill {want}: "
                      "the same seed would place items differently")
             elif level not in SEED_DIFFICULTIES[1:]:
                 fail(f"seed difficulty {level} is not one of 1, 2, 3")
             table["seed_difficulty"] = SEED_DIFFICULTY_NAMES[level]
         k += 1
-    if raw[0] == SHARE_VERSION_WARP:
-        if k >= len(raw) or raw[k] != SHARE_WARP:
+    if raw[0] in SHARE_OPTIONS:
+        known = SHARE_WARP if raw[0] == SHARE_VERSION_WARP else SHARE_WARP | SHARE_REALM
+        need = SHARE_WARP if raw[0] == SHARE_VERSION_WARP else SHARE_REALM
+        if k >= len(raw) or raw[k] & ~known or not raw[k] & need:
             fail("no options byte, or an option this AzurKit doesn't know")
-        table["save_warp"] = True
+        table |= {"save_warp": True} if raw[k] & SHARE_WARP else {}
+        table |= {"death_realm": True} if raw[k] & SHARE_REALM else {}
         k += 1
     if k != len(raw):
         fail("trailing bytes")
