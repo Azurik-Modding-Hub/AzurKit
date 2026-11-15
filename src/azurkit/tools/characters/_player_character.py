@@ -1977,7 +1977,7 @@ def rotation(columns: list[str], picks: list[str], body: Body) -> tuple[list[int
     return ring, rotate
 
 
-# --- X36's attack sets: WHITE cycles them (Step 2.135, D325) ----------------
+# --- X36's attack sets: LB (the original pad's WHITE) cycles them (Step 2.135, D325) ---
 SET_SLOTS = ("basic1", "basic2", "basic3", "finish")
 """A set's four slots: the combo's basic1 > basic2 > basic3 > finisher
 (finish, finish2 and finish3 all play the set's fourth)."""
@@ -1992,7 +1992,7 @@ title-safe corner's 512 px)."""
 
 
 def attack_sets(columns: list[str], picks: list[str]) -> list[list[int]]:
-    """The attack sets WHITE cycles on a swapped body playing ``picks``
+    """The attack sets LB cycles on a swapped body playing ``picks``
     (the build's final clip per ``attacks_anims`` column, Step 2.135,
     D325): per set the source column of each of :data:`SET_SLOTS`.  Set 0
     is the game's combo as W3 picks it (basic1, basic2, basic3, finish);
@@ -2021,7 +2021,7 @@ def attack_sets(columns: list[str], picks: list[str]) -> list[list[int]]:
 
 
 def set_lines(picks: list[str], sets: list[list[int]]) -> list[str]:
-    """What X36 shows in the HUD's top-left corner after a WHITE press
+    """What X36 shows in the HUD's top-left corner after an LB press
     selects each of ``sets`` (:func:`attack_sets`): "Attack set k/n" and,
     below it, the set's clips in slot order with their dirs (``g4/``,
     ``b/``, ``v/``, ``p/``) stripped and repeats dropped, whole names
@@ -2037,8 +2037,10 @@ def set_lines(picks: list[str], sets: list[list[int]]) -> list[str]:
     return out
 
 
-SETS_SAID = re.compile(r"; WHITE cycles its (\d+) attack sets? \(")
-"""The build log's X36 clause (:func:`apply_player_model`'s lines, a character layer's notes): its count of sets."""
+SETS_SAID = re.compile(r"; (?:LB|WHITE) cycles its (\d+) attack sets? \(")
+"""The build log's X36 clause (:func:`apply_player_model`'s lines, a character layer's notes): its count of sets.
+It names LB (D1153); WHITE, the original pad's name it held before Step 4.64e, still reads, so a stored answer's
+notes still count."""
 
 
 def said_sets(notes) -> int:
@@ -5229,7 +5231,7 @@ def install_touch_shim(xbe: bytearray, s: float) -> None:
         (TOUCH_XY.name, TOUCH_Z.name, TOUCH_DZ.name), touch_query(s))))
 
 
-# --- X36: WHITE cycles a swapped body's attack sets (Step 2.135; D325, D326, D352) ---
+# --- X36: LB cycles a swapped body's attack sets (Step 2.135; D325, D326, D352) ---
 SETS_SHIM = ShimSource(folder=ROLL_SHIM.folder, stem="attack_sets")
 SETS_SHIM_NAME = "player_model_attack_sets"
 """Its object's name: ``player_model_attack_sets.o`` in the shim build dir."""
@@ -5273,8 +5275,8 @@ SETS_HOOKS = tuple(TrampolinePatch(
     shim_symbol=f"_c_player_model_attack_sets_{what}",
     bytes_params=(SETS_MAP, SETS_LINES, SETS_STATE_AT, SETS_MATERIAL),
 ) for what, why, va, target in (
-    ("search", "the set WHITE selected plays", 0x88D78, 0x7EF10),
-    ("white", "WHITE selects the next set", 0x854B4, 0x84940),
+    ("search", "the set LB selected plays", 0x88D78, 0x7EF10),
+    ("white", "LB selects the next set", 0x854B4, 0x84940),
     ("hud", "the set's line in the HUD's top-left corner", 0x1B306, 0x1B110)))
 """X36's landings, the search's first (its state the others'): the ground
 attack start's (0x88A80) CALL of attack_transition_search (0x7EF10) at
@@ -5324,7 +5326,7 @@ def lift_chain_gates(doc) -> None:
 def install_attack_sets_shim(xbe: bytearray, sets: list[list[int]], lines: list[str]) -> None:
     """Install X36 (``player_model/attack_sets.c``) at VAs 0x88D78, 0x854B4
     and 0x1B306 in ``xbe`` (either release) with :data:`DIRECTION_EDITS`:
-    a WHITE press (not swimming, not while the presses wait) selects the
+    an LB press (not swimming, not while the presses wait) selects the
     next of ``sets`` (:func:`attack_sets`) and for 2.0 s shows its line of
     ``lines`` (:func:`set_lines`) in the HUD's top-left corner, yellow at
     0.8 (D441);
@@ -10118,7 +10120,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         # hit (Step 2.69); no X10 in garret4's exact, whose columns each
         # play one clip in garret4's time, X3's windows being fractions of
         # it (Step 2.68)
-        # X36's attack sets (Step 2.135, D325): WHITE cycles them in own body; with two or more X10's
+        # X36's attack sets (Step 2.135, D325): LB cycles them in own body; with two or more X10's
         # ring would rotate whatever clip a set plays, so it stays off unless a recipe asks for it
         sets = attack_sets(columns, picks) if mode == "own" else []
         rotate = (rotation(columns, picks, body)
@@ -10610,7 +10612,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         except ValueError as exc:
             raise ValueError(f"--player-character {species!r}: {exc}") from None
     lines = set_lines(picks, sets)
-    if sets:   # X36 (Step 2.135; D325, D326, D352; D441): WHITE cycles the sets, direction picks none
+    if sets:   # X36 (Step 2.135; D325, D326, D352; D441): LB cycles the sets, direction picks none
         try:
             install_attack_sets_shim(game["default.xbe"], sets, lines)
         except ValueError as exc:
@@ -11124,7 +11126,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
                   f" its hits the player's at x{toss.mult:g} (X42); a new press of A throws again at tick {tw.chain},"
                   " a held A once (D566), the logic on the melee reach (D474)")
     if sets:
-        wings += (f"; WHITE cycles its {len(sets)} attack set{'s' * (len(sets) > 1)} ("
+        wings += (f"; LB cycles its {len(sets)} attack set{'s' * (len(sets) > 1)} ("
                   + " | ".join(line.replace("\n", ": ", 1).replace("\n", " ") for line in lines)
                   + "), the set's line shown in the HUD's top-left corner for 2 s, and the stick's direction picks no attack (X36)")
     if armor:

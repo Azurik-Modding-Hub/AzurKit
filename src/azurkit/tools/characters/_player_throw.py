@@ -4,7 +4,7 @@ projectile as data, and X42's table.
 
 D473 (the owner: "Vase + rock (Recommended)"): townswomen throw the vase
 they carry (it reappears in the hand after), townsmen and children a rock;
-a real travelling projectile that hits enemies, as a second WHITE set
+a real travelling projectile that hits enemies, as a second LB set
 (D325).  D474: the randomizer's logic stays on the melee reach.
 
 - **W30** (characters.xbr, index.xbr and config.xbr, a kit build with a

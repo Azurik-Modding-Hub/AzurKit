@@ -230,10 +230,10 @@ def test_no_refusal_in_the_engine_names_modkits_azurik_mod_command():
 
 SCRIPT = re.compile(r"(?<![\w/.-])scripts/\w+\.py\b")
 """A path to one of this checkout's scripts (``scripts/sdk_api.py``), not another repository's (``x/scripts/...``)."""
-OWED_SCRIPTS = {"tools/characters/_player_kit.py": "scripts/townsfolk_kit.py"}
-"""Messages that still name a script the checkout lacks, each the file and the script: the townsfolk kit's refusal
-names Modkit's retired authoring script, and an edit there moves ``parts.VERSION``, so it rides on the next re-record
-of the shipped parts (PENDING's known flaw 48). An owed message fixed comes off this map."""
+OWED_SCRIPTS: dict[str, str] = {}
+"""Messages that still name a script the checkout lacks, each the file and the script: none since Step 4.64e, whose
+re-record of the shipped parts took the last, the townsfolk kit's refusal (PENDING's known flaw 48), which now says to
+reinstall AzurKit. An owed message fixed comes off this map."""
 
 
 def missing_scripts(source: str, rel: str) -> list[tuple[str, int, str]]:

@@ -39,7 +39,7 @@ shove finisher.  They replace D421's lent Balthazar attacks.
   build's sound dir, else ``dir``; a thud, :func:`hit_wave`, X43 plays on
   the player's plain hits).
 - **The throw** (Step 2.159b; D473, the owner: "Vase + rock
-  (Recommended)", a second WHITE set, D325): kit.json's ``throw``, a
+  (Recommended)", a second LB set, D325): kit.json's ``throw``, a
   :class:`Throw` on the style: the column that plays the ``throw`` clip
   (right1) throws a real projectile from the hand at its ``release``
   tick, a rock for the townsmen and children and a vase for the
@@ -210,7 +210,7 @@ def _rig_clips(source: str, file: str, sha256: str, characters_xbr: bytes) -> di
     sha = mesh_edit.file_sha256(path) if path.is_file() else None
     if sha != sha256:
         raise ValueError(f"the townsfolk kit's {file}: its sha256 is {sha}, not kit.json's {sha256} "
-                         "(scripts/townsfolk_kit.py writes both)")
+                         "(the package's kit is altered: reinstall AzurKit)")
     ticks = {c: p["ticks"] for c, p in _kit()["clips"].items()}
     read = clip_import.read_key(characters_xbr, source, list(ticks)) or hashlib.sha256(characters_xbr).hexdigest()
     key = parts.key("kit clips", source, sha, read, tuple(ticks.items()))

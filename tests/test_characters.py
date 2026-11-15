@@ -745,7 +745,11 @@ def test_the_characters_tab_and_the_builds_in_game_line_name_the_attack_sets_lb_
     shows them (``played_set_lines``: the build's picks as W3 places them,
     whirlwind moved into its finish); its build's X36 cycles those 3, so
     the build's "In game" line has LB. garret4's own body, Skin only and a
-    body of one set say nothing."""
+    body of one set say nothing. The build's note names LB too (Step
+    4.64e), and a stored answer's note with the old word, WHITE, still
+    counts its sets."""
+    from azurkit.tools.characters._player_character import said_sets
+
     row = ["LB switches between its 3 attack sets", None, "Attack set 1/3: attack_1 attack_2 attack_3 whirlwind\n"
            "Attack set 2/3: attack_4 attack_5 attack_6 attack_7\nAttack set 3/3: deathbeam jump"]
     for character, want in (({"species": "spideyzar"}, [row]), ({"species": "garret4"}, []),
@@ -754,8 +758,10 @@ def test_the_characters_tab_and_the_builds_in_game_line_name_the_attack_sets_lb_
         assert [r[1:] for r in info if r[0] == "In game"] == want, character
     _, _, layers, _, _ = sdk._plan({"iso": str(usa_iso), "character": {"species": "spideyzar"}})
     assert sdk._ingame(layers) == ["LB: next attack set (3)"]
-    assert ("; WHITE cycles its 3 attack sets (Attack set 1/3: attack_1 attack_2 attack_3 whirlwind | Attack set 2/3: "
+    assert ("; LB cycles its 3 attack sets (Attack set 1/3: attack_1 attack_2 attack_3 whirlwind | Attack set 2/3: "
             "attack_4 attack_5 attack_6 attack_7 | Attack set 3/3: deathbeam jump)") in layers[-1].notes[0]
+    assert [said_sets([note]) for note in (layers[-1].notes[0], "garret4; WHITE cycles its 2 attack sets (Attack set",
+                                           "garret4; its staff")] == [3, 2, 0]
 
 
 # --- variants (Step 4.3c1): a recipe's mesh, paint and jiggle -----------------------------------------------------
