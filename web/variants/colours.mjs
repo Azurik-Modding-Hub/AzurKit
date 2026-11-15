@@ -14,6 +14,7 @@
 const WHEEL = 131;   // the wheel's side, px (odd: its centre a pixel's)
 const RIM = 8;   // the disc's inset from the wheel's edge: the marker's radius and half its outline, so a rim colour's is whole
 const COLOURED = 0.15;   // a palette colour with a hue (saturation at least this): the wheel's
+const LIT = 0.1;   // and its main colour's value at least this: a near-black's hue is a texel's rounding
 const GATE = 0.05;   // paint.GATE: a grey's saturation, which no swap can turn
 const VIEW = 160;   // the engine's pictures' side, px (colour_preview.SIZE)
 // The hsv op's numbers: its key, its box's label and unit, its default; the value bar's track is a hint (D23).
@@ -430,15 +431,17 @@ export function coloursTab({ state: v, call, app, image, packs, given, edit, kee
   };
 
   // The wheel from the row's palette (found, and shown as its ops recolour it): its main colour (the most texels' with
-  // a hue) where it was (a ring) and where the hsv op turns it (the marker), the others where its ops take them
-  // (dots); off for a row of greys or none.
+  // a hue and some light, LIT: else the most texels' with a hue) where it was (a ring) and where the hsv op turns it
+  // (the marker), the others with a hue where its ops take them (dots); off for a row of greys or none.
   const showWheel = () => {
     const coloured = c.found.map((x, i) => [x, i]).filter(([x]) => hsv(x)[1] >= COLOURED).map(([, i]) => i);
-    c.reference = coloured.length ? hsv(c.found[coloured[0]]) : null;
+    const main = coloured.find((i) => hsv(c.found[i])[2] >= LIT) ?? coloured[0];
+    c.reference = main === undefined ? null : hsv(c.found[main]);
     wheel.enable(Boolean(c.reference));
     if (c.reference) {
       const [h0, s0, v0] = c.reference, n = numbers();
-      const dots = coloured.slice(1).filter((i) => c.shown[i]).map((i) => [...hsv(c.shown[i]).slice(0, 2), hexOf(c.shown[i])]);
+      const dots = coloured.filter((i) => i !== main && c.shown[i])
+        .map((i) => [...hsv(c.shown[i]).slice(0, 2), hexOf(c.shown[i])]);
       wheel.show(h0 + n.hue, s0 * n.sat, hexOf(rgb(h0 + n.hue, s0 * n.sat, v0 * n.value)), [h0, s0], dots);
     }
     if (!Object.values(ui.boxes).includes(document.activeElement)) showNumbers();   // a box being typed in keeps its text
