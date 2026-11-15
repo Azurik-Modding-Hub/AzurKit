@@ -58,6 +58,7 @@
 
 from __future__ import annotations
 
+import ctypes   # here, at the session's start: pytester's tests drop a module first imported inside them
 import functools
 import hashlib
 import inspect
@@ -65,9 +66,11 @@ import itertools
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
@@ -494,6 +497,127 @@ def pytest_runtest_setup(item):
             except Exception as error:
                 why += f"; its teardown: {type(error).__name__}: {str(error)[:200]}"
             warnings.warn(f"the module's browser stopped answering ({why}): launched again", stacklevel=1)
+
+
+ENDS_S = 5
+"""s a test's teardown waits for a process its call started to end on its own before it counts as left running (one
+whose close or kill ends it a moment later)."""
+KEPT = re.compile(r"\bmultiprocessing\.(?:resource_tracker|forkserver) import main\b")
+"""multiprocessing's resource tracker and forkserver: one of each a process, started at its first use and kept to the
+process's end by Python's own design, so never a test's leftover."""
+_AT_CALL = pytest.StashKey[tuple]()   # (this process's children, the module browser's open contexts) as the call began
+
+
+@functools.cache
+def _libproc():
+    return ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+
+
+def _children(pid: int) -> set[int]:
+    """The ids of ``pid``'s children (not theirs), read in ms, an ended one not yet waited for among them (:func:`_runs`
+    tells): Linux's ``/proc`` (each thread's ``children``, else every process's parent), macOS's libproc; none on
+    Windows, which lists a process's children only in a list of every process (:func:`_nothing_left_behind` checks
+    only the browser contexts there)."""
+    if sys.platform == "linux":
+        try:
+            return {int(child) for task in os.listdir(f"/proc/{pid}/task")
+                    for child in Path(f"/proc/{pid}/task/{task}/children").read_text(encoding="ascii").split()}
+        except FileNotFoundError:   # a kernel without CONFIG_PROC_CHILDREN, or a thread that ended as it was read
+            found = set()
+            for name in filter(str.isdigit, os.listdir("/proc")):
+                try:
+                    if int(Path(f"/proc/{name}/stat").read_text(encoding="ascii").rpartition(")")[2].split()[1]) == pid:
+                        found.add(int(name))
+                except (OSError, IndexError, ValueError):
+                    pass
+            return found
+        except OSError:   # it ended
+            return set()
+    if sys.platform == "darwin":
+        listed = (ctypes.c_int * 4096)()
+        count = _libproc().proc_listchildpids(pid, listed, ctypes.sizeof(listed))
+        return {listed[i] for i in range(max(count, 0)) if listed[i] > 0}
+    return set()
+
+
+def _runs(pid: int) -> bool:
+    """Whether ``pid`` is running: not ended, and not an ended child not yet waited for (a zombie, which holds no
+    memory)."""
+    if sys.platform == "linux":
+        try:
+            return Path(f"/proc/{pid}/stat").read_text(encoding="ascii").rpartition(")")[2].split()[0] != "Z"
+        except (OSError, IndexError):
+            return False
+    info = (ctypes.c_uint32 * 34)()   # proc_bsdinfo, 136 bytes: pbi_status second; macOS reads a zombie's as none
+    return _libproc().proc_pidinfo(pid, 3, ctypes.c_uint64(0), info, 136) == 136 and info[1] != 5   # SZOMB
+
+
+def _command(pid: int) -> str:
+    """``pid``'s command line, or ``""`` if it can't be read."""
+    try:
+        if sys.platform == "linux":
+            return Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace").strip()
+        return subprocess.run(["ps", "-ww", "-o", "args=", "-p", str(pid)], capture_output=True, text=True,
+                              errors="replace", timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def _end_tree(pid: int) -> None:
+    """End ``pid`` and every process under it, the deepest first."""
+    for child in _children(pid):
+        _end_tree(child)
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except OSError:   # ended already
+        pass
+
+
+def _contexts(launched) -> list | None:
+    """The open contexts of ``launched`` (the ``browser`` fixture's browser), or None where it can't tell: none taken,
+    a stand-in, or one closed or stopped (``tests/_page.py``'s ``stalled``). (Its parameter isn't named ``browser``, as
+    :func:`_stopped`'s isn't.)"""
+    try:
+        return None if launched is None or _stopped(launched) or not launched.is_connected() else list(launched.contexts)
+    except AttributeError:
+        return None
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    """What :func:`_nothing_left_behind` holds the test's teardown to: this process's children and its module
+    browser's open contexts as its call begins."""
+    item.stash[_AT_CALL] = (_children(os.getpid()), _contexts(getattr(item, "funcargs", {}).get("browser")) or [])
+    return (yield)
+
+
+@pytest.fixture(autouse=True)
+def _nothing_left_behind(request):
+    """Step 4.73a: once a test's own fixtures are torn down (this autouse one's teardown is their last), its call has
+    left no context of its module's browser open and no process running (Linux and macOS, :func:`_children`), else
+    its teardown fails naming each, each such process ended with what runs under it once :data:`ENDS_S` s have
+    passed: either would hold its memory into the module's later tests, on CI's one worker the part's whole run (CI's
+    Linux part with test_site.py's tests fell from 13.7 to 0.9 GiB free and its runner was shut down, run
+    43675884120). What a browser or another process running before the call starts is that one's own, and
+    multiprocessing's tracker and forkserver live with this process by design (:data:`KEPT`)."""
+    yield
+    if (at_call := request.node.stash.get(_AT_CALL, None)) is None:   # its call never ran: its setup failed
+        return
+    del request.node.stash[_AT_CALL]   # a rerun's call takes its own
+    children, contexts = at_call
+    said = []
+    if opened := [c for c in _contexts(request.node.funcargs.get("browser")) or () if c not in contexts]:
+        name = request.node.funcargs["browser"].browser_type.name
+        said.append(f"left open: {len(opened)} context(s) of its module's {name} browser (close each in a finally)")
+    end = time.monotonic() + ENDS_S
+    while (left := [pid for pid in _children(os.getpid()) - children if _runs(pid)]) and time.monotonic() < end:
+        time.sleep(0.1)
+    for pid in left:
+        if not KEPT.search(command := _command(pid)):
+            _end_tree(pid)
+            said.append(f"left running, ended: id {pid}: {command[:200] or 'its command unread'}")
+    if said:
+        pytest.fail("\n".join(["the test left behind what it started (Step 4.73a):", *said]), pytrace=False)
 
 
 def _fail_unlisted_skip(report):
