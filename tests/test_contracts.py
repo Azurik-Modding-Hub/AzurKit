@@ -598,7 +598,7 @@ def test_the_game_data_comes_a_file_a_fetch_each_retried_alone_and_its_checkout_
 def test_a_dispatched_dry_run_builds_and_checksums_the_release_but_reaches_no_attestation_draft_pypi_or_pages():
     """D1068 (Step 4.4ci8): each job's ``if:`` and ``needs`` read under each
     event that starts ``release.yml``. A dispatch on main runs check, the
-    four apps, the wheel and sdist, the site and ``SHA256SUMS``, none of
+    three apps, the wheel and sdist, the site and ``SHA256SUMS``, none of
     them holding an id-token or a write, and never attest (Sigstore's
     public log), the draft, pypi or pages; a v* tag's push still runs
     everything to the draft, and the published draft's run check, the site,
