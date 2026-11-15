@@ -2221,9 +2221,10 @@ are the Characters section's.
   process, unless a save runs, and the next starts: a call the player waits
   on runs again. A build's dress notes nothing (`sdk.image` holds no
   `noting` round it, `pool.each`'s notes and the serial stages' reach
-  `sdk.match`'s dress alone), so a stale first dress caught in a gap of its
-  records (26-30 s) takes that kill, and the next seed's click reads the
-  logic again (a known flaw, measured at 45 s). A build keeps its image in
+  `sdk.match`'s dress alone), so a stale first dress caught in the first
+  0.7 s of its longest gaps of records (5.4-5.7 s of 22-24 s, Step 4.64c)
+  takes that kill, and the next seed's click reads the logic again on the
+  new engine (0.6 s; one at the change 1.5 s: accepted). A build keeps its image in
   that process (the
   last build's: a new Build drops it), hashed on a thread from the moment
   it is made (`iso.digest`), and `api/build` answers its id: Save sends it

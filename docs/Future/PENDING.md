@@ -494,13 +494,15 @@ memory peaks stay strict. The gate writes both kinds of row to
    the owner's, 12.17). Lane 4.64g.
 9. ~~Characters: a pause past REST still starts a build the next move
    drops~~: fixed by 4.53b.
-10. **A stale first dress caught in a gap** of its records (26-30 s,
-    4.3r4) takes `ahead.GRACE`'s kill, and the next seed's click starts a
-    new engine (the logic's read is 0.8 s now, not 45 s). A `noting`
-    around the dress doesn't help (4.3r4 train 2's review): measure
-    today's gap and click first, then accept it or add records inside its
-    longest stage. Lane 4.64c measures and decides; records inside the
-    stage would ride 4.64e.
+10. ~~A stale first dress caught in a gap of its records takes
+    `ahead.GRACE`'s kill~~: accepted as measured by 4.64c (the app from
+    its wheel, booblord's first dress after a Shape edit, this Mac at 24
+    or 4 cores): the dress takes 22-24 s, its longest record gaps 5.4-5.7 s
+    and 4.8-5.3 s, so only a change in a gap's first 0.7 s still kills it;
+    a seed's Track clicked at that change answers in 1.5 s (1.4 s where the
+    dress stops clean), and the next new seed's in 0.6 s on the new engine
+    (0.1 s on the kept one), all under the 3 s line. No records inside the
+    dress, so nothing rides 4.64e.
 11. ~~Site builds without OPFS still copy twice~~: fixed by 4.53b; the
     pool's unsampled cut mode is a watch line (8.15).
 12. ~~The arm64 WebKit engine trap~~: a watch line (8.12); its
