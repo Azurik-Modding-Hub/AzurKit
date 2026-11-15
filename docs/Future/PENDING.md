@@ -99,28 +99,19 @@ The next session starts here (D1192), so 1.1 can follow.
    5.3-15.9 s in Chromium and 6.9-26.3 s in Firefox, each within its line;
    the closest is Firefox's Check after an Effects edit (S93: 22.0 and
    30.7 s). What is left:
-   - **The first Check after any edit of her copy** works out her whole
-     dress, whichever edit it follows: 53.7 s (after a sound edit) and
-     66.5 s (after Import PNG) in the app, 81.1 s and 80.9 s in WebKit,
-     where the next edit's Check takes 3-8 s and 6-18 s. A player who Checks
-     her copy and then edits it meets this, a frequent path past its 15 s
-     and 30 s lines. A116/S94 time it (Scale, right after her own Check;
-     frequent, so a debt row while over its line, not a block): on 11-13
-     (load 2; one sample each, a sample past 30 s being an op's last)
-     A116 read 44.8 s, S94 82.4 and 85.0 s in WebKit, 89.5 s in Chromium
-     and 120.6 s in Firefox. Each edit row's page with no let go takes
-     that Check first, so the row's own Check carries its edit alone.
-     That moves what main's receipts
-     timed: the rerun and beside pages of A99/S85, A104/S86 and A105/S87,
-     where the op runs alone, took this path as their first sample (S86
-     in WebKit 74-89 s beside, the release's the same, its "beyond" debt
-     row's median 40-46 s and 8 rows in the debt ledger by 11-13; A99's
-     36-54 s), and now take their own edit's Check (about 5 s). S84 and
-     A98 are their page's first edit Check, so they carry it too, beside
-     the Shape edit's own work (S84 read 100.3 s in WebKit on the page
-     before S94's 85.0 s). Its cause is unfound:
-     natively, with no part held in the process, the same Check took her
-     shipped parts in 5.1 s.
+   - ~~The first Check after any edit of her copy~~ worked out her whole
+     dress: fixed by Step 4.60b (D1273). The page hands a recipe back
+     with its numbers as JavaScript writes them (1.0 as 1, -0.0 as 0),
+     and the parts' keys read a spec by its `repr`, so the first edited
+     Check asked other keys than her own Check had kept. The sdk now gives
+     an edit, its sha and its Save, Save as and New from this the number
+     forms the saved recipe holds wherever the numbers are equal. On its
+     gate A116 read 6.7 s (22-33 s before) and S94 17.2 s in WebKit (51-55
+     s), her own Check unchanged (A92 4.1 s, S78 7.3 s). Left: a copy
+     saved from the page under 1.2.0 or before keeps the page's forms, so
+     its first Check works the dress out once more (not migrated, D115);
+     an edited community-only character (sent "unsaved") still checks in
+     the page's forms (a lane after 1.3.0; none ships parts today).
    - **A texture row** (the recipe's `textures`) has no control on the page
      (JSON only, 4.37e's F4), so no row times it: about 21 s natively and
      37 s on the site's engine (4.37a's P5). Import PNG is a `colours` op on
@@ -178,12 +169,12 @@ The next session starts here (D1192), so 1.1 can follow.
    `reach-freeze` among them. `oracle-rando-6` and `modkit-final` were
    never pushed; the cites carry 8bfef0ca6, `main`'s parent, by sha.
 5. ~~The delete~~: done 2026-11-09 (D1171, D1189); the empty folder is gone.
-6. **Modkit's `$EV` tools** still hold its halves: the modkit profile
-   (`_azlib.py`), fullsuite's Modkit gate with `suite_rules.py` and
-   `suite_graph.py`, landq's Modkit queue and self-test, Modkit branches in
-   prune, waitfor, ledger, brief, land and wfcheck, and 90 `.before-*` and
-   dated copies. Keep `suite-receipts` and waitfor's reader of it. After
-   4.58e's swap; each tool's self-test owed. Its lane: 4.59c.
+6. ~~Modkit's `$EV` tools~~: its halves are out (Step 4.59c, swapped
+   2026-11-14): the modkit profile, fullsuite's Modkit gate with
+   `suite_rules.py` and `suite_graph.py`, landq's Modkit queue and
+   self-test and the Modkit branches of prune, ledger, brief and land;
+   waitfor still reads `suite-receipts`. Every tool's self-test passed on
+   the live set. Left: thinning the `.before-*` copies to the newest each.
 7. ~~The archive~~: archived and private (D1185).
 8. ~~Checks that needed Modkit~~: retired by name under D1171 (4.6i's
    end-to-end build, 4.6r's full build, 4.6j's plan, 4.13b's soak).
@@ -703,12 +694,15 @@ memory peaks stay strict. The gate writes both kinds of row to
    while lanes get CI. Its revert is in the handoff log.
 6. ~~nativekit writes each library in place~~: fixed by 4.59e (it writes
    each beside and renames it over, so a rewritten dylib is a new file).
-7. **Dev-speed levers:** dx7 is stale (2026-11-14). dx6: a changed-area
-   perf stage skips the heavy Check ops unless a characters path changed
-   (D1280, the owner's measure change), lane 4.60a. Left too: **dx8**,
-   the variant golden as one test
-   per case. On CI it is the longest test on every OS (Intel 29 min, Apple
-   Silicon 16), and 3 min of a 22-minute full run here. Measure first: a
+7. **Dev-speed levers:** dx7 is stale (2026-11-14). dx6 is done (Step
+   4.60a, D1280): a changed area's perf stage times the heavy Check ops
+   only when a characters path changed (the swap, `core/xbr`, its kernels,
+   the store, the app's pool, the Characters tab's modules, `parts.mjs`,
+   `web_tools.py` and the perf gate's own files); a change to `sdk.py`,
+   `worker.mjs`, `workers.mjs` or `app/engine.py` leaves them to main's
+   `--all`. Left: **dx8**, the variant golden as one test per case. On CI
+   it is the longest test on every OS (Intel 29 min, Apple Silicon 16),
+   and 3 min of a 22-minute full run here. Measure first: a
    1-worker part loses the test's 4-process pool. Its lane: 4.59f.
 8. **CI risks** (no work unless they recur):
    - setup-uv's own uv download sits outside the cache (its manifest is
