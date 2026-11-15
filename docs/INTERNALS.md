@@ -2769,11 +2769,12 @@ are the Characters section's.
   Each runner's vanilla tier runs as parts at once, a job each
   (`--shard=LABEL:K/N`, `scripts/ci_shards.py`, Step 4.4ci35): the tier's
   tests cut in their run order by that runner's seconds in
-  `tests/ci_durations.json`, each `xdist_group` in one part, so every part
-  takes about an hour (Step 4.69a, D1293: Apple Silicon's and Linux's tier
-  in 3 parts, Windows' in 2; by the table each Apple Silicon part about
+  `tests/ci_durations.json`, each `xdist_group` in one part, so a
+  runner's parts take about as long as each other (Step 4.69a, D1293:
+  Apple Silicon's and Linux's tier in 3 parts, Windows' in 2; by the
+  table each Apple Silicon part about
   72 min of tests on its one worker, part 1's pure tier among them, each
-  Linux one about 61, each Windows one about 55 on its two, where 2 parts
+  Linux one about 61, each Windows one about 54 on its two, where 2 parts
   gave Apple Silicon a 108 min part and Linux a 93 min one, its one worker
   through more tests: 1.3.0's Linux part 2 fell to 0.9 GiB free, and its
   runner was shut down); refresh the table from a run's logs (`gh run view RUN

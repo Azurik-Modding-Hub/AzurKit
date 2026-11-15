@@ -39,9 +39,9 @@ RUNNERS = {
     # (tests/ci_durations.json, its part 1's head first), Apple Silicon's 2 parts were 2211 + 4271 and 6488 s on its
     # one worker, its part 2 the run's longest at 1:48 of tests, and its 3 are 2211 + 2109, 4322 and 4328 s, 1:12 each,
     # the pure tier's head still under a third; Linux's 2 were 5605 and 5370 s (1:33), its 3 are 3661, 3657 and 3657 s
-    # (1:01), each part's one worker running fewer tests: 1.3.0's Linux part 2 fell from 13.1 GiB free to 0.9 in its
+    # (1:01), each part's one worker running fewer tests: 1.3.0's Linux part 2 fell from 13.7 GiB free to 0.9 in its
     # 40 min, in test_site.py's Chromium tests, which part 3 now reaches 459 s in where that part did 2005 s in.
-    # Windows' 2 stay, 6534 and 6524 s on its 2 workers, about 55 min each.
+    # Windows' 2 stay, 6534 and 6524 s on its 2 workers, about 54 min each.
     "macos-arm64": ("macos-15", 2, 1, 3),
     "windows-x86_64": ("windows-latest", 3, 2, 2),
     "linux-x86_64": ("ubuntu-latest", 3, 1, 3),
