@@ -529,11 +529,9 @@ memory peaks stay strict. The gate writes both kinds of row to
     (4.6i; accepted, no lane): a mods file is release-free, so only a pin
     of `index.xbr` can pass on the other release, where its operations'
     own originals still refuse other bytes.
-25. **A row's "main colour" can be a tinted near-black** (4.6e): the
-    Colours wheel takes the palette's first colour of saturation 0.15 or
-    more with no value floor, so town_female_3's row 1 turns on a colour
-    of value 0.02, and its hex box scales the row's value about 40 times.
-    A value floor (0.1) moves only that row of hers. Lane 4.64b.
+25. ~~A row's "main colour" can be a tinted near-black~~: fixed by 4.64b
+    (a value floor of 0.1, which moved 130 of the 564 palettes the bases
+    offer, each from a near-black, not her row alone).
 26. **The reach aim's string drifts in rare cases** (2 of f2's 8,519 aim
     jobs; `docs/REACH.md`): parked with the frozen reach engine (D1143,
     D1278); its fix rides the next change to `aim.py`.
@@ -551,16 +549,12 @@ memory peaks stay strict. The gate writes both kinds of row to
     by 4.27d (0d2873ec) and 4.52c.
 29. ~~Old own copies of booblord_high refuse; old reshape-part keys miss
     once~~: accepted (4.6r), no lane: a copy made with New from this works.
-30. Looks: the status says "built in" where the list says "Built-in"; at
-    1100 px with Live on, Live's 32rem status line wraps its bar onto a
-    second line (57 px, 31 with Live off) and the app's Attach… onto a
-    third (91 px), so the map room is shorter (4.25; measured again in
-    4.53a, Chromium and WebKit alike). Lane 4.64b takes those two. The
-    rest are accepted, no lane: the status leads with the recipe hash (the
-    perf gate's Check predicate and the tests key on it); the hex box
-    rounds exact ties away from zero, one unit in the last place (4.6e's
-    review); the effect colour keeps the browser's own picker (native; the
-    Colours tab has the wheel).
+30. Looks: ~~the status's "built in" and Live's bar wrapping at 1100
+    px~~: fixed by 4.64b. The rest are accepted, no lane: the status leads
+    with the recipe hash (the perf gate's Check predicate and the tests
+    key on it); the hex box rounds exact ties away from zero, one unit in
+    the last place (4.6e's review); the effect colour keeps the browser's
+    own picker (native; the Colours tab has the wheel).
 31. ~~4.6c's leftovers~~: done, the last (`variant_save`'s `from` checked
     as a name) by 4.38b.
 32. ~~Community-only characters~~: fixed by 4.38b.
@@ -584,9 +578,7 @@ memory peaks stay strict. The gate writes both kinds of row to
 ### Ideas the session ranked (after the port, D1131)
 
 38. ~~Support plumbing~~: dropped, not built (D1206).
-39. "Play it in xemu" help after a Save: Machine > Load Disc…, and xemu's
-    memory at 128 MiB for More RAM and big bodies (the ranking's default:
-    the words now, no owner call). Lane 4.64b.
+39. ~~"Play it in xemu" help after a Save~~: added by 4.64b.
 40. ~~Play and Attach have never met a real xemu or the real admin
     prompt~~ (4.6k): the owner's demo (12.17).
 41. ~~A headline randomizer mode and a speedrun kit~~: no new player
