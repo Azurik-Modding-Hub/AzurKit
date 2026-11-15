@@ -1,4 +1,8 @@
 {
+ "death_realm": {
+  "default.xbe": "d156beb5067aa105267fdb898244b1c4994fec10edd6e26a6a3c90135c64fa23",
+  "gamedata/d1.xbr": "7b1878217b4f03ab01437d523247e70c8246f654d85318e4e6191900a219af89"
+ },
  "enemy_scaling": {
   "default.xbe": "72e0cf6af079a4024886d9e94812d87d4a35c177135b6196d215abe138866eab"
  },

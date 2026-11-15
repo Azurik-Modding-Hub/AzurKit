@@ -16,7 +16,9 @@ its value there, a virtual one hands it to the pack's ``custom_apply``.
 
 A slider over config.xbr (:class:`XbrParametricEdit`) writes keyed cells
 there (``core.xbr``): its value into one number cell, or as a multiplier of
-the cells its pack picks from the vanilla tables.
+the cells its pack picks from the vanilla tables. A fixed write into
+another XBR (:class:`XbrPatch`: a level's curve key) writes its bytes at a
+file offset, over the bytes the pack expects there.
 
 A trampoline (:class:`TrampolinePatch`) hooks a site with a CALL or JMP
 rel32 into a C shim: the pack's prebuilt object (``shims/<name>.o``, which
@@ -71,11 +73,13 @@ INT32 = (-2**31, 2**31 - 1)
 #: Each pack's category (:attr:`Pack.category`), with its title and line, in the order a UI shows them: Modkit's
 #: three (``azurik_mod/patching/category.py``, its GUI's tabs; the player's model is the Characters tab's here),
 #: then the Randomizer's (D1289): the patches the randomizer's logic counts while they are ticked, last, beside the
-#: Randomizer tab that follows the Patches tab. A category decides no byte of a build.
+#: Randomizer tab that follows the Patches tab (the save-point warp, the death realm unlock). A category decides no
+#: byte of a build.
 CATEGORIES = {"player": ("Player", "Player movement, physics and stats."),
               "enemies": ("Enemies", "Enemies' health, damage, speed and size, and the damage they take."),
               "qol": ("Quality of Life", "Frame rate, the boot logo, popups and other conveniences."),
-              "randomizer": ("Randomizer", "Patches the randomizer's logic counts while ticked: the save-point warp.")}
+              "randomizer": ("Randomizer", "Patches the randomizer's logic counts: the save-point warp and the death "
+                                           "realm.")}
 
 
 class PackError(ValueError):
@@ -355,11 +359,36 @@ class XbrParametricEdit(Slider):
                                                  fill=self.cells is not None)]
 
 
+@dataclass(frozen=True, kw_only=True)
+class XbrPatch:
+    """:attr:`value` written at the file offset :attr:`offset` of the XBR
+    :attr:`file` (a level's: the file is the same in every release the
+    pack lists), over :attr:`expected`, the bytes the vanilla file holds
+    there; a span that doesn't hold them is refused by its file and offset,
+    never its bytes (D35)."""
+    label: str
+    file: str
+    offset: int
+    expected: bytes
+    value: bytes
+
+    def change(self, pack: str, data) -> Change:
+        """The write over ``data``, the vanilla file; ``ValueError`` says why it can't be."""
+        if len(self.value) != len(self.expected):
+            raise ValueError(f"its {len(self.value)} B don't replace the {len(self.expected)} B it expects")
+        held = bytes(data[self.offset:self.offset + len(self.expected)])
+        if held != self.expected:
+            raise ValueError(f"{self.file} holds {digest(held)} at 0x{self.offset:X}, not the "
+                             f"{digest(self.expected)} it expects")
+        return Change(self.file, self.offset, hashlib.sha256(held).hexdigest(), self.value,
+                      f"{pack} {self.file} 0x{self.offset:X} ({self.label})")
+
+
 @dataclass(frozen=True)
 class Pack:
     name: str
     description: str
-    sites: tuple[PatchSpec | ParametricPatch | TrampolinePatch | XbrParametricEdit, ...] = ()
+    sites: tuple[PatchSpec | ParametricPatch | TrampolinePatch | XbrParametricEdit | XbrPatch, ...] = ()
     custom_apply: Callable[..., None] | None = None   # (xbe: Xbe, **values); it writes only by Xbe.patch
     footprint: tuple[Place, ...] = ()                   # every place custom_apply may write
     default_on: bool = False                            # every build applies it unless told not to (D528)
@@ -392,8 +421,9 @@ class Pack:
 
     def files(self) -> tuple[str, ...]:
         """The image's files the pack writes (and reads to plan)."""
-        xbe = self.custom_apply is not None or any(not isinstance(s, XbrParametricEdit) for s in self.sites)
-        return tuple(dict.fromkeys([XBE] * xbe + [s.file for s in self.sites if isinstance(s, XbrParametricEdit)]))
+        xbr = (XbrParametricEdit, XbrPatch)
+        xbe = self.custom_apply is not None or any(not isinstance(s, xbr) for s in self.sites)
+        return tuple(dict.fromkeys([XBE] * xbe + [s.file for s in self.sites if isinstance(s, xbr)]))
 
     def values(self, params: Mapping[str, object]) -> dict[str, float | int]:
         """Every slider's value: ``params``' (:meth:`ParametricPatch.value`),
@@ -672,7 +702,7 @@ def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mappin
             for spec in pack.sites:
                 if isinstance(spec, ParametricPatch) and spec.virtual:
                     continue   # a shim's FloatParam takes it
-                if not isinstance(spec, XbrParametricEdit):
+                if not isinstance(spec, (XbrParametricEdit, XbrPatch)):
                     xbe.patch(spec, values.get(spec.name) if isinstance(spec, ParametricPatch) else None, values)
         else:
             try:
@@ -681,7 +711,12 @@ def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mappin
                 raise PackError(f"pack {pack.name!r}: {exc}") from None
         changes, failures, claims, notes = xbe.changes, xbe.failures, xbe.claims, xbe.notes
     for spec in pack.sites:
-        if isinstance(spec, XbrParametricEdit):
+        if isinstance(spec, XbrPatch):
+            try:
+                changes.append(spec.change(pack.name, base[spec.file]))
+            except ValueError as exc:
+                failures.append(f"{spec.label}: {exc}")
+        elif isinstance(spec, XbrParametricEdit):
             data = base[spec.file]
             try:
                 if spec.file not in documents:

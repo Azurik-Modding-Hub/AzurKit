@@ -159,7 +159,7 @@ def _slider_ends(s, setting: str) -> float:
     return value
 
 
-def test_every_pack_at_its_slider_ends_builds_a_sound_xbe_whose_patched_code_is_well_formed(usa):
+def test_every_pack_at_its_slider_ends_builds_a_sound_xbe_whose_patched_code_is_well_formed(usa, usa_iso):
     """Modkit's behavior tests 3 and 4 (Steps 2.5 and 2.7) over every pack at once, each slider at its default,
     its track's ends and a span past each: L0 finds the build sound (sections in bounds and apart, the entry point
     in .text, the image size, kernel thunks by ordinal 1..378, TLS in a section; config.xbr parses) and L1 its
@@ -172,12 +172,14 @@ def test_every_pack_at_its_slider_ends_builds_a_sound_xbe_whose_patched_code_is_
 
     floats = [s.va for p in PACKS.values() for s in p.sliders()
               if isinstance(s, engine.ParametricPatch) and not s.virtual]
+    with iso.Reader(usa_iso) as r:   # and each other file a pack writes (death_realm's d1.xbr)
+        files = usa | {name: bytes(r.read(name)) for p in PACKS.values() for name in p.files() if name not in usa}
     for setting in ("default", "min", "max", "below min", "above max"):
         layers = []
         for pack in PACKS.values():
-            layers.append(engine.plan(pack, gate.USA, usa, {s.name: _slider_ends(s, setting) for s in pack.sliders()},
+            layers.append(engine.plan(pack, gate.USA, files, {s.name: _slider_ends(s, setting) for s in pack.sliders()},
                                       [c for la in layers for c in la.claims]))
-        built, _ = layer.compose(usa, layers)
+        built, _ = layer.compose(files, layers)
         xbe = bytes(built["default.xbe"])
         assert xbe != usa["default.xbe"] and "SHIMS" in {s["name"] for s in parse_xbe_sections(xbe)[1]}, setting
         assert static.check(xbe, {"gamedata/config.xbr": bytes(built["gamedata/config.xbr"])}) == [], setting

@@ -19,7 +19,7 @@ reverse-engineering findings are in
 The packs' C shims are `src/azurkit/tools/mods/shims/<name>.c`, each with
 its prebuilt object `<name>.o` beside it: `qol_skip_logo`, `player_physics`
 (the L3 speed toggle), `qol_photo_mode`, `qol_save_warp`, `qol_alloc_race`,
-`enemy_scaling` and the four `qol_memory` shims (sharing
+`enemy_scaling`, `death_realm` and the four `qol_memory` shims (sharing
 `qol_memory_heap.h`). `player_physics` also carves two hand-written shims
 (the BLACK roll at VA 0x8C745 and the wing-flap ceiling at VA 0x89154,
 § Hand-written shims). The player-model swap, which isn't a pack, lands

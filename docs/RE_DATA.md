@@ -2063,6 +2063,15 @@ Not randomizable (destination is the shell, not a level).
   (`ChromaticGate_toggle`'s link 2, keys (0, 1), (0.5, 0), (1, 0) at
   file 0x1AADA18) would leave the field open with no touch at all
   [inferred from the curve rule].
+- **The death realm unlock** (`death_realm`, Step 4.71a, AZ-836) writes
+  those ten 1.0s, each an engine `XbrPatch` over its vanilla 0.0, so a
+  touch of the seal opens the field at any disc count and no help popup
+  shows over it; the field's own look and sound stay vanilla's. Its
+  shim's half is `RE_XBE.md` § "Spideyzar's speed, his attacks and the
+  damage the player takes" [unverified in game for the pack's build:
+  whether a pad walk touches the seal, opens the field and crosses it
+  from the new-game save is Step 4.71c's sitting; r212a placed the
+  player on the seal].
 - **Floor 9.** `spideyzarGeneratorShape.enable` (799, saved) is
   `DisablingElevator_andCombiner` (795): the elevator call
   `CallFloor_orCombiner` (787) in [8.5, 9.5) AND a positional link from

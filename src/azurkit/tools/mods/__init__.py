@@ -2,7 +2,7 @@
 
 :data:`PACKS` holds them in their canonical order, Modkit's registry order,
 which every build applies them in (AZ-024); a pack ported later takes its
-place there. :func:`normalize` is the one check of the packs a recipe names
+place there, and one of AzurKit's own comes last (death_realm). :func:`normalize` is the one check of the packs a recipe names
 and their slider values, for every host (WEB §4.2), :func:`salvage` keeps
 what it takes of a remembered setup's and names the rest (D915), and
 :func:`missing` names a pack a build applies without one it requires
@@ -15,15 +15,15 @@ from collections.abc import Iterable, Mapping
 from azurkit.core import facts
 from azurkit.core.gate import Release
 from azurkit.tools.mods.engine import CATEGORIES, Pack, PackError, ParametricPatch, XbrParametricEdit, f32, plan
-from azurkit.tools.mods.packs import (air_shield_flaps, enemy_damage, enemy_scaling, fps_unlock, player_max_hp,
-                                      player_physics, qol_alloc_race, qol_memory, qol_photo_mode, qol_pickup_anims,
-                                      qol_popups, qol_save_warp, qol_skip_logo)
+from azurkit.tools.mods.packs import (air_shield_flaps, death_realm, enemy_damage, enemy_scaling, fps_unlock,
+                                      player_max_hp, player_physics, qol_alloc_race, qol_memory, qol_photo_mode,
+                                      qol_pickup_anims, qol_popups, qol_save_warp, qol_skip_logo)
 
 PACKS: dict[str, Pack] = {pack.name: pack for pack in (
     fps_unlock.PACK, player_physics.PACK, qol_popups.GEM_POPUPS, qol_popups.OTHER_POPUPS, qol_pickup_anims.PACK,
     qol_skip_logo.PACK, player_max_hp.PACK, air_shield_flaps.PACK, enemy_damage.PACK, enemy_scaling.PACK,
     qol_save_warp.PACK, qol_photo_mode.PACK, qol_memory.BUDGET_PACK, qol_memory.UPPER64_PACK,
-    qol_memory.UPPER64_GPU_PACK, qol_memory.UPPER256_PACK, qol_alloc_race.PACK)}
+    qol_memory.UPPER64_GPU_PACK, qol_memory.UPPER256_PACK, qol_alloc_race.PACK, death_realm.PACK)}
 
 
 #: Modkit's retired pack names (D43): each refused by name, saying what replaced it (:func:`unknown`).

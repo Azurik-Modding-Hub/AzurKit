@@ -98,19 +98,19 @@ def test_each_ported_case_writes_the_facts_bytes_site_by_site_and_nothing_else(r
     ``.text`` slack among them, where a shim lands), and no byte changed
     outside the case's sites, its shims' claims and the header state they
     derive; every facts site is some case's (none is dead)."""
+    xbe_packs = {name for name, pack in mods.PACKS.items() if engine.XBE in pack.files()}
     with iso.Reader(request.getfixturevalue(f"{release.name}_iso")) as r:
-        vanilla, config = r.read(engine.XBE), r.read(engine.CONFIG)
-    known = facts.of(release)
+        files = {name: r.read(name) for name in {engine.CONFIG, *(f for p in xbe_packs for f in mods.PACKS[p].files())}}
+    vanilla, known = files[engine.XBE], facts.of(release)
     assert (xbe.sections(vanilla), _sha256(vanilla)) == (known.sections, known.sha256)
     golden, recipes = record_goldens.recorded(SITES[release.name]), record_goldens.cases(SITES[release.name])
-    xbe_packs = {name for name, pack in mods.PACKS.items() if engine.XBE in pack.files()}
-    assert {recipes[case]["pack"] for case in golden} == xbe_packs and len(golden) == 32
+    assert {recipes[case]["pack"] for case in golden} == xbe_packs and len(golden) == 33
     assert {int(va, 16) for spans in golden.values() for va in spans} == set(known.sites)
     for case, spans in golden.items():
         recipe = recipes[case]
         params = mods.normalize({recipe["pack"]: recipe["params"]})[recipe["pack"]]
-        layer = mods.plan(mods.PACKS[recipe["pack"]], release, {engine.XBE: vanilla, engine.CONFIG: config}, params)
-        built = compose({"default.xbe": vanilla, engine.CONFIG: config}, [layer])[0].get("default.xbe", vanilla)
+        layer = mods.plan(mods.PACKS[recipe["pack"]], release, files, params)
+        built = compose(files, [layer])[0].get("default.xbe", vanilla)
         derived = bytearray(claimed({"default.xbe": vanilla}, [layer]).get("default.xbe", vanilla))
         drift, masked = [], bytearray(built)
         for va, site in known.sites.items():
@@ -569,15 +569,75 @@ def test_every_text_the_patches_tab_shows_is_one_short_line_with_no_tag_range_or
 def test_the_randomizer_category_holds_only_the_patches_the_randomizers_logic_counts():
     """D1289: the packs' Randomizer category, last in the order a UI shows
     them, holds the patches the randomizer's logic counts while they are
-    ticked: today only the save-point warp, the generator's ``WARP_PACK``,
-    whose name stays ``qol_save_warp`` (recipes, share links and settings
-    name it). Its other conveniences stay in Quality of Life."""
+    ticked: the save-point warp, the generator's ``WARP_PACK``, whose name
+    stays ``qol_save_warp`` (recipes, share links and settings name it),
+    and the death realm unlock (D1302). Its other conveniences stay in
+    Quality of Life."""
     assert [(c["id"], c["title"]) for c in sdk.catalog()["categories"]] == [
         ("player", "Player"), ("enemies", "Enemies"), ("qol", "Quality of Life"), ("randomizer", "Randomizer")]
-    assert [name for name, p in mods.PACKS.items() if p.category == "randomizer"] == [generator.WARP_PACK]
+    assert [name for name, p in mods.PACKS.items() if p.category == "randomizer"] == [generator.WARP_PACK,
+                                                                                      "death_realm"]
     stay = ("fps_unlock", "qol_pickup_anims", "qol_gem_popups", "qol_other_popups")
     assert {mods.PACKS[name].category for name in stay} == {"qol"}
 
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_death_realm_opens_the_seal_by_its_ten_thresholds_and_hooks_beside_enemy_scaling(release, request):
+    """D201 (Step 4.71a, AZ-836): death_realm's layer is d1.xbr's ten curve
+    keys, each the image's 0.0 made 1.0 (the seal's five disc tests and its
+    help popup's five), and its shim's two CALLs, at the release's own
+    address of Spideyzar's think's call of the base think and of the
+    player's hit past its damage, each landing holding the release's scene
+    pointer and vanilla's five speed constants (1.0, 1.25, 1.5; 1/3, 2/3).
+    A d1.xbr that isn't vanilla, a key that doesn't hold what the pack
+    expects and a damage factor no int32 holds of a 500 HP hit are refused
+    by name, never their bytes. With enemy_scaling's boss damage and
+    attack speed moved (its hooks at 0x8D648 and 0x2C7E2), the two layers
+    compose with no conflict and every byte of both lands."""
+    from azurkit.tools.mods.packs import death_realm, enemy_scaling
+
+    path = request.getfixturevalue(f"{release.name}_iso")
+    pack, known, one = mods.PACKS["death_realm"], facts.of(release), struct.pack("<f", 1.0)
+    with iso.Reader(path) as r:
+        base = {name: r.read(name) for name in (*pack.files(), engine.CONFIG)}
+    d1 = base[death_realm.D1]
+    keys = [at + 0x20 * k for at in (0x1AB2F8C, 0x1AB358C) for k in range(5)]
+    assert [struct.unpack_from("<f", d1, at)[0] for at in keys] == [0.0] * 10
+    landed = engine.Xbe(known, base[engine.XBE], pack)
+    death_realm.apply(landed, **pack.values({}))
+    hooks = {known.offset(known.va(h.va), 5): engine.jump("call", known.va(h.va), landed.landed[h.label][h.symbol], 5)
+             for h in (death_realm.THINK, death_realm.HIT)}
+    constants = b"".join(landed.read(va, 4) for va in death_realm.SPEEDS)
+    assert struct.unpack("<5f", constants) == pytest.approx((1.0, 1.25, 1.5, 1 / 3, 2 / 3), abs=1e-3)
+    layer = mods.plan(pack, release, base, {})
+    assert [(c.offset, c.after) for c in layer.changes if c.file == death_realm.D1] == [(at, one) for at in keys]
+    assert {c.offset: c.after for c in layer.changes if c.file == engine.XBE and c.offset in hooks} == hooks
+    table = struct.pack("<I", known.va(death_realm.SCENE)) + constants
+    assert bytes(compose(base, [layer])[0][engine.XBE]).count(table) == 2   # each landing's own copy
+    sealed = bytearray(d1)
+    sealed[keys[0]:keys[0] + 4] = one
+    for given, params, refused in (
+            ({death_realm.D1: bytes(sealed)}, {}, f"gamedata/d1.xbr {engine.digest(bytes(sealed))} is not the vanilla "
+                                                  f"{release.label} one"),
+            ({}, {"spideyzar_damage_scale": 1e7}, "Spideyzar's damage: x1e+07 of a 500 HP hit doesn't fit the game's "
+                                                  "32-bit integer")):
+        with pytest.raises(mods.PackError, match=re.escape(refused)):
+            mods.plan(pack, release, base | given, params)
+    two = struct.pack("<f", 2.0)
+    with pytest.raises(mods.PackError, match=re.escape(
+            f"d1's seal: its disc test 1: gamedata/d1.xbr holds {engine.digest(d1[keys[0]:keys[0] + 4])} at "
+            f"0x{keys[0]:X}, not the {engine.digest(two)} it expects")):
+        mods.plan(dataclasses.replace(pack, sites=(dataclasses.replace(death_realm.SEAL[0], expected=two),
+                                                   *pack.sites[1:])), release, base, {})
+    scaling = mods.plan(mods.PACKS["enemy_scaling"], release, base,
+                        {"boss_damage_dealt_scale": 2.0, "boss_attack_speed_scale": 2.0})
+    realm = mods.plan(pack, release, base, {}, scaling.claims)
+    both, conflicts = compose(base, [scaling, realm])
+    assert {f"enemy_scaling 0x{known.va(h.va):08X} ({h.label})" for h, _ in (
+        enemy_scaling.DAMAGE_HOOK, enemy_scaling.SPEED_HOOK)} <= {c.group for c in scaling.changes}
+    assert conflicts == [] and [c.group for la in (scaling, realm) for c in la.changes
+                                if bytes(both[c.file][c.offset:c.offset + len(c.after)]) != c.after] == []
 
 # --- Step 4.28f: Modkit's unpinned pack behaviours, ported ------------------------------------------------------
 

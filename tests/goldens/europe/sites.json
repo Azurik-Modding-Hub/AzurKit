@@ -1,4 +1,8 @@
 {
+ "death_realm": {
+  "0x0002BBF4": "26176652c8c858d07f74d72b150cfd7c93082baa3d5f57d39fded23de0322dd4",
+  "0x0008D607": "00ce653fab32e141f268da3737f7f320c659e15abe208426a5e4efb0a89fa34e"
+ },
  "enemy_scaling": {},
  "enemy_scaling:boss_attack_speed_scale=2": {
   "0x0002C7E2": "c3f23d6c7df9f36b5847810495058828b5ebe2de50cba3b0758a22654461ac97",

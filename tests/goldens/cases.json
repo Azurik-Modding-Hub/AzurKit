@@ -1,5 +1,10 @@
 {
  "europe/packs.json": {
+  "death_realm": {
+   "pack": "death_realm",
+   "params": {},
+   "region": "europe"
+  },
   "enemy_scaling": {
    "pack": "enemy_scaling",
    "params": {},
@@ -631,6 +636,11 @@
   }
  },
  "europe/sites.json": {
+  "death_realm": {
+   "pack": "death_realm",
+   "params": {},
+   "region": "europe"
+  },
   "enemy_scaling": {
    "pack": "enemy_scaling",
    "params": {},
@@ -955,6 +965,11 @@
     "air_shield_2_flaps": 4.0,
     "air_shield_3_flaps": 9.0
    },
+   "region": "usa"
+  },
+  "death_realm": {
+   "pack": "death_realm",
+   "params": {},
    "region": "usa"
   },
   "enemy_damage": {
@@ -6050,6 +6065,11 @@
   }
  },
  "sites.json": {
+  "death_realm": {
+   "pack": "death_realm",
+   "params": {},
+   "region": "usa"
+  },
   "enemy_scaling": {
    "pack": "enemy_scaling",
    "params": {},

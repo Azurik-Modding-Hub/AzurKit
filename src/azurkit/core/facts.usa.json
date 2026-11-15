@@ -1175,6 +1175,11 @@
    "convention": "thiscall",
    "va": "0x00038C60"
   },
+  "ai_think_base": {
+   "arg_bytes": 0,
+   "convention": "thiscall",
+   "va": "0x00037950"
+  },
   "aligned_node_offset": {
    "arg_bytes": 0,
    "convention": "cdecl",
@@ -2013,6 +2018,10 @@
    "sha256": "fcea5f89013e0e3dd3aabb00a11bb0f10eb4b2802a18d3168029b9f53ed1b540",
    "size": 4
   },
+  "0x0002BBF4": {
+   "sha256": "e5340b51ef2b21604cb1e4c97cc90fa0462db19ba1f15493bd79ec4df8b74207",
+   "size": 5
+  },
   "0x0002C7E2": {
    "sha256": "9df6b6f0b01453dbfaefb36b8bca9ced1331dc89433b09c43798c062df2e5ed6",
    "size": 4
@@ -2200,6 +2209,10 @@
   "0x0008D649": {
    "sha256": "a0327a22e8c42a97fc5d319b50bb50970cb3c8301dde4f0ea1dda43c0fe17a6c",
    "size": 4
+  },
+  "0x0008D657": {
+   "sha256": "58eddf75dcbc57e6114088bd13887dcfadb829b80a734a510713d9c982fd4e2d",
+   "size": 5
   },
   "0x0008FD19": {
    "sha256": "673d9fad9ab7f6ad8b0102ed11a5ec94d9e4fc9c83c1236126e971315c824a03",

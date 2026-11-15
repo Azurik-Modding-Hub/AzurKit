@@ -1,4 +1,7 @@
 {
+ "death_realm.o": {
+  "normalized sha256": "61d0d95b06e32cc81d0f0093ee2b4948407224ac765ee8237bf0a93d5d2abeb1"
+ },
  "enemy_scaling.o": {
   "normalized sha256": "4ca75406d2bfa75363be058d4f728af7687802870853e19717b9df2c106d71dd"
  },

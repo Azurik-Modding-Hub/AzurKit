@@ -4,7 +4,7 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 
 ## Patches and sliders
 
-- **17 patch packs:** every one works on both releases, USA and Europe, in four groups: Player, Enemies, Quality of
+- **18 patch packs:** every one works on both releases, USA and Europe, in four groups: Player, Enemies, Quality of
   Life and Randomizer, the last for the patches the randomizer's logic counts.
 - **Frame-rate unlock:** 60 FPS by default, or any whole frame rate up to 1,905, with game time keeping pace.
 - **Gravity:** set the world's gravity; your jump and flap heights stay the same.
@@ -17,6 +17,8 @@ Every feature in detail. [README](../README.md) is the short version: what AzurK
 - **Enemy and boss scaling:** health, damage, attack speed, move speed and size, set apart for enemies and bosses.
 - **Save-point warp:** on a save platform, hold LT and press A, B, X, Y to go to town and back. It sits in the
   Randomizer group.
+- **Death realm unlock:** enter d1 without the five discs; Spideyzar fights far harder and faster until you hold
+  all five, and d2's way back still needs its six lens keys. It sits in the Randomizer group.
 - **Photo mode:** click both sticks to freeze the game, hide the HUD and fly the camera, slower or faster.
 - **Fewer popups:** hide the first-time gem popups, and the tutorial, key, health and power-up ones.
 - **Skip the waits:** skip the pickup celebration (the item still counts) and the unskippable Adrenium logo at boot.

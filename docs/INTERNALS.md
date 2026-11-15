@@ -386,6 +386,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   vanilla XBE (`Xbe.read`), each release's own.
 - A `custom_apply` writes only through `Xbe.patch`, inside the footprint it
   declares (AZ-097). Errors name the site, never its bytes (D35).
+- A fixed write into another XBR (`XbrPatch`: a level's curve key, the
+  death realm unlock's ten in `d1.xbr`) is the file, its offset, the bytes
+  it expects there and the bytes it writes: the pack's `files()` holds the
+  file, so the plan checks it whole against the release's manifest, then
+  refuses a span that doesn't hold what it expects by file and offset. Its
+  file goes through `core/iso.py` like any build's, so the HDD cache's
+  `filelist.txt` line is rewritten.
 - **Sliders** (`ParametricPatch`) are a pack's parameters. Each takes any
   finite number, never clamped (D23). `slider_min` and `slider_max` are
   display hints, and the track holds the default and the vanilla value

@@ -828,7 +828,7 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
             ["Data", "false", True], ["Tools", "false", True], ["About", "false", True]]
         assert [c["title"] for c in catalog["categories"]] == ["Player", "Enemies", "Quality of Life", "Randomizer"]
         grouped = [[p for p in mods.PACKS.values() if p.category == c["id"]] for c in catalog["categories"]]
-        assert [p.name for p in grouped[3]] == ["qol_save_warp"]   # the Randomizer's own group, last (D1289)
+        assert [p.name for p in grouped[3]] == ["qol_save_warp", "death_realm"]   # the Randomizer's group, last (D1289)
         assert page.evaluate("""() => [...document.querySelectorAll("#packs .group[data-category]")].map((group) =>
             [group.querySelector("summary b").textContent, [...group.querySelectorAll(".pack")].map((item) =>
                 [item.dataset.pack, item.querySelector(".toggle").hidden ? null : item.querySelector(".toggle").textContent])])
@@ -839,7 +839,7 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert page.evaluate(GROUPS, "Quality of Life") == on
         _page.tick(page, ["fps_unlock"])
         assert [tally for _, tally, _ in page.evaluate(GROUPS, None)] == ["0 of 3 on", "0 of 2 on", "1 of 11 on",
-                                                                          "0 of 1 on"]
+                                                                          "0 of 2 on"]
         assert page.evaluate(SHOWN) == [["player_physics", "true", True, True]]
         for theme in ("light", "dark"):   # the page is light here, then dark, then light again
             faint = page.evaluate(FAINT)
@@ -4219,7 +4219,7 @@ def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_reci
             opened = _page.until(page, "() => azurkit.opened")
             assert opened == json.loads(json.dumps(sdk.open_build(made)))
             assert page.evaluate("() => document.querySelector('#picked').textContent").startswith(
-                "◆ AzurKit build · USA · 17 packs")
+                "◆ AzurKit build · USA · 18 packs")
             _page.click(page, "load-build")
             assert list(_page.ticked(page)) == list(mods.PACKS)
             assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"

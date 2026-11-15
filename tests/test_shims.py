@@ -149,7 +149,7 @@ def test_each_facts_function_starts_a_function_in_its_releases_code(release, req
             outside.append(f.name)
         elif data[known.offset(f.va)] not in PROLOGUE_FIRST_BYTES:
             opens.append(f"{f.name} at 0x{f.va:08X}")
-    assert (outside, opens, len(known.functions)) == ([], [], {"usa": 354, "europe": 254}[release.name])
+    assert (outside, opens, len(known.functions)) == ([], [], {"usa": 355, "europe": 255}[release.name])
 
 
 _CAPSTONE = Cs(CS_ARCH_X86, CS_MODE_32)
@@ -222,7 +222,7 @@ def test_each_facts_function_pops_what_its_declared_abi_makes_its_caller_push(re
                 "fastcall": max(0, f.arg_bytes - 8)}[f.convention]
         if (pops := _ret_pops(data, table, f.va)) != {want}:
             wrong.append(f"{f.name} ({f.convention}, {f.arg_bytes}) pops {sorted(pops)}, not {want}")
-    assert (wrong, len(known.functions)) == ([], {"usa": 354, "europe": 254}[release.name])
+    assert (wrong, len(known.functions)) == ([], {"usa": 355, "europe": 255}[release.name])
 
 
 def test_a_shim_lands_past_every_claim_before_it_and_its_claims_derive_the_header(usa_iso):

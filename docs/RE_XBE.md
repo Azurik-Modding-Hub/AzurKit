@@ -436,6 +436,37 @@ inventory being `[pd+0xE0]` with pd = `[[0x1BF63C]+0x2C]`. d1's seal
 opens at 4 of each (`RE_DATA.md` § "d1's death seal and Spideyzar's
 floor").
 
+**The death realm unlock's shim** (`death_realm`, `shims/death_realm.c`,
+Step 4.71a, AZ-836) is that code, acting only while a disc lacks a
+fragment, read live with the gameState's own test (a scene, player data
+or inventory not there counts as complete). Its think landing replaces
+the think's `call 0x37950` at **0x2BBF4** (the same VA and target in
+Europe): 0x37950 is `ai_think_base`, thiscall with no stack argument
+(its two returns, 0x37A31 and 0x37A68, are plain `RET`; 0x2BBF2 and
+0x26099 set only ECX before calling it), and it runs his state machine
+through vtable +0x24 that tick, so the writes made before it reach the
+same tick. It sets AI+0x180 to the speed slider × vanilla's own 1.0,
+1.25 or 1.5 by his health (an absolute value, so it holds at 1/60 under
+`fps_unlock`; above 1.5 vanilla's block leaves it alone), caps AI+0x178
+at the wait slider, and writes the movement slider × the species'
+`walkSpeed` and `runSpeed` (species +0x38, +0x40) as its first call
+found them; with the discs complete a call after one that scaled puts
+those back and AI+0x180 to vanilla's value for his health then. Its hit
+landing replaces `lea ecx, [esp+0xC]; push ecx` at **0x8D657** (Europe
+0x8D607), past 0x8D648's call and its zero test (enemy_scaling's damage
+hook stays at 0x8D648, so the two compose): EDI holds the integer cost
+the rest of the hit reads (0x8D665, 0x8D6AB), EAX and EDX are written
+before any read and no branch lands in the span. A hit whose source's
+critter is a spideyzar costs trunc(k × the cost after the armor), past
+an int32's ends its end; the landing then does the two instructions at
+vanilla's ESP and returns to 0x8D65C. His hits with no critter as their
+source (a damage platform's) aren't scaled. Each landing holds the scene
+pointer's address and the five speed constants (Europe's 0x19A958-60,
+0x1A4A18 and 0x1A4A14) [verified static 2026-11-15: `python -m devkit
+re xbe dis` on both releases; unverified in game: the rates, waits,
+moves and costs it gives, and whether his fight movement reads the
+species speeds, are Step 4.71c's sitting].
+
 #### The bosses that size themselves (Step 2.205b, 2026-10-27, AZ-786)
 
 [verified static 2026-10-27: `python -m devkit re xbe dis|calls|insns|vtable|read`
