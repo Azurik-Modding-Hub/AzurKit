@@ -10,6 +10,38 @@ Each change's entry is its own file in `devlog/`, never a line here:
 `devlog/<section>/<step>-<slug>.md`, its section `added`, `changed`, `removed` or `fixed`, its name in lower-case
 letters, digits, dots and hyphens, the file one Markdown bullet. A release joins them into a section below.
 
+## [1.3.0 (November 14, 2026)]
+
+### Added
+- Content that fits the app it reaches (PENDING 2.6): a content manifest's top-level `needs` map (`{id: "1.3.0"}`,
+  the oldest AzurKit an entry's version fits) greys that entry's Install or Update in the Characters and Patches tabs
+  with "update AzurKit", and the app's, the site's and the CLI's Install refuse it by name before any file is fetched;
+  an installed older copy stays, and a moved built-in recipe's refusal says to update AzurKit too. The sdk reads
+  `needs`, not `content.py`, which is among `parts.SOURCES`. Test:
+  `test_an_entry_that_needs_a_newer_azurkit_is_greyed_and_refused_before_any_file_is_fetched`.
+
+### Changed
+- **The gate's pytest and its flake and perf stages take two locks** (Step 4.43b, D1215's P2): a run holds
+  the suite lock for pytest alone, then takes `perf.lock` for its flake and perf stages before it lets the suite
+  lock go, so the next run's pytest starts beside them, under macOS's utility clamp at nice 19 while another
+  run holds `perf.lock` (`fullsuite.beside`).
+- A changed area's perf stage times the heavy ops (every Check after an edit, a new shape's first build or pictures: 10-19 min of a stage) only when a characters path changed (D1280): they take their own pair, `HOST:heavy`, which only the swap's, its kernels', its XBR graphs and writers', the store's, the app's pool and kept answers', the Characters tab's and the site worker's Check parts' rows, the site's builder (it publishes the shipped parts its Checks fetch) and the perf gate's own files reach; main's `--all` still times every op, and a heavy op named in `perf.py --ops` needs no `HOST:heavy` (Step 4.60a).
+
+### Fixed
+- The released-site content test waits for beamlord installed at the version the content repository's manifest gives him, not v1: content v11 carries his v2, and CI's pin to it failed the test in every browser on four vanilla shards (Step 4.57b).
+- The gate's run and its flake stage install Azurik-Custom-Content at the commit CI pins (`tests.yml`'s `CONTENT_COMMIT`), a `git archive` of the clone beside the main checkout unpacked into the run's scratch and named in its log, never what the clone has checked out: main 54ee900f passed its local gate on the clone's v10 and failed CI on the pinned v11. `$AZURKIT_CONTENT_SOURCE` set still wins, and a pinned commit that can't be read or fetched ends the run naming it (Step 4.58b).
+- The wheel a build installs into its throwaway venv (`web_tools.install`: every gate, perf run and wheel test) goes in with uv's `--no-cache`, its dependencies already in the venv from the lock, so it no longer leaves an unpacked copy and a pointer in uv's cache each time (272 of them, 29.7 GB, on 2026-11-14) (Step 4.58b).
+- **The xemu oracle holds a third sandbox back through a gate's flake and perf stages** (Step 4.58c): its
+  admission reads the receipts folder's `perf.lock` beside the suite lock, so under D1215's two locks a stage
+  that holds the perf lock alone still counts as a full suite running.
+- **The two-locks test fails at once instead of hanging** (Step 4.58c): its stand-in flock fails a run's poll at
+  a suite lock another run still holds, so a gate that kept the suite lock through its flake and perf stages
+  fails the test in about a second, not at the gate's cap.
+- The planner loader's stale contact-flight issue says to re-measure with `python -m devkit reach l3-contact`, not Modkit's `scripts/l3_contact.py`, and a contract test holds every message under `src/azurkit` to scripts the checkout has (the townsfolk kit's refusal stays owed until the next parts re-record); INTERNALS no longer lists the ported `db-extract` as not ported, and `docs/REACH.md` points at PENDING's open reach issues (Step 4.59d).
+- `python -m nativekit` writes each rebuilt library beside the old one and renames it over, so the path is a new file: a macOS dylib rewritten in place killed the next process to load it (SIGKILL until the file had a new inode), and a process that loaded the old one keeps its bytes; the scratch file goes on any error (Step 4.59e).
+- New from this or Save as of a community-only character keeps its numbers in the forms its entry writes them (1.0, not the page's 1; -0.0, not 0), the forms a dress's parts are keyed by, as a copy of your own does (Step 4.60b).
+- The first Check after any edit of your own copy of a variant (booblord's, made with New from this) no longer works her whole dress out again: the page hands a recipe back with its numbers as JavaScript writes them (1.0 as 1, -0.0 as 0) and a dress's parts are keyed by the recipe as written, so the edit asked for other parts than her own Check took. The engine now gives an edit, its checksum and its Save the number forms the variant's saved recipe holds wherever they are equal, so a Save with nothing changed leaves the file as it was too (Step 4.60b).
+
 ## [1.2.0 (November 14, 2026)]
 
 ### Added
