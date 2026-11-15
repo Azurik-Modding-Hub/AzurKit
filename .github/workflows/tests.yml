@@ -1,15 +1,14 @@
-# AzurKit's tests on GitHub Actions (Step 4.4ci; D1022-D1024), on the four platforms the apps ship for: macOS on
-# Apple Silicon (macos-15) and on Intel (macos-15-intel, GitHub's Intel image since it retired macos-13), Windows x64
-# and Linux x64.
+# AzurKit's tests on GitHub Actions (Step 4.4ci; D1022-D1024), on the three platforms the apps ship for: macOS on
+# Apple Silicon (macos-15), Windows x64 and Linux x64. Intel Macs' (macos-15-intel) went at 1.3.1 (Step 4.67a, D1290).
 # - matrix: the rows the two below run (scripts/ci_matrix.py, Step 4.4dx5), from the event, the repository and the ref:
-#   a lane branch whose name ends in -arm64, -intel, -windows or -linux runs only that runner's rows and Linux's pure
+#   a lane branch whose name ends in -arm64, -windows or -linux runs only that runner's rows and Linux's pure
 #   tier (Step 4.4dx9); main and every other lane branch run every row.
 # - pure: the pure tier (-m "not vanilla") on every push to main or a lane branch (p2/*) and every pull request. The web tier is in it: Node
 #   24, and Pyodide's pinned core and Playwright's browsers from the repository's own installer
 #   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries. On a push that
 #   runs the vanilla tier, each macOS runner's pure tier runs first in its vanilla part 1, behind that job's
-#   harden-runner, so a push asks for 5 macOS jobs, the most GitHub runs here at once.
-# - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main or to a lane branch
+#   harden-runner, so a push asks for 2 macOS jobs (Apple Silicon's parts), of the 5 GitHub runs here at once.
+# - vanilla: the vanilla and europe tiers (-m vanilla) on the same three, only on a push to main or to a lane branch
 #   (p2/*, the gamedata environment's two allowed branches, D1123) in this repository,
 #   each runner's in parts at once, a job each (--shard, scripts/ci_shards.py). Each image is rebuilt in the tier's
 #   folder, on the runner's roomiest disk, and the tier stops by name before it if no disk has its room
@@ -296,8 +295,9 @@ jobs:
           retry "the browsers' system libraries (playwright install-deps)" uv run --locked playwright install-deps "${engines[@]}"
       - name: The pure tier, a macOS runner's, in its part 1 before the key or an image is on the runner
         # Step 4.4dx5: the pure job's step, on the pure tier's workers (the row's `pure`), here so a push's macOS jobs
-        # are 5, the most GitHub runs here at once: its two macOS rows made 7, and two waited 20-33 min for a slot, on
-        # the run's critical path (runs 42198913490, 42222637371, 42313664434). Its tests run behind the block above.
+        # stay within the 5 GitHub runs here at once: its two macOS rows made 7, and two waited 20-33 min for a slot,
+        # on the run's critical path (runs 42198913490, 42222637371, 42313664434); since Step 4.67a a push asks for 2.
+        # Its tests run behind the block above.
         # Its failure fails the job in the last step, never before its vanilla part has run (Step 4.46a: one pure test
         # hid 333 and 491 vanilla tests of each Mac in main's runs 42930149347, 42948266726 and 42961116313).
         id: pure

@@ -78,10 +78,11 @@ SAMPLE_S, PRINT_S = 5, 60
 STALL_S = 90 * 60
 """How long the tier's log may stay the same size. pytest writes a dot as each test ends, so a legit quiet stretch
 is one test: the slowest is test_characters' variant cases (median 458 s, at most 869 s, in 31 of the gating Mac's
-runs). macOS Intel's runner, the slowest, spends about 6x that Mac's time a test: 2 workers x 12138 s on its tier's
-210 tests, where the Mac's gate runs them and 360 lighter ones on 8 workers in a median 899 s (the 210 about 60% of
-it). So about 45 min there, 87 min at the Mac's worst. Longer than the tier's faulthandler_timeout too (60 min, past
-the 45), so a hung test's stacks are in the log before it is printed."""
+runs). macOS Intel's runner, the slowest CI ran (gone since 1.3.1, Step 4.67a; this bound stays), spent about 6x
+that Mac's time a test: 2 workers x 12138 s on its tier's 210 tests, where the Mac's gate runs them and 360 lighter
+ones on 8 workers in a median 899 s (the 210 about 60% of it). So about 45 min there, 87 min at the Mac's worst.
+Longer than the tier's faulthandler_timeout too (60 min, past the 45), so a hung test's stacks are in the log
+before it is printed."""
 TAIL, WIDTH = 200, 240
 STOPPED = 3
 """The watcher's exit code once it stopped the tier."""

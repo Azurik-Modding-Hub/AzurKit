@@ -200,7 +200,7 @@ FLAKE_RUNS = 5      # one failing a try in three passes all five 55 % of the tim
 #: suite's own wider than a test (``flake_repeat.starts_nothing_once``); the others keep a pytest start a run.
 REPEAT = ("-o", "pythonpath=.", "-p", "scripts.flake_repeat")
 REPEATED = re.compile(r"(\[|-)flake-run-(\d+)\]$")
-FLAKE_WORKERS = 3   # tests.yml runs the pure tier, the page's tests in it, on 3 workers on CI's Intel runners
+FLAKE_WORKERS = 3   # tests.yml runs the pure tier, the page's tests in it, on 3 workers on CI's Windows and Linux
 FLAKE_LOOPS = 4     # busy loops at nice 10 beside taskpolicy -b: the pure tier so took 39 min here, CI's 36 (4.4ci27)
 FLAKE_UTILITY_LOOPS = 12  # busy loops in its class beside the utility clamp: about CI's Intel pace at load 60 (4.4dx4)
 FLAKE_QUIET = 3.0   # s: PROBE's most under taskpolicy -b for a run to start under it (slowed(); Step 4.4dx4)
@@ -934,8 +934,8 @@ def slowed() -> tuple[tuple[list[str], list[str], int], dict[str, float | None]]
     1 case of 6 passed and 3 failed (Step 4.4dx4). The utility clamp keeps
     them from starving, but reaches CI's Intel pace only near load 60: at
     load 43 those tests took 63 s, their CPU-heavy cases 27-37 s, at load
-    58 166 s and 99-119 s, where CI's Intel runner takes 77-84 s (its cases
-    take a median 3.4 times this box's gate run's)."""
+    58 166 s and 99-119 s, where CI's Intel runner (gone since 1.3.1) took
+    77-84 s (its cases a median 3.4 times this box's gate run's)."""
     options, probed = slowings(), {}
     for option in options[:-1]:
         t0 = time.time()

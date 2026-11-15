@@ -10,7 +10,8 @@ macOS jobs at once here, and the pure job's two macOS rows made a push's 7: two 
 one, on the run's critical path (runs 42198913490, 42222637371 and 42313664434). So on a push that runs the vanilla
 tier each macOS runner's part 1 runs its pure tier first (its row's ``pure``: the pure tier's workers), before the
 key or an image is on the runner, and scripts/ci_shards.py gives that part less of the vanilla tier by the pure
-tier's seconds (``tests/ci_durations.json``'s ``head``): the pure job runs only Windows' and Linux's.
+tier's seconds (``tests/ci_durations.json``'s ``head``): the pure job runs only Windows' and Linux's. Since Intel
+Macs' runner went (Step 4.67a) a push asks for Apple Silicon's 2 macOS jobs alone.
 
 A lane branch whose name ends in a runner's word (:data:`NAMED`: ``p2/4.4ci47-webkit-arm64``) runs only that runner's
 rows and Linux's pure tier (Step 4.4dx9, D1123's scope): two lanes' 7 macOS jobs each sat on main's 5 slots, and one
@@ -28,17 +29,16 @@ RUNNERS = {
     # label: (its image, the pure tier's workers, the vanilla tier's workers, the vanilla tier's parts)
     # The pure tier holds no image: a Mac on Apple Silicon has 3 cores and about 4.4 GiB to spare, the others 4 and
     # 11-14. The serial vanilla tier's lowest free memory, of what was free at its most (GiB, scripts/ci_resources.py's
-    # lines): Apple Silicon 1.1 of 4.4 and Linux 2.0-2.6 of 13.9, near that often, so one worker each; Intel 5.6 of
-    # 11.0 and Windows 5.2-5.3 of 13.2, seldom near it, so two. Whole, the vanilla tier took Intel 2:28-2:56 of tests,
-    # Apple Silicon 1:52-2:08, Windows 1:02-1:26 and Linux 1:26-1:28 (runs on 899cf05, bde5dae, b33204e and da30856),
-    # each job's setup and images 6-14 min more: so 3, 2, 2 and 2 parts (Step 4.4ci35), about an hour each, no part
-    # ending before its longest test (Intel's variant case, 44 min). The macOS ones make GitHub's 5 at once.
-    "macos-x86_64": ("macos-15-intel", 3, 2, 3),
+    # lines): Apple Silicon 1.1 of 4.4 and Linux 2.0-2.6 of 13.9, near that often, so one worker each; Windows 5.2-5.3
+    # of 13.2, seldom near it, so two. Whole, the vanilla tier took Apple Silicon 1:52-2:08 of tests, Windows 1:02-1:26
+    # and Linux 1:26-1:28 (runs on 899cf05, bde5dae, b33204e and da30856), each job's setup and images 6-14 min more:
+    # so 2 parts each (Step 4.4ci35), about an hour each. Intel Macs' runner (macos-15-intel, 3 parts) is gone since
+    # 1.3.1 (Step 4.67a, D1290: AzurKit 1.3.0's app is their last), so Apple Silicon's are the only macOS jobs.
     "macos-arm64": ("macos-15", 2, 1, 2),
     "windows-x86_64": ("windows-latest", 3, 2, 2),
     "linux-x86_64": ("ubuntu-latest", 3, 1, 2),
 }
-NAMED = {"arm64": "macos-arm64", "intel": "macos-x86_64", "windows": "windows-x86_64", "linux": "linux-x86_64"}
+NAMED = {"arm64": "macos-arm64", "windows": "windows-x86_64", "linux": "linux-x86_64"}
 """The last word of a lane branch's name that picks its runner."""
 LINUX = "linux-x86_64"   # whose pure tier, the quickest, a lane named for another runner runs too
 FOLDED = frozenset(label for label, (image, *_) in RUNNERS.items() if image.startswith("macos-"))
