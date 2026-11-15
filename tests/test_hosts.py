@@ -1702,8 +1702,8 @@ def test_the_apps_variants_view_keeps_your_variants_where_modkit_does_and_checks
         _page.until(page, "() => !document.getElementById('var-check').disabled", 120)
         _page.click(page, "var-check")
         page.evaluate(VARIANTS_ROW, "beamlord")
-        beam = _variants_shown(page, status="built in")
-        assert beam["status"].endswith("· built in · not checked") and not beam["check"][0]
+        beam = _variants_shown(page, status="built-in")
+        assert beam["status"].endswith("· built-in · not checked") and not beam["check"][0]
         _page.until(page, "() => document.getElementById('var-picture-note').textContent.includes('as it ships')", 60)
         page.evaluate(VARIANTS_ROW, "mine")
         _variants_shown(page, status="· saved ·")
@@ -1885,7 +1885,7 @@ def test_the_apps_shape_tab_previews_a_drag_on_its_check_and_its_jiggle_tab_adds
         page.evaluate(VARIANTS_ROW, "booblord")
         _page.until(page, "() => document.getElementById('var-ask').open")
         _page.click(page, "var-ask-yes")   # leave the new one's edits
-        _variants_shown(page, status="built in")
+        _variants_shown(page, status="built-in")
         _page.click(page, "var-tab-jiggle")
         assert _page.until(page, "() => !document.getElementById('var-bone').disabled && document.getElementById("
                                  "'var-spring-note').textContent", 120) == (

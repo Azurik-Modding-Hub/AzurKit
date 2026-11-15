@@ -6949,7 +6949,7 @@ def test_a_variant_another_site_tab_saved_survives_a_save_in_this_one(browser, s
         _page.click(page, "char-view-variants")
         _page.until(page, "() => azurkit.variants.state.list", 120)
         page.evaluate(VARIANTS_ROW, "beamlord")
-        _variants_shown(page, status="built in")
+        _variants_shown(page, status="built-in")
         assert page.evaluate(other, "theirs") is True
         page.evaluate(VARIANTS_TYPE, ["var-title", "My beam"])
         page.evaluate(VARIANTS_TYPE, ["var-as", "mine"])
@@ -6990,9 +6990,9 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
     """Step 4.6c on the site (Modkit's Variants page; D372, D480, D1087), no image picked: the Variants view lists
     the built-ins, each in its grade's colour with its words as its title under the Models view's legend (those a
     community list holds, booblord's from a Content from of the test's own, under Community, as the Models view lists
-    them, the rest under Built-in), and opens beamlord as a recipe from it, its sha, grade and "built in" in the status
+    them, the rest under Built-in), and opens beamlord as a recipe from it, its sha, grade and "built-in" in the status
     line, Check with game data greyed with D979's line, its Body note naming only the body read-only; an edit reads
-    "built in: Save as keeps your edits"; Save as a species', a built-in's or a malformed name is refused by name,
+    "built-in: Save as keeps your edits"; Save as a species', a built-in's or a malformed name is refused by name,
     nothing kept; Save as "mine" keeps its own copy (listed under Yours, and in the Models view's group of that name);
     a refused value is named and Save writes nothing, and an edit typed while Save's call is out stays unsaved; the
     JSON tab's Apply keeps the old recipe on a refusal or a new base, saying why, and takes a good one; leaving
@@ -7040,7 +7040,7 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         page.evaluate(VARIANTS_ROW, "beamlord")
         shown = _variants_shown(page, status=beam.sha)
         assert (shown["status"], shown["check"]) == (
-            f"recipe {beam.sha} · {grade} · built in · Choose your image first (1.) to check it",
+            f"recipe {beam.sha} · {grade} · built-in · Choose your image first (1.) to check it",
             [True, "Choose your image first (1.)"])
         assert page.evaluate("() => [document.getElementById('var-body-note').textContent, "
                              "document.getElementById('var-scale').disabled, document.getElementById('var-title')"
@@ -7052,7 +7052,7 @@ def test_the_variants_view_saves_what_the_engine_takes_keeps_it_in_this_browser_
         assert (drawn[0].startswith(f"var(--grade-{sdk._grade(beam)}, "), drawn[1].endswith(f" · {grade}"),
                 drawn[2].startswith("✓ green: fully playable")) == (True, True, True)   # its grade's colour, as Models
         page.evaluate(VARIANTS_TYPE, ["var-title", "My beam"])
-        assert _variants_shown(page, status="edits")["status"].startswith(f"recipe {beam.sha} · {unseen} · built in: "
+        assert _variants_shown(page, status="edits")["status"].startswith(f"recipe {beam.sha} · {unseen} · built-in: "
                                                                           "Save as keeps your edits")
         for name, why in (("keylord", "a species has that name"), ("booblord", "a built-in variant has that name"),
                           ("My Beam", "a lower-case letter")):
@@ -7392,7 +7392,7 @@ def test_the_variants_sounds_and_effects_tabs_write_the_rows_and_wavs_the_build_
         _page.click(page, "var-save")
         _variants_shown(page, status="· saved ·")
         page.evaluate(VARIANTS_ROW, "booblord")
-        _variants_shown(page, status="built in", name="booblord")
+        _variants_shown(page, status="built-in", name="booblord")
         assert page.evaluate("""() => [document.getElementById('var-sounds-chosen').textContent,
             document.getElementById('var-sounds-choices').hidden, document.getElementById('var-wav-hurt').textContent,
             document.getElementById('var-wav-hurt-add').closest('label').hidden,
@@ -7865,7 +7865,7 @@ def test_the_colours_tabs_export_and_import_pngs_are_greyed_with_d979s_line_unti
         _page.click(page, "char-view-variants")
         _page.until(page, "() => azurkit.variants.state.list", 120)
         page.evaluate(VARIANTS_ROW, "beamlord")
-        _variants_shown(page, status="built in")
+        _variants_shown(page, status="built-in")
         _page.click(page, "var-tab-colours")
         assert page.evaluate(export) == [True, True, "Choose your image first (1.)", "Choose your image first (1.)"]
         _page.pick(page, "#iso", usa_iso)

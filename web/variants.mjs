@@ -489,7 +489,7 @@ export function variantsView({ root, call, app, say, image, packs, dialog = null
     draw();
   };
   const status = (r) => {
-    const saved = { "built-in": edited() ? "built in: Save as keeps your edits" : "built in",
+    const saved = { "built-in": edited() ? "built-in: Save as keeps your edits" : "built-in",
                     community: edited() ? "community: Save as keeps your edits" : "community",
                     new: "unsaved: Save as keeps it", yours: edited() ? "unsaved edits" : "saved" }[v.kind];
     const check = !image() ? `${CHOOSE} to check it` : v.checking ? "checking with game data…"
