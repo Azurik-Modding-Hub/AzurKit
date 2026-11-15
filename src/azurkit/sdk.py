@@ -897,7 +897,7 @@ def _editing(given: object, what: str, *, image: bool = True) -> tuple[str, obje
         raise ValueError(f"variant {name!r}: its recipe is not an object of recipe fields")
     if not isinstance(given.get("folder"), str) or not given["folder"]:
         raise ValueError(f"variant {name!r}: folder names no folder for its files (its library folder)")
-    recipe = _as_held(recipe, Path(given["folder"]) / VARIANT_RECIPE, name)   # its parts' keys: the file's forms
+    recipe = _as_opened(recipe, Path(given["folder"]), name)   # its parts' keys: the forms it opened in
     try:
         found = variants.load_variants(json.dumps({name: recipe}), str(Path(given["folder"]) / VARIANT_RECIPE),
                                        tuple(variants.builtins()))
@@ -937,6 +937,39 @@ def _as_held(recipe: Mapping, file: Path, name: str) -> dict:
     yours, its Save and its sha read it in the forms its saved Check, its
     Build and its shipped parts read."""
     return _like(recipe, _held(file, name))
+
+
+def _as_opened(recipe: Mapping, folder: Path, name: str) -> dict:
+    """An edit's ``recipe`` (its files in ``folder``) in the forms it was
+    opened in where they are equal (:func:`_forms`): yours as its
+    ``recipe.json`` holds ``name`` (:func:`_as_held`), else an installed
+    entry's own character, sent :data:`UNSAVED` from its entry's folder, as
+    it opens (:func:`_opened_from`), else as given (Step 4.70a)."""
+    held = _held(folder / VARIANT_RECIPE, name)
+    return _like(recipe, held if held is not None else _opened_from(recipe, folder))
+
+
+def _opened_from(recipe: Mapping, folder: Path) -> dict | None:
+    """The recipe the community-only character an edit in ``folder`` was
+    opened as (:func:`_community`, :func:`variant_open`'s: ``folder`` its
+    installed entry's), of that entry's characters the one whose fields the
+    edit keeps most of (an edit moves a field or a few), the first on a
+    tie; ``None``: ``folder`` is no installed entry's."""
+    from azurkit.tools.characters import content as kit
+
+    if (entry := kit.entry_of(str(folder / Path(kit.RECIPES).name))) is None:
+        return None
+    opened = []
+    for row in kit.community():
+        if row.entry == entry[0] and row.refusal is None:
+            try:
+                opened.append(_community(row.name, row.variant))
+            except (OSError, ValueError, KeyError):   # its file gone or altered since: the loader says why
+                continue
+    try:
+        return max(opened, key=lambda was: sum(k in recipe and recipe[k] == v for k, v in was.items()), default=None)
+    except RecursionError:   # nested past the stack: the loader refuses it by name
+        return None
 
 
 def _like(recipe: Mapping, held: Mapping | None) -> dict:

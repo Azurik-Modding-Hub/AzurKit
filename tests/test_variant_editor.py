@@ -417,6 +417,22 @@ def test_a_field_a_part_leaves_out_moves_no_byte_its_stage_reads(usa_iso, tmp_pa
             assert not stage.startswith("W28") or read[stage] <= kept[1][stage], (row, stage)
 
 
+#: PARTED with a clip and numbers the page's JS writes in other forms (1.0 as 1, -0.0 as 0), and an edit of a colour.
+FORMED = json.loads(json.dumps(PARTED)) | {
+    "markers": ["m_damage"], "columns": {"basic1": "spin"},
+    "clips": {"spin": {"generator": "t_spin", "length": 1.0, "turns": 2, "active": [0.25, 0.75],
+                       "box": {"centre": [0.0, 0.0, 0.5], "half": [0.5, 0.5, 0.5]}}}}
+FORMED["sfx"]["spin"]["length"] = 1.0
+FORMED["mesh"]["ops"][0]["offset"][0] = -0.0
+HUED = {"colours": [{"ops": [{"op": "hsv", "hue": 120}]}]}
+
+
+def _paged(recipe):
+    """``recipe`` as the page hands it back: through JS numbers, 1.0 as 1 and -0.0 as 0."""
+    return json.loads(json.dumps(recipe), parse_float=lambda text: (
+        int(float(text)) if float(text).is_integer() else float(text)))
+
+
 def test_an_edit_of_your_saved_copy_takes_the_parts_its_check_kept_though_the_page_sends_1_0_as_1_and_minus_0_as_0(
         usa_iso, tmp_path, monkeypatch):
     """Step 4.60b: a page hands a recipe back through JS, whose numbers write 1.0 as 1 and -0.0 as 0, and a part's key
@@ -424,15 +440,7 @@ def test_an_edit_of_your_saved_copy_takes_the_parts_its_check_kept_though_the_pa
     numbers are equal, so the first Check after an edit of yours (a colour) misses only the stage the edit moves
     (``size``), as a Python caller's does, the sha the editor reads is its Build's, and a Save keeps the file's forms,
     as Save as and New from this of it do."""
-    mine = json.loads(json.dumps(PARTED)) | {
-        "markers": ["m_damage"], "columns": {"basic1": "spin"},
-        "clips": {"spin": {"generator": "t_spin", "length": 1.0, "turns": 2, "active": [0.25, 0.75],
-                           "box": {"centre": [0.0, 0.0, 0.5], "half": [0.5, 0.5, 0.5]}}}}
-    mine["sfx"]["spin"]["length"] = 1.0
-    mine["mesh"]["ops"][0]["offset"][0] = -0.0
-    edit = mine | {"colours": [{"ops": [{"op": "hsv", "hue": 120}]}]}
-    paged = lambda recipe: json.loads(json.dumps(recipe), parse_float=lambda text: (   # noqa: E731
-        int(float(text)) if float(text).is_integer() else float(text)))
+    mine, edit, paged = FORMED, FORMED | HUED, _paged
     assert paged(edit) == edit and json.dumps(paged(edit)) != json.dumps(edit)
     monkeypatch.setattr(library, "ROOT", tmp_path)
     monkeypatch.setattr(parts, "STORE", None)
@@ -451,6 +459,40 @@ def test_an_edit_of_your_saved_copy_takes_the_parts_its_check_kept_though_the_pa
     assert (tmp_path / "mine" / library.RECIPE).read_text(encoding="utf-8") == library.text_of("mine", edit)
     sdk.variant_save({"name": "mine", "recipe": paged(edit), "as": "mine2", "from": "mine"})
     assert (tmp_path / "mine2" / library.RECIPE).read_text(encoding="utf-8") == library.text_of("mine2", edit)
+
+
+def test_an_edit_of_a_community_only_character_takes_the_parts_its_check_kept_though_the_page_sends_1_0_as_1(
+        usa_iso, tmp_path, monkeypatch):
+    """Step 4.70a: an installed entry's own character, edited, is sent unsaved from its entry's folder in the page's
+    JS number forms; the sdk gives it the forms it opened in (``sdk._community``) wherever the numbers are equal, of
+    its entry's characters the one whose fields the edit keeps most of (here not the first its file holds, a twin in
+    the page's forms with its arms moved), so the first Check after an edit of it (a colour) misses only the stage the
+    edit moves (``size``), as 4.60b's of yours does."""
+    from azurkit.tools.characters import content
+
+    twin = _paged(FORMED) | {"arms": {"out_deg": 12.0}}
+    files = {"variants/mine_lord/variant.json": json.dumps({"mine_twin": twin, "mine_lord": FORMED}).encode()}
+    for path, data in files.items():
+        (tmp_path / "repo" / path).parent.mkdir(parents=True)
+        (tmp_path / "repo" / path).write_bytes(data)
+    monkeypatch.setattr(library, "ROOT", tmp_path / "variants")
+    monkeypatch.setattr(content, "ROOT", tmp_path / "content")
+    manifest = content.filled({"format": content.FORMAT, "schema_version": 1, "entries": [
+        {"id": "mine_lord", "kind": "variant", "title": "Mine", "author": "a player", "licence": "MIT", "version": 1,
+         "requires": [], "files": [{"path": path} for path in files]}]}, files.__getitem__)
+    content.install(manifest, "mine_lord", files.__getitem__, content.ROOT)
+    monkeypatch.setattr(parts, "STORE", None)
+    monkeypatch.setattr(parts, "HEARD", {})
+    parts.clear()
+    opened = sdk.variant_open({"name": "mine_lord"})
+    missed = {}
+    for label, given in (("opened", {"name": "mine_lord"}), ("edited", {
+            "name": sdk.UNSAVED, "recipe": _paged(opened["recipe"] | HUED), "folder": opened["folder"]})):
+        parts.HEARD.clear()
+        sdk._CHECKED.clear()
+        answer = sdk.variant_check({"iso": str(usa_iso), **given})
+        missed[label] = {stage for stage, counts in parts.HEARD.items() if counts["miss"]}
+    assert answer["refusal"] is None and len(missed["opened"]) > 1 and missed["edited"] == {"size"}
 
 
 def test_a_shaped_copys_check_takes_its_plain_bodys_places_from_its_parts_and_prepares_its_mesh_once(usa_iso, tmp_path,

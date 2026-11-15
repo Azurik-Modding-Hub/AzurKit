@@ -1042,7 +1042,12 @@ are the Characters section's.
     `variant_read` sha and its Save, Save as and New from this ask the
     keys its saved Check and its Build kept (New from this of a
     community-only character, the forms it opens in: `sdk._community`),
-    and booblord's own copy's first edit takes her body's parts.
+    and booblord's own copy's first edit takes her body's parts. An edit
+    of a community-only character, sent unsaved from its entry's folder,
+    checks in the forms it opened in (`sdk._opened_from`: of that entry's
+    characters, the one whose fields the edit keeps most of; Step 4.70a),
+    so its first Check after an edit asks the keys its own Check kept;
+    its `variant_read` sha, asked with no folder, keeps the page's forms.
     A Check of what it
     checked last, unchanged (`sdk._check_key`, by content), answers at
     once, and a dress kept before (`characters.cache_key`; the site's
