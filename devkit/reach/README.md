@@ -2,7 +2,8 @@
 
 Which floors the player reaches from which, by running the game's own
 player tick (the simulator's L3) from every floor's boundary. Modkit's
-engine at its freeze (D1143), ported whole (Step 4.13d1): `engine/` is the
+engine at its freeze (D1143), ported whole (Step 4.13d1) and open for
+research again (D1304): `engine/` is the
 engine, `native/` its native movement and collision kernel (`kernel.c`,
 `controllers.c`) and the kernel's launch backend, `l3_fast.py` FastL3 (its
 C step `fastl3_step.c`, its patched Unicorn `unicorn/`) and `l3_pool.py`

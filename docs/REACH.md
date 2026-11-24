@@ -1,7 +1,7 @@
 # The reach engine (`devkit/reach`)
 
-Dev only, frozen (D1143): Modkit's reach engine at its freeze, ported whole (Step 4.13d1) so that Modkit can
-go; the research resumes on AzurKit later. This page is Modkit's text: its steps, decisions and measurements
+Dev only, open for research again (D1304): Modkit's reach engine at its freeze (D1143), ported whole (Step
+4.13d1) so that Modkit could go. This page is Modkit's text: its steps, decisions and measurements
 are Modkit's (their reports stay in the private evidence folder, named here by their step), its scripts are
 devkit verbs (`python -m devkit reach VERB`, [`devkit/reach/README.md`](../devkit/reach/README.md)) and its
 paths AzurKit's: the engine is `devkit/reach/engine/`, the kernel `devkit/reach/native/`, FastL3 and the pool
@@ -11,7 +11,7 @@ folder (`reach-truth/`), and it reads the L3 store's reach models in place (`dev
 shadow only: nothing here writes the randomizer's data.
 
 This page names only the AZ ids its text needs: every open reach, derive and L3 issue (v2, D609) is in
-[`Future/PENDING.md`](Future/PENDING.md)'s group 7, and the paused backlog in its group 6.
+[`Future/PENDING.md`](Future/PENDING.md)'s group 7, and the backlog D1304 resumed in its group 6.
 
 Step R2.16a (the R2.16 design; D609, D610, D615) builds the tool that will find which floors are reachable from
 which with the movement the game has, by running the game's own player tick (simulator Level 3) rather than a

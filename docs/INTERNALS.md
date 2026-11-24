@@ -342,7 +342,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The reach engine's cut (Step 4.13d1):** `devkit/reach` is Modkit's
   `reach_engine`, `reach_native` (the kernel and its launch backend),
   FastL3 with its C step and Unicorn patch, the L3 pool and the engine's
-  scripts as devkit verbs, at Modkit `f482ea041`, frozen (D1143). Its cache
+  scripts as devkit verbs, at Modkit `f482ea041` (its freeze, D1143), open
+  for research again (D1304). Its cache
   and kernel keys hash the code at its devkit paths, so Modkit's records
   aren't reused; the truth set is read from `reach-truth/` in the user data
   folder and the reach models from the L3 store's `x7/reach/`, which

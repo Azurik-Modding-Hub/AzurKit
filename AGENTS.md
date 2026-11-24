@@ -192,7 +192,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (D10, D37) or names the golden that pins it. A change to the randomizer's
   writer's or layer's bytes owes an xemu sitting; a change to the derive
   bumps `DERIVE_VERSION` (`python -m devkit rando restack` re-derives and
-  re-records); the reach engine (`devkit/reach`) is frozen (D1143).
+  re-records); the reach engine (`devkit/reach`) is open for research
+  again (D1304).
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
   sha256, sections, every patch site's size and vanilla sha256, the
   functions a shim may call, the kernel exports' slots, the swap's hooks,
@@ -243,7 +244,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and untouched at the pin, recorded in a manifest by id, version and sha256,
   never its bytes. No pack ships (D997), so fixture packs in
   `tests/test_community.py` pin them.
-- **Shims** (Step 4.1f1): a shim's source and its prebuilt object sit side
+- **Shims:** a shim's source and its prebuilt object sit side
   by side and are both committed (`src/azurkit/tools/mods/shims/`, the swap's
   in `tools/characters/player_model/`), so no host compiles one (AZ-045).
   Only `uv run --locked python -m shimkit` builds the objects (pinned zig,
@@ -480,7 +481,7 @@ The how-to is [`docs/SHIMS.md`](docs/SHIMS.md).
   `tests/skip_allowlist.toml`, `tests/conftest.py`, `tests/_*.py` (the leak
   guard among them), the drift guards' tables (`PROLOGUE_FIRST_BYTES`),
   `pyproject.toml`, `uv.lock`, `bootstrap.py`, `CLAUDE.md` and `.claude/`.
-  Each file a command writes is held to it by a test (Step 4.24c).
+  Each file a command writes is held to it by a test.
 - **Ids:** an AZ, D or Q id comes from the private ledger: `$EV/tools/ledger
   take AZ "slug: one line"` (`ledger next` prints the next free ones). Never
   write an id or the ledger's pointer by hand. A lane whose prompt says not

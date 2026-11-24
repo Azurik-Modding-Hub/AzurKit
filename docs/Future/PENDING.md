@@ -227,18 +227,18 @@ polish, after the next session's research (group 6, D1304).
 ## 6. Reach and the randomizer's research (the next session, D1304)
 
 The next session starts here (D1304): randomizer and reach research
-loops, the reach engine unfrozen. Its order: 6.6's edits, then 6.5's four
-resume steps, then group 7's reach and derive ids, 9.26, 6.7, 6.8 and
-9.49's next steps, 10.3, 10.11's P7(b), "0 logic bugs" (D522), V21 and
-V22, then 8.29, with 3.4's nits on the first lane that restacks or
-re-records the art. Beside it: D1075's read at its start (12.7), the Linux
-memory lane (8.37), S82 if it repeats (8.38) and the parts' narrower key
-(10.18).
+loops, the reach engine open for research again. Its order: 6.6's edits,
+then 6.5's four resume steps, then group 7's reach and derive ids, 9.26,
+6.7, 6.8 and 9.49's next steps, 10.3, 10.11's P7(b), "0 logic bugs"
+(D522), V21 and V22, then 8.29, with 3.4's nits on the first lane that
+restacks or re-records the art. Beside it: D1075's read at its start
+(12.7), the Linux memory lane (8.37), S82 if it repeats (8.38) and the
+parts' narrower key (10.18).
 
 1. ~~x7's route graphs~~ (D1172): 4.13f built all 44 (35.4 GiB) from
    5a3b0954 on 2026-11-09. They are stale again: the 11-10 reboot moved
    `router_key`'s device number, and 4.52b's `physics.py` edit (e9d55a12)
-   moved every key. Nothing but the frozen research reads them, and
+   moved every key. Nothing but the reach research reads them, and
    `load_router` rebuilds one on first use (0.7-54 s). The 11-15 wrap-up
    kept them (D1305); the rest is 5's.
 2. ~~The 21 retired proof records~~ (D1175): 4.13f's reading stands
@@ -263,13 +263,8 @@ memory lane (8.37), S82 if it repeats (8.38) and the parts' narrower key
      place);
    - re-proves the retired records' marks;
    - re-takes the conformance snapshots.
-6. **The unfreeze edits** (D1304), owed before the first reach lane, each
-   to say the engine is open for research: AGENTS.md's Porting from Modkit
-   line ("the reach engine (`devkit/reach`) is frozen (D1143)"), the
-   `azurik-orchestration` skill's frozen line (`.claude/`, a protected
-   path), `devkit/reach/README.md`'s head, `docs/INTERNALS.md`'s freeze
-   line and the brief's annex A1. AGENTS.md sits near its 40k-character
-   limit, so a new rule there cuts text elsewhere.
+6. ~~The unfreeze edits~~ (D1304): done by 4.75a, but for the brief's
+   annex A1, the orchestrator's.
 7. **toD1's door is in the sewer, not the temple** (sitting 4.71c-R1a's
    skeptic): the logic leaves toD1 from town_z020 (Z021, the temple,
    `town.toml`) and puts D1_Town's arrival there (`d1.toml`), but d1's
@@ -286,8 +281,8 @@ memory lane (8.37), S82 if it repeats (8.38) and the parts' narrower key
 
 The private ledger (D952) holds Modkit's 29 open issues. After 1.1 the
 work comes here and to group 9's known flaws and editor leftovers, reach
-staying frozen (D1212); 4.40b's triage readies their lanes. The reach and
-derive ids are the next session's (group 6, D1304).
+staying frozen (D1212) until D1304 opened it again; 4.40b's triage readies
+their lanes. The reach and derive ids are this session's (group 6, D1304).
 
 - Inherited by AzurKit (3):
   - ~~AZ-009: level patches address entities by their current name, not
@@ -640,8 +635,9 @@ memory peaks stay strict. The gate writes both kinds of row to
     (a value floor of 0.1, which moved 130 of the 564 palettes the bases
     offer, each from a near-black, not her row alone).
 26. **The reach aim's string drifts in rare cases** (2 of f2's 8,519 aim
-    jobs; `docs/REACH.md`): parked with the frozen reach engine (D1143,
-    D1278); its fix rides the next change to `aim.py`.
+    jobs; `docs/REACH.md`): parked while the reach engine was frozen
+    (D1143, D1278), open again (D1304); its fix rides the next change to
+    `aim.py`.
 
 ### The Variants editor
 

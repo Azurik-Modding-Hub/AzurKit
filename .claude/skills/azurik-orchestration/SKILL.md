@@ -233,8 +233,9 @@ for j in "$P"/subagents/workflows/<run>/agent-*.jsonl; do printf '%s\t%s\n' "$(j
   reads in one turn (parallel calls or one chained command); poll a running job at most every 240 s,
   one blocking wait a call, never a sleep loop or repeated `--status`; `grep -n` before reading a big
   file, then read only the ranges needed. Each turn re-reads the seat's whole context.
-- **The reach engine is frozen (D1143)** in `devkit/reach` (`docs/REACH.md`) until its research
-  resumes on AzurKit; reach work runs in AzurKit's gaps (D968). When it does:
+- **The reach engine is open for research again (D1304)** in `devkit/reach` (`docs/REACH.md`),
+  after its freeze (D1143); reach work runs in AzurKit's gaps (D968), and every reach step keeps
+  this practice:
   - **A reach measure seat checks by sample, never by re-running the whole bench:** it picks its own
     job sample on every bench level and kind (by sha256 of the job id), compares whole records by
     sha12 with the builder's kept ones, and times its own interleaved ABAB slice A/B at one load for
