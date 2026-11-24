@@ -26,6 +26,7 @@ means "the patched code computes this from this state", not "the game does this"
 
 from __future__ import annotations
 
+import gc
 import math
 import os
 import struct
@@ -2113,6 +2114,8 @@ def test_a_conformance_rerun_names_a_retaken_snapshot_missing_and_runs_fastl3_wh
     (ok, err, _), = fault = got(bare, fast=True, workers=1)
     assert not ok and err.startswith("tick 0: ") and "UC_ERR_FETCH_PROT" in err and err.endswith("0x85270"), err
     assert got(bare, fast=True) == fault                       # in this process too: FastL3 ran, not L3
+    del snap, rows   # Windows won't truncate a file this process still maps (EINVAL): its map goes with its last
+    gc.collect()     # holder, the in-process reruns' simulators among them, kept in reference cycles until collected
     _l3_walker(store, level="levels/water/w2")                 # re-taken under its label: another state
     gone = corpus.rerun(xbe, store=store, fast=True)
     assert gone[0]["missing"] == f"its snapshot was re-taken (its meta_sha12 is {meta_sha12(read_meta(path))} now)"

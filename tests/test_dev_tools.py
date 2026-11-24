@@ -2760,7 +2760,7 @@ def test_ci_resources_minute_line_on_linux_names_shmem_and_the_tiers_memory_by_k
     Kinds and sums only, never a path, a name or an argument. The reader takes its /proc, so this runs on any OS."""
     from scripts import ci_resources
     proc, kib = tmp_path / "proc", 1 << 20   # kB in a GiB
-    shell = "/home/runner/work/AzurKit/.tools/playwright/chromium_headless_shell-1254/chrome-headless-shell-linux64/" \
+    shell = "/opt/runner/work/AzurKit/.tools/playwright/chromium_headless_shell-1254/chrome-headless-shell-linux64/" \
             "chrome-headless-shell"
 
     def meminfo(available: float, shmem: float) -> None:
@@ -2779,9 +2779,9 @@ def test_ci_resources_minute_line_on_linux_names_shmem_and_the_tiers_memory_by_k
     process(2, 0, "kthreadd", "")                                      # a kernel thread: no memory, no tier
     process(100, 1, "bash", "bash\0-e\0", 0.01)                          # the tier's own
     process(101, 100, "sudo", "sudo\0unshare\0--net\0", 0.01)
-    process(102, 101, "python", "/home/runner/work/AzurKit/.venv/bin/python\0-m\0pytest\0", 0.5, 0.4)
-    process(103, 102, "python", f"/home/runner/work/AzurKit/.venv/bin/python\0-c\0{ci_resources.WORKER}\0", 1.0, 0.9)
-    process(104, 103, "node", "/home/runner/work/AzurKit/.tools/playwright/driver/node\0cli.js\0run-driver\0", 0.1, 0.1)
+    process(102, 101, "python", "/opt/runner/work/AzurKit/.venv/bin/python\0-m\0pytest\0", 0.5, 0.4)
+    process(103, 102, "python", f"/opt/runner/work/AzurKit/.venv/bin/python\0-c\0{ci_resources.WORKER}\0", 1.0, 0.9)
+    process(104, 103, "node", "/opt/runner/work/AzurKit/.tools/playwright/driver/node\0cli.js\0run-driver\0", 0.1, 0.1)
     process(105, 104, "chrome-headless", f"{shell}\0--headless\0--user-data-dir=/tmp/playwright_chromiumdev_profile-x\0",
             0.3, 0.2, 0.1)
     process(106, 105, "chrome-headless", f"{shell}\0--type=zygote\0", 0.1, 0.01, 0.02)

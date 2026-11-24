@@ -2292,7 +2292,7 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
     text = (ev / "results" / "runs.jsonl").read_text(encoding="utf-8")
     assert '"ERROR"' in text and '"pos"' not in text and all(wc.public(json.loads(ln)) for ln in text.splitlines())
     kept = wfile.with_name("t-witness.checked.jsonl")
-    assert kept.stat().st_mode & 0o777 == 0o600
+    assert os.name != "posix" or kept.stat().st_mode & 0o777 == 0o600   # modes say nothing on Windows
     assert [json.loads(ln)["replay"]["verdict"] for ln in kept.read_text(encoding="utf-8").splitlines()].count(
         "PASS") == 8 and not list((tmp_path / "store").rglob("*.l3snap"))
     truth = tmp_path / "kept.jsonl"
