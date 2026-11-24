@@ -497,7 +497,7 @@ class _Checker:
         names |= {rel.split("/", 1)[1] for rel in self.texts if rel.startswith("movement/")}   # the authoring's
         for name in sorted(names):
             self.movement_file(root / "movement" / name, f"movement/{name}")
-        if (root / "contact.json").is_file():
+        if "contact.json" in self.texts or (root / "contact.json").is_file():
             self.contact_file(root / "contact.json")
         self.proofs, problems = pr.read_proofs(root / pr.FILE)         # evidence: outside db_digest
         for n, why in problems:
@@ -550,8 +550,9 @@ class _Checker:
         """``contact.json`` (§17, Step X.11): flights of the movement files measured in L3 at modified movement,
         each certificate's slider ranges.  Each must measure a certificate of its level's movement file
         (:meth:`movement_rules`)."""
+        text = self.texts.get("contact.json")      # the authoring's, as for the level and movement files
         try:
-            doc = json.loads(p.read_text(encoding="utf-8"))
+            doc = json.loads(p.read_text(encoding="utf-8") if text is None else text)
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             self.issue("unreadable_file", "contact.json", str(exc))
             return
@@ -1472,7 +1473,7 @@ class _Checker:
                 self.issue("movement_stale", rel, "not an authored level's")
                 continue
             rows = {(e["from"], e["to"], e.get("difficulty", 1), e.get("confidence"), tuple(e.get("through", ()))):
-                    e.get("requires", "true") for e in level.get("edge", [])}
+                    e.get("requires", "true") for e in level.get("edge", []) if e.get("logic", True)}
             n = len(doc["certs"])
             for r in doc["edges"]:
                 key = (r["from"], r["to"], r["difficulty"], r["confidence"], tuple(r.get("through", ())))
@@ -1659,8 +1660,9 @@ def _note(label: str, done: int, total: int) -> None:
 def check_database(root: Path | str = DATA_DIR, texts: Mapping[str, str] | None = None) -> Report:
     """Apply every load check to the database at ``root``; never raises for
     bad data (each problem is an :class:`Issue` in the report). ``texts``
-    (path relative to ``root`` -> text) stands in for those files: the
-    authoring checks the level files it is about to write."""
+    (path relative to ``root`` -> text) stands in for those files (a level,
+    movement or contact file): the authoring checks the files it is about to
+    write."""
     return _Checker(Path(root), texts).run()
 
 

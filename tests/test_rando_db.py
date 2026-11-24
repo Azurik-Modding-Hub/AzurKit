@@ -25,6 +25,7 @@ from azurkit.tools.randomizer.planner.fill import FillError, _Slots, fill
 from azurkit.tools.randomizer.planner.grammar import parse
 from azurkit.tools.randomizer.planner.loader import (
     DATA_DIR,
+    FORMATS,
     REALMS,
     DatabaseError,
     check_database,
@@ -700,6 +701,43 @@ def test_a_spots_l3_proof_at_more_of_an_element_than_the_logic_asks_there_is_ref
             ("bad_proof", "proofs.jsonl:1", "a claim's kit maps counters to non-negative integers"),
             ("bad_proven", where, "no record in proofs.jsonl for toy/aaaaaaaaaaaa@bbbbbbbbbbbb")],
         ("t1/g0/r2", '{"water":1}'): [], ("t1/g0/r2", "{}"): []}
+
+
+def _toy_movement(root: Path, terms: str) -> Path:
+    """The toy database at ``root`` with a movement/t1.json of one certificate, c0, flown on t1_vault -> t1_start's
+    row at ``terms``."""
+    (root / "movement").mkdir(exist_ok=True)
+    (root / "movement" / "t1.json").write_text(json.dumps({
+        "format": FORMATS["movement"], "level": "t1", "certs": ["c0"], "nodes": {}, "jumps": {},
+        "edges": [{"from": "t1_vault", "to": "t1_start", "difficulty": 1, "confidence": None,
+                   "terms": [[terms, [0]]]}]}), encoding="utf-8")
+    return root
+
+
+def test_a_logic_false_row_beside_a_logic_row_of_the_same_key_keeps_the_movement_file_fresh(tmp_path):
+    """A movement file lists only logic rows, and the authoring writes a tier-0 row as logic = false with no
+    difficulty (so it keys as tier 1) after the tier rows: beside it, t1_vault -> t1_start's movement row is checked
+    against the logic row alone, fresh at its terms and stale at the logic-false row's."""
+    root = _toy(tmp_path)
+    _edit(root, "levels/t1.toml", None,
+          '\n[[edge]]\nfrom = "t1_vault"\nto = "t1_start"\nkind = "walk"\nrequires = "key.red>=1"\nlogic = false\n')
+    assert {terms: _issues(_toy_movement(root, terms)) for terms in ("true", "key.red>=1")} == {
+        "true": [], "key.red>=1": [("movement_stale", "movement/t1.json: t1_vault -> t1_start")]}
+
+
+def test_an_authorings_contact_text_stands_in_for_the_shipped_file(tmp_path):
+    """check_database's texts stand in for contact.json as for the level and movement files, so an authoring can
+    drop a stale contact row in memory: a text measuring a certificate no movement file has is stale with no file on
+    disk, and a text measuring a live one clears a stale file on disk."""
+    root = _toy_movement(_toy(tmp_path), "true")
+
+    def contact(cert: str) -> str:
+        return json.dumps({"format": FORMATS["contact"], "free": {},
+                           "flights": [{"level": "t1", "cert": cert, "hop": "h0"}]})
+    stale = [("contact_stale", "contact.json: t1 h0")]
+    assert [(i.code, i.where) for i in check_database(root, {"contact.json": contact("gone")}).issues] == stale
+    (root / "contact.json").write_text(contact("gone"), encoding="utf-8")
+    assert (_issues(root), check_database(root, {"contact.json": contact("c0")}).issues) == (stale, [])
 
 
 def test_vanilla_placement_is_beatable_and_fully_accessible_without_tricks():
