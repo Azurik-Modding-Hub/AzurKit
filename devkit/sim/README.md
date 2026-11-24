@@ -16,7 +16,9 @@ uv run --locked python -m devkit sim l3-hold [--store DIR] [--checkout DIR ...] 
 
 A snapshot in the L3 store (`l3-snapshots/` in the user data folder, or
 `--store`) is held when it is in a `reach-live` folder (the reach engine's
-starts), named by a running process's command line, or the start of a
+starts) or a `conformance-live` folder (the compact conformance corpus's
+starts; each with its `-*` clones), named by a running process's command
+line, or the start of a
 `proofs.jsonl` record in a checkout (each `--checkout`, by default this
 checkout's worktrees). Without `--check` it counts the held snapshots by
 why; with it, it names each held snapshot at or under a PATH and exits 1 if
@@ -33,7 +35,7 @@ string (`xemu_oracle.py replay`, the sitting kit's `l3_replay`,
 snapshot and compares the new trace with xemu's per-tick digests.
 
 ```bash
-uv run --locked python -m devkit sim conformance [--store DIR] [--workers N] [--only LABEL ...] [--disc ISO ...] [--json PATH]
+uv run --locked python -m devkit sim conformance [--store DIR] [--workers N] [--l3 {base,fast}] [--only LABEL ...] [--disc ISO ...] [--json PATH]
 ```
 
 - One coordinate-free line per record: its snapshot label and metadata
@@ -44,7 +46,17 @@ uv run --locked python -m devkit sim conformance [--store DIR] [--workers N] [--
   now not).
 - `--workers N`: a worker pool per snapshot (`devkit/reach/l3_pool.py`);
   by default it runs in this process. A record whose snapshot is gone is
-  counted as `missing`.
+  counted as `missing`, and so is one whose snapshot was re-taken under
+  its label (its `meta_sha12` isn't the record's): its string never runs
+  from a state xemu didn't replay it from.
+- `--l3 fast` (it needs `--workers`) runs the strings on FastL3
+  (`devkit/reach/l3_fast.py`, the reach engine's simulator) on the patched
+  libunicorn once it is built, else on the stock wheel; `--l3 base`, the
+  default, on L3.
+- The compact corpus is a store of its own, `conformance-live/` in the L3
+  store (its snapshots and its `conformance.jsonl`, held by `l3-hold`):
+  `--store` names it. A lane that changes L3's emulation runs it in both
+  modes before and after (`docs/SIMULATOR.md`'s "The conformance corpus").
 - A record keeps the disc in the tray: the snapshot's `iso_sha12` and the
   image's path (AZ-380). A build's record runs on that image's XBE with
   the game's file reads served from it; once the image moved, `--disc`

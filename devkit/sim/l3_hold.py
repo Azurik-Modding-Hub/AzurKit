@@ -7,6 +7,9 @@ whatever its age, when it is:
 
 - in the store's ``reach-live`` folder or a ``reach-live-*`` folder beside it (``reach-live-hold-<date>``, its
   APFS clone): the reach engine's per-level starts (``reach-live/README.txt``);
+- in the store's ``conformance-live`` folder or a ``conformance-live-*`` folder beside it: the compact conformance
+  corpus's starts, a store of its own (its snapshots and its ``conformance.jsonl``; ``docs/SIMULATOR.md``'s "The
+  conformance corpus"), which ``python -m devkit sim conformance --store`` re-runs after every emulation change;
 - named by a running process's command line, by its label (a bare word, as ``reach_engine.py run --snapshot
   LABEL`` takes it) or its file's path;
 - the start of a ``proofs.jsonl`` record (``start.snapshot.label``) in a checkout given (by default this
@@ -30,7 +33,9 @@ import sys
 from pathlib import Path
 
 SUFFIX = ".l3snap"               # devkit.sim.snapshot.SUFFIX (not imported: that module needs numpy)
-LIVE = ("reach-live", "reach-live-*")
+LIVE = ("reach-live", "reach-live-*", "conformance-live", "conformance-live-*")
+WHY = {"reach-live": "the reach engine's starts",           # each LIVE folder's reason, by its name's stem
+       "conformance-live": "the compact conformance corpus's starts"}
 PROOFS = Path("src/azurkit/tools/randomizer/data/proofs.jsonl")
 CHECKOUT = Path(__file__).resolve().parents[2]
 
@@ -85,8 +90,9 @@ def held(store: str | Path, checkouts=(), commands: list[str] | None = None) -> 
     out: dict[Path, str] = {}
     for path in sorted(store.rglob(f"*{SUFFIX}")):
         top, label = path.relative_to(store).parts[0], path.name.removesuffix(SUFFIX)
-        if top != path.name and any(fnmatch.fnmatchcase(top, g) for g in LIVE):
-            out[path] = f"in {top}/ (the reach engine's starts)"
+        live = next((g for g in LIVE if fnmatch.fnmatchcase(top, g)), None)
+        if top != path.name and live is not None:
+            out[path] = f"in {top}/ ({WHY[live.removesuffix('-*')]})"
         elif label in words:
             out[path] = "named by a running process"
         elif label in proofs:

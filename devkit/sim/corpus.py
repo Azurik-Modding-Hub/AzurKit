@@ -89,14 +89,16 @@ def _disc(sha12: str, paths, hashed: dict) -> str | None:
     return None
 
 
-def rerun(xbe: bytes, *, store=None, workers: int = 0, only=(), discs=()) -> list[dict]:
+def rerun(xbe: bytes, *, store=None, workers: int = 0, only=(), discs=(), fast: bool = False) -> list[dict]:
     """Every record's string (or those of the snapshots ``only`` names) run again in L3 from its kept snapshot
-    (in this process, or on a :class:`~devkit.reach.l3_pool.Pool` of ``workers`` per snapshot): per record its
-    summary, whether it passes now and where it diverges from xemu now, and the first tick where L3's own trace
-    changed (``l3_changed_at``; None: unchanged).  ``xbe`` is vanilla's; a snapshot taken with another disc in the
-    tray (its ``iso_sha12``) runs on that image's XBE with the game's reads served from it: the path its records
-    kept, or one of ``discs`` (images moved since) that hashes the same (AZ-380).  A record whose snapshot or disc
-    is gone says so (``missing``)."""
+    (in this process, or on a :class:`~devkit.reach.l3_pool.Pool` of ``workers`` per snapshot; with ``fast`` on
+    FastL3, ``devkit.reach.l3_fast``, the reach engine's simulator): per record its summary, whether it passes now
+    and where it diverges from xemu now, and the first tick where L3's own trace changed (``l3_changed_at``; None:
+    unchanged).  ``xbe`` is vanilla's; a snapshot taken with another disc in the tray (its ``iso_sha12``) runs on
+    that image's XBE with the game's reads served from it: the path its records kept, or one of ``discs`` (images
+    moved since) that hashes the same (AZ-380).  A record whose snapshot or disc is gone says so (``missing``), and
+    so does one whose snapshot was re-taken under its label (its ``meta_sha12`` isn't the record's): its string
+    never runs from a state it wasn't replayed from, so a re-take can't pass for a regression."""
     from devkit.sim.ports import VANILLA_ISO_SHA256
     from devkit.sim.ports import read_file
     from devkit.reach.l3_pool import Pool, Worker, trace
@@ -112,7 +114,13 @@ def rerun(xbe: bytes, *, store=None, workers: int = 0, only=(), discs=()) -> lis
             for i in ix:
                 out[i] = {**summary(recs[i]), "missing": "its snapshot is no longer in the store"}
             continue
-        sha12, disc, run_xbe = l3.read_meta(path).get("iso_sha12"), None, xbe
+        meta = l3.read_meta(path)
+        now = l3.meta_sha12(meta)
+        for i in (retaken := [i for i in ix if recs[i]["meta_sha12"] != now]):
+            out[i] = {**summary(recs[i]), "missing": f"its snapshot was re-taken (its meta_sha12 is {now} now)"}
+        if not (ix := [i for i in ix if i not in retaken]):
+            continue
+        sha12, disc, run_xbe = meta.get("iso_sha12"), None, xbe
         if sha12 not in (None, VANILLA_ISO_SHA256[:12]):
             kept = [recs[i].get("disc") for i in ix]
             if (disc := _disc(sha12, [*discs, *kept], hashed)) is None:
@@ -123,10 +131,11 @@ def rerun(xbe: bytes, *, store=None, workers: int = 0, only=(), discs=()) -> lis
             run_xbe = read_file(disc, "default.xbe")
         tasks = [(recs[i]["mode"] == "scene", recs[i]["segments"], recs[i]["writes"]) for i in ix]
         if workers:
-            with Pool(label, run_xbe, store=store, workers=workers, name="l3 conformance", disc=disc) as pool:
+            with Pool(label, run_xbe, store=store, workers=workers, name="l3 conformance", disc=disc,
+                      fast=fast) as pool:
                 traces = pool.map(trace, tasks)
         else:
-            w = Worker(label, None if store is None else str(store), run_xbe, None, disc)
+            w = Worker(label, None if store is None else str(store), run_xbe, None, disc, fast)
             traces = [trace(w, *t) for t in tasks]
         for i, (rows, err) in zip(ix, traces):
             r = recs[i]

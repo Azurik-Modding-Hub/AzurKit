@@ -362,10 +362,11 @@ def test_l3_snapshot_store_and_a_step_with_the_scheduler_clock_allocation_and_fs
 def test_a_cleanup_never_deletes_a_snapshot_the_reach_engine_a_running_run_or_a_proof_starts_from(
         tmp_path, monkeypatch, capsys):
     """AZ-720 (Step X.83): D658's cleanup deleted the start a running reach run read by its bare label and every
-    start ``proofs.jsonl`` names.  The hold keeps every snapshot in ``reach-live`` and its ``reach-live-*`` clones,
-    each one a running command line names (a bare label or a file's path) and each one a checkout's ``proofs.jsonl``
-    starts from; a check of a folder or the store names each held one under it, and a loose one is free.  The CLI's
-    check, like prune's, reads every worktree's ``proofs.jsonl`` (the review's D1: it read only its own)."""
+    start ``proofs.jsonl`` names.  The hold keeps every snapshot in ``reach-live`` and its ``reach-live-*`` clones
+    (and, Step 4.77a, in the compact conformance corpus's ``conformance-live``), each one a running command line
+    names (a bare label or a file's path) and each one a checkout's ``proofs.jsonl`` starts from; a check of a
+    folder or the store names each held one under it, and a loose one is free.  The CLI's check, like prune's, reads
+    every worktree's ``proofs.jsonl`` (the review's D1: it read only its own)."""
     import json
     import subprocess
 
@@ -375,7 +376,7 @@ def test_a_cleanup_never_deletes_a_snapshot_the_reach_engine_a_running_run_or_a_
     store = tmp_path / "store"
     for rel in ("reach-live/r216c-w1-k0-1.l3snap", "reach-live-hold-2026-10-27/r216c-w1-k0-1.l3snap",
                 "x7/x7-w1-k0-205806.l3snap", "x7/x99-proof-k0-140435.l3snap", "td1/by-path.l3snap",
-                "reach-live-old.l3snap", "x7/loose-k0-1.l3snap"):
+                "reach-live-old.l3snap", "x7/loose-k0-1.l3snap", "conformance-live/cf-w1-t.l3snap"):
         (store / rel).parent.mkdir(parents=True, exist_ok=True)
         (store / rel).write_bytes(b"")
     checkout, lane = tmp_path / "main", tmp_path / "lanes" / "x.99"
@@ -390,10 +391,13 @@ def test_a_cleanup_never_deletes_a_snapshot_the_reach_engine_a_running_run_or_a_
     holds = held(store, worktrees(checkout), commands)
     assert {p.relative_to(store).as_posix(): why.split(" ")[0] for p, why in holds.items()} == {
         "reach-live/r216c-w1-k0-1.l3snap": "in", "reach-live-hold-2026-10-27/r216c-w1-k0-1.l3snap": "in",
-        "x7/x7-w1-k0-205806.l3snap": "named", "td1/by-path.l3snap": "named", "x7/x99-proof-k0-140435.l3snap": "a"}
+        "x7/x7-w1-k0-205806.l3snap": "named", "td1/by-path.l3snap": "named", "x7/x99-proof-k0-140435.l3snap": "a",
+        "conformance-live/cf-w1-t.l3snap": "in"}
+    assert holds[store / "conformance-live" / "cf-w1-t.l3snap"] == ("in conformance-live/ (the compact conformance "
+                                                                     "corpus's starts)")
     assert sorted(p.name for p, _ in blocking([store / "x7"], holds)) == ["x7-w1-k0-205806.l3snap",
                                                                         "x99-proof-k0-140435.l3snap"]
-    assert len(blocking([store], holds)) == 5
+    assert len(blocking([store], holds)) == 6
     assert blocking([store / "x7" / "loose-k0-1.l3snap", store / "reach-live-old.l3snap"], holds) == []
     monkeypatch.setattr(l3_hold, "CHECKOUT", checkout)
     monkeypatch.setattr(l3_hold, "command_lines", lambda: commands)   # ps -ww is POSIX's; held() pins the rule
@@ -2082,6 +2086,37 @@ def test_l3_conformance_reruns_a_builds_record_on_its_own_disc_or_names_it_missi
     assert gone[0]["missing"] == f"its disc {sha12} is gone ({image}): pass --disc"
     assert corpus.report(gone)["missing"] == 1
     assert [r["passes_now"] for r in corpus.rerun(other, store=store, discs=[tmp_path / "none.iso", moved])] == [True]
+
+
+def test_a_conformance_rerun_names_a_retaken_snapshot_missing_and_runs_fastl3_when_asked(tmp_path):
+    """Step 4.77a: the rerun ran a record's string from whatever snapshot held its label now, so a start re-taken
+    under its label ran old strings from a new state and reported regressions that weren't; such a record is now
+    ``missing`` (its snapshot's ``meta_sha12`` isn't the record's), never run.  And it ran base L3 only: ``fast``
+    runs FastL3, in this process and in a pool's workers, with L3's trace.  The walker's input builder (page 0x85)
+    lies outside a bare XBE's code sections: L3 runs it, FastL3 faults there, so the fault shows which one ran."""
+    from devkit.sim import corpus
+    from devkit.sim.l3 import L3, Pad, meta_sha12, read_meta, read_snapshot
+
+    store = tmp_path / "store"
+    store.mkdir(mode=0o700)
+    snap = read_snapshot(path := _l3_walker(store))
+    runs = {va: bytes(b) for va, b in snap.runs}
+    bare = _l3_xbe(runs[0x8C000], [])
+    xbe = _l3_xbe(runs[0x8C000], [], extra=[(".b", 0x85000, runs[0x85000], 0x6)])   # the builder's page: code
+    pads = [Pad((0.0, 1.0), frozenset({"y"})), Pad((0.0, 0.5)), Pad()]
+    rows = L3(snap, xbe).run(pads)
+    assert corpus.record(snap.meta, False, pads, rows, [{"obs": r.obs} for r in rows], store=store)["passed"]
+
+    def got(x, **kw):
+        return [(r["passes_now"], r["error"], r["l3_changed_at"]) for r in corpus.rerun(x, store=store, **kw)]
+    assert got(bare) == got(xbe, fast=True) == [(True, None, None)]
+    (ok, err, _), = got(bare, fast=True, workers=1)
+    assert not ok and err.startswith("tick 0: ") and "UC_ERR_FETCH_PROT" in err and err.endswith("0x85270"), err
+    _l3_walker(store, level="levels/water/w2")                 # re-taken under its label: another state
+    gone = corpus.rerun(xbe, store=store, fast=True)
+    assert gone[0]["missing"] == f"its snapshot was re-taken (its meta_sha12 is {meta_sha12(read_meta(path))} now)"
+    assert corpus.report(gone) == {"records": 1, "missing": 1, "passed": 0, "passes_now": 0, "regressions": 0,
+                                   "l3_changed": 0}
 
 
 def test_an_explorer_spec_with_an_empty_kit_runs_at_kit_0_and_one_saying_snapshot_at_the_snapshots_levels(

@@ -248,5 +248,6 @@ for j in "$P"/subagents/workflows/<run>/agent-*.jsonl; do printf '%s\t%s\n' "$(j
   - **A reach step's CPU budget:** its prompt names its plan's CPU-h range; a step whose timed CPU
     passes 1.5x the range's top stops before its next re-bench and reports the spend and why.
   - **The L3 store's hold:** before anything deletes a store snapshot, `uv run --locked python -m
-    devkit sim l3-hold --check PATH ...` exits 1 naming each held one (`reach-live/`, a running
-    command's `--snapshot LABEL`, a proof's start); grep running steps for bare snapshot labels too.
+    devkit sim l3-hold --check PATH ...` exits 1 naming each held one (`reach-live/`, the compact
+    conformance corpus's `conformance-live/`, a running command's `--snapshot LABEL`, a proof's
+    start); grep running steps for bare snapshot labels too.

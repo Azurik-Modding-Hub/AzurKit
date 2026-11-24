@@ -1979,6 +1979,45 @@ a regression (exit 1), and a change in L3's own trace is named by its
 first tick. The corpus starts empty at X.10: it fills with the next
 sittings' replays (the earlier ones kept no per-tick xemu observations).
 
+A record runs only from the state xemu replayed it from: one whose
+snapshot is gone, or was re-taken under its label (its `meta_sha12` isn't
+the record's), is `missing`, never run, so a re-take can't pass for a
+regression. `--l3 fast` (with `--workers`) runs the strings on FastL3
+(`devkit/reach/l3_fast.py`, the patched libunicorn once built, its C step)
+as the reach engine's pools do, so FastL3 is held to xemu's digests too,
+not only to base L3 by its runs' own audits (Step 4.77a).
+
+**The compact corpus** is a store of its own: `conformance-live/` in the
+L3 store (`$CL` below), its snapshots, strings and `conformance.jsonl`
+together. `python -m devkit sim l3-hold` holds every snapshot in it (and
+in a `conformance-live-*` clone beside it), so no cleanup deletes its
+starts; the store's root corpus is not held (a hold on every label it
+names would keep every replay's start for good). Each level gives it a
+player-tick string and a whole-step string, from the level's arrival
+saved in a sandbox (`<W>`, its tag `<tag>`), by these six `l3-gate`
+lines (`python -m devkit reach l3-gate`, `devkit/reach/README.md`):
+
+```bash
+G="uv run --locked python -m devkit reach l3-gate"
+$G start <W> <tag> cf-<level>-t --hold --store "$CL"
+$G build cf-<level>-t "$CL/cf-<level>-t.json" --ticks 5200 --seed 1 --store "$CL"
+$G replay <W> cf-<level>-t "$CL/cf-<level>-t.json" --store "$CL"
+$G start <W> <tag> cf-<level>-s --hold --scene --store "$CL"
+$G build cf-<level>-s "$CL/cf-<level>-s.json" --ticks 1500 --seed 1 --scene --store "$CL"
+$G replay <W> cf-<level>-s "$CL/cf-<level>-s.json" --scene --store "$CL"
+```
+
+**The rule:** a lane that touches L3's emulation (`devkit/sim/l3.py`,
+`snapshot.py`, `obs.py` or `inputs.py`; `devkit/reach/l3_fast.py`,
+`fastl3_step.c`, `devkit/reach/unicorn/` or `build_unicorn.py`), or that
+moves the Unicorn pin, runs the compact corpus in both modes before and
+after its change and returns the four count lines:
+
+```bash
+uv run --locked python -m devkit sim conformance --store "$CL" --workers 4
+uv run --locked python -m devkit sim conformance --store "$CL" --workers 4 --l3 fast
+```
+
 ### Validation (sitting x6, 2026-10-13)
 
 Each string was run in L3 from a fresh snapshot, then replayed in xemu
