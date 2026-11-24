@@ -607,6 +607,21 @@ def test_a_routeless_hold_answer_touching_an_undecoded_parked_rig_goes_out_of_lo
     assert g.counts["routed witnesses out of logic: a rig parked for an undecoded trigger"] == 1
 
 
+def test_a_sweeps_route_is_swept_again_when_the_movers_kernel_code_changes(monkeypatch):
+    """AZ-843's review: a sweep keeps the route a routeless hold answer is decided on, traced through
+    ``backend.Movers``, whose owners and faces come from the kernel's code (geometry, collision, the native sweep,
+    the census), but its key held only the sweep's own functions, so after such a change a ``--rigs`` graph decided
+    on the old route.  The key now holds ``kernel_sha12``: the same kernel code keeps it, another moves it."""
+    from devkit.reach.engine import rigs
+    from devkit.reach.native import backend as KB
+    code = ["a" * 12]
+    monkeypatch.setattr(KB, "kernel_sha12", lambda: code[0])
+    first = rigs.sweep_key("h" * 12)
+    assert rigs.sweep_key("h" * 12) == first
+    code[0] = "b" * 12
+    assert rigs.sweep_key("h" * 12) != first
+
+
 def test_a_rig_recording_is_made_again_when_the_derives_exported_rigs_change(tmp_path, monkeypatch):
     """AZ-844 (the reach audit): the recording's pokes come from the derive's exported rigs, read only on a miss,
     and its file was named by the snapshot and code alone, so after a re-derive that exported another rig the old

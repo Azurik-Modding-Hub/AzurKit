@@ -937,9 +937,11 @@ class Router:
 
 
 def sweep_code12() -> str:
-    """The swept paths' code (their cache key beside the hold's): their boxes' and their route's."""
-    from devkit.reach.native.backend import Movers
-    return _code12(sweep, path_boxes, _movers, Movers, (SWEEP_TICKS,))
+    """The swept paths' code (their cache key beside the hold's): their boxes' and their route's, the movers' whole
+    kernel code (``backend.kernel_sha12``: the geometry that sorts owners into rigs and gates, the native sweep, the
+    census) with it, as a routed record's key holds it (AZ-843)."""
+    from devkit.reach.native.backend import Movers, kernel_sha12
+    return _code12(sweep, path_boxes, _movers, Movers, (SWEEP_TICKS, kernel_sha12()))
 
 
 def sweep_key(hold_key: str) -> str:

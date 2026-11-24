@@ -629,7 +629,8 @@ route traces one: an L3 plan's or a backstop's aim hit has none) is swept first 
 it too leaves the logic on a rig parked for an undecoded trigger. The recording's file names the exported decks it
 pokes, so a re-derive that exports another rig makes it again, and a board's or link's whole-step trip faults
 `start` unless its start stands where it was put, in its from-zone. The rig recording, the sweeps and the router's
-trips re-key (`rigs.code12`, `sweep_code12`, `trip_code12`); no job or hold key moves. Without `--rigs` a witness
-on a moving toggled solid still counts at its load pose (the known flaw above: rigs stand still at the snapshot's
-pose).
+trips re-key (`rigs.code12`, `sweep_code12`, `trip_code12`; a sweep's key holds the kernel's code, as a routed
+record's does, since its route is traced through the kernel's movers); no job or hold key moves. Without
+`--rigs` a witness on a moving toggled solid still counts at its load pose (the known flaw above: rigs stand still
+at the snapshot's pose).
 
