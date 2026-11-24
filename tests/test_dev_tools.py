@@ -2672,8 +2672,10 @@ def test_ci_resources_prints_the_lowest_room_by_label_and_never_a_path(tmp_path)
              r"--- what macOS wrote of Playwright's processes that ended: [^/\\\n]+\n"
              r"--- what WebKit's log says of a process that ended: [^/\\\n]+\n"
              r"--- the runner's GPU: [^/\\\n]+") if sys.platform == "darwin" else ""
+    linux = r"; [^/\\\n]*Shmem[^/\\\n]*" if sys.platform == "linux" else ""   # its test is the next but one's
     assert re.fullmatch(r"resources, the lowest of the tier in 0 min: tier [\d.]+ GiB free, temp [\d.]+ GiB free, "
-                        rf"memory [\d.]+ GiB free \(memory of [\d.]+\){macos}\n", done.stdout), (done.stdout, done.stderr)
+                        rf"memory [\d.]+ GiB free \(memory of [\d.]+\){macos}{linux}\n", done.stdout), (done.stdout,
+                                                                                              done.stderr)
 
 
 def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrote_of_one_that_ended_and_where(
@@ -2746,6 +2748,78 @@ def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrot
         "reason=ExceededMemoryLimit", "00:36:52 com.apple.WebKit.Networking.Development: Received an invalid message "
         "NetworkStorageManager_SetItem from WebContent process 5, requesting for it to be terminated."]
     assert asked == [ci_resources.ENDINGS] and '"Received an invalid message"' in ci_resources.ENDINGS
+
+
+def test_ci_resources_minute_line_on_linux_names_shmem_and_the_tiers_memory_by_kind_never_a_path(tmp_path):
+    """Linux's vanilla part with test_site's Chromium tests fell to about 2 GiB free of 15.6 in every main run and once
+    lost its runner, and its minute line read only MemAvailable, so nothing said whether Chromium held a floor or the
+    heavy tests peaked (Step 4.75e). On Linux the minute line names /proc/meminfo's Shmem and AnonPages and the memory
+    of the processes under the tier's own by kind, Chromium's by ``--type=`` (its children's titles have spaces between
+    their arguments), from each one's status: one outside the tier isn't counted, one that ended mid-read or has no
+    memory of its own (a zombie) is skipped, and the lowest line keeps the reading at the least memory available.
+    Kinds and sums only, never a path, a name or an argument. The reader takes its /proc, so this runs on any OS."""
+    from scripts import ci_resources
+    proc, kib = tmp_path / "proc", 1 << 20   # kB in a GiB
+    shell = "/home/runner/work/AzurKit/.tools/playwright/chromium_headless_shell-1254/chrome-headless-shell-linux64/" \
+            "chrome-headless-shell"
+
+    def meminfo(available: float, shmem: float) -> None:
+        (proc / "meminfo").write_text(f"MemTotal:       16337000 kB\nMemAvailable:   {available * kib:.0f} kB\n"
+                                      f"AnonPages:      {6 * kib} kB\nShmem:          {shmem * kib:.0f} kB\n")
+
+    def process(pid: int, parent: int, name: str, command: str | None, rss=None, anon=0.0, shmem=0.0) -> None:
+        (proc / str(pid)).mkdir(parents=True)
+        memory = "" if rss is None else "".join(f"{key}:\t{gib * kib:8.0f} kB\n" for key, gib in (
+            ("VmRSS", rss), ("RssAnon", anon), ("RssFile", rss - anon - shmem), ("RssShmem", shmem)))
+        (proc / str(pid) / "status").write_text(f"Name:\t{name}\nState:\tS (sleeping)\nPPid:\t{parent}\n{memory}")
+        if command is not None:
+            (proc / str(pid) / "cmdline").write_bytes(command.encode())
+    (proc / "self").mkdir(parents=True)
+    meminfo(2.5, 1.5)
+    process(2, 0, "kthreadd", "")                                      # a kernel thread: no memory, no tier
+    process(100, 1, "bash", "bash\0-e\0", 0.01)                          # the tier's own
+    process(101, 100, "sudo", "sudo\0unshare\0--net\0", 0.01)
+    process(102, 101, "python", "/home/runner/work/AzurKit/.venv/bin/python\0-m\0pytest\0", 0.5, 0.4)
+    process(103, 102, "python", f"/home/runner/work/AzurKit/.venv/bin/python\0-c\0{ci_resources.WORKER}\0", 1.0, 0.9)
+    process(104, 103, "node", "/home/runner/work/AzurKit/.tools/playwright/driver/node\0cli.js\0run-driver\0", 0.1, 0.1)
+    process(105, 104, "chrome-headless", f"{shell}\0--headless\0--user-data-dir=/tmp/playwright_chromiumdev_profile-x\0",
+            0.3, 0.2, 0.1)
+    process(106, 105, "chrome-headless", f"{shell}\0--type=zygote\0", 0.1, 0.01, 0.02)
+    for renderer in (107, 108):   # Chromium's title for its child: one argument, spaces between
+        process(renderer, 106, "chrome-headless", f"{shell} --type=renderer --lang=en-US\0", 0.6, 0.4, 0.2)
+    process(109, 105, "chrome-headless", f"{shell}\0--type=gpu-process\0--use-angle=swiftshader\0", 0.2, 0.1, 0.1)
+    process(110, 105, "chrome-headless", "")                             # a zombie: no memory of its own
+    process(111, 106, "chrome-headless", None, 0.6, 0.4, 0.2)           # ended between its status and its command line
+    (proc / "112").mkdir()                                              # ended between the listing and its status
+    process(113, 105, "chrome_crashpad", "/x/chrome_crashpad_handler\0--database=/tmp/y\0", 0.01)
+    process(200, 1, "chrome-headless", f"{shell}\0--headless\0", 2.0, 1.0, 1.0)   # outside the tier
+    readings = ci_resources.ProcReadings(100, proc=proc, thread=False)
+    assert readings.minute() == readings.lowest() == "; Shmem and the tier's memory not read yet"
+    readings.take()
+    kinds = ("the tier's memory: Chromium's browser 0.3 GiB in 1 (anon 0.2, shmem 0.1), Chromium's renderers {} GiB in "
+             "{} (anon {}, shmem {}), Chromium's GPU 0.2 GiB in 1 (anon 0.1, shmem 0.1), Python 1.5 GiB in 2 (anon 1.3, "
+             "shmem 0.0), node 0.1 GiB in 1 (anon 0.1, shmem 0.0), other 0.1 GiB in 4 (anon 0.0, shmem 0.0)")
+    both = kinds.format(1.2, 2, 0.8, 0.4)
+    assert readings.minute() == f"; Shmem 1.5 GiB, anon pages 6.0; {both}"
+    assert readings.lowest() == f"; when the least memory was available (2.5 GiB): Shmem 1.5 GiB, anon pages 6.0; {both}"
+    meminfo(1.5, 2.5)
+    for name in ("status", "cmdline"):
+        (proc / "108" / name).unlink()
+    (proc / "108").rmdir()                                              # a renderer ended
+    readings.take()
+    meminfo(4.0, 0.5)
+    readings.take()
+    one = kinds.format(0.6, 1, 0.4, 0.2)
+    assert readings.minute() == f"; Shmem 0.5 GiB, anon pages 6.0; {one}"
+    assert readings.lowest() == f"; when the least memory was available (1.5 GiB): Shmem 2.5 GiB, anon pages 6.0; {one}"
+    alone = ci_resources.ProcReadings(None, proc=proc, thread=False)
+    alone.take()
+    assert alone.minute() == "; Shmem 0.5 GiB, anon pages 6.0"   # no tier named: no kinds
+    (proc / "meminfo").unlink()
+    alone.take()
+    assert alone.minute() == "; Shmem unread (FileNotFoundError)"
+    for said in (readings.minute(), readings.lowest()):
+        assert not re.search(r"[/\\]|--|playwright|headless|chrom[e_]|tmp|runner|python|pytest|run-driver|bash", said)
 
 
 SAMPLE_REPORT = """Analysis of sampling com.apple.WebKit.GPU.Development (pid 7) every 1 millisecond

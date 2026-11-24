@@ -459,12 +459,13 @@ memory peaks stay strict. The gate writes both kinds of row to
       keeps no per-test times or per-process memory. On this Mac the same
       233 tests carry nothing from test to test, and since 4.73a conftest
       fails and closes any context or process a test leaves (18).
-    - The lever isn't built. First, Linux's minute line also prints
-      `/proc/meminfo`'s Shmem and the tier's processes' memory by kind
-      (`scripts/ci_resources.py`) for one run; then a Chromium relaunch
-      every 10 tests (or under 6 GiB free, conftest's D1260 path) or a
-      fourth part, which splits the Chromium tests 34/19. A relaunch helps
-      only if the memory is a held floor, not the heavy tests' own peak.
+    - ~~Step 1, Linux's minute line names Shmem and the tier's memory by
+      kind~~: done by 4.75e; read it in main's next CI run.
+    - Step 2, the lever, isn't built: a Chromium relaunch every 10 tests (or
+      under 6 GiB free, conftest's D1260 path) or a fourth part, which
+      splits the Chromium tests 34/19, chosen from that run. A relaunch
+      helps only if the memory is a held floor, not the heavy tests' own
+      peak.
 
 ### Perf debt
 

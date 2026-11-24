@@ -37,6 +37,13 @@ kill: :func:`reports`), with the free memory as this watcher last read it
 (Step 4.4ci17: the pure tier's WebKit page "Target crashed" on GitHub's 7 GB
 Apple Silicon runner, where nothing said its memory).
 
+On Linux each line has ``/proc/meminfo``'s Shmem and AnonPages and, with
+``--tier``, the memory of the processes under ``ID`` by kind: Chromium's
+browser, renderers and GPU, Python, node and the rest (:class:`ProcReadings`,
+Step 4.75e: Linux's vanilla part with test_site's Chromium tests fell to about
+2 GiB free in every run, and MemAvailable alone couldn't say what held it);
+the lowest line has the reading at the least memory available.
+
     python -I scripts/ci_resources.py --room --env=FILE [--sudo] [--spare=LABEL=FOLDER ...] LABEL=FOLDER ...
 
 chooses the tier's folder before its images land (:func:`room`, Step 4.4ci24): of the ``LABEL=FOLDER``s whose parent
@@ -1005,6 +1012,141 @@ class Readings:
         self.said.close()
 
 
+CHROMIUM = re.compile(r"^(?:chrome|chromium|chromium-browse|chrome-headless|headless_shell)$")
+"""Chromium's processes by their name on Linux (``status``'s ``Name``, a program's first 15 characters): Chromium, a
+distribution's and Playwright's headless shell (``chrome-headless-shell``, once ``headless_shell``), never its crashpad
+handler. Each of its processes keeps the browser's name; ``--type=`` on its command line says which one it is."""
+KINDS = {None: "Chromium's browser", "renderer": "Chromium's renderers", "gpu-process": "Chromium's GPU"}
+"""Chromium's processes by their ``--type=`` (none: the browser); its others (its zygote, its network service) are
+other."""
+ORDER = ("Chromium's browser", "Chromium's renderers", "Chromium's GPU", "Python", "node", "other")
+
+
+def proc_kind(proc: Path, pid: int, name: str) -> str:
+    """The kind (:data:`ORDER`) of the process ``pid`` named ``name`` in ``proc``: Chromium's by ``--type=`` on its
+    command line (:data:`KINDS`; Chromium rewrites a child's as its title, spaces between its arguments), Python (pytest
+    and its workers), node (Playwright's driver) or other. The command line is read, never kept or printed."""
+    if CHROMIUM.match(name):
+        given = re.search(rb"(?:^| )--type=(\S+)", (proc / str(pid) / "cmdline").read_bytes().replace(b"\0", b" "))
+        return KINDS.get(given and given[1].decode("ascii", "replace"), "other")
+    return "Python" if name.startswith("python") else "node" if name == "node" else "other"
+
+
+def proc_memory(proc: Path, root: int | None) -> tuple[tuple[int, int, int], dict[str, list[int]] | None]:
+    """((MemAvailable, Shmem, AnonPages), {kind: [processes, resident, anon, shmem]}) in bytes, as Linux's ``proc``
+    (``/proc``) has them: ``meminfo``'s, and those of ``root`` and each process under it by kind (:func:`proc_kind`),
+    summed from each one's ``status`` (VmRSS, RssAnon, RssShmem); no kinds without ``root``. ``status``, not
+    ``smaps_rollup``, which needs the ptrace access a sandboxed Chromium may refuse. A process that ends mid-read, or
+    whose status lacks one of the three (a zombie), is skipped. A page two processes map counts in each one's sum
+    (Chromium's shared memory in its browser's, renderers' and GPU's); Shmem counts it once."""
+    meminfo = dict(line.split(":", 1) for line in (proc / "meminfo").read_text(encoding="ascii").splitlines()
+                   if ":" in line)
+    memory = tuple(int(meminfo[key].split()[0]) << 10 for key in ("MemAvailable", "Shmem", "AnonPages"))
+    if root is None:
+        return memory, None
+    rows, children = {}, {}
+    for entry in filter(str.isdigit, os.listdir(proc)):
+        try:
+            fields = dict(line.split(":", 1) for line in (proc / entry / "status").read_text(
+                encoding="utf-8", errors="replace").splitlines() if ":" in line)
+            parent = int(fields["PPid"])
+        except (OSError, KeyError, ValueError):   # it ended
+            continue
+        try:
+            sizes = [int(fields[key].split()[0]) << 10 for key in ("VmRSS", "RssAnon", "RssShmem")]
+        except (KeyError, ValueError, IndexError):   # no memory of its own: in the tree, in no sum
+            sizes = None
+        rows[int(entry)] = (fields.get("Name", "").strip(), sizes)
+        children.setdefault(parent, []).append(int(entry))
+    kinds, todo, seen = {}, [root] if root in rows else [], set()
+    while todo:
+        if (pid := todo.pop()) in seen:   # a parent read before its id was taken again
+            continue
+        seen.add(pid)
+        todo += children.get(pid, ())
+        name, sizes = rows[pid]
+        try:
+            kind = proc_kind(proc, pid, name) if sizes else None
+        except OSError:   # it ended
+            kind = None
+        if kind:
+            sums = kinds.setdefault(kind, [0, 0, 0, 0])
+            sums[:] = [sums[0] + 1, *(total + size for total, size in zip(sums[1:], sizes))]
+    return memory, kinds
+
+
+def proc_said(read: tuple) -> str:
+    """A reading of :func:`proc_memory`'s for a line: kinds and sums only, never a path, a name or an argument."""
+    (_, shmem, anon), kinds = read
+    said = f"Shmem {shmem / GIB:.1f} GiB, anon pages {anon / GIB:.1f}"
+    if kinds is None:
+        return said
+    return said + "; the tier's memory: " + (", ".join(
+        f"{kind} {kinds[kind][1] / GIB:.1f} GiB in {kinds[kind][0]} (anon {kinds[kind][2] / GIB:.1f}, shmem "
+        f"{kinds[kind][3] / GIB:.1f})" for kind in ORDER if kind in kinds) or "no process read")
+
+
+class ProcReadings:
+    """Linux's part of the minute and lowest lines (Step 4.75e: Linux's vanilla part with test_site's Chromium tests fell
+    to about 2 GiB free of 15.6 in every run and once lost its runner, and MemAvailable alone couldn't say whether a
+    floor Chromium held or the heavy tests' own peak took it): :func:`proc_memory`'s reading of ``proc`` under the
+    tier's own (``root``) each :data:`SAMPLE_S` s, on a thread of its own as :class:`Readings`' (a command line's read
+    waits on its process's memory map), kept as the last and, at the least memory available, as the lowest's."""
+
+    def __init__(self, root: int | None, proc: Path = Path("/proc"), thread: bool = True):
+        self.lock, self.proc, self.root = threading.Lock(), proc, root
+        self.read = self.low = None
+        self.why, self.since = "not read yet", time.monotonic()   # why the last read is unread; when this one began
+        if thread:
+            threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self) -> None:
+        while True:
+            self.take()
+            time.sleep(SAMPLE_S)
+            with self.lock:
+                self.since = time.monotonic()
+
+    def take(self) -> None:
+        """One reading, kept as the last and, if less memory is available than at any before, as the lowest's."""
+        try:
+            read = proc_memory(self.proc, self.root)
+        except (OSError, KeyError, ValueError, IndexError) as e:
+            with self.lock:
+                self.why, self.since = f"unread ({_why(e)})", None
+        else:
+            with self.lock:
+                self.read, self.why, self.since = read, None, None
+                if self.low is None or read[0][0] < self.low[0][0]:
+                    self.low = read
+
+    def _unread(self, why: str) -> str:
+        return ("; Shmem and the tier's memory " if self.root is not None else "; Shmem ") + why
+
+    def minute(self) -> str:
+        """The minute line's part: the last reading, or why it is unread (a read that failed, or one running past
+        :data:`SAY_S`)."""
+        with self.lock:
+            read, why, since = self.read, self.why, self.since
+        if since is not None and (running := time.monotonic() - since) > SAY_S:
+            why = f"unread (its reading has run {running:.0f} s)"
+        return self._unread(why) if why else f"; {proc_said(read)}"
+
+    def lowest(self) -> str:
+        """The tier's lowest line's part: the reading at the least memory available."""
+        with self.lock:
+            low, why = self.low, self.why
+        if low is None:
+            return self._unread(why)
+        return f"; when the least memory was available ({low[0][0] / GIB:.1f} GiB): {proc_said(low)}"
+
+    def ended(self, began: float) -> list[str]:
+        return []
+
+    def close(self) -> None:
+        pass
+
+
 def _end(pid: int) -> None:
     try:
         os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
@@ -1123,7 +1265,7 @@ def main(argv: list[str]) -> int:
     low: dict[str, int] = {}
     told = -PRINT_S
     began = time.time()
-    readings = Readings() if sys.platform == "darwin" else None
+    readings = Readings() if sys.platform == "darwin" else ProcReadings(root) if sys.platform == "linux" else None
     try:
         while True:
             now = sample(folders)
