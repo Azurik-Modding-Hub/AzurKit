@@ -578,16 +578,17 @@ twin: same place, kit and pads, so the same answer), and a retarget's witnesses 
 their own, as the pair stage's do (`sample --pairs`', since Step R2.19g2: its aims that left had pushed out three of
 a5's held zone pairs) and the escalation's (`sample --escalate`', Step R2.19g3), which the hold tries after every
 other, so one that stays never ends a hold before a kernel confirm whose touches, MAY and node edge count. The
-reach audit's graph-side guards (Step 4.79a) fixed four of its flaws: a walk-off that flapped flew on the
-snapshot's flap latch (+0x164, which R6 doesn't write, so a flap could lift on the last jump's peak where a seed's
-lifts nothing) and now takes no zone slot, node edge or touch, only a MAY candidate (AZ-838); a FastL3 confirm whose
-one-jump rank is below its kernel candidate's (FastL3 landed early and the kernel's next Y press jumped from the
-ground) keeps the candidate's rank (AZ-839, the interim guard: no key moves); a confirm whose body holds in a third
-zone is credited to that zone pair where the hold kept no witness (AZ-840, the roll port's "credited to the pair
-FastL3 itself lands in" above); and a confirmed witness's proof record carries FastL3's taint, labels, HP, volumes
-and flaps rather than the kernel's empty ones (AZ-841). Still open, for the re-key batch: the confirm's own check
-that no Y press falls after FastL3's first landing (the guard's real fix, which re-keys every kernel record), then a
-confirm filed under its own rank rather than the kernel's. Positions
+reach audit's graph-side guards (Step 4.79a) fixed four of its flaws: a walk-off that flapped (as L3 ran it, or as
+FastL3's confirm of a kernel candidate did) flew on the snapshot's flap latch (+0x164, which R6 doesn't write, so a
+flap could lift on the last jump's peak where a seed's lifts nothing) and now takes no zone slot, node edge or touch,
+only a MAY candidate (AZ-838); a FastL3 confirm whose one-jump rank is below its kernel candidate's (FastL3 landed
+early and the kernel's next Y press jumped from the ground) keeps the candidate's rank (AZ-839, the interim guard: no
+key moves); a confirm whose body holds in a third zone is credited to that zone pair where the hold kept no witness
+(AZ-840, the roll port's "credited to the pair FastL3 itself lands in" above; under `--rigs` the router judges it
+where it holds, so it owes its trip first); and a confirmed witness's proof record carries FastL3's taint, labels,
+HP, volumes and flaps rather than the kernel's empty ones (AZ-841). Still open, for the re-key batch: the confirm's
+own check that no Y press falls after FastL3's first landing (the guard's real fix, which re-keys every kernel
+record), then a confirm filed under its own rank rather than the kernel's. Positions
 and strings stay in the private cache.
 
 **The rigs' triggers (Step R2.19h2, D847).** What starts each moving solid is read from its level's wiring by

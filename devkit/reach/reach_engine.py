@@ -547,7 +547,9 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
     """The hold (``reach_engine.hold``): replay each zone witness ``Graph.hold`` asks for that the cache doesn't
     answer yet, a few per task on a pool (opened only when one is; ``kernel``: the kernel route's, whose replay of a
     kernel candidate is FastL3's confirm), until each rank's best that stays is known.  With ``rigs`` (the level
-    and its nodes: ``--rigs``, Step R2.19h1), each witness answered goes through ``rigs.Router.decide``: one
+    and its nodes: ``--rigs``, Step R2.19h1), each witness answered goes through ``rigs.Router.decide``, judged
+    to stay where its answer holds (not only its candidate's to-zone: a confirm holding in a third zone is credited
+    there, AZ-840, so it is routed before that, Step 4.79a's review): one
     touching a rig parked for an undecoded trigger is out of logic, kept or not (D847); of those its frozen hold
     kept, one touching another parked rig names it (a trip's witness too), one a moving rig in the level's rig
     recording touches at its load pose or crosses on its swept path (``rigs.sweep_task``, cached apart) stays only
@@ -571,8 +573,8 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
         rec, wk = by_key[w["job"]], (w["job"], w["outcome"])
         o, hk = rec["outcomes"][w["outcome"]], hold.key(*wk)
         sw = cache.get(base / "sweep", R.sweep_key(hk))
-        how, x = router.decide(got, got.get("route"), o["ticks"],
-                               hold.stays(got, zone_at(o["land"], o["land_state"] == 6, False), zone_at),
+        zc = zone_at(got["land"], got["state"] == hold.SWIMMING, False)   # where it holds: AZ-840 credits it there
+        how, x = router.decide(got, got.get("route"), o["ticks"], zc is not None and hold.stays(got, zc, zone_at),
                                None if sw is None else sw.get("boxes", R.EVERYWHERE),
                                (rec["starts"][o["start"]]["feet"], o.get("took"), o.get("first"), o["land"],
                                 got["land"]))

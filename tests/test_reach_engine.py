@@ -1094,17 +1094,26 @@ def _one_each(outs) -> graph.Graph:
 
 def test_a_walkoff_that_flapped_takes_no_zone_slot():
     """AZ-838 (the reach audit's walk-off latch): R6 doesn't write the flap latch (+0x164), so a walk-off's flaps
-    fly on the snapshot's last jump's latch, which no seed promises: a walk-off that flapped, L3's or the kernel's,
-    takes no zone slot and gives no node edge or touch, L3's only a MAY candidate to where it settled; a walk-off
-    that never flapped, and a jump that flapped, are edges as before."""
+    fly on the snapshot's last jump's latch, which no seed promises: a walk-off that flapped, L3's, the kernel's or
+    FastL3's confirm of a kernel candidate that didn't (the 4.79a review), takes no zone slot and gives no node edge
+    or touch, L3's and FastL3's only a MAY candidate to where it settled; a walk-off that never flapped, and a jump
+    that flapped, are edges as before."""
     air = {"kit": "air3", "flaps": 1}
     g = _one_each([_out("w1", 40, [25, 0, 0], macro="walkoff-air3-f1", volumes=["v1"], **air),
                    _out("w2", 40, [45, 0, 0], macro="walkoff-air3-f5", by="kernel", **air),
                    _out("w0", 40, [65, 0, 0], macro="walkoff-air3-f1", kit="air3"),
-                   _out("j1", 40, [85, 0, 0], macro="runjump-air3-f1", **air)])
+                   _out("j1", 40, [85, 0, 0], macro="runjump-air3-f1", **air),
+                   _out("k0", 40, [105, 0, 0], macro="walkoff-air3-f1", kit="air3", by="kernel")])
     assert g.counts["walk-off flaps on the snapshot's latch, taking no try"] == 2
-    assert set(g.cands) == {("Z0", "Z3"), ("Z0", "Z4")} and set(g.edges) == {("n1", "n6"), ("n1", "n8")}
-    assert g.may == {("n1", "n2"): 1} and not g.touch
+    assert set(g.cands) == {("Z0", "Z3"), ("Z0", "Z4"), ("Z0", "Z5")}
+    assert set(g.edges) == {("n1", "n6"), ("n1", "n8")} and g.may == {("n1", "n2"): 1} and not g.touch
+    land = {"w0": [65, 0, 0], "j1": [85, 0, 0], "k0": [105, 0, 0]}
+    fast = _out("k0'", 41, [105, 0, 0], macro="walkoff-air3-f1", volumes=["v2"], **air)     # FastL3's run flapped
+    assert g.hold(lambda w: {"land": land[w["string_sha12"]], "state": 0, "same": True}
+                  | ({"outcome": fast} if w["by"] == "kernel" else {})) == []
+    assert set(g.zones) == {("Z0", "Z3"), ("Z0", "Z4")} and set(g.edges) == {("n1", "n6"), ("n1", "n8")}
+    assert g.may == {("n1", "n2"): 1, ("n1", "n10"): 1} and not g.touch
+    assert g.counts["FastL3 confirms whose walk-off flapped on the snapshot's latch, taking no try"] == 1
 
 
 def test_a_confirm_at_a_lower_fastl3_rank_keeps_the_kernels_rank():
@@ -1137,6 +1146,46 @@ def test_a_confirm_that_holds_in_another_zone_is_credited_to_that_pair():
     assert (w["string_sha12"], w["by"], w["rank"], w["flags"]) == ("k3'", "confirmed", 0, ["zone_far"])
     assert not {("Z0", "Z1"), ("Z0", "Z3"), ("Z0", "Z5"), ("Z0", "Z6")} & set(g.zones)
     assert g.counts["zone witnesses a confirm held in another zone than its candidate's"] == 1
+
+
+def test_under_rigs_a_confirm_that_holds_in_another_zone_is_routed_before_it_is_credited(tmp_path, monkeypatch):
+    """The 4.79a review (AZ-840 under ``--rigs``): ``reach_engine``'s hold asks ``rigs.Router.decide`` whether an
+    answer stays where it holds, no longer only in its kernel candidate's to-zone, which had passed a confirm holding
+    in a third zone through as it was: a confirm whose path a moving lift touched now owes its whole-step trip and is
+    credited to its pair only where that trip held (with the trip's wait), a failed one crediting none (D847)."""
+    from devkit.reach import reach_engine as RE
+    from devkit.reach.engine import rigs
+
+    class Lift(rigs.Router):                     # rig 7 moves within every window; no path passes near it
+        def __init__(self, lv, verdicts, rec):
+            self.verdicts = verdicts
+
+        def _moving(self, ticks):
+            return [7]
+
+        def near(self, points, ticks):
+            return False
+    monkeypatch.setattr(rigs, "Router", Lift)
+    monkeypatch.setattr(rigs, "_level", lambda level: (None,))
+    monkeypatch.setattr(rigs, "recording", lambda level, snap, pool=None: (
+        {"rec": {}}, {7: {"how": "cycles", "name": "lift", "start": "load"}}, "r" * 12))
+    outs = [_out("k3", 40, [65, 0, 0], by="kernel"), _out("k5", 40, [105, 0, 0], by="kernel")]   # to Z3, Z5
+    recs = [{"key": f"j{k}", "outcomes": [o], "starts": {"run": {"feet": [12, 0, 0]}}} for k, o in enumerate(outs)]
+    for d in ("hold", "trip"):
+        (tmp_path / d).mkdir()
+    for k, (land, same) in enumerate((([85, 0, 0], False), ([125, 0, 0], True))):    # held in Z4, Z6, on the lift
+        got = {"land": land, "state": 0, "settled": True, "same": True, "route": {"rigs": [7], "gates": []},
+               "outcome": _out(f"k{2 * k + 3}'", 41, land)}
+        cache.put(tmp_path / "hold", hold.key(f"j{k}", 0), got)
+        cache.put(tmp_path / "trip", rigs.trip_hold_key(hold.key(f"j{k}", 0), "r" * 12),
+                  {"land": land, "state": 0, "settled": True, "same": same, "wait": 15})
+    g = _one_each(outs)
+    RE._hold(g, recs, {}, tmp_path, 1, "fast", None, ("t", g.nodes))
+    assert ("Z0", "Z4") not in g.zones
+    w = g.best(("Z0", "Z6"), zones=True)
+    assert (w["string_sha12"], w["by"], w.get("wait")) == ("k5'", "confirmed", 15)
+    assert (g.counts["routed witnesses asked, owing a whole-step trip"], g.counts["routed witnesses whose trip held"],
+            g.counts["zone witnesses a confirm held in another zone than its candidate's"]) == (2, 1, 1)
 
 
 def test_a_confirmed_witnesss_proof_record_carries_fastl3s_hp_labels_and_taint(tmp_path, monkeypatch):

@@ -30,9 +30,10 @@ a zone witness only once its hold (FastL3's confirm) stays, the witness then tak
 (D845: every counted link has a witness in the game's own code); each confirm the hold runs, staying or not, gives the
 touches, MAY candidate and node edge of FastL3's run of the string, as an L3 outcome does (Step R2.19k).  An edge
 onto or off a node of the snapshot's frozen world (``Nodes.frozen``: a rig deck at its rest pose, a toggled solid as
-loaded) is flagged, as is one that ends swimming (``swim``).  A walk-off that flapped (AZ-838) gives no zone
-slot, node edge or touch, only (an L3 outcome's) a MAY candidate to where it settled: R6 doesn't write the flap
-latch (+0x164), so its flaps fly on the snapshot's last jump's latch, which no seed promises.  A confirm keeps its
+loaded) is flagged, as is one that ends swimming (``swim``).  A walk-off that flapped (AZ-838), as L3 ran it or as
+FastL3's confirm of a kernel candidate did, gives no zone slot, node edge or touch, only (an L3 run's) a MAY
+candidate to where it settled: R6 doesn't write the flap latch (+0x164), so its flaps fly on the snapshot's last
+jump's latch, which no seed promises.  A confirm keeps its
 kernel candidate's rank
 where FastL3's is lower (AZ-839: FastL3 may land early and the kernel's next Y press start a ground jump, so FastL3's
 one-jump rank can undercount; the interim guard until the confirm itself checks it), and one whose body holds in a
@@ -74,6 +75,12 @@ def _order(w: dict) -> tuple:
 
 def _better(w: dict, old: dict | None) -> bool:
     return old is None or _order(w) < _order(old)
+
+
+def _latched(w: dict, o: dict) -> bool:
+    """Whether witness ``w``'s string, run as outcome ``o`` (its own or FastL3's confirm of it), is a walk-off that
+    flapped: on the snapshot's flap latch (AZ-838, the module docstring)."""
+    return w["macro"].partition("-")[0] == "walkoff" and o["flaps"] > 0
 
 
 class Graph:
@@ -163,7 +170,7 @@ class Graph:
         self.counts["kernel candidates"] += kernel
         if o["end"] != "settled":
             self.counts[f"launches ended {o['end'].split(':')[0]}"] += 1
-        if o["macro"].partition("-")[0] == "walkoff" and o["flaps"] > 0:   # AZ-838: the snapshot's latch (docstring)
+        if _latched(w, o):                     # AZ-838: the snapshot's latch (the module docstring)
             self.counts["walk-off flaps on the snapshot's latch, taking no try"] += 1
             if not kernel and (b := self._edges(a, r, w, o, False)) not in (None, a):
                 self.may[(a, b)] = min(r, self.may.get((a, b), 9))
@@ -229,7 +236,7 @@ class Graph:
         is FastL3's confirm: the witness kept takes its re-derived fields, :func:`confirmed`); a rank none of them
         stays for goes, and a pair with no rank left.  Each confirm it read then adds its touches, MAY candidate and
         node edge (the module docstring), and a confirm whose body holds in a third zone fills that pair's rank where
-        no witness is kept (AZ-840).  While a candidate ahead of any that stays has no answer, nothing changes and
+        no witness is kept (AZ-840); one whose walk-off flapped stays nowhere and gives only its MAY (AZ-838).  While a candidate ahead of any that stays has no answer, nothing changes and
         those candidates are returned: replay them, then call again."""
         from devkit.reach.engine.hold import SWIMMING, stays
         want, keep, confirms = [], {}, []
@@ -243,20 +250,29 @@ class Graph:
                         break
                     if got.get("outcome") is not None:     # a confirm (an aim's hit's: its edges are in)
                         confirms.append((w, got, za, zb))
+                        if _latched(w, got["outcome"]):    # AZ-838: FastL3's run of it flapped on the latch
+                            continue
                     if stays(got, zb, self.nodes.zone_at):
                         keep[(za, zb), r] = confirmed(w, got)
                         break
         if want:
             return want
         other: dict[tuple, dict] = {}
+        latched = 0
         for w, got, za, zb in confirms:      # FastL3's run of the string: its touches, MAY and node edge count
             c = confirmed({k: v for k, v in w.items() if k != "flags"}, got)
+            if _latched(w, got["outcome"]):  # AZ-838: only a MAY to where it settled, as an L3 walk-off's
+                latched += 1
+                if (b := self._edges(w["node"], c["rank"], c, got["outcome"], False)) not in (None, w["node"]):
+                    self.may[(w["node"], b)] = min(c["rank"], self.may.get((w["node"], b), 9))
+                continue
             b = self._edges(w["node"], c["rank"], c, got["outcome"])
             zc = None if b is None else self.nodes.zone_at(got["land"], got["state"] == SWIMMING, False)
             if (zc not in (None, za, zb) and stays(got, zc, self.nodes.zone_at)
                     and _better(c, other.get(((za, zc), c["rank"])))):     # AZ-840: it holds in a third zone
                 other[(za, zc), c["rank"]] = dict(c, flags=self._flags(w["node"], b, za, got["outcome"]))
         self.counts["FastL3 confirms the hold read"] = len(confirms)
+        self.counts["FastL3 confirms whose walk-off flapped on the snapshot's latch, taking no try"] = latched
         moved = gone = 0
         self.counts["zone witnesses FastL3 confirmed from the kernel"] = sum(w["by"] == "confirmed"
                                                                               for w in keep.values())
