@@ -1305,6 +1305,30 @@ def test_a_built_router_is_kept_by_its_content_key_beside_its_reach_model_and_bu
     assert other.read_bytes() == b"u's router"
 
 
+def test_a_route_graphs_key_stays_the_same_when_only_its_model_files_device_number_moves(tmp_path, monkeypatch):
+    """Step 4.75b: a reboot moved the L3 store's volume's device number, and every route graph kept in x7's
+    ``routers/`` (44 of them, 35 GiB) missed its key and would have been built again; ``router_key`` leaves the
+    device number out, while the model written again still moves it (the test above)."""
+    import os
+    import types
+
+    from devkit.rando.draft import l3_goal
+    reach = tmp_path / "t.pkl"
+    reach.write_bytes(b"a reach model")
+    key, stat = l3_goal.router_key(str(reach), "logic"), os.stat
+
+    def moved(path, *args, **kwargs):
+        st = stat(path, *args, **kwargs)
+        if path != str(reach):
+            return st
+        return types.SimpleNamespace(**{**{k: getattr(st, k) for k in dir(st) if k.startswith("st_")},
+                                        "st_dev": st.st_dev + 1})
+    with monkeypatch.context() as m:
+        m.setattr(l3_goal.os, "stat", moved)
+        assert os.stat(str(reach)).st_dev != stat(reach).st_dev
+        assert l3_goal.router_key(str(reach), "logic") == key
+
+
 def test_rando_author_of_some_authored_levels_names_the_ones_left_out(capsys):
     """P6 (Step R1.19): ``rando author town w1 w2 w3 w4`` (TOOLS.md's old
     realm) exited with a bare ``ERROR: 'd1'``; it names every authored

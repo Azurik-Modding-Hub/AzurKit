@@ -819,12 +819,13 @@ WRITING_S = 900.0     # a cache file's writer mark older than this is a dead wri
 
 
 def router_key(reach: str, prof: str) -> str:
-    """A built ``Router``'s content key (Step X.95): the reach model file's path and identity (device, inode, size,
-    mtime_ns, ctime_ns: a write or a rebuild changes them), ``prof``, the files of :data:`ROUTER_CODE` (each path and
-    its bytes) and the Python and numpy versions; sha256[:16]."""
+    """A built ``Router``'s content key (Step X.95): the reach model file's path and identity (inode, size, mtime_ns,
+    ctime_ns: a write or a rebuild changes them; not its device number, which a reboot may move, Step 4.75b),
+    ``prof``, the files of :data:`ROUTER_CODE` (each path and its bytes) and the Python and numpy versions;
+    sha256[:16]."""
     st = os.stat(reach)
-    h = hashlib.sha256(json.dumps([os.path.abspath(reach), st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns,
-                                   st.st_ctime_ns, prof, np.__version__, list(sys.version_info[:2])]).encode())
+    h = hashlib.sha256(json.dumps([os.path.abspath(reach), st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns,
+                                   prof, np.__version__, list(sys.version_info[:2])]).encode())
     root = Path(__file__).resolve().parents[3]
     for rel in ROUTER_CODE:
         p = root / rel
