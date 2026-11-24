@@ -776,11 +776,12 @@ def test_a_route_mark_a_skip_outdoes_holds_below_the_skips_tier_and_above_it_for
 def test_a_gated_levels_sweep_edge_enters_logic_only_at_its_witnesss_air_rank_and_an_ungated_level_is_unchanged(
         tmp_path):
     """Step 4.76d (docs/RANDOMIZER_DB.md §4.10): with ``sweep_gate = "witnessed"`` a derived sweep edge is in logic
-    only where its witness file, thinned from the engine's records (each pair's least rank, a node key's record left
-    out), holds its zone pair: a pair flown at rank 0 as before, at 2 each term asking air 2, an unflown one out
-    (R_phys keeps every edge); every other edge, and a level without the key beside a file of its own, is as before.
+    only where its witness file, thinned from the engine's records (each pair's least rank; a record with an end off
+    the derived zones, a node key or a zone the export dropped, left out), holds its zone pair: a pair flown at rank
+    0 as before, at 2 each term asking air 2, an unflown one out (R_phys keeps every edge); every other edge, and a
+    level without the key beside a file of its own, is as before.
     A ``[[sweep_keep]]`` node pair is contracted as the ungated level's, its movement rows found; a witness file of
-    another zoning is refused by name."""
+    another zoning, or with no list of pairs, is refused by name."""
     import tomllib
 
     from azurkit.tools.randomizer.planner.proofs import zoning
@@ -806,7 +807,8 @@ def test_a_gated_levels_sweep_edge_enters_logic_only_at_its_witnesss_air_rank_an
     sweep = {lv: [e for e in author.read_derived(lv)["edges"] if e.get("probe") == "sweep"] for lv in (level, other)}
     two = next((e["from"], e["to"]) for e in sweep[level] if e["requires"] == "true")
     zero = next((e["from"], e["to"]) for e in sweep[level] if (e["from"], e["to"]) != two)
-    doc = put(level, [(*two, 3), (*two, 2), (*zero, 0), (f"{level}.Z0", f"{level}.n1", 1)])
+    off = f"{level}.Z{1 + max(witness._num(z['id']) for z in author.read_derived(level)['zones']):03d}"
+    doc = put(level, [(*two, 3), (*two, 2), (*zero, 0), (f"{level}.Z0", f"{level}.n1", 1), (two[0], off, 0)])
     put(other, sorted({(e["from"], e["to"], 3) for e in sweep[other]}))
     base, gated = author.build(level, skips), author.build(level, skips, authoring=auth, witnesses=wit)
     flown, air2 = {(a, b): r for a, b, r in doc["pairs"]}, [frozenset({("air", 2)})]
@@ -832,6 +834,9 @@ def test_a_gated_levels_sweep_edge_enters_logic_only_at_its_witnesss_air_rank_an
     put(level, [(*two, 2)], zones="0" * 64)
     assert [i.split(" (")[0] for i in author.build(level, skips, authoring=auth, witnesses=wit).issues] == [
         f"witness/{level}.json: its zoning isn't the level's"]
+    (wit / f"{level}.json").write_text(json.dumps({**doc, "pairs": None}), encoding="utf-8")
+    assert author.build(level, skips, authoring=auth, witnesses=wit).issues == [
+        f"witness/{level}.json: its pairs aren't a list"]
 
 
 # --- Step 4.28f and 4.42b: the settings' and share strings' rules on the toy database (moved here from

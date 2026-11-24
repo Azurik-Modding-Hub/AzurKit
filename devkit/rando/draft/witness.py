@@ -11,8 +11,8 @@ the code that names a zone: ``devkit/reach/engine/cache.py``), the plans it read
 another zoning is refused (:func:`check`), as an L3 proof is: a re-derive renumbers the zones, so its pairs would
 name other places.  Ids, ranks and hashes only, no position or string.
 
-Stdlib only for :func:`read` and :func:`check` (the authoring reads them); :func:`thin`'s default keys import the
-engine's cache.
+Stdlib only for :func:`read` and :func:`check` (the authoring reads them); :func:`thin`'s defaults import the
+engine's cache and the authoring's derived file.
 """
 
 from __future__ import annotations
@@ -54,9 +54,11 @@ def check(level: str, doc: dict, derived: dict) -> list[str]:
     for name in ("plans", "passes"):
         if not isinstance(doc.get(name), list) or not doc[name]:
             out.append(f"{where}: names no {name}")
+    if not isinstance(doc.get("pairs"), list):
+        return out + [f"{where}: its pairs aren't a list"]
     zones = {z["id"] for z in derived.get("zones", ())}
     seen = set()
-    for p in doc.get("pairs") or ():
+    for p in doc["pairs"]:
         ok = isinstance(p, list) and len(p) == 3 and p[0] in zones and p[1] in zones and p[0] != p[1] \
             and type(p[2]) is int and p[2] in RANKS and (p[0], p[1]) not in seen
         if not ok:
@@ -90,13 +92,20 @@ def engine_keys() -> dict:
             "zones": cache.core(cache.ZONE_FILES)}
 
 
-def thin(level: str, records: list[dict], plans: list[str], passes: list[str], keys: dict | None = None) -> dict:
+def thin(level: str, records: list[dict], plans: list[str], passes: list[str], keys: dict | None = None,
+         derived: dict | None = None) -> dict:
     """A witness file's doc from one run's ``reach-engine witness`` records of ``level`` (``plans`` the plans it
     read, ``passes`` the passes they flew; ``keys`` the engine's three keys that ran it, by default
-    :func:`engine_keys`, this checkout's): each zone pair's least ``min_air``.  A record whose claim names a node
-    key off every zone is left out; records of another level, zoning or snapshot are refused (``ValueError``)."""
+    :func:`engine_keys`, this checkout's; ``derived`` the level's derived file, by default this checkout's): each
+    zone pair's least ``min_air``.  A record whose claim isn't two of the derived file's zones is left out: a node
+    key, or a reach-model zone the export dropped (it keeps only the zones a derived edge touches), names no derived
+    edge, so the gate never reads it (:func:`check` would refuse the file for it).  Records of another level, zoning
+    or snapshot are refused (``ValueError``)."""
+    if derived is None:
+        from devkit.rando.draft.author import read_derived
+        derived = read_derived(level)
+    zones = {z["id"] for z in derived.get("zones", ())}
     zonings, snaps, best = set(), set(), {}
-    pat = re.compile(rf"{re.escape(level)}\.Z\d+")
     for rec in records:
         claim = rec.get("claim") or {}
         if claim.get("kind") != "edge" or claim.get("level") != level:
@@ -105,7 +114,7 @@ def thin(level: str, records: list[dict], plans: list[str], passes: list[str], k
         snap = (rec.get("start") or {}).get("snapshot") or {}
         snaps.add((snap.get("label"), snap.get("meta_sha12")))
         a, b = claim.get("from"), claim.get("to")
-        if not (isinstance(a, str) and isinstance(b, str) and pat.fullmatch(a) and pat.fullmatch(b)):
+        if not (isinstance(a, str) and isinstance(b, str)) or a not in zones or b not in zones or a == b:
             continue
         r = claim.get("min_air")
         if type(r) is not int or r not in RANKS:
