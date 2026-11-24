@@ -3919,6 +3919,39 @@ def test_a_later_engine_worker_instantiates_the_wasm_the_first_compiled_but_in_w
         served.close()
 
 
+ERRORS = """() => {   // a worker's stack trace limit, a wasm trap's error (an unreachable), a plain Error's stack
+    const unreachable = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 7, 5, 1, 1, 102, 0,
+                                        0, 10, 5, 1, 3, 0, 0, 11]);
+    try {
+        new WebAssembly.Instance(new WebAssembly.Module(unreachable)).exports.f();
+    } catch (trap) {
+        return [Error.stackTraceLimit, trap.constructor.name, trap.stack, new Error("x").stack,
+                Object.assign(new Error("y"), { stack: "set" }).stack];
+    }
+}"""
+"""What :func:`test_webkits_engine_worker_keeps_no_js_stack_for_its_errors` reads in each engine worker."""
+
+
+def test_webkits_engine_worker_keeps_no_js_stack_for_its_errors(browser, site):
+    """Step 4.75f: CI's Apple Silicon WebKit killed the page's process in JavaScriptCore's own assertion while it
+    walked the stack for a wasm trap's error in the engine's worker (StackVisitor::readInlinableNativeCalleeFrame,
+    Step 4.4ci47, again in run 43713171050). In WebKit each engine worker's stack trace limit is 0, so its errors, a
+    trap's too, keep no stack, read as an empty one (Pyodide replaces an error whose stack isn't a string with its own
+    "was thrown as an error!" message), and a stack set on one is kept; the page's limit stays its default. Chromium's
+    and Firefox's engines keep their default limit and their stacks."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.until(page, "() => azurkit.pool.state().b?.loaded", 300)
+        limit, webkit = page.evaluate("() => Error.stackTraceLimit"), browser.browser_type.name == "webkit"
+        read = [worker.evaluate(ERRORS) for worker in page.workers if worker.evaluate("() => 'azurkitBase' in self")]
+        kept = [[n, name, trap == "", plain == "", given] for n, name, trap, plain, given in read]
+        want = [0 if webkit else limit, "RuntimeError", webkit, webkit, "set"]
+        assert kept == [want] * 2 and limit > 0, (limit, read)
+    finally:
+        served.close()
+
+
 def test_a_seeds_build_after_the_pick_reads_the_images_id_no_more(browser, site, usa_iso):
     """Step 4.4bf: the image's id is read once a pick (by the first worker or two its File reaches, as F checks it
     while B builds ahead), never for a later message of that File: each brings the id read, B's new worker's after
@@ -4635,9 +4668,11 @@ def test_a_call_whose_engine_traps_or_raises_names_its_call_and_pythons_place_an
     before the pick's read), never Pyodide's "already fatally failed", nor the image's unmount after a build's trap. A
     trap :data:`DEEP` frames down names its innermost frames, not the dump's last. Each trapped ask is sent to a new
     engine once (D1126), whose trap fails it so by name. A build that raises names its call and its traceback's frames;
-    a new engine answers each next ask."""
+    a new engine answers each next ask. Step 4.75f: WebKit's engine keeps no JS stack, so its trap names no wasm
+    functions, and its trap's own message stands, never Pyodide's "was thrown as an error!" stand-in for it."""
     status = """(start) => { const s = document.querySelector("#status");
         return s.classList.contains("error") && s.textContent.startsWith(start) && s.textContent; }"""
+    named = [] if browser.browser_type.name == "webkit" else [True]   # its wasm functions, from the trap's JS stack
     frame = r" < <exec> line \d+ \({}\)"
     first = r"Python at ctypes/__init__\.py line \d+ \(string_at\)" + frame.format("azurkit_fault")
     trapped = {"prime": first + frame.format("engine") + frame.format("answering"),
@@ -4652,9 +4687,9 @@ def test_a_call_whose_engine_traps_or_raises_names_its_call_and_pythons_place_an
             if packs:
                 _page.build(page, packs)
             head = f"The engine's WebAssembly failed in its {call} call: "
-            got, python, wasm = _page.until(page, f"() => ({status})({head!r})").split(" · ")
-            assert "fatally" not in got and re.fullmatch(trapped[call], python), (got, python)
-            assert re.fullmatch(r"wasm functions \d+(, \d+){0,3}", wasm), wasm
+            got, python, *wasm = _page.until(page, f"() => ({status})({head!r})").split(" · ")
+            assert "fatally" not in got and "thrown" not in got and re.fullmatch(trapped[call], python), (got, python)
+            assert [bool(re.fullmatch(r"wasm functions \d+(, \d+){0,3}", part)) for part in wasm] == named, wasm
             _page.until(page, "() => azurkit.ready", 300)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.build(page, [])
@@ -4769,8 +4804,9 @@ def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_say
         _page.build(page, ["fps_unlock"])
         _page.built(page)
         frame = r" < <exec> line \d+ \(azurkit_fault\)"
+        wasm = "" if browser.browser_type.name == "webkit" else r" · wasm functions \d+(, \d+){0,3}"   # Step 4.75f
         trapped = (r"The engine's WebAssembly failed in its build call: [^·]+ · Python at ctypes/__init__\.py line \d+"
-                   rf" \(string_at\){frame * 3} · wasm functions \d+(, \d+){{0,3}}")
+                   rf" \(string_at\){frame * 3}{wasm}")
         recovered, said, bar = page.evaluate("() => [azurkit.recovered, said, window.bar]")
         assert len(recovered) == 2 and re.fullmatch(trapped, recovered[1]), recovered
         assert "The engine stopped and started again: building again" in said and not bodies, said

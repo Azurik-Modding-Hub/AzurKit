@@ -54,6 +54,24 @@ import { text } from "./memo.mjs";
 import { freed, keepParts, partsHint, partsOf } from "./parts.mjs";
 import { PREFIX } from "./outputs.mjs";
 
+// WebKit's engine keeps no JS stack (Step 4.75f), first in this file's code (its imports' bodies only define, so it
+// comes before any wasm runs): CI's Apple Silicon WebKit killed the page's process in JavaScriptCore's own assertion
+// (StackVisitor::readInlinableNativeCalleeFrame) while it walked the stack for a wasm trap's RuntimeError (Step
+// 4.4ci47; again in run 43713171050), and a stack trace limit of 0 skips that walk. JSC then gives an Error no stack
+// at all, which Pyodide's ensureCaughtObjectIsError takes for a thrown non-error and replaces (its "A value of type
+// object ... was thrown as an error!"): a trap's or a JS error's message would come out so, so an Error with none
+// reads an empty one, which Pyodide keeps whole, and one a stack is set on keeps it (Pyodide sets some). Its trap's
+// failure then names no wasm functions (located()). Chromium and Firefox keep their defaults, as does every page.
+const WEBKIT = /AppleWebKit/.test(navigator.userAgent) && !/Chrome\//.test(navigator.userAgent);
+if (WEBKIT) {
+  Error.stackTraceLimit = 0;
+  Object.defineProperty(Error.prototype, "stack", {
+    configurable: true,
+    get: () => "",
+    set(stack) { Object.defineProperty(this, "stack", { value: stack, writable: true, configurable: true }); },
+  });
+}
+
 const base = new URL("./", import.meta.url);
 self.azurkitBase = base.href;   // the site's folder, which a relative content source is read against (fetched(), ENGINE)
 let heap = () => undefined;
@@ -70,7 +88,8 @@ const lastLine = (error) => String(error?.message ?? error).trim().split("\n").a
 
 // Where a call failed (Step 4.4ci44), as its message's last line and " · " parts: the engine's call (its request's
 // type), the innermost FRAMES of Python's stack and, where the engine's WebAssembly itself failed (a trap, Pyodide's
-// fatal error), the wasm functions it was in by index. A Python exception's traceback is in its message; a trap's stack
+// fatal error), the wasm functions it was in by index (none in WebKit, whose engine keeps no JS stack: WEBKIT). A
+// Python exception's traceback is in its message; a trap's stack
 // is only in Pyodide's dump of it (dump_traceback, written to the engine's stdout), so the engine's first SAID lines
 // out of a call are kept (said), from the dump's header on once it comes: the dump is its header, then the innermost
 // frame first, and at numpy's import it ran 72 lines, so a call's last 40 lost its header and innermost frames and
@@ -787,7 +806,7 @@ const stored = (database, name, mode, fn) => new Promise((resolve) => {   // Ind
 // `failed`, which ends loading()'s wait, and a restore refused so starts cold, a cold start refused says so by name.
 const SNAPSHOT = "azurkit-snapshot", IMPORTS = "import azurkit\nfrom azurkit import sdk\nfrom azurkit.core import iso\n";
 const STREAMING = WebAssembly.instantiateStreaming;
-const SHARES = !(/AppleWebKit/.test(navigator.userAgent) && !/Chrome\//.test(navigator.userAgent));   // not WebKit
+const SHARES = !WEBKIT;
 // In WebKit the worker's WebAssembly.instantiate compiles and instantiates at once (a worker may), its promise settled
 // by itself (Step 4.5k): numpy's load (Pyodide's loadPackage) instantiates its 13 shared libraries each so, and in
 // CI's Linux WebKit an engine sat in it 120 s and 596 s, where it takes 0.1-0.2 s (60 of 60 here): WebKit's own

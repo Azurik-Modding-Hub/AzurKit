@@ -615,8 +615,8 @@ memory peaks stay strict. The gate writes both kinds of row to
 11. ~~Site builds without OPFS still copy twice~~: fixed by 4.53b; the
     pool's unsampled cut mode is a watch line (8.15).
 12. ~~The arm64 WebKit engine trap~~: a watch line (8.12); its
-    `Error.stackTraceLimit = 0` lever waits for a crash report that names
-    JSC's StackVisitor again.
+    `Error.stackTraceLimit = 0` lever is set in WebKit's engine worker by
+    4.75f, run 43713171050's report having named JSC's StackVisitor again.
 13. ~~Windows Firefox loses 6-15 GiB of temp disk and hangs~~: the hang
     gone since 4.4ci18, the temp a watch line (8.14).
 14. ~~`procpool._peak()` returns 0 on Windows~~: fixed by 4.52a.
