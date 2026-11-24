@@ -28,6 +28,8 @@ What it reads and writes, none of it in the repository:
 | The levels' reach models | the L3 store's `x7/reach/`, this checkout's pickles (`models.py`: any global but this checkout's modules and a few standard ones refused; a missing one is built beside them) |
 | Their route graphs | `x7/reach/routers/`, beside them |
 | The certification's private starts and kit snapshots | the L3 store's `x7/` (`by-dir/`) and `x11/`, mode 700 |
+| The witness check's arrival snapshots | the L3 store's `witness-check/<NAME>/`, deleted at the run's end once `l3-hold` holds none |
+| The witness check's rows and checked records | the `--out` you name, and `<witness>.checked.jsonl` beside the witness file (mode 0600) |
 
 Cache keys hash the code at its devkit paths (`engine/cache.py`'s
 `CORE_FILES`, `native/backend.py`'s `FILES`), so Modkit's records are not
@@ -348,6 +350,59 @@ nice -n 19 uv run --locked python -m devkit reach reach-engine rigs LEVEL --snap
   run, an L3 or launch change runs them again. OUT files (mode 0600) never
   replace one there (`l3.private_out`). Shadow only (nothing writes
   `src/azurkit/tools/randomizer/data`); dev tooling, never in pytest.
+
+## `witness-check`
+
+The witness check (Step 4.78a; check v1, what "passes xemu checks" means
+for D1311): `reach-engine witness`'s records replayed in xemu from the
+game's own arrival on the engine snapshot's event clock, and judged by
+zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
+`devkit.sim` and `devkit.xemu.sitting`.
+
+- `plan` picks the rows, ids only, each with its class fields (plan,
+  backend, macro, pass, rank, kit, swim, zone-mapping flags, the derived
+  edge's kind or `new`; `cls` their tags) from the cache's job records and
+  the plans' graph: every record, or the witness of each (from, to, air)
+  row of `--edges` rows files, what `--minus` lacks, the candidates whose
+  hold answer leaves (`--negatives hold`), and each class's first N by the
+  sha256 of its `ref` (`--per-class N`). `--backend` is the witness run's:
+  it keys the plans' jobs. A witness file of another zoning, or of a
+  snapshot whose `meta_sha12` isn't the store's, is refused.
+- `run` checks them in one sitting, a level at a time: `vanilla-ig-new`'s
+  SaveGame #2, R7 to the level's arrival (the engine's snapshots'), kit 0,
+  popups seen, the player ticks run to the snapshot's event clock, a
+  checkpoint and its `control_state_sha12`. `--start recipe` (v1's
+  proposal) takes one L3 snapshot there and runs the record's own setup in
+  L3 (its wait, R6, the 20-tick settle, R2, the cast; the record's start
+  camera on every tick no pad sets), then the string and 60 idle ticks,
+  and xemu replays all of it tick for tick; `--start placed` is R2.16e's
+  (the sitting's R6 and the game's settle, a snapshot after them). A pass:
+  the start stands (state 0, within 0.75 m across and 0.6 m in height of
+  its feet, in its from-zone), alive throughout, in the to-zone at the
+  string's end and settled there 60 ticks on, no level load. Verdicts:
+  PASS, START (a false find), FRAGILE (L3 misses from the game's start
+  too), WORLD (L3 holds, the game doesn't: hit, a load, another path; tried
+  again at each later `--phases` wait), LEFT (reached, not held), STALL,
+  ERROR (the harness; run again once, never against the link). One
+  coordinate-free `results/runs.jsonl` row a try in `--ev`; the final
+  verdict's record, its `replay` filled, goes privately beside its witness
+  file. A run resumes (a row with a final verdict, ERROR aside, is
+  skipped). `--corpus STORE` appends each replay to that conformance
+  corpus and keeps the arrival snapshots.
+- `tally` counts the final verdicts by start, level and class with Wilson
+  95 % intervals, and with `--truth` (kept `runs.jsonl` files: R2.16e's by
+  level, from, to and air, a check's own by `ref`) the rows that moved.
+
+```bash
+uv run --locked python -m devkit reach witness-check plan LEVEL --witness FILE --plan P ... --snapshot LABEL \
+    [--backend l3|kernel] [--edges ROWS.json ...] [--minus FILE] [--negatives hold] [--per-class N] --out ROWS.json
+nice -n 10 uv run --locked python -m devkit reach witness-check run NAME --rows ROWS.json ... --ev DIR \
+    [--start recipe|placed] [--phases 0,15,30] [--corpus STORE]
+uv run --locked python -m devkit reach witness-check tally DIR [--truth KEPT.jsonl ...]
+```
+
+A sitting (`run`) follows the `azurik-xemu-oracle` skill; its offline
+table test drives a stand-in sitting and launches no xemu.
 
 ## `reach-truth`
 

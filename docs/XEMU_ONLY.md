@@ -59,6 +59,7 @@ Nothing here needs xemu to work, but only xemu has measured it.
 |---|---|---|
 | Z1 | The D98 fixtures run `mem_limit` `'128'` (their `xemu.toml`), and every sitting starts from their 32 xemu save states | Every sitting's numbers come from a 128 MiB machine, from states no console loads; a claim about a retail Xbox needs rows at `'64'`, from a cold boot |
 | Z2 | The fork's own features the harness takes | Deterministic icount runs, the null renderer, the NV2A counters, PC hooks, the access log, the input queue, `picture-stale`, null-RAM pictures, the QMP watch monitor, the host profile, load verification, the guest bugcheck report and `vblank-ns` (`devkit/xemu/oracle.py`; [`devkit/xemu/README.md`](../devkit/xemu/README.md)) |
+| Z3 | A reach link "passes xemu checks" (D1311) by the witness check, v1 (`python -m devkit reach witness-check`, Step 4.78a) | A new link ships on its witness replayed in the fork, deterministic and null-rendered, from the engine snapshot's arrival on its event clock: the start stands, the body stays alive, lands in its to-zone and holds there. No console has replayed one; a console's timing or a world the save didn't load could differ |
 
 ## Kept for hardware anyway
 

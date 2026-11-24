@@ -28,4 +28,6 @@ VERBS: dict[str, str] = {
                   "replays, apply, recheck",
     "l3-contact": "measure the randomizer's contact flights at modified movement in L3, and write contact.json",
     "l3-gate": "the trick explorer's starts and the long-replay gate: states, start, build, replay, split",
+    "witness-check": "a reach witness replayed and judged in xemu from the game's own arrival (check v1): plan, "
+                     "run, tally",
 }

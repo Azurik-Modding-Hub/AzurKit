@@ -63,10 +63,14 @@ model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.
   checked as it is found, so a hit that slides off is none and the aim's later passes run). Each zone witness carries the zone-mapping flags R2.16a's skeptic named (`one_region`: its
   zones share one walkable region; `takeoff_zone`: it took off in another zone than its start's; `zone_far`: the
   logic's floor sample naming its landing's zone lies over 0.5 m off), and the report counts them over the new
-  edges. Each found edge's witnesses are `proofs.jsonl` edge records whose xemu replay is still owed. Since Step
-  R2.16d a derived flight whose terms add water, fire, earth or a flag to its air is FOUND by a witness at that air
-  (it ran with less: w1's 31 such witnesses land the same with their elements set), and the rows the derive got
-  wrong carry `derive` and leave the report's `graded` recall (the bar's `recall` still counts every row):
+  edges. Each found edge's witnesses are `proofs.jsonl` edge records whose xemu replay is owed until checked: since
+  Step 4.78a `devkit reach witness-check` checks it (check v1, D1311: from the game's own arrival on the snapshot's
+  event clock, the record's setup and string replayed tick for tick, judged by its zones and the hold: PASS, START,
+  FRAGILE, WORLD, LEFT, STALL or ERROR; `devkit/reach/README.md`), each checked record kept with its `replay` filled
+  beside the witness file. Since Step R2.16d a derived flight whose terms add water, fire, earth or a flag to its air
+  is FOUND by a witness at that air (it ran with less: w1's 31 such witnesses land the same with their elements
+  set), and the rows the derive got wrong carry `derive` and leave the report's `graded` recall (the bar's `recall`
+  still counts every row):
   `requires false` (each of w1's 6 refuted by a witness), a phantom landing (no aim stood a body in L3 in its
   to-zone within 2.5 m of its target, and no launch lands in that zone) and a phantom takeoff (no start of its aims
   stood, and L3 stands no body in its from-zone within 2.5 m of its takeoff).
