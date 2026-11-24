@@ -8,7 +8,10 @@ paths AzurKit's: the engine is `devkit/reach/engine/`, the kernel `devkit/reach/
 `devkit/reach/l3_fast.py` and `l3_pool.py`, the simulator `devkit/sim/` ([`SIMULATOR.md`](SIMULATOR.md)).
 Its outcomes stay in the user cache (`AzurKit/reach-engine/`, mode 700), the frozen truth set in the user data
 folder (`reach-truth/`), and it reads the L3 store's reach models in place (`devkit/reach/models.py`). It is
-shadow only: nothing here writes the randomizer's data.
+shadow only but where a level is gated (Step 4.76d's witness gate, `sweep_gate = "witnessed"` in the level's
+authoring; no level is yet): there its witnesses, thinned into `devkit/rando/draft/witness/<level>.json`, decide
+which of the level's `sweep` edges `rando author` admits into logic and at what air
+([`RANDOMIZER_DB.md`](RANDOMIZER_DB.md) §4.10). Nothing here writes the randomizer's data itself.
 
 This page names only the AZ ids its text needs: every open reach, derive and L3 issue (v2, D609) is in
 [`Future/PENDING.md`](Future/PENDING.md)'s group 7, and the backlog D1304 resumed in its group 6.

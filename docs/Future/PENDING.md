@@ -272,10 +272,16 @@ parts' narrower key (10.18).
    only through d1 (air 1 or more). It is harmless with the death realm's
    door, whose counted realm still needs 3 of each element (`solver.py`);
    a door loosened below air 1 moves both to Z003 first.
-8. **The derive's drops from town's plaza into the sewer are false** (the
-   same skeptic): under each of its 4 drops the first solid is a LandShape
-   (gameSolid 1.0, nothing drives it) at +12.2-12.3 m (the sitting's drop
-   rays). A derive fix bumps `DERIVE_VERSION`.
+8. **Town's four plaza-to-sewer drops mislead only the route pilot** (the
+   same skeptic; read again by Step 4.76d): under each the first solid is a
+   LandShape (gameSolid 1.0, nothing drives it) at +12.2-12.3 m (the
+   sitting's drop rays), but they are no seed-facing false link:
+   `town_central -> town_z003` is a `physics` row that stands without them
+   (town's authoring with `sweep` dropped leaves it unchanged). They are
+   zone-level `sweep` edges the route pilot plans over, not the planner, and
+   their class is handled by Step 4.76d's witness gate (a gated level's
+   sweep edges enter logic only where the reach engine flew them) and round
+   2's holds, not by a derive fix.
 
 ## 7. The open issues from Modkit's ledger
 

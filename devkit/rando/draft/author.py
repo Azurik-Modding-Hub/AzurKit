@@ -71,6 +71,16 @@ barrier overrides, bypasses and ``destroy_from`` additions
 (``[barrier."<id>"]``), dark nodes (``[dark]``) and the ``[[location]]``
 overrides (proven marks).  Each carries its reason.
 
+**The witness gate** (Step 4.76d).  A level whose authoring says
+``sweep_gate = "witnessed"`` admits a derived ``sweep`` edge (the probe class
+of curved paths the straight flight misses) only where the reach engine flew
+its zone pair in the game's own code, at the least air rank a witness needs
+(``draft/witness/<level>.json``, :mod:`.witness`; one of another zoning is
+refused, as a proof is): each of its terms then asks at least that air, and an
+unflown one stays out of logic (R_phys keeps it).  ``[[sweep_keep]]`` rows
+(``from`` and ``to`` node ids, ``why``) keep a named node pair as the level
+without the gate gives it.  A level without the key is as before.
+
 **Proven spots** (D122, D143).  A hand mark wins; then the authoring marks
 ``by = "data"`` (:func:`proven_by_data`) and, over the database the new
 files make, ``by = "route"`` (D169): the spots whose vanilla route step
@@ -213,7 +223,7 @@ def read_spec(level: str, authoring: Path = AUTHORING) -> dict:
     spec = tomllib.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
     known = {"level", "probe", "rig_held", "rig_one_way", "rig_requires", "names", "gates", "gates_or", "gate_sides", "members", "edge",
              "event", "exit",
-             "barrier", "dark", "location", "button", "note", "probed", "held"}
+             "barrier", "dark", "location", "button", "note", "probed", "held", "sweep_gate", "sweep_keep"}
     unknown = set(spec) - known
     if unknown:
         raise ValueError(f"draft/authoring/{level}.toml: unknown keys {sorted(unknown)}")
@@ -221,6 +231,11 @@ def read_spec(level: str, authoring: Path = AUTHORING) -> dict:
         if not isinstance(v, dict) or v.get("way") not in ("up", "down") or not v.get("why"):
             raise ValueError(f"draft/authoring/{level}.toml: rig_one_way {rig!r} needs way = \"up\" or \"down\" and "
                              "a why")
+    if spec.get("sweep_gate", "witnessed") != "witnessed":
+        raise ValueError(f"draft/authoring/{level}.toml: sweep_gate is \"witnessed\" or absent")
+    for v in spec.get("sweep_keep", ()):
+        if not isinstance(v, dict) or not (v.get("from") and v.get("to") and v.get("why")):
+            raise ValueError(f"draft/authoring/{level}.toml: a sweep_keep row needs from, to and a why")
     return spec
 
 
@@ -246,6 +261,7 @@ class ZoneEdge:
     through: tuple = ()    # respawning barriers crossed (a direct edge, never contracted)
     certs: tuple = (None,) * 4   # per tier, the certificate of the flight it reads (None: no flight; Step R1.14b)
     hand: bool = False           # the authoring's [[edge]] (hold_pairs keeps it)
+    open: list | None = None     # a gated sweep edge's tiers without the witness gate (keep_sweep reads them)
 
 
 @dataclass
@@ -269,6 +285,7 @@ class Level:
     proofs: dict = field(default_factory=dict)        # a probed term (Atomic) -> its walk's proof (D170)
     robust: dict = field(default_factory=dict)        # a probed term -> its proof's robustness meets SAFE_P
     route_proven: dict = field(default_factory=dict)  # location -> its by-route mark (D169), set by author()
+    keep_pairs: set = field(default_factory=set)      # node pairs [[sweep_keep]] keeps as the ungated level's
 
 
 def _gate_mark(gid: str) -> str:
@@ -326,11 +343,18 @@ def tier_certs(e: dict) -> list:
     return [next((o.get("cert") for o in reversed(opts) if o["difficulty"] <= n), None) for n in range(1, 5)]
 
 
-def build(level: str, db_skips: dict, data: Path = DATA, authoring: Path = AUTHORING) -> Level:
-    """The zone graph of a level as logic reads it (the module docstring)."""
+def build(level: str, db_skips: dict, data: Path = DATA, authoring: Path = AUTHORING,
+          witnesses: Path | None = None) -> Level:
+    """The zone graph of a level as logic reads it (the module docstring); ``witnesses`` the witness gate's folder
+    (default ``witness.FOLDER``)."""
     gen = json.loads((data / "generated" / f"{level}.json").read_text(encoding="utf-8"))
     L = Level(level, gen, read_derived(level, data), read_spec(level, authoring))
     spec, doc = L.spec, L.doc
+    flown = None                # the witness gate (Step 4.76d): zone pair -> the least air rank the engine flew it at
+    if spec.get("sweep_gate"):
+        from devkit.rando.draft import witness
+        flown, problems = witness.read(level, doc, witnesses)
+        L.issues += problems
     L.objects = {o["id"]: o for o in doc["objects"]}
     hand = tomllib.loads((data / "levels" / f"{level}.toml").read_text(encoding="utf-8"))
     for kind in ("barrier", "button", "event"):
@@ -421,9 +445,15 @@ def build(level: str, db_skips: dict, data: Path = DATA, authoring: Path = AUTHO
         if 0 < up < 4:              # a harder tier's option held (AZ-532): those tiers read the tier below's
             logic_per, certs = per[:up] + [per[up - 1]] * (4 - up), certs[:up] + [certs[up - 1]] * (4 - up)
         tiers = [clean(product(t, [add])) if in_logic else [] for t in logic_per]
+        opened = None
+        if flown is not None and e.get("probe") == "sweep" and k < len(doc["edges"]) and any(tiers):
+            opened, r = tiers, flown.get((e["from"], e["to"]))    # in logic only at the air its witness needs
+            tiers = [[] for _ in tiers] if r is None else tiers if r == 0 else [product(t, [frozenset({("air", r)})])
+                                                                               for t in tiers]
         phys = clean(product(per[3], [flags]))
-        if any(tiers) or phys:
-            L.edges.append(ZoneEdge(e["from"], e["to"], tiers, phys, respawn, tuple(certs), k >= len(doc["edges"])))
+        if any(tiers) or phys or opened is not None:
+            L.edges.append(ZoneEdge(e["from"], e["to"], tiers, phys, respawn, tuple(certs), k >= len(doc["edges"]),
+                                    opened))
     L.issues += [f"held {a or '*'} -> {b}{f' via {via}' if via else ''}: no derived edge" for i, (a, b, via, _) in
                  enumerate(held) if i not in matched]
     return L
@@ -467,7 +497,7 @@ def kept_zones(L: Level, arrivals: set, extra: set) -> set:
         if e.through:
             keep |= {e.frm, e.to}
     for t in L.edges:
-        for terms in t.tiers + [t.phys]:
+        for terms in t.tiers + [t.phys] + (t.open or []):     # a gated sweep edge keeps its events' zones
             for term in terms:
                 for a in term:
                     if a[0] == "event":
@@ -486,15 +516,16 @@ def kept_zones(L: Level, arrivals: set, extra: set) -> set:
     return keep
 
 
-def contract(L: Level) -> dict:
+def contract(L: Level, sources: set | None = None) -> dict:
     """(a, b) -> (per-tier antichains, phys antichain) over paths whose inner
-    zones are not kept; a respawning barrier's crossings stay direct."""
+    zones are not kept (from ``sources`` only, kept zones, when given); a
+    respawning barrier's crossings stay direct."""
     adj = collections.defaultdict(list)
     for e in L.edges:
         if not e.through:
             adj[e.frm].append(e)
     out = {}
-    for a in sorted(L.kept):
+    for a in sorted(L.kept if sources is None else sources):
         lab = {a: ([[frozenset()]] * 4, [frozenset()])}
         todo = collections.deque([a])
         while todo:
@@ -539,6 +570,31 @@ def hold_pairs(L: Level) -> None:
         for e in hand:
             per = [union(per[i], e.tiers[i]) for i in range(4)]
         L.pairs[key] = (per, L.pairs[key][1])
+
+
+def keep_sweep(L: Level) -> None:
+    """The authoring's ``[[sweep_keep]]`` (Step 4.76d): each named node pair (``from``, ``to``) of a gated level is
+    contracted over its sweep edges' tiers without the witness gate (``ZoneEdge.open``), so it stays as the level
+    without the gate gives it, a held pair's hold kept.  The gate never moves a node (a sweep term is assumed, so no
+    safe free path the merge reads runs over one).  A row of an ungated level, or with no path, is an issue."""
+    rows = L.spec.get("sweep_keep", ())
+    if not rows:
+        return
+    if not L.spec.get("sweep_gate"):
+        L.issues.append("sweep_keep without sweep_gate: nothing to keep")
+        return
+    want = {(r["from"], r["to"]) for r in rows}
+    held = {(h["from"], h["to"]) for h in L.spec.get("held", ()) if h.get("pair")}
+    ungated = [ZoneEdge(e.frm, e.to, e.open, e.phys, e.through, e.certs, e.hand) if e.open is not None else e
+               for e in L.edges]
+    shell = Level(L.name, L.gen, L.doc, L.spec, edges=ungated, kept=L.kept)
+    for key, got in contract(shell, {z for z, n in L.node_of.items() if n in {a for a, _ in want}}).items():
+        a, b = (key[1], key[2]) if key[0] == "through" else key
+        pair = (L.node_of[a], L.node_of[b])
+        if pair in want and key not in held:
+            L.pairs[key] = got
+            L.keep_pairs.add(pair)
+    L.issues += [f"sweep_keep {a} -> {b}: no path between the two nodes" for a, b in sorted(want - L.keep_pairs)]
 
 
 def merge(L: Level, pairs: dict, dark: dict) -> dict:
@@ -783,15 +839,16 @@ def movement_doc(L: Level) -> dict:
     def witness(x: Atomic) -> list:
         i = x.tier - 1
         term = (x.term - {PROBED}) | {ASSUMED, MODELLED} if PROBED in x.term else x.term
+        kept = (x.a, x.b) in L.keep_pairs        # a [[sweep_keep]] pair reads its sweep edges without the gate
 
         def usable(e):
-            return any(implies(term, t) for t in e.tiers[i])
+            return any(implies(term, t) for t in (e.open if kept and e.open is not None else e.tiers)[i])
         if x.through:
             es = [e for e in L.edges if e.through == x.through and L.node_of.get(e.frm) == x.a
                   and L.node_of.get(e.to) == x.b and usable(e)]
             e = min(es, key=lambda e: (e.certs[i] is not None, _zone_num(e.frm), _zone_num(e.to)), default=None)
             return None if e is None else [e.certs[i]] if e.certs[i] else []
-        key = (x.a, i, term)
+        key = (x.a, i, term, kept)
         if key not in searches:
             searches[key] = _cheapest(adj, L.kept, zones_of[x.a], usable, i)
         best = searches[key]
@@ -928,10 +985,11 @@ def _arrivals(level: str, doc: dict, gens: dict) -> dict:
 
 
 def plan(levels: list[str], data: Path = DATA, authoring: Path = AUTHORING,
-         realm: list[str] | None = None) -> Realm:
+         realm: list[str] | None = None, witnesses: Path | None = None) -> Realm:
     """Phase 1 for each level: its zone graph, kept zones, nodes and edges.
     ``realm`` (default ``levels``) names the levels whose authoring may
-    place an arrival in one, so one level plans as it does in its realm."""
+    place an arrival in one, so one level plans as it does in its realm;
+    ``witnesses`` the witness gate's folder (:func:`build`)."""
     tricks = tomllib.loads((data / "tricks.toml").read_text(encoding="utf-8"))
     world = tomllib.loads((data / "world.toml").read_text(encoding="utf-8"))
     route = tomllib.loads((data / "route.toml").read_text(encoding="utf-8"))
@@ -941,7 +999,7 @@ def plan(levels: list[str], data: Path = DATA, authoring: Path = AUTHORING,
     db_skips = {s["id"]: s for s in tricks["skip"]}
     out = {}
     for name in levels:
-        L = build(name, db_skips, data, authoring)
+        L = build(name, db_skips, data, authoring, witnesses)
         dark = {n: [] for n in L.spec.get("dark", {})}
         for n, z in L.spec.get("names", {}).items():
             if n in dark:
@@ -956,6 +1014,7 @@ def plan(levels: list[str], data: Path = DATA, authoring: Path = AUTHORING,
         L.pairs = contract(L)
         hold_pairs(L)
         L.node_of = merge(L, L.pairs, dark)
+        keep_sweep(L)
         L.atomic = probed(L, reduce_edges(atomic_edges(L.pairs, L.node_of)), records)
         out[name] = L
     stub_node = {}

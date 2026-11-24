@@ -773,6 +773,67 @@ def test_a_route_mark_a_skip_outdoes_holds_below_the_skips_tier_and_above_it_for
         "the logic collects it holding water 0")
 
 
+def test_a_gated_levels_sweep_edge_enters_logic_only_at_its_witnesss_air_rank_and_an_ungated_level_is_unchanged(
+        tmp_path):
+    """Step 4.76d (docs/RANDOMIZER_DB.md §4.10): with ``sweep_gate = "witnessed"`` a derived sweep edge is in logic
+    only where its witness file, thinned from the engine's records (each pair's least rank, a node key's record left
+    out), holds its zone pair: a pair flown at rank 0 as before, at 2 each term asking air 2, an unflown one out
+    (R_phys keeps every edge); every other edge, and a level without the key beside a file of its own, is as before.
+    A ``[[sweep_keep]]`` node pair is contracted as the ungated level's, its movement rows found; a witness file of
+    another zoning is refused by name."""
+    import tomllib
+
+    from azurkit.tools.randomizer.planner.proofs import zoning
+    from devkit.rando.draft import author, witness
+    level, other = "a3", "a6"
+    auth, wit = tmp_path / "authoring", tmp_path / "witness"
+    shutil.copytree(author.AUTHORING, auth)
+    wit.mkdir()
+    (auth / f"{level}.toml").write_text('sweep_gate = "witnessed"\n' + (auth / f"{level}.toml").read_text("utf-8"),
+                                        encoding="utf-8")
+    keys = dict(zip(witness.KEYS, ("a" * 12, "b" * 12, "c" * 12)))
+
+    def put(lv, pairs, zones=None):
+        derived = author.read_derived(lv)
+        recs = [{"claim": {"kind": "edge", "level": lv, "from": a, "to": b, "zoning": zones or zoning(derived),
+                           "min_air": r}, "start": {"snapshot": {"label": "t", "meta_sha12": "d" * 12}}}
+                for a, b, r in pairs]
+        doc = witness.thin(lv, recs, ["base"], ["1"], keys)
+        (wit / f"{lv}.json").write_text(witness.text(doc), encoding="utf-8")
+        return doc
+
+    skips = {s["id"]: s for s in tomllib.loads((author.DATA / "tricks.toml").read_text("utf-8"))["skip"]}
+    sweep = {lv: [e for e in author.read_derived(lv)["edges"] if e.get("probe") == "sweep"] for lv in (level, other)}
+    two = next((e["from"], e["to"]) for e in sweep[level] if e["requires"] == "true")
+    zero = next((e["from"], e["to"]) for e in sweep[level] if (e["from"], e["to"]) != two)
+    doc = put(level, [(*two, 3), (*two, 2), (*zero, 0), (f"{level}.Z0", f"{level}.n1", 1)])
+    put(other, sorted({(e["from"], e["to"], 3) for e in sweep[other]}))
+    base, gated = author.build(level, skips), author.build(level, skips, authoring=auth, witnesses=wit)
+    flown, air2 = {(a, b): r for a, b, r in doc["pairs"]}, [frozenset({("air", 2)})]
+    want = [{2: [author.product(t, air2) for t in b.tiers], 0: b.tiers}.get(flown.get((b.frm, b.to)), [[]] * 4)
+            if g.open is not None else b.tiers for b, g in zip(base.edges, gated.edges)]
+    opened = [(b, g) for b, g in zip(base.edges, gated.edges) if g.open is not None]
+    assert (sorted(doc["pairs"]), gated.issues, [g.tiers for g in gated.edges], [g.phys for g in gated.edges]) == (
+        sorted([[*two, 2], [*zero, 0]]), [], want, [b.phys for b in base.edges])
+    assert (len(opened) > 1000, all(g.open == b.tiers for b, g in opened),
+            any(g.tiers != g.open for _, g in opened if (g.frm, g.to) == two),
+            author.build(other, skips, authoring=auth, witnesses=wit).edges == author.build(other, skips).edges) == (
+        True, True, True, True)
+    put(level, [(f"{level}.Z0", f"{level}.n1", 1)])         # a node key's record only: no pair flown
+    p0 = author.plan([level], realm=[level]).levels[level]
+    p1 = author.plan([level], authoring=auth, realm=[level], witnesses=wit).levels[level]
+    pair = next((p0.node_of[k[0]], p0.node_of[k[1]]) for k in sorted(p0.pairs) if k[0] != "through"
+                and p0.node_of[k[0]] != p0.node_of[k[1]] and p0.pairs[k] != p1.pairs.get(k))
+    _edit(auth, f"{level}.toml", None, f'\n[[sweep_keep]]\nfrom = "{pair[0]}"\nto = "{pair[1]}"\nwhy = "a test"\n')
+    p2 = author.plan([level], authoring=auth, realm=[level], witnesses=wit).levels[level]
+    author.movement_text(p2)
+    on = sorted(k for k in p0.pairs if k[0] != "through" and (p0.node_of[k[0]], p0.node_of[k[1]]) == pair)
+    assert (p2.keep_pairs, [p2.pairs[k] for k in on], p2.issues) == ({pair}, [p0.pairs[k] for k in on], [])
+    put(level, [(*two, 2)], zones="0" * 64)
+    assert [i.split(" (")[0] for i in author.build(level, skips, authoring=auth, witnesses=wit).issues] == [
+        f"witness/{level}.json: its zoning isn't the level's"]
+
+
 # --- Step 4.28f and 4.42b: the settings' and share strings' rules on the toy database (moved here from
 # test_randomizer.py by Step 4.52c, so a change to the toy database alone runs them) ----------------------------
 
