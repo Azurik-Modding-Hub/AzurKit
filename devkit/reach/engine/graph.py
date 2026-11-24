@@ -30,7 +30,14 @@ a zone witness only once its hold (FastL3's confirm) stays, the witness then tak
 (D845: every counted link has a witness in the game's own code); each confirm the hold runs, staying or not, gives the
 touches, MAY candidate and node edge of FastL3's run of the string, as an L3 outcome does (Step R2.19k).  An edge
 onto or off a node of the snapshot's frozen world (``Nodes.frozen``: a rig deck at its rest pose, a toggled solid as
-loaded) is flagged, as is one that ends swimming (``swim``).  A zone
+loaded) is flagged, as is one that ends swimming (``swim``).  A walk-off that flapped (AZ-838) gives no zone
+slot, node edge or touch, only (an L3 outcome's) a MAY candidate to where it settled: R6 doesn't write the flap
+latch (+0x164), so its flaps fly on the snapshot's last jump's latch, which no seed promises.  A confirm keeps its
+kernel candidate's rank
+where FastL3's is lower (AZ-839: FastL3 may land early and the kernel's next Y press start a ground jump, so FastL3's
+one-jump rank can undercount; the interim guard until the confirm itself checks it), and one whose body holds in a
+third zone (not its candidate's start or to-zone) fills that zone pair's rank where the hold kept no witness (AZ-840),
+its flags its own.  A zone
 witness also carries the zone-mapping flags (R2.16a's skeptic, S4): ``one_region`` (its zones share the walkable
 region it took off and landed on), ``takeoff_zone`` (it took off in another zone than its start's: the run-up crossed
 a zone line) and ``zone_far`` (the logic's floor sample that names its landing zone lies over :data:`ZONE_FAR_M`
@@ -156,6 +163,11 @@ class Graph:
         self.counts["kernel candidates"] += kernel
         if o["end"] != "settled":
             self.counts[f"launches ended {o['end'].split(':')[0]}"] += 1
+        if o["macro"].partition("-")[0] == "walkoff" and o["flaps"] > 0:   # AZ-838: the snapshot's latch (docstring)
+            self.counts["walk-off flaps on the snapshot's latch, taking no try"] += 1
+            if not kernel and (b := self._edges(a, r, w, o, False)) not in (None, a):
+                self.may[(a, b)] = min(r, self.may.get((a, b), 9))
+            return
         b = self._edges(a, r, w, o, not kernel)
         if b is None:
             if o["end"] == "settled":
@@ -216,9 +228,10 @@ class Graph:
         in the pair's to-zone, else its :attr:`stayed` one, an escalation's tried last (a kernel candidate's answer
         is FastL3's confirm: the witness kept takes its re-derived fields, :func:`confirmed`); a rank none of them
         stays for goes, and a pair with no rank left.  Each confirm it read then adds its touches, MAY candidate and
-        node edge (the module docstring).  While a candidate ahead of any that stays has no answer, nothing changes
-        and those candidates are returned: replay them, then call again."""
-        from devkit.reach.engine.hold import stays
+        node edge (the module docstring), and a confirm whose body holds in a third zone fills that pair's rank where
+        no witness is kept (AZ-840).  While a candidate ahead of any that stays has no answer, nothing changes and
+        those candidates are returned: replay them, then call again."""
+        from devkit.reach.engine.hold import SWIMMING, stays
         want, keep, confirms = [], {}, []
         for (za, zb), ranks in self.cands.items():
             for r, ws in ranks.items():
@@ -229,15 +242,20 @@ class Graph:
                         want.append(w)
                         break
                     if got.get("outcome") is not None:     # a confirm (an aim's hit's: its edges are in)
-                        confirms.append((w, got))
+                        confirms.append((w, got, za, zb))
                     if stays(got, zb, self.nodes.zone_at):
                         keep[(za, zb), r] = confirmed(w, got)
                         break
         if want:
             return want
-        for w, got in confirms:              # FastL3's run of the string: its touches, MAY and node edge count
+        other: dict[tuple, dict] = {}
+        for w, got, za, zb in confirms:      # FastL3's run of the string: its touches, MAY and node edge count
             c = confirmed({k: v for k, v in w.items() if k != "flags"}, got)
-            self._edges(w["node"], c["rank"], c, got["outcome"])
+            b = self._edges(w["node"], c["rank"], c, got["outcome"])
+            zc = None if b is None else self.nodes.zone_at(got["land"], got["state"] == SWIMMING, False)
+            if (zc not in (None, za, zb) and stays(got, zc, self.nodes.zone_at)
+                    and _better(c, other.get(((za, zc), c["rank"])))):     # AZ-840: it holds in a third zone
+                other[(za, zc), c["rank"]] = dict(c, flags=self._flags(w["node"], b, za, got["outcome"]))
         self.counts["FastL3 confirms the hold read"] = len(confirms)
         moved = gone = 0
         self.counts["zone witnesses FastL3 confirmed from the kernel"] = sum(w["by"] == "confirmed"
@@ -252,6 +270,13 @@ class Graph:
                 self.zones.pop(pair, None)
         self.counts["zone witnesses the hold took from a later candidate"] = moved
         self.counts["zone ranks the hold left with no witness"] = gone
+        n = 0
+        for (pair, r), c in other.items():          # where the hold kept none: a launch landed there too (``cands``)
+            if r not in self.zones.get(pair, {}):
+                self.cands[pair].setdefault(r, [])
+                self.zones[pair] = dict(sorted((self.zones.get(pair, {}) | {r: c}).items()))
+                n += 1
+        self.counts["zone witnesses a confirm held in another zone than its candidate's"] = n
         return []
 
     def fault(self, edge: str) -> str | None:
@@ -320,7 +345,8 @@ def confirmed(w: dict, got: dict) -> dict:
     if o is None:
         return w
     w.update({"string_sha12": o["string_sha12"], "ticks": o["ticks"], "taint": o["taint"], "flaps": o["flaps"],
-              "hp_lost": o["hp0"] - o["hp_min"], "labels": o["labels"], "rank": min_rank(o), "by": "confirmed"})
+              "hp_lost": o["hp0"] - o["hp_min"], "labels": o["labels"], "by": "confirmed",
+              "rank": max(w["rank"], min_rank(o))})      # AZ-839: never under the kernel's (the module docstring)
     return w
 
 

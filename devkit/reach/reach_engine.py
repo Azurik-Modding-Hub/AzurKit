@@ -745,14 +745,34 @@ def diff(a) -> dict:
             **verdict.report(a.level, read_derived(a.level), level_doc, spec, g)}
 
 
+CONFIRMED = ("taint", "labels", "hp_min", "volumes", "flaps", "end")   # what a proof reads of FastL3's confirm
+
+
+def _confirmed(base: Path, rec: dict, w: dict) -> dict:
+    """Record ``rec`` as witness ``w``'s proof reads it: where ``w`` is a kernel candidate FastL3 confirmed and the
+    record still holds the kernel's outcome (no labels, volumes or taint, no damage), that outcome takes its hold
+    answer's :data:`CONFIRMED` fields (AZ-841); its segments and ``string_sha12`` stay (the proof's ref)."""
+    o = rec["outcomes"][w["outcome"]]
+    if w["by"] != "confirmed" or o.get("by") != "kernel":
+        return rec
+    got = (hold.answer(base, rec, w["outcome"]) or {}).get("outcome")
+    if got is None:
+        return rec
+    outcomes = list(rec["outcomes"])
+    outcomes[w["outcome"]] = o | {k: got[k] for k in CONFIRMED}
+    return rec | {"outcomes": outcomes}
+
+
 def witness(a) -> list[dict]:
-    """Each zone edge's best witness at each rank as a proof record (replay owed)."""
+    """Each zone edge's best witness at each rank as a proof record (replay owed); a confirmed kernel candidate's
+    with FastL3's outcome (:func:`_confirmed`)."""
     from devkit.rando.draft.author import read_derived
     from azurkit.tools.randomizer.planner import proofs as pr
     snap, base, jobs, recs, nodes, g = _graph(a)
     by_key = {r["key"]: r for r in recs}
     zoning = pr.zoning(read_derived(a.level))
-    return [verdict.witness(a.level, w, by_key[w["job"]], jobs[w["job"]]["heading"], snap, zoning, (za, zb))
+    return [verdict.witness(a.level, w, _confirmed(base, by_key[w["job"]], w), jobs[w["job"]]["heading"], snap,
+                            zoning, (za, zb))
             for (za, zb) in sorted(g.zones) for w in g.witnesses((za, zb))]
 
 

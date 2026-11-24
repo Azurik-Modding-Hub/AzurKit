@@ -1084,6 +1084,88 @@ def test_an_aim_hit_whose_hold_left_takes_no_try_and_a_kernel_confirm_gives_its_
     assert g.edges[("n1", "n12")][0]["by"] == "confirmed"
 
 
+def _one_each(outs) -> graph.Graph:
+    """The graph of hand-made jobs of one outcome each, every start standing on n1 in Z0 (:class:`_Lots`)."""
+    run = {"run": {"settled": [12, 0, 0]}}
+    return graph.Graph(_Lots(), {f"j{k}": {"key": f"j{k}", "takeoff_feet": [1, 0, 0], "from": "Z0"}
+                                 for k in range(len(outs))},
+                       [{"key": f"j{k}", "id": f"a{k}", "starts": run, "outcomes": [x]} for k, x in enumerate(outs)])
+
+
+def test_a_walkoff_that_flapped_takes_no_zone_slot():
+    """AZ-838 (the reach audit's walk-off latch): R6 doesn't write the flap latch (+0x164), so a walk-off's flaps
+    fly on the snapshot's last jump's latch, which no seed promises: a walk-off that flapped, L3's or the kernel's,
+    takes no zone slot and gives no node edge or touch, L3's only a MAY candidate to where it settled; a walk-off
+    that never flapped, and a jump that flapped, are edges as before."""
+    air = {"kit": "air3", "flaps": 1}
+    g = _one_each([_out("w1", 40, [25, 0, 0], macro="walkoff-air3-f1", volumes=["v1"], **air),
+                   _out("w2", 40, [45, 0, 0], macro="walkoff-air3-f5", by="kernel", **air),
+                   _out("w0", 40, [65, 0, 0], macro="walkoff-air3-f1", kit="air3"),
+                   _out("j1", 40, [85, 0, 0], macro="runjump-air3-f1", **air)])
+    assert g.counts["walk-off flaps on the snapshot's latch, taking no try"] == 2
+    assert set(g.cands) == {("Z0", "Z3"), ("Z0", "Z4")} and set(g.edges) == {("n1", "n6"), ("n1", "n8")}
+    assert g.may == {("n1", "n2"): 1} and not g.touch
+
+
+def test_a_confirm_at_a_lower_fastl3_rank_keeps_the_kernels_rank():
+    """AZ-839 (the reach audit's interim guard): FastL3 may land before the kernel's last Y press, which then starts
+    a ground jump, so its run's one-jump rank undercounts the shield's flaps; until the confirm checks that, a
+    confirm whose rank is below its kernel candidate's keeps the candidate's (the proof's ``min_air``), its node
+    edge at that rank too, its flaps FastL3's."""
+    g = _one_each([_out("k2", 40, [25, 0, 0], macro="runjump-air3-f2", kit="air3", flaps=2, by="kernel")])
+    fast = _out("k2'", 41, [25, 0, 0], kit="air3", flaps=1)
+    assert g.hold(lambda w: {"land": [25, 0, 0], "state": 0, "same": True, "outcome": fast}) == []
+    w = g.best(("Z0", "Z1"), zones=True)
+    assert (w["by"], w["rank"], w["flaps"], list(g.zones[("Z0", "Z1")])) == ("confirmed", 2, 1, [2])
+    assert list(g.edges[("n1", "n2")]) == [2]
+
+
+def test_a_confirm_that_holds_in_another_zone_is_credited_to_that_pair():
+    """AZ-840 (the reach audit's lost finds): a kernel candidate is filed under the kernel's landing zone, and
+    FastL3's run of its string may hold the body in a third zone: that confirm now fills that zone pair's rank where
+    the hold kept no witness, its flags its own (its landing's floor sample 0.9 m off: ``zone_far``), and never
+    displaces one the hold kept; a confirm that isn't the same launch credits nothing."""
+    g = _one_each([_out("k1", 40, [25, 0, 0], by="kernel"), _out("k3", 40, [65, 0, 0], by="kernel"),
+                   _out("k5", 40, [105, 0, 0], by="kernel"), _out("f", 50, [46, 0, 0])])
+    conf = {"k1": {"land": [45, 0.9, 0], "state": 0, "same": True, "outcome": _out("k1'", 41, [45, 0.9, 0])},
+            "k3": {"land": [85, 0.9, 0], "state": 0, "same": True, "outcome": _out("k3'", 41, [85, 0.9, 0])},
+            "k5": {"land": [125, 0, 0], "state": 0, "same": False, "outcome": _out("k5'", 41, [125, 0, 0])},
+            "f": {"land": [46, 0, 0], "state": 0, "same": True}}           # k1 to Z2, k3 to Z4, k5 to Z6 (not same)
+    assert g.hold(lambda w: conf[w["string_sha12"]]) == []
+    assert g.best(("Z0", "Z2"), zones=True)["string_sha12"] == "f"            # the witness the hold kept stays
+    w = g.best(("Z0", "Z4"), zones=True)
+    assert (w["string_sha12"], w["by"], w["rank"], w["flags"]) == ("k3'", "confirmed", 0, ["zone_far"])
+    assert not {("Z0", "Z1"), ("Z0", "Z3"), ("Z0", "Z5"), ("Z0", "Z6")} & set(g.zones)
+    assert g.counts["zone witnesses a confirm held in another zone than its candidate's"] == 1
+
+
+def test_a_confirmed_witnesss_proof_record_carries_fastl3s_hp_labels_and_taint(tmp_path, monkeypatch):
+    """AZ-841 (the reach audit's proof records): ``reach_engine witness`` reads a witness's outcome from its job's
+    cached record, which for a kernel candidate FastL3 confirmed is still the kernel's (no labels, volumes or taint,
+    no damage); its proof record now carries the hold answer's taint, labels, HP, volumes and flaps, keeping the
+    record's string and segments (the proof's ref)."""
+    from devkit.rando.draft import author
+    from devkit.reach import reach_engine as RE
+    k = _out("k1", 40, [25, 0, 0], kit="air3", flaps=2, by="kernel", segments=[{"n": 40, "stick": [0, 1]}])
+    rec = {"key": "j0", "id": "a0", "outcomes": [k],
+           "starts": {"run": {"settled": [12, 0, 0], "feet": [12, 0, 0], "cell": 1, "place_sha12": "c" * 12}}}
+    jobs = {"j0": {"key": "j0", "takeoff_feet": [1, 0, 0], "from": "Z0", "heading": 0.0}}
+    fast = _out("k1'", 41, [25, 0, 0], kit="air3", flaps=1, hp_min=150, labels=["ledge"], volumes=["v1"],
+                taint=["render"])
+    got = {"land": [25, 0, 0], "state": 0, "same": True, "outcome": fast}
+    (tmp_path / "hold").mkdir()
+    cache.put(tmp_path / "hold", hold.key("j0", 0), got)
+    g = graph.Graph(_Lots(), jobs, [rec])
+    assert g.hold(lambda w: got) == []
+    monkeypatch.setattr(RE, "_graph", lambda a: ({"meta_sha12": "a" * 12}, tmp_path, jobs, [rec], g.nodes, g))
+    monkeypatch.setattr(author, "read_derived", lambda level: {})
+    monkeypatch.setattr(proofs, "zoning", lambda derived: "e" * 64)
+    [doc] = RE.witness(argparse.Namespace(level="t"))
+    assert (doc["outcome"]["hp_min"], doc["outcome"]["labels"], doc["outcome"]["volumes"], doc["l3"]["taint"],
+            doc["claim"]["flaps"]) == (150, ["ledge"], 1, ["render"], 1)
+    assert (doc["string"]["sha12"], doc["string"]["segments"], k["labels"]) == ("k1", k["segments"], [])
+
+
 def _triggers(iso, level):
     """A level's geometry and its :class:`triggers.Triggers` over the derive's wiring, as ``rig_triggers.py`` reads it."""
     from devkit.rando.draft.export import derive_inputs
@@ -1291,7 +1373,7 @@ def test_the_truth_sets_kernel_candidate_the_graphs_hold_confirmed_stays_on_the_
     from devkit.reach import reach_truth as T
 
     o = {"string_sha12": "s", "ticks": 9, "taint": 0, "flaps": 0, "hp0": 1, "hp_min": 1, "labels": [], "kit": "k0"}
-    held = graph.confirmed({"job": "a", "outcome": 0, "by": "kernel"}, {"outcome": o})
+    held = graph.confirmed({"job": "a", "outcome": 0, "by": "kernel", "rank": 0}, {"outcome": o})
     cands = [held, {"job": "b", "outcome": 0, "by": "kernel"}, {"job": "c", "outcome": 0, "by": "l3"}]
     monkeypatch.setattr(T.hold, "answer", lambda base, rec, k: {"v": {"b": "dead"}.get(rec["key"], "held")})
     monkeypatch.setattr(T, "_verdict", lambda got, to, rank, zone_at: got["v"])
