@@ -553,11 +553,12 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
     touching a rig parked for an undecoded trigger is out of logic, kept or not (D847); of those its frozen hold
     kept, one touching another parked rig names it (a trip's witness too), one a moving rig in the level's rig
     recording touches at its load pose or crosses on its swept path (``rigs.sweep_task``, cached apart) stays only
-    where its whole-step trip does (``rigs.replay_trip``, cached apart)."""
+    where its whole-step trip does (``rigs.replay_trip``, cached apart).  An answer with no route (only the kernel
+    route traces one: an L3 plan's, a backstop's aim hit) is swept first and decided on the sweep's (AZ-843)."""
     from devkit.reach.engine import rigs as R
     by_key = {r["key"]: r for r in recs}
     trips, sweeps, counts, owed, seen = set(), set(), g.counts, {}, {}
-    pool = None
+    pool, absent = None, None
     if rigs is not None:
         try:
             doc, verdicts, rec12 = R.recording(rigs[0], snap)
@@ -573,8 +574,15 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
         rec, wk = by_key[w["job"]], (w["job"], w["outcome"])
         o, hk = rec["outcomes"][w["outcome"]], hold.key(*wk)
         sw = cache.get(base / "sweep", R.sweep_key(hk))
+        route = got.get("route")
+        if route is None:                          # AZ-843: its route is the sweep's
+            if sw is None:
+                seen[wk] = "sweep"
+                sweeps.add(wk)
+                return None
+            route = sw.get("route") or router.anywhere()
         zc = zone_at(got["land"], got["state"] == hold.SWIMMING, False)   # where it holds: AZ-840 credits it there
-        how, x = router.decide(got, got.get("route"), o["ticks"], zc is not None and hold.stays(got, zc, zone_at),
+        how, x = router.decide(got, route, o["ticks"], zc is not None and hold.stays(got, zc, zone_at),
                                None if sw is None else sw.get("boxes", R.EVERYWHERE),
                                (rec["starts"][o["start"]]["feet"], o.get("took"), o.get("first"), o["land"],
                                 got["land"]))
@@ -604,7 +612,10 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
                 ticks += t
             if sweeps:
                 sl = sorted(sweeps)
-                for t in pool.completed(R.sweep_task, [(sl[k:k + 8], str(base)) for k in range(0, len(sl), 8)]):
+                if absent is None:                 # the routes' movers: the kernel route's, its census's absent too
+                    absent = kernel["absent"] if kernel else _census_of(rigs[0], snap)[0]["absent"]
+                for t in pool.completed(R.sweep_task, [(sl[k:k + 8], str(base), rigs[0], absent)
+                                                       for k in range(0, len(sl), 8)]):
                     ticks += t
                 counts["routed witnesses swept"] += len(sl)
                 sweeps.clear()
@@ -649,7 +660,7 @@ def rigs(a) -> dict:
                 name="reach engine rigs", fast=a.l3 == "fast", setup=functools.partial(worker.setup, False))
     try:
         doc, verdicts, rec12 = R.recording(a.level, snap, pool)
-        rec_path = str(cache.folder(a.level) / f"rigs-{snap['meta_sha12']}-{R.code12()}.pkl.gz")
+        rec_path = str(R.recording_path(a.level, snap))
         reach = str(models.reach_path(a.level))
         ds = [d for d in R.decks(a.level, doc, verdicts) if not a.deck or d.name in a.deck]
         args = (a.level, rec_path, reach, absent)

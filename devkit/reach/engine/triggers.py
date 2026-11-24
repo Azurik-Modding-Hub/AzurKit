@@ -57,7 +57,7 @@ from typing import NamedTuple
 
 from azurkit.tools.randomizer import levels as L
 from azurkit.tools.randomizer.draft import envelope
-from azurkit.tools.randomizer.draft.geometry import CAT_RIG
+from azurkit.tools.randomizer.draft.geometry import CAT_RIG, CAT_TOGGLE
 from azurkit.tools.randomizer.draft.wiring import F_FALSE, F_TRUE, Wiring, f_and, f_or
 from azurkit.tools.randomizer.art import collision
 
@@ -363,8 +363,12 @@ class Triggers:
         return any_of(*(self.motion(G, s, sp) for _, _, s, sp in ms)) if ms else NEVER
 
     def rigs(self) -> list[int]:
-        """Every solid platform owner a link moves (``CAT_RIG`` with a mover)."""
-        return [o["oi"] for o in self.lv.owners if o["kind"] == "platform" and o["cat"] == CAT_RIG and self.movers(o["oi"])]
+        """Every solid platform owner a link moves: a ``CAT_RIG`` with a mover, and a toggled solid (``CAT_TOGGLE``: a
+        driven gameSolid, which ``geometry.Level`` reads before ``moved``) the derive reads as moved or approximate,
+        with a mover (AZ-842: e5's timed rocks and f4's magnetic platforms move from load, and the kernel held them at
+        their load pose, unrecorded and unrouted)."""
+        return [o["oi"] for o in self.lv.owners if o["kind"] == "platform" and (
+            o["cat"] == CAT_RIG or (o["cat"] == CAT_TOGGLE and (o["moved"] or o["approx"]))) and self.movers(o["oi"])]
 
     def exported(self, entries) -> list[int]:
         """The rig owners of the derive's exported ``rigs`` entries (``read_derived(level)["rigs"]``): each entry's
@@ -372,7 +376,8 @@ class Triggers:
         one with the entry's deck area where two are, then the first; a ValueError names an entry no owner matches.
         A name alone doesn't do: twin rigs share it (e6's mirrors, d2's rock platforms) and the derive exports only
         those that join zones."""
-        lv, rigs, used = self.lv, set(self.rigs()), []
+        lv, used = self.lv, []
+        rigs = {oi for oi in self.rigs() if lv.owners[oi]["cat"] == CAT_RIG}      # the derive exports these only
         up = lv.tri_nz >= envelope.STEP_NORMAL_Z
 
         def moved_as(oi, e):

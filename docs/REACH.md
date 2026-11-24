@@ -621,3 +621,15 @@ airship's control elevator; 20 on f2's geyser lid; none on e7 or w1), the same o
 Of the witnesses their frozen holds kept, 168 met a moving rig and 116 of those held in whole steps, 38 touching a rig
 parked for an undecoded trigger left the logic, and finds at kit went from 7,198 to 7,186 (a5 7, f2 5).
 
+**The rig router's audit fixes (Step 4.79b).** A toggled solid (its gameSolid driven) that the derive reads as moved
+and a link moves is a rig too: it is recorded and decided, and the router reads the toggled solids a witness's route
+touches as it reads its rigs, wherever they have a verdict (by the reach audit's reading, e5's timed rocks and f4's
+magnetic platforms had stood at their load pose, unrouted). A hold answer with no route of its own (only the kernel
+route traces one: an L3 plan's or a backstop's aim hit has none) is swept first and decided on the sweep's route, so
+it too leaves the logic on a rig parked for an undecoded trigger. The recording's file names the exported decks it
+pokes, so a re-derive that exports another rig makes it again, and a board's or link's whole-step trip faults
+`start` unless its start stands where it was put, in its from-zone. The rig recording, the sweeps and the router's
+trips re-key (`rigs.code12`, `sweep_code12`, `trip_code12`); no job or hold key moves. Without `--rigs` a witness
+on a moving toggled solid still counts at its load pose (the known flaw above: rigs stand still at the snapshot's
+pose).
+

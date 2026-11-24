@@ -14,6 +14,7 @@ import os
 import pickle
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -460,10 +461,10 @@ def _lift_router():
     r = rigs.Router(lv, verdicts, {"poses": {1: rows.reshape(400, 16)}})
     got = {"land": [20.0, 5.0, 0.0], "state": 0, "settled": True, "same": True, "outcome": {"hp0": 200}}
 
-    def decide(route=(), x=20.0, z=0.5, ticks=10, stays=True, swept=True):
+    def decide(route=(), x=20.0, z=0.5, ticks=10, stays=True, swept=True, gates=()):
         path = [(x, y, z) for y in np.linspace(-5, 5, 30)]
-        return r.decide(got, {"rigs": list(route)}, ticks, stays, rigs.path_boxes(path) if swept else None,
-                        (path[0], path[-1]))
+        return r.decide(got, {"rigs": list(route), "gates": list(gates)}, ticks, stays,
+                        rigs.path_boxes(path) if swept else None, (path[0], path[-1]))
     return got, decide
 
 
@@ -535,6 +536,123 @@ def test_a_routed_witness_trip_runs_each_wait_on_a_scene_l3_that_never_ran(two_p
         made.clear()
         got = rigs.replay_trip(make, rec["starts"][o["start"]], rec["heading"], dict(o, land=land))
         assert (got["tries"], len(made), got["same"]) == (tries, tries, tries == 1)
+
+
+def test_a_toggled_solid_that_moves_from_load_is_routed_as_a_rig():
+    """AZ-842 (the reach audit): a driven gameSolid makes a platform a toggled solid before ``moved`` is read
+    (``geometry.Level``), so one that moves from load (e5's timed rocks, f4's magnetic platforms) was never
+    recorded or routed: the kernel held it at its load pose.  ``Triggers.rigs`` takes it beside the rigs when the
+    derive reads it moved or approximate and a link moves it (not one that stays put or has no mover), and the
+    router reads a route's toggled solids with a verdict as its rigs: one cycling from load that the witness
+    touches owes a trip, one parked for an undecoded trigger takes it out, and one with no verdict is no rig."""
+    from azurkit.tools.randomizer.draft.geometry import CAT_PSTATIC, CAT_RIG, CAT_TOGGLE
+    own = [(CAT_PSTATIC, True, False, True), (CAT_RIG, True, False, True), (CAT_TOGGLE, True, False, True),
+           (CAT_TOGGLE, False, False, True), (CAT_TOGGLE, True, False, False), (CAT_TOGGLE, False, True, True)]
+    T = triggers.Triggers.__new__(triggers.Triggers)
+    T.lv = SimpleNamespace(owners=[{"oi": i, "kind": "platform", "cat": c, "moved": m, "approx": ap}
+                                   for i, (c, m, ap, _) in enumerate(own)])
+    T.movers = lambda oi: [(0, "translateX", 1, "outValue")] if own[oi][3] else []
+    assert T.rigs() == [1, 2, 5]
+    got, decide = _lift_router()
+    assert decide(gates=[1], x=5.0) == ("trip", ([1], []))
+    how, out = decide(gates=[2], x=5.0)
+    assert how == "out" and out["parked"] == ["gate"]
+    assert decide(gates=[9], x=5.0) == ("as", got)
+
+
+def test_a_routeless_hold_answer_touching_an_undecoded_parked_rig_goes_out_of_logic(two_platforms, tmp_path,
+                                                                                    monkeypatch):
+    """AZ-843 (the reach audit): only the kernel route traces a hold answer's route, so under ``--rigs`` an L3
+    plan's (a backstop's aim hit keeps ``hold.replay``'s answer) was decided with none and kept, whatever parked
+    rig it stood on.  Now such an answer is swept first (``rigs.sweep_task``: the replay's body path through the
+    level's movers, the census's absent owners among them) and decided on the sweep's route: a witness from a deck
+    parked for an undecoded trigger goes out of logic, as a routed one does."""
+    from devkit.reach import reach_engine as RE
+    from devkit.reach.engine import rigs
+    from devkit.reach.native import backend as KB
+    nodes, jobs, recs = two_platforms
+    nodes.zone_at = _zone
+    rec = next(r for r in recs if r["key"] == "bbd0c3f26fa3")
+    k = 3
+    o = rec["outcomes"][k]
+    assert _zone(rec["starts"][o["start"]]["feet"]) == "t.Z000" and _zone(o["land"]) == "t.Z001"
+    rec = json.loads(json.dumps(rec))
+    rec["outcomes"][k]["hold"] = hold.replay(_Sim([A, B, C]), rec["starts"][o["start"]], rec["heading"], o)
+    assert rec["outcomes"][k]["hold"]["same"] and "route" not in rec["outcomes"][k]["hold"]
+    cache.put(tmp_path, rec["key"], rec)
+    verdicts = {2: {"name": "gate", "start": "undecoded", "how": "parked"}}
+    monkeypatch.setattr(rigs, "recording", lambda level, snap, pool=None: ({"rec": {}}, verdicts, "0" * 12))
+    monkeypatch.setattr(rigs, "_level", lambda level: (None, None))
+    monkeypatch.setattr(rigs, "_movers", lambda level, absent: KB.Movers(_quads(A), [2, 2], {2: "rig"}))
+    monkeypatch.setattr(RE, "_census_of", lambda level, snap: ({"absent": []}, "c" * 12))
+
+    class Pool:
+        def completed(self, fn, args):
+            return [fn(SimpleNamespace(sim=lambda *a, **kw: _Sim([A, B, C])), *x) for x in args]
+
+        def close(self):
+            pass
+    monkeypatch.setattr(RE, "_pool", lambda *a, **kw: Pool())
+
+    class Held:
+        counts, out = collections.Counter(), None
+
+        def hold(self, answer):
+            self.out = answer({"job": rec["key"], "outcome": k})
+            return [] if self.out is not None else [{"job": rec["key"], "outcome": k}]
+    g = Held()
+    RE._hold(g, [rec], {"meta_sha12": "a" * 12}, tmp_path, None, "base", None, ("t", nodes))
+    assert g.out["same"] is False and g.out["parked"] == ["gate"] and "outcome" not in g.out
+    assert g.counts["routed witnesses swept"] == 1
+    assert g.counts["routed witnesses out of logic: a rig parked for an undecoded trigger"] == 1
+
+
+def test_a_rig_recording_is_made_again_when_the_derives_exported_rigs_change(tmp_path, monkeypatch):
+    """AZ-844 (the reach audit): the recording's pokes come from the derive's exported rigs, read only on a miss,
+    and its file was named by the snapshot and code alone, so after a re-derive that exported another rig the old
+    file was read and the new rig stayed parked "not poked".  The file's name now carries the exported set's
+    sha12: the same set reads it back, another makes it again."""
+    from devkit.reach.engine import rigs
+    from devkit.rando.draft import author
+    ex = [[3, 5]]
+    stub = SimpleNamespace(rigs=lambda: [], exported=lambda entries: list(ex[0]))
+    monkeypatch.setattr(cache, "folder", lambda level, root=None: tmp_path)
+    monkeypatch.setattr(rigs, "exported", lambda level: list(ex[0]))
+    monkeypatch.setattr(author, "read_derived", lambda level: {"rigs": []})
+    monkeypatch.setattr(rigs, "load", lambda level: (None, stub))
+    made = []
+
+    class Pool:
+        def map(self, fn, args):
+            made.append(fn.__name__)
+            return [{"poses": {}, "none": [], "stop": "ticks", "steps": 0}]
+    snap = {"meta_sha12": "a" * 12, "label": "t-snap"}
+    rigs.recording("t", snap, Pool())
+    rigs.recording("t", snap)
+    ex[0] = [3, 5, 7]
+    with pytest.raises(FileNotFoundError):
+        rigs.recording("t", snap)
+    rigs.recording("t", snap, Pool())
+    assert made == ["record_task", "record_task"]
+
+
+def test_a_rig_trip_whose_start_does_not_stand_in_its_from_zone_is_a_start_fault():
+    """AZ-845 (the reach audit): a rig link's whole-step trip placed its start and went straight to the kit and
+    pads, so a start that fell, or settled in another zone, still made a link from its from-zone.  ``rigs.trip``
+    now holds a board's or link's start to ``runner.find_start``'s rule (standing where it was put) in its
+    from-zone, else fault ``start``: a start on A stands in A's zone; one put over the gap falls, and one on B is
+    in B's."""
+    from devkit.reach.engine import rigs
+
+    class New(_Sim):
+        def step(self, pad=l3.Pad(), writes=(), **_):
+            return super().step(pad, writes)
+    nodes = SimpleNamespace(zone_at=_zone)
+
+    def start(x):
+        c = {"phase": 0, "feet": [x, 2.0, 0.0], "yaw": 0.0, "cell": 0, "kit": "k0", "pads": []}
+        return rigs.trip(rigs.Clock(New([A, B, C])), None, None, None, c, nodes, None, frm="t.Z000").get("fault")
+    assert [start(x) for x in (0.0, 8.0, 14.0)] == [None, "start", "start"]
 
 
 def test_an_aim_lands_where_the_held_stick_flies_past_and_a_roll_jump_jumps_from_mid_air():

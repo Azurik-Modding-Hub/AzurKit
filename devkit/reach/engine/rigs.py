@@ -1,5 +1,6 @@
 """Step R2.19h1: rigs, lifts and toggled solids in the reach engine's first all-level run (the R2.19 plan's
-§R2.19h, D845, D847).  A rig is a solid platform owner a link moves (``triggers.Triggers.rigs``).
+§R2.19h, D845, D847).  A rig is a solid platform owner a link moves (``triggers.Triggers.rigs``), a toggled solid
+the derive reads as moved among them (Step 4.79b).
 
 **The recorder** (:func:`record`): :data:`RECORD` whole steps (scene and player, FastL3) from a level's start
 snapshot with the pad at rest, each rig's deck read where the game collides with it each tick
@@ -8,7 +9,8 @@ pose by :data:`EPS`; it **cycles** with the least lag at which every corner come
 the whole recording (its period), else its table is a **path** held at its last row.  A wired rig that stands still
 is **toggled** by RAM pokes (:func:`poked`: ``Triggers.tries``, each term of its start in turn, a pad's pulse
 released :data:`RELEASE` ticks then held :data:`PULSE`, R2.19h2's witness) and recorded the same way from the poke,
-up to :data:`POKE_TICKS` or :data:`REST` still ticks.  Cached per snapshot (:func:`recording`), private.
+up to :data:`POKE_TICKS` or :data:`REST` still ticks.  Cached per snapshot, code and the exported decks it pokes
+(:func:`recording`), private.
 
 **Deciding a deck** (:func:`decide`, D847): ``cycles``, ``path`` (it moves from load), ``static`` (never moves: the
 frozen world is the game's), ``toggled`` (a term of its start moved it: the link carries that term; a mover's own
@@ -28,20 +30,21 @@ on the deck (the feet on a top face of it at that tick); from a body put on the 
 
 **The witness** (D845, :func:`trip`): every counted rig link is a FastL3 whole-step **trip** from the snapshot (the
 toggled deck's pokes at tick 0, idle whole steps to the phase, R6 onto the start, the kit, the string: board, ride,
-alight, then ``hold.HOLD`` idle ticks) that boards the deck and stays in the to-zone.  A hop is made the same way
-(board: the feet on the deck at its live pose on any tick; alight: the to-zone held).  The truth sample
+alight, then ``hold.HOLD`` idle ticks) that boards the deck and stays in the to-zone, its start standing where it
+was put in the from-zone (else fault ``start``).  A hop is made the same way (board: the feet on the deck at its
+live pose on any tick; alight: the to-zone held).  The truth sample
 (:func:`truth`) is FastL3's own controllers in whole steps from random takeoffs, headings, launches and phases.
 
-**The router** (:class:`Router`, :func:`replay_trip`), on a zone witness: one whose path touches a rig parked for
-an undecoded trigger is out of logic, its confirm's touches too, kept or not (D847: its pair takes its next
-candidate); of those its frozen-world hold kept (a trip only restricts: no trip rescues one the hold or the kernel
-confirm dropped), one touching another parked rig keeps its witness and names the rig (``parked``, PLAN-v2 §1.5d,
-a trip's witness too); one a rig moving within its window touches at its load
-pose, or crosses on its swept path (:func:`sweep_task`: its path's boxes against the rig's posed box each row of the
-window, swept only where it passes within :data:`NEAR_XY` of where the rig goes), is replayed in whole steps from the
-snapshot, idle first for each :data:`EVERY` th tick up to :data:`PHASES` tries (the phase loop): it counts only where
-one stays, and its witness then owes that idle wait before its R6 (``wait``); one no moving rig meets keeps its
-frozen-world witness.
+**The router** (:class:`Router`, :func:`replay_trip`), on a zone witness (its route: the rigs and toggled solids with
+a verdict its body touches; an answer with no route, an L3 plan's, takes its sweep's): one whose path touches a rig
+parked for an undecoded trigger is out of logic, its confirm's touches too, kept or not (D847: its pair takes its
+next candidate); of those its frozen-world hold kept (a trip only restricts: no trip rescues one the hold or the
+kernel confirm dropped), one touching another parked rig keeps its witness and names the rig (``parked``, PLAN-v2
+§1.5d, a trip's witness too); one a rig moving within its window touches at its load pose, or crosses on its swept
+path (:func:`sweep_task`: its path's boxes against the rig's posed box each row of the window, swept only where it
+passes within :data:`NEAR_XY` of where the rig goes), is replayed in whole steps from the snapshot, idle first for
+each :data:`EVERY` th tick up to :data:`PHASES` tries (the phase loop): it counts only where one stays, and its
+witness then owes that idle wait before its R6 (``wait``); one no moving rig meets keeps its frozen-world witness.
 
 Positions, poses and strings stay in memory and the private cache; outputs hold names, counts, ticks and sha12s.
 """
@@ -121,7 +124,8 @@ def code12() -> str:
 
 def trip_code12() -> str:
     """The router's trips' code (their answers' cache key, beside the recording's sha12)."""
-    return _code12(replay_trip, Clock, _place, _steps, fresh, trip_hold_task, (EVERY, PHASES, END_M, CAP_US))
+    return _code12(replay_trip, Clock, _place, _steps, fresh, trip_hold_task, trip, _stood,
+                   (EVERY, PHASES, END_M, CAP_US, runner.START_XY, runner.START_Z))
 
 
 # -- the recorder ---------------------------------------------------------------------------------------------------
@@ -290,24 +294,31 @@ def decide(lv, T, rec: dict, toggles: dict) -> dict:
     return out
 
 
+def recording_path(level: str, snap: dict, decks=None) -> Path:
+    """The file of ``level``'s recording on ``snap``: the snapshot, :func:`code12` and the sha12 of the rigs it
+    pokes (``decks``, default the derive's exported rigs, :func:`exported`), so a re-derive that changes them makes
+    it again (AZ-844: their pokes were read only on a miss, so an old file's parked a newly exported rig)."""
+    ds12 = cache.sha12(sorted(int(oi) for oi in (exported(level) if decks is None else decks)))
+    return cache.folder(level) / f"rigs-{snap['meta_sha12']}-{code12()}-{ds12}.pkl.gz"
+
+
 def recording(level: str, snap: dict, pool=None, decks=None) -> tuple[dict, dict, str]:
     """``level``'s recording on snapshot ``snap`` (:func:`record`, and :func:`poked` for each of ``decks`` (owner
-    ids; default every exported rig) that is read but stands still), made once per snapshot and code into the
-    level's cache folder (``pool``, a fast L3 pool on ``snap``, asked only then): (its doc, the verdicts
-    :func:`decide` gives, its sha12)."""
+    ids; default every exported rig) that is read but stands still), made once per snapshot, code and deck set
+    into the level's cache folder (:func:`recording_path`; ``pool``, a fast L3 pool on ``snap``, asked only then):
+    (its doc, the verdicts :func:`decide` gives, its sha12)."""
     import gzip
     import pickle
-    p = cache.folder(level) / f"rigs-{snap['meta_sha12']}-{code12()}.pkl.gz"
+    decks = exported(level) if decks is None else list(decks)
+    p = recording_path(level, snap, decks)
     if p.exists():
         doc = pickle.loads(gzip.decompress(p.read_bytes()))
     else:
         if pool is None:
-            raise FileNotFoundError(f"{level}: no rig recording for this snapshot and code (run the rigs stage)")
+            raise FileNotFoundError(f"{level}: no rig recording for this snapshot, code and deck set (run the rigs "
+                                    "stage)")
         rec = pool.map(record_task, [(level,)])[0]
         lv, T = load(level)
-        if decks is None:
-            from devkit.rando.draft.author import read_derived
-            decks = T.exported(read_derived(level).get("rigs", []))
         want = [oi for oi in decks if oi in rec["poses"] and T.rig(oi).kind in ("wired",)
                 and moved(np.array([posed(_corners(_local(lv, oi)), M) for M in rec["poses"][oi]])) <= EPS]
         toggles = dict(zip(want, pool.map(poke_task, [(level, oi, rec["poses"][oi]) for oi in want]))) if want else {}
@@ -759,16 +770,21 @@ def _place(sim, feet, yaw: float, cell: int):
     return row
 
 
-def trip(clock: Clock, rt, deck_obj, deck: Deck, c: dict, nodes, to: str | None, hold: int = 60) -> dict:
+def trip(clock: Clock, rt, deck_obj, deck: Deck, c: dict, nodes, to: str | None, hold: int = 60,
+         frm: str | None = None) -> dict:
     """Candidate ``c`` (a board, alight or link: its phase, start, kit and pads) as a FastL3 whole-step trip from the
     clock at its phase (the module docstring): whether the feet stood on the deck (``rt.pose`` of ``deck_obj`` each
     tick) after leaving the floor (``boarded``), and with ``to`` whether the body then held ``hold`` idle ticks
-    settled in zone ``to`` (``stays``); its whole steps."""
+    settled in zone ``to`` (``stays``); its whole steps.  With ``frm`` (a board's or link's from-zone) its start
+    must stand where it was put (``runner.find_start``'s rule) in ``frm``, else fault ``start`` (AZ-845: a start
+    that fell elsewhere made the link another pair's); an alight's start is on the moving deck, which carries it."""
     sim = clock.sim
     ticks = 0
     try:
         clock.at(int(c["phase"]))         # the idle to its phase may reach a level exit (f2's): no trip
         row = _place(sim, c["feet"], c["yaw"], c["cell"])
+        if frm is not None and not _stood(row, c["feet"], nodes, frm):
+            return {"fault": "start", "ticks": runner.SETTLE_START, "boarded": False, "stays": False}
         rows = runner.set_kit(sim, c["kit"])
         ticks += runner.SETTLE_START + len(rows)
         boarded = False
@@ -787,6 +803,16 @@ def trip(clock: Clock, rt, deck_obj, deck: Deck, c: dict, nodes, to: str | None,
     f = runner._feet(row)
     stays = to is not None and settled(row) and nodes.zone_at(f, row.state == 6, False) == to
     return {"boarded": boarded, "stays": bool(stays), "ticks": ticks, "state": row.state}
+
+
+def _stood(row, feet, nodes, za: str) -> bool:
+    """Whether a placement's settled ``row`` stands where ``feet`` put it (state 0, within ``runner.START_XY`` across
+    and ``runner.START_Z`` up or down) in zone ``za``."""
+    if row is None or row.state != 0:
+        return False
+    g = runner._feet(row)
+    return (math.hypot(g[0] - feet[0], g[1] - feet[1]) <= runner.START_XY and abs(g[2] - feet[2]) <= runner.START_Z
+            and nodes.zone_at(g, False, False) == za)
 
 
 def _live_top(deck: Deck, M) -> np.ndarray:
@@ -859,10 +885,15 @@ class Router:
                 return True
         return False
 
+    def anywhere(self) -> dict:
+        """The route of a witness whose path is unknown (its sweep faulted): it may touch every rig with a verdict."""
+        return {"rigs": sorted(self.verdicts), "gates": []}
+
     def decide(self, got: dict, route: dict | None, ticks: int, stays: bool, boxes=None, points=()) -> tuple:
-        """What the router makes of a witness's frozen hold answer ``got`` (its movers ``route``, its string's
-        ``ticks``; ``stays``: that answer kept the body in its to-zone; ``boxes``: its swept path,
-        :func:`path_boxes`, None while not swept; ``points``: :meth:`near`'s):
+        """What the router makes of a witness's frozen hold answer ``got`` (its movers ``route``: the rigs and the
+        toggled solids, ``gates``, it touches, of which those with a verdict count, so a toggled solid that moves
+        from load is routed as a rig, AZ-842; its string's ``ticks``; ``stays``: that answer kept the body in its
+        to-zone; ``boxes``: its swept path, :func:`path_boxes`, None while not swept; ``points``: :meth:`near`'s):
 
         - ``("out", answer)``: its path touches a rig parked for an undecoded trigger (D847: out of logic), kept
           or not: not the same, so the pair takes its next candidate, and its confirm's touches, MAY and node edge
@@ -874,8 +905,9 @@ class Router:
         - ``("trip", (rigs, names))``: those moving rigs touch it at their load pose or cross its swept path within
           its window: it counts only where its whole-step trip (:func:`replay_trip`) holds, ``names`` the parked
           rigs its path touches (:meth:`tripped`'s ``parked``)."""
-        touched = (route or {}).get("rigs", ())
-        parked = [oi for oi in touched if self.verdicts.get(oi, {}).get("how") == "parked"]
+        r = route or {}
+        touched = [oi for oi in (*r.get("rigs", ()), *r.get("gates", ())) if oi in self.verdicts]
+        parked = [oi for oi in touched if self.verdicts[oi]["how"] == "parked"]
         names = sorted({self.verdicts[oi]["name"] for oi in parked})
         if any(self.verdicts[oi]["start"] == "undecoded" for oi in parked):
             return "out", {k: v for k, v in got.items() if k != "outcome"} | {"same": False, "parked": names}
@@ -905,8 +937,9 @@ class Router:
 
 
 def sweep_code12() -> str:
-    """The swept paths' code (their cache key beside the hold's)."""
-    return _code12(sweep, path_boxes, (SWEEP_TICKS,))
+    """The swept paths' code (their cache key beside the hold's): their boxes' and their route's."""
+    from devkit.reach.native.backend import Movers
+    return _code12(sweep, path_boxes, _movers, Movers, (SWEEP_TICKS,))
 
 
 def sweep_key(hold_key: str) -> str:
@@ -914,10 +947,11 @@ def sweep_key(hold_key: str) -> str:
     return hashlib.sha256(json.dumps(doc, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def sweep(sim, st: dict, heading: float, o: dict) -> dict:
+def sweep(sim, st: dict, heading: float, o: dict, movers=None) -> dict:
     """Witness ``o`` of start ``st`` replayed from the snapshot as the hold does (``hold.replay``: R6, the kit, the
     string, ``hold.HOLD`` idle ticks) on ``sim`` (FastL3), its body path from the kit on as :func:`path_boxes`
-    (``boxes``), or its ``fault``; its L3 ticks."""
+    (``boxes``) and, with ``movers`` (``backend.Movers``), the movers it touches (``route``: a hold answer with no
+    route of its own is decided on this one, AZ-843), or its ``fault``; its L3 ticks."""
     from devkit.reach.engine import hold
     path, ticks = [], runner.SETTLE_START
     try:
@@ -928,21 +962,39 @@ def sweep(sim, st: dict, heading: float, o: dict) -> dict:
             path.append(sim.step(p).pos)
     except L3Error as e:
         return {"fault": l3.fault_site(e), "ticks": ticks + len(path)}
-    return {"boxes": path_boxes(path).round(3).tolist(), "ticks": ticks + len(path)}
+    return {"boxes": path_boxes(path).round(3).tolist(), "ticks": ticks + len(path)} | (
+        {"route": movers.route(path)} if movers is not None else {})
 
 
-def sweep_task(w, items: list, base: str) -> int:
-    """A pool task: :func:`sweep` each (job key, outcome) of ``items`` on the worker's FastL3, each cached under
+_MV: dict = {}
+
+
+def _movers(level: str, absent):
+    """``level``'s ``backend.Movers`` less the census's ``absent`` owners' (the kernel route's), once a process."""
+    k = (level, tuple(sorted(absent)))
+    if _MV.get("k") != k:
+        from azurkit.tools.randomizer.draft.geometry import Level
+        from devkit.reach.native.backend import Movers
+        from devkit.sim.ports import vanilla_iso
+        _MV.clear()
+        _MV.update(k=k, m=Movers.of(Level.read(vanilla_iso(), level), absent))
+    return _MV["m"]
+
+
+def sweep_task(w, items: list, base: str, level: str, absent=()) -> int:
+    """A pool task: :func:`sweep` each (job key, outcome) of ``items`` on the worker's FastL3, its route through
+    ``level``'s movers (the census's ``absent`` owners among them, as the kernel route's), each cached under
     :func:`sweep_key`; their L3 ticks."""
     from devkit.reach.engine import hold
     b, rec, ticks = Path(base), None, 0
     (b / "sweep").mkdir(mode=0o700, exist_ok=True)
     sim = w.sim(False, deep=False)
     sim = getattr(sim, "l3", sim)
+    movers = _movers(level, absent)
     for job, k in items:
         rec = rec if rec is not None and rec["key"] == job else cache.get(b, job)
         o = rec["outcomes"][k]
-        got = sweep(sim, rec["starts"][o["start"]], rec["heading"], o)
+        got = sweep(sim, rec["starts"][o["start"]], rec["heading"], o, movers)
         cache.put(b / "sweep", sweep_key(hold.key(job, k)), got)
         ticks += got["ticks"]
     return ticks
@@ -1112,7 +1164,8 @@ def trip_task(w, level: str, rec_path: str, reach: str, absent, oi: int, items: 
         if kind == "truth":
             got = truth_trial(clock, rt, obj, d, S["nodes"], S["takeoffs"][c["takeoff"]], c)
             return got, got["boarded"]
-        got = trip(clock, rt, obj, d, c, S["nodes"], to)
+        frm = key if kind == "board" else key.split(">")[0] if kind == "link" else None
+        got = trip(clock, rt, obj, d, c, S["nodes"], to, frm=frm)
         ok = got["stays"] if kind in ("alight", "link") else got["boarded"]
         return got, ok and (kind != "link" or got["boarded"])
 
