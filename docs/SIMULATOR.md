@@ -2007,11 +2007,14 @@ $G build cf-<level>-s "$CL/cf-<level>-s.json" --ticks 1500 --seed 1 --scene --st
 $G replay <W> cf-<level>-s "$CL/cf-<level>-s.json" --scene --store "$CL"
 ```
 
-**The rule:** a lane that touches L3's emulation (`devkit/sim/l3.py`,
-`snapshot.py`, `obs.py` or `inputs.py`; `devkit/reach/l3_fast.py`,
-`fastl3_step.c`, `devkit/reach/unicorn/` or `build_unicorn.py`), or that
-moves the Unicorn pin, runs the compact corpus in both modes before and
-after its change and returns the four count lines:
+**The rule:** a lane that touches L3's emulation, a file L3 or FastL3
+loads and runs each step (`devkit/sim/l3.py`, `l2.py` with
+`data/kernel.toml`, `ports.py`, `overlay.py`, `snapshot.py`, `obs.py` or
+`inputs.py`; `src/azurkit/tools/randomizer/live/pages.py` or `recipes.py`;
+`devkit/reach/l3_fast.py`, `l3_pool.py`, `fastl3_step.c`,
+`devkit/reach/unicorn/` or `build_unicorn.py`), or that moves the Unicorn
+pin, runs the compact corpus in both modes before and after its change and
+returns the four count lines:
 
 ```bash
 uv run --locked python -m devkit sim conformance --store "$CL" --workers 4
