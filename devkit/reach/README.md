@@ -387,8 +387,10 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
   coordinate-free `results/runs.jsonl` row a try in `--ev`; the final
   verdict's record, its `replay` filled, goes privately beside its witness
   file. A run resumes (a row with a final verdict, ERROR aside, is
-  skipped). `--corpus STORE` appends each replay to that conformance
-  corpus and keeps the arrival snapshots.
+  skipped; an `--ev` whose checks of a level were made under another
+  zoning is refused). `--corpus STORE` appends each replay to that
+  conformance corpus and keeps the arrival snapshots there, where its
+  re-run finds them.
 - `tally` counts the final verdicts by start, level and class with Wilson
   95 % intervals, and with `--truth` (kept `runs.jsonl` files: R2.16e's by
   level, from, to and air, a check's own by `ref`) the rows that moved.

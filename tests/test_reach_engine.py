@@ -1870,10 +1870,13 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
     its to-zone at its end and still there ``HOLD`` ticks on is PASS; a start the game doesn't stand is START; a
     string L3 misses from the game's own start too is FRAGILE; the game hit off L3's path, or a level load (a short
     run), is WORLD, tried again at each later phase (a pass there records its wait); reaching the to-zone and leaving
-    it is LEFT; a popup cleared in place is no new try; a harness error runs again once from a fresh arrival and a
-    second is ERROR; a resumed run checks only rows with no final verdict (ERROR again); the recipe start carries the
-    record's camera on every tick; the placed start judges its own snapshot; no kept row holds a position; the
-    arrival snapshots go; and tally counts the verdicts with Wilson intervals and names the row that moved."""
+    it is LEFT; a body at rest on flat ice in the slide state is held (``hold.stays``' rule, AZ-737); a popup cleared
+    in place is no new try; a harness error runs again once from a fresh arrival and a second is ERROR; a resumed run
+    checks only rows with no final verdict (ERROR again) and refuses an evidence folder of another zoning; a hop
+    that leaves the game in another level is refused; the recipe start carries the record's camera on every tick;
+    the placed start judges its own snapshot; no kept row holds a position; the arrival snapshots go, but with a
+    corpus are kept in its store, where its re-run finds them; and tally counts the verdicts with Wilson intervals
+    and names the row that moved."""
     import struct
     from types import SimpleNamespace
 
@@ -1887,12 +1890,12 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
             "feet": [0.0, 0.0, 0.0], "cell": 3, "settled": [0.0, 0.0, 0.0], "cam": 0.5}}, "outcomes": [{
                 "start": "run", "kit": "air3", "segments": [{"n": 10, "stick": [0.0, speed], "cam": [0.0, 1.0]}],
                 "land": [0.0, 10 * speed, 0.0], "macro": "m"}]}
-    recs = {"jfast": record("jfast", 1.0), "jslow": record("jslow", 0.3)}
-    names = ["pass", "start", "fragile", "world2", "left", "stall", "short", "errpass", "errerr", "more"]
+    recs = {"jfast": record("jfast", 1.0), "jslow": record("jslow", 0.3), "jice": record("jice", 0.9)}
+    names = ["pass", "start", "fragile", "world2", "left", "stall", "short", "errpass", "errerr", "more", "ice"]
     wfile = tmp_path / "t-witness.jsonl"
     wfile.write_text("".join(json.dumps({"ref": f"r/{n}@m", "replay": {"equal": None}}) + "\n" for n in names),
                      encoding="utf-8")
-    rows = [{"ref": f"r/{n}@m", "job": "jslow" if n == "fragile" else "jfast", "outcome": 0, "from": "Z0",
+    rows = [{"ref": f"r/{n}@m", "job": {"fragile": "jslow", "ice": "jice"}.get(n, "jfast"), "outcome": 0, "from": "Z0",
              "to": "Z1", "rank": 3, "kit": "air3", "wait": 0, "cls": ["kit:air3", "new"],
              **({"edges": [{"src": "rows-t.json", "i": 7, "air": {"pass": 2, "start": 3}[n]}]}
                 if n in ("pass", "start") else {})} for n in names]
@@ -1927,11 +1930,13 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
                     self.pos = [f[0], f[1], f[2] + 1.0]
             self.pos[1] += pad.stick[1]
             self.camless += pad.cam is None and pad.yaw is None
-            return l3.Row(0, tuple(self.pos), 0, 100, None, tuple(writes), None)
+            ice = pad.stick == (0.0, 0.0) and 8.5 <= self.pos[1] < 9.5   # at rest on flat ice: the slide state
+            return l3.Row(0, tuple(self.pos), 3 if ice else 0, 100, None, tuple(writes), None,
+                          obs=SimpleNamespace(normal=(0.0, 0.0, 1.0), vel=(0.0, 0.0, 0.0)) if ice else None)
 
     class Game:   # the sitting's stand-in: each replay plays the next of its script
         def __init__(self):
-            self.script, self.boots, self.metas, self.body = [], 0, {}, [0.0, -3.0, 1.0]
+            self.script, self.boots, self.metas, self.body, self.corpora = [], 0, {}, [0.0, -3.0, 1.0], []
 
         def boot(self):
             self.boots, self.t = self.boots + 1, 9.9
@@ -1952,14 +1957,14 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
             p = Path(store) / f"{label}.l3snap"
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(b"")
-            self.metas[p] = {"pos": list(self.body), "state": 0, "hp": 100, "clock": self.t}
+            self.metas[p] = {"label": label, "pos": list(self.body), "state": 0, "hp": 100, "clock": self.t}
             return p
 
         def replay(self, pads, rows, meta):
             how, stops = self.script.pop(0), {"at": "entry"}
             if how == "raise":
                 raise SystemExit("the guest bugchecked")
-            got = [{"pos": r.pos, "state": r.state, "hp": r.hp} for r in rows]
+            got = [{"pos": r.pos, "state": r.state, "hp": r.hp, "obs": r.obs} for r in rows]
             if how == "start_off":
                 got = [g | {"pos": (g["pos"][0] + 2.0, *g["pos"][1:])} for g in got]
             elif how == "hit":
@@ -1972,13 +1977,16 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
                 stops["popups"] = 1
             return got, stops
 
+        def corpus(self, meta, pads, rows, got, store):
+            self.corpora.append((meta["label"], store))
+
         def result(self, row):
             with (ev / "results" / "runs.jsonl").open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row) + "\n")
 
         xbe, ids = (lambda self: b""), (lambda self: {"xemu_sha12": "e" * 12, "disc_sha12": "d" * 12})
         hop, kit = (lambda self, level: {"ok": True, "s": 2.0}), (lambda self, levels: {"level.air": 0})
-        quiet = press_a = idle = checkpoint = note = corpus = lambda self, *a: None
+        quiet = press_a = idle = checkpoint = note = lambda self, *a: None
         ram_sha12, maybe_yield = (lambda self: "c" * 12), (lambda self: False)
 
     game, sims = Game(), []
@@ -1987,10 +1995,10 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
                           snapshot=lambda path: SimpleNamespace(meta=game.metas[path]),
                           sim=lambda sn, xbe: sims.append(Sim(sn.meta)) or sims[-1], held=lambda folder: False)
 
-    def check(start, *script, keep=names):
+    def check(start, *script, keep=names, corpus=None):
         game.script = list(script)
         chk = wc.Check(game, src, ev=ev, name="t", folder=tmp_path / "store" / "t", start=start,
-                       keys={"core_sha12": "k" * 12})
+                       keys={"core_sha12": "k" * 12}, corpus=corpus)
         got = chk.run([doc(*keep)])
         chk.finish()
         assert game.script == []
@@ -2000,8 +2008,15 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
                  "raise", "same", "raise", "raise", keep=names[:9]) == {
         "PASS": 4, "START": 1, "FRAGILE": 1, "WORLD": 1, "LEFT": 1, "ERROR": 1}
     assert game.boots == 3 and sum(s.camless for s in sims) == 0      # each error's rerun arrived again
-    assert check("recipe", "same", "same") == {"PASS": 2}             # resumed: errerr again, and the new row
+    assert check("recipe", "same", "same", keep=names[:10]) == {"PASS": 2}   # resumed: errerr again, and the new row
     assert check("placed", "same", keep=["pass"]) == {"PASS": 1}
+    assert check("recipe", "same", keep=["ice"], corpus=tmp_path / "corpus") == {"PASS": 1}
+    assert game.corpora and all((Path(store) / f"{label}.l3snap").exists() and Path(store) == tmp_path / "corpus"
+                                for label, store in game.corpora)
+    with pytest.raises(SystemExit, match="another zoning"):
+        wc.Check(game, src, ev=ev, name="t", folder=tmp_path / "store" / "t").run([doc("more") | {"zoning": "y"}])
+    with pytest.raises(SystemExit, match="left the game in levels/death/d1"):
+        wc.Game(SimpleNamespace(hop=lambda path, spot: {"ok": False, "level": "levels/death/d1"})).hop("d2")
     final = {(r["start"], r["ref"][2:-2]): (r["verdict"], r["tries"], r["wait"], r["reruns"], r["popups"])
              for r in wc.finals(ev / "results" / "runs.jsonl")}
     assert final == {("recipe", "pass"): ("PASS", 1, 0, 0, 0), ("recipe", "start"): ("START", 1, None, 0, 0),
@@ -2009,13 +2024,13 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
                      ("recipe", "left"): ("LEFT", 1, None, 0, 0), ("recipe", "stall"): ("PASS", 1, 0, 0, 1),
                      ("recipe", "short"): ("WORLD", 3, None, 0, 0), ("recipe", "errpass"): ("PASS", 1, 0, 1, 0),
                      ("recipe", "errerr"): ("PASS", 1, 0, 0, 0), ("recipe", "more"): ("PASS", 1, 0, 0, 0),
-                     ("placed", "pass"): ("PASS", 1, 0, 0, 0)}
+                     ("recipe", "ice"): ("PASS", 1, 0, 0, 0), ("placed", "pass"): ("PASS", 1, 0, 0, 0)}
     text = (ev / "results" / "runs.jsonl").read_text(encoding="utf-8")
     assert '"ERROR"' in text and '"pos"' not in text and all(wc.public(json.loads(ln)) for ln in text.splitlines())
     kept = wfile.with_name("t-witness.checked.jsonl")
     assert kept.stat().st_mode & 0o777 == 0o600
     assert [json.loads(ln)["replay"]["verdict"] for ln in kept.read_text(encoding="utf-8").splitlines()].count(
-        "PASS") == 7 and not list((tmp_path / "store").rglob("*.l3snap"))
+        "PASS") == 8 and not list((tmp_path / "store").rglob("*.l3snap"))
     truth = tmp_path / "kept.jsonl"
     truth.write_text("".join(json.dumps({"row": "witness", "level": "t", "from": "Z0", "to": "Z1", "air": air,
                                          "arrival": arr, "xemu": {"match": match}}) + "\n"
@@ -2024,8 +2039,8 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
     assert wc.main(["tally", str(ev), "--truth", str(truth)]) == 0
     got = json.loads(capsys.readouterr().out)
     recipe = got["by_start"]["recipe"]
-    assert recipe["verdicts"] == {"FRAGILE": 1, "LEFT": 1, "PASS": 6, "START": 1, "WORLD": 1}
-    assert recipe["wilson95"][0] < recipe["pass_share"] == 0.6 < recipe["wilson95"][1]
+    assert recipe["verdicts"] == {"FRAGILE": 1, "LEFT": 1, "PASS": 7, "START": 1, "WORLD": 1}
+    assert recipe["wilson95"][0] < recipe["pass_share"] == 0.6364 < recipe["wilson95"][1]
     assert recipe["passed_at_a_later_phase"] == 1 and got["by_start"]["placed"]["pass"] == 1
     assert (got["truth"]["joined"], got["truth"]["agree"]) == (3, 2)
     assert [(m["start"], m["ref"], m["verdict"], m["kept"]) for m in got["truth"]["moved"]] == [

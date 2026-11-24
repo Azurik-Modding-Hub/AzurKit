@@ -42,8 +42,10 @@ start's distances, each stage's seconds, the sandbox, the xemu binary's and the 
 ``control_state_sha12`` and the engine's three key sha12s.  Each final verdict's record, its ``replay`` filled
 (``equal``, ``max_err_m``, ``ticks``, ``sitting``, ``check``, ``verdict``, ``tries``, ``wait``), is appended privately
 beside its witness file (``<stem>.checked.jsonl``, mode 0600).  A run resumes: a row with a final verdict but ERROR
-for its start is skipped.  The arrival snapshots are deleted at the end once ``devkit sim l3-hold --check`` holds
-none of them (kept with ``--corpus STORE``, which appends every try's replay to that conformance corpus).
+for its start is skipped, and an evidence folder whose checks of a level were made under another zoning is refused.
+The arrival snapshots are deleted at the end once ``devkit sim l3-hold --check`` holds none of them; with ``--corpus
+STORE``, which appends every try's replay to that conformance corpus, they are taken into STORE and kept there, where
+its re-run finds them.
 
 ``tally`` counts the final verdicts by start, level and class with Wilson 95 % intervals (ERROR outside them), and
 with ``--truth`` (kept ``runs.jsonl`` files: R2.16e's rows by level, from, to and air, a check's own by ``ref``) the
@@ -73,10 +75,11 @@ import struct
 import time
 import traceback
 from pathlib import Path
+from types import SimpleNamespace
 
 from azurkit.tools.randomizer.live import recipes
 from devkit.reach.engine import cache, hold
-from devkit.reach.engine.macros import KITS, SETTLED, SWIMMING
+from devkit.reach.engine.macros import KITS, SWIMMING, settled
 from devkit.reach.engine.runner import SETTLE_START, START_XY, START_Z
 from devkit.sim import l3
 from devkit.sim.l3 import L3Error, Pad
@@ -120,6 +123,12 @@ def _fields(r) -> tuple:
     return (r.pos, r.state, r.hp) if hasattr(r, "pos") else (r["pos"], r["state"], r["hp"])
 
 
+def _settled(r) -> bool:
+    """Whether a row's body is settled by ``hold.stays``' rule (``obs.settled``: standing, swimming or at rest on
+    near-flat ice, AZ-737): an L3 ``Row`` as it is, a replay's dict by its state and observation."""
+    return settled(r if hasattr(r, "state") else SimpleNamespace(state=r["state"], obs=r.get("obs")))
+
+
 def stands(row, feet, zone_at, frm: str | None) -> dict:
     """Whether the start stands at ``row`` (the settle's end; None: the run never got there): state 0 within
     ``START_XY`` across and ``START_Z`` up or down of the start's ``feet`` and, with ``frm``, in that zone."""
@@ -149,7 +158,7 @@ def judge(rows, end: int, to: str, zone_at, land=None, held_land=None) -> dict:
             out["end_vs_record_m"] = round(math.dist(_feet(pe), land), 3)
     if not out["short"]:
         ph, sh, _ = sts[n - 1]
-        out |= {"held": sh in SETTLED and zone_at(_feet(ph), sh == SWIMMING, False) == to, "state_held": sh}
+        out |= {"held": _settled(rows[n - 1]) and zone_at(_feet(ph), sh == SWIMMING, False) == to, "state_held": sh}
         if held_land is not None:
             out["held_vs_record_m"] = round(math.dist(_feet(ph), held_land), 3)
     out["pass"] = out["alive"] and out["in_to_end"] and out["held"]
@@ -436,7 +445,12 @@ class Game:
         return self.s.boot(tag=SAVE_TAG, save=SAVE)
 
     def hop(self, level: str) -> dict:
-        return self.s.hop(*ARRIVALS[level])
+        """R7 to the level's arrival; refused (SystemExit) where the game isn't in that level after it."""
+        path, spot = ARRIVALS[level]
+        got = self.s.hop(path, spot)
+        if got.get("level") != path:
+            raise SystemExit(f"{level}: the hop to {path} left the game in {got.get('level')}")
+        return got
 
     def kit(self, levels: dict) -> dict:
         return self.s.kit(**levels)
@@ -561,7 +575,9 @@ class Check:
 
     def __init__(self, game, src, *, ev, name: str, folder, start: str = "recipe", phases=PHASES, keys=None,
                  corpus=None) -> None:
-        self.game, self.src, self.ev, self.name, self.folder = game, src, Path(ev), name, Path(folder)
+        # a corpus's rows re-run from their snapshots in its own store (corpus.rerun), so they are taken there
+        self.game, self.src, self.ev, self.name = game, src, Path(ev), name
+        self.folder = Path(corpus) if corpus else Path(folder)
         self.start, self.phases, self.keys, self.corpus = start, tuple(phases), keys or {}, corpus
         self.arrived: dict[str, dict] = {}
         self.snaps: list[Path] = []
@@ -571,17 +587,24 @@ class Check:
         self.n = 0
         self.verdicts: collections.Counter = collections.Counter()
 
-    def done(self) -> set:
-        """(start, level, ref) of each row the evidence folder holds a final verdict for, ERROR aside."""
+    def done(self, zoning: dict) -> set:
+        """(start, level, ref) of each row the evidence folder holds a final verdict for, ERROR aside; refused
+        (SystemExit) where a level's checks there carry another zoning than ``zoning``'s (by level), so a resumed run
+        never skips, nor tally counts, a row checked in zones the derive has since moved."""
         p = self.ev / "results" / "runs.jsonl"
-        return {(r["start"], r["level"], r["ref"]) for r in (read_jsonl(p) if p.exists() else ())
-                if r.get("row") == "check" and r.get("final") and r.get("verdict") in DONE}
+        rows = [r for r in (read_jsonl(p) if p.exists() else ()) if r.get("row") == "check"]
+        for r in rows:
+            if (z := zoning.get(r["level"])) is not None and r.get("zoning", z) != z:
+                raise SystemExit(f"{r['level']}: {self.ev.name} holds checks under another zoning "
+                                 f"({r['zoning'][:12]}, today's {z[:12]}): check into a new --ev")
+        return {(r["start"], r["level"], r["ref"]) for r in rows if r.get("final") and r.get("verdict") in DONE}
 
     def run(self, docs) -> collections.Counter:
         """Every row of ``docs`` (rows files) not done, a level at a time; the final verdicts' counts."""
-        done, by_level = self.done(), {}
+        by_level = {}
         for d in docs:
             by_level.setdefault(d["level"], []).append(d)
+        done = self.done({level: ds[0]["zoning"] for level, ds in by_level.items()})
         for level, ds in by_level.items():
             todo = [(d, r) for d in ds for r in d["rows"] if (self.start, level, r["ref"]) not in done]
             if not todo:
@@ -649,8 +672,9 @@ class Check:
         rec = self.src.record(level, r["job"])
         o = rec["outcomes"][r["outcome"]]
         st = rec["starts"][o["start"]]
-        base = {"row": "check", "check": CHECK, "start": self.start, "level": level, "ref": r["ref"],
-                **{k: r.get(k) for k in CLASS}, "record_wait": r.get("wait"), **(self.ids or {}), **self.keys}
+        base = {"row": "check", "check": CHECK, "start": self.start, "level": level, "zoning": doc["zoning"],
+                "ref": r["ref"], **{k: r.get(k) for k in CLASS}, "record_wait": r.get("wait"), **(self.ids or {}),
+                **self.keys}
         for n, phase in enumerate(self.phases, 1):
             got = self.attempt(level, doc, r, rec, o, st, phase, zone_at)
             final = got["verdict"] != WORLD or n == len(self.phases)
@@ -896,7 +920,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--ev", required=True, help="the evidence folder (results/runs.jsonl, REPORT.txt)")
     r.add_argument("--start", choices=("recipe", "placed"), default="recipe")
     r.add_argument("--phases", type=_phases, default=PHASES, help="idle ticks before the R6 a try waits (0,15,30)")
-    r.add_argument("--corpus", metavar="STORE", help="append each try's replay to this conformance corpus")
+    r.add_argument("--corpus", metavar="STORE",
+                   help="append each try's replay to this conformance corpus, the arrival snapshots kept there")
     t = sub.add_parser("tally", help="verdicts by class with Wilson intervals; --truth: the rows that moved")
     t.add_argument("dir", help="a run's evidence folder")
     t.add_argument("--truth", nargs="+", metavar="KEPT.jsonl")
