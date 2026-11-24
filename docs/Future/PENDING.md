@@ -804,9 +804,7 @@ memory peaks stay strict. The gate writes both kinds of row to
    5.2.2. lldb can't attach to the hardened Blender.app, so run it under a
    caught SIGSEGV (no crash dialog), or leave it to a seat allowed to run
    it bare.
-3. **devkit/rando/impact.py's `Ctx.fill`** tries only Normal's first 20
-   attempts, not 4.20's 20 more past a kept way out, so its fill counts can
-   undercount for a seed only that repair plans (4.25). A small lane.
+3. ~~impact.py's `Ctx.fill` tries only 20 attempts~~: fixed by Step 4.75d.
 4. **Modkit names left as provenance:** src and devkit docstrings cite
    Modkit's module paths (about 530 lines name `azurik_mod` or
    `azurik-mod`); the refusals that named them are fixed (9.1, by 4.52b).

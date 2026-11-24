@@ -57,7 +57,7 @@ writer's own numbers (:class:`~azurkit.tools.randomizer.writer.Names`,
 the writer's :func:`~azurkit.tools.randomizer.writer.layout`. An attempt that
 gets stuck or fails the verify (its repairs too) is retried with the next
 attempt's streams, up to 20 attempts, then 20 more whose repair may go past a
-kept way out (:meth:`_Run.past_at`); then :class:`FillError` names the progression items
+kept way out (:func:`attempt_count`, :func:`goes_past`); then :class:`FillError` names the progression items
 that found no safe proven spot and the proven spots (D35), and nothing is
 filled arbitrarily (AZ-161).
 
@@ -998,6 +998,21 @@ def _problems(logic: Logic, r: Reach, known: frozenset[str]) -> list[str]:
     return out
 
 
+def attempt_count(level: int) -> int:
+    """How many attempts a fill at seed difficulty ``level`` makes (:class:`_Run`'s, and devkit's ``rando impact``'s,
+    so the two can't drift): a level's :data:`~.difficulty.LEANED` leaning ones, then :data:`MAX_ATTEMPTS` of today's
+    draw; Normal's MAX_ATTEMPTS of today, then as many going past a kept way out (:func:`goes_past`)."""
+    return MAX_ATTEMPTS + (LEANED if level else MAX_ATTEMPTS)
+
+
+def goes_past(level: int, k: int) -> bool:
+    """Whether attempt ``k`` of a fill at seed difficulty ``level`` lets its trap gate repair move a way-in item past
+    a kept way out (:meth:`_Slots.repairs`): a level's every attempt, Normal's past its first :data:`MAX_ATTEMPTS`
+    (today's plans, which they keep byte for byte; with the elemental powers kept, a seed whose every one of those
+    met the gate with no key item for a way out found no plan)."""
+    return bool(level) or k >= MAX_ATTEMPTS
+
+
 def _streams(seed: str, k: int, digest: str) -> Callable[[str], Rng]:
     """Attempt k's named streams."""
     return lambda name: stream(str(seed), name if k == 0 else f"attempt{k}/{name}", digest)
@@ -1353,8 +1368,7 @@ class _Run:
         self.judge = None if BOUNDS[self.level] == 1 else Judge(
             logic, st, frozenset(self.slots._open(st.exclude_categories)[0]), self.detour)
         self.count = _Count(making, BOUNDS[self.level])
-        # a level's leaning attempts, then today's draw; Normal's of today, then as many going past a kept way out
-        self.attempts = MAX_ATTEMPTS + (LEANED if self.level else MAX_ATTEMPTS)
+        self.attempts = attempt_count(self.level)
         # Easy's: Normal's settings digest, whose attempts on this run's caches make Normal's own plan (normal_plan)
         self.normal = settings_digest(replace(st, seed_difficulty=0)) if self.level == 1 else None
         self.kernel = _Kernel(self)
@@ -1366,17 +1380,14 @@ class _Run:
         return self.lean.at(lean_mode(self.level, k)) if self.lean is not None and not normal else None
 
     def past_at(self, k: int, normal: bool = False) -> bool:
-        """Whether attempt ``k``'s trap gate repair may move a way-in item past a kept way out
-        (:meth:`_Slots.repairs`): a level's every attempt, Normal's (or ``normal``'s) past its first
-        :data:`MAX_ATTEMPTS` (today's plans, which they keep byte for byte; with the elemental powers kept, a seed
-        whose every one of those met the gate with no key item for a way out found no plan)."""
-        return bool(self.level and not normal) or k >= MAX_ATTEMPTS
+        """:func:`goes_past` for attempt ``k`` of the run's level (``normal``: of Normal)."""
+        return goes_past(0 if normal else self.level, k)
 
     def normal_plan(self, seed: str) -> Outcome | None:
         """Normal's own plan for ``seed`` at these settings, Easy's last candidate (:meth:`_Accept.best`): the first
         of Normal's attempts that passes, each made on this run's caches (an attempt reads nothing of the level but
         its lean, its trap gate's repair and its streams' settings digest); None when none passes."""
-        for k in range(2 * MAX_ATTEMPTS):
+        for k in range(attempt_count(0)):
             if (o := self.attempt(seed, k, normal=True)).placement is not None:
                 return o
         return None

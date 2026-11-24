@@ -9,10 +9,11 @@ are drawn from the seed, in ``--jobs`` spawned processes, and records P4:
   (``plan_doc``, read back by ``load_plan``) solved again by ``verify`` on
   a second load of the database (victory, every location that isn't
   forfeitable, the trap gate with the known traps recomputed): 0 failures;
-- **the ``FillError`` rate** after the fill's 20 attempts, per profile: at
-  most 1 % for strict and default;
+- **the ``FillError`` rate** after every attempt the fill makes (Normal's
+  20 and its 20 more past a kept way out, ``fill.attempt_count``), per
+  profile: at most 1 % for strict and default;
 - **the trap gate's retry rate:** the attempts the trap gate refused, of
-  all attempts (a plan's ``attempt`` + 1, a ``FillError``'s 20, or none
+  all attempts (a plan's ``attempt`` + 1, a ``FillError``'s every one, or none
   when the fill's preflight refuses the settings, AZ-454), and the seeds
   it retried;
 - **the cross-process check:** the first ``--hash-sample`` drawn seeds

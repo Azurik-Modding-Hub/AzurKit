@@ -204,6 +204,16 @@ def test_impact_ranking_orders_spots_by_fill_gain_and_edges_by_what_their_remova
     assert failed.value.proven == ["i1/g0/r1", "i1/g0/r2", "i1/g0/r3", "i1/g0/r6"]
 
 
+def test_impact_plans_a_seed_only_the_fills_repair_past_a_kept_way_out_plans():
+    """With the elemental powers kept at Hard movement and skips, seed "52"'s 20 attempts of today all meet the trap
+    gate, so Normal plans it only from an attempt whose repair may go past a kept way out (D1160). Impact's fill makes
+    the fill's own attempts, so it plans the seed at that attempt too, where it counted it failing after 20."""
+    logic, st = kept_logic(), Settings(3, "hard", {}, frozenset({"powers"}))
+    made = fill(logic, "52", st)
+    assert made.attempt >= 20
+    assert impact.Ctx(logic.db, st).fill("52") == (made.attempt, [])
+
+
 def test_the_bench_and_the_soak_make_only_databases_and_settings_the_planner_accepts(tmp_path):
     """What the two benches make for the planner passes its checks: ``bench``'s synthetic database at its default
     size (one authored level of 600 rooms, 3,200 edges, powers and buttons) loads with no error and its vanilla

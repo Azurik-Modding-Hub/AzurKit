@@ -50,17 +50,18 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from azurkit.tools.randomizer.planner.fill import (
-    MAX_ATTEMPTS,
     _Slots,
+    _streams,
     _Stuck,
+    attempt_count,
     db_digest,
+    goes_past,
     known_traps,
     settings_digest,
     settings_table,
-    stream,
 )
 from azurkit.tools.randomizer.planner.loader import load_database
-from azurkit.tools.randomizer.planner.settings import MOVEMENT_TIERS, category
+from azurkit.tools.randomizer.planner.settings import MOVEMENT_TIERS, Settings, category
 from azurkit.tools.randomizer.planner.solver import Logic
 from devkit.xemu.queue import BatchToken
 
@@ -70,12 +71,15 @@ CHUNK = 10                                               # seeds per edge-fill u
 
 
 class Ctx:
-    """A database's logic, compiled once, and the fill's facts under its default settings."""
+    """A database's logic, compiled once, and the fill's facts under its default settings (or ``settings``, at Normal:
+    no level's lean is made here)."""
 
-    def __init__(self, db) -> None:
-        self.db, self.st = db, db.defaults
+    def __init__(self, db, settings: Settings | None = None) -> None:
+        self.db, self.st = db, settings if settings is not None else db.defaults
+        if self.st.seed_difficulty:
+            raise ValueError(f"impact fills at Normal only, not at seed difficulty {self.st.seed_difficulty}")
         self.logic = lg = Logic(db)
-        self.slots = s = _Slots(lg)
+        self.slots = s = _Slots(lg, self.st)
         self.proven = s.proven
         self.reads = lg.reads(self.st)
         self.digest = settings_digest(self.st)
@@ -85,18 +89,20 @@ class Ctx:
         self.known = None
 
     def fill(self, seed: str, extra=()) -> tuple[int | None, list[list[str]]]:
-        """``seed``'s default fill with ``extra`` proven too: the first attempt that passes (None: none of
-        :data:`MAX_ATTEMPTS`) and, when none does, the candidates in each stuck progression item's reach."""
+        """``seed``'s default fill with ``extra`` proven too, through the fill's own attempts (:func:`attempt_count`,
+        the last ones repairing past a kept way out, :func:`goes_past`): the first that passes (None: none does)
+        and, when none does, the candidates in each stuck progression item's reach."""
         if self.known is None:
             self.known = known_traps(self.logic, self.st)
         extra = frozenset(extra)
         self.slots.proven = self.proven | extra
         stuck = []
         try:
-            for k in range(MAX_ATTEMPTS):
+            level = self.st.seed_difficulty
+            for k in range(attempt_count(level)):
                 try:
-                    self.slots.attempt(self.st, self.reads, lambda name, k=k: stream(
-                        str(seed), name if k == 0 else f"attempt{k}/{name}", self.digest), self.known)
+                    self.slots.attempt(self.st, self.reads, _streams(seed, k, self.digest), self.known,
+                                       past=goes_past(level, k))
                 except _Stuck as exc:
                     if exc.item is not None:          # no safe proven spot for exc.item
                         stuck.append(sorted(exc.got & self.cands - extra))
