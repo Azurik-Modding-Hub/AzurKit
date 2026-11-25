@@ -4,9 +4,13 @@ Every xemu replay of an L3 string is kept in the private store's ``conformance.j
 (``devkit.sim.corpus``); this runs each record's string in L3 again from its kept snapshot and compares the
 new trace with xemu's: a record that passed and now diverges is a regression (exit 1).  It prints one
 coordinate-free line per record (its snapshot label, mode, ticks, whether it passed then and now, where it
-diverges now, the first tick L3's own trace changed) and the counts.  A build's record runs on the disc it was
-replayed with (the path the corpus kept, or an image ``--disc`` names that hashes the same; AZ-380); one whose
-disc is gone is ``missing`` by name, and so is one whose snapshot was re-taken under its label (its ``meta_sha12``).
+diverges now, the first tick L3's own trace changed) and the counts.  A record a step's wall-clock cap cut short
+(a starved host: run it as bench work) is ``starved``, counted on its own, never a regression; with none, a
+starved record exits 2.  Re-run it on an idle host: one starved again is a step that never returns, a regression
+where it had passed.  A build's record
+runs on the disc it was replayed with (the path the corpus kept, or an image ``--disc`` names that hashes the same;
+AZ-380); one whose disc is gone is ``missing`` by name, and so is one whose snapshot was re-taken under its label
+(its ``meta_sha12``).
 ``--l3 fast`` runs the strings on FastL3 (``devkit.reach.l3_fast``, the reach engine's simulator) in a pool's
 workers, on the patched libunicorn once ``devkit/reach/unicorn/build_unicorn.py`` has built it (its switches set in
 this process's environment for the workers it spawns, as ``reach_engine.py --l3 fast`` does), else on the stock
@@ -57,7 +61,7 @@ def main(argv=None) -> int:
     print(json.dumps(counts))
     if a.json:
         a.json.write_text(json.dumps({"results": results, "counts": counts}, indent=1) + "\n", encoding="utf-8")
-    return 1 if counts["regressions"] else 0
+    return 1 if counts["regressions"] else 2 if counts["starved"] else 0
 
 
 if __name__ == "__main__":

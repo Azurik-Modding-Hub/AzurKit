@@ -9,7 +9,8 @@ input string of at least ``--ticks`` player ticks from a snapshot, drawn segment
 in 24 sectors with a little noise or the stick at rest; magnitude 0.35, 0.7 or 1.0; Y, BLACK or nothing held; the
 camera turned toward the heading at most 3.33 degrees a tick) and each kept only when L3 runs it with the player
 alive and unhurt (no hazard), untainted, within ``--radius`` m of the start (fewer exits and pickups on the way)
-and never more than ``FALL`` ticks airborne; a refused draw is drawn again from the same state, and after
+and never more than ``FALL`` ticks airborne (a draw that reaches a level exit's unload is refused as a "level
+exit", any other L3 error as an "l3 error"); a refused draw is drawn again from the same state, and after
 ``TRIES`` refusals the last segments are dropped.  Seeded: a seed and a
 snapshot give one string.  ``replay``: that string replayed in xemu from the snapshot's start where ``start --hold``
 left the guest (``Sandbox.replay`` with D172's stops: a level load, a popup or a dialog ends it, and so does the
@@ -135,6 +136,8 @@ def build(sim: l3.L3, ticks: int, seed: int, radius: float) -> tuple[list[dict],
                            else None)
                     if bad:
                         break
+            except l3.LevelExit:   # an L3Error too: the level's exit, no fault of L3's (Step 4.77g)
+                bad = "level exit"
             except l3.L3Error:
                 bad = "l3 error"
             if bad is None:

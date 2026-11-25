@@ -43,7 +43,12 @@ uv run --locked python -m devkit sim conformance [--store DIR] [--workers N] [--
   state and HP equal on every tick, D170) and now (`passes_now`), where
   it diverges now, and the first tick L3's own trace changed
   (`l3_changed_at`); then the counts. Exit 1 on a regression (passed,
-  now not).
+  now not). A record a step's wall-clock cap cut short (`did not return
+  within`: a starved host's, not the game's) with no tick off before it
+  is `starved`, counted on its own, never a pass or a regression (exit
+  2 where nothing regressed): re-run it on an idle host, where one
+  starved again is a step that never returns, a regression where it had
+  passed.
 - `--workers N`: a worker pool per snapshot (`devkit/reach/l3_pool.py`);
   by default it runs in this process. A record whose snapshot is gone is
   counted as `missing`, and so is one whose snapshot was re-taken under

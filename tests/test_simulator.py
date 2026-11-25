@@ -2048,7 +2048,7 @@ def test_l3_conformance_corpus_keeps_each_replay_and_reruns_it_against_xemu(tmp_
     res = corpus.rerun({}, store=store)
     assert (res[0]["passes_now"], res[0]["divergence_now"], res[0]["l3_changed_at"]) == (False, 1, 1)
     assert corpus.report(res) == {"records": 2, "missing": 0, "passed": 1, "passes_now": 0, "regressions": 1,
-                                  "l3_changed": 1}
+                                  "l3_changed": 1, "starved": 0}
 
 
 def test_l3_conformance_reruns_a_builds_record_on_its_own_disc_or_names_it_missing(tmp_path):
@@ -2120,7 +2120,50 @@ def test_a_conformance_rerun_names_a_retaken_snapshot_missing_and_runs_fastl3_wh
     gone = corpus.rerun(xbe, store=store, fast=True)
     assert gone[0]["missing"] == f"its snapshot was re-taken (its meta_sha12 is {meta_sha12(read_meta(path))} now)"
     assert corpus.report(gone) == {"records": 1, "missing": 1, "passed": 0, "passes_now": 0, "regressions": 0,
-                                   "l3_changed": 0}
+                                   "l3_changed": 0, "starved": 0}
+
+
+def test_a_conformance_rerun_cut_short_by_a_wall_clock_cap_is_starved_never_a_regression(tmp_path, monkeypatch):
+    """Step 4.77g: a rerun's step L3's watchdog stopped for time (a starved host's wall cap, ``runaway@`` or
+    ``render timeout@``: "did not return within") ended the string early, and a record that had passed counted as
+    a regression.  It is ``starved`` now: no pass, no regression, no divergence or change named where the cap cut
+    it, counted on its own, and ``conformance`` exits 2 on it where nothing regressed, never 0 (a run that only
+    starved would read clean); a string off xemu before its cap keeps its verdict, and any other L3 error keeps its
+    class (a regression where the record had passed).  Each record's write at tick 1 pokes the walker's input
+    builder (0x85270), so its second step runs away (``jmp $``) or faults (``mov eax, [0x500000]``)."""
+    import json
+
+    from devkit.sim import corpus, l3
+    from devkit.sim.l3 import L3, Pad, read_snapshot
+
+    store = tmp_path / "store"
+    store.mkdir(mode=0o700)
+    snap = read_snapshot(_l3_walker(store))
+    pads = [Pad((0.0, 1.0))] * 3
+    rows = L3(snap, {}).run(pads)
+    for _ in range(3):
+        corpus.record(snap.meta, False, pads, rows, [{"obs": r.obs} for r in rows], store=store)
+    recs = corpus.read(store)
+    for rec, poke in zip(recs, ("ebfe", "ebfe", "a100005000")):
+        rec["writes"] = [[1, 0x85270, poke]]
+    recs[1]["l3"][0] = recs[1]["xemu"][0] = ["0" * 12, "0" * 12]   # an engine change: off xemu at tick 0
+    corpus.corpus_path(store).write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    monkeypatch.setattr(l3, "UPDATE_US", 100_000)                  # the cap, met at once by a step that runs on
+    res = corpus.rerun({}, store=store)
+    assert [(r["starved"], r["passes_now"], r["divergence_now"], r["l3_changed_at"]) for r in res] == [
+        (True, False, None, None), (False, False, 0, 0), (False, False, 1, 1)]
+    assert corpus.CAPPED in res[0]["error"] and corpus.CAPPED not in res[2]["error"], [r["error"] for r in res]
+    assert corpus.report(res) == {"records": 3, "missing": 0, "passed": 3, "passes_now": 0, "regressions": 2,
+                                  "l3_changed": 2, "starved": 1}
+    from devkit.reach import l3_fast
+    from devkit.sim import conformance, ports
+    for k in ("LIBUNICORN_PATH", *l3_fast.SWITCHES):             # main clears them for its pool's workers
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(ports, "vanilla_iso", lambda: "usa.iso")
+    monkeypatch.setattr(ports, "read_file", lambda image, path: {})
+    for got, code in ((res, 1), (res[:1], 2), ([], 0)):         # a regression wins; only starved exits 2
+        monkeypatch.setattr(corpus, "rerun", lambda *a, _got=got, **k: _got)
+        assert conformance.main(["--store", str(store)]) == code, got
 
 
 def test_an_explorer_spec_with_an_empty_kit_runs_at_kit_0_and_one_saying_snapshot_at_the_snapshots_levels(
@@ -2494,6 +2537,46 @@ def test_l3_gates_whole_step_mode_draws_and_replays_5000_whole_steps_and_the_cor
     out = l3_gate.replay(Sandbox(), "s", segs, store, scene=True)
     assert (out["mode"], out["gate_5000"], out["exact_ticks"]) == ("scene", True, out["l3_ticks"])
     assert corpus.read(store)[-1]["mode"] == "scene" and corpus.read(store)[-1]["passed"]
+
+
+def test_an_l3_gate_build_refuses_a_draw_that_reaches_a_level_exit_as_a_level_exit_not_an_l3_error():
+    """Step 4.77g: ``l3_gate.build`` counted every ``L3Error`` a draw ended on as "l3 error", and ``LevelExit``
+    is one, so a string drawn near a level's exit read as thousands of L3 faults (4.77b's f3 whole-step row: 6,422
+    refusals, 30 of 30 probed were exits).  A draw that reaches an exit's unload is refused as a "level exit" now; any other
+    L3 error stays an "l3 error".  Here a draw with Y held reaches the unload and one with BLACK held faults."""
+    from devkit.reach import l3_gate
+    from devkit.sim import l3
+
+    class Row(typing.NamedTuple):
+        pos: tuple
+        state: int = 0
+        hp: int = 200
+        cam: bytes = struct.pack("<2f", 0.0, 1.0)
+        taint: frozenset = frozenset()
+
+    class Exits:        # a walker on the plane, 0.1 m a tick times the stick
+        def __init__(self):
+            self.s = (0.0, 0.0)
+
+        def save(self):
+            return self.s
+
+        def reset(self, s=(0.0, 0.0)):
+            self.s = s
+
+        def run(self, pads):
+            return [self.step(p) for p in pads]
+
+        def step(self, pad):
+            if "y" in pad.buttons:
+                raise l3.LevelExit("planted")
+            if "black" in pad.buttons:
+                raise l3.L3Error("planted", "unmapped@0x8c230")
+            self.s = (self.s[0] + 0.1 * pad.stick[0], self.s[1] + 0.1 * pad.stick[1])
+            return Row((*self.s, 1.0))
+    _, info = l3_gate.build(Exits(), 1000, 1, 1e9)
+    assert info["ticks"] >= 1000 and set(info["why"]) == {"level exit", "l3 error"}, info["why"]
+    assert sum(info["why"].values()) == info["refused"] and info["why"]["level exit"] > info["why"]["l3 error"]
 
 
 # --- Step 4.28c: Modkit's simulator checks no golden carried (the test census's lanes C, L1 and C4): L0's empty

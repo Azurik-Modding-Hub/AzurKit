@@ -23,7 +23,7 @@ spots are USA's, so each refuses a Europe XBE by name (:func:`require_usa`).
 VERBS: dict[str, str] = {
     "l3-hold": "the L3 store's snapshots no cleanup deletes; --check PATH ... exits 1 naming each held one",
     "explore": "run the trick explorer on L3 snapshots: one problem, a bench of them, or a level's site census",
-    "conformance": "re-run the L3 conformance corpus offline: exit 1 on a record that passed and now diverges",
+    "conformance": "re-run the L3 conformance corpus offline: exit 1 on a record that passed and now diverges, 2 on a starved one",
 }
 
 

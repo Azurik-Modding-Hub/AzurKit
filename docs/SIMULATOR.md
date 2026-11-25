@@ -1976,7 +1976,11 @@ differs. After a change to `l3.py`, Unicorn or macOS,
 `python -m devkit sim conformance` runs every string in L3 again from its kept
 snapshot and compares with xemu: a record that passed and now diverges is
 a regression (exit 1), and a change in L3's own trace is named by its
-first tick. The corpus starts empty at X.10: it fills with the next
+first tick. A string a step's wall-clock cap cut short (a starved host)
+with no tick off before it is `starved`: counted on its own, never a pass
+or a regression (exit 2 where nothing regressed; Step 4.77g). Re-run it on
+an idle host: one starved again is a step that never returns, a regression
+where it had passed. The corpus starts empty at X.10: it fills with the next
 sittings' replays (the earlier ones kept no per-tick xemu observations).
 
 A record runs only from the state xemu replayed it from: one whose

@@ -13,7 +13,9 @@ snapshots, because a teleport's request holds a position.
 
 :func:`rerun` runs every record's string in L3 again from its kept snapshot and compares the new trace with
 xemu's digests: a record that passed and now diverges is a regression, and a change in L3's own trace is
-reported even where the record had failed.  A build's record runs on its own disc (the build's XBE, the game's
+reported even where the record had failed.  A string a step's wall-clock cap cut short (:data:`CAPPED`: a starved
+host's, not the game's) with no tick off xemu before it is ``starved``: no verdict, never a pass or a regression,
+counted on its own (Step 4.77g).  A build's record runs on its own disc (the build's XBE, the game's
 reads served from the image; AZ-380), never on vanilla's.  Both compare the CORE digests: AZ-389 changed the
 whole observation's (the inventory hash starts past the day clock), so an older record's whole digests no longer
 compare with a new trace.  ``l3_conformance.py`` is the command.
@@ -31,6 +33,9 @@ from pathlib import Path
 from devkit.sim import l3, obs
 
 FILE = "conformance.jsonl"
+# L3's (and FastL3's) message for a step its watchdog stopped for time, the sites ``runaway@`` and ``render
+# timeout@`` (the reach engine's ``worker.TIME_SITES``): the host's load, not the game (AZ-813)
+CAPPED = "did not return within"
 
 
 def corpus_path(store=None) -> Path:
@@ -94,9 +99,11 @@ def rerun(xbe: bytes, *, store=None, workers: int = 0, only=(), discs=(), fast: 
     (in this process, or on a :class:`~devkit.reach.l3_pool.Pool` of ``workers`` per snapshot; with ``fast`` on
     FastL3, ``devkit.reach.l3_fast``, the reach engine's simulator): per record its summary, whether it passes now
     and where it diverges from xemu now, and the first tick where L3's own trace changed (``l3_changed_at``; None:
-    unchanged).  ``xbe`` is vanilla's; a snapshot taken with another disc in the tray (its ``iso_sha12``) runs on
-    that image's XBE with the game's reads served from it: the path its records kept, or one of ``discs`` (images
-    moved since) that hashes the same (AZ-380).  A record whose snapshot or disc is gone says so (``missing``), and
+    unchanged); ``starved`` where a wall-clock cap (:data:`CAPPED`) ended the string before xemu's last tick with no
+    tick off before it (no divergence and no change named there: the ticks past it never ran).  ``xbe`` is
+    vanilla's; a snapshot taken with another disc in the tray (its ``iso_sha12``) runs on that image's XBE with the
+    game's reads served from it: the path its records kept, or one of ``discs`` (images moved since) that hashes the
+    same (AZ-380).  A record whose snapshot or disc is gone says so (``missing``), and
     so does one whose snapshot was re-taken under its label (its ``meta_sha12`` isn't the record's): its string
     never runs from a state it wasn't replayed from, so a re-take can't pass for a regression."""
     from devkit.sim.ports import VANILLA_ISO_SHA256
@@ -139,17 +146,21 @@ def rerun(xbe: bytes, *, store=None, workers: int = 0, only=(), discs=(), fast: 
             traces = [trace(w, *t) for t in tasks]
         for i, (rows, err) in zip(ix, traces):
             r = recs[i]
-            core = _first([x[3] for x in rows], [c for c, _ in r["xemu"]])
-            out[i] = {**summary(r), "error": err, "passes_now": core is None and err is None, "divergence_now": core,
-                      "l3_changed_at": _first([x[3] for x in rows], [c for c, _ in r["l3"]])}
+            got = [x[3] for x in rows]
+            core, changed = _first(got, [c for c, _ in r["xemu"]]), _first(got, [c for c, _ in r["l3"]])
+            starved = err is not None and CAPPED in err and core == len(got) < len(r["xemu"])
+            out[i] = {**summary(r), "error": err, "starved": starved, "passes_now": core is None and err is None,
+                      "divergence_now": None if starved else core,
+                      "l3_changed_at": None if starved and changed == len(got) else changed}
     return out
 
 
 def report(results: list[dict]) -> dict:
-    """Counts over :func:`rerun`'s results: records, passing then and now, regressions (passed, now not), traces
-    L3 changed, records whose snapshot is gone."""
+    """Counts over :func:`rerun`'s results: records, passing then and now, regressions (passed, now not, not
+    starved), traces L3 changed, records whose snapshot is gone and those a wall-clock cap starved."""
     live = [r for r in results if "missing" not in r]
     return {"records": len(results), "missing": len(results) - len(live),
             "passed": sum(r["passed"] for r in live), "passes_now": sum(r["passes_now"] for r in live),
-            "regressions": sum(r["passed"] and not r["passes_now"] for r in live),
-            "l3_changed": sum(r["l3_changed_at"] is not None for r in live)}
+            "regressions": sum(r["passed"] and not r["passes_now"] and not r["starved"] for r in live),
+            "l3_changed": sum(r["l3_changed_at"] is not None for r in live),
+            "starved": sum(r["starved"] for r in live)}
