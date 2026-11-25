@@ -246,7 +246,7 @@ census and 6.11's lanes first, in 6.9's order. Group 7's reach and derive
 ids, 9.26, 6.7, 6.8, 9.49's next steps, 9.54 and 9.55 are its rows; 10.11's
 P7(b) is the reach rounds' yardstick. Then 8.29, with 3.4's art nits on the
 first lane that re-records the art. Beside it: D1075's read at its start
-(12.7), 8.37's step 2, S82 if it repeats (8.38), the parts' narrower key
+(12.7), S82 if it repeats (8.38), the parts' narrower key
 (10.18) and a whole run on `main`'s head (the wrap-up skipped it while the
 owner played, D1334).
 
@@ -440,19 +440,25 @@ owner played, D1334).
     - ~~4.77a, the corpus's hold and reruns~~: landed (fd1ba2d3, 3e5e8775):
       `l3-hold` holds `conformance-live/`, a rerun names a re-taken snapshot
       missing, and `sim conformance` takes `--l3 fast`.
-    - **4.77b, the compact corpus on `main`** (lane 4.77b, no commit):
-      stopped at 20:58 on 11-24 for the owner's game (D1334). Its store
-      held 38 records on 16 levels: all 13 whole-step strings pass, 4 of 25
-      player-tick strings pass and the other 21 part where the world
-      explains it; both reruns (base and FastL3) read 17 passing, 0
-      regressions. a3 has its whole-step row only and a1 none (no safe
-      segment at seeds 1-3 in either mode); f2, f4, life, w2 and w4, and
-      e6's, e7's and f3's whole-step rows, weren't taken; the stop cut its
-      last `l3-hold --check`, and the corpus's README, size and finish mark
-      aren't written. Resume: restart its supervisor, first moving aside
-      any part-written rerun file (the skeptic's plausible finding: its
-      finish script keeps a rerun file whose rows hit L3's wall cap as
-      final), then the table, the skeptic and the lane's removal.
+    - ~~4.77b, the compact corpus on `main`~~: done 11-25 (no commit; its
+      second phase ended at its 9,005 s budget). `conformance-live/` holds
+      38 records on 16 levels (13 whole-step, 25 player-tick) and 60 held
+      snapshots (38 with a record), 8.5 GB, mode 700. All 13 whole-step
+      records are exact; 4 of 25 player-tick records pass and the other 21
+      part where the world explains it (both modes); both reruns (base and
+      FastL3) read 17 passing, 0 regressions, 0 changed. The bar isn't met
+      as worded: 13 of 22 whole-step records. Not taken: e7-s and both rows
+      of f2, f4, life, w2 and w4 (the budget; their starts held,
+      re-takeable); a1 (both modes), a3-t, a5-t and d2-t (no safe segment
+      at seeds 1-3, mostly hurt and airborne); f3-s and e6-s (level exits,
+      then counted as L3 errors; e6-s by its signature). 4.77d replays the
+      held snapshots, not re-takes (13 of 22 re-takes didn't match their
+      held start), and keys a record on its own `string_sha12` (it hashes
+      the rows too, so it isn't the build's).
+    - ~~4.77g, the corpus's two tooling faults~~: done by 4.77g. A build
+      refuses a draw that reaches a level exit as a `level exit`, not an
+      `l3 error`, and a rerun a wall-clock cap cut short is `starved`,
+      counted on its own and never a pass or a regression.
     - ~~4.77c, the witnesses that lean on the snapshot's gates and rigs~~:
       measured: exposed zone pairs e7 6.56 % (249 of 3,795; the drills'
       bits lead) and a5 9.49 % (167 of 1,760; Big_Float_Fan1 leads), over
@@ -676,11 +682,18 @@ memory peaks stay strict. The gate writes both kinds of row to
     worker thread's SIGSEGV at 0x50 and one with no crash report, neither
     JSC's StackVisitor assertion; the `Error.stackTraceLimit = 0` lever in
     WebKit's engine worker covers only that assertion, ci47's, and run
-    43713171050's report named it again, so 4.75f set it (633ba49b, 9.12):
-    read arm64's next WebKit failures for that assertion). ~~Firefox's
-    timer that lost once~~: fixed by 4.54a (the word-list Undo was pressed
-    before it was enabled); a lost edit still waits 600 s with no Data tab
-    state in `hang()` (4.5g).
+    43713171050's report named it again, so 4.75f set it (633ba49b, 9.12).
+    Read on 11-25 (4 `main` runs, 12 arm64 jobs): the lever moved the
+    walk, not the crash. Run 45486377243's job 138799356536 hit the
+    assertion again, passing its rerun: a wasm trap's throw from the fault
+    handler in a WebCore Worker, VM::throwException walking the stack for
+    a catch clause, which `stackTraceLimit = 0` doesn't cover. Two more
+    ended with a crash and no report (its `[webkit-europe]`, passing its
+    rerun, and lane run 45501860434's `[webkit-usa]`, failing twice). A
+    lever must avoid that throw path or the walk itself; keep watching).
+    ~~Firefox's timer that lost once~~: fixed by 4.54a (the word-list Undo
+    was pressed before it was enabled); a lost edit still waits 600 s with
+    no Data tab state in `hang()` (4.5g).
 13. ~~Intel: page-load stalls; ci19's extra 2 h; WebKit's drawing threads
     outranked (ci21)~~: retired by 4.67a, no Intel runner from 1.3.1 (D1290).
 14. Windows: ci34's cause; ci39's load failure; Firefox's temp disk
@@ -741,29 +754,27 @@ memory peaks stay strict. The gate writes both kinds of row to
 19. ~~test_site's two fresh-page loads at ACT~~: fixed by 4.37k (1f016297).
 20. ~~`tests/ci_durations.json`'s old test id and stale shard table~~:
     fixed by 4.54d (measured from six CI runs' vanilla jobs).
-37. **Linux's vanilla part with test_site.py's Chromium tests runs short of
-    memory** (part 2 of 2 under 1.3.0, part 3 of 3 since; D1293: worth
-    finding as polish). It dipped to 2.2 GiB free (job 132838907070), and
-    its first try lost the runner 27 min in (run 43713171050, green on its
-    rerun); 1.3.0's two-part run fell to 0.9 GiB and was shut down (run
-    43675884120). 1.3.1's CI passed all three Linux parts at the first try
-    (run 43730247885).
-    - Free memory sits near 8 GiB through the light Chromium tests, dips
-      in the heavy last ones (the image walk, a save while hashing, the
-      weapon, the pieces) and comes back to 12.8 GiB at the module's close.
-    - Placing the cause in Chromium rests on the durations table's pace: CI
-      keeps no per-test times or per-process memory. On this Mac the same
-      233 tests carry nothing from test to test, and since 4.73a conftest
-      fails and closes any context or process a test leaves (18).
+37. ~~Linux's vanilla part with test_site.py's Chromium tests runs short of
+    memory~~ (D1293): a watch since step 2's read (11-25), no lever. The
+    row's numbers were the pre-4.73a job of 11-15: 2.2 GiB free (job
+    132838907070, a floor that built through the Chromium minutes), its
+    first try's runner lost (run 43713171050), and 1.3.0's two-part run
+    shut down at 0.9 GiB (run 43675884120).
     - ~~Step 1, Linux's minute line names Shmem and the tier's memory by
-      kind~~: done by 4.75e (e91ffb12). Step 2 starts by reading that line
-      in the Linux vanilla part 3 log of `main`'s next CI run (aeb97a72's,
-      green on 11-24, carries it).
-    - Step 2, the lever, isn't built: a Chromium relaunch every 10 tests (or
-      under 6 GiB free, conftest's D1260 path) or a fourth part, which
-      splits the Chromium tests 34/19, chosen from that run. A relaunch
-      helps only if the memory is a held floor, not the heavy tests' own
-      peak.
+      kind~~: done by 4.75e (e91ffb12).
+    - ~~Step 2, the lever~~: read, none built. In `main`'s four runs since
+      4.75e and 4.75f, part 3's least was 7.7-8.6 GiB free (runs
+      45563922263 7.7, 45475027891 8.0, 45511239401 8.5, 45486377243 8.6),
+      in the Firefox (or WebKit-to-Firefox) block (other processes
+      4.3-4.6 GiB, no Chromium up). In the two runs read by the minute
+      (45511239401, 45563922263), through the Chromium block the browser
+      held 0.1-0.3 GiB, Shmem 0.1 GiB and free memory 10.2-12.2 GiB at
+      every minute line, its dips the tests' own peaks (least 8.8 GiB).
+      Neither lever (a Chromium relaunch, a fourth part splitting the
+      Chromium tests 34/19) reaches the Firefox block.
+    - Parts 1 and 2 now hold the tier's least: 5.1-6.5 GiB free (Python
+      7.8-9.6 GiB, no browser). Reopen if part 3's least falls under about
+      4 GiB, or a Linux part runs short again (most likely 1 or 2).
 
 ### Perf debt
 
