@@ -25,8 +25,12 @@ last sweep: each item still open names the lane that closes it
 (4.64a-4.64g), and group 12 holds its questions' defaults. Step 4.74a
 brought it up to date at the 2026-11-15 session's wrap-up (D1304), against
 `main` ffa5f9ba: the death realm unlock (4.71a-e, 9.49) and 4.73a had
-landed, 1.3.1 was out, and 1.4.0 was cut in the same lane (2.9). The next
-session starts at group 6.
+landed, 1.3.1 was out, and 1.4.0 was cut in the same lane (2.9). Step
+4.81a brought it up to date at the wrap-up of the 2026-11-23/24 research
+session (D1304, D1307-D1334), against `main` aeb97a72: 4.75a-f, 4.76d,
+4.77a, 4.78a, 4.79a-c and 4.80a had landed, and rounds 1 and 2 of the
+research were part run (group 6's arc, 6.9-6.14). The next session starts
+at group 6's arc.
 
 ## 1. The Variants editor's first Check (D1181, D1192)
 
@@ -134,9 +138,10 @@ polish, after the next session's research (group 6, D1304).
 ## 2. Releases and content
 
 1. ~~1.0.2~~: out on 2026-11-09 (tag `v1.0.2`, 15c16383).
-2. ~~The content push~~: the hub's `main` is booblord v12 (baef191, which
-   needs 1.3.1) since 1.3.1's publish (2.8), after v11 (a3bf5e7) from
-   1.2.0's (D1266); CI's `CONTENT_COMMIT` pins v13 (2.9).
+2. ~~The content push~~: the hub's `main` is booblord v13 (db880f7, which
+   needs 1.4.0) since 1.4.0's publish (2.9), after v12 (baef191) from
+   1.3.1's and v11 (a3bf5e7) from 1.2.0's (D1266); CI's `CONTENT_COMMIT`
+   pins v13 (cffa6e4).
 3. ~~1.1~~: out on 2026-11-13 (tag `v1.1.0`, d226ddad), with 4.38a and
    4.38b.
 4. ~~1.0.3~~: out on 2026-11-11 (tag `v1.0.3`, 7a4bab60), with 4.37r and
@@ -163,12 +168,18 @@ polish, after the next session's research (group 6, D1304).
    Linux's three parts at the first try (run 43730247885); main's run
    before it lost Linux's runner once (43713171050, green on its rerun;
    8.37).
-9. **1.4.0**: cut by Step 4.74a with the death realm unlock (4.71a-e,
-   9.49; D1301-D1306) and 4.73a's test guard (8.18), published when its CI
-   is green (D1145, D1170). Booblord's content entry goes to v13 (4.71e's
-   re-record, 10.18): CI's `CONTENT_COMMIT` pins cffa6e4 (v13, its needs
-   still 1.3.1), and at 1.4.0's publish content `main` moves to db880f7
-   (v13 needing 1.4.0), so the apps up to 1.3.1 keep v12.
+9. ~~1.4.0~~: out on 2026-11-15 (tag `v1.4.0`, 74c0e943; published
+   21:25Z), cut by Step 4.74a with the death realm unlock (4.71a-e, 9.49;
+   D1301-D1306) and 4.73a's test guard (8.18). Content `main` moved to
+   db880f7 (v13, needing 1.4.0) at its publish, so the apps up to 1.3.1
+   keep v12.
+10. **1.5.0** (D1310, D1324, D1329): round 2's release (6.11). It ships once
+    AZ-373, 6.7's door and d1's floor-10 fix (9.55) are checked in xemu
+    (4.79e) and its CI is green, its notes saying seeds changed; the
+    witness gate's switch-on goes in round 3's release (6.12). Contents:
+    `main` since 1.4.0 (4.75a-f, 4.76d, 4.77a, 4.78a, 4.79a-c, 4.80a) and
+    4.79d's logic. The version commit follows 4.79d's landing, and the
+    orchestrator tags it once `main`'s CI is green.
 
 ## 3. Stack 3 and 4.31's outcome
 
@@ -186,7 +197,9 @@ polish, after the next session's research (group 6, D1304).
    comment names `tier_gap`. Each edit moves a recorded digest: the
    built-ins' picture keys (record_goldens' `DRAWN`), `ART_VERSION`, and
    with tiers.toml every level's derive stamp. So they ride on the next lane
-   that re-records art and the characters' pictures, or restacks.
+   that re-records art and the characters' pictures, or restacks:
+   tiers.toml's rides 4.79d (its lane holds the edit, 6.11); the art's two
+   wait for the next art re-record.
 
 ## 4. Modkit's delete and the switch (done 2026-11-09, D1171)
 
@@ -224,16 +237,18 @@ polish, after the next session's research (group 6, D1304).
 5. ~~prune and the orphan sweep~~: nothing to delete (11-11).
 6. ~~The lanes and branches~~: deleted 2026-11-10 (D1200).
 
-## 6. Reach and the randomizer's research (the next session, D1304)
+## 6. Reach and the randomizer's research (D1304; the arc since 2026-11-23)
 
-The next session starts here (D1304): randomizer and reach research
-loops, the reach engine open for research again. Its order: 6.6's edits,
-then 6.5's four resume steps, then group 7's reach and derive ids, 9.26,
-6.7, 6.8 and 9.49's next steps, 10.3, 10.11's P7(b), "0 logic bugs"
-(D522), V21 and V22, then 8.29, with 3.4's nits on the first lane that
-restacks or re-records the art. Beside it: D1075's read at its start
-(12.7), the Linux memory lane (8.37), S82 if it repeats (8.38) and the
-parts' narrower key (10.18).
+The 2026-11-23/24 session opened the reach engine for research again
+(6.6), ran 6.5's resume steps and the research arc's first two rounds,
+part run at its end (6.9-6.14). The next session starts at the arc: 6.10's
+census and 6.11's lanes first, in 6.9's order. Group 7's reach and derive
+ids, 9.26, 6.7, 6.8, 9.49's next steps, 9.54 and 9.55 are its rows; 10.11's
+P7(b) is the reach rounds' yardstick. Then 8.29, with 3.4's art nits on the
+first lane that re-records the art. Beside it: D1075's read at its start
+(12.7), 8.37's step 2, S82 if it repeats (8.38), the parts' narrower key
+(10.18) and a whole run on `main`'s head (the wrap-up skipped it while the
+owner played, D1334).
 
 1. ~~x7's route graphs~~ (D1172): 4.13f built all 44 (35.4 GiB) from
    5a3b0954 on 2026-11-09. They are stale again: the 11-10 reboot moved
@@ -255,14 +270,18 @@ parts' narrower key (10.18).
 5. **The reach backlog** lives in the private plan: R1.23-R1.25, TD.2,
    TD.2b, TD.5-TD.7, R2.19a-j, the improvement rounds, the all-level run and
    R2.16g. D1048 paused it, D1143 froze it (no budget, answering D977),
-   D1212 and D1278 kept it frozen, and D1304 resumes it for the next
-   session's research loops (v2, D609). Resuming it also:
-   - drops `st_dev` from `router_key` (`devkit/rando/draft/l3_goal.py`, with
-     a test beside its router-key test);
-   - rebuilds x7's graphs (`build_routers.py routers 90 ...`, nice 15, in
-     place);
-   - re-proves the retired records' marks;
-   - re-takes the conformance snapshots.
+   D1212 and D1278 kept it frozen, and D1304 resumed it: the research arc
+   (6.9-6.14) carries it now (v2, D609). Its four resume steps:
+   - ~~drop `st_dev` from `router_key`~~: done by 4.75b (b8c71cd1);
+   - ~~rebuild x7's graphs~~: all 44 rebuilt from c316a9b0 on 11-23 (362 s,
+     35.39 GiB). They are stale again: 4.76d's `author.py` is in
+     `ROUTER_CODE`, as 4.79d's draft code will be, and `load_router`
+     rebuilds one on first use;
+   - ~~re-prove the retired records' marks~~: narrowed by the session's
+     resume read to three marked edge walks (town, e7, e2), done on demand;
+   - ~~re-take the 1,337 conformance snapshots~~: replaced by the compact
+     corpus (4.77a's hold and reruns, 4.77b's sitting: 6.13), held before
+     any change to L3's emulation.
 6. ~~The unfreeze edits~~ (D1304): done by 4.75a, but for the brief's
    annex A1, the orchestrator's.
 7. **toD1's door is in the sewer, not the temple** (sitting 4.71c-R1a's
@@ -271,7 +290,9 @@ parts' narrower key (10.18).
    elevator deck is in the sewer (Z003), which a player with no kit leaves
    only through d1 (air 1 or more). It is harmless with the death realm's
    door, whose counted realm still needs 3 of each element (`solver.py`);
-   a door loosened below air 1 moves both to Z003 first.
+   a door loosened below air 1 moves both to Z003 first. Round 2's data
+   lane moves both (4.79d's A2, `authoring/town.toml` and `d1.toml` with
+   the test that reads `town_z003`), checked in xemu by 4.79e (D1329; 6.11).
 8. **Town's plaza-to-sewer drops** (the same skeptic; read again by Step
    4.76d and its review): under each of the sitting's 4 drops the first
    solid is a LandShape (gameSolid 1.0, nothing drives it) at +12.2-12.3 m
@@ -283,14 +304,188 @@ parts' narrower key (10.18).
    sewer, the one from town_z612 falls 12.3 or 12.7 m, as the sitting's
    did; whether it is one of the four is open. Step 4.76d's witness gate (a
    gated level's sweep edges enter logic only where the reach engine flew
-   them) or a hold takes these rows, not a derive fix.
+   them) or a hold takes these rows, not a derive fix. 4.79e's T rows fly
+   the derive's two drops into town.Z003 from Z617 and Z1116 (town_z612's
+   carriers) at kit 0. If the game refuses both, both pairs are held by
+   name and town_z612's row goes (the physics row stands); a pass rewords
+   this row.
+9. **The research arc** (D1307-D1317, D1325, D1326): four areas run rounds
+   until each is dry, two rounds in a row under its bar, the others going
+   on (D1316): the reach engine (accuracy first: witnesses that hold in the
+   game, and recall, D1315), the logic's soundness (D1308), the simulator's
+   fidelity to xemu (6.13) and the xemu check automation (6.14); no
+   seed-quality rounds (D1314). Each round's design, reports and kept
+   numbers are in the private evidence folder, by step. The order: round 1
+   (6.10), then round 2 with its release, 1.5.0 (6.11, 2.10), then round 3:
+   the gate switched on, the audit's re-key batch, the derive batch, a
+   fresh baseline, the all-level run once on the final zones, then the
+   intake (6.12; D1325, D1326). Each round's logic changes ship as one
+   1.5.x release once green, its notes saying seeds changed (D1310,
+   D1324). How the research uses this Mac: 11.11.
+10. **Round 1** (reach and the logic's soundness; 4.76a-f):
+    - ~~4.76a, the sweep class in the logic~~: measured. 863 of the 1,078
+      assumed rows rest on `sweep` edges; with a level's sweep off, 12
+      levels lose vanilla's victory or cut locations, and 49 rows on those
+      12, all difficulty 1, kept by name restore each. Its loader findings are
+      fixed by 4.79c (AZ-846, AZ-847), and its census order is round 3's:
+      f3, w2, e5, e2, f4, f1, a1, d1, town, e6, a6, d2, a3.
+    - ~~4.76b, the fresh baseline at `main` (e7, a5, f2, w1)~~: closed on
+      11-24 (20.0 CPU-h counted). f2 and w1 equal the g3 graphs, the audits
+      read 0 differences and no witness is the kernel's alone; e7's and
+      a5's derived finds and nd recall equal 4.13d1's edge for edge; 4.71
+      CPU-s a find against 4.69. It loses zone ranks to 4.13d1 (e7's
+      Z114>Z002 at 1; on a5 4 at 0 from the pair stage on, 12 at rt), and
+      its aims plans run 5 and 7 more jobs. The root cause is the reach
+      models, not the engine: 4.13d1 copied Modkit's plans drawn on its
+      October models, while 4.76b sampled on 11-08's, whose certificates
+      rank those jobs a tier higher, so the old below-tier finds aren't
+      flown. The baseline stands as rounds 2's and 3's A side with those
+      losses named, and later bars compare against its own graphs (the
+      model key: 10.21). A pass one rank below each dm edge (about 280
+      CPU-s) is a recall idea for round 3.
+    - **4.76c, the probe-needed deep census** (e7, a5; f2 and w1 if their
+      cost fits): its sample and run finished on e7 and a5 (their records
+      are in the user cache), and it stopped in `graph-dp` at 20:58 on 11-24
+      for the owner's game (D1334). Resume: re-arm its driver, detached and
+      by its full path, in the pinned lane 4.76b; a kept stage whose exit
+      isn't 0 runs again, and finished jobs come from the cache.
+    - **Owed once 4.76c ends:** the measure seats' re-runs (4.76b's sample
+      and an interleaved timing slice; 4.76c's measure) and 4.76f again on
+      4.76c's graphs. 4.76f's first run, on 4.13d1's graphs, found the gate
+      on e7 and a5 holds 12 rows and keeps 3 by name (a5_z052<->a5_z012:
+      three vanilla diamonds), cuts 0 locations and moves 0 of 400 plans at
+      each difficulty, while `db_digest` moves (987078469867 to
+      4da79f302a96). 4.76c's yield decides 4.79f (6.11).
+    - ~~4.76d, the witness gate~~: on `main`, off (bb41ed53, 61f338c1): a
+      level whose authoring says `sweep_gate = "witnessed"` admits a sweep
+      edge only at the least air rank its zone pair's engine witness needs.
+      No level is gated yet (6.12).
+    - **4.76e, the death realm's sitting** (9.49): R2 passed, and R7's d1
+      r1104 there and back (its take unread), both confirmed by the
+      skeptic. R7's d2 rows (r3660, r3662) weren't reached and show
+      nothing: the air shield was never worn (the flights left at a plain
+      jump's v0), so no flap flew; r3664 and the lens-door way back have no
+      graph way. R6 wasn't run. R7 goes again in 4.79e with the shield.
+11. **Round 2** (D1323, D1325, D1329; 4.79a-f):
+    - ~~4.79a and 4.79b, the reach audit's lanes 1 and 2~~: landed (group
+      7's audit rows). ~~4.79c, the loader's keys~~: landed (AZ-846,
+      AZ-847).
+    - **4.79d, the round's logic** (lane 4.79d, branch
+      `p2/4.79d-logic-round2`, no commit yet). A1, AZ-373's minimum cut with
+      `DERIVE_VERSION` 8: its code and test pass, zoning is equal on all 22
+      levels, and the weighting is confidence first (air first newly held
+      260 in-logic edges, over the 137 line). The first derive missed three
+      bars; the course taken (the far rounds kept for the "not separated"
+      verdict, the ridge gated by the barrier's plane) met them on 8 levels
+      (town, w3, f1, e5, e7, d1, d2, life: 723 in-logic and 2,335
+      probe-needed edges released, 167 and 506 newly held, e7's 2 named).
+      Its seat died on an API error while the other 14 levels re-derived,
+      and the D1334 stop ended that derive with 7 done and none written
+      (the derive writes its files at its end), so those 14 still hold the
+      first derive's files. Resume: relaunch A1 from its notes: re-derive
+      the 14 (a1, a3, a5, a6, airship, e2, e6, f2, f3, f4, f6, w1, w2, w4),
+      the derive diff and its bars, the lint files again (a contracts test
+      timed out starved), then the build commit. Then A2 without the gate
+      (D1329): 6.7, d1's floor 10 (9.55), AZ-373's hand stand-ins where the
+      re-derive keeps their way, `restack --no-goldens`. Then B, after
+      4.79e's skeptic and the review: the sitting's actions, the restack,
+      the four randomizer goldens, spot needs, the soak, and 1.5.0 (2.10).
+    - **4.79e, round 2's xemu sitting** (on 4.79d's A build commit, with
+      its skeptic): R, 20 of AZ-373's released in-logic edges, 4 a level on
+      e5, e2, f1, w2 and w3 (18 or more passing: it ships; 15 or fewer:
+      AZ-373 reverts to round 3); T, town's two drops (6.8); R7 in d2 with
+      the air shield worn by pad, and r1104's take read (9.49); and the 33
+      loose assumed rows (9.55, D1333). Every air row checks its first
+      jump's v0 (4.8497 m/s, not 4.6433) and flaps from its own jump. The
+      gate's rows (its holds and a5's kept pair) move to round 3 with it.
+    - **4.79f, the `aim.py` batch** (9.26's twin cells; aims round the
+      solid a straight track hits), decided by 4.76c's yield: aims round
+      the solid if the census witnessed under 5 % more probe-needed edges
+      at over 7 CPU-s an edge, the census as a standing stage if it
+      witnessed most carriers, else skipped. Its bench runs after 4.76c and
+      beside no other reach bench; it moves the aim key, so it lands only
+      once the gated levels' witness files are made.
+12. **Round 3** (round 2's design, its entry conditions; it starts once
+    1.5.0 is out, 4.79e's rates are read and 4.78d's and 4.77c's tables
+    are in):
+    - the witness gate switched on for e7 and a5 (f2 and w1 if censused
+      whole), with the gate's held and kept rows sat in xemu first (D1329
+      moved it here);
+    - the audit's lane 3, the re-key batch (group 7), with 9.26 and 4.79f's
+      aims folded in if 4.79f didn't land: every key moves once;
+    - the derive batch, `DERIVE_VERSION` 9: AZ-342, 374, 376, 395, 723 and
+      745 with their hunts' fixes (group 7) and the rig-guess travel filter
+      (9.55). It renumbers zones, so it owes a truth re-zone tool, 22 model
+      rebuilds (10.21's key first), new plans, each gated level's witness
+      file thinned again from an engine run on the new zoning, and its keep
+      rows checked again;
+    - one fresh baseline at the final keys and zones on e7, a5, f2 and w1
+      (lane 3's A/B doubling as it), every plan sampled anew on the rebuilt
+      models, none copied from an older cache (4.76b's root cause), then
+      the witness files and the batch's restack (D1326);
+    - the rig decodes' rules (9.54), before any all-level run with
+      `--rigs`;
+    - then the all-level run (D1309), once, on the final zones (D1326), in
+      4.76a's order after a 2-level pilot, the gate on each censused
+      level, one restack and one 1.5.x release a round;
+    - then the intake (R2.16g), only after the audit's three lanes
+      (D1325): new links whose witnesses pass xemu checks ship with the
+      agents' tiers (D1311), the owner's list one row a link with its tier
+      and a short clip (D1312).
+    Waiting with them: the realm's tick-only marks (9.49), R6's gem
+    reader, 4.76e's kit fixes, and the audit's two efficiency rows (D1315).
+13. **The simulator's fidelity to xemu** (4.77a-f): its bar is a 1.0-point
+    fall in the witnesses that fail the xemu check's first try, or a
+    divergence class closed or found.
+    - ~~4.77a, the corpus's hold and reruns~~: landed (fd1ba2d3, 3e5e8775):
+      `l3-hold` holds `conformance-live/`, a rerun names a re-taken snapshot
+      missing, and `sim conformance` takes `--l3 fast`.
+    - **4.77b, the compact corpus on `main`** (lane 4.77b, no commit):
+      stopped at 20:58 on 11-24 for the owner's game (D1334). Its store
+      held 38 records on 16 levels: all 13 whole-step strings pass, 4 of 25
+      player-tick strings pass and the other 21 part where the world
+      explains it; both reruns (base and FastL3) read 17 passing, 0
+      regressions. a3 has its whole-step row only and a1 none (no safe
+      segment at seeds 1-3 in either mode); f2, f4, life, w2 and w4, and
+      e6's, e7's and f3's whole-step rows, weren't taken; the stop cut its
+      last `l3-hold --check`, and the corpus's README, size and finish mark
+      aren't written. Resume: restart its supervisor, first moving aside
+      any part-written rerun file (the skeptic's plausible finding: its
+      finish script keeps a rerun file whose rows hit L3's wall cap as
+      final), then the table, the skeptic and the lane's removal.
+    - ~~4.77c, the witnesses that lean on the snapshot's gates and rigs~~:
+      measured: exposed zone pairs e7 6.56 % (249 of 3,795; the drills'
+      bits lead) and a5 9.49 % (167 of 1,760; Big_Float_Fan1 leads), over
+      the 1 % line, so the area's round 2 builds a second-state replay (a
+      later save's arrival a level, with 6.14's round 2).
+    - **4.77d** (whole steps against the game on the control rows, after
+      4.78b), **4.77e** (the world hold, `--world`, only if 4.77d says
+      build) and **4.77f** (every find class, after 4.78d): open. One reach
+      bench at a time, with rounds 2's and 3's.
+14. **The xemu check automation** (4.78a-d; check v1: one deterministic try
+    from the witness's recipe, its start within 0.75 m, alive in the
+    to-zone and held 60 ticks):
+    - ~~4.78a, `devkit reach witness-check`~~: landed (5863fccc,
+      22bf8aff).
+    - **4.78b** (the check's rates on the 323 rows whose truth is known;
+      it freezes the control set), **4.78c** (a clip a link, D1312) and
+      **4.78d** (the xemu rate of each find class on the benched levels,
+      after 4.76c; a class under 85 % ships no PASS alone): open, one
+      sitting of the area at a time. The check replays a witness at its own
+      kit, snapshot, clock and rig phase, so a PASS says nothing of the
+      audit's false-link classes 1-5 (group 7): their engine-side fixes
+      come first.
 
 ## 7. The open issues from Modkit's ledger
 
 The private ledger (D952) holds Modkit's 29 open issues. After 1.1 the
 work comes here and to group 9's known flaws and editor leftovers, reach
 staying frozen (D1212) until D1304 opened it again; 4.40b's triage readies
-their lanes. The reach and derive ids are this session's (group 6, D1304).
+their lanes. The reach and derive ids are the research arc's (group 6). On
+11-24 a root-cause hunt read seven of the derive's (each its own report in
+the session's research folder; AZ-376's and AZ-723's with a skeptic): AZ-373
+rides round 2 (6.11), the other six round 3's derive batch (6.12). The reach
+engine's soundness audit and the loader's two keys are below.
 
 - Inherited by AzurKit (3):
   - ~~AZ-009: level patches address entities by their current name, not
@@ -302,11 +497,44 @@ their lanes. The reach and derive ids are this session's (group 6, D1304).
     4.41a.
 - Reach, derive and L3 (20, now in devkit; v2, D609):
   - AZ-342: a touch teleport whose landing hangs in the air is dropped.
-  - AZ-373: a gate's sides are misread around a sliver zone.
-  - AZ-374: no takeoff or landing on slippery slopes.
-  - AZ-376: life's critter blocker is taken for a wall.
+    The hunt (its AZ-342 report): half stale; 8 of the 36 derived
+    teleports have no logic edge, 6 of them broken three ways in
+    `devkit/rando/draft/reach.py`: the lethal-fall rule applied to a
+    teleport's placement (the game resets the fall's reference at
+    0x856D8), a fallback that falls through any face that isn't a walk
+    sample, and no pad node for a pad the body enters by a drop. Fix: a
+    teleport's landing as the game places it (no renumber), and a1's
+    flowers (renumbers a1). Looser; no a1 seed moves until its authoring
+    drops the conservative kit's members.
+  - AZ-373: a gate's sides are misread around a sliver zone. The hunt:
+    `gates.barrier_cut`'s far rounds take a far side from a sliver or
+    pocket zone. Fix: a minimum cut between the near side with its strict
+    ridge and the far side, renumbering no zone (`DERIVE_VERSION` 8): in
+    4.79d's lane (6.11, D1323).
+  - AZ-374: no takeoff or landing on slippery slopes. The hunt: the derive
+    has no state for a body on a slope, so AZ-359's walk rule (no floor
+    under nz 0.998) also means no takeoff or landing, while the game jumps
+    off any slippery face along its normal (`player_jump_init` 0x8917F).
+    Fix: a slide from every slope patch (logic, looser), slope takeoffs and
+    landings as a probe-needed class `slope`, and a slide-jump launch in
+    the reach engine to witness them; renumbers.
+  - AZ-376: life's critter blocker is taken for a wall. The hunt: wider
+    than life: the derive ignores a platform's collision mask (its record's
+    +0x28 string, tested against the mover's +0x168 at 0x798B7), so 145 of
+    the 148 platform collisions on 20 levels whose mask the player (0x24)
+    doesn't pass are taken for solids. Fix: `collision.owners` reads the
+    mask and an owner the player passes through gets a category of its
+    own; looser and stricter, renumbers 20 levels. Its skeptic: holds with
+    changes (no kernel-record trap: kernel records re-key themselves).
   - AZ-382: an L3 search can't start in another room.
-  - AZ-395: w2's rope-bridge decks have no floor.
+  - AZ-395: w2's rope-bridge decks have no floor. The hunt: four bridges,
+    not two (`floors.py`'s `rig_floor: False` gives every link-moved solid
+    no floor), and bridge06, between the arrival ledge and save point w2_2,
+    has no hand edge, so the logic asks air 3 for that walk; `Level._turns`
+    also swaps the curve modes 3 and 4. Fix: a deck its timers only tip (1
+    m of travel at most) is a logic floor at rest, `_turns` by the game's
+    modes; looser, renumbers w2. Interim: one hand edge pair across
+    bridge06 behind one xemu leg.
   - AZ-487: town's r1617 exhausts L3.
   - AZ-498: d1's elevator approach finds no route.
   - AZ-527: a w2 search read high pages as zeros.
@@ -317,10 +545,67 @@ their lanes. The reach and derive ids are this session's (group 6, D1304).
   - AZ-582: hop 5 stands over e6.Z043.
   - AZ-583: town.Z340 is never reached.
   - AZ-626: e2.Z643>e2.Z027 with no logic edge.
-  - AZ-723: derived edges on columns with no floor face.
-  - AZ-745: no climb out of water.
+  - AZ-723: derived edges on columns with no floor face. The hunt: three
+    causes. Slippery near-flat floors (nz 0.998 or more) stay floor and
+    their flights are rated modelled, though the tier table lets no tier
+    take them (the engine finds 18 of the bench's 353, 5 %, against 96 %
+    for the rest); the raster's sample point stands at its column's centre,
+    up to 0.354 m off the face; and the engine's face list is a strict
+    point-in-triangle test. Fix in three stages: aims from a start at rest
+    on ice, the slip flights a gated class, and in the derive batch the
+    tier table's `slippery` enforced with on-face witness samples. Its
+    skeptic: holds with changes (landings on ice fail too; the second and
+    third stages would reverse D719 and drop slip edges the engine already
+    witnesses).
+  - AZ-745: no climb out of water. The hunt: `climb_edges` is stricter
+    (no climb out of water; feet and tops only at a network's ends) and
+    looser than the game: it climbs slippery-climbable and non-vertical
+    faces the game never latches (the latch takes only faces of |nz| 0.2588
+    or less), 6 of the 74 derived climbs, kit-0 false links on e6, a1, f2
+    and f3. Fix: the game's face class, with feet and tops per column and
+    feet from the water, each pair probe-needed; alone it renumbers no
+    zone.
   - AZ-826: R2.19f+ loses 2-3 finds.
   - AZ-827: the crossfade model's last gaps.
+  - ~~AZ-846, AZ-847: the loader's movement-row key and the authoring's
+    contact text (4.76a's findings)~~: fixed by 4.79c (6c50e03f).
+- The reach engine's soundness audit (11-24: 16 confirmed findings, 13
+  defects, numbered here as the audit numbers them). Its lanes: 1, the
+  graph-side guards (4.79a); 2, the rig router (4.79b); 3, one re-key
+  batch, owed before the all-level run (D1325, D1326).
+  - ~~Audit 1: a toggled solid that moves from load is never routed (a
+    false link)~~: AZ-842, fixed by 4.79b.
+  - ~~Audit 2: walk-off flaps fly on the snapshot's stale flap latch
+    (+0x164)~~: AZ-838, fixed by 4.79a.
+  - Audit 3: a FastL3 confirm can turn a kernel flap into a ground jump,
+    so `claim.min_air` undercounts (a false air rank). The interim guard
+    (the kernel's rank kept) is AZ-839, by 4.79a; the real fix is lane 3's.
+  - ~~Audit 4: a hold answer with no route skips D847's rig check under
+    `--rigs`~~: AZ-843, fixed by 4.79b (its sweep keyed on the kernel's
+    code by 82b2130c).
+  - Audit 5: the mover router sees only floor contact (a false link under
+    `--rigs`): lane 3.
+  - ~~Audit 6: a rig link's whole-step trip never checks its start
+    stood~~: AZ-845, fixed by 4.79b.
+  - ~~Audit 7: a confirm that holds in another zone isn't credited
+    there~~: AZ-840, fixed by 4.79a (routed under `--rigs` first).
+  - Audit 8: a confirmed witness is filed at the kernel's rank key (lost
+    finds): lane 3.
+  - ~~Audit 9: the rig recording's key misses the derive's exported
+    rigs~~: AZ-844, fixed by 4.79b.
+  - ~~Audit 10: a graph-confirmed witness's proof record carries the
+    kernel's outcome~~: AZ-841, fixed by 4.79a.
+  - Audit 11: `CORE_FILES` misses `devkit/sim/snapshot.py` and `ports.py`,
+    and hold answers are keyed by outcome index (stale, latent): lane 3.
+  - Audit 12: duplicate derived edge strings add aim jobs; audit 13: gc and
+    ea jobs fly their twin's pass 1 again. CPU only: an efficiency round
+    (D1315).
+  - Lane 3 (3's real fix, 5, 8, 11) moves every job and hold key, so its
+    16-20 CPU-h re-bench of e7, a5, f2 and w1 is its own A/B and doubles
+    as round 3's baseline (6.12). Not read by any lens: the snapshot's
+    other fields that movement reads (one `devkit re xbe insns` read), the
+    intake's requires terms, L3's and FastL3's own physics (6.13) and
+    Europe.
 - Models, named flaws under D801 (4, no fix owed): AZ-771, AZ-773, AZ-775
   and AZ-776, clipping at big Bust, Hip and shape-slider sizes.
 - Modkit's own, closed as moot with its delete (2): AZ-274 (a Windows CI
@@ -390,11 +675,12 @@ memory peaks stay strict. The gate writes both kinds of row to
     vanilla jobs over main's six runs to 11-14, both in run 43617501572, a
     worker thread's SIGSEGV at 0x50 and one with no crash report, neither
     JSC's StackVisitor assertion; the `Error.stackTraceLimit = 0` lever in
-    WebKit's engine worker covers only that assertion, ci47's, so try it
-    only if a report names it again, 9.12). ~~Firefox's timer that lost
-    once~~: fixed by 4.54a (the word-list Undo was pressed before it was
-    enabled); a lost edit still waits 600 s with no Data tab state in
-    `hang()` (4.5g).
+    WebKit's engine worker covers only that assertion, ci47's, and run
+    43713171050's report named it again, so 4.75f set it (633ba49b, 9.12):
+    read arm64's next WebKit failures for that assertion). ~~Firefox's
+    timer that lost once~~: fixed by 4.54a (the word-list Undo was pressed
+    before it was enabled); a lost edit still waits 600 s with no Data tab
+    state in `hang()` (4.5g).
 13. ~~Intel: page-load stalls; ci19's extra 2 h; WebKit's drawing threads
     outranked (ci21)~~: retired by 4.67a, no Intel runner from 1.3.1 (D1290).
 14. Windows: ci34's cause; ci39's load failure; Firefox's temp disk
@@ -415,7 +701,9 @@ memory peaks stay strict. The gate writes both kinds of row to
     parts test's closed page `[webkit]` on macOS arm64 (4.37f's C.13).
 16. Others: ci17's three; what held ci27's GIL; ci37's CI ValueError;
     4.5m's second failure; 4.5n's frozen capped A32; S59 under 20 extra
-    threads (4.4bf); WebKit's GPU threads on a 4-core runner; ps under
+    threads (4.4bf; its "bimodal" WebKit samples of 11-24, 0.17-113 s, were
+    our efficiency-core loop starving WebKit's helper processes, not noise:
+    no row, 11.11); WebKit's GPU threads on a 4-core runner; ps under
     `taskpolicy -b` taking 8-12 s while the efficiency cores are busy
     (ci36); the app's Live marks test `[webkit]` on Windows (C.14: a
     flake's first try's error lines are kept now, 4.37k); the collected-spot
@@ -468,7 +756,9 @@ memory peaks stay strict. The gate writes both kinds of row to
       233 tests carry nothing from test to test, and since 4.73a conftest
       fails and closes any context or process a test leaves (18).
     - ~~Step 1, Linux's minute line names Shmem and the tier's memory by
-      kind~~: done by 4.75e; read it in main's next CI run.
+      kind~~: done by 4.75e (e91ffb12). Step 2 starts by reading that line
+      in the Linux vanilla part 3 log of `main`'s next CI run (aeb97a72's,
+      green on 11-24, carries it).
     - Step 2, the lever, isn't built: a Chromium relaunch every 10 tests (or
       under 6 GiB free, conftest's D1260 path) or a fourth part, which
       splits the Chromium tests 34/19, chosen from that run. A relaunch
@@ -616,7 +906,9 @@ memory peaks stay strict. The gate writes both kinds of row to
     pool's unsampled cut mode is a watch line (8.15).
 12. ~~The arm64 WebKit engine trap~~: a watch line (8.12); its
     `Error.stackTraceLimit = 0` lever is set in WebKit's engine worker by
-    4.75f, run 43713171050's report having named JSC's StackVisitor again.
+    4.75f, run 43713171050's report having named JSC's StackVisitor again
+    (on `main` since 633ba49b; a Python exception still walks the stack,
+    10.20).
 13. ~~Windows Firefox loses 6-15 GiB of temp disk and hangs~~: the hang
     gone since 4.4ci18, the temp a watch line (8.14).
 14. ~~`procpool._peak()` returns 0 on Windows~~: fixed by 4.52a.
@@ -645,8 +937,10 @@ memory peaks stay strict. The gate writes both kinds of row to
     offer, each from a near-black, not her row alone).
 26. **The reach aim's string drifts in rare cases** (2 of f2's 8,519 aim
     jobs; `docs/REACH.md`): parked while the reach engine was frozen
-    (D1143, D1278), open again (D1304); its fix rides the next change to
-    `aim.py`.
+    (D1143, D1278), open again (D1304); its fix (skip a twin only where its
+    starts stood in the same cells) rides the next change to `aim.py`:
+    4.79f's batch, or round 3's re-key batch if 4.79f is skipped (6.11,
+    6.12).
 
 ### The Variants editor
 
@@ -677,8 +971,8 @@ memory peaks stay strict. The gate writes both kinds of row to
     owner's decision (D1287, 12.15).
 34. ~~`docs/RANDOMIZER_DB.md`'s TODOs~~: fixed by 4.56a (D115's defaults:
     no drop offered, the reserved keys with no version planned).
-49. **The death realm unlock** (D201, D1301-D1306; AZ-836, AZ-837), on
-    `main` for 1.4.0. The pack (4.71a: 0538efd2, f43c9747, af02e39d,
+49. **The death realm unlock** (D201, D1301-D1306; AZ-836, AZ-837), in
+    1.4.0. The pack (4.71a: 0538efd2, f43c9747, af02e39d,
     fc1f9007) opens d1's seal without the five discs and makes Spideyzar
     far harder until all five; the randomizer's tick (4.71b: 15a9f1b2,
     15a1e81a, f23d18f1), off by default, counts the realm in the logic.
@@ -689,22 +983,55 @@ memory peaks stay strict. The gate writes both kinds of row to
     b, c), R3 at L3, R4's exact lines and R5; U1 is closed (town's door
     needs nothing at 0 discs, even in vanilla), and 4.71d's defaults build
     the game files the sitting ran.
-    - Open: R2 (the bridge drop and d2's six lens keys); R6 (d1's moved
-      gems r1056 and r1099, not collected); R7 (skipped); the optional
-      re-runs (R3-L3-S1 from 5 or more fight starts, R4's times with 5 or
-      more checkpoints a side, the restore path); and the design's R3
-      attack line amended to "attack picks at least 3x R4's".
-    - The next session's (with 6.7 and 6.8): the realm's four fuel-spot
-      proofs, as tick-only marks that keep `db_digest` and unticked seeds
-      as today (no d1 or d2 spot is a proven non-gem spot, so the tick
-      moves no item yet); loosening the conservative kit in d1 and d2; the
-      maps' settings-free tips.
+    - ~~R2 (the bridge drop and d2's six lens keys)~~: passed in 4.76e's
+      sitting, its skeptic confirming (6.10).
+    - Open: R7, part run by 4.76e: d1's r1104 there and back passed (its
+      take unread); d2's r3660 and r3662 weren't reached with no air shield
+      worn, so they show nothing; r3664 and the lens-door way back have no
+      graph way. 4.79e flies d2's two flap edges with the shield worn and
+      reads r1104's take (6.11). R6 (d1's moved gems r1056 and r1099, not
+      collected) wasn't run: it wants a gem reader. The optional re-runs
+      (R3-L3-S1 from 5 or more fight starts, R4's times with 5 or more
+      checkpoints a side, the restore path); and the design's R3 attack
+      line amended to "attack picks at least 3x R4's".
+    - Round 3's (6.12): the realm's four fuel-spot proofs, as tick-only
+      marks that keep `db_digest` and unticked seeds as today (no d1 or d2
+      spot is a proven non-gem spot, so the tick moves no item yet; 1 of
+      the 4 spots is evidenced, and none of d2's can be walked back yet:
+      they wait for a machine-route driver for d2); loosening the
+      conservative kit in d1 and d2; the maps' settings-free tips.
     - Known flaws (D835): at L3 Spideyzar's attack starts are about 2x
       vanilla's (14.6 against 6.9 a minute), not 3x, as his approach and
       clips bound the rate; his sourceless hits aren't scaled (2.5-5.4 % of
       his damage); a player with the pack alone can drop into d2 without
       the kit (U6), d2's way back needing its six lens keys; with the tick
       on, the maps' tips still name the discs.
+54. **The rig decodes** (11-24, read-only, each checked by a skeptic: all
+    hold with changes): 262 undecoded rig owners on 8 levels fall in 8
+    groups. Routing in `triggers.py`: w1's airship (79, global latches
+    behind an AND), e6's mirrors (24, an xor behind a switch's goal) and
+    w1's statue (3, a max's index behind a goal and an AND). Transform
+    channels the engine sets: the airship thrusters' locators (8 on a5, a3,
+    the airship and w1), the water tubes (71: w3 42, f3 29) and d1's
+    Floor_handle (36). Feedback loops: d1's elevator (5) and a3's valve
+    switch (36). Their `triggers.py` rules matter only under `--rigs` (on
+    the bench they hold 38 witnesses out of logic: a5's 13 are the
+    thrusters'), so they are a round 3 lane, after 4.79b and before any
+    all-level run with `--rigs` (6.12).
+55. **The non-sweep assumed rows** (11-24's review of the 226 shipped
+    assumed rows that don't rest on the sweep class: 128 backed, 34 loose,
+    64 unknown):
+    - d1's floor 1 to floor 10 (`authoring/d1.toml`'s elevator row) asks
+      only the seal, so a seed can put death_keylock's battery behind
+      death_keylock: it gains `& button:d1.death_keylock` in 4.79d (it
+      loses nothing; D1329, 6.11).
+    - The other 33 loose rows join round 2's xemu sitting, each tightened
+      only where the game refuses it (D1333; 4.79e).
+    - The 64 unknown rows (31 with a stake: e2's water-1 walks around the
+      gear key lead) are xemu rows, or engine targets where they are a
+      walk, jump or flap pair at kit 0 or with air: later rounds'.
+    - 514 guessed rig rides overshoot their decoded travel: the derive
+      batch's rig-guess travel filter (6.12).
 
 ### Docs
 
@@ -835,12 +1162,19 @@ memory peaks stay strict. The gate writes both kinds of row to
       (4.11e).
     - The xemu selftest on CI's macOS legs has never run on a runner
       (4.14a2).
-11. **The private plan's other open rows:** P7(b) and "0 logic bugs" for
-    v1.1 (D522); R1.26b, Live on Windows and Linux (it needs those
-    machines); 4.9's external tools (after v1, D31) and Level Studio's
-    onboarding (D107); Q236 (ghidra-sync's variable renames) and Q77/V15
-    (Dependabot for `uv.lock`); V21 (the HDD cache) and V22 (a boot hang)
-    as unresolved facts.
+11. **The private plan's other open rows:** P7(b) for v1.1 (D522): its
+    hop list predates R1.24, the warp, seed difficulty and the realm, so it
+    is made again on today's golden plan and certified hop by hop, the
+    reach rounds' yardstick (6.9; multi-session). "0 logic bugs" (D522):
+    every item its list named is closed in the ledger (the 11-23 resume
+    read), so it is the orchestrator's tick in the plan; its forward part
+    is the soundness rounds. R1.26b, Live on Windows and Linux (it needs
+    those machines); 4.9's external tools (after v1, D31) and Level
+    Studio's onboarding (D107); Q236 (ghidra-sync's variable renames) and
+    Q77/V15 (Dependabot for `uv.lock`). V22 (a boot hang) is answered
+    (fixed in xemu v0.16.1) and V21 (the HDD cache) answered but for the
+    proof that the game hashes the files, kept inferred (D610): ticks in
+    the plan, no lane.
 12. ~~The suite lock's order~~ (D1222): fixed by Step 4.47a (gates and
     the window poll and take turns); `$EV/tools/window` took its .4.47a
     version, and `land --selftest` passed on `main` (11-14).
@@ -895,6 +1229,20 @@ memory peaks stay strict. The gate writes both kinds of row to
     run it alone); `waitfor`'s docstring and `land.py`'s usage line lag;
     and 4.70d's swap script's `--rollback` checks no process and verifies
     no sha.
+20. **4.75f's review nit N1:** `web/worker.mjs`'s comments at :57 and :91
+    and the test's name say WebKit's engine worker keeps no JS stack, but
+    Pyodide's `PythonError` raises `Error.stackTraceLimit` while it is
+    made, so a Python exception that reaches JS still walks the stack (no
+    crash report names that path): one clause in each comment. Its N2,
+    8.12's stale "try it only if a report names it again", is fixed by
+    Step 4.81a.
+21. **A reach model is keyed by zoning alone:** `devkit/reach/models.py`'s
+    `reach_path` keeps an old build when the model builder's code changes
+    and the zoning doesn't, which is how 4.13d1's copied plans came to
+    stand on older certificates (4.76b's root cause, 6.10). The fix: a hash
+    of the builder's sources (the derive's router and `draft/flights.py`)
+    in the key, as `router_key` holds `ROUTER_CODE`. A small lane before
+    round 3's model rebuilds; no CPU until a rebuild.
 
 ## 11. This Mac and infrastructure
 
@@ -951,6 +1299,42 @@ memory peaks stay strict. The gate writes both kinds of row to
     app, and no CI job runs on `macos-15-intel`. The lock's cryptography<49
     cap went with it in 4.70c (50.0.2; cleanup, D1299), closing its three
     Dependabot alerts.
+11. **The efficiency-core watcher** (`$EV/tools/ecores.py`, standing; the
+    owner's D1318, D1322, D1328, D1331, D1332 and D1334): run detached, it
+    puts every process naming our folders, and its descendants, at
+    background QoS (the efficiency cores) every 15 s, never the owner's
+    games, ModMG or the owner's own xemu. A gate's and a perf stage's
+    trees, and Playwright's browsers while one runs, keep normal QoS; the
+    bench class (reach benches and chains, L3 and xemu sittings, `devkit
+    rando derive|restack|impact|soak|author`) runs on the performance cores
+    at nice 20 at any time (D1332). A running game preempts nothing
+    (D1331) unless the owner asks, as for one Civilization 6 session
+    (D1334: research CPU work paused). Its lessons:
+    - Match a game by its executable path (`ps` comm), never the command
+      line: shells whose commands named the game read as a game and
+      starved three gates for 15 minutes.
+    - WebKit's WebContent, GPU and Networking services are launchd's
+      children, not the browser's, so only a match by executable reaches
+      them: before that fix they starved in every gate from 11-23 23:20
+      (S53's 3600 s timeout, S59's "bimodal" samples, 4.75d's perf block).
+    - Stop the loop only with `ecores.py stop` from an exempt shell
+      (`ECORES_EXEMPT`), never by killing its uv wrapper (that ends the
+      loop).
+    - Relaunch a detached driver by its full path and stop one by its
+      process tree: a relaunch by a relative path survived a kill that
+      matched full paths and wrote a bogus "ALL DONE".
+    - zsh doesn't split an unquoted `$VAR` (`kill $ALL` killed nothing):
+      write `${=ALL}`.
+    - L3's watchdog is wall-clock and inside the cache keys, so a starved
+      bench stage fails on the host's load, not the game, with no code fix:
+      hence the bench class's performance cores.
+12. **Kept at the 2026-11-24 wrap-up:** lanes 4.76b (pinned: its file bytes
+    key the user cache's `reach-engine/` records that 4.76c and the measure
+    seats read), 4.77b (the corpus, no commit) and 4.79d (A1, uncommitted)
+    with their branches; the L3 store's held `conformance-live/` (8.45 GB);
+    the watcher (11). Each lane goes when its work ends (6.10, 6.11,
+    6.13). The session's own scratch in `/tmp` (32 folders) is gone, and
+    `prune --session-end` found nothing to delete.
 
 ## 12. Owner decisions and standing asks
 
