@@ -30,7 +30,8 @@ What runs where (a pool worker with FastL3 once :func:`install` has run; each jo
   found (``aim.run_job``'s hold): its outcome is L3's after (``by`` "confirmed"); every other zone witness when the
   graph holds it (``graph.Graph.hold``), its answer the hold's, cached, carrying the re-derived fields (``outcome``)
   the graph's witness takes.  ``same`` in a confirm's answer: L3's string ends settled at the kernel's air rank or
-  under.  Every hold answer on this route names the movers its body path touches (:class:`Movers`, the mover-contact
+  under, with no Y pressed after L3's own first touch-down (the controllers flap only before theirs, so such a press
+  is a ground jump L3 took for a flap: its one-jump rank would undercount the shield's flaps).  Every hold answer on this route names the movers its body path touches (:class:`Movers`, the mover-contact
   router: ``route``).  A confirm runs on the worker's timed FastL3 (``reach_engine.worker.timed``): a step stopped
   for time raises, never an answer (AZ-813).
 
@@ -717,7 +718,8 @@ def confirm(sim, st: dict, heading: float, o: dict, touch=None, held: bool = Tru
     """Kernel outcome ``o`` of start ``st`` run on ``sim`` (FastL3) from the snapshot, then ``hold.HOLD`` idle ticks
     (the module docstring; none without ``held``): ``hold.replay``'s answer (where the body is then, ``same``, the
     ticks) with ``outcome`` the outcome re-derived from L3's rows (``runner.outcome``'s fields but its pads); a start
-    L3 doesn't stand (:func:`stood`) is ``fault`` "start" (no stay)."""
+    L3 doesn't stand (:func:`stood`) is ``fault`` "start" (no stay).  ``same`` holds only where no pad after L3's
+    first touch-down presses Y (the module docstring)."""
     pads, ticks = l3.pads(o["segments"]), runner.SETTLE_START
     yaw = st.get("yaw", heading)
     try:
@@ -735,6 +737,8 @@ def confirm(sim, st: dict, heading: float, o: dict, touch=None, held: bool = Tru
         took = next((i for i, r in enumerate(rows) if r.state in AIRBORNE), None)
         first = None if took is None else next((i for i in range(took, len(rows)) if rows[i].state not in AIRBORNE),
                                                None)
+        pressed = first is not None and any("y" in pads[i].buttons and "y" not in pads[i - 1].buttons
+                                            for i in range(first + 1, len(pads)))   # on the ground: a jump
         exited = any(r.exit is not None for r in rows)
         end = ("dead" if not alive else "exit" if exited else
                "settled" if first is not None and settled(last) else "unsettled")
@@ -748,7 +752,7 @@ def confirm(sim, st: dict, heading: float, o: dict, touch=None, held: bool = Tru
     except L3Error as exc:
         return {"fault": str(getattr(exc, "site", "other")), "ticks": ticks}
     got.pop("segments")
-    same = got["end"] == "settled" and min_rank(got) <= min_rank(o)
+    same = got["end"] == "settled" and not pressed and min_rank(got) <= min_rank(o)
     return {"land": list(runner._feet(row)), "state": row.state, "settled": settled(row), "same": same,
             "ticks": ticks, "outcome": got, **({"route": movers().route(path)} if held and "level" in _SPEC else {})}
 

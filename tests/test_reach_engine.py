@@ -1522,6 +1522,26 @@ def test_a_confirm_at_a_lower_fastl3_rank_keeps_the_kernels_rank():
     assert list(g.edges[("n1", "n2")]) == [2]
 
 
+def test_a_confirm_whose_flap_press_falls_after_fastl3s_first_landing_is_not_the_same_launch():
+    """AZ-852 (the reach audit's D3, its fix): the kernel's controllers press Y only before their first touch-down,
+    so where FastL3 lands first, the kernel's later flap press is a ground jump on FastL3, whose one-jump rank then
+    undercounts the shield's flaps: a confirm with a Y press after FastL3's own first touch-down is not the same
+    launch, however low its rank; one whose presses all fall in the air still is."""
+    from devkit.reach.native import backend
+    east = -math.pi / 2
+
+    def seg(n, y=False, stick=(0.0, 1.0)):
+        return {"n": n, "stick": list(stick), **({"buttons": ["y"]} if y else {}), "yaw": east}
+    got = {}
+    for late in (6, 60):            # the second flap press 6 ticks after the first (in the air) or 60 (landed)
+        segs = [seg(3), seg(1, True), seg(5), seg(1, True), seg(late), seg(1, True), seg(60, stick=(0.0, 0.0))]
+        o = {"macro": "runjump-l0-air3-f2", "kit": "air3", "flaps_planned": 2, "flaps": 2, "segments": segs}
+        got[late] = backend.confirm(_Sim([(-8, 0, 60, 4, 0.0)]), {"feet": [0.0, 2.0, 0.0], "cell": 0}, east, o,
+                                    held=False)
+    assert [(got[k]["outcome"]["end"], got[k]["outcome"]["flaps"]) for k in (6, 60)] == [("settled", 2), ("settled", 1)]
+    assert (got[6]["same"], got[60]["same"]) == (True, False)
+
+
 def test_a_confirm_that_holds_in_another_zone_is_credited_to_that_pair():
     """AZ-840 (the reach audit's lost finds): a kernel candidate is filed under the kernel's landing zone, and
     FastL3's run of its string may hold the body in a third zone: that confirm now fills that zone pair's rank where
