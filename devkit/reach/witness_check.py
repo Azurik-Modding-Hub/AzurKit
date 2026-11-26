@@ -25,7 +25,8 @@ every popup seen, the player ticks run to the engine snapshot's event clock, an 
   (``runner.find_start``'s ``cam``); xemu replays that whole run tick for tick with L3's writes and camera.
   ``--start placed`` is R2.16e's arm: the sitting's R6 and the game's own settle, R2, an L3 snapshot there, and from
   it a kit tick, the cast, the string and the hold.
-- **a pass is all of:** the start stands (at the settle's end the body is in state 0 within ``runner.START_XY``
+- **a pass is all of:** the start stands (at the settle's end the body stands, in state 0 or at rest on near-flat
+  ice in the slide state, ``obs.settled``'s rule (AZ-737, Step 4.78e: a5.Z051's floor), within ``runner.START_XY``
   across and ``START_Z`` up or down of the start's feet, and in the from-zone where the record's own start is), alive
   throughout (HP over 0, never state 7), in the to-zone at the string's last tick, settled there :data:`HOLD` ticks on
   (``hold.stays``' rule) and no level load before then.  Zones, never metres or tick equality: the xemu-to-L3
@@ -84,7 +85,7 @@ from azurkit.tools.randomizer.live import recipes
 from devkit.reach.engine import cache, hold
 from devkit.reach.engine.macros import KITS, SWIMMING, settled
 from devkit.reach.engine.runner import SETTLE_START, START_XY, START_Z
-from devkit.sim import l3
+from devkit.sim import l3, obs
 from devkit.sim.l3 import L3Error, Pad
 from devkit.sim.l3_search import CAST_WAIT
 
@@ -134,15 +135,19 @@ def _settled(r) -> bool:
 
 
 def stands(row, feet, zone_at, frm: str | None) -> dict:
-    """Whether the start stands at ``row`` (the settle's end; None: the run never got there): state 0 within
-    ``START_XY`` across and ``START_Z`` up or down of the start's ``feet`` and, with ``frm``, in that zone."""
+    """Whether the start stands at ``row`` (the settle's end; None: the run never got there): standing (state 0,
+    or at rest on near-flat ice in the slide state: :func:`_settled`, which reads the row's observation; swimming
+    is no stand) within ``START_XY`` across and ``START_Z`` up or down of the start's ``feet`` and, with ``frm``, in
+    that zone.  On a flat slippery floor a still body cycles 0, 3, 3 or stays in state 3 (AZ-737): a5.Z051's start
+    read 3 after the game's settle where the engine's L3 had read 0 (4.78b's 5 false STARTs)."""
     if row is None:
         return {"stands": None}
     pos, state, _ = _fields(row)
     g = _feet(pos)
     xy, dz = math.hypot(g[0] - feet[0], g[1] - feet[1]), abs(g[2] - feet[2])
     inside = None if frm is None else zone_at(g, state == SWIMMING, False) == frm
-    return {"stands": state == 0 and xy <= START_XY and dz <= START_Z and inside is not False,
+    return {"stands": state != SWIMMING and _settled(row) and xy <= START_XY and dz <= START_Z
+            and inside is not False,
             "start_xy_m": round(xy, 3), "start_z_m": round(dz, 3), "start_state": state, "start_in_from": inside}
 
 
@@ -568,6 +573,10 @@ class Sources:
     def sim(self, sn, xbe: bytes):
         return l3.L3(sn, xbe)
 
+    def start_obs(self, sim) -> obs.Obs:
+        """The player's observation as ``sim``'s snapshot holds it (before any step): the placed start's."""
+        return obs.read(sim.read, sim.entity, deep=False)
+
     def held(self, folder: Path) -> bool:
         """Whether ``devkit sim l3-hold --check`` holds a snapshot at or under ``folder``."""
         from devkit.sim import l3_hold
@@ -728,7 +737,7 @@ class Check:
         cast = [Pad(buttons=frozenset({"lt", "y"}))] + [Pad()] * CAST_WAIT if kit.get("air") else []
         string = l3.pads(o["segments"])
         g.restore(f"arrive-{level}")
-        t1, placed = time.monotonic(), None
+        t1, placed, start_at = time.monotonic(), None, None
         if self.start == "recipe":
             meta = self.arrived[level]["meta"]
             pads, rows, settle, end, fault = recipe(self.arrived[level]["sim"], st, yaw, kit, cast, string, idle)
@@ -740,8 +749,10 @@ class Check:
             path = g.snapshot(self._label(level, "placed"), self.folder)
             try:
                 sn = self.src.snapshot(path)
+                sim = self.src.sim(sn, self.xbe)
                 meta, pads = sn.meta, [Pad()] + cast + string + [Pad()] * HOLD
-                rows, fault = _steps(self.src.sim(sn, self.xbe), pads)
+                start_at = meta | {"obs": self.src.start_obs(sim)}   # its normal and velocity: at rest on ice?
+                rows, fault = _steps(sim, pads)
                 settle, end = None, 1 + len(cast) + len(string)
             finally:
                 path.unlink(missing_ok=True)
@@ -753,7 +764,7 @@ class Check:
         if self.corpus and rows:
             g.corpus(meta, pads[:len(rows)], rows, got, self.corpus)
         frm = r["from"] if zone_at(tuple(st["settled"]), False, False) == r["from"] else None
-        at = meta if settle is None else got[settle] if len(got) > settle else None
+        at = start_at if settle is None else got[settle] if len(got) > settle else None
         start = stands(at, st["feet"], zone_at, frm)
         ans = self.src.hold(level, rec, r["outcome"])
         held_land = ans.get("land") if ans else None

@@ -379,8 +379,10 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
   camera on every tick no pad sets), then the string and 60 idle ticks,
   and xemu replays all of it tick for tick; `--start placed` is R2.16e's
   (the sitting's R6 and the game's settle, a snapshot after them). A pass:
-  the start stands (state 0, within 0.75 m across and 0.6 m in height of
-  its feet, in its from-zone), alive throughout, in the to-zone at the
+  the start stands (standing: state 0, or at rest on near-flat ice in the
+  slide state, `obs.settled`'s rule, the placed arm reading its snapshot's
+  observation; within 0.75 m across and 0.6 m in height of its feet, in
+  its from-zone), alive throughout, in the to-zone at the
   string's end and settled there 60 ticks on, no level load. Verdicts:
   PASS, START (a false find), FRAGILE (L3 misses from the game's start
   too), WORLD (L3 holds, the game doesn't: hit, a load, another path; tried

@@ -2305,7 +2305,8 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
     src = SimpleNamespace(zone_at=lambda level: zone, record=lambda level, job: recs[job],
                           hold=lambda level, rec, k: None, engine_meta=lambda snap: {"clock": 10.0},
                           snapshot=lambda path: SimpleNamespace(meta=game.metas[path]),
-                          sim=lambda sn, xbe: sims.append(Sim(sn.meta)) or sims[-1], held=lambda folder: False)
+                          sim=lambda sn, xbe: sims.append(Sim(sn.meta)) or sims[-1], held=lambda folder: False,
+                          start_obs=lambda sim: None)
 
     def check(start, *script, keep=names, corpus=None):
         game.script = list(script)
@@ -2409,4 +2410,60 @@ def test_the_recipe_starts_arrival_snapshot_is_the_scene_entry_on_the_engine_sna
     assert (row["snapshot_ticks_past"], row["clock"]["ticks_past"], game.metas) == (None, 0.0, {})
     with pytest.raises(SystemExit, match="1.0 ticks past the engine snapshot's clock"):
         arrive("recipe", Game(first=10.0 - 1 / 30))   # its first tick already reads the engine's clock
+
+
+def test_a_witness_check_start_at_rest_in_the_slide_state_on_flat_ice_stands_and_a_sliding_swimming_or_far_one_not(
+        tmp_path):
+    """Step 4.78e (4.78b's 5 a5 START rows): on a flat slippery floor a still body cycles 0, 3, 3 or stays in the
+    slide state (AZ-737), so a5.Z051's start read state 3 after the game's settle, 0.0 m off, where the engine's L3
+    read 0 and xemu and L3 both reached and held.  The start stands by ``obs.settled``'s rule (state 3 with a contact
+    normal at least 0.998 up and under 0.05 m/s across), the placed arm reading that observation from its own
+    snapshot; a body in state 3 sliding, on a steep face or with no observation, swimming, airborne or off its feet
+    (the false start e6a1e7e6a973: state 2, 3.179 m across, 1.421 m up) doesn't stand."""
+    from types import SimpleNamespace
+
+    from devkit.reach import witness_check as wc
+
+    def zone(feet, swim, _):
+        return "Z1" if feet[1] >= 5 else "Z0"
+
+    def ob(state, nz=1.0, v=0.0):
+        return obs.Obs((0.0, 0.0, 1.0), (v, 0.0, 0.0), state, 100, 200, 0, normal=(0.0, math.sqrt(1 - nz * nz), nz))
+
+    def row(state, xy=0.0, dz=0.0, seen=True, **kw):
+        return {"pos": (xy, 0.0, 1.0 + dz), "state": state, "hp": 100, "obs": ob(state, **kw) if seen else None}
+
+    table = [(row(0), True), (row(3), True), (row(3, v=0.6), False), (row(3, nz=0.7), False),
+             (row(3, seen=False), False), (row(6), False), (row(2, xy=3.179, dz=1.421), False),
+             (row(0, xy=0.8), False), (row(0, dz=0.7), False)]
+    assert [wc.stands(r, (0.0, 0.0, 0.0), zone, "Z0")["stands"] for r, _ in table] == [w for _, w in table]
+
+    class Sim:   # L3 from the placed snapshot: the body held at its start in the slide state
+        def step(self, pad=l3.Pad(), *, writes=()):
+            return l3.Row(0, (0.0, 0.0, 1.0), 3, 100, None, (), None, obs=ob(3))
+
+    class Game:
+        def snapshot(self, label, store, scene=False):
+            p = Path(store) / f"{label}.l3snap"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(b"")
+            return p
+
+        def replay(self, pads, rows, meta):
+            return [{"pos": r.pos, "state": r.state, "hp": r.hp, "obs": r.obs} for r in rows], {"at": "entry"}
+
+        place = lambda self, feet, yaw, cell: {"settled": True, "off_m": 0.003}   # noqa: E731
+        restore = idle = kit = lambda self, *a: None
+
+    st = {"feet": [0.0, 0.0, 0.0], "cell": 3, "settled": [0.0, 0.0, 0.0]}
+    rec = {"heading": 0.0, "starts": {"s": st}, "outcomes": [{"start": "s", "kit": "air3", "macro": "m",
+                                                               "segments": [{"n": 10, "stick": [0.0, 1.0],
+                                                                             "cam": [0.0, 1.0]}]}]}
+    meta = {"pos": [0.0, 0.0, 1.0], "state": 3, "hp": 100}
+    for v, want in ((0.0, "FRAGILE"), (0.6, "START")):   # it stands (its string, held in place, misses Z1) or not
+        src = SimpleNamespace(snapshot=lambda path: SimpleNamespace(meta=meta), sim=lambda sn, xbe: Sim(),
+                              start_obs=lambda sim, v=v: ob(3, v=v), hold=lambda level, rec, k: None)
+        chk = wc.Check(Game(), src, ev=tmp_path, name="t", folder=tmp_path / "t", start="placed")
+        got = chk.once("t", {"from": "Z0", "to": "Z1", "outcome": 0, "wait": 0}, rec, rec["outcomes"][0], st, 0, zone)
+        assert (got["verdict"], got["public"]["start_state"], got["public"]["start_xy_m"]) == (want, 3, 0.0)
 
