@@ -1480,11 +1480,6 @@ CONTAINED = {
     "keylord": (7, None, None),                                                 # the keylords' fields: their keys
     "obsidian_lock": (10, ("town/g1/r40", "key_obsidian1"), None),              # the temple's vaults: kept, 1.05
 }
-# The touch (R = Z) a kind's blocks and regions hold in for an item held more than once, which keeps its own touch:
-# the investigation's body-centre model held every ice block to 1.8 m, the acid blocks to 1.8 to 2.2 and the gates'
-# regions to 3.025 (a3's valve) and up, and a sitting saw all_fuel, power_earth and power_air held in w2's and f1's
-# blocks with no touch written (Step 4.3 contained items)
-HELD = {"acidblock": 1.8, "iceblock": 1.8, "gate": 3.025}
 
 
 def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it_waits_for_the_container_to_open():
@@ -1496,10 +1491,10 @@ def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it
     (:data:`CONTAINED`), when the image holds it once, is written the
     vanilla item's collision there, and its touch in the built config.xbr
     lies inside that item's; one it holds more than once keeps its own,
-    inside its kind's hold (:data:`HELD`). Seed 451767 under the owner's
-    share puts frag_air_3 in w2's IceBlock_01 and seed 4 a fragment in
-    IceBlock_02: every contained spot of both holds so, frag_air_3 with
-    the obsidian's collision."""
+    inside its kind's hold (``fill.HOLDS``). Seed 451767 under the owner's
+    share puts frag_air_3 in w2's IceBlock_01 and seed 2 all_fuel in
+    IceBlock_02 (an obsidian until the fill kept it out): every contained
+    spot of both holds so, frag_air_3 with the obsidian's collision."""
     from azurkit.core.xbr import Document
     from azurkit.tools import data
 
@@ -1507,13 +1502,6 @@ def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it
     db, config, slots = lg.db, data.vanilla(), fill._Slots(lg)
     vanilla, budget, locs = Document(config).tables["critters_engine"], fill._Budget(slots.names), slots.names.locations
     copies = collections.Counter(loc["template"] for loc in locs.values())
-
-    def kind(gid: str) -> str:
-        gate = next((g for doc in db.derived.values() for g in doc["gates"] if g["id"] == gid), {})
-        for bound in gate.get("bound_to") or ():
-            what, _, oid = bound.partition(":")
-            return db.generated_objects[oid][2]["kind"] if what == "barrier" else what
-        return "gate"
 
     def built(placement: dict):   # the built image's critters_engine: the plan's touches over the vanilla file
         out = bytearray(config)
@@ -1526,10 +1514,9 @@ def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it
         species = slots.names.target(loc, placement[loc]) or locs[loc]["template"]
         got, was = generator.touch(engine, species), generator.touch(vanilla, locs[loc]["template"])
         return generator.inside(got, was) or (copies[species] > 1 and got == generator.touch(vanilla, species) and all(
-            generator.inside(got, (HELD.get(k, 0.0),) * 2) for k in enclosed[loc]))
+            generator.inside(got, (fill.HOLDS.get(k, 0.0),) * 2) for k in enclosed[loc]))
 
-    enclosed = {loc["id"]: {kind(gid) for gid in loc["enclosed_by"]} for doc in db.derived.values()
-                for loc in doc["locations"] if loc.get("enclosed_by")}
+    enclosed = fill.contained_kinds(db)
     count, once, shared = collections.Counter(), {}, {}
     for loc, kinds in sorted(enclosed.items()):
         count.update(kinds)
@@ -1551,7 +1538,7 @@ def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it
         placement = dict(slots.vanilla) | ({vanilla_spot[item]: slots.vanilla[loc]} if item in vanilla_spot else {})
         placement[loc] = item
         assert holds(built(placement), placement, loc), (loc, item)
-    for recipe in ({"seed": "451767", "share": "AZR-AAIA"}, {"seed": "4"}):
+    for recipe in ({"seed": "451767", "share": "AZR-AAIA"}, {"seed": "2"}):
         placement = sdk.plan(recipe)["placement"]
         engine = built(placement)
         assert [loc for loc in sorted(enclosed) if not holds(engine, placement, loc)] == [], recipe
@@ -1560,6 +1547,40 @@ def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it
             obsidian = generator._cells(vanilla, "obsidian")
             assert (placement["w2/g0/r1359"], cr * scale, aspect) == pytest.approx(
                 ("frag_air_3", obsidian[0] * obsidian[1], obsidian[2]))
+        else:
+            assert placement["w2/g0/r1351"] == "all_fuel"
+
+
+def test_the_fill_keeps_an_item_held_more_than_once_out_of_a_container_whose_hold_its_touch_exceeds():
+    """AZ-834's class (seed 2 put an obsidian, R 1.45 m and Z 1.9 m, in w2's
+    IceBlock_02, whose hold is 1.8 m, where its vanilla frag_water_1 touches
+    at 1.8 m: taken through the ice): an item the image holds more than once
+    keeps its own touch in the built image (``generator.contained``), so
+    every one the fill may put on a contained spot touches, by the image's
+    own config.xbr, inside the vanilla item's touch there or inside each of
+    its containers' holds (``fill.HOLDS``); items.toml's touches, which the
+    fill reads, are the image's."""
+    from azurkit.core.xbr import Document
+    from azurkit.tools import data
+
+    lg = kept_logic()
+    slots, engine = fill._Slots(lg), Document(data.vanilla()).tables["critters_engine"]
+    budget, locs = fill._Budget(slots.names), slots.names.locations
+    assert {it["name"]: tuple(it["touch"]) for it in lg.db.items["item"]} == {
+        it["name"]: generator.touch(engine, it["name"]) for it in lg.db.items["item"]}
+    copies, over = collections.Counter(loc["item"] for loc in locs.values()), []
+    for loc, kinds in sorted(fill.contained_kinds(lg.db).items()):
+        if loc not in slots.kind or loc in slots.prefilled or loc in writer.OWN_ROW:
+            continue
+        for item in sorted({slots.vanilla[x] for x in slots.pool
+                            if slots.kind[x] == slots.kind[loc] and x not in slots.prefilled}):
+            if (name := slots.names.written(loc, item)) is None or copies[item] == 1 or not slots.ok(loc, item, budget):
+                continue
+            own, was = generator.touch(engine, name), generator.touch(engine, locs[loc]["template"])
+            if not (fill.inside(own, was) or all(fill.inside(own, (fill.HOLDS.get(k, 0.0),) * 2) for k in kinds)):
+                over.append((loc, item))
+    assert (over, slots.ok("w2/g0/r1351", "obsidian", budget), slots.ok("w2/g0/r1359", "obsidian", budget)) == (
+        [], False, True)
 
 
 _PLAN_UNDER_PYODIDE = """

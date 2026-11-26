@@ -28,6 +28,7 @@ import collections
 import gzip
 import hashlib
 import json
+import math
 import pickle
 import re
 import time
@@ -126,7 +127,8 @@ SPECS: dict[str, dict] = {
                    "from": (str, O), "to": (str, O), "gates": (STRS, O), "tiers": (STRS, O), "note": (str, O),
                    "batch": (str, O), "batch_name": (str, O)},
     "items": {"format": (str, R), "counters": (dict, R), "item": (TABLES, R)},
-    "items.item": {"name": (str, R), "base": (str, O), "counters": (dict, R), "class": (ITEM_CLASSES, R)},
+    "items.item": {"name": (str, R), "base": (str, O), "counters": (dict, R), "class": (ITEM_CLASSES, R),
+                   "touch": (list, O)},
     "world": {"format": (str, R), "start": (str, R), "hub": (str, R), "victory": (str, R),
               "starting_items": (STRS, R), "trick": (TABLES, R), "time_saver": (TABLES, O), "mechanism": (TABLES, O)},
     "world.trick": {"name": (str, R), "description": (str, R)},
@@ -1524,6 +1526,9 @@ class _Checker:
             for c, n in it["counters"].items():
                 if not (c in COUNTERS or re.fullmatch(r"key\.[a-z0-9_]+", c)) or not _is(int, n) or n < 1:
                     self.issue("unknown_counter", f"{iw}.counters", f"{c} = {n!r}")
+            if "touch" in it and not (len(it["touch"]) == 2 and all(
+                    isinstance(v, (int, float)) and not isinstance(v, bool) and 0 < v < math.inf for v in it["touch"])):
+                self.issue("bad_touch", f"{iw}.touch", "not [R, Z], two positive finite numbers (m)")
 
     # ---- the summary -----------------------------------------------------------------------------------------------
     def summary(self) -> dict:

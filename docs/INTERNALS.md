@@ -824,7 +824,8 @@ are the Characters section's.
   pickup reaches further than the vanilla item's there takes that item's
   `collisionRadius` and `collisionAspectRatio` in config.xbr, so it is
   taken only once the container opens; one held more than once keeps its
-  own), and one a row for an own row (`own_rows`, AZ-835: `writer.OWN_ROW`'s
+  own, and the fill puts it in no container whose hold, `fill.HOLDS`, its
+  touch exceeds), and one a row for an own row (`own_rows`, AZ-835: `writer.OWN_ROW`'s
   spot, a1's frag_air_1, names a spare pickup row made its item with the
   vanilla item's reach; the fill counts the plan's name, so no plan moves).
   `edits.manifest.image`'s `judge` reads the image back against the

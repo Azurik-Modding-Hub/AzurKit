@@ -59,6 +59,7 @@ from azurkit.core.progress import note
 from azurkit.core.xbr import Document, edits, nodes
 from azurkit.edits.layer import Change, Conflict, Layer
 from azurkit.tools.randomizer import EMPTY_SEED, layer, physics, writer
+from azurkit.tools.randomizer.planner.fill import inside
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import settings_from_table, share_decode, share_encode
 
@@ -295,14 +296,6 @@ def _reach(engine, was: str, species: str) -> dict[str, float]:
     return cells
 
 
-def inside(placed: tuple[float, float], vanilla: tuple[float, float]) -> bool:
-    """Whether the :func:`touch` ``placed`` lies inside ``vanilla``, both
-    resting on one floor (so both ellipsoids' bottoms meet, 1 m under it):
-    Z <= Zv and R^2 / Z <= Rv^2 / Zv."""
-    (r, z), (rv, zv) = placed, vanilla
-    return z <= zv and r * r * zv <= rv * rv * z
-
-
 def contained(placement: Mapping[str, str], db, config: bytes) -> list[tuple[str, list[tuple[int, bytes]]]]:
     """The touches a plan's ``placement`` writes into the vanilla
     ``config`` (config.xbr's bytes), each species' ``(its name, its
@@ -316,7 +309,8 @@ def contained(placement: Mapping[str, str], db, config: bytes) -> list[tuple[str
     at the placed species' own scale; its model unchanged): it touches,
     collides and rests as that item did, so it is taken only once the
     container opens, for any body. A species held more than once keeps its
-    own, so it looks and plays the same everywhere."""
+    own, so it looks and plays the same everywhere, and the fill puts it
+    in no container whose hold that touch exceeds (``fill.HOLDS``)."""
     names = writer.Names(db)
     held = {lid: (names.written(lid, placement[lid]) if lid in placement else None) or loc["template"]
             for lid, loc in names.locations.items()}

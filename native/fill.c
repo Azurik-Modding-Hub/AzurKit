@@ -25,7 +25,7 @@ i64 az_reach(const i64 *t, const i64 *call, i64 *counters, i64 *held, u64 *flags
 i64 az_reach_need(const i64 *t, i64 *ints);
 
 #define FILL_MAGIC 0x314c4c49464bLL   /* "KFILL1" */
-#define FILL_VERSION 3
+#define FILL_VERSION 4
 #define MAX_REPAIRS 8                 /* fill.MAX_REPAIRS */
 #define WEIGHT 3                      /* fill.USEFUL_MAJOR_WEIGHT */
 #define DETOUR_CAP 6                  /* difficulty.DETOUR_CAP */
@@ -36,10 +36,11 @@ enum { H_N = 2, H_F = 3, H_L = 4, H_C = 5, H_I = 6, H_ITEMS = 11, H_DISC = 12 };
 /* The fill's blob: its header's words (each offset a word of the blob). */
 enum { F_MAGIC, F_VERSION, F_L, F_I, F_NAMES, F_GRAPHS, F_START, F_LOCS, F_ITEMS, F_MOVE, F_GRAPH, F_HAVE, F_ONLY,
        F_PROG, F_USEFUL, F_COUNTED, F_GROUPS, F_NONGEM, F_KNOWN_FULL, F_KNOWN_NAME, F_STUB, F_GUARD, F_FULL, F_GIVES,
-       F_MAXGROUP, F_HEAD };
+       F_MAXGROUP, F_TIGHT, F_HEAD };
 /* A location's row, and its flags */
 enum { L_FLAGS, L_VANILLA, L_KIND, L_GRAPH, L_NODE, L_LEVEL, L_FIRST, L_ITEMNAME, L_TEMPLATE, L_DETOUR, L_W };
-enum { LF_POOL = 1, LF_EXCL = 2, LF_VAULT = 4, LF_MAJOR = 8, LF_PROVEN = 16, LF_OPEN = 32, LF_ONLY = 64 };
+enum { LF_POOL = 1, LF_EXCL = 2, LF_VAULT = 4, LF_MAJOR = 8, LF_PROVEN = 16, LF_OPEN = 32, LF_ONLY = 64,
+       LF_TIGHT = 128 };
 /* An item's row, its classes and flags */
 enum { I_CLASS, I_BASE, I_FLAGS, I_START, I_COST, I_W };
 enum { CL_PROG, CL_COUNTED, CL_USEFUL, CL_FILLER, CL_OTHER };
@@ -184,6 +185,15 @@ static int holds(const S *s, i64 loc, i64 item) {
     return 0;
 }
 
+/* _Slots.held_in: the spot's containers hold the item in (AZ-834's class: no item its F_TIGHT list names) */
+static int held_in(const S *s, i64 loc, i64 item) {
+    if (!(loc_row(s, loc)[L_FLAGS] & LF_TIGHT)) return 1;
+    const i64 *off = s->f + s->f[F_TIGHT];
+    for (i64 j = off[loc]; j < off[loc + 1]; j++)
+        if (s->f[j] == item) return 0;
+    return 1;
+}
+
 /* writer.Names.target: the name the spot is repointed to for the item, -1 for none (name ids below I are the items') */
 static i64 target(const S *s, i64 loc, i64 item) {
     const i64 *row = loc_row(s, loc);
@@ -216,6 +226,7 @@ static int ok(const S *s, i64 loc, i64 item) {
     const i64 *row = loc_row(s, loc), *ir = item_row(s, item);
     if ((ir[I_CLASS] == CL_PROG || ir[I_CLASS] == CL_COUNTED) && (row[L_FLAGS] & LF_EXCL)) return 0;
     if (ir[I_CLASS] == CL_PROG && !holds(s, loc, item)) return 0;
+    if (!held_in(s, loc, item)) return 0;
     if ((row[L_FLAGS] & LF_VAULT) && !(ir[I_FLAGS] & IF_VAULT) && item != row[L_VANILLA]) return 0;
     return fits(s, loc, item);
 }
@@ -393,7 +404,7 @@ static i64 trade(S *s, i64 item, const R *r, int *done) {
     shuffle(&s->rng, s->cand, n);
     for (i64 j = 0; j < n; j++) {
         i64 loc = s->cand[j], other = snap[loc], read = (item_row(s, other)[I_FLAGS] & IF_READ) != 0, m;
-        if (!holds(s, loc, item)) continue;
+        if (!holds(s, loc, item) || !held_in(s, loc, item)) continue;
         s->assumed[other] += read;
         if ((rc = areach(s, loc, item, &s->r[1]))) return rc;
         s->assumed[other] -= read;
@@ -671,7 +682,8 @@ static i64 repairs(S *s, const i64 *prog, const R *r) {
     for (i64 i = 0; i < nouts; i++)
         for (i64 j = 0; j < nins; j++) {
             i64 a = s->outs[i], b = s->ins[j];
-            if (a != b && holds(s, b, prog[a]) && (prog[b] < 0 || holds(s, a, prog[b]))) {
+            if (a != b && holds(s, b, prog[a]) && held_in(s, b, prog[a])
+                && (prog[b] < 0 || (holds(s, a, prog[b]) && held_in(s, a, prog[b])))) {
                 s->pairs[2 * s->npairs] = a, s->pairs[2 * s->npairs + 1] = b;
                 if (s->keyed) s->pkey[3 * s->npairs] = s->missed[j], s->pkey[3 * s->npairs + 1] = has(s->bare, b),
                               s->pkey[3 * s->npairs + 2] = s->rank[b] + capped(s, b);

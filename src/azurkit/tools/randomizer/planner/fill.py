@@ -54,7 +54,10 @@ The passes, each drawing from its own named stream:
 Every pass keeps each node graph's new strings within its budget, the
 writer's own numbers (:class:`~azurkit.tools.randomizer.writer.Names`,
 :func:`~azurkit.tools.randomizer.writer.string_cost`), and the result passes
-the writer's :func:`~azurkit.tools.randomizer.writer.layout`. An attempt that
+the writer's :func:`~azurkit.tools.randomizer.writer.layout`. Every pass also
+keeps an item the image holds more than once, whose own touch the writer keeps,
+off a spot whose containers don't hold that touch in (:attr:`_Slots.tight`,
+AZ-834's class: an obsidian in w2's IceBlock_02 was taken through it). An attempt that
 gets stuck or fails the verify (its repairs too) is retried with the next
 attempt's streams, up to 20 attempts, then 20 more whose repair may go past a
 kept way out (:func:`attempt_count`, :func:`goes_past`); then :class:`FillError` names the progression items
@@ -143,9 +146,9 @@ from azurkit.tools.randomizer.planner.settings import (
     skips_on,
 )
 from azurkit.tools.randomizer.planner.solver import Logic, Reach, trick_free
-from azurkit.tools.randomizer.writer import Names, graph_of, layout, string_cost
+from azurkit.tools.randomizer.writer import OWN_ROW, Names, graph_of, layout, string_cost
 
-GENERATOR = "azurik-rando-fill/4"     # the fill's version: bumped when the same inputs give another placement
+GENERATOR = "azurik-rando-fill/5"     # the fill's version: bumped when the same inputs give another placement
 #                                       (/2, Step R1.12: the trap gate; /3, Step R1.8m: own spots, trades, repairs;
 #                                       /4, Step R1.37: no progression or obsidian on an unsaved spot, AZ-467)
 MAX_ATTEMPTS = 20
@@ -177,6 +180,11 @@ BESIDE: Callable[[int, Callable[[], None]], Beside] | None = None
 worker, the command line, the tests' own process): one at a time."""
 MAX_REPAIRS = 8                       # the trap gate's repairs in one attempt (Step R1.8m)
 VAULT_ITEMS = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # Q290: the items a closed field blocks
+# The touch (R = Z, m) each kind of container (contained_kinds) holds in for an item held more than once, which keeps its
+# own touch (generator.contained, AZ-834): the investigation's body-centre model held every ice block to 1.8 m, the acid
+# blocks to 1.8 to 2.2 and the gates' regions to 3.025 (a3's valve) and up, and a sitting saw all_fuel, power_earth and
+# power_air held in w2's and f1's blocks with no touch written (Step 4.3's contained items); a kind not named holds none
+HOLDS = {"acidblock": 1.8, "iceblock": 1.8, "gate": 3.025}
 USEFUL_MAJOR_WEIGHT = 3               # plan §3.3: useful items lean toward major spots, 3 to 1
 _DIGEST_DROP = frozenset({"_meta", "note", "description",   # RANDOMIZER_DB §9: no comments, display names or hints
                           "gate_hint", "do_save", "teleport_gate", "enabled_by", "update", "input"})
@@ -264,8 +272,9 @@ _DB_DIGEST: list = [None]   # the last database's digest: (a weak ref to it, the
 
 def db_digest(db) -> str:
     """Plan §3.5: the sha256 of the canonical database: what the solver and
-    the fill read (the generated and level files, items, world and each
-    location's node), without ``_meta``, notes, descriptions, hints or the
+    the fill read (the generated and level files, items, world, each
+    location's node and each contained location's kinds of container,
+    :func:`contained_kinds`), without ``_meta``, notes, descriptions, hints or the
     display name of anything that has an id. TOML comments never load.
     Worked out once a database (read-only, as ``kept_logic`` serves it):
     each plan and each plan's first tracker view asks it."""
@@ -274,7 +283,8 @@ def db_digest(db) -> str:
         return kept[1]
     digest = hashlib.sha256(canonical(_strip({
         "format": VERSION, "generated": db.generated, "levels": db.levels, "items": db.items,
-        "world": db.world, "node_of": db.node_of}))).hexdigest()
+        "world": db.world, "node_of": db.node_of,
+        "enclosed": {loc: sorted(kinds) for loc, kinds in contained_kinds(db).items()}}))).hexdigest()
     _DB_DIGEST[0] = (weakref.ref(db), digest)
     return digest
 
@@ -395,6 +405,31 @@ def excluded_locations(logic: Logic) -> frozenset[str]:
         or loc in unsaved))
 
 
+def inside(placed: tuple[float, float], vanilla: tuple[float, float]) -> bool:
+    """Whether the touch ``placed`` (``(R, Z)``, ``generator.touch``) lies
+    inside ``vanilla``, both resting on one floor (so both ellipsoids'
+    bottoms meet, 1 m under it): Z <= Zv and R^2 / Z <= Rv^2 / Zv."""
+    (r, z), (rv, zv) = placed, vanilla
+    return z <= zv and r * r * zv <= rv * rv * z
+
+
+def contained_kinds(db) -> dict[str, frozenset[str]]:
+    """Each location a container encloses (derived ``enclosed_by``) -> its
+    containers' kinds: what each one's gate is bound to first (a barrier's
+    own kind, an ``iceblock`` or ``acidblock``; else a ``geode``,
+    ``keylord`` or ``obsidian_lock``), else ``gate`` (a gate's region, a
+    door)."""
+    gates = {g["id"]: g for doc in db.derived.values() for g in doc.get("gates", ())}
+
+    def kind(gid: str) -> str:
+        for bound in gates.get(gid, {}).get("bound_to") or ():
+            what, _, oid = bound.partition(":")
+            return db.generated_objects[oid][2]["kind"] if what == "barrier" else what
+        return "gate"
+    return {loc["id"]: frozenset(kind(gid) for gid in loc["enclosed_by"]) for doc in db.derived.values()
+            for loc in doc.get("locations", ()) if loc.get("enclosed_by")}
+
+
 class _Slots:
     """The fill's facts about a database's authored pool under one set of
     options (the database's defaults when None), read once."""
@@ -422,6 +457,29 @@ class _Slots:
         self.kind = {loc: ("cluster", locs[loc]["yield"]) if locs[loc]["class"] == "cluster"
                      else locs[loc]["class"] if locs[loc]["class"] == "gem" else "nongem" for loc in self.pool}
         self.major = frozenset(loc for loc in self.pool if locs[loc]["class"] == "major")
+        # AZ-834's class: the writer keeps the own touch of an item the image holds more than once
+        # (generator.contained), so a spot a container encloses takes none whose touch neither its vanilla item's there
+        # nor each container's hold (HOLDS) holds in: the game would give it through the container
+        touch = {it["name"]: tuple(it["touch"]) for it in db.items["item"] if "touch" in it}
+        copies = collections.Counter(loc["item"] for loc in locs.values())
+        many = collections.defaultdict(set)      # each kind of spot's items the fill moves that the image holds twice+
+        for loc in self.pool:
+            if loc not in self.prefilled and copies[self.vanilla[loc]] > 1:
+                many[self.kind[loc]].add(self.vanilla[loc])
+        self.tight: dict[str, frozenset[str]] = {}
+        for loc, kinds in sorted(contained_kinds(db).items()):
+            if loc not in self.kind or loc in self.prefilled or loc in OWN_ROW:
+                continue
+            was = touch.get(locs[loc]["template"], (0.0, 0.0))
+            out = frozenset(item for item in many[self.kind[loc]] if (name := self.names.target(loc, item)) in touch
+                            and not inside(touch[name], was)
+                            and not all(inside(touch[name], (HOLDS.get(k, 0.0),) * 2) for k in kinds))
+            if out:
+                self.tight[loc] = out
+
+    def held_in(self, loc: str, item: str) -> bool:
+        """Whether ``loc``'s containers hold ``item`` in (:attr:`tight`): always where none encloses it."""
+        return item not in self.tight.get(loc, ())
 
     def holds(self, loc: str, item: str) -> bool:
         """Whether ``loc``'s proven mark holds for ``item`` under these options."""
@@ -488,6 +546,8 @@ class _Slots:
             return False
         if cls == "progression" and not self.holds(loc, item):
             return False
+        if not self.held_in(loc, item):
+            return False
         if loc in self.vault and item not in VAULT_ITEMS and item != self.vanilla[loc]:
             return False
         return budget.fits(loc, item)
@@ -542,8 +602,8 @@ class _Slots:
             ins = [loc for loc in nongem if node[loc] in new[t] and loc in self.proven and loc not in self.excluded
                    and loc not in self.vault]
             outs = [a for a in outs if clears(got | {a})] or outs
-        pairs = [(a, b) for a in outs for b in ins if a != b and self.holds(b, prog[a])
-                 and (b not in prog or self.holds(a, prog[b]))]
+        pairs = [(a, b) for a in outs for b in ins if a != b and self.holds(b, prog[a]) and self.held_in(b, prog[a])
+                 and (b not in prog or (self.holds(a, prog[b]) and self.held_in(a, prog[b])))]
         return pairs, [near[b] for _, b in pairs] if near is not None else None
 
     @staticmethod
@@ -626,8 +686,8 @@ class _Slots:
             other item moves to a spot of the reach with ``item`` there (Step R1.8m)."""
             prog = {loc: x for loc, x in placed.items() if loc not in base}
             for loc in rng.shuffle(sorted(loc for loc in prog if node[loc] in r.nodes)):
-                if not self.holds(loc, item):      # AZ-725: a spot whose mark holds for its own item alone
-                    continue
+                if not (self.holds(loc, item) and self.held_in(loc, item)):   # AZ-725: a spot whose mark holds
+                    continue                                                       # for its own item alone
                 other = prog[loc]
                 assumed[other] += other in read
                 if loc in reach({loc: item}).locations:
@@ -1117,7 +1177,7 @@ class _Kernel:
     reach's twin reads, numbers past the kernel's, or a stub level named as a node, where the kernel's ids can't tell
     apart the names the twin's sets hold."""
 
-    MAGIC, VERSION, HEAD, OUT, CAP = 0x314C4C49464B, 3, 25, 8, 1 << 14    # fill.c's FILL_*, F_HEAD and O_HEAD; a first told log
+    MAGIC, VERSION, HEAD, OUT, CAP = 0x314C4C49464B, 4, 26, 8, 1 << 14    # fill.c's FILL_*, F_HEAD and O_HEAD; a first told log
     CLASSES = {"progression": 0, "progression_counted": 1, "useful": 2, "filler": 3}
     STREAMS = ("progression", "useful", "filler")
 
@@ -1171,7 +1231,8 @@ class _Kernel:
         for loc in nt.locs:
             row = locs[loc]
             w += [1 * (loc in pool) | 2 * (loc in slots.excluded) | 4 * (loc in slots.vault) | 8 * (loc in slots.major)
-                  | 16 * (loc in slots.proven) | 32 * (loc in nt.placed) | 64 * (loc in slots.only),
+                  | 16 * (loc in slots.proven) | 32 * (loc in nt.placed) | 64 * (loc in slots.only)
+                  | 128 * (loc in slots.tight),
                   item.get(row["item"], -1), 0, graphs.setdefault(graph_of(loc), len(graphs)),
                   node_id[logic.canon(node_of[loc])], levels.setdefault(logic.pool[loc], len(levels)),
                   item[placed[loc]] if loc in placed else -1, name(row["item"]), name(row["template"]),
@@ -1196,6 +1257,13 @@ class _Kernel:
         for i, loc in enumerate(nt.locs):
             w[at + i] = len(w)
             w += sorted(item[x] for x in slots.only.get(loc, ()))
+        w[at + len(nt.locs)] = len(w)
+        section(25)                                  # F_TIGHT: the items each location's containers don't hold in
+        at = len(w)
+        w += [0] * (len(nt.locs) + 1)
+        for i, loc in enumerate(nt.locs):
+            w[at + i] = len(w)
+            w += sorted(item[x] for x in slots.tight.get(loc, ()))
         w[at + len(nt.locs)] = len(w)
         section(13)                                  # F_PROG
         prog = sorted(item[x] for x in by_class["progression"])

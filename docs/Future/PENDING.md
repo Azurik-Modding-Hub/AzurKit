@@ -1087,16 +1087,13 @@ memory peaks stay strict. The gate writes both kinds of row to
       walk, jump or flap pair at kit 0 or with air: later rounds'.
     - 514 guessed rig rides overshoot their decoded travel: the derive
       batch's rig-guess travel filter (6.12).
-56. **An obsidian in an ice block can be taken through it** (found by
-    4.79d B's re-pin, AZ-834's class): the fill may put an obsidian (96
-    copies, so the writer keeps its own touch, R 1.45 m, Z 1.9 m) in an
-    ice block, whose hold is 1.8 m: seed 2 at the default settings does
-    (w2's IceBlock_02, w2/g0/r1351). The class predates 4.79d: an obsidian
-    over that ice hold is in 20 of seeds 0-79 on main before it and 34 of
-    80 after (4.79d B's review). The fix: the
-    fill keeps an item held more than once out of the containers whose
-    hold its touch exceeds; the contained-items test then takes seed 2
-    back (it moved to seed 4).
+56. ~~**An obsidian in an ice block can be taken through it** (found by
+    4.79d B's re-pin, AZ-834's class)~~: fixed by 4.83j, in 1.5.1's
+    restack: the fill keeps an item the image holds more than once out of
+    a contained spot whose vanilla item's touch and containers' holds
+    (`fill.HOLDS`) don't hold its touch in (items.toml carries each item's
+    touch); w2's IceBlock_02 (w2/g0/r1351) was the only such spot and
+    obsidian its only item. Seed 2 holds all_fuel there now.
 
 ### Docs
 
