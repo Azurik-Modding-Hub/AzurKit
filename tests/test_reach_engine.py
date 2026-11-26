@@ -2462,6 +2462,36 @@ def test_a_body_stopped_against_a_movers_wall_or_underside_is_routed_to_it():
     assert M.route([(20.0, 0.0, 2.4 + d) for d in ticks] + [(20.0, 0.0, 3.9)]) == {"rigs": [], "gates": [], "near": []}
 
 
+def test_a_reach_model_is_built_again_when_its_builders_code_changes(tmp_path, monkeypatch):
+    """AZ-857 (PENDING 10.21, D1339): a level's reach model (``models.reach_path``) is keyed by its zoning and its
+    builder's code (the router's, ``l3_goal.ROUTER_CODE``, and ``models.BUILDER``: the derive's), so an edit to
+    ``draft/flights.py`` builds it again once, where the zoning alone kept the model the old code built."""
+    import types
+
+    from devkit.rando.draft.l3_goal import ROUTER_CODE
+    from devkit.reach import models
+    here, root, built = Path(models.__file__).resolve().parents[2], tmp_path / "checkout", []
+    for rel in ROUTER_CODE + models.BUILDER:
+        if (here / rel).is_dir():
+            shutil.copytree(here / rel, root / rel, ignore=shutil.ignore_patterns("__pycache__"))
+        else:
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(here / rel, root / rel)
+    monkeypatch.setattr(models, "CODE_ROOT", root)
+    monkeypatch.setattr(models, "folder", lambda: tmp_path / "reach")
+    monkeypatch.setattr("devkit.rando.draft.author.read_derived", lambda level: {"zones": [[0]]})
+    monkeypatch.setattr("devkit.sim.ports.vanilla_iso", lambda: "vanilla.iso")
+    monkeypatch.setattr("devkit.rando.derive.router", lambda iso, level: built.append(level) or types.SimpleNamespace(
+        R=len(built)))
+    first = models.reach_path("w1")
+    assert models.reach_path("w1") == first and built == ["w1"]
+    flights = root / "devkit/rando/draft/flights.py"
+    flights.write_text(flights.read_text(encoding="utf-8") + "\nX = 1\n", encoding="utf-8")
+    models.builder_sha12.cache_clear()               # a new process: the new code
+    again = models.reach_path("w1")
+    assert again != first and built == ["w1", "w1"] and models.read(again) == 2 and models.read(first) == 1
+
+
 def test_a_reach_model_pickled_here_loads_and_one_naming_a_modkit_module_or_any_other_global_is_refused():
     """Step 4.13f: the L3 store's reach models (``x7/reach``) are this checkout's pickles (Modkit's went, D1172):
     ``models.load`` takes the modules they name and the standard library's and numpy's few globals they hold, and

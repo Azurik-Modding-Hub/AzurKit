@@ -1622,7 +1622,8 @@ def test_l3s_reach_model_is_the_one_built_under_the_levels_current_zoning(tmp_pa
     kept = tmp_path / "reach" / "w1.pkl"
     kept.parent.mkdir()
     kept.write_bytes(pickle.dumps("the first model"))
-    kept.with_suffix(".stamp").write_text(cert.pr.zoning({"zones": zones}), encoding="utf-8")
+    kept.with_suffix(".stamp").write_text(f"{cert.pr.zoning({'zones': zones})} {models.builder_sha12(models.CODE_ROOT)}",
+                                          encoding="utf-8")
     assert cert._reach_path("w1") == kept and built == []
     zones = [[1], [0]]                                   # a re-derive renumbers the zones
     fresh = cert._reach_path("w1")
