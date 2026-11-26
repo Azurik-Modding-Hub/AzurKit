@@ -58,16 +58,22 @@ def stays(got: dict, to: str, zone_at) -> bool:
         zone_at(got["land"], got["state"] == SWIMMING, False) == to
 
 
-def key(job: str, k: int) -> str:
-    """The cache key of job ``job``'s (its key) outcome ``k``'s answer."""
-    doc = {"core": cache.core(cache.CORE_FILES + FILES), "job": job, "outcome": k}
+def key(job: str, k: int, string_sha12: str) -> str:
+    """The cache key of job ``job``'s (its key) outcome ``k``'s answer, whose witness string's sha12 is
+    ``string_sha12`` (AZ-855: an index alone names another string once a record's outcomes change)."""
+    doc = {"core": cache.core(cache.CORE_FILES + FILES), "job": job, "outcome": k, "string": string_sha12}
     return hashlib.sha256(json.dumps(doc, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def key_of(rec: dict, k: int) -> str:
+    """:func:`key` of record ``rec``'s outcome ``k``."""
+    return key(rec["key"], k, rec["outcomes"][k]["string_sha12"])
 
 
 def answer(base: Path, rec: dict, k: int) -> dict | None:
     """Record ``rec``'s outcome ``k``'s answer: the outcome's own (an aim's hit), else the cache's, else None."""
     o = rec["outcomes"][k]
-    return o["hold"] if "hold" in o else cache.get(Path(base) / "hold", key(rec["key"], k))
+    return o["hold"] if "hold" in o else cache.get(Path(base) / "hold", key_of(rec, k))
 
 
 def task(w, items, base: str) -> int:
@@ -81,6 +87,6 @@ def task(w, items, base: str) -> int:
         rec = rec if rec is not None and rec["key"] == job else cache.get(b, job)
         o = rec["outcomes"][k]
         got = replay(sim, rec["starts"][o["start"]], rec["heading"], o)
-        cache.put(b / "hold", key(job, k), got | {"l3_impl": dict(worker.IMPL)})
+        cache.put(b / "hold", key_of(rec, k), got | {"l3_impl": dict(worker.IMPL)})
         ticks += got["ticks"]
     return ticks

@@ -1003,7 +1003,7 @@ def sweep_task(w, items: list, base: str, level: str, absent=()) -> int:
         rec = rec if rec is not None and rec["key"] == job else cache.get(b, job)
         o = rec["outcomes"][k]
         got = sweep(sim, rec["starts"][o["start"]], rec["heading"], o, movers)
-        cache.put(b / "sweep", sweep_key(hold.key(job, k)), got)
+        cache.put(b / "sweep", sweep_key(hold.key_of(rec, k)), got)
         ticks += got["ticks"]
     return ticks
 
@@ -1219,6 +1219,6 @@ def trip_hold_task(w, items: list, base: str, rec12: str) -> int:
         rec = rec if rec is not None and rec["key"] == job else cache.get(b, job)
         o = dict(rec["outcomes"][k], land=land)
         got = replay_trip(lambda: fresh(w), rec["starts"][o["start"]], rec["heading"], o)
-        cache.put(b / "trip", trip_hold_key(hold.key(job, k), rec12), got)
+        cache.put(b / "trip", trip_hold_key(hold.key_of(rec, k), rec12), got)
         steps += got["steps"]
     return steps

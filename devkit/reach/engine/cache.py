@@ -2,7 +2,8 @@
 cache, written atomically (AZ-640: a killed run leaves no half file).
 
 A job's key is the sha256[:12] of what its outcomes depend on and nothing else: the L3 core (:func:`core_sha12`:
-the simulator's own code and its overlay, the RAM recipes, the pad's geometry, the observation reader, the witness
+the simulator's own code and its overlay, the RAM recipes, the pad's geometry, the snapshot's pad floats, camera
+and halt VAs and the ports (AZ-855), the observation reader, the witness
 format (``l3_search``'s segments and ``CAST_WAIT``), the flap law's constants (the randomizer's ``physics.py``), the
 launch controllers and this engine's runner, and Unicorn's version; for an aimed job (one with a ``target``) the
 targeted pass's code too (:data:`AIM_FILES`, Step R2.16d: so an aim-only change re-runs no fan job, 89 % of w1's
@@ -30,8 +31,9 @@ CORE_FILES = ("devkit/sim/l3.py", "devkit/sim/l2.py", "devkit/sim/overlay.py",
               "src/azurkit/tools/randomizer/live/recipes.py", "devkit/sim/inputs.py", "devkit/sim/obs.py",
               "src/azurkit/tools/randomizer/live/pages.py", "devkit/sim/faces.py", "devkit/sim/tricks_detect.py",
               "devkit/sim/l3_search.py", "src/azurkit/tools/randomizer/physics.py", "devkit/rando/physics.py",
-              "devkit/reach/engine/macros.py", "devkit/reach/engine/runner.py")   # Modkit's, at their AzurKit homes
-                                                                                  # (physics: both halves)
+              "devkit/reach/engine/macros.py", "devkit/reach/engine/runner.py",   # Modkit's, at their AzurKit homes
+              "devkit/sim/snapshot.py", "devkit/sim/ports.py")   # (physics: both halves); the pads' floats, the camera
+                                                                  # and the halt VAs L3 reads each tick (AZ-855)
 AIM_FILES = ("devkit/reach/engine/aim.py", "devkit/reach/engine/hold.py")   # the targeted pass (its hits held): an
                                                                              # aimed job's core only
 ZONE_FILES = ("devkit/rando/draft/route.py", "devkit/reach/engine/nodes.py")   # the code that names a zone

@@ -168,7 +168,7 @@ def hold_audit_task(w, items, base: str) -> list[dict]:
         except Exception as exc:          # noqa: BLE001 (a step stopped for time, or a bug: kept by name)
             out.append({"job": job, "outcome": k, "error": f"{type(exc).__name__}: {exc}"[:300]})
             continue
-        want = cache.get(b / "hold", hold.key(job, k))
+        want = cache.get(b / "hold", hold.key_of(rec, k))
         out.append({"job": job, "outcome": k, "same": want is not None and bare(got) == bare(want)})
     return out
 

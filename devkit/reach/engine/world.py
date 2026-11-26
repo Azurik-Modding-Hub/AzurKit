@@ -191,6 +191,6 @@ def task(w, items: list, base: str, level: str, meta_sha12: str, zoning: str) ->
         o, c0 = rec["outcomes"][k], time.process_time()
         got = replay(lambda: rigs.fresh(w), rec["starts"][o["start"]], rec["heading"], o, to, frm, zone_at)
         got["cpu_s"] = round(time.process_time() - c0, 3)
-        cache.put(b / "world", key(hold.key(job, k), meta_sha12, to, frm, zoning), got)
+        cache.put(b / "world", key(hold.key_of(rec, k), meta_sha12, to, frm, zoning), got)
         steps, cpu = steps + got["steps"], cpu + got["cpu_s"]
     return steps, cpu

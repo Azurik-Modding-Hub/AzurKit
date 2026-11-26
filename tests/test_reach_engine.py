@@ -261,6 +261,24 @@ def test_a_code_key_ignores_comments_docstrings_and_layout_but_not_a_minus_minus
     assert len({KB.key(f"{n:012x}", "c" * 12) for n in range(3)}) == 3 and len(read) == len(KB.FILES)
 
 
+def test_an_edit_to_the_pad_and_camera_code_moves_every_job_and_hold_key(tmp_path):
+    """AZ-855 (the reach audit's D11): ``devkit/sim/snapshot.py`` (the pads' floats, the camera and the halt VAs L3
+    and FastL3 read each tick) and ``devkit/sim/ports.py`` are L3 core files, so an edit to either moves the core
+    every job and hold key stands on (a fan job's, an aimed job's, a hold answer's); and a hold answer's key names
+    its outcome's witness string, so a record whose outcome at an index is another string asks again."""
+    root, here = tmp_path / "checkout", Path(cache.__file__).resolve().parents[3]
+    for rel in {*cache.CORE_FILES, *cache.AIM_FILES, *hold.FILES}:
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(here / rel, root / rel)
+    sets = (cache.CORE_FILES, cache.CORE_FILES + cache.AIM_FILES, cache.CORE_FILES + hold.FILES)
+    for rel in ("devkit/sim/snapshot.py", "devkit/sim/ports.py"):
+        before, p = [cache.core_sha12(root, f) for f in sets], root / rel
+        p.write_text(p.read_text(encoding="utf-8") + "\nX = 1\n", encoding="utf-8")
+        assert [cache.core_sha12(root, f) != b for f, b in zip(sets, before)] == [True] * 3, rel
+    rec = {"key": "j", "outcomes": [{"string_sha12": "a" * 12}, {"string_sha12": "b" * 12}]}
+    assert hold.key_of(rec, 0) == hold.key("j", 0, "a" * 12) != hold.key("j", 0, "b" * 12)
+
+
 def test_a_job_key_moves_with_the_l3_core_and_the_start_and_outcomes_remap_without_a_run(two_platforms, tmp_path):
     """An outcome is cached by the L3 core, the snapshot, the plan's targets and the start, never the derive: an
     edit to a core file moves the core's sha and every key (the jobs run again), as new targets do, and an edit to
@@ -379,9 +397,9 @@ def test_a_worker_stamps_each_record_with_its_l3_and_an_audit_names_one_its_reru
         [(one["id"], True), (two["id"], False)]
     assert worker.audited("1f4", 500) and not worker.audited("1f5", 500)
     hold.task(w, [(one["key"], 0), (one["key"], 1)], str(base))     # X1: a hold answer is stamped and audited alike
-    got = cache.get(base / "hold", hold.key(one["key"], 0))
+    got = cache.get(base / "hold", hold.key_of(cache.get(base, one["key"]), 0))
     assert got["l3_impl"]["l3"] == "base" and "land" in got
-    cache.put(base / "hold", hold.key(one["key"], 1), got | {"land": [0.0, 0.0, -9.0]})   # a wrong answer
+    cache.put(base / "hold", hold.key_of(cache.get(base, one["key"]), 1), got | {"land": [0.0, 0.0, -9.0]})   # wrong
     assert [r["same"] for r in worker.hold_audit_task(w, [(one["key"], 0), (one["key"], 1)], str(base))] == \
         [True, False]
     (tmp_path / "x87").mkdir()                                 # an x87 audit worker's exit lines (Step R2.19m)
@@ -417,10 +435,11 @@ def test_the_hold_audit_stops_the_command_on_a_c_walk_decision_that_differs(tmp_
     monkeypatch.setattr(RE, "_pool", _Pool)
     monkeypatch.setattr(RE, "_library", lambda mode: "patched")
     monkeypatch.setattr(worker, "audited", lambda key, every: True)
+    by_key = {"job": {"key": "job", "outcomes": [_out("s", 9, [0, 0, 0])]}}
     for walk in (0, 1):
         _Pool.walk, counts = walk, collections.Counter()
         try:
-            RE._hold_audit({}, tmp_path, [("job", 0)], 1, None, counts)
+            RE._hold_audit({}, tmp_path, [("job", 0)], 1, None, counts, by_key)
         except SystemExit as stop:
             assert walk and "C walk decisions differing: 1" in str(stop)
         else:
@@ -1640,8 +1659,8 @@ def test_under_rigs_a_confirm_that_holds_in_another_zone_is_routed_before_it_is_
     for k, (land, same) in enumerate((([85, 0, 0], False), ([125, 0, 0], True))):    # held in Z4, Z6, on the lift
         got = {"land": land, "state": 0, "settled": True, "same": True, "route": {"rigs": [7], "gates": []},
                "outcome": _out(f"k{2 * k + 3}'", 41, land)}
-        cache.put(tmp_path / "hold", hold.key(f"j{k}", 0), got)
-        cache.put(tmp_path / "trip", rigs.trip_hold_key(hold.key(f"j{k}", 0), "r" * 12),
+        cache.put(tmp_path / "hold", hold.key_of(recs[k], 0), got)
+        cache.put(tmp_path / "trip", rigs.trip_hold_key(hold.key_of(recs[k], 0), "r" * 12),
                   {"land": land, "state": 0, "settled": True, "same": same, "wait": 15})
     g = _one_each(outs)
     RE._hold(g, recs, {}, tmp_path, 1, "fast", None, ("t", g.nodes))
@@ -1667,7 +1686,7 @@ def test_a_confirmed_witnesss_proof_record_carries_fastl3s_hp_labels_and_taint(t
                 taint=["render"])
     got = {"land": [25, 0, 0], "state": 0, "same": True, "outcome": fast}
     (tmp_path / "hold").mkdir()
-    cache.put(tmp_path / "hold", hold.key("j0", 0), got)
+    cache.put(tmp_path / "hold", hold.key_of(rec, 0), got)
     g = graph.Graph(_Lots(), jobs, [rec])
     assert g.hold(lambda w: got) == []
     monkeypatch.setattr(RE, "_graph", lambda a: ({"meta_sha12": "a" * 12}, tmp_path, jobs, [rec], g.nodes, g))

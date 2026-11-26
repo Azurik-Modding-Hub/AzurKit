@@ -496,18 +496,18 @@ def _audit(a, snap: dict, base: Path, ran: list[dict], touch: Path, zones: Path 
     return out
 
 
-def _hold_audit(snap: dict, base: Path, items, workers: int | None, kernel: dict | None, counts) -> None:
+def _hold_audit(snap: dict, base: Path, items, workers: int | None, kernel: dict | None, counts, by_key) -> None:
     """The holds' audits (Step R2.19f+'s X1, as :func:`_audit`'s): of the (job, outcome) ``items`` a fast pool just
     replayed, about 1 in ``worker.BASE_EVERY`` (by hold key) replayed again on base L3 on the stock wheel and, with
     the patched library, 1 in ``worker.X87_EVERY`` on FastL3 with the x87 check on (its C walk in check mode), each
     answer compared with the cached one (``worker.hold_audit_task``); counted in ``counts``, and any difference stops
-    the command."""
+    the command.  ``by_key`` the records by job key (a hold key names its outcome's string, AZ-855)."""
     import shutil
     import tempfile
     from devkit.reach.engine import worker
     library, bad = _library("fast"), []
     for name, every in (("base", worker.BASE_EVERY), ("x87", worker.X87_EVERY)):
-        todo = [i for i in items if worker.audited(hold.key(*i), every)]
+        todo = [i for i in items if worker.audited(hold.key_of(by_key[i[0]], i[1]), every)]
         counts[f"hold audit {name}: asked"] += len(todo)
         if not todo or (name == "x87" and library != "patched"):
             continue
@@ -611,7 +611,7 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
             frm = None if "settled" not in st else wzone(st["settled"], False, False)
             if listed is not None and (frm, to) not in listed:
                 return got
-            wa = cache.get(base / "world", W.key(hold.key(*wk), snap["meta_sha12"], to, frm, zoning))
+            wa = cache.get(base / "world", W.key(hold.key_of(rec, w["outcome"]), snap["meta_sha12"], to, frm, zoning))
             if wa is None:
                 worlds.add((*wk, to, frm))
                 return None
@@ -631,7 +631,7 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
         if got is None or rigs is None or "land" not in got:
             return got
         rec, wk = by_key[w["job"]], (w["job"], w["outcome"])
-        o, hk = rec["outcomes"][w["outcome"]], hold.key(*wk)
+        o, hk = rec["outcomes"][w["outcome"]], hold.key_of(rec, w["outcome"])
         sw = cache.get(base / "sweep", R.sweep_key(hk))
         route = got.get("route")
         if route is None:                          # AZ-843: its route is the sweep's
@@ -710,7 +710,7 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
                           | {"replayed": wrun["replayed"], "steps": wrun["steps"],
                              "cpu_s": round(wrun["cpu_s"], 1)}}), flush=True)
     if replayed and mode == "fast":
-        _hold_audit(snap, base, replayed, workers, kernel, counts)
+        _hold_audit(snap, base, replayed, workers, kernel, counts, by_key)
     if owed:
         counts["routed witnesses asked, owing a whole-step trip"] = len(owed)
         counts["routed witnesses whose trip held"] = sum(owed.values())
