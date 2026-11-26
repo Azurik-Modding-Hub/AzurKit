@@ -824,8 +824,8 @@ exit = "town/g1/r3058"
 requires = "true"
 confidence = "data"
 
-[[edge]]  # toD1_levelSwitch -> d1 (startspot); migrated requirement kept (default taken under D115); it arrives at d1's startspot on the grate elevator, which the derive leaves without a floor; the elevator takes the player down into the death seal's chamber, d1.Z031 [verified xemu, placed: sitting r111d]
-from = "town_z020"
+[[edge]]  # toD1_levelSwitch -> d1 (startspot); migrated requirement kept (default taken under D115); the switch is on town's grate elevator by the temple's death door, whose deck lies in the sewer, town.Z003, not the temple (Z021) where the discs are placed (sitting 4.71c-R1a's skeptic; Step 4.79d); it arrives at d1's startspot on the grate elevator, which the derive leaves without a floor; the elevator takes the player down into the death seal's chamber, d1.Z031 [verified xemu, placed: sitting r111d]
+from = "town_z003"
 to = "d1_core"
 kind = "exit"
 exit = "town/g1/r3059"
@@ -1122,6 +1122,26 @@ proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier dat
 
 [[location]]
 id = "town/g1/r1695"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1738"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1740"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1742"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1744"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1746"
 proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
 
 # ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------

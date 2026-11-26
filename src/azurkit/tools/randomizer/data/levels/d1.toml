@@ -170,7 +170,7 @@ confidence = "assumed"
 from = "d1_floor1"
 to = "d1_z000"
 kind = "walk"
-requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.seal"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.death_keylock & button:d1.seal"
 confidence = "assumed"
 
 [[edge]]
@@ -535,9 +535,9 @@ confidence = "assumed"
 
 # ---- exits ---------------------------------------------------------------------------------
 
-[[edge]]  # D1_Town_levelSwitch -> town (spot+Shape); touch(D1_Town_ExitFieldShape) [verified data]; the derive places neither its field nor the arrival on a floor: the arrival rides the grate elevator down into the seal's chamber (d1.Z031) [verified xemu, placed: sitting r111d], and the exit field is taken as the same elevator's way back up (default taken under D115); its arrival, D1_TownShape, stands on town's own grate elevator by the temple's death door, which the derive leaves without a floor: the temple's zone town.Z021, where toD1_levelSwitch leaves from (default taken under D115)
+[[edge]]  # D1_Town_levelSwitch -> town (spot+Shape); touch(D1_Town_ExitFieldShape) [verified data]; the derive places neither its field nor the arrival on a floor: the arrival rides the grate elevator down into the seal's chamber (d1.Z031) [verified xemu, placed: sitting r111d], and the exit field is taken as the same elevator's way back up (default taken under D115); its arrival, D1_TownShape, stands on town's own grate elevator by the temple's death door, which the derive leaves without a floor: its deck lies in the sewer, town.Z003 (sitting 4.71c-R1a's skeptic; Step 4.79d), where toD1_levelSwitch leaves from, and the sewer is left with air 1 (town's hand edge)
 from = "d1_core"
-to = "town_z020"
+to = "town_z003"
 kind = "exit"
 exit = "d1/g0/r2265"
 requires = "true"

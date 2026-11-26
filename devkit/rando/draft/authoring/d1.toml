@@ -45,9 +45,9 @@ why = "the same door from floor 1's side"
 
 [exit."d1/g0/r2265"]          # D1_Town_levelSwitch: the entrance's exit field
 from = "d1.Z031"
-to = "town.Z021"
+to = "town.Z003"
 requires = "true"
-why = "touch(D1_Town_ExitFieldShape) [verified data]; the derive places neither its field nor the arrival on a floor: the arrival rides the grate elevator down into the seal's chamber (d1.Z031) [verified xemu, placed: sitting r111d], and the exit field is taken as the same elevator's way back up (default taken under D115); its arrival, D1_TownShape, stands on town's own grate elevator by the temple's death door, which the derive leaves without a floor: the temple's zone town.Z021, where toD1_levelSwitch leaves from (default taken under D115)"
+why = "touch(D1_Town_ExitFieldShape) [verified data]; the derive places neither its field nor the arrival on a floor: the arrival rides the grate elevator down into the seal's chamber (d1.Z031) [verified xemu, placed: sitting r111d], and the exit field is taken as the same elevator's way back up (default taken under D115); its arrival, D1_TownShape, stands on town's own grate elevator by the temple's death door, which the derive leaves without a floor: its deck lies in the sewer, town.Z003 (sitting 4.71c-R1a's skeptic; Step 4.79d), where toD1_levelSwitch leaves from, and the sewer is left with air 1 (town's hand edge)"
 
 [exit."d1/g0/r2271"]          # D2_movie_levelSwitch: the bridge-end cutscene into d2
 from = "d1.Z056"
@@ -116,8 +116,8 @@ why = "the central elevator back down to floor 1 (CallField1): the conservative-
 [[edge]]                      # the elevator: floor 1 -> floor 10
 from = "d1.Z015"
 to = "d1.Z000"
-requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal"
-why = "the central elevator from floor 1 to floor 10: a rig the derive doesn't follow; IceBlock_03's near side (the route's d1/g0/r2169, key_diamondbattery); the conservative-kit rule (default taken under D115)"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock"
+why = "the central elevator from floor 1 to floor 10: a rig the derive doesn't follow; IceBlock_03's near side (the route's d1/g0/r2169, key_diamondbattery); the conservative-kit rule (default taken under D115). The car reaches floor 10 by red 10 (switch5, floor 6), floor 6 by green 6 (switch3, floor 4) and floor 4 by green 4 (switch4, floor 5), whose Key_toggle turns on only from death_keylock's key [verified data: the elevator's decode, the 2026-11-24 rig decodes; which floor each switch is on is inferred from the names], so the row asks that lock too and a seed can't put its battery on floor 10 (Step 4.79d)"
 
 [[edge]]                      # the elevator: floor 10 -> floor 1
 from = "d1.Z000"

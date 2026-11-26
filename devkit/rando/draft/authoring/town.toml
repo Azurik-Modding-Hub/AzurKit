@@ -46,11 +46,11 @@ town_central = "town.Z004"    # the hub (world.toml): the temple plaza, the W1_T
 # steps run the frame's render, so the insects fly in L3 as in xemu (AZ-361); the logic models no hit from them.
 town_e2_pocket = "town.Z012"  # the E2_TownShape arrival, the e2 exit's pocket behind FireWall_02 (town.firewall02_air1's takeoff)
 
-[exit."town/g1/r3059"]        # toD1_levelSwitch: the temple's death door, open once the four discs are placed
-from = "town.Z021"
+[exit."town/g1/r3059"]        # toD1_levelSwitch: the death door's level switch, live once the four discs are placed
+from = "town.Z003"
 to = "d1.Z031"
 requires = "disca>=4 & disce>=4 & discf>=4 & discw>=4 & fire>=3 & water>=3 & air>=3 & earth>=3"
-why = "migrated requirement kept (default taken under D115); it arrives at d1's startspot on the grate elevator, which the derive leaves without a floor; the elevator takes the player down into the death seal's chamber, d1.Z031 [verified xemu, placed: sitting r111d]"
+why = "migrated requirement kept (default taken under D115); the switch is on town's grate elevator by the temple's death door, whose deck lies in the sewer, town.Z003, not the temple (Z021) where the discs are placed (sitting 4.71c-R1a's skeptic; Step 4.79d); it arrives at d1's startspot on the grate elevator, which the derive leaves without a floor; the elevator takes the player down into the death seal's chamber, d1.Z031 [verified xemu, placed: sitting r111d]"
 
 [exit."town/g1/r2973"]
 requires = "discl>=3"

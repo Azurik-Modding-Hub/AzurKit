@@ -810,7 +810,7 @@ def test_the_death_realm_counted_opens_d1_without_the_discs_and_keeps_the_win_on
     def opens(settings: Settings, counters: dict) -> list[bool]:   # the seal's credit, then town's door to d1
         rules = logic.rules(settings)
         seal = next(r for flag, _, _, r in rules.credits if flag == f"{solver.DEATH_SEAL}.open")
-        door = [r for b, r in rules.adj["town_z020"] if b == "d1_core"]
+        door = [r for b, r in rules.adj["town_z003"] if b == "d1_core"]
         return [seal(counters, set()), *(r(counters, set()) for r in door)]
     assert opens(on, powers) == [True, True] and opens(db.defaults, powers) == [False, False]
     assert opens(db.defaults, powers | discs) == [True, True] and opens(on, {"fire": 3}) == [True, False]

@@ -174,8 +174,9 @@ polish, after the next session's research (group 6, D1304).
    db880f7 (v13, needing 1.4.0) at its publish, so the apps up to 1.3.1
    keep v12.
 10. **1.5.0** (D1310, D1324, D1329): round 2's release (6.11). It ships once
-    AZ-373, 6.7's door and d1's floor-10 fix (9.55) are checked in xemu
-    (4.79e) and its CI is green, its notes saying seeds changed; the
+    6.7's door and d1's floor-10 fix (9.55) are checked in xemu (4.79e)
+    and its CI is green, its notes saying seeds changed (AZ-373 went to
+    round 3: 6.11's 4.79d row); the
     witness gate's switch-on goes in round 3's release (6.12). Contents:
     `main` since 1.4.0 (4.75a-f, 4.76d, 4.77a, 4.78a, 4.79a-c, 4.80a) and
     4.79d's logic. The version commit follows 4.79d's landing, and the
@@ -198,7 +199,8 @@ polish, after the next session's research (group 6, D1304).
    built-ins' picture keys (record_goldens' `DRAWN`), `ART_VERSION`, and
    with tiers.toml every level's derive stamp. So they ride on the next lane
    that re-records art and the characters' pictures, or restacks:
-   tiers.toml's rides 4.79d (its lane holds the edit, 6.11); the art's two
+   tiers.toml's rides round 3's derive batch (`DERIVE_VERSION` 9: 4.79d's
+   re-derive went to round 3 with AZ-373, 6.11); the art's two
    wait for the next art re-record.
 
 ## 4. Modkit's delete and the switch (done 2026-11-09, D1171)
@@ -284,15 +286,11 @@ owner played, D1334).
      any change to L3's emulation.
 6. ~~The unfreeze edits~~ (D1304): done by 4.75a, but for the brief's
    annex A1, the orchestrator's.
-7. **toD1's door is in the sewer, not the temple** (sitting 4.71c-R1a's
-   skeptic): the logic leaves toD1 from town_z020 (Z021, the temple,
-   `town.toml`) and puts D1_Town's arrival there (`d1.toml`), but d1's
-   elevator deck is in the sewer (Z003), which a player with no kit leaves
-   only through d1 (air 1 or more). It is harmless with the death realm's
-   door, whose counted realm still needs 3 of each element (`solver.py`);
-   a door loosened below air 1 moves both to Z003 first. Round 2's data
-   lane moves both (4.79d's A2, `authoring/town.toml` and `d1.toml` with
-   the test that reads `town_z003`), checked in xemu by 4.79e (D1329; 6.11).
+7. ~~toD1's door is in the sewer, not the temple~~ (sitting 4.71c-R1a's
+   skeptic): moved by 4.79d. The logic leaves toD1 from town_z003 (the
+   sewer, Z003) and puts D1_Town's arrival there (`authoring/town.toml`,
+   `d1.toml`; the realm test reads `town_z003`), the sewer left with air 1
+   as before; its xemu check is 4.79e's (D1329; 6.11).
 8. **Town's plaza-to-sewer drops** (the same skeptic; read again by Step
    4.76d and its review): under each of the sitting's 4 drops the first
    solid is a LandShape (gameSolid 1.0, nothing drives it) at +12.2-12.3 m
@@ -387,29 +385,27 @@ owner played, D1334).
       7's audit rows). ~~4.79c, the loader's keys~~: landed (AZ-846,
       AZ-847).
     - **4.79d, the round's logic** (lane 4.79d, branch
-      `p2/4.79d-logic-round2`, no commit yet). A1, AZ-373's minimum cut with
-      `DERIVE_VERSION` 8: its code and test pass, zoning is equal on all 22
-      levels, and the weighting is confidence first (air first newly held
-      260 in-logic edges, over the 137 line). The first derive missed three
-      bars; the course taken (the far rounds kept for the "not separated"
-      verdict, the ridge gated by the barrier's plane) met them on 8 levels
-      (town, w3, f1, e5, e7, d1, d2, life: 723 in-logic and 2,335
-      probe-needed edges released, 167 and 506 newly held, e7's 2 named).
-      Its seat died on an API error while the other 14 levels re-derived,
-      and the D1334 stop ended that derive with 7 done and none written
-      (the derive writes its files at its end), so those 14 still hold the
-      first derive's files. Resume: relaunch A1 from its notes: re-derive
-      the 14 (a1, a3, a5, a6, airship, e2, e6, f2, f3, f4, f6, w1, w2, w4),
-      the derive diff and its bars, the lint files again (a contracts test
-      timed out starved), then the build commit. Then A2 without the gate
-      (D1329): 6.7, d1's floor 10 (9.55), AZ-373's hand stand-ins where the
-      re-derive keeps their way, `restack --no-goldens`. Then B, after
-      4.79e's skeptic and the review: the sitting's actions, the restack,
-      the four randomizer goldens, spot needs, the soak, and 1.5.0 (2.10).
+      `p2/4.79d-logic-round2`): its A build commit holds 6.7's door and
+      d1's floor 10 (9.55) on `main`'s derive. AZ-373 went to round 3
+      (the design's own default when it fails): its minimum cut
+      (`DERIVE_VERSION` 8) kept zoning on all 22 levels and released 1,510
+      in-logic edges, but weighed confidence first it cuts the admitted
+      probe-class moves (climbs, rides, sweeps) on any way round a gate, so
+      it held vanilla ways across the game (w2's face climb above
+      WaterfallView, FireWall_02's direction Z006 > Z033, first: the
+      vanilla route stopped at power_water, and with a stand-in for it
+      about 20 more, on e5, e6, f1, f2, f3, f6 and w1), and 53 of the three
+      randomizer test files' tests failed (no plan). A weighting fix
+      re-derives all 22 levels, past the step's CPU cap on the efficiency
+      cores (D1336). The attempt, with its stand-ins and the w3 contact
+      row its re-derive staled, is the local branch
+      `p2/4.79d-az373-attempt` (the private evidence has its numbers). Then
+      B, after 4.79e's skeptic and the review: the sitting's actions, the
+      restack, the four randomizer goldens, spot needs, the soak, and 1.5.0
+      (2.10).
     - **4.79e, round 2's xemu sitting** (on 4.79d's A build commit, with
-      its skeptic): R, 20 of AZ-373's released in-logic edges, 4 a level on
-      e5, e2, f1, w2 and w3 (18 or more passing: it ships; 15 or fewer:
-      AZ-373 reverts to round 3); T, town's two drops (6.8); R7 in d2 with
+      its skeptic): no R rows (AZ-373 went to round 3); 6.7's door and d1's
+      floor 10; T, town's two drops (6.8); R7 in d2 with
       the air shield worn by pad, and r1104's take read (9.49); and the 33
       loose assumed rows (9.55, D1333). Every air row checks its first
       jump's v0 (4.8497 m/s, not 4.6433) and flaps from its own jump. The
@@ -429,9 +425,10 @@ owner played, D1334).
       moved it here);
     - the audit's lane 3, the re-key batch (group 7), with 9.26 and 4.79f's
       aims folded in if 4.79f didn't land: every key moves once;
-    - the derive batch, `DERIVE_VERSION` 9: AZ-342, 374, 376, 395, 723 and
-      745 with their hunts' fixes (group 7) and the rig-guess travel filter
-      (9.55). It renumbers zones, so it owes a truth re-zone tool, 22 model
+    - the derive batch, `DERIVE_VERSION` 9: AZ-342, 373 (its weighting
+      fixed, 6.11's 4.79d row), 374, 376, 395, 723 and 745 with their hunts'
+      fixes (group 7), the rig-guess travel filter (9.55) and 3.4's tiers
+      nit. It renumbers zones, so it owes a truth re-zone tool, 22 model
       rebuilds (10.21's key first), new plans, each gated level's witness
       file thinned again from an engine run on the new zoning, and its keep
       rows checked again;
@@ -531,8 +528,12 @@ engine's soundness audit and the loader's two keys are below.
   - AZ-373: a gate's sides are misread around a sliver zone. The hunt:
     `gates.barrier_cut`'s far rounds take a far side from a sliver or
     pocket zone. Fix: a minimum cut between the near side with its strict
-    ridge and the far side, renumbering no zone (`DERIVE_VERSION` 8): in
-    4.79d's lane (6.11, D1323).
+    ridge and the far side, renumbering no zone. 4.79d's attempt
+    (`DERIVE_VERSION` 8, 6.11) cut the admitted probe-class moves first
+    and held vanilla ways, so it goes to round 3 with a weighting that
+    keeps them (a probe class the authoring admits weighed as the modelled
+    move of its air, or a cut kept to the barrier's own crossings), with
+    the derive batch's one re-derive.
   - AZ-374: no takeoff or landing on slippery slopes. The hunt: the derive
     has no state for a body on a slope, so AZ-359's walk rule (no floor
     under nz 0.998) also means no takeoff or landing, while the game jumps
@@ -1048,10 +1049,9 @@ memory peaks stay strict. The gate writes both kinds of row to
 55. **The non-sweep assumed rows** (11-24's review of the 226 shipped
     assumed rows that don't rest on the sweep class: 128 backed, 34 loose,
     64 unknown):
-    - d1's floor 1 to floor 10 (`authoring/d1.toml`'s elevator row) asks
-      only the seal, so a seed can put death_keylock's battery behind
-      death_keylock: it gains `& button:d1.death_keylock` in 4.79d (it
-      loses nothing; D1329, 6.11).
+    - ~~d1's floor 1 to floor 10 asks only the seal~~: done in 4.79d
+      (`authoring/d1.toml`'s elevator row gains `& button:d1.death_keylock`,
+      so a seed can't put that lock's battery behind it; D1329, 6.11).
     - The other 33 loose rows join round 2's xemu sitting, each tightened
       only where the game refuses it (D1333; 4.79e).
     - The 64 unknown rows (31 with a stake: e2's water-1 walks around the
