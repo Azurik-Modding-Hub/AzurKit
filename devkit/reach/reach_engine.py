@@ -66,6 +66,13 @@ pair their graph still lacks at its kit and whose pass 1 came within M of its to
 aim with every pass (ids ``ea<n>``) or, once those plans hold that aim's record, the refinement twinned to the pass-1
 aim (ids ``er<n>``), k0 first; the pairs that wait for a wider tier are named in the plan by kit and tier.  Run, then
 sample again with the escalation's plan added, so a tier is two plans; a wider tier holds a narrower's jobs (cached).
+``graph`` and ``witness`` with ``--world`` (Step 4.77e, ``reach_engine.world``) hold each zone witness whose frozen
+hold answer stays to its whole-step replay too, on a scene FastL3 that never ran, idle 0, 15, 30 ... ticks first (at
+most 8 tries), judged by the witness check v1's rule: held, its record idles that wait before its R6 and names it
+(its ``l3``'s ``world``); refused, its pair takes its next candidate; a first try's L3 fault or popup keeps the frozen
+answer and names the stop.  ``--world-pairs FILE`` (a JSON list of ``[from, to]`` zone pairs) limits it to those
+pairs: every pair's costs a level tens of CPU-hours (about 5 CPU-s a try: e7's 6,917 witnesses), so a bench names
+the pairs its intake lists.
 
     uv run --locked python -m devkit reach reach-engine sample LEVEL --plan NAME [--region N ...] [--targeted]
         [--no-fan] [--spacing 2.0] [--min-area 4.0] [--limit N] [--refine PLAN ... --snapshot LABEL]
@@ -74,11 +81,11 @@ sample again with the escalation's plan added, so a tier is two plans; a wider t
     nice -n 19 uv run --locked python -m devkit reach reach-engine run LEVEL --plan NAME ... --snapshot LABEL
         [--workers N] [--l3 fast|base] [--backend l3|kernel]
     nice -n 19 uv run --locked python -m devkit reach reach-engine graph LEVEL --plan NAME ... --snapshot LABEL
-        --out EDGES.json [--workers N]
+        --out EDGES.json [--workers N] [--rigs] [--world [--world-pairs PAIRS.json]]
     nice -n 19 uv run --locked python -m devkit reach reach-engine diff LEVEL --plan NAME ... --snapshot LABEL
         --out REPORT.json [--workers N]
     nice -n 19 uv run --locked python -m devkit reach reach-engine witness LEVEL --plan NAME ... --snapshot LABEL
-        --out FILE.jsonl [--workers N]
+        --out FILE.jsonl [--workers N] [--rigs] [--world [--world-pairs PAIRS.json]]
 
 Outputs (``--out``: mode 0600, never over a file there, ``l3.private_out``) hold ids, counts and string hashes;
 the plans and outcomes (positions and strings) stay in the AzurKit user cache's
@@ -101,7 +108,7 @@ import tomllib
 from pathlib import Path
 
 from devkit.reach.engine import aim, cache, hold, runner, verdict  # noqa: E402
-from devkit.reach.engine.graph import Graph  # noqa: E402
+from devkit.reach.engine.graph import Graph, _latched  # noqa: E402
 from devkit.reach.engine.nodes import Nodes  # noqa: E402
 from devkit.sim import l3  # noqa: E402
 
@@ -538,14 +545,21 @@ def _graph(a, nodes: Nodes | None = None, keep=None):
     nodes = _nodes(a.level) if nodes is None else nodes
     g = Graph(nodes, {j["key"]: j for j in jobs}, recs, of)
     doc = _plan(a.level, a.plan[0], snap, getattr(a, "backend", "l3"))
+    world = None
+    if getattr(a, "world", False):             # the world hold (Step 4.77e, ``engine.world``)
+        from azurkit.tools.randomizer.planner.proofs import zoning
+        from devkit.rando.draft.author import read_derived
+        from devkit.reach.engine import world as W
+        world = (a.level, nodes, W.pairs(a.world_pairs) if getattr(a, "world_pairs", None) else None,
+                 zoning(read_derived(a.level)))
     _hold(g, recs, snap, base, getattr(a, "workers", None), getattr(a, "l3", "fast"),
           _kernel(a.level, snap, jobs, base / f"targets-{doc['touch']}.json"),
-          (a.level, nodes) if getattr(a, "rigs", False) else None)
+          (a.level, nodes) if getattr(a, "rigs", False) else None, world)
     return snap, base, {j["key"]: j for j in jobs}, recs, nodes, g
 
 
 def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str = "fast",
-          kernel: dict | None = None, rigs: tuple | None = None) -> None:
+          kernel: dict | None = None, rigs: tuple | None = None, world: tuple | None = None) -> None:
     """The hold (``reach_engine.hold``): replay each zone witness ``Graph.hold`` asks for that the cache doesn't
     answer yet, a few per task on a pool (opened only when one is; ``kernel``: the kernel route's, whose replay of a
     kernel candidate is FastL3's confirm), until each rank's best that stays is known.  With ``rigs`` (the level
@@ -556,11 +570,22 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
     kept, one touching another parked rig names it (a trip's witness too), one a moving rig in the level's rig
     recording touches at its load pose or crosses on its swept path (``rigs.sweep_task``, cached apart) stays only
     where its whole-step trip does (``rigs.replay_trip``, cached apart).  An answer with no route (only the kernel
-    route traces one: an L3 plan's, a backstop's aim hit) is swept first and decided on the sweep's (AZ-843)."""
+    route traces one: an L3 plan's, a backstop's aim hit) is swept first and decided on the sweep's (AZ-843).
+    With ``world`` (the level, its nodes, the zone pairs ``--world-pairs`` lists or None for every pair, and the
+    zoning: ``--world``, Step 4.77e), each answer that stays where it holds and that the router sent to no trip of
+    its own, of a listed pair (its start's zone to that one), counts only where its whole-step replay holds
+    (``world.replay``, cached apart in ``world/``): held, the witness owes the replay's wait before its R6 and names
+    it (``world``); refused, it is not the same (its confirm's outcome gone, as a failed trip's), so the pair takes
+    its next candidate; a first try that stopped (an L3 fault, a popup) keeps the frozen answer and names the stop."""
     from devkit.reach.engine import rigs as R
     by_key = {r["key"]: r for r in recs}
     trips, sweeps, counts, owed, seen = set(), set(), g.counts, {}, {}
+    worlds, wread, wrun = set(), {}, collections.Counter()
     pool, absent = None, None
+    if world is not None:
+        from devkit.reach.engine import world as W
+        wlevel, wnodes, listed, zoning = world
+        wzone = wnodes.zone_at
     if rigs is not None:
         try:
             doc, verdicts, rec12 = R.recording(rigs[0], snap)
@@ -572,6 +597,33 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
     read: dict[tuple, dict] = {}         # each answer read once (a spill's ranks re-walk the hold a call a replay)
 
     def answer(w):
+        got = routed(w)
+        if (world is None or got is None or "land" not in got or "trip" in got
+                or got.get("outcome") is not None and _latched(w, got["outcome"])):   # AZ-838's: it stays nowhere
+            return got
+        wk = (w["job"], w["outcome"])
+        if (wa := wread.get(wk)) is None:
+            rec = by_key[w["job"]]
+            to = wzone(got["land"], got["state"] == hold.SWIMMING, False)    # where it holds (AZ-840's)
+            if to is None or not hold.stays(got, to, wzone):
+                return got                         # the frozen hold kept nothing: nothing to replay
+            st = rec["starts"][rec["outcomes"][w["outcome"]]["start"]]
+            frm = None if "settled" not in st else wzone(st["settled"], False, False)
+            if listed is not None and (frm, to) not in listed:
+                return got
+            wa = cache.get(base / "world", W.key(hold.key(*wk), snap["meta_sha12"], to, frm, zoning))
+            if wa is None:
+                worlds.add((*wk, to, frm))
+                return None
+            wread[wk] = wa
+        if wa["held"] is False:                    # refused: the pair's next candidate (its confirm's outcome gone)
+            return {k: v for k, v in got.items() if k != "outcome"} | {"same": False}
+        w["world"] = W.summary(wa)                 # held (its wait owed before the R6) or a first try's stop
+        if wa["held"] and wa["wait"]:
+            w["wait"] = wa["wait"]
+        return got
+
+    def routed(w):
         if (got := read.get((w["job"], w["outcome"]))) is None:
             got = hold.answer(base, by_key[w["job"]], w["outcome"])
             if got is not None:              # a cached answer never changes; a missing one is replayed, then read
@@ -612,8 +664,8 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
     try:
         while want := g.hold(answer):
             pool = pool or _pool(snap, workers, mode, kernel=kernel)
-            routed = {(j, k) for j, k, _ in trips} | sweeps
-            items = sorted({(w["job"], w["outcome"]) for w in want} - routed)
+            apart = {(j, k) for j, k, _ in trips} | sweeps | {(j, k) for j, k, *_ in worlds}
+            items = sorted({(w["job"], w["outcome"]) for w in want} - apart)
             replayed += items
             for t in pool.completed(hold.task, [(items[k:k + 8], str(base)) for k in range(0, len(items), 8)]):
                 ticks += t
@@ -633,11 +685,29 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
                     ticks += t
                 counts["routed witnesses tripped in whole steps"] += len(tl)
                 trips.clear()
+            if worlds:
+                wl = sorted(worlds, key=lambda x: x[:2])
+                for s, c in pool.completed(W.task, [(wl[k:k + 2], str(base), wlevel, snap["meta_sha12"], zoning)
+                                                     for k in range(0, len(wl), 2)]):
+                    wrun["steps"], wrun["cpu_s"] = wrun["steps"] + s, wrun["cpu_s"] + c
+                wrun["replayed"] += len(wl)
+                worlds.clear()
             n += len(items)
             print(json.dumps({"held": n, "ticks": ticks, "s": round(time.time() - t0)}), flush=True)
     finally:
         if pool is not None:
             pool.close()
+    if world is not None:
+        ws = list(wread.values())
+        for name, v in (("asked", len(ws)), ("held", sum(x["held"] is True for x in ws)),
+                        ("held after a wait", sum(bool(x["held"] and x["wait"]) for x in ws)),
+                        ("refused", sum(x["held"] is False for x in ws)),
+                        ("kept past a first try's fault", sum(x.get("stop") == "fault" for x in ws)),
+                        ("kept past a first try's popup", sum(x.get("stop") == "popup" for x in ws))):
+            counts[f"world witnesses {name}"] = v
+        print(json.dumps({"world": {k[15:]: v for k, v in counts.items() if k.startswith("world witnesses ")}
+                          | {"replayed": wrun["replayed"], "steps": wrun["steps"],
+                             "cpu_s": round(wrun["cpu_s"], 1)}}), flush=True)
     if replayed and mode == "fast":
         _hold_audit(snap, base, replayed, workers, kernel, counts)
     if owed:
@@ -837,10 +907,15 @@ def main(argv=None) -> None:
             p.add_argument("--out", required=True)
         if name in ("graph", "diff", "witness"):
             p.add_argument("--rigs", action="store_true")      # the router's whole-step trips (Step R2.19h1)
+        if name in ("graph", "witness"):
+            p.add_argument("--world", action="store_true")     # the world hold: whole-step replays (Step 4.77e)
+            p.add_argument("--world-pairs", metavar="FILE")    # ... of these zone pairs only (default every pair)
         if name == "rigs":
             p.add_argument("--truth", type=int, default=0)     # random whole-step board trials a deck
             p.add_argument("--deck", nargs="*")                # only these decks (names): a slice
     a = ap.parse_args(argv)
+    if getattr(a, "world_pairs", None) and not a.world:
+        ap.error("--world-pairs limits --world: name both")
     out = {"sample": sample, "run": run, "graph": graph, "diff": diff, "witness": witness, "rigs": rigs}[a.cmd](a)
     if a.cmd == "witness":
         p = l3.private_out(a.out, None)

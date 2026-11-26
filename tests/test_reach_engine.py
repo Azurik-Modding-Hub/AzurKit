@@ -538,6 +538,108 @@ def test_a_routed_witness_trip_runs_each_wait_on_a_scene_l3_that_never_ran(two_p
         assert (got["tries"], len(made), got["same"]) == (tries, tries, tries == 1)
 
 
+def test_a_world_held_witness_counts_only_where_its_whole_step_replay_holds_owes_its_wait_and_the_pair_falls_back(
+        two_platforms, tmp_path, monkeypatch):
+    """Step 4.77e (``--world``): the frozen hold replays a witness with the world still, so an enemy never moves
+    (Step 4.77d: 6 of 322 control rows the game's enemies hit).  ``world.replay`` runs it in whole steps, each try on
+    a new scene L3 idle 0, 15, 30 ... ticks first: an enemy over the landing until a world tick kills it at waits 0
+    and 15 and lets it hold at 30; one that never leaves refuses it after every try; a first try's L3 fault or
+    popup is a stop, no refusal.  In the hold (``reach_engine._hold``) a refused witness gives its pair's rank to
+    the next candidate, which holds after a wait it then owes (its record idles first and names the world's answer)
+    or leaves the rank empty; a stop keeps the frozen answer and names it; a pair the pairs file doesn't list is not
+    replayed; and an answer cached in ``world/`` is never replayed again."""
+    from devkit.reach import reach_engine as RE
+    from devkit.reach.engine import rigs, world
+    nodes, jobs, recs = two_platforms
+
+    class World(_Sim):              # a scene stand-in: an enemy over B until world tick ``until``, a stop's site
+        until, stop, first = -1, None, None
+
+        def teleport(self, feet, yaw, *, cell=None):
+            self.r6 = self._s["k"] + 1
+            return super().teleport(feet, yaw, cell=cell)
+
+        def step(self, pad=l3.Pad(), writes=(), **_):
+            row = super().step(pad, writes)
+            if self.stop and row.k == self.r6 + self.stop[0]:
+                raise l3.L3Error("a stand-in stop", self.stop[1])
+            if row.pos[0] >= B[0]:
+                World.first = row.k if World.first is None else World.first
+                if row.k <= self.until:
+                    return row._replace(hp=0)
+            return row
+    by = {r["key"]: r for r in recs}
+    w0 = graph.Graph(nodes, jobs, recs).cands[("t.Z000", "t.Z001")][1][0]
+    rec = by[w0["job"]]
+    o = rec["outcomes"][w0["outcome"]]
+    st, real = rec["starts"][o["start"]], world.replay
+
+    def run(**kw):
+        return real(lambda: type("W", (World,), kw)([A, B, C]), st, rec["heading"], o, "t.Z001", "t.Z000", _zone)
+    got = run()                                         # no enemy: it holds at once, as the frozen hold does
+    assert (got["held"], got["wait"], got["tries"]) == (True, 0, 1)
+    got = run(until=World.first + 20)                 # waits 0 and 15 meet the enemy, 30 lands after it left
+    assert (got["held"], got["wait"], [t["cause"] for t in got["trace"]]) == (True, 30, ["dead", "dead", None])
+    got = run(until=10 ** 9)
+    assert (got["held"], got["tries"], got["cause"]) == (False, rigs.PHASES, "dead")
+    for site, stop in (("unmapped@0x80023120", "fault"), ("no player update", "popup")):
+        got = run(stop=(2, site))
+        assert (got["held"], got["stop"], got["site"], got["tick"], got["tries"]) == (None, stop, site, 2, 1)
+
+    for r in recs:
+        cache.put(tmp_path, r["key"], r)
+    g = graph.Graph(nodes, jobs, recs)
+    a, b = g.cands[("t.Z000", "t.Z001")][1]
+    c, d = g.cands[("t.Z001", "t.Z000")][1]
+    e, f = g.cands[("t.Z002", "t.Z001")][0]
+    fault = {"held": None, "stop": "fault", "site": "unmapped@0x1", "tick": 2}
+    canned = {a["string_sha12"]: {"held": False, "cause": "dead"}, b["string_sha12"]: {"held": True, "wait": 15},
+              c["string_sha12"]: {"held": False, "cause": "start"}, d["string_sha12"]: {"held": False, "cause": "exit"},
+              e["string_sha12"]: fault}
+    replayed = []
+
+    def stand_in(make, st, heading, o, to, frm, zone_at, waits=None):
+        replayed.append(o["string_sha12"])
+        return canned[o["string_sha12"]] | {"tries": 1, "steps": 9, "trace": []}
+    monkeypatch.setattr(world, "replay", stand_in)
+    monkeypatch.setattr(world, "_ZONES", {"t": _zone})
+
+    class Pool:
+        def completed(self, fn, args):
+            return [fn(SimpleNamespace(sim=lambda *a, **kw: _Sim([A, B, C])), *x) for x in args]
+
+        def close(self):
+            pass
+    monkeypatch.setattr(RE, "_pool", lambda *a, **kw: Pool())
+    (tmp_path / "pairs.json").write_text(json.dumps([["t.Z000", "t.Z001"], "t.Z001>t.Z000", ["t.Z002", "t.Z001"]]))
+    on = ("t", nodes, world.pairs(tmp_path / "pairs.json"), "e" * 64)
+    snap = {"meta_sha12": "a" * 12}
+    RE._hold(g, recs, snap, tmp_path, 1, "base", None, None, on)
+    assert sorted(replayed) == sorted(canned)            # (Z002, Z000) not listed; f behind e's kept stop
+    kept = {p: [x["string_sha12"] for x in g.witnesses(p)] for p in g.zones}
+    assert kept[("t.Z000", "t.Z001")] == [b["string_sha12"]] and ("t.Z001", "t.Z000") not in kept
+    assert kept[("t.Z002", "t.Z001")] == [e["string_sha12"]]
+    doc = verdict.witness("t", g.best(("t.Z000", "t.Z001"), zones=True), by[b["job"]], 0.0, snap, "e" * 64,
+                          ("t.Z000", "t.Z001"))
+    assert doc["start"]["setup"][0] == ["idle", 15] and doc["start"]["setup"][1][0] == "R6"
+    assert doc["l3"]["world"] == {"held": True, "wait": 15, "code": world.code12()}
+    w = g.best(("t.Z002", "t.Z001"), zones=True)
+    assert "wait" not in w and w["world"] == fault | {"code": world.code12()}
+    assert "world" not in g.best(("t.Z002", "t.Z000"), zones=True)
+    assert (g.counts["world witnesses asked"], g.counts["world witnesses refused"],
+            g.counts["world witnesses held after a wait"], g.counts["world witnesses kept past a first try's fault"]) \
+        == (5, 3, 1, 1)
+    replayed.clear()
+    g = graph.Graph(nodes, jobs, recs)
+    RE._hold(g, recs, snap, tmp_path, 1, "base", None, None, on)
+    assert replayed == [] and g.best(("t.Z000", "t.Z001"), zones=True)["wait"] == 15
+    g = graph.Graph(nodes, jobs, recs)
+    RE._hold(g, recs, snap, tmp_path, 1, "base", None, None, None)
+    assert [g.best(p, zones=True)["string_sha12"] for p in (("t.Z000", "t.Z001"), ("t.Z001", "t.Z000"))] == \
+        [a["string_sha12"], c["string_sha12"]]
+    assert not any("world" in x or "wait" in x for p in g.zones for x in g.witnesses(p))
+
+
 def test_a_toggled_solid_that_moves_from_load_is_routed_as_a_rig():
     """AZ-842 (the reach audit): a driven gameSolid makes a platform a toggled solid before ``moved`` is read
     (``geometry.Level``), so one that moves from load (e5's timed rocks, f4's magnetic platforms) was never

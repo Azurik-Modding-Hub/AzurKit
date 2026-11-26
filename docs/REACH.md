@@ -564,7 +564,9 @@ model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.
   to the game's (the walk's drift too), each then re-benched against these numbers.
 
 Known flaws, kept for later passes (D610): rigs stand still at the snapshot's pose and enemies don't move (player
-ticks), one snapshot's world (its gates and toggles) stands for all, the fan holds the stick and presses only Y
+ticks; since Step 4.77e `graph` and `witness --world --world-pairs FILE` hold the listed pairs' witnesses to their
+FastL3 whole-step replay too, which shows an enemy's hit and a start the world carries off, as the game does on 320 of
+322 control rows: Step 4.77d; a whole step's L3 fault or uncleared popup keeps the frozen answer), one snapshot's world (its gates and toggles) stands for all, the fan holds the stick and presses only Y
 (rolls and recasts are only in the refinement; no release, air attack or catch charge: R2.16d), the predictive
 control knows no walls or roofs, and a launch that settles on a narrow ledge's brink may slide off where a
 player would steer. The

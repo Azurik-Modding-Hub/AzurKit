@@ -71,11 +71,11 @@ uv run --locked python -m devkit reach reach-engine sample LEVEL --plan NAME [--
 nice -n 19 uv run --locked python -m devkit reach reach-engine run LEVEL --plan NAME ... --snapshot LABEL \
     [--workers N] [--per-task 2] [--l3 fast|base]
 nice -n 19 uv run --locked python -m devkit reach reach-engine graph LEVEL --plan NAME ... --snapshot LABEL \
-    --out EDGES.json [--workers N]
+    --out EDGES.json [--workers N] [--rigs] [--world [--world-pairs PAIRS.json]]
 nice -n 19 uv run --locked python -m devkit reach reach-engine diff LEVEL --plan NAME ... --snapshot LABEL \
     --out REPORT.json [--workers N]
 nice -n 19 uv run --locked python -m devkit reach reach-engine witness LEVEL --plan NAME ... --snapshot LABEL \
-    --out FILE.jsonl [--workers N]
+    --out FILE.jsonl [--workers N] [--rigs] [--world [--world-pairs PAIRS.json]]
 nice -n 19 uv run --locked python -m devkit reach reach-engine rigs LEVEL --snapshot LABEL --out RIGS.json \
     [--workers N] [--truth N] [--deck NAME ...]
 ```
@@ -270,6 +270,27 @@ nice -n 19 uv run --locked python -m devkit reach reach-engine rigs LEVEL --snap
   Answers are cached apart (`trip/`, by the hold's key, the recording's
   sha12 and the trip code); one no moving rig meets keeps its
   frozen-world witness.
+- `graph`, `witness --world [--world-pairs PAIRS.json]` (Step 4.77e,
+  `engine/world.py`): the hold replays a witness with the world frozen
+  (player ticks: no enemy moves), so each zone witness whose frozen hold
+  answer stays, and which the router sent to no trip of its own, counts
+  only where its FastL3 whole-step replay holds too: from the snapshot
+  on a new scene FastL3 each try, idle 0, 15, 30 ... ticks first (at
+  most 8 tries), R6, the settle, the kit, the string and 60 idle ticks,
+  judged by the witness check v1's rule (the start stands in its
+  from-zone, alive throughout, in the to-zone at the string's end and
+  settled there 60 ticks on) with no level exit. Held: its witness owes
+  that idle before its R6 and its record's `l3` names it (`world`:
+  `held`, `wait`, `code`). Refused: the pair takes its next candidate (a
+  confirm's touches and node edge go too). A first try that stops on an
+  L3 fault or a popup the replay can't clear is no refusal: the frozen
+  answer stays, its record naming the stop (`held` null, `stop` `fault`
+  or `popup`, the site and the tick). `--world-pairs` (a JSON list of
+  `[from, to]` zone pairs or `"from>to"` strings) limits it to the pairs
+  an intake lists; every pair's costs a level tens of CPU-hours (about
+  5 CPU-s a try). Answers are cached apart (`world/`, by the hold's key,
+  the snapshot, the zones judged, the zoning and the world code), with
+  verdicts, ticks and HP, no position.
 - `sample --backstop modelled|all --refine PLAN ... --snapshot LABEL`
   (Step R2.19d, D846): the FastL3 backstop, an L3 plan whatever
   `--backend` says: the aims and the refinement's aims at each derived

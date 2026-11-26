@@ -217,7 +217,8 @@ def witness(level: str, w: dict, rec: dict, heading: float, snap: dict, zoning: 
     ``yaw``: an aim's turned pass) as a ``proofs.jsonl`` record:
     the claim (``ends``: its from and to zones, or node keys off every zone), the start as a recipe on the
     snapshot (``snap``: its metadata, as a record names it; a routed witness's ``wait`` idle ticks first, the
-    whole-step trip's that held: ``rigs.Router.tripped``), the string, the outcome; its xemu replay owed."""
+    whole-step trip's that held: ``rigs.Router.tripped``, or the world hold's, whose answer ``l3`` names as
+    ``world``: ``reach_engine.world.summary``), the string, the outcome; its xemu replay owed."""
     from azurkit.tools.randomizer.planner import proofs as pr
     o = rec["outcomes"][w["outcome"]]
     st = rec["starts"][o["start"]]
@@ -234,7 +235,8 @@ def witness(level: str, w: dict, rec: dict, heading: float, snap: dict, zoning: 
                       "setup": setup, "observed": {"hp": o["hp0"]}},
             "string": {"sha12": o["string_sha12"], "ticks": o["ticks"], "input": "analog-ram",
                        "segments": o["segments"]},
-            "l3": {"mode": "tick", "engine": "reach_engine", "taint": o["taint"]},
+            "l3": {"mode": "tick", "engine": "reach_engine", "taint": o["taint"]} | (
+                {"world": w["world"]} if "world" in w else {}),
             "outcome": {"reached": True, "returned": None, "end": o["end"], "hp_min": o["hp_min"],
                         "labels": o["labels"], "volumes": len(o["volumes"])},
             "replay": {"owed": "R2.16c", "equal": None}}
