@@ -9,6 +9,9 @@
 level = "e5"
 probe = ["swim-exit", "climb", "push", "current", "teleport", "door", "rig", "lip", "sweep"]   # ordinary movement the derive cannot measure, admitted as assumed (R1.8's list, default taken under D115); sweep at its own tier since Step R1.2b (D156: the +1 shift, an inference, put the vanilla route's curved crossings above safe)
 
+[rig_held]                    # Step 4.79d: rigs whose guessed rides the game doesn't give
+SealShape = "the seal is a button on e5.Z017 (button:e5.seal): stepped onto at e5.Z017 with 3 earth fragments, Seal_toggle turned on and the seal sank 0.19 m and stayed, 900 ticks, 2 tries; from e5.Z005, 24.8 m under it, it never came down, 3 tries [verified xemu, placed: 4.79d's re-run of sitting 4.79e's L row e5#14]; the guessed 24.6 m rides between e5.Z005, e5.Z177 and e5.Z017 leave logic, and the ways up at air 1 stay"
+
 [names]
 e5_z1098 = "e5.Z1099"      # Step R1.24a: Z1099 since the re-derive (was e5.Z1098); the id kept
 e5_z1123 = "e5.Z1124"      # Step R1.24a: Z1124 since the re-derive (was e5.Z1123); the id kept

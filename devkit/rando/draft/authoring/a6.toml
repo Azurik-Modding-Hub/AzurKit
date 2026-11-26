@@ -94,3 +94,9 @@ note = "obsidian on a6.Z021, which the derive reaches in no rung at the hard tie
 id = "a6/g0/r914"
 requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2"
 note = "obsidian on a6.Z079, which the derive reaches in no rung at the hard tier: the conservative-kit rule (the route's a6/g0/r914)"
+
+[[held]]                      # Step 4.79d: a6 row 29 (the owner list's 31), the tree lift's guessed ride from the field foot
+from = "a6.Z004"
+to = "a6.Z006"
+via = "polySurfaceShape267"
+why = "the tree lift moves once, at the arrival: TreeElevatorToggle turned on there and the deck rose 53.65 m in 180 ticks to its top beside a6.Z006, then stood 1020 ticks (the toggle never turns off), so it never carries a player from a6.Z004 [verified xemu: 4.79d's re-run of sitting 4.79e's L row a6#29 from the arrival]; the modelled jump a6.Z004 > a6.Z006 at fire 3 and water 3 stays"

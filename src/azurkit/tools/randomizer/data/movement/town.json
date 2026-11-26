@@ -25,9 +25,9 @@
   {"dh": -10.46, "flaps": 0, "gap": 10.66, "rank": 0, "run": true, "runup": 0.37},
   {"dh": -10.48, "gap": 47.99, "rank": 3, "run": true, "runup": 0.37},
   {"dh": -10.49, "gap": 17.75, "rank": 2, "run": false, "runup": 0.38},
+  {"dh": -10.52, "gap": 11.34, "rank": 0, "run": true, "runup": 0.37},
   {"dh": -12.39, "flaps": 0, "gap": 13.4, "rank": 0, "run": true, "runup": 0.37},
   {"dh": -12.64, "gap": 48.18, "rank": 3, "run": true, "runup": 0.37},
-  {"dh": -12.68, "gap": 0.71, "rank": 0, "run": false, "runup": 0.35},
   {"dh": -12.76, "gap": 25.05, "rank": 1, "run": true, "runup": 1.12},
   {"dh": -12.95, "gap": 47.93, "headroom": 28.92, "rank": 3, "room_end": 27.98, "run": true, "runup": 0.62},
   {"dh": -12.97, "gap": 54.58, "rank": 3, "run": true, "runup": 0.87},
@@ -87,6 +87,7 @@
   {"dh": 2.69, "gap": 3.09, "rank": 1, "run": true, "runup": 0.36}
  ],
  "edges": [
+  {"from": "town_central", "to": "town_z003", "difficulty": 1, "confidence": "assumed", "terms": [["true", [23]]]},
   {"from": "town_central", "to": "town_z003", "difficulty": 1, "confidence": "physics", "terms": [["true", [20]]]},
   {"from": "town_central", "to": "town_z009", "difficulty": 1, "confidence": "physics", "terms": [["air>=1", [1]]]},
   {"from": "town_central", "to": "town_z023", "difficulty": 1, "confidence": "assumed", "terms": [["air>=3", [45]]]},
@@ -107,8 +108,8 @@
   {"from": "town_z020", "to": "town_z015", "difficulty": 1, "confidence": "data", "terms": [["true", [8, 48, 50]]]},
   {"from": "town_z023", "to": "town_z152", "difficulty": 1, "confidence": "assumed", "terms": [["true", [57]]]},
   {"from": "town_z023", "to": "town_z152", "difficulty": 1, "confidence": "physics", "terms": [["true", [12, 70]]]},
-  {"from": "town_z045", "to": "town_central", "difficulty": 1, "confidence": "physics", "terms": [["air>=3", [23, 27]]]},
-  {"from": "town_z045", "to": "town_z003", "difficulty": 1, "confidence": "assumed", "terms": [["air>=3", [24, 30, 52]]]},
+  {"from": "town_z045", "to": "town_central", "difficulty": 1, "confidence": "physics", "terms": [["air>=3", [24, 27]]]},
+  {"from": "town_z045", "to": "town_z003", "difficulty": 1, "confidence": "assumed", "terms": [["air>=3", [25, 30, 52]]]},
   {"from": "town_z1028", "to": "town_z1029", "difficulty": 1, "confidence": "assumed", "terms": [["true", [59]]]},
   {"from": "town_z1028", "to": "town_z296", "difficulty": 4, "confidence": "assumed", "terms": [["air>=1", [75]]]},
   {"from": "town_z1029", "to": "town_z1028", "difficulty": 1, "confidence": "assumed", "terms": [["true", [2]]]},
@@ -131,8 +132,7 @@
   {"from": "town_z446", "to": "town_z133", "difficulty": 1, "confidence": "physics", "terms": [["true", [13, 68]]]},
   {"from": "town_z475", "to": "town_e2_pocket", "difficulty": 1, "confidence": "data", "terms": [["true", [33]]]},
   {"from": "town_z475", "to": "town_z126", "difficulty": 1, "confidence": "physics", "through": ["town.FireWall_02"], "terms": [["air>=3", [11]]]},
-  {"from": "town_z612", "to": "town_central", "difficulty": 1, "confidence": "data", "terms": [["true", [4]]]},
-  {"from": "town_z612", "to": "town_z003", "difficulty": 1, "confidence": "assumed", "terms": [["true", [25]]]}
+  {"from": "town_z612", "to": "town_central", "difficulty": 1, "confidence": "data", "terms": [["true", [4]]]}
  ],
  "nodes": {
   "town_central": [37, 66]

@@ -369,6 +369,14 @@ def test_the_shipped_databases_owner_and_xemu_confirmed_facts_hold():
         (floor6(), floor6("d1.death_keylock.open"), walkway(2, "d2.lab.reached"), walkway(3, "d2.lab.reached"),
          walkway(3), [e["requires"] for e in db.levels["d2"]["edge"] if e.get("exit") == "d2/g0/r3840"]),
         (False, True, False, True, False, [" & ".join(f"button:d2.death_keylock{n}" for n in ("", 1, 2, 3, 4, 5))]))
+
+    # Step 4.79d (d1 #3; the elevator's decode, and the car refused floor 10 in xemu without the key): the car takes
+    # floor 1 to floor 10 only once death_keylock's key has turned switch4 on, even at full kit
+    def floor10(*flags: str) -> bool:
+        return "d1_z000" in logic.within("d1", ["d1_core", "d1_z125"], {**no_battery, **full},
+                                         ["d1.seal.open", "d2.lab.reached", *flags])
+    facts["d1: floor 10 by the elevator only once death_keylock is used"] = (
+        (floor10(), floor10("d1.death_keylock.open")), (False, True))
     # AZ-738 (D745, the owner: the sewer is left with air 1, not water 1; e6's lake by the vines on a tree stump)
     facts["town: the sewer is left at air 1, not water 1; e6: the lake up the stump's vines at kit 0"] = (
         ([["town_central" in logic.within("town", ["town_z003"], k, [], at(tier))

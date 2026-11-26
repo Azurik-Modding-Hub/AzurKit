@@ -46,7 +46,7 @@ town_central = "town.Z004"    # the hub (world.toml): the temple plaza, the W1_T
 # steps run the frame's render, so the insects fly in L3 as in xemu (AZ-361); the logic models no hit from them.
 town_e2_pocket = "town.Z012"  # the E2_TownShape arrival, the e2 exit's pocket behind FireWall_02 (town.firewall02_air1's takeoff)
 
-[exit."town/g1/r3059"]        # toD1_levelSwitch: the death door's level switch, live once the four discs are placed
+[exit."town/g1/r3059"]        # toD1_levelSwitch: the death door's level switch, a plain touch of TownExitFieldShape as the deck lowers, live at 0 discs on vanilla (sitting 4.71c-R1a); the disc and power terms are the migrated conservative requirement
 from = "town.Z003"
 to = "d1.Z031"
 requires = "disca>=4 & disce>=4 & discf>=4 & discw>=4 & fire>=3 & water>=3 & air>=3 & earth>=3"
@@ -95,3 +95,13 @@ from = "town.Z003"
 to = "town.Z004"
 requires = "air>=1"
 why = "the sewer (SewerCellShape: obsidians r1738-r1746 and 19 diamonds, town.Z003) is left back to the plaza (town_central) with air 1, and water 1 alone does not get out (the owner, verbatim: \"you can get out of the sewer with air1\", and asked about water 1: \"No, air 1 only\"; D745, 2026-10-26); never at kit 0 (\"row 12 is not possible with kit 0\", the owner's demo, X.78, D722 row 12). Since the water fix (AZ-356) no derived edge leaves its 21 zones at any kit or tier (its only way out was the hull's swim down into the sea 50 m under its water), so this hand edge is the owner's fact, unmeasured in L3 (AZ-738's searches ran out of steps)"
+
+[[held]]                      # Step 4.79d: the derive's sweep drop into the sewer from town.Z617 (town_z612's carrier)
+from = "town.Z617"
+to = "town.Z003"
+why = "walled: placed at the drop's own takeoff (and 1 m to each side) at kit 0, the pilot's drop legs and a straight walk-off stop 0.24 m past the takeoff, 12.68 m over the sewer's landing, and hop in place at the rim, 9 tries [verified xemu, placed: sitting 4.79e's T rows]; town_central's way into the sewer (physics) stands"
+
+[[held]]                      # Step 4.79d: the derive's sweep drop into the sewer from town.Z1116 (town_z612's carrier)
+from = "town.Z1116"
+to = "town.Z003"
+why = "roofed: placed at the drop's takeoff at kit 0, the body steps 0.9 m onto town_build_a1_pCylinderShape35, which has no floor of the zone graph, and stands there 12.27 m over the sewer's landing, 5 tries [verified xemu, placed: sitting 4.79e's T rows]"

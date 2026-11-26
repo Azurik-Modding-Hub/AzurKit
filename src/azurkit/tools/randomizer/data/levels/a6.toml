@@ -381,7 +381,8 @@ from = "a6_field_foot"
 to = "a6_lift_top"
 kind = "walk"
 requires = "true"
-confidence = "assumed"
+logic = false
+confidence = "data"
 
 [[edge]]
 from = "a6_field_foot"

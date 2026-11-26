@@ -213,7 +213,7 @@ confidence = "physics"
 
 [[edge]]
 from = "d2_z011"
-to = "d2_z037"
+to = "d2_z012"
 kind = "walk"
 requires = "true"
 confidence = "assumed"
@@ -226,6 +226,20 @@ requires = "true"
 confidence = "physics"
 
 [[edge]]
+from = "d2_z011"
+to = "d2_z127"
+kind = "walk"
+requires = "air>=1 | air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z012"
+to = "d2_z011"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
 from = "d2_z012"
 to = "d2_z014"
 kind = "walk"
@@ -236,7 +250,8 @@ confidence = "data"
 from = "d2_z012"
 to = "d2_z037"
 kind = "walk"
-requires = "true"
+requires = "air>=2"
+difficulty = 4
 confidence = "assumed"
 
 [[edge]]
@@ -334,13 +349,6 @@ confidence = "physics"
 
 [[edge]]
 from = "d2_z037"
-to = "d2_z011"
-kind = "walk"
-requires = "true"
-confidence = "assumed"
-
-[[edge]]
-from = "d2_z037"
 to = "d2_z012"
 kind = "walk"
 requires = "true"
@@ -350,8 +358,9 @@ confidence = "data"
 from = "d2_z037"
 to = "d2_z127"
 kind = "walk"
-requires = "air>=3 | true"
-confidence = "assumed"
+requires = "true"
+logic = false
+confidence = "data"
 
 [[edge]]
 from = "d2_z040"
@@ -394,6 +403,13 @@ to = "d2_z012"
 kind = "walk"
 requires = "true"
 confidence = "data"
+
+[[edge]]
+from = "d2_z127"
+to = "d2_z037"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
 
 # ---- exits ---------------------------------------------------------------------------------
 

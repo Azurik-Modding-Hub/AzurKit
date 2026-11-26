@@ -143,11 +143,11 @@ to = "d1.Z005"
 requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
 why = "the central elevator from floor 1 to floor 9: a rig the derive doesn't follow; Spideyzar's floor: switch9 is keyed by death_keylock2 [verified data]; the other two locks as the route uses them first (the route's flag:d1.spideyzar.killed); the conservative-kit rule (default taken under D115)"
 
-[[edge]]                      # the elevator: floor 9 -> floor 1
+[[edge]]                      # the elevator: floor 9 -> floor 1 (Step 4.79d: out)
 from = "d1.Z005"
 to = "d1.Z015"
-requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
-why = "the central elevator back down to floor 1 (CallField1): the conservative-kit rule (default taken under D115)"
+requires = "false"
+why = "the central elevator doesn't leave floor 9: a car called there waits with its buttons dead (DisableElevator_nandCombiner, the elevator's decode, record 645); standing in floor 9's call field the car came, the NAND read 0, and X on its red and blue panels in reach gave no call, 3 tries [verified xemu, placed: sitting 4.79e's L row d1#12]; floor 1 is reached by the d2 door"
 
 [[edge]]                      # the elevator bounce: floor 8 -> floor 9 (Step R2.17b)
 from = "d1.Z018"

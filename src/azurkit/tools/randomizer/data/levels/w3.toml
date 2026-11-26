@@ -1022,13 +1022,6 @@ requires = "true"
 confidence = "physics"
 
 [[edge]]
-from = "w3_z116"
-to = "w3_z150"
-kind = "walk"
-requires = "true"
-confidence = "assumed"
-
-[[edge]]
 from = "w3_z124"
 to = "w3_z086"
 kind = "walk"

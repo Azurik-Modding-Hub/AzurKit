@@ -219,6 +219,13 @@ confidence = "assumed"
 
 [[edge]]
 from = "e5_arena"
+to = "e5_z017"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_arena"
 to = "e5_z085"
 kind = "walk"
 requires = "true"
@@ -306,14 +313,15 @@ confidence = "data"
 from = "e5_z005"
 to = "e5_z017"
 kind = "walk"
-requires = "true"
-confidence = "assumed"
+requires = "event:e5.Teleporters_ResetShape1.touch & event:e5.Teleporters_ResetShape2.touch"
+confidence = "data"
 
 [[edge]]
 from = "e5_z005"
 to = "e5_z017"
 kind = "walk"
-requires = "event:e5.Teleporters_ResetShape1.touch & event:e5.Teleporters_ResetShape2.touch"
+requires = "true"
+logic = false
 confidence = "data"
 
 [[edge]]
@@ -1074,6 +1082,13 @@ confidence = "assumed"
 from = "e5_z143"
 to = "e5_z009"
 kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z143"
+to = "e5_z009"
+kind = "walk"
 requires = "true"
 confidence = "physics"
 
@@ -1104,6 +1119,13 @@ from = "e5_z143"
 to = "e5_z148"
 kind = "walk"
 requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z148"
+to = "e5_z009"
+kind = "walk"
+requires = "air>=2"
 confidence = "assumed"
 
 [[edge]]

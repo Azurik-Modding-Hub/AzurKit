@@ -104,11 +104,11 @@ to = "w3.Z077"
 requires = "true"
 why = "the centre's top back onto the SE walkway [inferred]"
 
-[[edge]]
+[[edge]]                      # Step 4.79d: out
 from = "w3.Z116"
 to = "w3.Z150"
-requires = "true"
-why = "the ledge before Smash_wall1_plane1 (the shrine's wall), part of the centre's top [inferred]"
+requires = "false"
+why = "a false premise: w3.Z150 lies at least 6.83 m below the centre's top, not part of it; from the from-zone's rim nearest it, direct runs at kit 0 end in w3.Z096, 3 tries [verified xemu, placed: sitting 4.79e's L row w3#105]"
 
 [[edge]]
 from = "w3.Z116"

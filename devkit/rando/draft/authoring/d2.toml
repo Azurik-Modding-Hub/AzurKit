@@ -27,6 +27,9 @@ d2_core = "d2.Z015"           # the D1_D2_Fall landing [verified xemu, placed: s
 d2_lock_room = "d2.Z008"      # the six lens keylocks
 d2_door = "d2.Z135"           # the D1_D2 arrival and the D2_D1 door back to d1
 
+[rig_held]                    # Step 4.79d: rigs whose guessed rides the game doesn't give
+SmasherShape = "the lab's smashers (Smasher1_timer and Smasher5_timer cycle them 0-4.7 m, decoded) carry no one 6.7-20.4 m: placed at the guessed rides' own wait vertices at kit 0 (d2 rows 18, 32 and 34, the owner list's 26-28) the smashers didn't move the player, or hit and killed him, 3 tries each [verified xemu, placed: sitting 4.79e's L rows]"
+
 [[edge]]                      # the force field (key_plusCombiner_damper) and the door between the lock room and the door pair
 from = "d2.Z008"
 to = "d2.Z135"

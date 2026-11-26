@@ -231,13 +231,6 @@ confidence = "assumed"
 
 [[edge]]
 from = "d1_floor9"
-to = "d1_floor1"
-kind = "walk"
-requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
-confidence = "assumed"
-
-[[edge]]
-from = "d1_floor9"
 to = "d1_z038"
 kind = "walk"
 requires = "true"
