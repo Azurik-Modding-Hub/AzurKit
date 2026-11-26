@@ -222,7 +222,9 @@ model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.
   fourth pass assumes the twin flew it from the same cells; since Step 4.79f it is skipped only there: where one of
   the refinement's own starts (one the twin never searched) stood in another cell, so the cells its fourth pass
   places in differ from the twin's, it flies that pass (R2.16e's bench: 11 of 1,208 refinement jobs that reach the
-  fifth pass, no find lost then).
+  fifth pass, no find lost then). Since Step 4.83a it is skipped only where one of the twin's own starts stood at
+  all: a twin whose starts stood in no cell flew no fourth pass, so the refinement flies it (AZ-851; 4.79f's review: 2 of
+  e7's 32 such twins had skipped it).
 - **The bent pass (Step 4.79f, D1341):** a probe-needed jump or flap edge whose pass-1 aim landed (`sample
   --retarget`'s class c, and the deep census at `--gate-m 1000`) gets, where its straight track from the aim's takeoff
   to its target meets a solid in the body's band (`aim.blocked`: the reach model's solid spans, the feet on the chord
@@ -617,14 +619,21 @@ reach audit's graph-side guards (Step 4.79a) fixed four of its flaws: a walk-off
 FastL3's confirm of a kernel candidate did) flew on the snapshot's flap latch (+0x164, which R6 doesn't write, so a
 flap could lift on the last jump's peak where a seed's lifts nothing) and now takes no zone slot, node edge or touch,
 only a MAY candidate (AZ-838); a FastL3 confirm whose one-jump rank is below its kernel candidate's (FastL3 landed
-early and the kernel's next Y press jumped from the ground) keeps the candidate's rank (AZ-839, the interim guard: no
-key moves); a confirm whose body holds in a third zone is credited to that zone pair where the hold kept no witness
-(AZ-840, the roll port's "credited to the pair FastL3 itself lands in" above; under `--rigs` the router judges it
-where it holds, so it owes its trip first); and a confirmed witness's proof record carries FastL3's taint, labels,
-HP, volumes and flaps rather than the kernel's empty ones (AZ-841). Still open, for the re-key batch: the confirm's
-own check that no Y press falls after FastL3's first landing (the guard's real fix, which re-keys every kernel
-record), then a confirm filed under its own rank rather than the kernel's. Positions
-and strings stay in the private cache.
+early and the kernel's next Y press jumped from the ground) kept the candidate's rank (AZ-839, the interim guard,
+gone since Step 4.83a: below); a confirm whose body holds in a third zone is credited to that zone pair where the
+hold kept no witness (AZ-840, the roll port's "credited to the pair FastL3 itself lands in" above; under `--rigs`
+the router judges it where it holds, so it owes its trip first); and a confirmed witness's proof record carries
+FastL3's taint, labels, HP, volumes and flaps rather than the kernel's empty ones (AZ-841). The re-key batch (Step
+4.83a) fixed four more, each moving keys, so no record from before it is read after it (every core, aim, kernel
+and hold key moved; the zones' did not): a confirm with a Y press after FastL3's own first landing is not the same
+launch (the kernel's controllers flap only before theirs, so the press was a ground jump: AZ-852, AZ-839's real
+fix), and a confirm is filed under its own rank, the better witness of that slot kept (AZ-853); the mover router
+also sweeps each tick's body grown by `PROBE_M` across and up, so a body the game stopped at its radius from a
+mover's wall or underside is routed to it (AZ-854: it had seen floor contact only); and `devkit/sim/snapshot.py`
+and `ports.py` (the pads' floats, the camera and the halt VAs L3 reads each tick) are L3 core files, and a hold
+answer's key names its outcome's string, not its index alone (AZ-855). With them L3's contiguous memory comes from
+the RAM window's free pages (AZ-850, [`SIMULATOR.md`](SIMULATOR.md)) and a reach model is keyed by its builder's
+code as well as its zoning (AZ-857). Positions and strings stay in the private cache.
 
 **The rigs' triggers (Step R2.19h2, D847).** What starts each moving solid is read from its level's wiring by
 `devkit/reach/engine/triggers.py` (the motion nodes of [`RE_XBE.md`](RE_XBE.md) § "Rig triggers"): `load` (it
