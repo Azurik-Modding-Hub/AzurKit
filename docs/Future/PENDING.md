@@ -356,6 +356,15 @@ owner played, D1334).
       three vanilla diamonds), cuts 0 locations and moves 0 of 400 plans at
       each difficulty, while `db_digest` moves (987078469867 to
       4da79f302a96). 4.76c's yield decides 4.79f (6.11).
+    - **4.79g fixed the share cap (AZ-848):** what a share's 3 tries push out
+      is the rank's spill, so a graph of more plans keeps the ranks a smaller
+      graph held. Its re-read (both sides on its code): 0 zone ranks lost on
+      f2 and w1 (w1's lost edge back), 1 on e7 that is AZ-840's third-zone
+      credit, not monotone in records (it rests on which confirms a hold
+      reads; open, AZ-849). The census's probe-needed yield, its 10 m graph
+      to the deep census: e7 972 to 1,104, f2 1,994 to 2,225, w1 2,330 to
+      2,565. A level's first graph after it replays each rank's whole spill
+      once where none stays (f2 43,436 replays, 1.1 CPU-h), cached after.
     - ~~4.76d, the witness gate~~: on `main`, off (bb41ed53, 61f338c1): a
       level whose authoring says `sweep_gate = "witnessed"` admits a sweep
       edge only at the least air rank its zone pair's engine witness needs.
