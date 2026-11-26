@@ -567,8 +567,13 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
             doc, verdicts, rec12 = R.recording(rigs[0], snap, pool)
         router, zone_at = R.Router(R._level(rigs[0])[0], verdicts, doc["rec"]), rigs[1].zone_at
 
+    read: dict[tuple, dict] = {}         # each answer read once (a spill's ranks re-walk the hold a call a replay)
+
     def answer(w):
-        got = hold.answer(base, by_key[w["job"]], w["outcome"])
+        if (got := read.get((w["job"], w["outcome"]))) is None:
+            got = hold.answer(base, by_key[w["job"]], w["outcome"])
+            if got is not None:              # a cached answer never changes; a missing one is replayed, then read
+                read[w["job"], w["outcome"]] = got
         if got is None or rigs is None or "land" not in got:
             return got
         rec, wk = by_key[w["job"]], (w["job"], w["outcome"])

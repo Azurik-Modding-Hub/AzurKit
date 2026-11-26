@@ -22,7 +22,13 @@ witness that stays, so adding them lost e7's truth pair Z117>Z000), and so do th
 ``sample --pairs``', Step R2.19g2: its aims that left pushed out three of a5's held zone pairs) and the escalation's
 (job ids ``e...``: ``sample --escalate``', Step R2.19g3, so it never pushes out a pair stage's or the base's), which
 :meth:`Graph.hold` tries after every other (so one that stays never ends a hold before a kernel confirm the plans
-without it read, whose touches, MAY and node edge then went: g3's measure lost e7 27 MAY edges so).  A first
+without it read, whose touches, MAY and node edge then went: g3's measure lost e7 27 MAY edges so).  What a share's
+cap pushes out is kept in the rank's ``spill``, which :meth:`Graph.hold` tries after the rank's tries and its held
+one, by the same order (escalations still last), so it is replayed only where none of them stays (AZ-848, Step
+4.79g: a second plan of one stage, 4.76c's deep census beside 4.76b's retarget, shares its share, and its quicker
+re-aims that left pushed out witnesses that stay; e7, f2 and w1 lost nine zone pair ranks so).  So the hold of a
+graph built from more records keeps every zone pair rank the smaller graph's hold kept from that pair's own
+candidates (a third zone's credit, AZ-840 below, rests on which confirms a hold reads).  A first
 touch-down on a third node the body then left is a MAY candidate; the volumes and pickups its body centre touched are
 edges to them (``vol:<id>``, ``pick:<location>``).  A kernel outcome (``by`` "kernel": Step R2.19d's launch backend,
 ``reach_native.backend``) is a zone witness candidate only: it gives no node edge, MAY candidate or touch itself, and
@@ -86,7 +92,8 @@ def _latched(w: dict, o: dict) -> bool:
 class Graph:
     """The edges a set of job records gives over ``nodes`` (:class:`~.nodes.Nodes`): ``edges[(a, b)][rank]`` the
     best witness of each rank, ``zones[(za, zb)][rank]`` the same between the logic's zones, ``cands`` its
-    :data:`TRIES` best a rank, ``stayed`` its best whose record holds its stay, ``touch`` the volume and pickup
+    :data:`TRIES` best a rank, ``spill`` what that cap pushed out (AZ-848), ``stayed`` its best whose record holds
+    its stay, ``touch`` the volume and pickup
     edges, ``may`` the first-contact candidates, ``counts`` what was dropped and why, ``aimed`` the derived edges an
     aim launched at and ``tried`` those an aim was run for (its aim point and to-zone), and :meth:`fault` an aimed
     edge's floor fault."""
@@ -96,6 +103,7 @@ class Graph:
         self.edges: dict[tuple, dict[int, dict]] = collections.defaultdict(dict)
         self.zones: dict[tuple, dict[int, dict]] = collections.defaultdict(dict)
         self.cands: dict[tuple, dict[int, list]] = collections.defaultdict(dict)
+        self.spill: dict[tuple, dict[int, list]] = collections.defaultdict(dict)   # the cap's (AZ-848), best first
         self.stayed: dict[tuple, dict[int, dict]] = collections.defaultdict(dict)
         self.touch: dict[tuple, int] = {}
         self.may: dict[tuple, int] = {}
@@ -201,7 +209,9 @@ class Graph:
             got.sort(key=_order)                   # stable: of equals, the first found stays first
             kind = [i for i, x in enumerate(got) if _kind(x["id"]) == _kind(w["id"])]
             if len(kind) > TRIES:                  # the worst of w's own kind goes: a retarget's, a pair's, the rest's
-                del got[kind[-1]]
+                spill = self.spill[(za, zb)].setdefault(r, [])     # ... to the rank's spill (AZ-848)
+                spill.append(got.pop(kind[-1]))
+                spill.sort(key=_order)
         self.zones[(za, zb)][r] = got[0]
         if "hold" in o and _better(w, self.stayed[(za, zb)].get(r)):
             self.stayed[(za, zb)][r] = w
@@ -232,21 +242,32 @@ class Graph:
     def hold(self, answer) -> list[dict]:
         """The hold (``hold``'s module docstring): each zone pair's witness a rank becomes the best of its
         :attr:`cands` whose answer (``answer(w)``: ``hold.replay``'s, None while not replayed) :func:`hold.stays`
-        in the pair's to-zone, else its :attr:`stayed` one, an escalation's tried last (a kernel candidate's answer
-        is FastL3's confirm: the witness kept takes its re-derived fields, :func:`confirmed`); a rank none of them
-        stays for goes, and a pair with no rank left.  Each confirm it read then adds its touches, MAY candidate and
-        node edge (the module docstring), and a confirm whose body holds in a third zone fills that pair's rank where
-        no witness is kept (AZ-840); one whose walk-off flapped stays nowhere and gives only its MAY (AZ-838).  While a candidate ahead of any that stays has no answer, nothing changes and
-        those candidates are returned: replay them, then call again."""
+        in the pair's to-zone, else its :attr:`stayed` one, else the best of its :attr:`spill` (AZ-848), an
+        escalation's tried last (a kernel candidate's answer is FastL3's confirm: the witness kept takes its
+        re-derived fields, :func:`confirmed`); a rank none of them stays for goes, and a pair with no rank left.  Each
+        confirm it read then adds its touches, MAY candidate and node edge (the module docstring), and a confirm whose
+        body holds in a third zone fills that pair's rank where no witness is kept (AZ-840); one whose walk-off
+        flapped stays nowhere and gives only its MAY (AZ-838).  While a candidate ahead of any that stays has no
+        answer, nothing changes and those candidates are returned: replay them, then call again; one of a spill goes
+        with as many unanswered ones after it as the spill's answered ahead of it, so a long spill that leaves takes
+        a few calls, not one a candidate (AZ-848)."""
         from devkit.reach.engine.hold import SWIMMING, stays
-        want, keep, confirms = [], {}, []
+        want, keep, confirms, spilled, asked = [], {}, [], 0, 0
         for (za, zb), ranks in self.cands.items():
             for r, ws in ranks.items():
                 held = self.stayed.get((za, zb), {}).get(r)
                 tries = ws + ([held] if held is not None and all(x is not held for x in ws) else [])
-                for w in sorted(tries, key=lambda x: _kind(x["id"]) == ESCALATE):   # g3's last: the docstring
+                spill = [x for x in self.spill.get((za, zb), {}).get(r, ()) if x is not held]   # AZ-848: the cap's
+                ids = {id(x) for x in spill}
+                order = sorted(tries + spill, key=lambda x: _kind(x["id"]) == ESCALATE)   # g3's last: the docstring
+                for i, w in enumerate(order):
                     if (got := answer(w)) is None:
                         want.append(w)
+                        if id(w) in ids:           # a spill's: as many more as the spill answered ahead go too (AZ-848)
+                            n = sum(id(x) in ids for x in order[:i])
+                            more = [x for x in [x for x in order[i + 1:] if id(x) in ids][:n] if answer(x) is None]
+                            want += more
+                            asked += 1 + len(more)
                         break
                     if got.get("outcome") is not None:     # a confirm (an aim's hit's: its edges are in)
                         confirms.append((w, got, za, zb))
@@ -254,8 +275,10 @@ class Graph:
                             continue
                     if stays(got, zb, self.nodes.zone_at):
                         keep[(za, zb), r] = confirmed(w, got)
+                        spilled += any(x is w for x in spill)
                         break
         if want:
+            self.counts["spilled candidates the hold asked to replay"] += asked   # every call's, so the spill's cost
             return want
         other: dict[tuple, dict] = {}
         latched = 0
@@ -285,6 +308,7 @@ class Graph:
             else:
                 self.zones.pop(pair, None)
         self.counts["zone witnesses the hold took from a later candidate"] = moved
+        self.counts["zone witnesses the hold took from the cap's spill"] = spilled
         self.counts["zone ranks the hold left with no witness"] = gone
         n = 0
         for (pair, r), c in other.items():          # where the hold kept none: a launch landed there too (``cands``)

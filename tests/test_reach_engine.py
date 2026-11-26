@@ -1217,6 +1217,52 @@ def test_an_aim_hit_whose_hold_left_takes_no_try_and_a_kernel_confirm_gives_its_
     assert g.edges[("n1", "n12")][0]["by"] == "confirmed"
 
 
+def test_three_quicker_witnesses_of_its_share_that_leave_cost_no_rank_the_staying_witness_held():
+    """AZ-848 (Step 4.79g): a share's ``TRIES`` cap pushed out a retarget's witness that stays once three quicker
+    ones of the same share (4.76c's deep census, a second retarget plan beside 4.76b's) landed in its zone pair and
+    all left, so the graph of more plans lost zone pair ranks the smaller graph's hold kept (nine on e7, f2 and w1).
+    What the cap pushes out is the rank's spill, tried after its tries and its held one, an escalation's still last,
+    never asked while one ahead of it stays, and asked in growing batches where it leaves (a call each: 1, 2, 4).
+    witness-check's row of a witness the hold kept from the spill takes its zone flags from it (the review's catch)."""
+    run = {"run": {"settled": [12, 0, 0]}}
+
+    def build(outs):
+        return graph.Graph(_Lots(), {f"j{k}": {"key": f"j{k}", "takeoff_feet": [1, 0, 0], "from": "Z0"}
+                                     for k in range(len(outs))},
+                           [{"key": f"j{k}", "id": i, "starts": run, "outcomes": [o]} for k, (i, o) in enumerate(outs)])
+
+    def held(g, stay=("s5", "s6", "e6")):               # a string's second letter: its to-zone, Z5, Z6 or Z7
+        asked, calls = [], 0                            # what the hold asked to replay, as the bench's driver
+
+        def answer(w):
+            s = w["string_sha12"]
+            return None if s not in asked else {"land": [20 * int(s[1]), 0, 0] if s in stay else [165, 0, 0],
+                                                "state": 0, "same": True}
+        while want := g.hold(answer):
+            asked, calls = asked + [w["string_sha12"] for w in want], calls + 1
+        return {p: [w["string_sha12"] for w in g.witnesses(p)] for p in sorted(g.zones)}, asked, calls
+    old = [("gb0", _out("s5", 50, [106, 1, 0])), ("gb1", _out("s6", 50, [126, 0, 0])),    # s5's 1 m off: zone_far
+           ("ea2", _out("e6", 5, [126, 0, 0]))]                       # an escalation's to Z6 stays too
+    old += [(f"gc{k}", _out(f"s7{k}", 60 + k, [146, 0, 0])) for k in range(7)]   # seven to Z7, none staying
+    new = [(f"gd{z}{k}", _out(f"q{z}{k}", 10 + k, [20 * z + 6, 0, 0])) for z in (5, 6, 7) for k in range(graph.TRIES)]
+    small = {("Z0", "Z5"): ["s5"], ("Z0", "Z6"): ["s6"]}
+    assert held(build(old))[0] == small
+    g = build(old + new)
+    assert [w["string_sha12"] for w in g.cands[("Z0", "Z5")][0]] == ["q50", "q51", "q52"]
+    assert held(g)[0] == small                       # the spill's before the escalation, as in the smaller graph
+    assert [w["string_sha12"] for w in g.spill[("Z0", "Z5")][0]] == ["s5"]
+    from devkit.reach import witness_check as wc
+    w5 = {"ref": "w5", "claim": {"from": "Z0", "to": "Z5", "min_air": 0}, "string": {"sha12": "s5", "ticks": 50},
+          "start": {"setup": [["R6", {"job": "j0", "start": "run"}]]}}
+    row = wc.joined("e7", w5, {"key": "j0", "id": "gb0", "outcomes": [old[0][1]]}, {}, "p", g, {}, None)
+    assert row["flags"] == ["zone_far"] and "flag:zone_far" in row["cls"]
+    assert (g.counts["zone witnesses the hold took from the cap's spill"],
+            g.counts["spilled candidates the hold asked to replay"]) == (2, 2 + 7)
+    kept, asked, calls = held(g := build(old + new), stay=("q50", "s6"))
+    assert kept[("Z0", "Z5")] == ["q50"] and "s5" not in asked      # a try that stays: the spill isn't asked
+    assert (calls, g.counts["spilled candidates the hold asked to replay"]) == (3 + 3, 1 + 7)   # Z7's: 1, 2, 4
+
+
 def _one_each(outs) -> graph.Graph:
     """The graph of hand-made jobs of one outcome each, every start standing on n1 in Z0 (:class:`_Lots`)."""
     run = {"run": {"settled": [12, 0, 0]}}

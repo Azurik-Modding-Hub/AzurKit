@@ -283,10 +283,13 @@ def per_class(rows: list[dict], n: int) -> list[dict]:
     return [r for r in rows if r["ref"] in keep]
 
 
-def joined(level: str, w: dict, rec: dict, job: dict, plan: str, cands, kinds: dict, negative: str | None) -> dict:
-    """Witness record ``w``'s row: its ids and class fields, from its job record ``rec``, ``job``, its ``plan``, the
-    graph's candidates at its pair and rank (its flags) and the derived edges' ``kinds``."""
+def joined(level: str, w: dict, rec: dict, job: dict, plan: str, g, kinds: dict, negative: str | None) -> dict:
+    """Witness record ``w``'s row: its ids and class fields, from its job record ``rec``, ``job``, its ``plan``, graph
+    ``g``'s candidates at its pair and rank (its flags: its tries and the cap's spill, which the hold may keep too,
+    AZ-848) and the derived edges' ``kinds``."""
     su, c = setup_of(w), w["claim"]
+    pair, r = (c["from"], c["to"]), c["min_air"]
+    cands = g.cands.get(pair, {}).get(r, []) + g.spill.get(pair, {}).get(r, [])
     k = next((k for k, o in enumerate(rec["outcomes"]) if o["string_sha12"] == w["string"]["sha12"]
               and o["start"] == su["start"]), None)
     if k is None:
@@ -364,9 +367,7 @@ def plan(a) -> dict:
     rows = []
     for w in ws:
         job = setup_of(w)["job"]
-        r = joined(a.level, w, recs[job], jobs[job], plan_of[job],
-                   g.cands.get((w["claim"]["from"], w["claim"]["to"]), {}).get(w["claim"]["min_air"], []), kinds,
-                   negative)
+        r = joined(a.level, w, recs[job], jobs[job], plan_of[job], g, kinds, negative)
         rows.append(r | ({"edges": edges[w["ref"]]} if w["ref"] in edges else {}))
     rows.sort(key=lambda r: order(r["ref"]))
     if a.per_class:

@@ -571,13 +571,20 @@ player would steer. The
 engine's face list misses floors L3 stands on, so the aims ask L3 itself (their targets and starts); a derived
 flight none of whose aims finds a body standing in its zone near its landing or takeoff, where no launch lands
 either, is the derive's phantom (AZ-723). A zone pair's hold tries its 3 best witnesses a rank, so a rank whose 3
-best all leave goes even where a fourth would stay, unless an aim's hit held as it was found stays (since Step
+best all left went (to Step 4.79g) even where a fourth would stay, unless an aim's hit held as found stays (since Step
 R2.16e: that hit ended its job, so the hold falls back on it); since Step R2.19k an aim's hit whose own hold left
 takes none of the 3, and since Step R2.19f+ neither does a witness repeating a kept one's string (a refinement's
 twin: same place, kit and pads, so the same answer), and a retarget's witnesses (`sample --retarget`'s) take 3 of
 their own, as the pair stage's do (`sample --pairs`', since Step R2.19g2: its aims that left had pushed out three of
 a5's held zone pairs) and the escalation's (`sample --escalate`', Step R2.19g3), which the hold tries after every
-other, so one that stays never ends a hold before a kernel confirm whose touches, MAY and node edge count. The
+other, so one that stays never ends a hold before a kernel confirm whose touches, MAY and node edge count. Since
+Step 4.79g what a share's cap of 3 pushes out is the rank's spill, which the hold tries after the 3 and the held hit
+(an escalation's still last), so it is replayed only where none of them stays, in growing batches (1, 2, 4 ...)
+where it leaves, each cached answer read once: a second plan of one stage (4.76c's
+deep census, a retarget plan beside 4.76b's) shares its share, and its quicker re-aims that left had pushed out
+witnesses that stay, nine zone pair ranks on e7, f2 and w1 (AZ-848); the hold of a graph built from more records now
+keeps every zone pair rank the smaller graph's kept from that pair's own candidates (a third zone's credit, AZ-840,
+rests on which confirms a hold reads). The
 reach audit's graph-side guards (Step 4.79a) fixed four of its flaws: a walk-off that flapped (as L3 ran it, or as
 FastL3's confirm of a kernel candidate did) flew on the snapshot's flap latch (+0x164, which R6 doesn't write, so a
 flap could lift on the last jump's peak where a seed's lifts nothing) and now takes no zone slot, node edge or touch,
