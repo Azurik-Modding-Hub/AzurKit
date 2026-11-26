@@ -1110,8 +1110,8 @@ def replay_clearing(sb, xo, pads: list, rows: list, meta: dict) -> tuple[list[di
                 sb.release_btn("a")
             else:
                 return got, {"at": "stall", "k": len(got), "popups": popups}
-        finally:
-            g.cmd("?")
+        finally:   # halted the sandbox's way (a stop reply the last press's breakpoint sent read off), so no reply
+            sb.halt().cmd("?")   # is left for the next 'g' (4.78b: the next row's fromhex ValueError, 8 of 8)
         clock = struct.unpack("<d", g.read(ent + 0x18, 8))[0]
         if round((clock - meta["clock"]) * 30) != len(got):
             return got, {"at": "lost", "k": len(got), "popups": popups}

@@ -2499,3 +2499,142 @@ def test_a_witness_check_run_removes_its_own_folder_once_empty_and_nothing_not_i
     assert finish(()) == (None, 0) and finish((), corpus=True) == ([], 0)
     assert finish(("a.l3snap",), snaps=("a.l3snap",), corpus=True) == (["a.l3snap"], 1)
 
+
+class _PopupStub:
+    """A gdbstub's socket over a stand-in game, for ``l3_certify.replay_clearing`` (Step 4.78e): the guest runs or
+    halts; a run reaches the armed player update entry (a stop reply, ``T05``) or, while a popup holds the game,
+    nothing; ^C halts a running guest (``T02``) and a halted one drops it; a packet sent to a running guest stops
+    it (``T02``) and is lost.  An A press while the popup holds the game ends it: ``popup`` plays on to the update
+    of the tick it held, ``dead`` (a death's continue) to another entity's update at every run, never the
+    player's."""
+    UPDATE, POPUP, ENT, OTHER = 0x8C230, 0x55550, 0x1000, 0x2000
+
+    def __init__(self, how, tick):
+        self.how, self.tick, self.held, self.running, self.presses = how, tick, True, False, 0
+        self.pc, self.ecx, self.bps, self.out, self.inbuf = self.POPUP, 0, set(), [], b""
+
+    def settimeout(self, t):
+        pass
+
+    def recv(self, n):
+        if not self.out:
+            raise TimeoutError("timed out")
+        p = self.out.pop(0)
+        return b"$%s#%02x" % (p, sum(p) & 0xFF)
+
+    def _stop(self, reply=b"T05thread:01;"):
+        self.running = False
+        self.out.append(reply)
+
+    def _run(self):
+        self.running = True
+        if self.held:
+            return
+        if self.how == "popup":
+            self.tick += self.pc == self.UPDATE   # from a halt at an entry, its tick runs: the next one's
+        self.pc, self.ecx = self.UPDATE, self.ENT if self.how == "popup" else self.OTHER
+        if self.UPDATE in self.bps:
+            self._stop()
+
+    def press(self):
+        self.presses += 1
+        if self.running and self.held:
+            self.held = False
+            self._run()
+
+    def sendall(self, data):
+        import struct
+        self.inbuf += data
+        while self.inbuf:
+            if self.inbuf[:1] in (b"+", b"\x03"):
+                if self.inbuf[:1] == b"\x03" and self.running:
+                    self._stop(b"T02thread:01;")
+                self.inbuf = self.inbuf[1:]
+                continue
+            j = self.inbuf.index(b"#")
+            p, self.inbuf = self.inbuf[1:j], self.inbuf[j + 3:]
+            if self.running:
+                self._stop(b"T02thread:01;")
+            elif p == b"c":
+                self._run()
+            elif p == b"?":
+                self.bps.clear()
+                self.out.append(b"T05thread:01;")
+            elif p[:3] in (b"Z0,", b"z0,"):
+                va = int(p.split(b",")[1], 16)
+                self.bps.add(va) if p[:1] == b"Z" else self.bps.discard(va)
+                self.out.append(b"OK")
+            elif p == b"g":
+                regs = [0] * 16
+                regs[1], regs[8] = self.ecx, self.pc
+                self.out.append((struct.pack("<16I", *regs) + bytes(280)).hex().encode())
+            elif p[:1] == b"m":
+                va, n = (int(x, 16) for x in p[1:].split(b","))
+                mem = bytearray(n)
+                for i, b in enumerate(struct.pack("<d", 10.0 + self.tick / 30)):
+                    if 0 <= self.ENT + 0x18 + i - va < n:
+                        mem[self.ENT + 0x18 + i - va] = b
+                self.out.append(bytes(mem).hex().encode())
+            else:
+                self.out.append(b"OK")
+
+
+def _popup_clearing(how, monkeypatch, n=8, k=5):
+    """``l3_certify.replay_clearing`` with the sandbox's own halt and wait (``Sandbox.halt``, ``_halt_guest``,
+    ``_wait``) over a :class:`_PopupStub`: a replay of ``n`` ticks whose popup holds tick ``k``'s update (the replayer
+    as a stand-in, its start checked as ``Sandbox.replay`` checks it); xemu's rows, how it ended, the sandbox, the
+    stub."""
+    from types import SimpleNamespace
+
+    from devkit.reach import l3_certify as cert
+    from devkit.xemu import oracle as xo
+
+    stub = _PopupStub(how, k)
+    monkeypatch.setattr(cert, "time", SimpleNamespace(sleep=lambda s: None))
+
+    class Sb:
+        halt, _halt_guest, _wait = xo.Sandbox.halt, xo.Sandbox._halt_guest, xo.Sandbox._wait
+
+        def __init__(self):
+            self.g, self._halted, self.calls = xo.RSP.__new__(xo.RSP), True, 0
+            self.g.s, self.g.buf, self.g.stepover, self.g.xread = stub, b"", True, False
+
+        def status(self):
+            return "running" if stub.running else "debug"
+
+        def hold(self, btn):
+            stub.press()
+
+        def release_btn(self, btn):
+            pass
+
+        def replay(self, pads, rows, meta, *, timeout, stops):
+            self.calls += 1
+            if self.calls == 1:   # to the popup: it ends halted where the ^C stopped it, no breakpoint left
+                stops.update(at="stall", k=k)
+                return [{"k": i, "state": 0, "hp": 100} for i in range(k)]
+            if (stub.pc, stub.ecx, 10.0 + stub.tick / 30) != (stub.UPDATE, stub.ENT, meta["clock"]):
+                raise SystemExit("the guest isn't at the replay's start")
+            stub.tick += len(pads)
+            stops.update(at="entry")
+            return [{"k": i, "state": 0, "hp": 100} for i in range(len(pads))]
+
+    sb = Sb()
+    got, stops = cert.replay_clearing(sb, xo, [None] * n, [None] * n,
+                                      {"entity": stub.ENT, "clock": 10.0, "at": "update", "start_sha12": "s"})
+    return got, stops, sb, stub
+
+
+def test_a_popup_clearing_that_never_reaches_the_players_update_ends_halted_with_no_stop_reply_left(monkeypatch):
+    """Step 4.78e (4.78b's fromhex flake: the row after each of 8 stalls in one arrival failed its first try with
+    ``ValueError: non-hexadecimal number found in fromhex()``, 8 of 8 at phase 0; at phases 15 and 30 the idle's
+    ``Sandbox.halt`` read it off first): after a death's continue each A press plays the game on to another
+    entity's update, where the armed breakpoint stops it, so a stall's 12 presses ended with the guest stopped
+    there, its stop reply on the connection; the clearing's ``?`` read that as its reply and left its own for the
+    next row's ``g`` (``sitting.place``'s register read).  The clearing now halts the sandbox's way first: it ends
+    halted, nothing on the connection, and a register read reads registers."""
+    got, stops, sb, stub = _popup_clearing("dead", monkeypatch)
+    assert (stops["at"], stops["k"], stops["popups"], len(got)) == ("stall", 5, 1, 5)
+    assert (sb._halted, stub.running, stub.out) == (True, False, [])
+    assert sb.g.regs()["ecx"] == stub.OTHER
+
