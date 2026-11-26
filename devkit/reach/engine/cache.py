@@ -154,12 +154,13 @@ def job_key(job: dict, meta_sha12: str, core12: str | None = None, touch: str | 
     :data:`AIM_FILES`), the snapshot's metadata hash, the launch set's version, the plan's targets (``touch``, their
     file's sha12) and the job's start (feet lists, heading, cells, macros, an aim's target, its cells, stop,
     certificate and edge: its confidence decides ``aim.MORE``'s passes, its flap schedule, a refinement's twin's
-    answers and whether it asks for every pass, ``more``), and for a job that stops (``aim.hit``) the code that names its zones (``zones12``, by default
-    :data:`ZONE_FILES`' sha12); its ``id`` and bookkeeping fields aren't part."""
+    answers, whether it asks for every pass, ``more``, and its bent pass's takeoffs, ``bends``), and for a job that
+    stops (``aim.hit``) the code that names its zones (``zones12``, by default :data:`ZONE_FILES`' sha12); its ``id``
+    and bookkeeping fields aren't part."""
     core12 = core12 or core(CORE_FILES + AIM_FILES if job.get("target") is not None else CORE_FILES)
     doc = {"core": core12, "meta": meta_sha12, "r0": reach_engine.R0, "touch": touch,
            **{k: job[k] for k in ("takeoff_feet", "starts", "heading", "cells", "macros", "target", "aim", "stop",
-                                  "target_cells", "cert", "edge", "env", "twin", "more") if k in job}}
+                                  "target_cells", "cert", "edge", "env", "twin", "more", "bends") if k in job}}
     if job.get("stop"):
         doc["zones"] = zones12 or core(ZONE_FILES)
     return hashlib.sha256(json.dumps(doc, sort_keys=True).encode()).hexdigest()[:12]

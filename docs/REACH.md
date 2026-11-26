@@ -218,12 +218,21 @@ model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.
   twin's own), and takes the twin's floor and start answers in place of searching L3 again (`aim.twinned`): the same
   launches gave the twin's outcomes, and on the bench the refinement of about the same edges took a quarter fewer
   steps (35 M to 27 M; the bench 229 M to 221 M, 33,100 to 30,900 a find at kit). L3 repeats a job's launches
-  bit for bit nearly always: re-run with the same code, 2 of f2's 8,519 aim jobs gave other strings. A known flaw
-  (D610): the skipped fourth pass and macros assume the twin flew them from the same cells, but where the
-  refinement's own starts stood in other cells than the twin's they skip launches the twin never flew (11 of the
-  bench's 1,208 refinement jobs that reach the fifth pass; no find lost); the fix, a skip only where the twin's
-  starts stood in the same cells, waits for the next change to `aim.py`, since any edit there re-runs every aimed
-  job.
+  bit for bit nearly always: re-run with the same code, 2 of f2's 8,519 aim jobs gave other strings. The skipped
+  fourth pass assumes the twin flew it from the same cells; since Step 4.79f it is skipped only there: where one of
+  the refinement's own starts (one the twin never searched) stood in another cell, so the cells its fourth pass
+  places in differ from the twin's, it flies that pass (R2.16e's bench: 11 of 1,208 refinement jobs that reach the
+  fifth pass, no find lost then).
+- **The bent pass (Step 4.79f, D1341):** a probe-needed jump or flap edge whose pass-1 aim landed (`sample
+  --retarget`'s class c, and the deep census at `--gate-m 1000`) gets, where its straight track from the aim's takeoff
+  to its target meets a solid in the body's band (`aim.blocked`: the reach model's solid spans, the feet on the chord
+  plus the plain jump's arc; the derive's `sweep` class is "every modelled flight on the straight ground track passes
+  a solid"), the bent pass after its other six (`aim.bends`): from each side's nearest takeoff moved 1-4 m across the
+  track onto its from-zone's floor whose straight track clears, and from its own takeoff turned at each side's nearest
+  point 1-4 m beside the middle of the stretch that meets solids whose two legs clear (`aim.Bent`: the stick at that
+  point until past it, then the landing control), the certificate's aims, walked at the target once down, then on the
+  envelope's schedule with `env`. The aims of 4.76f's held and kept rows' carriers (e7, a5) were all flown every pass
+  by the census and unwitnessed; the bent pass is what the census never tried.
 - **Step R2.16e's bench, main against the step (2026-10-27; stopped after its first round, D821):** w1, f2, a5 and
   e7 at kit 0 on their R2.16c snapshots (8,027 derived modelled jump and flap zone edges; 12 workers at nice 10 on a
   shared host). Found at the edge's own kit, main to the step: e7 1,017 to 1,094 (84.5 % to 90.9 %; graded 85.4 %

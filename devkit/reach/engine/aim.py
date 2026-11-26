@@ -38,7 +38,11 @@ standing there, with none of the job's own starts standing either, is L3's answe
 nearest only.  Last, for a job with ``env`` (a jump with flaps: its certificate's flap ticks on the envelope's
 schedule, ``physics.Envelope.schedule``, :func:`aim_jobs`), the certificate's aims from its own starts again, each
 flap on that schedule (:class:`Sched`; Step R2.16e: of 94 sampled misses with a flap-jump certificate, the flap law's
-timing found none, the schedule's 49).  Each outcome's ``pass`` says which of the six launched it.
+timing found none, the schedule's 49).  Last, for a job with ``bends`` (Step 4.79f: :func:`retarget`'s probe-needed
+edges whose pass 1 landed and whose straight ground track meets a solid, :func:`blocked`), the bent pass: the
+certificate's aims, walked at the target once down, from each takeoff :func:`bends` moved across the track so its
+track clears, and from its own takeoff turned at a point beside the solid (:class:`Bent`), then so again on the
+schedule with ``env``.  Each outcome's ``pass`` says which of the seven launched it.
 
 Passes 2-6 run for the derived modelled edges (:data:`MORE`; the bar's) and for a job that asks (``more``: Step
 R2.19f+'s g1, :func:`more`), so a probe-needed aim takes pass 1 unless its job asks.  :func:`retarget` aims at what a
@@ -84,6 +88,9 @@ GATE_M = 3.0                         # [proposal, g1] :func:`retarget`'s class c
                                      # this near its to-zone's floor
 HOME_M, HOME_TICKS = 0.5, 30         # [the diagnosis's] after the touch-down, walk at the target while this far off
 BRAKE_V, BRAKE_TICKS = 0.3, 20       # [the diagnosis's] then hold against a slide this fast (m/s)
+BEND_M = (1.0, 2.0, 3.0, 4.0)        # [proposal] the bent pass's takeoffs and turn points this far across the track
+BEND_STEP, BEND_END_M = 0.25, 0.5    # [the derive's sweep step] :func:`blocked`'s samples, the ends left out
+RISE = {"k0": 1.1, "air3": 1.2}      # [measured, the jump's v0 4.64 / 4.85 m/s] the arc :func:`blocked` sweeps
 _N4 = ((SCAN_STEP, 0.0), (-SCAN_STEP, 0.0), (0.0, SCAN_STEP), (0.0, -SCAN_STEP))
 _SCAN = sorted(((i * SCAN_STEP, j * SCAN_STEP) for i in range(-5, 6) for j in range(-5, 6)
                 if math.hypot(i, j) * SCAN_STEP <= SCAN_M + 1e-9), key=lambda o: (math.hypot(*o), o))
@@ -214,6 +221,32 @@ class Sched(Aim):
         return p
 
 
+class Bent(Aim):
+    """An aim round a solid (the bent pass, :func:`bends`): R0's run-up along its heading (at its turn point
+    ``via``), once airborne the stick at ``via`` (``curve`` off it for the first :data:`TURN` airborne ticks) until
+    the feet are past it toward the target, then :class:`Aim`'s control at the target; its flaps as that control's
+    (while the stick at the target would land short)."""
+
+    def __init__(self, *a, via=None, **kw) -> None:
+        super().__init__(*a, **kw)
+        self.via = via
+
+    def steer(self, t: int, prev) -> tuple[float | None, bool, bool]:
+        h, follow, short = super().steer(t, prev)
+        v, tg = self.via, self.target
+        if v is None or tg is None or self.took is None or self.first is not None or prev is None:
+            return h, follow, short
+        f = _feet(prev)
+        if (f[0] - v[0]) * (tg[0] - v[0]) + (f[1] - v[1]) * (tg[1] - v[1]) >= 0.0:
+            self.via = None                            # past the turn point: the control at the target from here
+            return h, follow, short
+        return heading_to(f, v) + (self.m.curve if t - self.took < TURN else 0.0), True, short
+
+
+class BentSched(Bent, Sched):
+    """:class:`Bent` with :class:`Sched`'s flaps (the envelope's schedule)."""
+
+
 def hit(o: dict, start: dict, job: dict, zone_at) -> bool:
     """Whether outcome ``o``, launched from ``start`` (what the start search gave), ends aimed job ``job`` (its
     ``stop``) as a witness the graph counts for the job's edge: the start settled in the job's from-zone and the
@@ -286,8 +319,10 @@ def run_job(sim, job: dict, touch=None, here: int | None = None, zone_at=None) -
     leaves its to-zone at rest is none), and while none has, for a job :func:`more` passes, the same
     launches again walked or held at the target once down (``Aim``'s ``home``; from the same saved starts), then so
     steered :data:`SHORT_OF_M` short of it (:func:`short_of`), then its certificate's aims (``cert``) so at each of
-    :data:`TURNS` off its heading, then every launch so from :func:`other_starts`' takeoffs facing the target, then
-    with ``env`` the certificate's aims from its own starts so, flapping on that schedule (:class:`Sched`)."""
+    :data:`TURNS` off its heading (none with a ``twin`` whose starts stood in the same cells: the twin flew them),
+    then every launch so from :func:`other_starts`' takeoffs facing the target, then with ``env`` the certificate's
+    aims from its own starts so, flapping on that schedule (:class:`Sched`), then with ``bends`` the certificate's
+    aims so from each of them (:class:`Bent` at a turn point), and with ``env`` again on that schedule."""
     here = here_cell(sim) if here is None else here
     stop = job.get("stop") is not None and zone_at is not None
     rec = {"key": job["key"], "id": job["id"], "heading": job["heading"], "starts": {}, "outcomes": []}
@@ -321,11 +356,12 @@ def run_job(sim, job: dict, touch=None, here: int | None = None, zone_at=None) -
         return bool(found)
 
     def launch(n: int, home, at=None, macros=ms, heading=job["heading"], name="", memo_=memo,
-               takeoff=job["takeoff_feet"], starts=job["starts"], cells_=cells, sched=None) -> bool:
+               takeoff=job["takeoff_feet"], starts=job["starts"], cells_=cells, sched=None, via=None) -> bool:
         k = len(rec["outcomes"])
+        kw = {"home": home} | ({"sched": sched} if sched is not None else {}) | ({"via": via} if via else {})
+        ctl = (Aim, Sched, Bent, BentSched)[(sched is not None) + 2 * bool(via)]
         got = run_macros(sim, rec, macros, heading, takeoff, starts, cells_, touch, find=find, memo=memo_, name=name,
-                         ctl=functools.partial(Aim, home=home) if sched is None else
-                         functools.partial(Sched, home=home, sched=sched),
+                         ctl=functools.partial(ctl, **kw),
                          target=lambda m: at if at is not None else held if m.hold else target,
                          done=(lambda o, st: held_hit(o, st, heading)) if stop else None)
         for o in rec["outcomes"][k:]:
@@ -337,16 +373,17 @@ def run_job(sim, job: dict, touch=None, here: int | None = None, zone_at=None) -
     own = [m for m in aims(*job["cert"]) if not m.hold] if job.get("cert") else []
     stood = [st["cell"] for st in rec["starts"].values() if "cell" in st]
     near = list(dict.fromkeys(stood + cells[:2]))      # where its own starts stood, the snapshot's, the nearest
+    flown = list(dict.fromkeys([st["cell"] for st in twin.get("starts", {}).values() if "cell" in st] + cells[:2]))
 
-    def turned(n: int, h: float, name: str, **kw) -> bool:
-        got = launch(n, target, heading=h, name=name, memo_={}, cells_=near, **kw)
+    def turned(n: int, h: float, name: str, memo_=None, **kw) -> bool:
+        got = launch(n, target, heading=h, name=name, memo_={} if memo_ is None else memo_, cells_=near, **kw)
         for k, st in rec["starts"].items():
             if k.endswith(name):
                 st["yaw"] = h
         return got
     if any(turned(4, wrap(job["heading"] + d), f"@h{round(math.degrees(d)):+d}", macros=own)
-           for d in TURNS if own and stood and not twin):   # a twin flew these (its own pass 4)
-        return rec
+           for d in TURNS if own and stood and not (twin and near == flown)):   # a twin flew these from the same
+        return rec                                                                # cells (its own pass 4)
     picks, n = other_starts(sim, job["takeoff_feet"], job["heading"], target, job["from"], near, zone_at)
     rec["from_floor"] = {"stood": n or len(stood)}
     for k, t in enumerate(picks):
@@ -356,8 +393,18 @@ def run_job(sim, job: dict, touch=None, here: int | None = None, zone_at=None) -
                   "stand": [[t[0] - 0.3 * dx, t[1] - 0.3 * dy, t[2]], list(t)]}
         if turned(5, h, f"@s{k}", takeoff=list(t), starts=starts):
             return rec
-    if own and job.get("env"):                         # the certificate's aims from its own starts, flapping on the
-        launch(6, target, macros=own, sched=job["env"])   # envelope's schedule
+    if own and job.get("env") and launch(6, target, macros=own, sched=job["env"]):   # the certificate's aims from
+        return rec                                                                     # its own starts, flapping on
+    memos: dict[int, dict] = {}                                                        # the envelope's schedule
+    for s in ((None, job["env"]) if job.get("env") else (None,)) if own and job.get("bends") else ():
+        for k, b in enumerate(job["bends"]):          # round the solid the straight track meets (:func:`bends`)
+            t, h = b[:3], b[3]
+            dx, dy = -math.sin(h), math.cos(h)
+            starts = {"run": [[t[0] - c * dx, t[1] - c * dy, t[2]] for c in (1.0, 0.5)] + [list(t)],
+                      "stand": [[t[0] - 0.3 * dx, t[1] - 0.3 * dy, t[2]], list(t)]}
+            if turned(7, h, f"@b{k}", memos.setdefault(k, {}), macros=own, takeoff=list(t), starts=starts, sched=s,
+                      via=b[4:] or None):
+                return rec
     return rec
 
 
@@ -398,6 +445,68 @@ def short_of(target, takeoff, m: float | None = None) -> list:
     return [target[0] - k * dx, target[1] - k * dy, target[2]]
 
 
+def _swept(nodes, path, kit: str):
+    """The ground track along ``path`` (points, a polyline) against the reach model's solid spans
+    (``geometry.Spans``, ``flights._hits``): its :data:`BEND_STEP` samples (the first and last :data:`BEND_END_M`
+    left out), each in the body's band from the walking step over the feet to the head (``flights.HEAD_TOL`` in),
+    the feet on the chord between the ends plus the jump's arc (:data:`RISE` of ``kit`` at the middle; no flaps); off
+    the level's grid is a solid.  (x, y, the chord's height, whether a solid is there) per sample."""
+    from devkit.rando.draft.flights import HEAD_TOL, _hits
+    R = nodes.R
+    lv, p = R.lv, R.W["logic"].p
+    P = np.asarray(path, dtype=np.float64)
+    cum = np.concatenate(([0.0], np.cumsum(np.hypot(np.diff(P[:, 0]), np.diff(P[:, 1])))))
+    s = np.arange(BEND_END_M, cum[-1] - BEND_END_M + 1e-9, BEND_STEP)
+    x, y, u = np.interp(s, cum, P[:, 0]), np.interp(s, cum, P[:, 1]), s / max(cum[-1], 1e-9)
+    chord = P[0, 2] + (P[-1, 2] - P[0, 2]) * u
+    zf = chord + 4.0 * RISE[kit] * u * (1.0 - u)
+    ix, iy = np.floor((x - lv.x0) / CELL).astype(np.int64), np.floor((y - lv.y0) / CELL).astype(np.int64)
+    off = (ix < 0) | (ix >= lv.NX) | (iy < 0) | (iy >= lv.NY)
+    return x, y, chord, off | _hits(R.spans, lv.col(x, y), zf + p["climb"], zf + p["height"] - HEAD_TOL)
+
+
+def blocked(nodes, path, kit: str) -> bool:
+    """Whether the ground track along ``path`` meets a solid (:func:`_swept`)."""
+    return bool(_swept(nodes, path, kit)[3].any())
+
+
+def bends(nodes, src, dst, zone: str, kit: str) -> list[list[float]]:
+    """The bent pass's takeoffs and headings (:func:`run_job`'s seventh) for a flight from ``src`` at ``dst``
+    whose straight ground track meets a solid (:func:`blocked`; none where it clears): on each side of the track,
+    the nearest takeoff moved :data:`BEND_M` across it onto a floor face of ``zone`` (``Nodes.faces``) whose
+    straight track to ``dst`` clears, ``[x, y, z, heading]``; then on each side the nearest turn point
+    :data:`BEND_M` across the track from the middle of the stretch where it meets solids whose two legs (``src``
+    to it, it to ``dst``) clear, ``[x, y, z, heading, vx, vy, vz]`` from ``src`` (:class:`Bent`).  Rounded to
+    0.1 mm."""
+    x, y, chord, hit = _swept(nodes, [src, dst], kit)
+    d = math.hypot(dst[0] - src[0], dst[1] - src[1])
+    if not hit.any() or d < 1e-6:
+        return []
+    k = np.nonzero(hit)[0]
+    m = (int(k[0]) + int(k[-1])) // 2                          # the middle of the stretch that meets solids
+    at = (float(x[m]), float(y[m]), float(chord[m]))
+    nx, ny = -(dst[1] - src[1]) / d, (dst[0] - src[0]) / d      # the track's left
+
+    def r(v) -> list[float]:
+        return [round(float(c), 4) for c in v]
+    out = []
+    for side in (1.0, -1.0):
+        for o in BEND_M:
+            x_, y_ = src[0] + side * o * nx, src[1] + side * o * ny
+            z = nodes.faces.floor_z(x_, y_, src[2])
+            if (z is not None and nodes.zone_at((x_, y_, z), False, False) == zone
+                    and not blocked(nodes, [(x_, y_, z), dst], kit)):
+                out.append(r([x_, y_, z, heading_to((x_, y_), dst)]))
+                break
+    for side in (1.0, -1.0):
+        for o in BEND_M:
+            w = (at[0] + side * o * nx, at[1] + side * o * ny, at[2])
+            if not blocked(nodes, [src, w, dst], kit):
+                out.append(r([*src[:3], heading_to(src, w), *w]))
+                break
+    return out
+
+
 def _flights(nodes, kinds, confs) -> dict[tuple, dict]:
     """Per (from zone, to zone, kind, confidence), the reach model's best region edge with a witness flight
     (``E["logic"]``: least ranks, then gap)."""
@@ -415,7 +524,7 @@ def _flights(nodes, kinds, confs) -> dict[tuple, dict]:
 
 
 def aim_jobs(nodes, derived: dict, kinds=("jump", "flap"), confs=("modelled", "probe-needed"), only=None,
-             macro_set=aims, prefix: str = "a", sched: bool = True, more_of=()) -> list[dict]:
+             macro_set=aims, prefix: str = "a", sched: bool = True, more_of=(), bend_of=()) -> list[dict]:
     """The targeted pass (the design §1): per derived zone edge of ``kinds`` and ``confs`` (with ``only``, those
     whose ``from>to:kind:confidence`` it holds), its best region edge's witness flight in the reach model (its
     takeoff and landing samples) as the aims of ``macro_set`` (:func:`aims`; :func:`refine` for a MAY pair) from its
@@ -430,7 +539,8 @@ def aim_jobs(nodes, derived: dict, kinds=("jump", "flap"), confs=("modelled", "p
     takeoff on the envelope's schedule (``physics.Envelope.schedule`` of the derived certificate's rank, headroom
     and flap cap, to the target's height over the takeoff; :func:`run_job`'s last pass).  An edge ``more_of`` holds
     (``from>to:kind:confidence``) asks for every pass (``more``, :func:`more`) and gets ``env`` as a :data:`MORE`
-    edge's."""
+    edge's; one ``bend_of`` holds whose straight track meets a solid gets ``bends`` (:func:`bends`: the bent pass's
+    takeoffs and turn points; none for a walk-off)."""
     from devkit.rando.draft.author import dnf
     from azurkit.tools.randomizer.planner.proofs import zoning
     from devkit.reach.engine.nodes import Takeoff
@@ -467,21 +577,23 @@ def aim_jobs(nodes, derived: dict, kinds=("jump", "flap"), confs=("modelled", "p
         env = (list(envelope().schedule(int(c["rank"]), float(dst[2] - src[2]), c.get("headroom"), c.get("flaps")))
                if sched and stop and (d["confidence"] in MORE or asks) and kind != "walkoff" and flaps > 0
                and c.get("rank") is not None else [])
+        bent = bends(nodes, src, dst, d["from"], kit) if edge in bend_of and kind != "walkoff" else []
         out.append(_job(nodes, t, t.heading, macro_set(kind, kit, flaps), d["from"], id=f"{prefix}{n}", edge=edge,
                         target=list(dst), aim=list(moved), stop=stop, target_cells=nodes.cells([dst])[0][:1],
                         cert=[kind, kit, flaps], **{"from": d["from"]}, **({"env": env} if env else {}),
-                        **({"more": True} if asks else {})))
+                        **({"more": True} if asks else {}), **({"bends": bent} if bent else {})))
     return out
 
 
 def unscheduled(rec: dict) -> dict:
-    """Record ``rec`` as the refinement is sampled on it: without its last pass's outcomes (the envelope's schedule,
-    :class:`Sched`), so an edge only that pass finds is refined as before it ran, and the refinement's jobs, whose
-    launches find other edges too, are the ones they were (Step R2.16e: refined no more, one such job's find of
-    another edge was lost).  That pass runs last, so the outcomes kept keep their indices."""
-    if not any(o.get("pass") == 6 for o in rec["outcomes"]):
+    """Record ``rec`` as the refinement is sampled on it: without its sixth pass's outcomes (the envelope's
+    schedule, :class:`Sched`) and the bent pass's after them, so an edge only those find is refined as before they
+    ran, and the refinement's jobs, whose launches find other edges too, are the ones they were (Step R2.16e: refined
+    no more, one such job's find of another edge was lost).  Those passes run last, so the outcomes kept keep their
+    indices."""
+    if not any(o.get("pass", 0) >= 6 for o in rec["outcomes"]):
         return rec
-    return dict(rec, outcomes=[o for o in rec["outcomes"] if o.get("pass") != 6])
+    return dict(rec, outcomes=[o for o in rec["outcomes"] if o.get("pass", 0) < 6])
 
 
 def refined(verdicts) -> dict[str, str]:
@@ -502,7 +614,8 @@ def twinned(job: dict, twin: dict, rec: dict) -> dict:
     when they agree on every field of :data:`TWIN` (else ``job``): with none of the twin's macros (their launches
     from the same starts at the same target gave the twin's outcomes; L3 is deterministic) and ``twin`` the twin's
     floor answer and its own starts' answers, which :func:`run_job` takes in place of searching again (and runs no
-    fourth pass: the twin flew the certificate's turned aims)."""
+    fourth pass where its own starts stood in the cells the twin's did, so the twin flew the certificate's turned
+    aims from the same cells; Step 4.79f: where one of its own stood in another, it flies that pass)."""
     if any(job.get(k) != twin.get(k) for k in TWIN):
         return job
     got = {"starts": {k: rec["starts"][k] for k in ("run", "stand") if k in rec["starts"]}}
@@ -609,7 +722,7 @@ def retarget(nodes, derived: dict, g, recs: dict, jobs: dict, frame=(), verdicts
             near.add(e)
             twins[e] = (j, rec)
     if near:
-        out += aim_jobs(nodes, derived, only=near, prefix="gc", more_of=near)
+        out += aim_jobs(nodes, derived, only=near, prefix="gc", more_of=near, bend_of=near)
         out += [twinned(r, *twins[r["edge"]]) for r in
                 aim_jobs(nodes, derived, only=near, macro_set=refine, prefix="gd", sched=False, more_of=near)]
     return out

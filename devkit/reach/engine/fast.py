@@ -75,7 +75,7 @@ STATS = {"resumed": 0, "reused": 0, "touch_saves": 0, "held_from_end": 0, "held_
 # ``Volumes.holding``'s box and ``faces._spans``; :func:`find_start` and :func:`stands` copy theirs and lean on
 # ``runner.place`` (from the snapshot: an answer is the placement's alone).
 SHADOWS = {"macros.launches": "532616e695d1", "macros._Run": "0c03454d6eb9", "aim.Aim": "b44bb58d40d0",
-           "aim.Sched": "3e601468d0b4", "aim.run_job": "67f26187b51b", "runner.run_macros": "2574e42b6605",
+           "aim.Sched": "3e601468d0b4", "aim.run_job": "818d9d380fa4", "runner.run_macros": "2574e42b6605",
            "runner.set_kit": "5bef6ef8ca06", "hold.replay": "f17f2f1b17cf", "runner.outcome": "5236470f4546",
            "runner.Touch": "788833513dd4", "faces.Volumes.holding": "30a1a144cfd0",
            "runner.find_start": "edd55d59d8f4", "runner.place": "c3e2ea81827d", "aim.stands": "bbb40e2e4e0b",

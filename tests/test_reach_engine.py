@@ -24,7 +24,7 @@ from azurkit.tools.randomizer.planner import proofs
 from devkit.reach.engine import aim, cache, candidates, fast, graph, hold, runner, triggers, verdict, worker
 from devkit.reach.engine.nodes import Nodes, Zones
 from devkit.sim import l3, obs
-from tests.test_reach_model import _level, _quad
+from tests.test_reach_model import _box as _solid_box, _level, _quad
 
 G, DT = 9.8, 1 / 30
 
@@ -1089,6 +1089,83 @@ def test_a_refinement_job_repeats_nothing_its_aim_twin_ran():
     assert paired["floor"] == twin["floor"] | {"placements": 0} and twin["floor"]["placements"] > 1
     assert (paired["starts"]["run"]["tries"], twin["starts"]["run"]["tries"]) == (1, 2)
     assert sims[1].n < sims[0].n - twin["floor"]["placements"]
+
+
+def test_a_refinement_job_flies_the_fourth_pass_where_one_of_its_own_starts_stood_in_another_cell_than_its_twins():
+    """Step 4.79f (9.26): a refinement job twinned to its aim skips the fourth pass only where its own starts stood
+    in the cells the twin's did (the twin flew that pass from them): where its standing start, one the twin never
+    searched, stands only in a third cell, it flies the fourth pass as it does alone, the rest as twinned."""
+    east, strip = -math.pi / 2, (0, 0, 6, 4, 0.0)
+    job = {"key": "k", "id": "a0", "heading": east, "takeoff_feet": [5.0, 2.0, 0.0], "cells": [0, 1, 2],
+           "starts": {"run": [[4.0, 2.0, 0.0]], "stand": [[4.7, 2.0, 0.0]]},
+           "target": [30.0, 2.0, 0.0], "aim": [30.0, 2.0, 0.0], "from": "t.S", "cert": ["runjump", "air3", 2],
+           "macros": [list(m) for m in aim.aims("runjump", "air3", 2)],
+           "edge": "t.S>t.N:jump:modelled", "stop": {"air": 3, "to": "t.N", "zoning": "z"}}
+
+    def zone(feet, swim=False, fallback=True):
+        return "t.N" if feet[0] >= 20 else "t.S"
+
+    class _Cells(_Sim):                     # the standing start's feet stand in cell 2 alone
+        def teleport(self, feet, yaw, *, cell=None):
+            row = super().teleport(feet, yaw, cell=cell)
+            if tuple(feet[:2]) == (4.7, 2.0) and cell != 2:
+                self._s.update(feet=(feet[0], feet[1], -50.0))
+            return row
+    twin = runner.run_job(_Cells([strip]), job, here=0, zone_at=zone)
+    ref = job | {"id": "r0", "macros": [list(m) for m in aim.refine("runjump", "air3", 2)]}
+    got = aim.twinned(ref, job, twin)
+    assert got is not ref and "stand" not in got["twin"]["starts"]
+    alone, paired = (runner.run_job(_Cells([strip]), j, here=0, zone_at=zone) for j in (ref, got))
+    assert alone["starts"]["stand"]["cell"] == paired["starts"]["stand"]["cell"] == 2
+    flown = {aim.Macro(*m).name for m in job["macros"]}
+    fourth = [o for o in alone["outcomes"] if o["pass"] == 4]
+    assert fourth and [o for o in paired["outcomes"] if o["pass"] == 4] == fourth
+    assert paired["outcomes"] == [o for o in alone["outcomes"] if o["pass"] == 4 or o["macro"] not in flown]
+
+
+def test_a_probe_needed_aim_whose_straight_track_meets_a_wall_lands_from_a_takeoff_moved_across_it():
+    """Step 4.79f: a probe-needed jump whose straight ground track meets a solid (a wall 0.5 m past its takeoff
+    floor's edge, 5 m wide; the stand-in stops a body at it) misses on every pass, every one of its takeoffs within
+    2.5 m of its own; ``aim.bends`` gives it a takeoff moved 4 m across the track, where the straight track to its
+    target clears, and a turn point beside the wall (both legs clear), none for a track that clears; with them, after
+    its other passes unchanged, its bent pass (7) lands it in its to-zone from the moved takeoff, which is keyed."""
+    S, N, W = (0, -4, 6, 8, 0.0), (10, 0, 14, 4, -3.0), (6.5, -1.0, 7.5, 4.0, -10.0, 6.0)
+
+    class _Walled(_Sim):                    # a body whose feet move into the wall stays where it was, falling
+        def step(self, pad=l3.Pad(), writes=()):
+            (x, y, _), row = self._s["feet"], super().step(pad, writes)
+            nx, ny, nz = self._s["feet"]
+            if W[0] <= nx <= W[2] and W[1] <= ny <= W[3] and W[4] <= nz <= W[5]:
+                vz = self._s["v"][2]
+                self._s["feet"], self._s["v"] = (x, y, nz), (0.0, 0.0, vz)
+                row = row._replace(pos=(x, y, nz + 1.0), obs=row.obs._replace(pos=(x, y, nz + 1.0), vel=(0, 0, vz)))
+            return row
+
+    def zone(feet, swim=False, fallback=True):
+        return "t.N" if feet[0] >= 9.5 else "t.S" if feet[0] <= 6.2 else None
+    walls = _solid_box(*W[:2], W[4], *W[2:4], W[5])
+    nodes = Nodes(Reach(_level(_quad(*S[:4], S[4]) + _quad(*N[:4], N[4]) + walls), flights=False))
+    nodes.zone_at = zone
+    src, dst = (5.5, 2.0, 0.0), (12.0, 2.0, -3.0)
+    bent = aim.bends(nodes, src, dst, "t.S", "air3")
+    assert aim.blocked(nodes, [src, dst], "air3") and not aim.blocked(nodes, [src, (5.5, -3.0, 0.0)], "air3")
+    assert [b[:3] for b in bent] == [[5.5, 6.0, 0.0], [5.5, 2.0, 0.0]] and len(bent[0]) == 4 and len(bent[1]) == 7
+    assert bent[0][3] == pytest.approx(round(aim.heading_to((5.5, 6.0), dst), 4)) and bent[1][4:6] == [7.0, 6.0]
+    assert aim.bends(nodes, src, (5.5, -3.0, 0.0), "t.S", "air3") == []
+    job = {"key": "k", "id": "gc0", "heading": aim.heading_to(src, dst), "takeoff_feet": list(src), "cells": [0],
+           "starts": {"run": [[4.5, 2.0, 0.0], [5.0, 2.0, 0.0]], "stand": [[5.2, 2.0, 0.0]]}, "target": list(dst),
+           "aim": list(dst), "macros": [list(m) for m in aim.aims("runjump", "air3", 2)], "from": "t.S",
+           "cert": ["runjump", "air3", 2], "edge": "t.S>t.N:jump:probe-needed", "more": True,
+           "stop": {"air": 3, "to": "t.N", "zoning": "z"}}
+    plain = runner.run_job(_Walled([S, N]), job, here=0, zone_at=zone)
+    assert {o["pass"] for o in plain["outcomes"]} == {1, 2, 3, 4, 5} and plain["from_floor"]["stood"]
+    assert not any(aim.hit(o, plain["starts"][o["start"]], job, zone) for o in plain["outcomes"])
+    got = runner.run_job(_Walled([S, N]), job | {"bends": bent}, here=0, zone_at=zone)
+    last = got["outcomes"][-1]
+    assert got["outcomes"][:len(plain["outcomes"])] == plain["outcomes"] and (last["pass"], last["start"]) == \
+        (7, "run@b0") and aim.hit(last, got["starts"]["run@b0"], job, zone)
+    assert got["starts"]["run@b0"]["yaw"] == bent[0][3] and math.dist(got["starts"]["run@b0"]["feet"][:2], src[:2]) > 3
+    assert cache.job_key(job | {"bends": bent}, "0" * 12, "c" * 12) != cache.job_key(job, "0" * 12, "c" * 12)
 
 
 def test_the_fast_cuts_give_an_aimed_jobs_record_with_a_landing_at_rest_on_ice_settled_and_refuse_a_moved_copy(
