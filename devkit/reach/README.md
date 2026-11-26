@@ -408,7 +408,8 @@ uv run --locked python -m devkit reach witness-check tally DIR [--truth KEPT.jso
 ```
 
 A sitting (`run`) follows the `azurik-xemu-oracle` skill; its offline
-table test drives a stand-in sitting and launches no xemu.
+tests drive stand-ins (a sitting, the game's clock, a gdbstub for
+`l3_certify.replay_clearing`) and launch no xemu.
 
 ## `reach-truth`
 

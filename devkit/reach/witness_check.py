@@ -63,7 +63,7 @@ rows whose verdict moved.
     uv run --locked python -m devkit reach witness-check tally DIR [--truth KEPT.jsonl ...]
 
 Positions and strings stay in memory, the private rows and the reach cache; nothing printed or kept in ``--ev`` holds
-one (:func:`public`).  Dev only: never in pytest but its offline table test (no xemu), never a CLI verb.
+one (:func:`public`).  Dev only: never in pytest but its offline tests (stand-ins, no xemu), never a CLI verb.
 """
 
 from __future__ import annotations
