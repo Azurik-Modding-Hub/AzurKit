@@ -179,7 +179,8 @@ polish, after the next session's research (group 6, D1304).
     round 3: 6.11's 4.79d row); the
     witness gate's switch-on goes in round 3's release (6.12). Contents:
     `main` since 1.4.0 (4.75a-f, 4.76d, 4.77a, 4.78a, 4.79a-c, 4.80a) and
-    4.79d's logic. The version commit follows 4.79d's landing, and the
+    4.79d's logic (6.7, d1's floor 10 and B's holds from 4.79e's
+    refusals, 6.11). The version commit follows 4.79d's landing, and the
     orchestrator tags it once `main`'s CI is green.
 
 ## 3. Stack 3 and 4.31's outcome
@@ -291,22 +292,16 @@ owner played, D1334).
    sewer, Z003) and puts D1_Town's arrival there (`authoring/town.toml`,
    `d1.toml`; the realm test reads `town_z003`), the sewer left with air 1
    as before; its xemu check is 4.79e's (D1329; 6.11).
-8. **Town's plaza-to-sewer drops** (the same skeptic; read again by Step
-   4.76d and its review): under each of the sitting's 4 drops the first
-   solid is a LandShape (gameSolid 1.0, nothing drives it) at +12.2-12.3 m
-   (the sitting's drop rays). `town_central -> town_z003` is a `physics`
-   row that stands without any `sweep` edge, but four `assumed` rows into
-   town_z003 rest only on `sweep` edges into the sewer (town gated with no
-   pair flown drops them): town_z612's `true` and town_z009's, town_z045's
-   and town_z152's `air>=3`. Of the derive's five `sweep` drops into the
-   sewer, the one from town_z612 falls 12.3 or 12.7 m, as the sitting's
-   did; whether it is one of the four is open. Step 4.76d's witness gate (a
-   gated level's sweep edges enter logic only where the reach engine flew
-   them) or a hold takes these rows, not a derive fix. 4.79e's T rows fly
-   the derive's two drops into town.Z003 from Z617 and Z1116 (town_z612's
-   carriers) at kit 0. If the game refuses both, both pairs are held by
-   name and town_z612's row goes (the physics row stands); a pass rewords
-   this row.
+8. ~~Town's plaza-to-sewer drops~~ (the same skeptic; Step 4.76d and its
+   review): held by 4.79d B. 4.79e's T rows flew the derive's two drops
+   into town.Z003 at kit 0 and the game refused both: from Z617 the body
+   stops at the rim 12.68 m over the sewer (walled); from Z1116 it stands
+   on a roof with no graph floor 12.27 m over it (roofed). So
+   `authoring/town.toml` holds town.Z617 > Z003 and town.Z1116 > Z003 by
+   name: town_z612's `true` row into town_z003 went, and `town_central ->
+   town_z003` (physics) stands. town_z009's, town_z045's and town_z152's
+   `air>=3` rows into the sewer still rest on `sweep` edges; town's
+   witness gate takes them (6.12).
 9. **The research arc** (D1307-D1317, D1325, D1326): four areas run rounds
    until each is dry, two rounds in a row under its bar, the others going
    on (D1316): the reach engine (accuracy first: witnesses that hold in the
@@ -399,17 +394,23 @@ owner played, D1334).
       re-derives all 22 levels, past the step's CPU cap on the efficiency
       cores (D1336). The attempt, with its stand-ins and the w3 contact
       row its re-derive staled, is the local branch
-      `p2/4.79d-az373-attempt` (the private evidence has its numbers). Then
-      B, after 4.79e's skeptic and the review: the sitting's actions, the
-      restack, the four randomizer goldens, spot needs, the soak, and 1.5.0
-      (2.10).
-    - **4.79e, round 2's xemu sitting** (on 4.79d's A build commit, with
-      its skeptic): no R rows (AZ-373 went to round 3); 6.7's door and d1's
-      floor 10; T, town's two drops (6.8); R7 in d2 with
-      the air shield worn by pad, and r1104's take read (9.49); and the 33
-      loose assumed rows (9.55, D1333). Every air row checks its first
-      jump's v0 (4.8497 m/s, not 4.6433) and flaps from its own jump. The
-      gate's rows (its holds and a5's kept pair) move to round 3 with it.
+      `p2/4.79d-az373-attempt` (the private evidence has its numbers). B,
+      on 4.79e's skeptic and the review: the sitting's refusals held
+      (town's two drops, 6.8; d2's smashers, rows 18, 32 and 34; d1 row 12,
+      floor 9 to floor 1; w3 row 105; and, after their re-runs with the
+      toggle worked, e5 row 14's SealShape ride and a6 row 29's tree lift),
+      and the round-3 leftovers (6.12). Vanilla's victory, 0 locations cut
+      and plans 100/100 at Normal, Easy, Hard and Expert held; `db_digest`
+      987078469867 (main) to af336aab8460. Then 1.5.0 (2.10).
+    - ~~4.79e, round 2's xemu sitting~~ (on 4.79d's A build commit, with
+      its skeptic; 4.79d B re-ran 9 rows): no R rows (AZ-373 went to round
+      3). T 0 of 2 (6.8). C 3 of 3: 6.7's door both ways, and d1's floor
+      10, which the car refuses without death_keylock and, once the
+      keylock is opened and switch4 pressed by pad, gives (B's re-run).
+      R7: d2's two flap edges fail with the shield worn, walled and roofed
+      at their own takeoff (9.49); d1's r1104 take read passes. L: of the
+      33 loose rows only w3 row 103 passes (from two starts); the rest are
+      tightened or left for round 3 (9.55).
     - **4.79f, the `aim.py` batch** (9.26's twin cells; aims round the
       solid a straight track hits), decided by 4.76c's yield: aims round
       the solid if the census witnessed under 5 % more probe-needed edges
@@ -445,6 +446,21 @@ owner played, D1334).
       (D1325): new links whose witnesses pass xemu checks ship with the
       agents' tiers (D1311), the owner's list one row a link with its tier
       and a short clip (D1312).
+    - 4.79d B's leftovers, each failed in xemu (4.79e, 9.55): a5's 15
+      Chain_Bob rows, out once new links C1 and C2 (a5_z012 > a5_z048 >
+      a5_z021) are in (D1325); f6 row 41, re-gated by new link C3 (the
+      deck never rises over f6.Z013: B's re-run); e6 row 0, out once a
+      ring-free way to Light6's pad is in logic; f6 rows 2 and 37
+      (refused: the deck rests 21.9 m under boss2 and only goes down;
+      held, vanilla's victory went), f4 row 15 (frame-perfect cuts the
+      fuel r1540), f4 rows 30 and 37 (hard, the vanilla route's f4
+      obsidians r1531 and r1542 leave the default tier) and w4 row 23 (hard
+      cuts the four cave emeralds), each kept until another way in is in
+      logic; e6 row 80 (refused: TShape1 never moved; its hold moves the
+      seed difficulty test's order, Hard's key-item steps over Expert's on
+      seeds 0-3); w3 row 150 (refused again from
+      real standing starts; out loses victory and 7 spots) until the real
+      way back is found.
     Waiting with them: the realm's tick-only marks (9.49), R6's gem
     reader, 4.76e's kit fixes, and the audit's two efficiency rows (D1315).
 13. **The simulator's fidelity to xemu** (4.77a-f): its bar is a 1.0-point
@@ -1013,11 +1029,12 @@ memory peaks stay strict. The gate writes both kinds of row to
     the game files the sitting ran.
     - ~~R2 (the bridge drop and d2's six lens keys)~~: passed in 4.76e's
       sitting, its skeptic confirming (6.10).
-    - Open: R7, part run by 4.76e: d1's r1104 there and back passed (its
-      take unread); d2's r3660 and r3662 weren't reached with no air shield
-      worn, so they show nothing; r3664 and the lens-door way back have no
-      graph way. 4.79e flies d2's two flap edges with the shield worn and
-      reads r1104's take (6.11). R6 (d1's moved gems r1056 and r1099, not
+    - Open: R7. d1's r1104 there and back passed (4.76e), its take read
+      in 4.79e (the four fuel gauges 0 to 50, back at d1.Z121 alive). d2's
+      two flap edges (d2.Z071 > Z011 and > Z233, to r3660 and r3662) fail
+      with the shield worn (v0 4.8497): walled and roofed at their own
+      takeoff, so they are named for d2's gating in round 3; r3664 and the
+      lens-door way back have no graph way. R6 (d1's moved gems r1056 and r1099, not
       collected) wasn't run: it wants a gem reader. The optional re-runs
       (R3-L3-S1 from 5 or more fight starts, R4's times with 5 or more
       checkpoints a side, the restore path); and the design's R3 attack
@@ -1052,13 +1069,26 @@ memory peaks stay strict. The gate writes both kinds of row to
     - ~~d1's floor 1 to floor 10 asks only the seal~~: done in 4.79d
       (`authoring/d1.toml`'s elevator row gains `& button:d1.death_keylock`,
       so a seed can't put that lock's battery behind it; D1329, 6.11).
-    - The other 33 loose rows join round 2's xemu sitting, each tightened
-      only where the game refuses it (D1333; 4.79e).
+    - ~~The other 33 loose rows~~: sat in 4.79e and tightened in 4.79d B
+      where the game refused them (D1333) and no bar broke: d2 rows 18, 32
+      and 34 (`rig_held` SmasherShape), d1 row 12 and w3 row 105 (out), e5
+      row 14 (`rig_held` SealShape) and a6 row 29 (the tree lift's ride
+      held; its modelled jump at fire 3 and water 3 stays). w3 row 103
+      passed in xemu (from two starts) and stays standard. The rest wait for
+      round 3 (6.12).
     - The 64 unknown rows (31 with a stake: e2's water-1 walks around the
       gear key lead) are xemu rows, or engine targets where they are a
       walk, jump or flap pair at kit 0 or with air: later rounds'.
     - 514 guessed rig rides overshoot their decoded travel: the derive
       batch's rig-guess travel filter (6.12).
+56. **An obsidian in an ice block can be taken through it** (found by
+    4.79d B's re-pin, AZ-834's class): the fill may put an obsidian (96
+    copies, so the writer keeps its own touch, R 1.45 m, Z 1.9 m) in an
+    ice block, whose hold is 1.8 m: seed 2 at the default settings does
+    (w2's IceBlock_02, w2/g0/r1351, since 4.79d's logic). The fix: the
+    fill keeps an item held more than once out of the containers whose
+    hold its touch exceeds; the contained-items test then takes seed 2
+    back (it moved to seed 4).
 
 ### Docs
 
