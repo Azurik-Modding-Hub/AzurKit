@@ -7761,6 +7761,44 @@ def test_a_shape_drag_before_a_built_ins_shipped_pictures_land_keeps_its_preview
         served.close()
 
 
+def test_a_shape_drags_reads_of_the_recipe_sort_its_keys_once_a_value_never_at_each_read(browser, site):
+    """The Variants view's recipe text with its keys sorted (an edit put back reads unedited) is sorted once a text: a
+    Shape drag's input event reads it about 20 times, and sorting booblord's own copy at each read held Firefox's page
+    1.0 s over 30 events, past 1 s with no bar (S82, Step 4.82b). Each value sorts its objects once, a value kept
+    sorts none, and a copy with its keys in another order reads the same."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        got = page.evaluate("""async () => {
+            const { canon } = await import("/variants.mjs");
+            const recipe = { base: "booblord", shapes: { bust: { value: 1 } }, poses: Object.fromEntries(
+                [...Array(200)].map((_, i) => [`p${i}`, { z: i, a: [i, { y: 1, b: 2 }] }])) };
+            const objects = (x) => x && typeof x === "object"
+                ? (Array.isArray(x) ? 0 : 1) + Object.values(x).reduce((n, y) => n + objects(y), 0) : 0;
+            const sorted = (x) => JSON.stringify(x, (_, v) => v && typeof v === "object" && !Array.isArray(v)
+                ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v);
+            const reversed = (x) => x && typeof x === "object" && !Array.isArray(x)
+                ? Object.fromEntries(Object.keys(x).reverse().map((k) => [k, reversed(x[k])])) : x;
+            const was = Object.fromEntries;
+            let sorts = 0;
+            const counted = (read) => {
+                Object.fromEntries = (entries) => (sorts++, was(entries));
+                try { return read(); } finally { Object.fromEntries = was; }
+            };
+            const rows = [];
+            for (const value of [1, 1.05, 1.1, 1]) {
+                recipe.shapes.bust.value = value;
+                const before = sorts, texts = counted(() => [...Array(20)].map(() => canon(recipe)));
+                rows.push([value, (sorts - before) / objects(recipe), texts.every((t) => t === sorted(recipe))]);
+            }
+            return [rows, canon(reversed(recipe)) === sorted(recipe)];
+        }""")
+        assert got == [[[1, 1, True], [1.05, 1, True], [1.1, 1, True], [1, 0, True]], True]
+        _page.check_csp(page)
+    finally:
+        served.close()
+
+
 def test_the_variants_views_shape_and_jiggle_tabs_write_the_shapes_and_springs_the_build_reads(browser, site):
     """Step 4.6d on the site (Modkit's Shape and Jiggle tabs; D455, D445), no image picked: booblord opens as a
     recipe from her, its Shape tab a slider a shape at her value, what each sizes in its title, and her mesh's ops,

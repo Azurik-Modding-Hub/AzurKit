@@ -249,9 +249,8 @@ census and 6.11's lanes first, in 6.9's order. Group 7's reach and derive
 ids, 9.26, 6.7, 6.8, 9.49's next steps, 9.54 and 9.55 are its rows; 10.11's
 P7(b) is the reach rounds' yardstick. Then 8.29, with 3.4's art nits on the
 first lane that re-records the art. Beside it: D1075's read at its start
-(12.7), S82 if it repeats (8.38), the parts' narrower key
-(10.18) and a whole run on `main`'s head (the wrap-up skipped it while the
-owner played, D1334).
+(12.7), the parts' narrower key (10.18) and a whole run on `main`'s head
+(the wrap-up skipped it while the owner played, D1334).
 
 1. ~~x7's route graphs~~ (D1172): 4.13f built all 44 (35.4 GiB) from
    5a3b0954 on 2026-11-09. They are stale again: the 11-10 reboot moved
@@ -882,10 +881,10 @@ memory peaks stay strict. The gate writes both kinds of row to
     with.
 36. S21 (the tracker, a reopen) went from 0.45 s to 1.2-1.6 s within
     stack 2 (fe61354c -> aecdedf9). Cause unread; it passes its 3 s line.
-38. **S82 in Firefox** (a Shape slider's drag on the checked copy): "no
-    progress" at 1.27 s, under its 3 s line, on main's 11-14 `--all`, that
-    run's one debt row (D1170). Not read again since: the next `--all`
-    reads it, and it gets a lane if it repeats.
+38. ~~**S82 in Firefox** (a Shape slider's drag on the checked copy): "no
+    progress" at 1.27 s~~: fixed by 4.82b (each input event sorted her
+    117 KB recipe's keys about 20 times; the sorted text is now kept by
+    its plain text: a clean sample 1.23 s to 0.55 s).
 
 ### Flakes found since, each owed a triage
 

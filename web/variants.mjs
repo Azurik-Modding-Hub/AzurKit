@@ -46,9 +46,22 @@ const el = (tag, props = {}, ...children) => {
   node.append(...children);
   return node;
 };
-// A recipe's text with its keys sorted at every depth: an edit that puts a field back reads unedited.
-const canon = (value) => JSON.stringify(value, (_, v) => v && typeof v === "object" && !Array.isArray(v)
-  ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v);
+// A recipe's text with its keys sorted at every depth: an edit that puts a field back reads unedited. Kept by its plain
+// text (the last SORTS texts; the same text sorts the same): a Shape drag's input event asks it of the whole recipe
+// about 20 times (the status line, each tab's read, the nearest shape), and sorting booblord's own copy (117 KB) took
+// 1.7 ms a time in Firefox, so 30 events held the page 1.0 s with no bar (S82, Step 4.82b); its plain text is a third.
+const SORTS = 8, sorts = new Map();
+export const canon = (value) => {
+  const text = JSON.stringify(value);
+  let sorted = sorts.get(text);
+  if (sorted === undefined) {
+    sorted = JSON.stringify(value, (_, v) => v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v);
+    sorts.set(text, sorted);
+    if (sorts.size > SORTS) sorts.delete(sorts.keys().next().value);
+  }
+  return sorted;
+};
 const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0)) : data;
 // A refusal's lead, the loader's "variant 'name' (its file): ", left to the line's title.
 const reason = (why) => why.replace(/^variant '[^']*'(?: \(.*?\))?: /, "");
