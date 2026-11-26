@@ -2638,3 +2638,14 @@ def test_a_popup_clearing_that_never_reaches_the_players_update_ends_halted_with
     assert (sb._halted, stub.running, stub.out) == (True, False, [])
     assert sb.g.regs()["ecx"] == stub.OTHER
 
+
+def test_a_popup_cleared_by_a_press_replays_on_from_the_tick_it_held_and_loses_none(monkeypatch):
+    """Step 4.78e (4.78b's w1 1171, "the replay lost a tick clearing a popup" on all 5 tries, tick 216 placed and 237
+    recipe, where R2.16e's drain went on with the clock on time): the A press that clears a hint popup lets the game
+    run to that tick's update entry, where the armed breakpoint stops it during the press; the clearing drained the
+    connection before its next continue, dropping that stop, and ran past the entry, so the next one was a tick
+    late.  Each wait now reads its own stop: one press, the replay on from the held tick, every tick replayed."""
+    got, stops, sb, stub = _popup_clearing("popup", monkeypatch)
+    assert (stops["at"], stops["k"], stops["popups"], stub.presses) == ("entry", 8, 1, 1)
+    assert [r["k"] for r in got] == list(range(8)) and (sb._halted, stub.out) == (True, [])
+

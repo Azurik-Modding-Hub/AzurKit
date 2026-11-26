@@ -1070,7 +1070,8 @@ POPUPS = 6
 
 
 def _quiet(g) -> None:
-    """Drop the stop replies a stall's interrupt left on the gdbstub connection (a later 'g' would read one)."""
+    """Drop the stop replies a stall's interrupt left on the gdbstub connection (a later 'g' would read one); only
+    while the guest is halted, never where it may stop at an armed breakpoint (that stop is the one waited for)."""
     g.s.settimeout(0.3)
     try:
         while True:
@@ -1084,7 +1085,13 @@ def _quiet(g) -> None:
 def replay_clearing(sb, xo, pads: list, rows: list, meta: dict) -> tuple[list[dict], dict]:
     """``Sandbox.replay`` from the halted start, a popup on the way cleared (Step R1.29, as ``xemu_chain``'s replay):
     a stall of :data:`POPUP_STALL_S` gets A until the player's update entry comes back at the same tick (the event
-    clock checked: no tick lost), then the rest replays from there; (xemu's rows, how it ended, with ``popups``)."""
+    clock checked: no tick lost), then the rest replays from there; (xemu's rows, how it ended, with ``popups``).
+
+    Each wait reads the stop it ends with and is judged by where the guest halted (Step 4.78e, as the chain's
+    drain): the player's update entry ends the clearing, another entity's runs on, anywhere else (the wait's ^C in
+    the popup) gets A.  4.78b's clearing drained the connection after each press, so where the press cleared the
+    popup it dropped the stop at that tick's entry and ran past it: w1 1171's "lost a tick" on all 5 tries.  At most
+    12 waits; it ends halted the sandbox's way, no stop reply left on the connection."""
     got, m, popups = [], meta, 0
     while True:
         stops: dict = {}
@@ -1093,25 +1100,31 @@ def replay_clearing(sb, xo, pads: list, rows: list, meta: dict) -> tuple[list[di
         if stops.get("at") != "stall" or len(got) >= len(rows) or popups >= POPUPS:
             return got, {**stops, "k": len(got), "popups": popups}
         popups += 1
-        g, ent = sb.halt(), meta["entity"]
+        g, ent, at = sb.halt(), meta["entity"], False
         _quiet(g)
         xo.arm(g, [l3.PLAYER_UPDATE])
         try:
+            xo.resume(g, [l3.PLAYER_UPDATE])
+            sb._halted = False
             for _ in range(12):
-                _quiet(g)
-                xo.resume(g, [l3.PLAYER_UPDATE])
-                sb._halted = False
-                if sb._wait(POPUP_STALL_S) and g.regs()["ecx"] == ent:
+                sb._wait(POPUP_STALL_S)            # halted either way: at the armed entry, or by its ^C
+                _quiet(g)                           # halted: what a ^C left
+                r = g.regs()
+                if r["eip"] == l3.PLAYER_UPDATE and r["ecx"] == ent:
+                    at = True
                     break
-                g.cont()                            # the popup: A, the breakpoint armed
+                if r["eip"] == l3.PLAYER_UPDATE:    # another entity's update (a death's continue): run on
+                    xo.resume(g, [l3.PLAYER_UPDATE], r["eip"])
+                else:                               # the popup: A, the breakpoint armed; the next wait reads its stop
+                    g.cont()
+                    sb.hold("a")
+                    time.sleep(0.3)
+                    sb.release_btn("a")
                 sb._halted = False
-                sb.hold("a")
-                time.sleep(0.3)
-                sb.release_btn("a")
-            else:
-                return got, {"at": "stall", "k": len(got), "popups": popups}
         finally:   # halted the sandbox's way (a stop reply the last press's breakpoint sent read off), so no reply
             sb.halt().cmd("?")   # is left for the next 'g' (4.78b: the next row's fromhex ValueError, 8 of 8)
+        if not at:
+            return got, {"at": "stall", "k": len(got), "popups": popups}
         clock = struct.unpack("<d", g.read(ent + 0x18, 8))[0]
         if round((clock - meta["clock"]) * 30) != len(got):
             return got, {"at": "lost", "k": len(got), "popups": popups}
