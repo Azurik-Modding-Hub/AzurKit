@@ -335,7 +335,7 @@ first lane that re-records the art. Beside it: D1075's read at its start
       rank those jobs a tier higher, so the old below-tier finds aren't
       flown. The baseline stands as rounds 2's and 3's A side with those
       losses named, and later bars compare against its own graphs (the
-      model key: 10.21). A pass one rank below each dm edge (about 280
+      model key: 10.21, in by 4.83a). A pass one rank below each dm edge (about 280
       CPU-s) is a recall idea for round 3.
     - **4.76c, the probe-needed deep census** (e7, a5; f2 and w1 if their
       cost fits): its sample and run finished on e7 and a5 (their records
@@ -425,13 +425,14 @@ first lane that re-records the art. Beside it: D1075's read at its start
     - the witness gate switched on for e7 and a5 (f2 and w1 if censused
       whole), with the gate's held and kept rows sat in xemu first (D1329
       moved it here);
-    - the audit's lane 3, the re-key batch (group 7), with 9.26 and 4.79f's
-      aims folded in if 4.79f didn't land: every key moves once;
+    - ~~the audit's lane 3, the re-key batch (group 7), with 9.26 and 4.79f's
+      aims folded in if 4.79f didn't land: every key moves once~~: 4.83a,
+      4.79f's aims with it;
     - the derive batch, `DERIVE_VERSION` 9: AZ-342, 373 (its weighting
       fixed, 6.11's 4.79d row), 374, 376, 395, 723 and 745 with their hunts'
       fixes (group 7), the rig-guess travel filter (9.55) and 3.4's tiers
       nit. It renumbers zones, so it owes a truth re-zone tool, 22 model
-      rebuilds (10.21's key first), new plans, each gated level's witness
+      rebuilds (on 10.21's key, in by 4.83a), new plans, each gated level's witness
       file thinned again from an engine run on the new zoning, and its keep
       rows checked again;
     - one fresh baseline at the final keys and zones on e7, a5, f2 and w1
@@ -620,26 +621,27 @@ engine's soundness audit and the loader's two keys are below.
     false link)~~: AZ-842, fixed by 4.79b.
   - ~~Audit 2: walk-off flaps fly on the snapshot's stale flap latch
     (+0x164)~~: AZ-838, fixed by 4.79a.
-  - Audit 3: a FastL3 confirm can turn a kernel flap into a ground jump,
-    so `claim.min_air` undercounts (a false air rank). The interim guard
-    (the kernel's rank kept) is AZ-839, by 4.79a; the real fix is lane 3's.
+  - ~~Audit 3: a FastL3 confirm can turn a kernel flap into a ground jump,
+    so `claim.min_air` undercounts (a false air rank)~~: AZ-852, fixed by
+    4.83a (AZ-839, 4.79a's interim guard, gone).
   - ~~Audit 4: a hold answer with no route skips D847's rig check under
     `--rigs`~~: AZ-843, fixed by 4.79b (its sweep keyed on the kernel's
     code by 82b2130c).
-  - Audit 5: the mover router sees only floor contact (a false link under
-    `--rigs`): lane 3.
+  - ~~Audit 5: the mover router sees only floor contact (a false link under
+    `--rigs`)~~: AZ-854, fixed by 4.83a.
   - ~~Audit 6: a rig link's whole-step trip never checks its start
     stood~~: AZ-845, fixed by 4.79b.
   - ~~Audit 7: a confirm that holds in another zone isn't credited
     there~~: AZ-840, fixed by 4.79a (routed under `--rigs` first).
-  - Audit 8: a confirmed witness is filed at the kernel's rank key (lost
-    finds): lane 3.
+  - ~~Audit 8: a confirmed witness is filed at the kernel's rank key (lost
+    finds)~~: AZ-853, fixed by 4.83a.
   - ~~Audit 9: the rig recording's key misses the derive's exported
     rigs~~: AZ-844, fixed by 4.79b.
   - ~~Audit 10: a graph-confirmed witness's proof record carries the
     kernel's outcome~~: AZ-841, fixed by 4.79a.
-  - Audit 11: `CORE_FILES` misses `devkit/sim/snapshot.py` and `ports.py`,
-    and hold answers are keyed by outcome index (stale, latent): lane 3.
+  - ~~Audit 11: `CORE_FILES` misses `devkit/sim/snapshot.py` and `ports.py`,
+    and hold answers are keyed by outcome index (stale, latent)~~: AZ-855,
+    fixed by 4.83a.
   - Audit 12: duplicate derived edge strings add aim jobs; audit 13: gc and
     ea jobs fly their twin's pass 1 again. CPU only: an efficiency round
     (D1315).
@@ -1299,7 +1301,8 @@ memory peaks stay strict. The gate writes both kinds of row to
     crash report names that path): one clause in each comment. Its N2,
     8.12's stale "try it only if a report names it again", is fixed by
     Step 4.81a.
-21. **A reach model is keyed by zoning alone:** `devkit/reach/models.py`'s
+21. ~~**A reach model is keyed by zoning alone:**~~ AZ-857, fixed by
+    Step 4.83a (the builder's code in the key). `devkit/reach/models.py`'s
     `reach_path` keeps an old build when the model builder's code changes
     and the zoning doesn't, which is how 4.13d1's copied plans came to
     stand on older certificates (4.76b's root cause, 6.10). The fix: a hash

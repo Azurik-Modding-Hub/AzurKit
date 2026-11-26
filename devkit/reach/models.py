@@ -74,7 +74,7 @@ def folder() -> Path:
 
 
 def _stamp(path: Path) -> str | None:
-    """The zoning a reach pickle's ``.stamp`` beside it names (None: none)."""
+    """The ``<zoning> <builder sha12>`` key a reach pickle's ``.stamp`` beside it names (None: none)."""
     side = path.with_suffix(".stamp")
     return side.read_text(encoding="utf-8").strip() if side.is_file() else None
 
