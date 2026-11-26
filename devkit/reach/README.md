@@ -421,8 +421,11 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
   conformance corpus and keeps the arrival snapshots there, where its
   re-run finds them.
 - `tally` counts the final verdicts by start, level and class with Wilson
-  95 % intervals, and with `--truth` (kept `runs.jsonl` files: R2.16e's by
-  level, from, to and air, a check's own by `ref`) the rows that moved.
+  95 % intervals, and with `--truth` (kept `runs.jsonl` files, oldest
+  first: R2.16e's by level, from, to and air, a check's own by `ref` and
+  start, a later file's over an earlier one's within one start) the rows
+  that moved: a row meets its own start's kept verdict (else R2.16e's),
+  and the join says where each kept verdict came from.
 - `clip` (Step 4.78c, D1312: the owner reviews new links as a list, a row
   a link with a short xemu clip) runs each named PASS try of a run
   (`--runs`, its evidence folder; `--refs`, a ref or 5 or more hex digits

@@ -2508,6 +2508,36 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
         ("recipe", "r/start@m", "START", ["PASS"])]
 
 
+def test_a_witness_check_tally_joins_each_row_to_the_kept_verdict_of_its_own_start_the_later_file_winning_within_it(
+        tmp_path, capsys):
+    """Step 4.78g (4.77e's skeptic, a): a check's kept final rows are keyed by ref and start, so a ref checked under
+    both starts keeps a verdict for each; a row joins only its own start's (a ref kept under the other start alone
+    doesn't join), a later ``--truth`` file wins over an earlier one within one start only (4.77e's "agree 0": 4.78b's
+    verdict, named last, stood over 4.78f's recipe PASS by ref alone), and the tally says where each came from."""
+    from devkit.reach import witness_check as wc
+
+    def rows(path, *got):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("".join(json.dumps({"row": "check", "final": True, "start": start, "level": "t", "ref": ref,
+                                            "from": "Z0", "to": "Z1", "rank": 3, "verdict": v, "tries": 1}) + "\n"
+                                for ref, start, v in got), encoding="utf-8")
+        return str(path)
+    ev = tmp_path / "ev"
+    rows(ev / "results" / "runs.jsonl", ("r/a@m", "recipe", "PASS"), ("r/a@m", "placed", "FRAGILE"),
+         ("r/c@m", "recipe", "PASS"))
+    old = rows(tmp_path / "old.jsonl", ("r/a@m", "recipe", "FRAGILE"), ("r/a@m", "placed", "FRAGILE"),
+               ("r/c@m", "placed", "WORLD"))
+    new = rows(tmp_path / "new.jsonl", ("r/a@m", "recipe", "PASS"))
+
+    def truth(*files):
+        assert wc.main(["tally", str(ev), "--truth", *files]) == 0
+        t = json.loads(capsys.readouterr().out)["truth"]
+        return t["joined"], t["agree"], t["from"], [(m["start"], m["ref"], m["kept"], m["kept_from"])
+                                                    for m in t["moved"]]
+    assert truth(old, new) == (2, 2, {"placed": 1, "recipe": 1}, [])
+    assert truth(new, old) == (2, 1, {"placed": 1, "recipe": 1}, [("recipe", "r/a@m", ["FRAGILE"], "recipe")])
+
+
 def test_the_recipe_starts_arrival_snapshot_is_the_scene_entry_on_the_engine_snapshots_clock(tmp_path):
     """Step 4.78e (4.78b's S1): the engine's start snapshots are scene-entry snapshots on their event clock, each
     taken from before the player tick that reads it.  A player tick reads the next update's clock (the game moves

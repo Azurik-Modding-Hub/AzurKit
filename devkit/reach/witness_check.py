@@ -888,41 +888,50 @@ def rate(rows) -> dict:
             "pass_share": round(v[PASS] / n, 4) if n else None, "wilson95": wilson(v[PASS], n)}
 
 
+R216E = "R2.16e"   # where an edge's kept verdict came from: R2.16e's sitting (its arrival beside it)
+
+
 def truths(files) -> dict:
-    """Kept verdicts: a check's own final rows by ``ref``; R2.16e's sitting rows (``row: witness``, its ``xemu``
-    judgement) by level, from, to and air as PASS or FAIL, the clock arrival's over the fresh one's."""
+    """Kept verdicts, each (verdict, where from): a check's own final rows by ``ref`` and start, from that start (a
+    later file's over an earlier one's within one start only: name the files oldest first); R2.16e's sitting rows
+    (``row: witness``, its ``xemu`` judgement) by level, from, to and air as PASS or FAIL, the clock arrival's over
+    the fresh one's, from ``R2.16e <arrival>``."""
     out: dict = {}
     for f in files:
         for r in read_jsonl(f):
             if r.get("row") == "check" and r.get("final"):
-                out[("ref", r["ref"])] = (r["verdict"], "check")
+                out[("ref", r["ref"], r["start"])] = (r["verdict"], r["start"])
             elif r.get("row") == "witness" and "error" not in r and isinstance(r.get("xemu"), dict):
                 key, arr = ("edge", r["level"], r["from"], r["to"], r["air"]), r.get("arrival", "fresh")
-                if arr == "clock" or out.get(key, (None, None))[1] != "clock":
-                    out[key] = (PASS if r["xemu"].get("match") else "FAIL", arr)
+                if arr == "clock" or out.get(key, (None, None))[1] != f"{R216E} clock":
+                    out[key] = (PASS if r["xemu"].get("match") else "FAIL", f"{R216E} {arr}")
     return out
 
 
 def against(rows, files) -> dict:
-    """The rows whose verdict moved from the kept one (an R2.16e label: PASS or not), ERROR rows aside."""
-    t, joined, agree, moved = truths(files), 0, 0, []
+    """The rows whose verdict moved from the kept one (a check's of the row's own start, else an R2.16e label: PASS
+    or not), ERROR rows aside; ``from`` counts the joined rows by where their kept verdict came from (a start, or
+    R2.16e), and each moved row says it (``kept_from``)."""
+    t, joined, agree, moved, came = truths(files), 0, 0, [], collections.Counter()
     for r in rows:
         if r["verdict"] == ERROR:
             continue
-        if ("ref", r["ref"]) in t:
-            labels = [t[("ref", r["ref"])][0]]
-            same = labels[0] == r["verdict"]
+        if (key := ("ref", r["ref"], r["start"])) in t:
+            label, where = t[key]
+            labels, same = [label], label == r["verdict"]
         else:
-            labels = [t[k][0] for e in r.get("edges") or () if (k := ("edge", r["level"], r["from"], r["to"],
-                                                                         e["air"])) in t]
-            if not labels:
+            hits = [t[k] for e in r.get("edges") or () if (k := ("edge", r["level"], r["from"], r["to"],
+                                                                   e["air"])) in t]
+            if not hits:
                 continue
+            labels, where = [x for x, _ in hits], ", ".join(sorted({w for _, w in hits}))
             same = all((x == PASS) == (r["verdict"] == PASS) for x in labels)
         joined, agree = joined + 1, agree + same
+        came[where.split()[0]] += 1
         if not same:
             moved.append({k: r.get(k) for k in ("start", "level", "from", "to", "rank", "ref", "verdict")}
-                         | {"kept": labels})
-    return {"joined": joined, "agree": agree, "moved": moved}
+                         | {"kept": labels, "kept_from": where})
+    return {"joined": joined, "agree": agree, "from": dict(sorted(came.items())), "moved": moved}
 
 
 def tally(a) -> dict:
