@@ -627,7 +627,8 @@ FastL3's taint, labels, HP, volumes and flaps rather than the kernel's empty one
 4.83a) fixed four more, each moving keys, so no record from before it is read after it (every core, aim, kernel
 and hold key moved; the zones' did not): a confirm with a Y press after FastL3's own first landing is not the same
 launch (the kernel's controllers flap only before theirs, so the press was a ground jump: AZ-852, AZ-839's real
-fix), and a confirm is filed under its own rank, the better witness of that slot kept (AZ-853); the mover router
+fix), and a confirm is filed under its own rank, the better witness of that slot kept (AZ-853; the witness check
+joins a row's flags from its candidate at any rank of its pair); the mover router
 also sweeps each tick's body grown by `PROBE_M` across and up, so a body the game stopped at its radius from a
 mover's wall or underside is routed to it (AZ-854: it had seen floor contact only); and `devkit/sim/snapshot.py`
 and `ports.py` (the pads' floats, the camera and the halt VAs L3 reads each tick) are L3 core files, and a hold

@@ -1551,6 +1551,25 @@ def test_a_one_jump_confirm_at_a_lower_rank_is_filed_at_its_own_rank():
     assert list(g.edges[("n1", "n2")]) == [1]
 
 
+def test_a_witness_check_row_joins_its_candidates_flags_where_its_confirm_was_filed_at_a_lower_rank():
+    """AZ-853's review (Step 4.83a): the hold files a kernel candidate's FastL3 confirm under FastL3's lower rank,
+    while the witness check's graph, built from the records with no hold, keeps the candidate at the kernel's: a
+    row whose claim names the lower rank still joins its candidate's flags (it read none: unflagged, its flag
+    classes gone)."""
+    from devkit.reach import witness_check as wc
+    k2 = _out("k2", 40, [25, 1, 0], flaps=2, by="kernel", macro="runjump-air3-f2", kit="air3")   # 1 m off: zone_far
+    g = _one_each([k2])
+    assert g.hold(lambda w: {"land": [25, 1, 0], "state": 0, "same": True,
+                             "outcome": _out("k2'", 41, [25, 1, 0], flaps=1, kit="air3")}) == []
+    (rank, held), = g.zones[("Z0", "Z1")].items()
+    fresh = _one_each([k2])
+    assert (rank, held["by"], list(fresh.cands[("Z0", "Z1")])) == (1, "confirmed", [2])
+    w = {"ref": "w0", "claim": {"from": "Z0", "to": "Z1", "min_air": rank}, "string": {"sha12": "k2", "ticks": 40},
+         "start": {"setup": [["R6", {"job": "j0", "start": "run"}]]}}
+    row = wc.joined("t", w, {"key": "j0", "id": "a0", "outcomes": [k2]}, {}, "p", fresh, {}, None)
+    assert row["flags"] == ["zone_far"] and "flag:zone_far" in row["cls"]
+
+
 def test_a_confirm_whose_flap_press_falls_after_fastl3s_first_landing_is_not_the_same_launch():
     """AZ-852 (the reach audit's D3, its fix): the kernel's controllers press Y only before their first touch-down,
     so where FastL3 lands first, the kernel's later flap press is a ground jump on FastL3, whose one-jump rank then

@@ -322,11 +322,12 @@ def per_class(rows: list[dict], n: int) -> list[dict]:
 
 def joined(level: str, w: dict, rec: dict, job: dict, plan: str, g, kinds: dict, negative: str | None) -> dict:
     """Witness record ``w``'s row: its ids and class fields, from its job record ``rec``, ``job``, its ``plan``, graph
-    ``g``'s candidates at its pair and rank (its flags: its tries and the cap's spill, which the hold may keep too,
-    AZ-848) and the derived edges' ``kinds``."""
+    ``g``'s candidates at its pair (its flags: its tries and the cap's spill, which the hold may keep too, AZ-848; at
+    any rank, as the hold files a FastL3 confirm under FastL3's rank, which may be below its candidate's, AZ-853)
+    and the derived edges' ``kinds``."""
     su, c = setup_of(w), w["claim"]
-    pair, r = (c["from"], c["to"]), c["min_air"]
-    cands = g.cands.get(pair, {}).get(r, []) + g.spill.get(pair, {}).get(r, [])
+    pair = (c["from"], c["to"])
+    cands = [x for d in (g.cands, g.spill) for ws in d.get(pair, {}).values() for x in ws]
     k = next((k for k, o in enumerate(rec["outcomes"]) if o["string_sha12"] == w["string"]["sha12"]
               and o["start"] == su["start"]), None)
     if k is None:
