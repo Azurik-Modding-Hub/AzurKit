@@ -111,7 +111,7 @@ _POOL, _STACK, _GDT, _STOP, _DATA = 0x70000000, 0x7E000000, 0x7E200000, 0x7E3000
 # 0x80000000, so a base must lie in the 64 MiB at 0x80000000.  A snapshot that holds the RAM window (a high run of
 # WINDOW_SIZE at WINDOW) gives its free pages (its PFN database's entries with neither PFN_USED bit), handed out a
 # run at a time, the highest first [default: the kernel's search order is unread]; one with no window, a fixed base
-# above the kernel image, each run mapped zeroed
+# above the kernel image, each run mapped zeroed past whatever is mapped there already
 WINDOW, WINDOW_SIZE, PFN_DB, PFN_USED = 0x80000000, 0x4000000, 0x03FF0000, 0x10001
 _CONTIG = 0x83000000
 _STACK_SIZE = 0x100000
@@ -866,10 +866,12 @@ class L3:
     def _contiguous(self, size: int, lo: int, hi: int, align: int) -> int:
         """The base of ``size`` bytes of contiguous memory between physical ``lo`` and ``hi`` at ``align`` (the
         module's AZ-850 note): the highest run of the window's free pages that fits, none of them taken (0 for
-        none); with no window, the next zeroed region from _CONTIG."""
+        none); with no window, the next zeroed region from _CONTIG, past every region mapped there (its earlier runs,
+        a zero page an access mapped, the snapshot's high runs), so the run never maps over one."""
         n = max(1, (size + 0xFFF) // PAGE)
         if self._free is None:
-            base = max((va + m for va, m in self._contig), default=_CONTIG)
+            base = max((va + m for va, m in (*self._extra.items(), *((va, m) for va, m, _ in self._hruns))
+                        if va + m > _CONTIG and va < WINDOW + WINDOW_SIZE), default=_CONTIG)
             self._map_extra(base, n * PAGE)
             self._contig += ((base, n * PAGE),)
             return base

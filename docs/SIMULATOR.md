@@ -792,7 +792,8 @@ left out: exact against the snapshots' page tables), the highest run that fits i
 alignment (the kernel's search order is unread: a default), 0 where none fits, and MmFreeContiguousMemory gives a
 run back; the pages are the window's, mapped as touched and put back by a reset, so an allocation maps no region of
 its own (the stream load's maps above are gone there). A snapshot with no window keeps a zeroed region a run, from
-0x83000000. `l3.py` is the first of `CORE_FILES`: every reach key moved with it.
+0x83000000, past every region mapped there (a zero page an access mapped, its own high runs), so a run never maps over
+one. `l3.py` is the first of `CORE_FILES`: every reach key moved with it.
 
 ### The worker pool (Step X.10)
 

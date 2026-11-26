@@ -329,7 +329,9 @@ def test_l3s_contiguous_pool_lies_inside_the_ram_window_a_26_bit_physical_addres
     the RAM window, contiguous memory comes from its PFN database's free pages: a step that allocates 0x3000, 0x1000
     and 0x16000 bytes, fills the third through its 26-bit address, frees the second and allocates a page again,
     then enters a critical section gets bases that are their own 26-bit addresses on free pages (the freed one
-    again), its stores at the base, and returns; a reset gives the pages and the pool back."""
+    again), its stores at the base, and returns; a reset gives the pages and the pool back.  On a snapshot with no
+    window, a step that reads 0x83000000 (a zero page mapped) and then allocates gets a run past that page (one
+    mapped over it failed)."""
     from devkit.sim.l3 import L3, read_snapshot
 
     ent, upd, alloc, free, enter = 0x100000, 0x8C230, 0x80016000, 0x80016100, 0x80023120
@@ -357,6 +359,13 @@ def test_l3s_contiguous_pool_lies_inside_the_ram_window_a_26_bit_physical_addres
         sim.reset()
         assert sim.read(bases[2], 0x16000) == bytes(0x16000)
     assert sim.kernel_calls == {"MmAllocateContiguousMemory": 8, "MmFreeContiguousMemory": 2}
+    code = bytes.fromhex("53" "89cb" "a100000083" "6800100000") + call["alloc"] + bytes.fromhex("894344" "5b")
+    (plain := tmp_path / "plain").mkdir(mode=0o700)
+    path, _ = _l3_snapshot(plain, {upd: code + b"\xe9" + _rel(upd + len(code), 0x8C3F1), 0x8C3F1: b"\xc3",
+                                   0x18F424: struct.pack("<I", alloc)}, {})
+    sim = L3(read_snapshot(path), {alloc: "MmAllocateContiguousMemory"})
+    sim.step()
+    assert sim.u32(ent + 0x44) == 0x83001000 and sim.read(0x83001000, 0x1000) == bytes(0x1000)
 
 
 def test_l3_snapshot_store_and_a_step_with_the_scheduler_clock_allocation_and_fs(tmp_path):
