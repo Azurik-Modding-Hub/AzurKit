@@ -705,7 +705,8 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
                         ("kept past a first try's fault", sum(x.get("stop") == "fault" for x in ws)),
                         ("kept past a first try's popup", sum(x.get("stop") == "popup" for x in ws))):
             counts[f"world witnesses {name}"] = v
-        print(json.dumps({"world": {k[15:]: v for k, v in counts.items() if k.startswith("world witnesses ")}
+        print(json.dumps({"world": {k[len("world witnesses "):]: v for k, v in counts.items()
+                                    if k.startswith("world witnesses ")}
                           | {"replayed": wrun["replayed"], "steps": wrun["steps"],
                              "cpu_s": round(wrun["cpu_s"], 1)}}), flush=True)
     if replayed and mode == "fast":
