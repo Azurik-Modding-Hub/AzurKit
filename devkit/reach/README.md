@@ -429,7 +429,9 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
 - `clip` (Step 4.78c, D1312: the owner reviews new links as a list, a row
   a link with a short xemu clip) runs each named PASS try of a run
   (`--runs`, its evidence folder; `--refs`, a ref or 5 or more hex digits
-  of its sha256; `--rows`, its rows files) again in one offscreen
+  of its sha256; `--rows`, its rows files; `--start`, the start whose
+  final checks it reads, `recipe` by default: a ref checked under both
+  has one each) again in one offscreen
   deterministic sitting (no window), from a fresh arrival at its phase,
   a picture a tick once the guest has flipped since the restore (never an
   advance), made an MP4 in `--out` (private, mode 700) by ffmpeg
@@ -451,7 +453,7 @@ nice -n 10 uv run --locked python -m devkit reach witness-check run NAME --rows 
     [--start recipe|placed] [--phases 0,15,30] [--corpus STORE]
 uv run --locked python -m devkit reach witness-check tally DIR [--truth KEPT.jsonl ...]
 nice -n 15 uv run --locked python -m devkit reach witness-check clip NAME --runs DIR --rows ROWS.json ... \
-    --refs REF ... --out DIR [--corpus STORE]
+    --refs REF ... [--start recipe|placed] --out DIR [--corpus STORE]
 uv run --locked python -m devkit reach witness-check list DIR [--clipped] [--out FILE.md]
 ```
 

@@ -531,6 +531,52 @@ def test_a_links_clip_pictures_each_replayed_tick_once_fresh_never_advancing_and
         wc.main(["clip", "n", "--runs", str(ev), "--rows", "none.json", "--refs", "r", "--out", str(out)])
 
 
+@pytest.mark.xemu
+def test_a_clip_takes_the_final_check_of_the_start_it_names_recipe_by_default_where_a_ref_has_one_under_each(
+        tmp_path, monkeypatch):
+    """Step 4.78g (4.78c's review, 4): a ref checked under both starts has a final check row each, which no longer
+    prefix of its sha256 splits; ``clip --start`` (recipe by default, D1352) takes that start's row alone, and a ref
+    with none under it is refused by name, the start it was checked under named."""
+    import contextlib
+    from types import SimpleNamespace
+
+    from devkit.reach import witness_check as wc
+    from devkit.xemu import clip, sitting   # macOS's own calls: imported here, as the harness
+
+    ev, refs, took = tmp_path / "ev", ["r/a@m", "r/b@m"], []
+    (ev / "results").mkdir(parents=True)
+    (ev / "results" / "runs.jsonl").write_text("".join(json.dumps({
+        "row": "check", "final": True, "start": start, "level": "t", "ref": ref, "verdict": "PASS", "phase": phase,
+        "xemu_rows_sha12": start[0] * 12}) + "\n" for start, ref, phase in (
+            ("recipe", refs[0], 0), ("placed", refs[0], 15), ("placed", refs[1], 0))), encoding="utf-8")
+    rows = tmp_path / "rows.json"
+    rows.write_text(json.dumps({"level": "t", "check": wc.CHECK, "rows": [{"ref": ref} for ref in refs]}),
+                    encoding="utf-8")
+
+    class Clip:   # the sitting's tries: the start it was given and the final rows it was handed
+        def __init__(self, game, src, **kw):
+            self.start = kw["start"]
+
+        def take(self, items):
+            took.append((self.start, [(f["start"], f["phase"]) for *_, f in items]))
+            return {"made": len(items)}
+
+        def finish(self):
+            pass
+    monkeypatch.setattr(clip.shutil, "which", lambda tool: f"/bin/{tool}")
+    monkeypatch.setattr(wc, "Sources", lambda: SimpleNamespace(check=lambda doc: None))
+    monkeypatch.setattr(wc, "Clip", Clip)
+    monkeypatch.setattr(wc, "engine_keys", dict)
+    monkeypatch.setattr(wc.l3, "store", lambda: tmp_path / "store")
+    monkeypatch.setattr(sitting, "Sitting", lambda *a, **kw: contextlib.nullcontext())
+    argv = ["clip", "n", "--runs", str(ev), "--rows", str(rows), "--out", str(tmp_path / "clips"), "--refs"]
+    assert wc.main([*argv, refs[0]]) == 0 and wc.main([*argv, refs[0], "--start", "placed"]) == 0
+    assert took == [("recipe", [("recipe", 0)]), ("placed", [("placed", 15)])]
+    with pytest.raises(SystemExit, match=r"clip r/b@m: 0 final check rows answer it under --start recipe \(checked "
+                                         r"under placed\)"):
+        wc.main([*argv, refs[1]])
+
+
 @pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
                                      pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
                                                   id="europe")])

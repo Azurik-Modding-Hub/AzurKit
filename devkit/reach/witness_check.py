@@ -964,16 +964,18 @@ def tally(a) -> dict:
 
 # -- clip and list (Step 4.78c, D1312) --------------------------------------------------------------------------------
 
-def picked(rows: list[dict], docs, refs) -> list[tuple[dict, dict, dict]]:
+def picked(rows: list[dict], docs, refs, start: str = "recipe") -> list[tuple[dict, dict, dict]]:
     """Each of ``refs`` (a ``ref``, or 5 or more hex digits of its sha256) as (its rows file, its row there, its final
-    check row of ``rows``); refused (SystemExit) by name where no final row or more than one answers it, where its
-    check isn't a PASS or kept no per-tick digest (a check before Step 4.78c), where no rows file holds it, and where
-    the refs mix starts."""
+    check row of ``rows`` under ``start``: a ref checked under both starts has a final row each); refused (SystemExit)
+    by name where no final row of ``start`` or more than one answers it, where its check isn't a PASS or kept no
+    per-tick digest (a check before Step 4.78c), and where no rows file holds it."""
     out = []
     for x in refs:
-        hits = [r for r in rows if x == r["ref"] or (len(x) >= 5 and order(r["ref"]).startswith(x.lower()))]
-        if len(hits) != 1:
-            raise SystemExit(f"clip {x}: {len(hits)} final check rows answer it" + (": name more of it" * bool(hits)))
+        named = [r for r in rows if x == r["ref"] or (len(x) >= 5 and order(r["ref"]).startswith(x.lower()))]
+        if len(hits := [r for r in named if r["start"] == start]) != 1:
+            other = ", ".join(sorted({r["start"] for r in named} - {start}))
+            why = ": name more of it" if hits else f" (checked under {other})" if other else ""
+            raise SystemExit(f"clip {x}: {len(hits)} final check rows answer it under --start {start}{why}")
         f = hits[0]
         if f["verdict"] != PASS:
             raise SystemExit(f"clip {x}: its check is {f['verdict']}: a clip shows a passing try")
@@ -983,8 +985,6 @@ def picked(rows: list[dict], docs, refs) -> list[tuple[dict, dict, dict]]:
         if not got:
             raise SystemExit(f"clip {x}: no --rows file of {f['level']} holds its row")
         out.append((*got[0], f))
-    if len({f["start"] for *_, f in out}) > 1:
-        raise SystemExit("clip: the refs' checks mix starts: clip one start at a time")
     return out
 
 
@@ -1066,8 +1066,8 @@ def clip(a) -> dict:
         if d.get("check") != CHECK:
             raise SystemExit(f"{d.get('level')}: rows of check {d.get('check')}, not {CHECK}")
         src.check(d)
-    items = picked(finals(Path(a.runs) / "results" / "runs.jsonl"), docs, a.refs)
-    start, folder = items[0][2]["start"], l3.store() / FOLDER / xs.slug(a.name)
+    items = picked(finals(Path(a.runs) / "results" / "runs.jsonl"), docs, a.refs, a.start)
+    start, folder = a.start, l3.store() / FOLDER / xs.slug(a.name)
     with xs.Sitting(a.name, ev=a.runs, headless="1", deterministic=True) as s:
         c = Clip(Game(s), src, ev=a.runs, name=xs.slug(a.name), folder=folder, start=start, keys=engine_keys(),
                  corpus=a.corpus, out=out, pics=xc)
@@ -1149,6 +1149,8 @@ def main(argv: list[str] | None = None) -> int:
                    "go there)")
     c.add_argument("--rows", nargs="+", required=True, help="the check's rows files (plan's)")
     c.add_argument("--refs", nargs="+", required=True, help="the rows: each a ref, or 5+ hex digits of its sha256")
+    c.add_argument("--start", choices=("recipe", "placed"), default="recipe",
+                   help="the start whose final checks to clip (a ref checked under both has one each)")
     c.add_argument("--out", required=True, help="the clips' folder (private: mode 700, never in the repository)")
     c.add_argument("--corpus", metavar="STORE", help="as run's: each clip's replay appended there, its arrivals kept")
     li = sub.add_parser("list", help="the owner's rows as Markdown (link, kit, verdict, tries, flags, clip, tier)")
