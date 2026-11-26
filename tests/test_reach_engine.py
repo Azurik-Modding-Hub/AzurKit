@@ -544,7 +544,8 @@ def test_a_world_held_witness_counts_only_where_its_whole_step_replay_holds_owes
     (Step 4.77d: 6 of 322 control rows the game's enemies hit).  ``world.replay`` runs it in whole steps, each try on
     a new scene L3 idle 0, 15, 30 ... ticks first: an enemy over the landing until a world tick kills it at waits 0
     and 15 and lets it hold at 30; one that never leaves refuses it after every try; a first try's L3 fault or
-    popup is a stop, no refusal.  In the hold (``reach_engine._hold``) a refused witness gives its pair's rank to
+    popup with the body alive is a stop, no refusal, and one after a death (L3's no player update) is the death's
+    refusal.  In the hold (``reach_engine._hold``) a refused witness gives its pair's rank to
     the next candidate, which holds after a wait it then owes (its record idles first and names the world's answer)
     or leaves the rank empty; a stop keeps the frozen answer and names it; a pair the pairs file doesn't list is not
     replayed; and an answer cached in ``world/`` is never replayed again."""
@@ -553,7 +554,7 @@ def test_a_world_held_witness_counts_only_where_its_whole_step_replay_holds_owes
     nodes, jobs, recs = two_platforms
 
     class World(_Sim):              # a scene stand-in: an enemy over B until world tick ``until``, a stop's site
-        until, stop, first = -1, None, None
+        until, stop, first, r6 = -1, None, None, None
 
         def teleport(self, feet, yaw, *, cell=None):
             self.r6 = self._s["k"] + 1
@@ -561,7 +562,7 @@ def test_a_world_held_witness_counts_only_where_its_whole_step_replay_holds_owes
 
         def step(self, pad=l3.Pad(), writes=(), **_):
             row = super().step(pad, writes)
-            if self.stop and row.k == self.r6 + self.stop[0]:
+            if self.stop and self.r6 is not None and row.k == self.r6 + self.stop[0]:
                 raise l3.L3Error("a stand-in stop", self.stop[1])
             if row.pos[0] >= B[0]:
                 World.first = row.k if World.first is None else World.first
@@ -585,6 +586,10 @@ def test_a_world_held_witness_counts_only_where_its_whole_step_replay_holds_owes
     for site, stop in (("unmapped@0x80023120", "fault"), ("no player update", "popup")):
         got = run(stop=(2, site))
         assert (got["held"], got["stop"], got["site"], got["tick"], got["tries"]) == (None, stop, site, 2, 1)
+    n = run()["trace"][0]["ticks"]                      # killed over B, then no player update on the last tick
+    got = run(until=10 ** 9, stop=(n - 1, "no player update"))
+    assert (got["held"], got["tries"], got["cause"], got["trace"][0]["site"]) == \
+        (False, rigs.PHASES, "dead", "no player update")
 
     for r in recs:
         cache.put(tmp_path, r["key"], r)

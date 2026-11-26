@@ -285,11 +285,14 @@ nice -n 19 uv run --locked python -m devkit reach reach-engine rigs LEVEL --snap
   confirm's touches and node edge go too). A first try that stops on an
   L3 fault or a popup the replay can't clear is no refusal: the frozen
   answer stays, its record naming the stop (`held` null, `stop` `fault`
-  or `popup`, the site and the tick). `--world-pairs` (a JSON list of
+  or `popup`, the site and the tick), but only with the body alive and
+  no exit: a stop after a death (L3's no player update) or an exit is
+  that try's refusal. `--world-pairs` (a JSON list of
   `[from, to]` zone pairs or `"from>to"` strings) limits it to the pairs
   an intake lists; every pair's costs a level tens of CPU-hours (about
   5 CPU-s a try). Answers are cached apart (`world/`, by the hold's key,
-  the snapshot, the zones judged, the zoning and the world code), with
+  the snapshot, the zones judged, the zoning and the world code, the
+  zone code with it), with
   verdicts, ticks and HP, no position.
 - `sample --backstop modelled|all --refine PLAN ... --snapshot LABEL`
   (Step R2.19d, D846): the FastL3 backstop, an L3 plan whatever

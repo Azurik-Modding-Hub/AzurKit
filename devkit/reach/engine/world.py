@@ -15,16 +15,18 @@ exit (a fire's ``Row.exit`` or an unload).  The first try that holds is the answ
 witness then owes those idle ticks before its R6, as a routed one does); a witness no try holds is refused, and its
 pair takes its next candidate.
 
-A whole-step stop the game doesn't make on the first try is no refusal: an L3 fault (``stop`` ``fault``, as f2
-a3191's ``unmapped@0x80023120`` two ticks after its R6, a whole-step emulation gap) or the game's hint popup, which
-nothing here clears (``stop`` ``popup``: no player update, as w1 a1171's at tick 237).  The witness then keeps its
-frozen hold's answer and its record names the stop (``held`` None), so the world refuses no witness for a defect of
-its own (refusing the two would cost 2 of the game's 316 passes there, over the 0.5 % bar).  A later try's stop is
-passed over.  A step stopped for time (``worker.TIME_SITES``: the host's load, never the game) is tried once more on
-a new simulator, then raised as ``worker.StepTimeout``: no answer cached, so a re-run asks again.
+A whole-step stop the game doesn't make on the first try, the body alive and no level exit fired, is no refusal:
+an L3 fault (``stop`` ``fault``, as f2 a3191's ``unmapped@0x80023120`` two ticks after its R6, a whole-step emulation
+gap) or the game's hint popup, which nothing here clears (``stop`` ``popup``: no player update, as w1 a1171's at tick
+237).  The witness then keeps its frozen hold's answer and its record names the stop (``held`` None), so the world
+refuses no witness for a defect of its own (refusing the two would cost 2 of the game's 316 passes there, over the
+0.5 % bar).  A stop after a death or an exit is judged as the try's rows stand (``dead``, ``exit``): L3 stops on no
+player update after most deaths (16 of Step 4.77d's 22 stalls).  A later try's stop is passed over.  A step stopped
+for time (``worker.TIME_SITES``: the host's load, never the game) is tried once more on a new simulator, then raised
+as ``worker.StepTimeout``: no answer cached, so a re-run asks again.
 
 Answers are cached apart (``world/``, :func:`key`: the hold's key, the snapshot's ``meta_sha12``, the zones judged,
-the zoning and :func:`code12`), each holding the tries' verdicts, ticks and HP, no position.
+the zoning and :func:`code12`, the zone code with it), each holding the tries' verdicts, ticks and HP, no position.
 """
 
 from __future__ import annotations
@@ -50,11 +52,13 @@ _ZONES: dict = {}            # each worker's level zone_at, once (``reach_engine
 def code12() -> str:
     """sha256[:12] of what a world answer depends on besides its hold key: this file's code, the whole-step pieces
     it runs (``rigs.fresh``, ``capped``, ``Clock``, ``_place``), the check's rule (``witness_check.stands``,
-    ``judge``) and their constants, and the L3 core."""
+    ``judge``) and their constants, the L3 core and the code that names a zone (``cache.ZONE_FILES``: an answer
+    keeps the zone verdicts it was judged by)."""
     import inspect
     from devkit.reach import witness_check as wc
     from devkit.reach.engine import rigs
     h = hashlib.sha256(cache.core().encode() + cache.code_bytes(Path(__file__)))
+    h.update(cache.core(cache.ZONE_FILES).encode())
     for f in (rigs.fresh, rigs.capped, rigs.Clock, rigs._place, wc.stands, wc.judge, wc._settled, wc._fields,
               wc._feet):
         h.update(inspect.getsource(f).encode())
@@ -119,7 +123,7 @@ def _try(sim, st: dict, heading: float, o: dict, pads: list, wait: int, to: str,
         t["site"] = site
     if s["stands"] is False:
         return t | {"held": False, "cause": "start"}
-    if site is not None and site != EXIT:
+    if site is not None and site != EXIT and ex is None and j["alive"]:
         return t | {"held": None, "stop": "popup" if site == POPUP else "fault"}
     if site == EXIT or ex is not None:
         return t | {"held": False, "cause": "exit"}
@@ -133,8 +137,8 @@ def replay(make, st: dict, heading: float, o: dict, to: str, frm: str | None, zo
     try on a new scene FastL3 (``make()``), idle 0, ``rigs.EVERY``, 2 ``rigs.EVERY`` ... ticks first (``waits``
     tries, by default ``rigs.PHASES``), judged in zone ``to`` from ``frm`` (None: its start's zone isn't asked) by
     ``zone_at``: ``held`` True (``wait`` the first try's that held), False (refused: no try held, ``cause`` the first
-    try's) or None (the first try stopped: ``stop``, ``site`` and its ``tick`` from the R6), with ``tries``, every
-    try's verdict and the whole steps."""
+    try's) or None (the first try stopped, the body alive and no exit: ``stop``, ``site`` and its ``tick`` from the
+    R6), with ``tries``, every try's verdict and the whole steps."""
     from devkit.reach.engine import rigs, worker
     pads, out, steps = l3.pads(o["segments"]), [], 0
     for k in range(rigs.PHASES if waits is None else waits):
