@@ -718,15 +718,34 @@ def test_a_sweeps_route_is_swept_again_when_the_movers_kernel_code_changes(monke
     """AZ-843's review: a sweep keeps the route a routeless hold answer is decided on, traced through
     ``backend.Movers``, whose owners and faces come from the kernel's code (geometry, collision, the native sweep,
     the census), but its key held only the sweep's own functions, so after such a change a ``--rigs`` graph decided
-    on the old route.  The key now holds ``kernel_sha12``: the same kernel code keeps it, another moves it."""
+    on the old route.  The key now holds ``kernel_sha12``: the same kernel code keeps it, another (a process on
+    it: the code key is computed once a process) moves it."""
     from devkit.reach.engine import rigs
     from devkit.reach.native import backend as KB
     code = ["a" * 12]
     monkeypatch.setattr(KB, "kernel_sha12", lambda: code[0])
+    monkeypatch.setattr(rigs, "sweep_code12", functools.cache(rigs.sweep_code12.__wrapped__))
     first = rigs.sweep_key("h" * 12)
     assert rigs.sweep_key("h" * 12) == first
     code[0] = "b" * 12
+    rigs.sweep_code12.cache_clear()
     assert rigs.sweep_key("h" * 12) != first
+
+
+def test_the_rig_routers_code_keys_are_computed_once_a_process_and_are_the_uncached_keys(monkeypatch):
+    """4.78d's sitting: ``witness --rigs`` ran main-thread bound, as ``rigs.sweep_key`` and ``trip_hold_key``
+    re-parsed their functions' sources on every answer (about 0.03 and 0.0125 CPU-s a call).  Each code key hashes
+    code only, so it is now computed once a process, and it is the key the uncached code gives."""
+    from devkit.reach.engine import rigs
+    keys = {f: f.__wrapped__() for f in (rigs.code12, rigs.trip_code12, rigs.sweep_code12)}
+    hashed, real = [], rigs._code12
+    monkeypatch.setattr(rigs, "_code12", lambda *parts: hashed.append(parts) or real(*parts))
+    for f in keys:
+        f.cache_clear()
+    for _ in range(3):
+        assert {f: f() for f in keys} == keys
+        assert rigs.sweep_key("h" * 12) and rigs.trip_hold_key("h" * 12, "r" * 12)
+    assert len(hashed) == len(keys)
 
 
 def test_a_rig_recording_is_made_again_when_the_derives_exported_rigs_change(tmp_path, monkeypatch):

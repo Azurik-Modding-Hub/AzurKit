@@ -51,6 +51,7 @@ Positions, poses and strings stay in memory and the private cache; outputs hold 
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import math
@@ -106,7 +107,9 @@ def load(level: str):
 
 
 def _code12(*parts) -> str:
-    """sha256[:12] of the L3 core, ``triggers.py`` and ``parts`` (functions by their source, else their repr)."""
+    """sha256[:12] of the L3 core, ``triggers.py`` and ``parts`` (functions by their source, else their repr).  Each
+    code key that hashes it is computed once a process (code only: 4.78d's ``witness --rigs`` re-parsed the sources
+    on every answer a key was asked for, about 0.04 CPU-s an answer on its main thread)."""
     import inspect
     root = Path(__file__).resolve().parents[3]
     h = hashlib.sha256(cache.core().encode() + cache.code_bytes(root / "devkit/reach/engine/triggers.py"))
@@ -115,15 +118,17 @@ def _code12(*parts) -> str:
     return h.hexdigest()[:12]
 
 
+@functools.cache
 def code12() -> str:
     """The recording's code (its cache key): the recorder's functions and constants, the triggers' reading and the
-    L3 core (the search and the trips change no recording)."""
+    L3 core (the search and the trips change no recording); once a process."""
     return _code12(record, poked, _steps, _local, _corners, posed, recording, fresh, record_task, poke_task,
                    (RECORD, EPS, REST, POKE_TICKS, RELEASE, PULSE, POKE_TRIES, CAP_US, PULSE_PLUGS))
 
 
+@functools.cache
 def trip_code12() -> str:
-    """The router's trips' code (their answers' cache key, beside the recording's sha12)."""
+    """The router's trips' code (their answers' cache key, beside the recording's sha12); once a process."""
     return _code12(replay_trip, Clock, _place, _steps, fresh, trip_hold_task, trip, _stood,
                    (EVERY, PHASES, END_M, CAP_US, runner.START_XY, runner.START_Z))
 
@@ -936,10 +941,11 @@ class Router:
             {"parked": list(parked)} if parked else {})
 
 
+@functools.cache
 def sweep_code12() -> str:
     """The swept paths' code (their cache key beside the hold's): their boxes' and their route's, the movers' whole
     kernel code (``backend.kernel_sha12``: the geometry that sorts owners into rigs and gates, the native sweep, the
-    census) with it, as a routed record's key holds it (AZ-843)."""
+    census) with it, as a routed record's key holds it (AZ-843); once a process."""
     from devkit.reach.native.backend import Movers, kernel_sha12
     return _code12(sweep, path_boxes, _movers, Movers, (SWEEP_TICKS, kernel_sha12()))
 
