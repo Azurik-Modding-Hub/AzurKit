@@ -62,9 +62,9 @@ def picture(sb, dest: Path) -> Path | None:
 
 
 def private_dir(path: Path | str) -> Path:
-    """``path``, made mode 700 where missing; one anyone else may enter is refused (a clip is a picture of the
-    game)."""
-    path = Path(path)
+    """``path`` resolved (the clip rows keep it, so ``list`` links a clip from any folder), made mode 700 where
+    missing; one anyone else may enter is refused (a clip is a picture of the game)."""
+    path = Path(path).resolve()
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     if os.name == "posix" and path.stat().st_mode & 0o077:
         raise SystemExit(f"clip: {path.name}/ is open to others (mode {path.stat().st_mode & 0o777:o}): a clip is "

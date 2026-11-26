@@ -577,6 +577,36 @@ def test_a_clip_takes_the_final_check_of_the_start_it_names_recipe_by_default_wh
         wc.main([*argv, refs[1]])
 
 
+@pytest.mark.xemu
+def test_a_clip_folder_named_relative_is_kept_resolved_so_the_owners_list_links_each_clip_from_any_folder(
+        tmp_path, monkeypatch):
+    """Step 4.78g (4.78c's review, 5): ``clip --out`` named relative to the folder clip runs in is kept resolved
+    (``private_dir``, whose folder each clip row keeps), so ``list`` run from another folder links each clip where it
+    is; a relative one was joined to the list's folder instead."""
+    from pathlib import Path
+
+    from devkit.reach import witness_check as wc
+    from devkit.xemu import clip   # macOS's own calls: imported here, as the harness
+
+    for d in ("run", "elsewhere"):
+        (tmp_path / d).mkdir()
+    monkeypatch.chdir(tmp_path / "run")
+    out = clip.private_dir("clips")
+    (out / "t-a.mp4").write_bytes(b"")
+    ev = tmp_path / "ev"
+    (ev / "results").mkdir(parents=True)
+    row = {"start": "recipe", "level": "t", "ref": "r/a@m"}
+    (ev / "results" / "runs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in (
+        row | {"row": "check", "final": True, "from": "Z0", "to": "Z1", "rank": 3, "kit": "air3", "verdict": "PASS",
+               "tries": 1},
+        row | {"row": "clip", "clip": "t-a.mp4", "clips": str(out)})), encoding="utf-8")   # as Clip.one keeps it
+    monkeypatch.chdir(tmp_path / "elsewhere")
+    assert wc.main(["list", str(ev), "--out", "OWNER-LIST.md"]) == 0
+    link = Path("OWNER-LIST.md").read_text(encoding="utf-8").splitlines()[2].split("](")[1].split(")")[0]
+    assert (out.is_absolute(), (tmp_path / "elsewhere" / link).resolve()) == (True, (tmp_path / "run" / "clips"
+                                                                                       / "t-a.mp4").resolve())
+
+
 @pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
                                      pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
                                                   id="europe")])
