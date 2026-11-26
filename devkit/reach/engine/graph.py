@@ -50,10 +50,9 @@ onto or off a node of the snapshot's frozen world (``Nodes.frozen``: a rig deck 
 loaded) is flagged, as is one that ends swimming (``swim``).  A walk-off that flapped (AZ-838), as L3 ran it or as
 FastL3's confirm of a kernel candidate did, gives no zone slot, node edge or touch, only (an L3 run's) a MAY
 candidate to where it settled: R6 doesn't write the flap latch (+0x164), so its flaps fly on the snapshot's last
-jump's latch, which no seed promises.  A confirm keeps its
-kernel candidate's rank
-where FastL3's is lower (AZ-839: FastL3 may land early and the kernel's next Y press start a ground jump, so FastL3's
-one-jump rank can undercount; the interim guard until the confirm itself checks it), and one whose body holds in a
+jump's latch, which no seed promises.  A confirm is filed under
+its own rank (FastL3's, ``min_rank``; the confirm refuses a kernel flap press that FastL3 took on the ground, AZ-852),
+the better witness of that slot kept (AZ-853: no longer under its kernel candidate's), and one whose body holds in a
 third zone (not its candidate's start or to-zone) fills that zone pair's rank where the hold kept no witness (AZ-840),
 its flags its own.  A zone
 witness also carries the zone-mapping flags (R2.16a's skeptic, S4): ``one_region`` (its zones share the walkable
@@ -327,11 +326,17 @@ class Graph:
         self.counts["zone witnesses FastL3 confirmed from the kernel"] = sum(w["by"] == "confirmed"
                                                                               for w in keep.values())
         for pair, ranks in self.cands.items():
-            got = {r: keep[pair, r] for r in sorted(ranks) if (pair, r) in keep}
-            moved += sum(w is not ranks[r][0] for r, w in got.items())
-            gone += len(ranks) - len(got)
+            got: dict[int, dict] = {}
+            for r in sorted(ranks):
+                if (pair, r) in keep:
+                    w = keep[pair, r]
+                    moved += w is not ranks[r][0]
+                    if _better(w, got.get(w["rank"])):     # AZ-853: a confirm under its own rank, the better kept
+                        got[w["rank"]] = w
+                else:
+                    gone += 1
             if got:
-                self.zones[pair] = got
+                self.zones[pair] = dict(sorted(got.items()))
             else:
                 self.zones.pop(pair, None)
         self.counts["zone witnesses the hold took from a later candidate"] = moved
@@ -446,7 +451,7 @@ def confirmed(w: dict, got: dict) -> dict:
         return w
     w.update({"string_sha12": o["string_sha12"], "ticks": o["ticks"], "taint": o["taint"], "flaps": o["flaps"],
               "hp_lost": o["hp0"] - o["hp_min"], "labels": o["labels"], "by": "confirmed",
-              "rank": max(w["rank"], min_rank(o))})      # AZ-839: never under the kernel's (the module docstring)
+              "rank": min_rank(o)})      # its own (AZ-853; the module docstring)
     return w
 
 

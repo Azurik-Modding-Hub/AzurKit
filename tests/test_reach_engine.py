@@ -1509,17 +1509,27 @@ def test_a_walkoff_that_flapped_takes_no_zone_slot():
     assert g.counts["FastL3 confirms whose walk-off flapped on the snapshot's latch, taking no try"] == 1
 
 
-def test_a_confirm_at_a_lower_fastl3_rank_keeps_the_kernels_rank():
-    """AZ-839 (the reach audit's interim guard): FastL3 may land before the kernel's last Y press, which then starts
-    a ground jump, so its run's one-jump rank undercounts the shield's flaps; until the confirm checks that, a
-    confirm whose rank is below its kernel candidate's keeps the candidate's (the proof's ``min_air``), its node
-    edge at that rank too, its flaps FastL3's."""
-    g = _one_each([_out("k2", 40, [25, 0, 0], macro="runjump-air3-f2", kit="air3", flaps=2, by="kernel")])
-    fast = _out("k2'", 41, [25, 0, 0], kit="air3", flaps=1)
-    assert g.hold(lambda w: {"land": [25, 0, 0], "state": 0, "same": True, "outcome": fast}) == []
-    w = g.best(("Z0", "Z1"), zones=True)
-    assert (w["by"], w["rank"], w["flaps"], list(g.zones[("Z0", "Z1")])) == ("confirmed", 2, 1, [2])
-    assert list(g.edges[("n1", "n2")]) == [2]
+def test_a_one_jump_confirm_at_a_lower_rank_is_filed_at_its_own_rank():
+    """AZ-853 (the reach audit's D8; AZ-839's interim guard gone, D3 fixed under it, AZ-852): a kernel candidate's
+    FastL3 confirm at a lower one-jump rank than the candidate's is filed under its own rank, its node edge at that
+    rank too, the better witness of that slot kept (fewer ticks): over an L3 witness slower than it, under one
+    quicker."""
+    air = {"macro": "runjump-air3-f2", "kit": "air3"}
+    g = _one_each([_out("k2", 40, [25, 0, 0], flaps=2, by="kernel", **air),
+                   _out("k4", 40, [45, 0, 0], flaps=2, by="kernel", **air), _out("l4", 30, [45, 0, 0], flaps=1, **air),
+                   _out("k6", 40, [65, 0, 0], flaps=2, by="kernel", **air), _out("l6", 50, [65, 0, 0], flaps=1, **air)])
+    assert {p: sorted(rs) for p, rs in g.zones.items()} == {("Z0", "Z1"): [2], ("Z0", "Z2"): [1, 2], ("Z0", "Z3"): [1, 2]}
+
+    def answer(w):
+        land = {"k2": [25, 0, 0], "k4": [45, 0, 0], "l4": [45, 0, 0], "k6": [65, 0, 0], "l6": [65, 0, 0]}
+        got = {"land": land[w["string_sha12"]], "state": 0, "same": True}
+        return got | ({"outcome": _out(w["string_sha12"] + "'", 41, got["land"], flaps=1, kit="air3")}
+                      if w["by"] == "kernel" else {})
+    assert g.hold(answer) == []
+    got = {p: {r: (w["string_sha12"], w["by"], w["rank"], w["flaps"]) for r, w in rs.items()} for p, rs in g.zones.items()}
+    assert got == {("Z0", "Z1"): {1: ("k2'", "confirmed", 1, 1)}, ("Z0", "Z2"): {1: ("l4", "l3", 1, 1)},
+                   ("Z0", "Z3"): {1: ("k6'", "confirmed", 1, 1)}}
+    assert list(g.edges[("n1", "n2")]) == [1]
 
 
 def test_a_confirm_whose_flap_press_falls_after_fastl3s_first_landing_is_not_the_same_launch():
