@@ -30,6 +30,7 @@ What it reads and writes, none of it in the repository:
 | The certification's private starts and kit snapshots | the L3 store's `x7/` (`by-dir/`) and `x11/`, mode 700 |
 | The witness check's arrival snapshots | the L3 store's `witness-check/<NAME>/`, deleted at the run's end once `l3-hold` holds none, and the folder once empty |
 | The witness check's rows and checked records | the `--out` you name, and `<witness>.checked.jsonl` beside the witness file (mode 0600) |
+| The witness check's clips (pictures of the game) | `clip`'s `--out`, mode 700 (each MP4 mode 0600; its pictures deleted once made): the evidence folder's private folder, never the repository |
 
 Cache keys hash the code at its devkit paths (`engine/cache.py`'s
 `CORE_FILES`, `native/backend.py`'s `FILES`), so Modkit's records are not
@@ -398,6 +399,21 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
 - `tally` counts the final verdicts by start, level and class with Wilson
   95 % intervals, and with `--truth` (kept `runs.jsonl` files: R2.16e's by
   level, from, to and air, a check's own by `ref`) the rows that moved.
+- `clip` (Step 4.78c, D1312: the owner reviews new links as a list, a row
+  a link with a short xemu clip) runs each named PASS try of a run
+  (`--runs`, its evidence folder; `--refs`, a ref or 5 or more hex digits
+  of its sha256; `--rows`, its rows files) again in one offscreen
+  deterministic sitting (no window), from a fresh arrival at its phase,
+  a picture a tick once the guest has flipped since the restore (never an
+  advance), made an MP4 in `--out` (private, mode 700) by ffmpeg
+  (`devkit.xemu.clip`). A try whose per-tick rows (each tick's body
+  centre, state and HP: the check row's `xemu_rows_sha12`, kept since
+  4.78c) differ from the check's, or that doesn't pass again, is refused by
+  name and makes no file. Each is a `clip` row in `--runs`' results.
+- `list` writes the owner's rows as Markdown: a row a final check
+  (`--clipped`: those with a clip row), its link, kit, verdict, tries,
+  flags (the zone's, HP lost, popups, a start over 0.5 m off), clip file
+  and an empty tier column an intake fills.
 
 ```bash
 uv run --locked python -m devkit reach witness-check plan LEVEL --witness FILE --plan P ... --snapshot LABEL \
@@ -405,11 +421,16 @@ uv run --locked python -m devkit reach witness-check plan LEVEL --witness FILE -
 nice -n 10 uv run --locked python -m devkit reach witness-check run NAME --rows ROWS.json ... --ev DIR \
     [--start recipe|placed] [--phases 0,15,30] [--corpus STORE]
 uv run --locked python -m devkit reach witness-check tally DIR [--truth KEPT.jsonl ...]
+nice -n 15 uv run --locked python -m devkit reach witness-check clip NAME --runs DIR --rows ROWS.json ... \
+    --refs REF ... --out DIR
+uv run --locked python -m devkit reach witness-check list DIR [--clipped] [--out FILE.md]
 ```
 
-A sitting (`run`) follows the `azurik-xemu-oracle` skill; its offline
-tests drive stand-ins (a sitting, the game's clock, a gdbstub for
-`l3_certify.replay_clearing`) and launch no xemu.
+A sitting (`run`, `clip`) follows the `azurik-xemu-oracle` skill; its
+offline tests drive stand-ins (a sitting, the game's clock, a gdbstub for
+`l3_certify.replay_clearing` and `Sandbox.replay`, the frame on screen)
+and launch no xemu and no ffmpeg. A clip is a picture of the game: kept
+in the evidence folder's private folder, never in the repository.
 
 ## `reach-truth`
 

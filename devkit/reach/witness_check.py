@@ -55,15 +55,32 @@ its re-run finds them.
 with ``--truth`` (kept ``runs.jsonl`` files: R2.16e's rows by level, from, to and air, a check's own by ``ref``) the
 rows whose verdict moved.
 
+``clip`` (Step 4.78c, D1312: the owner reviews new links as a list, a row a link with a short xemu clip) runs each
+named PASS try of a run (``--runs``: its evidence folder; ``--refs``: a ref, or 5 or more hex digits of its sha256;
+``--rows``: its rows files) again in one offscreen deterministic sitting (``Sitting(headless="1",
+deterministic=True)``: no window), from a fresh arrival as the check's, at its phase, and takes a picture at each
+tick's update entry once the guest has flipped since the restore (``devkit.xemu.clip``: never an advance to
+freshen one), made an MP4 at 30 frames a second in ``--out`` (private, mode 700) by ffmpeg (a host without it is
+refused by name).  A try whose per-tick rows (each tick's body centre, state and HP: the check row's
+``xemu_rows_sha12``, which ``run`` keeps since 4.78c) differ from the check's, or that doesn't pass again, is refused
+by name and makes no file; its pictures go either way.  Each clip is a ``clip`` row in ``--runs``' results
+(pictures, the ticks skipped stale, the share of consecutive pictures that differ, ffprobe's duration, the bytes and
+the seconds).  ``list`` writes the owner's rows as Markdown: a row a final check (``--clipped``: those with a clip
+row), its link, kit, verdict, tries, flags, clip file and an empty tier column an intake fills.
+
     uv run --locked python -m devkit reach witness-check plan LEVEL --witness FILE --plan P [P ...]
         --snapshot LABEL [--store DIR] [--backend l3|kernel] [--edges ROWS.json ...] [--minus FILE]
         [--negatives hold] [--per-class N] --out ROWS.json
     nice -n 10 uv run --locked python -m devkit reach witness-check run NAME --rows ROWS.json [...] --ev DIR
         [--start recipe|placed] [--phases 0,15,30] [--corpus STORE]
     uv run --locked python -m devkit reach witness-check tally DIR [--truth KEPT.jsonl ...]
+    nice -n 15 uv run --locked python -m devkit reach witness-check clip NAME --runs DIR --rows ROWS.json [...]
+        --refs REF [...] --out DIR
+    uv run --locked python -m devkit reach witness-check list DIR [--clipped] [--out FILE.md]
 
 Positions and strings stay in memory, the private rows and the reach cache; nothing printed or kept in ``--ev`` holds
-one (:func:`public`).  Dev only: never in pytest but its offline tests (stand-ins, no xemu), never a CLI verb.
+one (:func:`public`), and a clip is a picture of the game, kept in ``--out`` alone.  Dev only: never in pytest but
+its offline tests (stand-ins, no xemu), never a CLI verb.
 """
 
 from __future__ import annotations
@@ -209,6 +226,16 @@ def public(row: dict) -> dict:
 def order(ref: str) -> str:
     """A record's place in a class's sample: the sha256 of its ``ref``."""
     return hashlib.sha256(ref.encode()).hexdigest()
+
+
+def rows_sha12(got) -> str:
+    """The sha256[:12] of a replay's rows, each tick's body centre, state and HP: two replays' are equal where every
+    tick is (0.0 m, the same states and HP), a coordinate-free key a clip is held to (Step 4.78c)."""
+    h = hashlib.sha256()
+    for r in got:
+        pos, state, hp = _fields(r)
+        h.update(json.dumps([[float(x) for x in pos], state, hp]).encode() + b"\n")
+    return h.hexdigest()[:12]
 
 
 def wilson(k: int, n: int, z: float = 1.96) -> list[float] | None:
@@ -496,10 +523,10 @@ class Game:
     def snapshot(self, label: str, store: Path, scene: bool = False) -> Path:
         return Path(self.s.sb.snapshot(label, store=store, scene=scene)["path"])
 
-    def replay(self, pads, rows, meta) -> tuple[list, dict]:
+    def replay(self, pads, rows, meta, on_tick=None) -> tuple[list, dict]:
         from devkit.reach import l3_certify
         from devkit.xemu import oracle as xo
-        return l3_certify.replay_clearing(self.s.sb, xo, pads, rows, meta)
+        return l3_certify.replay_clearing(self.s.sb, xo, pads, rows, meta, on_tick=on_tick)
 
     def xbe(self) -> bytes:
         return self.s.sb._xbe("dvd.iso")
@@ -586,6 +613,8 @@ class Sources:
 class Check:
     """One run's checks (``run``; the module docstring): ``game`` a :class:`Game`, ``src`` a :class:`Sources`,
     ``ev`` the evidence folder (its ``results/runs.jsonl``), ``folder`` the arrival snapshots' folder."""
+    ARRIVE = "arrive"   # an arrival's results row (a clip's are its own, so tally counts a check's alone)
+    on_tick = None      # a callable at each replayed tick's update entry (a clip's pictures)
 
     def __init__(self, game, src, *, ev, name: str, folder, start: str = "recipe", phases=PHASES, keys=None,
                  corpus=None) -> None:
@@ -682,7 +711,7 @@ class Check:
         g.checkpoint(f"arrive-{level}")
         arr["ctrl"] = g.ram_sha12()
         self.arrived[level] = arr
-        g.result(public({"row": "arrive", "check": CHECK, "level": level, "start": self.start,
+        g.result(public({"row": self.ARRIVE, "check": CHECK, "level": level, "start": self.start,
                          "boot_s": (boot or {}).get("s"), "hop_ok": hop.get("ok"), "hop_s": hop.get("s"),
                          "kit_read_back": kit, "clock": {"want": round(want, 4), "got": round(clock, 4),
                                                          "ticks_past": round((clock - want) * 30, 2),
@@ -757,7 +786,8 @@ class Check:
             finally:
                 path.unlink(missing_ok=True)
         t2 = time.monotonic()
-        got, stops = g.replay(pads[:len(rows)], rows, meta) if rows else ([], {})
+        tick = {} if self.on_tick is None else {"on_tick": self.on_tick}
+        got, stops = g.replay(pads[:len(rows)], rows, meta, **tick) if rows else ([], {})
         if stops.get("at") == "lost":
             raise SystemExit(f"the replay lost a tick clearing a popup (at tick {stops.get('k')})")
         t3 = time.monotonic()
@@ -778,7 +808,8 @@ class Check:
                **start, "hp_lost": None if hp0 is None or x["hp_min"] is None
                else hp0 - x["hp_min"], "hit": hit, "l3_fault": fault, "placed": placed,
                "record_held": bool(ans and hold.stays(ans, r["to"], zone_at)), "xemu": x, "l3": lj,
-               "xemu_vs_l3": cmp, "s": {"restore": round(t1 - t0, 2), "l3": round(t2 - t1, 2),
+               "xemu_vs_l3": cmp, "xemu_rows_sha12": rows_sha12(got),
+               "s": {"restore": round(t1 - t0, 2), "l3": round(t2 - t1, 2),
                                          "xemu": round(t3 - t2, 2), "row": round(time.monotonic() - t0, 2)}}
         equal = bool(cmp["max_err_m"] == 0 and cmp["ticks"] == cmp["l3_ticks"] and not cmp["states_differ"]
                      and not cmp["hp_differ"])
@@ -921,6 +952,154 @@ def tally(a) -> dict:
     return out
 
 
+# -- clip and list (Step 4.78c, D1312) --------------------------------------------------------------------------------
+
+def picked(rows: list[dict], docs, refs) -> list[tuple[dict, dict, dict]]:
+    """Each of ``refs`` (a ``ref``, or 5 or more hex digits of its sha256) as (its rows file, its row there, its final
+    check row of ``rows``); refused (SystemExit) by name where no final row or more than one answers it, where its
+    check isn't a PASS or kept no per-tick digest (a check before Step 4.78c), where no rows file holds it, and where
+    the refs mix starts."""
+    out = []
+    for x in refs:
+        hits = [r for r in rows if x == r["ref"] or (len(x) >= 5 and order(r["ref"]).startswith(x.lower()))]
+        if len(hits) != 1:
+            raise SystemExit(f"clip {x}: {len(hits)} final check rows answer it" + (": name more of it" * bool(hits)))
+        f = hits[0]
+        if f["verdict"] != PASS:
+            raise SystemExit(f"clip {x}: its check is {f['verdict']}: a clip shows a passing try")
+        if not f.get("xemu_rows_sha12"):
+            raise SystemExit(f"clip {x}: its check kept no per-tick digest (a check before Step 4.78c): check it again")
+        got = [(d, r) for d in docs if d["level"] == f["level"] for r in d["rows"] if r["ref"] == f["ref"]]
+        if not got:
+            raise SystemExit(f"clip {x}: no --rows file of {f['level']} holds its row")
+        out.append((*got[0], f))
+    if len({f["start"] for *_, f in out}) > 1:
+        raise SystemExit("clip: the refs' checks mix starts: clip one start at a time")
+    return out
+
+
+class Clip(Check):
+    """``clip``'s tries: each picked PASS try again from a fresh arrival, its replay's pictures (``pics``: the
+    ``devkit.xemu.clip`` module, or the test's stand-in, its ``Frames`` the replay's ``on_tick``) made an MP4 in
+    ``out`` only where its per-tick rows equal the check's (:func:`rows_sha12`) and it passes again, else refused by
+    name; a ``clip`` results row each, its pictures deleted."""
+    ARRIVE = "clip-arrive"
+
+    def __init__(self, game, src, *, out, pics, **kw) -> None:
+        super().__init__(game, src, **kw)
+        self.out, self.pics = Path(out), pics
+        self.made: collections.Counter = collections.Counter()
+
+    def take(self, items) -> collections.Counter:
+        """The clips of ``items`` (:func:`picked`), a level at a time; made and refused counts."""
+        by_level: dict = {}
+        for it in items:
+            by_level.setdefault(it[0]["level"], []).append(it)
+        for level, its in by_level.items():
+            zone_at = self.src.zone_at(level)
+            self.arrive(level, its[0][0]["snapshot"], again=True)
+            for d, r, f in its:
+                self.one(level, d, r, f, zone_at)
+                if self.game.maybe_yield():           # a new sandbox: its checkpoints are gone
+                    self.arrive(level, d["snapshot"])
+        return self.made
+
+    def once(self, *a) -> dict:
+        self.on_tick.reset()   # a try run again (after a harness error) pictures its own run
+        return super().once(*a)
+
+    def one(self, level: str, doc: dict, r: dict, f: dict, zone_at) -> None:
+        """Row ``r``'s clip (its check's final row ``f``: its phase, its digest)."""
+        dest = self.out / f"{level}-{order(r['ref'])[:12]}.mp4"
+        if dest.exists():                             # a resumed run: made before
+            self.game.note(f"{dest.name} exists: kept")
+            return
+        rec = self.src.record(level, r["job"])
+        o, t0 = rec["outcomes"][r["outcome"]], time.monotonic()
+        self.on_tick = frames = self.pics.Frames(self.out / f".{dest.stem}.frames")
+        try:
+            got = self.attempt(level, doc, r, rec, o, rec["starts"][o["start"]], f["phase"], zone_at)
+            pub, v, t1 = got["public"], got["verdict"], time.monotonic()
+            row = {"row": "clip", "check": CHECK, "start": self.start, "level": level, "ref": r["ref"],
+                   **{k: r.get(k) for k in CLASS}, "phase": f["phase"], "verdict": v, "check_verdict": f["verdict"],
+                   "xemu_rows_sha12": pub.get("xemu_rows_sha12"), "check_rows_sha12": f["xemu_rows_sha12"],
+                   "equal": pub.get("xemu_rows_sha12") == f["xemu_rows_sha12"], "pictures": len(frames),
+                   "stale": frames.stale, "distinct_share": frames.distinct(), "stop": pub.get("stop"),
+                   "popups": pub.get("popups"), "reruns": pub.get("reruns"), "xemu_vs_l3": pub.get("xemu_vs_l3"),
+                   **({"error": pub["error"]} if "error" in pub else {}), **(self.ids or {}), **self.keys}
+            why = (f"its verdict is {v}, its check's {f['verdict']}" if v != PASS
+                   else "its per-tick rows differ from the check's" if not row["equal"]
+                   else "no picture: the guest never flipped after the restore" if not len(frames) else None)
+            if why is None:
+                row |= {"clip": dest.name, "clips": str(self.out), **self.pics.encode(frames, dest)}
+            else:
+                row["refused"] = why
+            row["s"] = {"try": round(t1 - t0, 2), "encode": round(time.monotonic() - t1, 2),
+                        "clip": round(time.monotonic() - t0, 2)}
+        finally:
+            frames.clear()
+            self.on_tick = None
+        self.made["made" if why is None else "refused"] += 1
+        self.game.result(public(row))
+
+
+def clip(a) -> dict:
+    """The refs' PASS tries again in one offscreen deterministic sitting (``Sitting(headless="1",
+    deterministic=True)``: no window), each a clip in ``--out`` (:class:`Clip`), its rows in ``--runs``' results."""
+    from devkit.xemu import clip as xc
+    from devkit.xemu import sitting as xs
+    xc.need("ffmpeg")
+    out = xc.private_dir(a.out)
+    docs = [json.loads(Path(p).read_text(encoding="utf-8")) for p in a.rows]
+    src = Sources()
+    for d in docs:
+        if d.get("check") != CHECK:
+            raise SystemExit(f"{d.get('level')}: rows of check {d.get('check')}, not {CHECK}")
+        src.check(d)
+    items = picked(finals(Path(a.runs) / "results" / "runs.jsonl"), docs, a.refs)
+    start, folder = items[0][2]["start"], l3.store() / FOLDER / xs.slug(a.name)
+    with xs.Sitting(a.name, ev=a.runs, headless="1", deterministic=True) as s:
+        c = Clip(Game(s), src, ev=a.runs, name=xs.slug(a.name), folder=folder, start=start, keys=engine_keys(),
+                 out=out, pics=xc)
+        try:
+            got = c.take(items)
+        finally:
+            c.finish()
+    return {"start": start, "clips": dict(sorted(got.items())), "out": out.name}
+
+
+def _cell(x) -> str:
+    return str(x).replace("|", "\\|")
+
+
+def owner_list(a) -> dict:
+    """The owner's rows (D1312) as Markdown, a row a final check of ``dir`` (``--clipped``: those with a clip row):
+    its link, kit, verdict, tries, flags (the zone's, HP lost, popups, a start over 0.5 m off), clip file and an
+    empty tier column (an intake proposes one); ``--out`` writes it there, its clip links relative to it."""
+    path = Path(a.dir) / "results" / "runs.jsonl"
+    clips = {(r["start"], r["level"], r["ref"]): r for r in read_jsonl(path) if r.get("row") == "clip"}
+    rows = sorted((r for r in finals(path) if not a.clipped or (r["start"], r["level"], r["ref"]) in clips),
+                  key=lambda r: (r["level"], r["start"], r["from"], r["to"], r["rank"], r["ref"]))
+    base = Path(a.out).resolve().parent if a.out else Path(a.dir).resolve()
+    lines = ["| link | kit | verdict | tries | flags | clip | tier |", "|---|---|---|---|---|---|---|"]
+    for r in rows:
+        c = clips.get((r["start"], r["level"], r["ref"]))
+        flags = [*(r.get("flags") or ()), *([f"hp -{r['hp_lost']}"] if r.get("hp_lost") else ()),
+                 *([f"popups {r['popups']}"] if r.get("popups") else ()),
+                 *([f"start {r['start_xy_m']} m off"] if (r.get("start_xy_m") or 0) > 0.5 else ())]
+        film = "" if c is None else f"refused: {c['refused']}" if c.get("refused") else \
+            f"[{c['clip']}]({os.path.relpath(Path(c['clips']) / c['clip'], base)})"
+        link = f"{r['from']} → {r['to']}, air {r['rank']}" + ("" if r["start"] == "recipe" else f", {r['start']}")
+        tries = f"{r['tries']}" + (f", wait {r['wait']}" if r.get("wait") else "")
+        lines.append("| " + " | ".join(_cell(x) for x in (link, r["kit"], r["verdict"], tries,
+                                                          ", ".join(flags) or "none", film, "")) + " |")
+    text = "\n".join(lines) + "\n"
+    if a.out:
+        Path(a.out).write_text(text, encoding="utf-8")
+        return {"rows": len(rows), "clips": sum(bool(c.get("clip")) for c in clips.values()), "out": Path(a.out).name}
+    return {"markdown": text}
+
+
 def _phases(text: str) -> tuple[int, ...]:
     got = tuple(int(x) for x in text.split(","))
     if not got or any(x < 0 for x in got):
@@ -954,7 +1133,21 @@ def main(argv: list[str] | None = None) -> int:
     t = sub.add_parser("tally", help="verdicts by class with Wilson intervals; --truth: the rows that moved")
     t.add_argument("dir", help="a run's evidence folder")
     t.add_argument("--truth", nargs="+", metavar="KEPT.jsonl")
+    c = sub.add_parser("clip", help="the refs' PASS tries again offscreen, a picture a tick, each an MP4 in --out")
+    c.add_argument("name", help="the sitting's name (its sandbox group)")
+    c.add_argument("--runs", required=True, help="the check's evidence folder (its results/runs.jsonl; the clip rows "
+                   "go there)")
+    c.add_argument("--rows", nargs="+", required=True, help="the check's rows files (plan's)")
+    c.add_argument("--refs", nargs="+", required=True, help="the rows: each a ref, or 5+ hex digits of its sha256")
+    c.add_argument("--out", required=True, help="the clips' folder (private: mode 700, never in the repository)")
+    li = sub.add_parser("list", help="the owner's rows as Markdown (link, kit, verdict, tries, flags, clip, tier)")
+    li.add_argument("dir", help="a run's evidence folder")
+    li.add_argument("--clipped", action="store_true", help="only the rows a clip was made or refused for")
+    li.add_argument("--out", help="write the Markdown here (its clip links relative to it); default stdout")
     a = ap.parse_args(argv)
-    out = {"plan": plan, "run": run, "tally": tally}[a.cmd](a)
+    out = {"plan": plan, "run": run, "tally": tally, "clip": clip, "list": owner_list}[a.cmd](a)
+    if "markdown" in out:
+        print(out["markdown"], end="")
+        return 0
     print(json.dumps(out, indent=1 if a.cmd == "tally" else None, sort_keys=True))
     return 0

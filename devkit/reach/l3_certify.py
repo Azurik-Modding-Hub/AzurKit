@@ -1082,10 +1082,11 @@ def _quiet(g) -> None:
         g.s.settimeout(10.0)
 
 
-def replay_clearing(sb, xo, pads: list, rows: list, meta: dict) -> tuple[list[dict], dict]:
+def replay_clearing(sb, xo, pads: list, rows: list, meta: dict, on_tick=None) -> tuple[list[dict], dict]:
     """``Sandbox.replay`` from the halted start, a popup on the way cleared (Step R1.29, as ``xemu_chain``'s replay):
     a stall of :data:`POPUP_STALL_S` gets A until the player's update entry comes back at the same tick (the event
     clock checked: no tick lost), then the rest replays from there; (xemu's rows, how it ended, with ``popups``).
+    ``on_tick`` goes to each part's replay, its ticks counted from the start (Step 4.78c).
 
     Each wait reads the stop it ends with and is judged by where the guest halted (Step 4.78e, as the chain's
     drain): the player's update entry ends the clearing, another entity's runs on, anywhere else (the wait's ^C in
@@ -1095,7 +1096,9 @@ def replay_clearing(sb, xo, pads: list, rows: list, meta: dict) -> tuple[list[di
     got, m, popups = [], meta, 0
     while True:
         stops: dict = {}
-        part = sb.replay(pads[len(got):], rows[len(got):], m, timeout=POPUP_STALL_S, stops=stops)
+        tick = None if on_tick is None else (lambda s, k, base=len(got): on_tick(s, base + k))
+        part = sb.replay(pads[len(got):], rows[len(got):], m, timeout=POPUP_STALL_S, stops=stops,
+                         **({} if tick is None else {"on_tick": tick}))
         got += [{**r, "k": r["k"] + len(got)} for r in part]
         if stops.get("at") != "stall" or len(got) >= len(rows) or popups >= POPUPS:
             return got, {**stops, "k": len(got), "popups": popups}

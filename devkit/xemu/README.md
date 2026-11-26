@@ -29,6 +29,15 @@ uv run --locked python -m devkit xemu chain CMD [ARGS ...]    # the chain driver
   `scripts/xemu_chain.py`, `xemu_route.py` and `xemu_minigames.py`
   ported): the reach engine's xemu checks, the D172 chain driver, the
   route pilot and the progression minigames' solvers (below).
+- `clip.py` (Step 4.78c, D1312): a link's clip, a replay's pictures made
+  an MP4 by ffmpeg (30 frames a second, a tick a frame; a host without
+  ffmpeg refused by name). `Frames` is the replay's `on_tick`: at each
+  tick's update entry it takes the frame on screen (`picture`: QMP
+  `query-xemu-display`, then `screendump`) once the guest has flipped
+  since the last load or restore, and skips the ticks before, never
+  advancing the guest to freshen one; offscreen only (`headless="1"`,
+  deterministic), the pictures and the MP4 private (mode 0600 in a
+  mode-700 folder). `devkit reach witness-check clip` drives it.
 
 How to sit is the `azurik-xemu-oracle` skill (`.claude/skills/`), which
 only a seat that sits loads. Modkit's kit and this one share the
@@ -912,6 +921,10 @@ frame, as L3 renders; placed), since xemu's catch-up frames (one or two
 ticks, varying from run to run) move the render's random numbers between
 ticks. Scripts call `sb.snapshot(label)`,
 `sb.replay(pads, rows, meta)` and `l3_compare(rows, got)`;
+`sb.replay(..., on_tick=f)` calls `f(sb, k)` at each tick's update entry
+with the guest halted there, before its pad (the entry after the last
+too, `k` = the rows), on the gdbstub's stops only (a clip's pictures,
+Step 4.78c);
 `sb.snapshot(label, here=True, parent={...})` takes the next snapshot
 exactly where a replay halted (the next tick's update entry, no tick run
 in between: D172's chain), keeping the parent's hashes in its metadata.

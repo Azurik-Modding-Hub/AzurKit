@@ -326,6 +326,211 @@ def test_the_sitting_kit_and_its_model_rows_pass_their_offline_selftests_with_no
                                              if line.startswith("FAIL"))
 
 
+@pytest.mark.xemu
+def test_a_links_clip_pictures_each_replayed_tick_once_fresh_never_advancing_and_keeps_only_a_try_equal_to_its_check(
+        tmp_path, monkeypatch):
+    """Step 4.78c (D1312), on stand-ins (no xemu, no ffmpeg run): ``Sandbox.replay(on_tick=)`` calls its callable at
+    each tick's update-entry halt (the entry after the last too) and holds the replay to the gdbstub's stops where
+    PC hooks would run; a clip's picture is the frame on screen once the guest has flipped since the restore, the
+    stale ticks before it skipped, never an advance; the witness check's ``clip`` makes an MP4 of a PASS try whose
+    per-tick rows equal the check's and refuses by name, with no file, one whose rows differ, the pictures gone
+    either way; a host without ffmpeg is refused by name; and ``list`` writes the owner's rows (link, kit, verdict,
+    tries, flags, clip file, an empty tier column)."""
+    import struct
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from devkit.reach import witness_check as wc
+    from devkit.sim import l3
+    from devkit.xemu import clip, oracle   # macOS's own calls: imported here, as the harness
+
+    class Guest(oracle._FakeGuest):   # the player's update: its entry, the camera's read, its RET; lx moves the body
+        stepover = True
+
+        def __init__(self):
+            super().__init__()
+            self.mem[self.esp] += bytes(0x30)
+            self.mem[l3.MAIN_RATE] = bytearray(struct.pack("<d", 30.0))
+            self.eip = l3.PLAYER_UPDATE
+            struct.pack_into("<d", self.mem[self.ent], 0x18, 10.0)
+
+        def regs(self):
+            return {**super().regs(), "ecx": self.ent}
+
+        def cont(self):
+            pass
+
+        def wait_stop(self, timeout):
+            if self.eip == l3.CAMERA_DIR:   # the update runs on: the stick moves the body, the clock a tick
+                body, pad = self.mem[0x500000], self.mem[oracle.CONTROLLER_STATE]
+                struct.pack_into("<f", body, 0x15C, struct.unpack_from("<f", body, 0x15C)[0]
+                                 + struct.unpack_from("<f", pad, 0x54)[0])
+                struct.pack_into("<d", self.mem[self.ent], 0x18, struct.unpack_from("<d", self.mem[self.ent], 0x18)[0]
+                                 + 1 / 30)
+            self.eip = {l3.PLAYER_UPDATE: l3.CAMERA_DIR, l3.CAMERA_DIR: l3.UPDATE_RETS[0]}.get(self.eip,
+                                                                                          l3.PLAYER_UPDATE)
+            return b"T05"
+
+    class Box(oracle.Sandbox):
+        @property
+        def g(self):
+            return self.guest
+
+    guest, sent = Guest(), []
+
+    def qmp(cmd, **a):
+        sent.append(cmd)
+        if cmd == oracle.DISPLAY_QUERY:   # the restored state's own frame until the guest's first flip
+            return {"return": {"picture-stale": sent.count(cmd) == 1}}
+        if cmd == "screendump":
+            Path(a["filename"]).write_bytes(b"x %f" % struct.unpack_from("<f", guest.mem[0x500000], 0x15C)[0])
+        return {"return": {}}
+    sb = Box("st")
+    sb.guest, sb.qmp, sb.w, sb._owner, sb._halted = guest, qmp, tmp_path, False, True
+    sb.st = {"W": str(tmp_path), "hooks": True, "checkpoints": True, "deterministic": True, "pid": 7, "events": [],
+             "headless": "1", "display_query": True}
+    meta = {"label": "c", "at": "update", "entity": guest.ent, "clock": 10.0,
+            "start_sha12": oracle.start_hash(guest.read, guest.ent)}
+    rows = [l3.Row(k, (float(k + 1), 0.0, 0.0), 0, 318, None, ((oracle.CONTROLLER_STATE + 0x54, b""),),
+                   l3.camera_dir(0.0)) for k in range(3)]
+    ticks, frames = [], clip.Frames(tmp_path / "frames")
+    frames.reset()
+    got = sb.replay([l3.Pad(stick=(1.0, 0.0))] * 3, rows, meta, deep=False,
+                    on_tick=lambda s, k: ticks.append(k) or frames(s, k))
+    assert [x["pos"][0] for x in got] == [1.0, 2.0, 3.0] and ticks == [0, 1, 2, 3]
+    assert not {"xemu-hooks-set", "xemu-frame-advance", "xemu-render-next", oracle.XEMU_RUN} & set(sent)
+    assert any("gdbstub stops: a per-tick callable" in e for e in sb.st["events"])
+    assert (frames.stale, [p.name for p in frames.paths], frames.distinct()) == (1, ["00001.png", "00002.png",
+                                                                                     "00003.png"], 1.0)
+    frames.clear()
+    assert not (tmp_path / "frames").exists()
+
+    # the check, then its clips, on the 4.78a test's stand-ins: L3 moves the body along y, xemu replays L3's rows
+    rec = {"key": "j", "id": "a1", "heading": 0.0, "starts": {"run": {
+        "feet": [0.0, 0.0, 0.0], "cell": 3, "settled": [0.0, 0.0, 0.0], "cam": 0.5}}, "outcomes": [{
+            "start": "run", "kit": "air3", "segments": [{"n": 10, "stick": [0.0, 1.0], "cam": [0.0, 1.0]}],
+            "land": [0.0, 10.0, 0.0], "macro": "m"}]}
+    refs = ["r/a@m", "r/b@m"]
+    doc = {"level": "t", "check": "v1", "witness": str(tmp_path / "none.jsonl"), "zoning": "z",
+           "snapshot": {"label": "s", "meta_sha12": "m", "store": "x"},
+           "rows": [{"ref": ref, "job": "j", "outcome": 0, "from": "Z0", "to": "Z1", "rank": 3, "kit": "air3",
+                     "wait": 0, "cls": ["new"], "flags": ["zone_far"] * (ref == refs[1])} for ref in refs]}
+
+    class Sim:
+        entity = 0
+
+        def __init__(self, meta):
+            self.meta = meta
+            self.reset()
+
+        def reset(self):
+            self.pos = list(self.meta["pos"])
+
+        def u32(self, va):
+            return 0
+
+        def kit_writes(self, kit):
+            return ((0x7000, bytes([kit.get("air", 0)])),)
+
+        def step(self, pad=l3.Pad(), *, writes=()):
+            for _, data in writes:
+                if len(data) == 30:   # R6's place request: the feet
+                    f = struct.unpack("<3f", data[:12])
+                    self.pos = [f[0], f[1], f[2] + 1.0]
+            self.pos[1] += pad.stick[1]
+            return l3.Row(0, tuple(self.pos), 0, 100, None, tuple(writes), None)
+
+    class Game:
+        def __init__(self):
+            self.metas, self.script, self.sb = {}, [], SimpleNamespace()
+
+        def boot(self):
+            self.t = 9.9
+            return {"s": 1.0}
+
+        def clock(self):
+            self.t += 1 / 30
+            return self.t
+
+        def snapshot(self, label, store, scene=False):
+            self.t += 1 / 30
+            p = Path(store) / f"{label}.l3snap"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(b"")
+            self.metas[p] = {"label": label, "pos": [0.0, -3.0, 1.0], "state": 0, "hp": 100, "clock": self.t,
+                             "at": "scene" if scene else "update"}
+            return p
+
+        def replay(self, pads, rows, meta, on_tick=None):   # "off": a millimetre off on the hold's last tick
+            got = [{"pos": r.pos, "state": r.state, "hp": r.hp, "obs": None} for r in rows]
+            if self.script.pop(0) == "off":
+                got[-1] = got[-1] | {"pos": (got[-1]["pos"][0] + 0.001, *got[-1]["pos"][1:])}
+            for k in range(len(rows) + 1):
+                if on_tick is not None:
+                    on_tick(self.sb, k)
+            return got, {"at": "entry"}
+
+        def result(self, row):
+            with (ev / "results" / "runs.jsonl").open("a", encoding="utf-8") as f:
+                f.write(json.dumps(row) + "\n")
+
+        xbe, ids = (lambda self: b""), (lambda self: {"xemu_sha12": "e" * 12, "disc_sha12": "d" * 12})
+        hop, kit = (lambda self, level: {"ok": True, "s": 2.0}), (lambda self, levels: {"level.air": 0})
+        quiet = press_a = idle = checkpoint = restore = note = lambda self, *a: None
+        ram_sha12, maybe_yield = (lambda self: "c" * 12), (lambda self: False)
+
+    game, ev = Game(), tmp_path / "ev"
+    (ev / "results").mkdir(parents=True)
+    src = SimpleNamespace(zone_at=lambda level: lambda feet, swim, _: "Z1" if feet[1] >= 5 else "Z0",
+                          record=lambda level, job: rec, hold=lambda level, rec, k: None,
+                          engine_meta=lambda snap: {"clock": 10.0}, held=lambda folder: False,
+                          snapshot=lambda path: SimpleNamespace(meta=game.metas[path]), sim=lambda sn, xbe: Sim(sn.meta))
+    game.script = ["same", "same"]
+    chk = wc.Check(game, src, ev=ev, name="t", folder=tmp_path / "store" / "t")
+    assert dict(chk.run([doc])) == {"PASS": 2}
+    chk.finish()
+
+    class Take:   # the frame on screen: stale at the restore's entry, then a new one a tick
+        def __init__(self):
+            self.n = 0
+
+        def __call__(self, sb, dest):
+            self.n += 1
+            return None if self.n == 1 else dest.write_bytes(b"%d" % self.n) and dest
+    made = []
+
+    def encode(frames, dest):
+        made.append((len(frames), frames.stale, frames.distinct(), sorted(p.name for p in frames.folder.iterdir())))
+        dest.write_bytes(b"")
+        return {"bytes": 0, "pictures": len(frames), "duration_s": len(frames) / 30}
+    out = clip.private_dir(tmp_path / "private" / "clips")
+    items = wc.picked(wc.finals(ev / "results" / "runs.jsonl"), [doc], [wc.order(refs[0])[:6], refs[1]])
+    with pytest.raises(SystemExit, match="clip fffff: 0 final check rows answer it"):
+        wc.picked(wc.finals(ev / "results" / "runs.jsonl"), [doc], ["fffff"])
+    game.script = ["same", "off"]
+    c = wc.Clip(game, src, ev=ev, name="c", folder=tmp_path / "store" / "c", out=out,
+                pics=SimpleNamespace(Frames=lambda folder: clip.Frames(folder, take=Take()), encode=encode))
+    assert dict(c.take(items)) == {"made": 1, "refused": 1}
+    c.finish()
+    results = [json.loads(ln) for ln in (ev / "results" / "runs.jsonl").read_text(encoding="utf-8").splitlines()]
+    clips = {r["ref"]: r for r in results if r["row"] == "clip"}
+    name, n = f"t-{wc.order(refs[0])[:12]}.mp4", clips[refs[0]]["xemu_vs_l3"]["ticks"]
+    assert (clips[refs[0]]["equal"], clips[refs[0]]["clip"], clips[refs[0]]["pictures"]) == (True, name, n)
+    assert made == [(n, 1, 1.0, [f"{k:05d}.png" for k in range(1, n + 1)])]
+    assert (clips[refs[1]]["equal"], clips[refs[1]]["refused"]) == (False, "its per-tick rows differ from the check's")
+    assert sorted(p.name for p in out.iterdir()) == [name] and not list((tmp_path / "store").rglob("*.l3snap"))
+    assert all(wc.public(r) for r in results) and [r["row"] for r in results].count("clip-arrive") == 1
+    md = tmp_path / "OWNER-LIST.md"
+    assert wc.main(["list", str(ev), "--clipped", "--out", str(md)]) == 0
+    assert md.read_text(encoding="utf-8").splitlines() == [
+        "| link | kit | verdict | tries | flags | clip | tier |", "|---|---|---|---|---|---|---|",
+        f"| Z0 → Z1, air 3 | air3 | PASS | 1 | none | [{name}](private/clips/{name}) |  |",
+        "| Z0 → Z1, air 3 | air3 | PASS | 1 | zone_far | refused: its per-tick rows differ from the check's |  |"]
+    monkeypatch.setattr(clip.shutil, "which", lambda tool: None)
+    with pytest.raises(SystemExit, match="ffmpeg isn't installed"):
+        wc.main(["clip", "n", "--runs", str(ev), "--rows", "none.json", "--refs", "r", "--out", str(out)])
+
+
 @pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
                                      pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
                                                   id="europe")])

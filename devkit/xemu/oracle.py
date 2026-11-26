@@ -4437,7 +4437,7 @@ class Sandbox:
         return out, end
 
     def replay(self, pads: list, rows: list, meta: dict, *, timeout: float = 5.0, deep: bool = True,
-               stops: dict | None = None) -> list[dict]:
+               stops: dict | None = None, on_tick=None) -> list[dict]:
         """Replay an L3 run (``rows``, from ``pads``) exactly: from the
         snapshot's start, where ``snapshot`` left the guest halted
         (checked: the stop, the entity, its event clock and start hash),
@@ -4470,7 +4470,12 @@ class Sandbox:
         hooks with no gdbstub stop (Step X.32b; ``_replay_by_hooks``): the
         same writes at the same instructions, the same observation, the same
         stops; anything it can't vouch for goes back to the start and replays
-        by gdbstub stops."""
+        by gdbstub stops.
+
+        ``on_tick`` (Step 4.78c, a link's clip): a callable ``f(sb, k)`` run
+        at each tick's update entry while the guest is halted there, before
+        its pad is written (``k``: the tick, and ``len(rows)`` at the entry
+        after the last); it holds the replay to the gdbstub's stops."""
         g = self.halt()
         ent, start = meta["entity"], l3.SCENE_TICK if meta["at"] == "scene" else l3.PLAYER_UPDATE
         pin_pace(g)
@@ -4481,7 +4486,8 @@ class Sandbox:
                 != (start, ent, meta["clock"], meta["start_sha12"]):
             raise SystemExit(f"the guest isn't at {meta['label']}'s start (halted at {r['eip']:#x}): take the "
                              "snapshot again and replay before anything resumes the guest")
-        if (why := self._hooks_refused(rows, meta, deep)) is None:
+        why = "a per-tick callable (on_tick)" if on_tick is not None else self._hooks_refused(rows, meta, deep)
+        if why is None:
             if (got := self._replay_by_hooks(pads, rows, meta, timeout, stops, clock0, rate)) is not None:
                 return got
             g = self.halt()   # back at the start (its checkpoint): the gdbstub replays it
@@ -4504,6 +4510,8 @@ class Sandbox:
                         last, k = clock, round((clock - clock0) * rate)
                         if k != len(out):
                             raise SystemExit(f"entry of tick {k} after {len(out)} rows: the replay lost a tick")
+                        if on_tick is not None:
+                            on_tick(self, k)
                         if diverged:
                             stops.update(at="diverged", k=len(out))
                             break
