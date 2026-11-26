@@ -233,6 +233,15 @@ model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.
   point until past it, then the landing control), the certificate's aims, walked at the target once down, then on the
   envelope's schedule with `env`. The aims of 4.76f's held and kept rows' carriers (e7, a5) were all flown every pass
   by the census and unwitnessed; the bent pass is what the census never tried.
+- **Step 4.79f's A/B (2026-11-26; e7 and a5, kernel route, 4 workers a level; A: main's graph-dp, the 10 m plans and
+  the deep census; B: the aims, refinement, backstop, retarget and census re-run on the step's code, R0's fan, the
+  pair stage and the escalation kept, as the step runs them alike):** derived jump and flap edges found e7 2,086 to
+  2,089 and a5 1,067 to 1,071, none lost; nd recall the same (e7 85.76 %, a5 92.54 %); no zone rank lost, no
+  kernel-counted witness, every audit the same. The bent pass flew for 135 of e7's 180 jobs with bends and 54 of
+  a5's 77 (most census aims' straight tracks meet a solid, e7 1,086 of 1,114 and a5 509 of 722, but no takeoff or
+  turn point within 4 m clears for most) and gave 3 new or lower-rank zone pairs: e7.Z145>Z156 from a moved
+  takeoff, e7.Z153>Z035 and a5.Z141>Z062 from turn points. None of 4.76f's held and kept rows' carriers was
+  witnessed: on e7 5 of 15 got a turn point, on a5 none.
 - **Step R2.16e's bench, main against the step (2026-10-27; stopped after its first round, D821):** w1, f2, a5 and
   e7 at kit 0 on their R2.16c snapshots (8,027 derived modelled jump and flap zone edges; 12 workers at nice 10 on a
   shared host). Found at the edge's own kit, main to the step: e7 1,017 to 1,094 (84.5 % to 90.9 %; graded 85.4 %
