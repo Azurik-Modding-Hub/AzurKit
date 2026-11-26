@@ -409,7 +409,9 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
   (`devkit.xemu.clip`). A try whose per-tick rows (each tick's body
   centre, state and HP: the check row's `xemu_rows_sha12`, kept since
   4.78c) differ from the check's, or that doesn't pass again, is refused by
-  name and makes no file. Each is a `clip` row in `--runs`' results.
+  name and makes no file. Each is a `clip` row in `--runs`' results;
+  `--corpus STORE` as `run`'s (a refused clip's ticks set against the
+  check's there).
 - `list` writes the owner's rows as Markdown: a row a final check
   (`--clipped`: those with a clip row), its link, kit, verdict, tries,
   flags (the zone's, HP lost, popups, a start over 0.5 m off), clip file
@@ -422,7 +424,7 @@ nice -n 10 uv run --locked python -m devkit reach witness-check run NAME --rows 
     [--start recipe|placed] [--phases 0,15,30] [--corpus STORE]
 uv run --locked python -m devkit reach witness-check tally DIR [--truth KEPT.jsonl ...]
 nice -n 15 uv run --locked python -m devkit reach witness-check clip NAME --runs DIR --rows ROWS.json ... \
-    --refs REF ... --out DIR
+    --refs REF ... --out DIR [--corpus STORE]
 uv run --locked python -m devkit reach witness-check list DIR [--clipped] [--out FILE.md]
 ```
 

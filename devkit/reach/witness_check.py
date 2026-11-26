@@ -65,8 +65,9 @@ refused by name).  A try whose per-tick rows (each tick's body centre, state and
 ``xemu_rows_sha12``, which ``run`` keeps since 4.78c) differ from the check's, or that doesn't pass again, is refused
 by name and makes no file; its pictures go either way.  Each clip is a ``clip`` row in ``--runs``' results
 (pictures, the ticks skipped stale, the share of consecutive pictures that differ, ffprobe's duration, the bytes and
-the seconds).  ``list`` writes the owner's rows as Markdown: a row a final check (``--clipped``: those with a clip
-row), its link, kit, verdict, tries, flags, clip file and an empty tier column an intake fills.
+the seconds); ``--corpus`` is ``run``'s, so a refused clip's ticks can be set against the check's there.  ``list``
+writes the owner's rows as Markdown: a row a final check (``--clipped``: those with a clip row), its link, kit,
+verdict, tries, flags, clip file and an empty tier column an intake fills.
 
     uv run --locked python -m devkit reach witness-check plan LEVEL --witness FILE --plan P [P ...]
         --snapshot LABEL [--store DIR] [--backend l3|kernel] [--edges ROWS.json ...] [--minus FILE]
@@ -75,7 +76,7 @@ row), its link, kit, verdict, tries, flags, clip file and an empty tier column a
         [--start recipe|placed] [--phases 0,15,30] [--corpus STORE]
     uv run --locked python -m devkit reach witness-check tally DIR [--truth KEPT.jsonl ...]
     nice -n 15 uv run --locked python -m devkit reach witness-check clip NAME --runs DIR --rows ROWS.json [...]
-        --refs REF [...] --out DIR
+        --refs REF [...] --out DIR [--corpus STORE]
     uv run --locked python -m devkit reach witness-check list DIR [--clipped] [--out FILE.md]
 
 Positions and strings stay in memory, the private rows and the reach cache; nothing printed or kept in ``--ev`` holds
@@ -1060,7 +1061,7 @@ def clip(a) -> dict:
     start, folder = items[0][2]["start"], l3.store() / FOLDER / xs.slug(a.name)
     with xs.Sitting(a.name, ev=a.runs, headless="1", deterministic=True) as s:
         c = Clip(Game(s), src, ev=a.runs, name=xs.slug(a.name), folder=folder, start=start, keys=engine_keys(),
-                 out=out, pics=xc)
+                 corpus=a.corpus, out=out, pics=xc)
         try:
             got = c.take(items)
         finally:
@@ -1140,6 +1141,7 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--rows", nargs="+", required=True, help="the check's rows files (plan's)")
     c.add_argument("--refs", nargs="+", required=True, help="the rows: each a ref, or 5+ hex digits of its sha256")
     c.add_argument("--out", required=True, help="the clips' folder (private: mode 700, never in the repository)")
+    c.add_argument("--corpus", metavar="STORE", help="as run's: each clip's replay appended there, its arrivals kept")
     li = sub.add_parser("list", help="the owner's rows as Markdown (link, kit, verdict, tries, flags, clip, tier)")
     li.add_argument("dir", help="a run's evidence folder")
     li.add_argument("--clipped", action="store_true", help="only the rows a clip was made or refused for")
