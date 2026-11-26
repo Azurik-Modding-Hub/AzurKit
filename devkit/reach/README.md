@@ -28,7 +28,7 @@ What it reads and writes, none of it in the repository:
 | The levels' reach models | the L3 store's `x7/reach/`, this checkout's pickles (`models.py`: any global but this checkout's modules and a few standard ones refused; a missing one is built beside them) |
 | Their route graphs | `x7/reach/routers/`, beside them |
 | The certification's private starts and kit snapshots | the L3 store's `x7/` (`by-dir/`) and `x11/`, mode 700 |
-| The witness check's arrival snapshots | the L3 store's `witness-check/<NAME>/`, deleted at the run's end once `l3-hold` holds none |
+| The witness check's arrival snapshots | the L3 store's `witness-check/<NAME>/`, deleted at the run's end once `l3-hold` holds none, and the folder once empty |
 | The witness check's rows and checked records | the `--out` you name, and `<witness>.checked.jsonl` beside the witness file (mode 0600) |
 
 Cache keys hash the code at its devkit paths (`engine/cache.py`'s

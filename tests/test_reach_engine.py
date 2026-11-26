@@ -2467,3 +2467,35 @@ def test_a_witness_check_start_at_rest_in_the_slide_state_on_flat_ice_stands_and
         got = chk.once("t", {"from": "Z0", "to": "Z1", "outcome": 0, "wait": 0}, rec, rec["outcomes"][0], st, 0, zone)
         assert (got["verdict"], got["public"]["start_state"], got["public"]["start_xy_m"]) == (want, 3, 0.0)
 
+
+def test_a_witness_check_run_removes_its_own_folder_once_empty_and_nothing_not_its_own(tmp_path):
+    """Step 4.78e (4.78b's 8 empty ``witness-check/<NAME>/`` folders): a run's end removes its own folder once it is
+    empty, a placed run's too (it keeps no arrival snapshot and deletes each placed one after its row, so finish()
+    returned before its rmdir), and a recipe run's after its arrival snapshots go; a file another left there, a
+    snapshot ``l3-hold`` holds, and a corpus's store with what it keeps, stay."""
+    from types import SimpleNamespace
+
+    from devkit.reach import witness_check as wc
+
+    runs = iter(range(10))
+
+    def finish(files, snaps=(), held=False, corpus=False):
+        folder = tmp_path / f"run{next(runs)}"
+        folder.mkdir()
+        for name in files:
+            (folder / name).write_bytes(b"")
+        notes = []
+        chk = wc.Check(SimpleNamespace(note=notes.append), SimpleNamespace(held=lambda f: held), ev=tmp_path,
+                       name="t", folder=folder, start="placed" if not snaps else "recipe",
+                       corpus=folder if corpus else None)
+        chk.snaps = [folder / name for name in snaps]
+        chk.finish()
+        return sorted(p.name for p in folder.iterdir()) if folder.exists() else None, len(notes)
+
+    assert finish(()) == (None, 0)                                        # placed: its folder goes
+    assert finish(("a.l3snap",), snaps=("a.l3snap",)) == (None, 0)        # recipe: its snapshot, then its folder
+    assert finish(("other.txt",)) == (["other.txt"], 0)                   # not its own: stays
+    assert finish(("a.l3snap",), snaps=("a.l3snap",), held=True) == (["a.l3snap"], 1)
+    assert finish(()) == (None, 0) and finish((), corpus=True) == ([], 0)
+    assert finish(("a.l3snap",), snaps=("a.l3snap",), corpus=True) == (["a.l3snap"], 1)
+

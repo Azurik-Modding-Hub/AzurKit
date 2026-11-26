@@ -800,18 +800,21 @@ class Check:
 
     def finish(self) -> None:
         """The arrival snapshots: kept with a corpus (its rows re-run from them), else deleted, each by its path,
-        once ``l3-hold`` holds none of them."""
-        if not self.snaps:
-            return
+        once ``l3-hold`` holds none of them; then the run's own folder once that leaves it empty, on every path (a
+        placed run keeps no arrival snapshot and deletes each of its own after its row: 4.78b left 8 such folders),
+        never a corpus's store nor a folder holding anything else."""
         if self.corpus:
-            self.game.note(f"kept {len(self.snaps)} arrival snapshot(s) in {self.folder.name}/ for the corpus's rows")
-        elif self.src.held(self.folder):
+            if self.snaps:
+                self.game.note(f"kept {len(self.snaps)} arrival snapshot(s) in {self.folder.name}/ for the corpus's "
+                               "rows")
+            return
+        if self.snaps and self.src.held(self.folder):
             self.game.note(f"l3-hold holds a snapshot in {self.folder.name}/: none deleted")
-        else:
-            for p in self.snaps:
-                p.unlink(missing_ok=True)
-            with contextlib.suppress(OSError):
-                self.folder.rmdir()
+            return
+        for p in self.snaps:
+            p.unlink(missing_ok=True)
+        with contextlib.suppress(OSError):   # only an empty one goes (a missing one: a run that took none)
+            self.folder.rmdir()
 
 
 def run(a) -> dict:
