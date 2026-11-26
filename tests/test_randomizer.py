@@ -188,8 +188,8 @@ for seed in range(1, 21):
 # Seed difficulty (D1157) at Hard movement and Hard skips: each level's plans of seeds "0".."3", each "attempt
 # sha256[:12] steps off step-ups" (its key-item steps, key items off the path and play_r's step-ups at each rating from
 # 2 to Hard), recorded under PYTHONHASHSEED=0 by this test's own script. Their settings have no save warp, so they
-# are WARPLESS_FILL's: a change that moves them bumps SEED_DIFFICULTY_FILL and sets WARPLESS_FILL to it, never a
-# re-pin alone.
+# are WARPLESS_FILL's: a change to the fill that moves them bumps SEED_DIFFICULTY_FILL and sets WARPLESS_FILL to it,
+# never a re-pin alone; a move of the database (its db_digest) re-pins them, as it moves Normal's seeds and links.
 LEVELED = {
     "Easy": ("1 3269de3fa76c 12 8 0", "0 2fd57c7be552 12 8 0", "0 08f2964e493a 12 8 0", "0 8f5ee54c89b8 12 8 0"),
     "Normal": ("0 a9ebb7dbb656 15 15 0", "0 dad5d3e68a67 15 13 0", "0 248e15a0d4c7 18 13 2", "0 b6f9f5d14582 16 12 0"),

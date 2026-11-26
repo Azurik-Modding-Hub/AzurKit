@@ -299,9 +299,11 @@ owner played, D1334).
    on a roof with no graph floor 12.27 m over it (roofed). So
    `authoring/town.toml` holds town.Z617 > Z003 and town.Z1116 > Z003 by
    name: town_z612's `true` row into town_z003 went, and `town_central ->
-   town_z003` (physics) stands. town_z009's, town_z045's and town_z152's
-   `air>=3` rows into the sewer still rest on `sweep` edges; town's
-   witness gate takes them (6.12).
+   town_z003` (physics) stands, beside the `assumed` row it shows now
+   (its term the sweep jump town.Z004 > Z003 at kit 0; the same reach).
+   That row and town_z009's, town_z045's and town_z152's `air>=3` rows
+   into the sewer still rest on `sweep` edges; town's witness gate takes
+   them (6.12).
 9. **The research arc** (D1307-D1317, D1325, D1326): four areas run rounds
    until each is dry, two rounds in a row under its bar, the others going
    on (D1316): the reach engine (accuracy first: witnesses that hold in the
@@ -458,9 +460,12 @@ owner played, D1334).
       cuts the four cave emeralds), each kept until another way in is in
       logic; e6 row 80 (refused: TShape1 never moved; its hold moves the
       seed difficulty test's order, Hard's key-item steps over Expert's on
-      seeds 0-3); w3 row 150 (refused again from
-      real standing starts; out loses victory and 7 spots) until the real
-      way back is found.
+      seeds 0-3); w3 row 150 (walk-offs from 2 real standing starts
+      refused it again, and its one run+Y try from +1 m never pressed Y:
+      round 3 re-runs a real run+Y there; out loses victory and 7 spots)
+      until the real way back is found; and round 3's authoring batch words
+      d2.toml's and town.toml's why strings to the tries that ran (d2 rows
+      18 and 34 had fewer than 3; town's 5 counted 2 superseded reads).
     Waiting with them: the realm's tick-only marks (9.49), R6's gem
     reader, 4.76e's kit fixes, and the audit's two efficiency rows (D1315).
 13. **The simulator's fidelity to xemu** (4.77a-f): its bar is a 1.0-point
@@ -1085,7 +1090,9 @@ memory peaks stay strict. The gate writes both kinds of row to
     4.79d B's re-pin, AZ-834's class): the fill may put an obsidian (96
     copies, so the writer keeps its own touch, R 1.45 m, Z 1.9 m) in an
     ice block, whose hold is 1.8 m: seed 2 at the default settings does
-    (w2's IceBlock_02, w2/g0/r1351, since 4.79d's logic). The fix: the
+    (w2's IceBlock_02, w2/g0/r1351). The class predates 4.79d: an obsidian
+    over that ice hold is in 20 of seeds 0-79 on main before it and 34 of
+    80 after (4.79d B's review). The fix: the
     fill keeps an item held more than once out of the containers whose
     hold its touch exceeds; the contained-items test then takes seed 2
     back (it moved to seed 4).
