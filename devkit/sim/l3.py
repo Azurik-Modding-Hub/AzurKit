@@ -27,7 +27,9 @@ Kernel imports return 0 and pop their declared arguments, as in L2 (the two crit
 :data:`NATIVE`), except NtAllocateVirtualMemory, which maps a zeroed region (the asset page manager allocates as it
 streams), RtlInitAnsiString, which fills its ANSI_STRING as the kernel does, and the stream module's file reads,
 which L3 serves from the disc's files (``disc``) and hands back through the main loop's poll before the next step;
-any other NtReadFile reads zeros.  An access at or above 0x80000000 (contiguous memory) maps a zero page; RDTSC
+any other NtReadFile reads zeros.  MmAllocateContiguousMemory(Ex) hands runs of the RAM window's free pages (the
+snapshot's PFN database; with no window, zeroed regions inside the 64 MiB, so D3D's 26-bit address maps back to
+the base: AZ-850).  An access at or above 0x80000000 that no high run holds maps a zero page; RDTSC
 reads a virtual clock.  What a run reads that L3 doesn't model taints it (:attr:`L3.taint`, on each row and saved
 state; a kernel call's game caller and file, :attr:`L3.taint_at`), so a search that found nothing counts as a
 refutation only untainted; L3 refuses a snapshot whose code isn't the XBE's (:func:`check_code`).  A step that leaves
@@ -105,7 +107,13 @@ STUBS = {0xADCA0: (0, "the per-frame audio update (scene_state_tick's CALL at 0x
 # L3's own pages, in user VA no snapshot of the game has used (checked at load); _DATA: a page per kernel data
 # export, unmapped until the game reads one (its thunk slot is pointed there, so the read is seen for free)
 _POOL, _STACK, _GDT, _STOP, _DATA = 0x70000000, 0x7E000000, 0x7E200000, 0x7E300000, 0x7E400000
-_CONTIG = 0x8C000000   # contiguous memory L3 allocates: above the 64 or 128 MiB of RAM mapped at 0x80000000
+# Contiguous memory (AZ-850): D3D keeps a resource's data as a 26-bit physical address and reads it back OR
+# 0x80000000, so a base must lie in the 64 MiB at 0x80000000.  A snapshot that holds the RAM window (a high run of
+# WINDOW_SIZE at WINDOW) gives its free pages (its PFN database's entries with neither PFN_USED bit), handed out a
+# run at a time, the highest first [default: the kernel's search order is unread]; one with no window, a fixed base
+# above the kernel image, each run mapped zeroed
+WINDOW, WINDOW_SIZE, PFN_DB, PFN_USED = 0x80000000, 0x4000000, 0x03FF0000, 0x10001
+_CONTIG = 0x83000000
 _STACK_SIZE = 0x100000
 TSC_PER_TICK = 733_333_333 // 30   # a virtual RDTSC: the Xbox's 733 MHz clock, a frame per step,
 TSC_PER_READ = 1000                # and this much more at each read in a step (the scene step spins on it)
@@ -130,9 +138,11 @@ MODELLED = {"NtAllocateVirtualMemory": "maps a zeroed region from L3's pool (or 
             "NtFreeVirtualMemory": "frees nothing: the region stays mapped, and the pool never hands its VAs out again",
             "RtlEnterCriticalSection": "a step is single-threaded: no other thread holds the lock (NATIVE)",
             "RtlLeaveCriticalSection": "the same",
-            "MmAllocateContiguousMemory": "maps a zeroed region from L3's contiguous pool (_CONTIG, above any RAM)",
-            "MmAllocateContiguousMemoryEx": "the same (a stream page handed to its owner allocates one)",
-            "MmFreeContiguousMemory": "frees nothing, as NtFreeVirtualMemory",
+            "MmAllocateContiguousMemory": "a run of the RAM window's free pages, the highest that fits (no window: a "
+                                          "zeroed region at _CONTIG); none fits: 0, as the kernel",
+            "MmAllocateContiguousMemoryEx": "the same, inside its acceptable addresses and alignment (a stream page "
+                                            "handed to its owner allocates one)",
+            "MmFreeContiguousMemory": "gives the window's run back (no window: frees nothing, as NtFreeVirtualMemory)",
             "RtlInitAnsiString": "fills the ANSI_STRING as the kernel does: Length the source's strlen, "
                                  "MaximumLength one more, Buffer the source (a NULL source: all zeros)"}
 # Kernel calls that run as guest code at their kernel address, not through a hook (Step X.42): ``mov eax, 0; ret N``
@@ -238,7 +248,7 @@ class State(NamedTuple):
     cam: bytes | None
     pool: int
     taint: frozenset = frozenset()
-    contig: int = _CONTIG
+    contig: tuple = ()                # the contiguous runs taken (va, size)
     nv: tuple = ()                    # the GPU stub's registers (offset, value)
     taint_at: tuple = ()              # (taint, its sites) for L3.taint_at
 
@@ -494,7 +504,14 @@ class L3:
         self._warm = False                 # whether this L3 has rendered (its first render's cap is the cold one)
         self.fires: list[tuple] = []       # each levelSwitch fire since the last reset: (step, level, movie)
         self._exit, self._leaving = None, False
-        self.k, self._polled, self._cam, self._pool, self._contig, self._quiet = 0, True, None, _POOL, _CONTIG, 0
+        self.k, self._polled, self._cam, self._pool, self._contig, self._quiet = 0, True, None, _POOL, (), 0
+        self._free = None                  # the RAM window's free pages (AZ-850), where it holds one
+        for va, n, i0 in self._hruns:
+            if va == WINDOW and n >= WINDOW_SIZE:
+                k = i0 - self._hb + PFN_DB // PAGE
+                pfn = self._h64[k:k + WINDOW_SIZE // PAGE // 1024].view("<u4").reshape(-1)
+                self._free = (pfn & PFN_USED) == 0
+                self._free[[(a - WINDOW) // PAGE for a in own if WINDOW <= a < WINDOW + WINDOW_SIZE]] = False
         self._rendering, self._nv = False, {}
         self._first, self._first_dt = 0, None   # the step that ends the snapshot's frame, and that frame's dt
         if any(va >= HIGH for va, _ in snap.runs):   # format 3: the render's memory as taken; the GPU a stub
@@ -833,16 +850,41 @@ class L3:
             self.write(pbase, struct.pack("<I", base))
             self.write(psize, struct.pack("<I", size))
         elif name in ("MmAllocateContiguousMemory", "MmAllocateContiguousMemoryEx"):   # (size, ...): the base
-            size = (self.u32(esp + 4) + 0xFFFF) & ~0xFFFF
-            base, self._contig = self._contig, self._contig + size
-            self._map_extra(base, size)
-            self._return(base, kernel_arg_bytes().get(name, 0))
+            size, lo, hi, align = struct.unpack("<4I", self.read(esp + 4, 16)) if name.endswith("Ex") else \
+                (self.u32(esp + 4), 0, 0xFFFFFFFF, 0)
+            self._return(self._contiguous(size, lo, hi, align), kernel_arg_bytes().get(name, 0))
             return
+        elif name == "MmFreeContiguousMemory" and self._free is not None:   # (base): its run back to the window
+            base = self.u32(esp + 4)
+            self._contig = tuple(r for r in self._contig if r[0] != base)
         elif name == "RtlInitAnsiString":   # (PANSI_STRING dest, PCSZ src); USHORT Length, MaximumLength; Buffer
             dest, src = struct.unpack("<2I", self.read(esp + 4, 8))
             n = self._strlen(src) if src else 0
             self.write(dest, struct.pack("<2HI", n & 0xFFFF, (n + 1) & 0xFFFF, src) if src else bytes(8))
         self._return(0, kernel_arg_bytes().get(name, 0))
+
+    def _contiguous(self, size: int, lo: int, hi: int, align: int) -> int:
+        """The base of ``size`` bytes of contiguous memory between physical ``lo`` and ``hi`` at ``align`` (the
+        module's AZ-850 note): the highest run of the window's free pages that fits, none of them taken (0 for
+        none); with no window, the next zeroed region from _CONTIG."""
+        n = max(1, (size + 0xFFF) // PAGE)
+        if self._free is None:
+            base = max((va + m for va, m in self._contig), default=_CONTIG)
+            self._map_extra(base, n * PAGE)
+            self._contig += ((base, n * PAGE),)
+            return base
+        free = self._free.copy()
+        for va, m in self._contig:
+            free[(va - WINDOW) // PAGE:(va - WINDOW + m) // PAGE] = False
+        c = np.concatenate(([0], np.cumsum(free, dtype=np.int64)))
+        s = np.flatnonzero(c[n:] - c[:-n] == n)            # starts of n free pages
+        top = min(hi, WINDOW_SIZE - 1) // PAGE + 1
+        s = s[(s % max(1, align // PAGE) == 0) & (s >= -(-lo // PAGE)) & (s + n <= top)]
+        if not s.size:
+            return 0
+        base = WINDOW + int(s[-1]) * PAGE                   # mapped as the step touches it: the window's own pages
+        self._contig += ((base, n * PAGE),)
+        return base
 
     def _game_assert(self, uc, addr, size, _):
         esp = uc.reg_read(X.UC_X86_REG_ESP)

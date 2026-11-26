@@ -205,14 +205,15 @@ def test_l1_and_l2_refuse_a_europe_xbe_by_name():
             run()
 
 
-def _l3_snapshot(tmp_path, code: dict[int, bytes], meta: dict, regs: dict | None = None):
+def _l3_snapshot(tmp_path, code: dict[int, bytes], meta: dict, regs: dict | None = None, window: bool = False):
     """A synthetic L3 snapshot (no game bytes): ``code`` at its VAs; the player entity 0x100000 (its
     scheduler 0x100800, event time 12.5, velocity (0.5, 0, -1), critter 0x103000 in cell 3 of the world's cells
     0x102000, HP 200 of 250, body centre (5, 6, 7));
     the scene 0x101000 with pd 0x101100 (the critter's too), request block 0x101200, world 0x101300, armor
     manager 0x101400 (its slot 0x101500: Flaps 2), inventory 0x101600 (element levels 1, 2, 0, 3) and one latch
     "Gate" = 1 (map 0x101800, head 0x101820, node 0x101840); ControllerState[0] (active index 4); the page
-    tables' self-map over all of it."""
+    tables' self-map over all of it.  With ``window``, its high pages are a RAM window (64 MiB at 0x80000000,
+    zero but for ``code``'s), else each a run of its own."""
     from devkit.sim import l3
 
     ent, crit = 0x100000, 0x103000
@@ -238,11 +239,13 @@ def _l3_snapshot(tmp_path, code: dict[int, bytes], meta: dict, regs: dict | None
         struct.pack_into(fmt, pages[va & ~0xFFF], va & 0xFFF, *v)
     path = tmp_path / "s.l3snap"
     def read(va, n):   # page by page: a run spans several
-        return b"".join(bytes(pages[p & ~0xFFF][max(va, p) & 0xFFF:][:min(va + n, p + 0x1000) - max(va, p)])
+        return b"".join(bytes(pages.get(p & ~0xFFF, bytes(0x1000))[max(va, p) & 0xFFF:][:min(va + n, p + 0x1000)
+                                                                               - max(va, p)])
                         for p in range(va & ~0xFFF, va + n, 0x1000))
+    high = [(va, 0x1000, read) for va in sorted(pages) if va >= l3.HIGH and va not in (l3.PDE_BASE, l3.PTE_BASE)]
     info = l3.write_snapshot(read, path, {"fs_base": 0x80035BDC, **(regs or {})},
                              {"entity": ent, "at": "update", **meta},
-                             [(va, 0x1000, read) for va in sorted(pages) if va >= l3.HIGH and va not in (l3.PDE_BASE, l3.PTE_BASE)])
+                             [(0x80000000, 0x4000000, read)] if window else high)
     return path, info
 
 
@@ -317,6 +320,43 @@ def _l3_xbe(text: bytes, ordinals: list[int], extra=()) -> bytes:
     for i, o in enumerate(ordinals):
         struct.pack_into("<I", x, 0x2400 + 4 * i, 0x80000000 | o)
     return bytes(x)
+
+
+def test_l3s_contiguous_pool_lies_inside_the_ram_window_a_26_bit_physical_address_maps_back_to(tmp_path):
+    """AZ-850 (Step 4.83a, the f2 a3191 hunt's option A): D3D keeps a contiguous resource's data as a 26-bit
+    physical address and reads it back OR 0x80000000, so L3's pool, at 0x8C000000 outside the RAM, wrote a texture
+    over the kernel image (over L3's own stub page: unmapped at RtlEnterCriticalSection).  On a snapshot holding
+    the RAM window, contiguous memory comes from its PFN database's free pages: a step that allocates 0x3000, 0x1000
+    and 0x16000 bytes, fills the third through its 26-bit address, frees the second and allocates a page again,
+    then enters a critical section gets bases that are their own 26-bit addresses on free pages (the freed one
+    again), its stores at the base, and returns; a reset gives the pages and the pool back."""
+    from devkit.sim.l3 import L3, read_snapshot
+
+    ent, upd, alloc, free, enter = 0x100000, 0x8C230, 0x80016000, 0x80016100, 0x80023120
+    call = {k: b"\xff\x15" + struct.pack("<I", 0x18F424 + 4 * i) for i, k in enumerate(("alloc", "enter", "free"))}
+    code = (bytes.fromhex("53" "89cb" "6800300000") + call["alloc"] + bytes.fromhex("894344" "6800100000")
+            + call["alloc"] + bytes.fromhex("894348" "6800600100") + call["alloc"] + bytes.fromhex(
+                "89434c" "57" "89c7" "81e7ffffff03" "81cf00000080"      # edi = (base & 0x3FFFFFF) | 0x80000000
+                "b900580000" "b85a5a5a5a" "fc" "f3ab" "5f" "ff7348")    # 0x16000 bytes of 0x5A; free the second
+            + call["free"] + bytes.fromhex("6800100000") + call["alloc"] + bytes.fromhex("894350" "6800201000")
+            + call["enter"] + b"\x5b")
+    code += b"\xe9" + _rel(upd + len(code), 0x8C3F1)
+    pfn = struct.pack("<16384I", *(0 if 0x1000 <= k < 0x1040 else 1 for k in range(16384)))   # 64 free pages
+    window = {0x83FF0000 + o: pfn[o:o + 0x1000] for o in range(0, len(pfn), 0x1000)}   # its PFN database
+    path, _ = _l3_snapshot(tmp_path, {upd: code, 0x8C3F1: b"\xc3", 0x18F424: struct.pack("<3I", alloc, enter, free),
+                                      **window}, {}, window=True)
+    sim = L3(read_snapshot(path), {alloc: "MmAllocateContiguousMemory", free: "MmFreeContiguousMemory",
+                                   enter: "RtlEnterCriticalSection"})
+    for _ in range(2):
+        sim.step()
+        bases = [sim.u32(ent + o) for o in (0x44, 0x48, 0x4C, 0x50)]
+        runs = sorted(zip(bases[:3], (0x3000, 0x1000, 0x16000)))
+        assert all(b == (b & 0x3FFFFFF) | 0x80000000 and 0x81000000 <= b and b + n <= 0x81040000 for b, n in runs)
+        assert all(a + n <= b for (a, n), (b, _) in zip(runs, runs[1:])) and bases[3] == bases[1]
+        assert sim.read(bases[2], 0x16000) == b"\x5a" * 0x16000 and not sim.taint
+        sim.reset()
+        assert sim.read(bases[2], 0x16000) == bytes(0x16000)
+    assert sim.kernel_calls == {"MmAllocateContiguousMemory": 8, "MmFreeContiguousMemory": 2}
 
 
 def test_l3_snapshot_store_and_a_step_with_the_scheduler_clock_allocation_and_fs(tmp_path):

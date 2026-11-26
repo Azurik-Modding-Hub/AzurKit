@@ -53,8 +53,8 @@ unchanged:
   (below: it moves the cameras and draws from the game's random numbers),
   which costs about 2.5x: 10-17 steps per second a core at load 40-80.
 
-Kernel imports return 0, except NtAllocateVirtualMemory and
-MmAllocateContiguousMemory(Ex), which map zeroed regions, and the game's
+Kernel imports return 0, except NtAllocateVirtualMemory, which maps a
+zeroed region, MmAllocateContiguousMemory(Ex) (below) and the game's
 file reads. Memory at 0x80000000 and above is the snapshot's (format 3:
 the thread's stack and the RAM window, mapped page by page as a step
 touches them, as taken); elsewhere, or in an older snapshot, a zero page
@@ -780,8 +780,19 @@ process has mapped (the high pages stay mapped across resets): e6's took 0.75 s 
 after a 600-tick baseline and one poked run, at a load near 40, and under more load or later in a worker it passed
 the 5 s render cap ("render timeout@0xF4EDF", the allocator's return), which the first all-level witness took for a
 dead try. A run that needs its verdicts repeatable passes `step(timeout_us=)` past any finite step (the witness: 120
-s). A contiguous pool mapped once would make the maps flat; it is a `CORE_FILES` change, so the cache keys move, and
-it is left.
+s).
+
+**The contiguous pool (AZ-850, Step 4.83a).** D3D keeps a contiguous resource's data as a 26-bit physical address
+and reads it back OR 0x80000000, so a base must lie in the 64 MiB at 0x80000000. L3's pool was at 0x8C000000,
+outside the RAM: a texture a whole step built was written over the snapshot's kernel image (f2 a3191: over L3's own
+stub page, so the next critical section ran pixels, `unmapped@0x80023120`; elsewhere silently). Now a snapshot that
+holds the RAM window (all the store's live ones) hands MmAllocateContiguousMemory(Ex) a run of its free pages (its
+PFN database, a u32 a page at the window's offset 0x03FF0000, free where bits 0 and 16 are clear, L3's own pages
+left out: exact against the snapshots' page tables), the highest run that fits inside Ex's acceptable addresses and
+alignment (the kernel's search order is unread: a default), 0 where none fits, and MmFreeContiguousMemory gives a
+run back; the pages are the window's, mapped as touched and put back by a reset, so an allocation maps no region of
+its own (the stream load's maps above are gone there). A snapshot with no window keeps a zeroed region a run, from
+0x83000000. `l3.py` is the first of `CORE_FILES`: every reach key moved with it.
 
 ### The worker pool (Step X.10)
 
