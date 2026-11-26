@@ -967,11 +967,14 @@ def tally(a) -> dict:
 def picked(rows: list[dict], docs, refs, start: str = "recipe") -> list[tuple[dict, dict, dict]]:
     """Each of ``refs`` (a ``ref``, or 5 or more hex digits of its sha256) as (its rows file, its row there, its final
     check row of ``rows`` under ``start``: a ref checked under both starts has a final row each); refused (SystemExit)
-    by name where no final row of ``start`` or more than one answers it, where its check isn't a PASS or kept no
-    per-tick digest (a check before Step 4.78c), and where no rows file holds it."""
+    by name where it answers more than one ref (under any start) or no final row of ``start`` or more than one
+    answers it, where its check isn't a PASS or kept no per-tick digest (a check before Step 4.78c), and where no rows
+    file holds it."""
     out = []
     for x in refs:
         named = [r for r in rows if x == r["ref"] or (len(x) >= 5 and order(r["ref"]).startswith(x.lower()))]
+        if (n := len({r["ref"] for r in named})) > 1:
+            raise SystemExit(f"clip {x}: {n} refs answer it: name more of it")
         if len(hits := [r for r in named if r["start"] == start]) != 1:
             other = ", ".join(sorted({r["start"] for r in named} - {start}))
             why = ": name more of it" if hits else f" (checked under {other})" if other else ""
@@ -986,6 +989,12 @@ def picked(rows: list[dict], docs, refs, start: str = "recipe") -> list[tuple[di
             raise SystemExit(f"clip {x}: no --rows file of {f['level']} holds its row")
         out.append((*got[0], f))
     return out
+
+
+def clip_name(level: str, ref: str, start: str) -> str:
+    """A clip's file name: its level, 12 hex digits of its ref's sha256 and, under any start but the recipe's, that
+    start, so a ref clipped under each start makes a clip each in one ``--out``."""
+    return f"{level}-{order(ref)[:12]}{'' if start == 'recipe' else '-' + start}.mp4"
 
 
 class Clip(Check):
@@ -1020,7 +1029,7 @@ class Clip(Check):
 
     def one(self, level: str, doc: dict, r: dict, f: dict, zone_at) -> None:
         """Row ``r``'s clip (its check's final row ``f``: its phase, its digest)."""
-        dest = self.out / f"{level}-{order(r['ref'])[:12]}.mp4"
+        dest = self.out / clip_name(level, r["ref"], self.start)
         if dest.exists():                             # a resumed run: made before
             self.game.note(f"{dest.name} exists: kept")
             return

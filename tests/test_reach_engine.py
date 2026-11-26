@@ -2512,8 +2512,8 @@ def test_a_witness_check_tally_joins_each_row_to_the_kept_verdict_of_its_own_sta
         tmp_path, capsys):
     """Step 4.78g (4.77e's skeptic, a): a check's kept final rows are keyed by ref and start, so a ref checked under
     both starts keeps a verdict for each; a row joins only its own start's (a ref kept under the other start alone
-    doesn't join), a later ``--truth`` file wins over an earlier one within one start only (4.77e's "agree 0": 4.78b's
-    verdict, named last, stood over 4.78f's recipe PASS by ref alone), and the tally says where each came from."""
+    doesn't join), a later ``--truth`` file wins over an earlier one within one start only (by ref alone, the other
+    start's, named later, stood), and the tally says where each came from."""
     from devkit.reach import witness_check as wc
 
     def rows(path, *got):

@@ -436,7 +436,8 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
   guest has flipped since the restore (never an advance; an xemu whose
   display query gives no `picture-stale`, before v0.16.1, is refused by
   name), made an MP4 in `--out` (private, mode 700, kept resolved so
-  `list` links it from any folder) by ffmpeg
+  `list` links it from any folder; named by level and ref, and by start
+  where that isn't `recipe`) by ffmpeg
   (`devkit.xemu.clip`). A try whose per-tick rows (each tick's body
   centre, state and HP: the check row's `xemu_rows_sha12`, kept since
   4.78c) differ from the check's, or that doesn't pass again, is refused by

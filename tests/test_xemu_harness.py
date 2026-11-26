@@ -536,7 +536,9 @@ def test_a_clip_takes_the_final_check_of_the_start_it_names_recipe_by_default_wh
         tmp_path, monkeypatch):
     """Step 4.78g (4.78c's review, 4): a ref checked under both starts has a final check row each, which no longer
     prefix of its sha256 splits; ``clip --start`` (recipe by default, D1352) takes that start's row alone, and a ref
-    with none under it is refused by name, the start it was checked under named."""
+    with none under it is refused by name, the start it was checked under named; a placed clip is named by its start
+    too, so it goes beside the recipe one in one folder, and a prefix that answers two refs, one under each start, is
+    refused."""
     import contextlib
     from types import SimpleNamespace
 
@@ -575,6 +577,11 @@ def test_a_clip_takes_the_final_check_of_the_start_it_names_recipe_by_default_wh
     with pytest.raises(SystemExit, match=r"clip r/b@m: 0 final check rows answer it under --start recipe \(checked "
                                          r"under placed\)"):
         wc.main([*argv, refs[1]])
+    assert [wc.clip_name("t", refs[0], s) for s in ("recipe", "placed")] == [
+        f"t-{wc.order(refs[0])[:12]}.mp4", f"t-{wc.order(refs[0])[:12]}-placed.mp4"]
+    two = [{"ref": "r/p2704@m", "start": "recipe"}, {"ref": "r/p3525@m", "start": "placed"}]   # 30431fb3, 304318a9
+    with pytest.raises(SystemExit, match="clip 30431: 2 refs answer it: name more of it"):
+        wc.picked(two, [], ["30431"], "placed")
 
 
 @pytest.mark.xemu
