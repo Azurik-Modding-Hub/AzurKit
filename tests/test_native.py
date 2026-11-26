@@ -248,7 +248,7 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
 
         def __call__(self, placed, reach=False):
             self.calls.append((placed, reach))
-    cases = [(logic.db.defaults, [("0", 0), ("0", 3), ("11", 3), ("2", 3), ("5", 0)]),
+    cases = [(logic.db.defaults, [("0", 0), ("0", 3), ("11", 3), ("2", 3), ("2", 0), ("5", 0)]),
              (Settings(0, "safe", {}), [("4", 0)]), (Settings(4, "frame_perfect", {}), [("0", 0)]),
              (Settings(3, "hard", {}, seed_difficulty=3), [("0", 0), ("1", 3), ("1", 21)]),
              (Settings(3, "hard", {}, seed_difficulty=1), [("2", 0), ("3", 1), ("3", 11)]),

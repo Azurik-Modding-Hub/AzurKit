@@ -5648,7 +5648,7 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
         _page.click(page, "rando-view-tracker")
         assert page.evaluate("() => [document.getElementById('rando-settings').hidden, "
                              "document.getElementById('tracker').hidden]") == [True, False]
-        for name in ("default", "max"):
+        for name in ("max", "default"):   # the default plan last: nothing marked, spots near (max's need a skip)
             doc = _profile(name)
             (tmp_path / f"{name}.json").write_text(json.dumps(doc), encoding="utf-8")
             _page.pick(page, "#track-open", tmp_path / f"{name}.json")
@@ -5674,13 +5674,13 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
                     assert hashlib.sha256(tracking.digest(shown).encode()).hexdigest()[:32] == TRACKER[key], key
                     drawn = page.evaluate(MAP_MODEL, [list(tracking.GRID), ICONS])
                     assert hashlib.sha256(drawn.encode()).hexdigest()[:32] == TRACKER_MAP[key], key
-        view(doc, None, False)   # max, nothing marked
-        world = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll("#track-world .cell")].map(
-            (c) => [c.dataset.level, c.querySelector(".badge").textContent]))""")
-        cpython = sdk.tracker({"plan": doc})
-        reached = {lv: str(sum(s["level"] == lv and s["state"] in ("near", "skip") for s in cpython["spots"].values()))
-                   for lv in cpython["status"]["levels"]}
-        assert {lv: n for lv, n in world.items() if n} == reached
+            view(doc, None, False)   # nothing marked
+            world = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll("#track-world .cell")].map(
+                (c) => [c.dataset.level, c.querySelector(".badge").textContent]))""")
+            cpython = sdk.tracker({"plan": doc})
+            reached = {lv: str(sum(s["level"] == lv and s["state"] in ("near", "skip") for s in cpython["spots"].values()))
+                       for lv in cpython["status"]["levels"]}
+            assert {lv: n for lv, n in world.items() if n} == reached, name
         near = sorted(loc for loc, s in cpython["spots"].items() if s["state"] == "near")[0]
         level = cpython["spots"][near]["level"]
         page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
