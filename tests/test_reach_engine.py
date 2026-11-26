@@ -1091,10 +1091,12 @@ def test_a_refinement_job_repeats_nothing_its_aim_twin_ran():
     assert sims[1].n < sims[0].n - twin["floor"]["placements"]
 
 
-def test_a_refinement_job_flies_the_fourth_pass_where_one_of_its_own_starts_stood_in_another_cell_than_its_twins():
+def test_a_refinement_job_flies_the_fourth_pass_where_its_own_starts_stood_in_another_cell_than_its_twins_or_its_twins_in_none():
     """Step 4.79f (9.26): a refinement job twinned to its aim skips the fourth pass only where its own starts stood
     in the cells the twin's did (the twin flew that pass from them): where its standing start, one the twin never
-    searched, stands only in a third cell, it flies the fourth pass as it does alone, the rest as twinned."""
+    searched, stands only in a third cell, it flies the fourth pass as it does alone, the rest as twinned.  Step
+    4.83a: so too where the twin's run start stood nowhere at the job's heading (the twin flew no fourth pass) and
+    its own standing start stands in the snapshot's cell, the cells it would fly that pass from being the twin's."""
     east, strip = -math.pi / 2, (0, 0, 6, 4, 0.0)
     job = {"key": "k", "id": "a0", "heading": east, "takeoff_feet": [5.0, 2.0, 0.0], "cells": [0, 1, 2],
            "starts": {"run": [[4.0, 2.0, 0.0]], "stand": [[4.7, 2.0, 0.0]]},
@@ -1111,16 +1113,25 @@ def test_a_refinement_job_flies_the_fourth_pass_where_one_of_its_own_starts_stoo
             if tuple(feet[:2]) == (4.7, 2.0) and cell != 2:
                 self._s.update(feet=(feet[0], feet[1], -50.0))
             return row
-    twin = runner.run_job(_Cells([strip]), job, here=0, zone_at=zone)
-    ref = job | {"id": "r0", "macros": [list(m) for m in aim.refine("runjump", "air3", 2)]}
-    got = aim.twinned(ref, job, twin)
-    assert got is not ref and "stand" not in got["twin"]["starts"]
-    alone, paired = (runner.run_job(_Cells([strip]), j, here=0, zone_at=zone) for j in (ref, got))
-    assert alone["starts"]["stand"]["cell"] == paired["starts"]["stand"]["cell"] == 2
-    flown = {aim.Macro(*m).name for m in job["macros"]}
-    fourth = [o for o in alone["outcomes"] if o["pass"] == 4]
-    assert fourth and [o for o in paired["outcomes"] if o["pass"] == 4] == fourth
-    assert paired["outcomes"] == [o for o in alone["outcomes"] if o["pass"] == 4 or o["macro"] not in flown]
+
+    class _Turned(_Sim):                    # the run start and its ring stand only turned off the job's heading
+        def teleport(self, feet, yaw, *, cell=None):
+            row = super().teleport(feet, yaw, cell=cell)
+            if yaw == east and abs(feet[0] - 4.0) <= 0.3 and abs(feet[1] - 2.0) <= 0.3:
+                self._s.update(feet=(feet[0], feet[1], -50.0))
+            return row
+    for sim, cell in ((_Cells, 2), (_Turned, 0)):
+        twin = runner.run_job(sim([strip]), job, here=0, zone_at=zone)
+        ref = job | {"id": "r0", "macros": [list(m) for m in aim.refine("runjump", "air3", 2)]}
+        got = aim.twinned(ref, job, twin)
+        assert got is not ref and "stand" not in got["twin"]["starts"]
+        assert ("cell" in twin["starts"]["run"]) is (sim is _Cells)
+        alone, paired = (runner.run_job(sim([strip]), j, here=0, zone_at=zone) for j in (ref, got))
+        assert alone["starts"]["stand"]["cell"] == paired["starts"]["stand"]["cell"] == cell
+        flown = {aim.Macro(*m).name for m in job["macros"]}
+        fourth = [o for o in alone["outcomes"] if o["pass"] == 4]
+        assert fourth and [o for o in paired["outcomes"] if o["pass"] == 4] == fourth, sim.__name__
+        assert paired["outcomes"] == [o for o in alone["outcomes"] if o["pass"] == 4 or o["macro"] not in flown]
 
 
 def test_a_probe_needed_aim_whose_straight_track_meets_a_wall_lands_from_a_takeoff_moved_across_it():

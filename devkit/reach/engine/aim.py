@@ -44,7 +44,7 @@ certificate's aims, walked at the target once down, from each takeoff :func:`ben
 track clears, and from its own takeoff turned at a point beside the solid (:class:`Bent`), then so again on the
 schedule with ``env``.  Each outcome's ``pass`` says which of the seven launched it.
 
-Passes 2-6 run for the derived modelled edges (:data:`MORE`; the bar's) and for a job that asks (``more``: Step
+Passes 2-7 run for the derived modelled edges (:data:`MORE`; the bar's) and for a job that asks (``more``: Step
 R2.19f+'s g1, :func:`more`), so a probe-needed aim takes pass 1 unless its job asks.  :func:`retarget` aims at what a
 run's graph left (g1's three classes).  Its code is keyed apart from the fan's (``cache.AIM_FILES``): a change here
 re-runs the aims, never R0's fan.
@@ -319,10 +319,11 @@ def run_job(sim, job: dict, touch=None, here: int | None = None, zone_at=None) -
     leaves its to-zone at rest is none), and while none has, for a job :func:`more` passes, the same
     launches again walked or held at the target once down (``Aim``'s ``home``; from the same saved starts), then so
     steered :data:`SHORT_OF_M` short of it (:func:`short_of`), then its certificate's aims (``cert``) so at each of
-    :data:`TURNS` off its heading (none with a ``twin`` whose starts stood in the same cells: the twin flew them),
-    then every launch so from :func:`other_starts`' takeoffs facing the target, then with ``env`` the certificate's
-    aims from its own starts so, flapping on that schedule (:class:`Sched`), then with ``bends`` the certificate's
-    aims so from each of them (:class:`Bent` at a turn point), and with ``env`` again on that schedule."""
+    :data:`TURNS` off its heading (none with a ``twin`` one of whose starts stood, in the cells its own did: the
+    twin flew them), then every launch so from :func:`other_starts`' takeoffs facing the target, then with ``env``
+    the certificate's aims from its own starts so, flapping on that schedule (:class:`Sched`), then with ``bends``
+    the certificate's aims so from each of them (:class:`Bent` at a turn point), and with ``env`` again on that
+    schedule."""
     here = here_cell(sim) if here is None else here
     stop = job.get("stop") is not None and zone_at is not None
     rec = {"key": job["key"], "id": job["id"], "heading": job["heading"], "starts": {}, "outcomes": []}
@@ -373,7 +374,8 @@ def run_job(sim, job: dict, touch=None, here: int | None = None, zone_at=None) -
     own = [m for m in aims(*job["cert"]) if not m.hold] if job.get("cert") else []
     stood = [st["cell"] for st in rec["starts"].values() if "cell" in st]
     near = list(dict.fromkeys(stood + cells[:2]))      # where its own starts stood, the snapshot's, the nearest
-    flown = list(dict.fromkeys([st["cell"] for st in twin.get("starts", {}).values() if "cell" in st] + cells[:2]))
+    twin_stood = [st["cell"] for st in twin.get("starts", {}).values() if "cell" in st]   # none: it flew no pass 4
+    flown = list(dict.fromkeys(twin_stood + cells[:2]))
 
     def turned(n: int, h: float, name: str, memo_=None, **kw) -> bool:
         got = launch(n, target, heading=h, name=name, memo_={} if memo_ is None else memo_, cells_=near, **kw)
@@ -382,8 +384,9 @@ def run_job(sim, job: dict, touch=None, here: int | None = None, zone_at=None) -
                 st["yaw"] = h
         return got
     if any(turned(4, wrap(job["heading"] + d), f"@h{round(math.degrees(d)):+d}", macros=own)
-           for d in TURNS if own and stood and not (twin and near == flown)):   # a twin flew these from the same
-        return rec                                                                # cells (its own pass 4)
+           for d in TURNS if own and stood and not (twin_stood and near == flown)):   # a twin that stood flew these
+        return rec                                                                      # from the same cells (its
+                                                                                        # own pass 4)
     picks, n = other_starts(sim, job["takeoff_feet"], job["heading"], target, job["from"], near, zone_at)
     rec["from_floor"] = {"stood": n or len(stood)}
     for k, t in enumerate(picks):
@@ -409,7 +412,7 @@ def run_job(sim, job: dict, touch=None, here: int | None = None, zone_at=None) -
 
 
 def more(job: dict) -> bool:
-    """Whether aimed job ``job`` runs passes 2-6: its edge's confidence is one of :data:`MORE`, or it asks
+    """Whether aimed job ``job`` runs passes 2-7: its edge's confidence is one of :data:`MORE`, or it asks
     (``more``: Step R2.19f+'s g1; :func:`retarget` sets it)."""
     return bool(job.get("more")) or job.get("edge", "").rsplit(":", 1)[-1] in MORE
 
@@ -537,7 +540,7 @@ def aim_jobs(nodes, derived: dict, kinds=("jump", "flap"), confs=("modelled", "p
     at its target in (:func:`floor`; the snapshot's own after it), ``cert`` the certificate's kind, kit and flaps,
     and with ``sched``, for a :data:`MORE` edge whose certificate jumps with flaps, ``env`` its flap ticks after the
     takeoff on the envelope's schedule (``physics.Envelope.schedule`` of the derived certificate's rank, headroom
-    and flap cap, to the target's height over the takeoff; :func:`run_job`'s last pass).  An edge ``more_of`` holds
+    and flap cap, to the target's height over the takeoff; :func:`run_job`'s sixth pass, and the bent pass's second).  An edge ``more_of`` holds
     (``from>to:kind:confidence``) asks for every pass (``more``, :func:`more`) and gets ``env`` as a :data:`MORE`
     edge's; one ``bend_of`` holds whose straight track meets a solid gets ``bends`` (:func:`bends`: the bent pass's
     takeoffs and turn points; none for a walk-off)."""
@@ -683,7 +686,8 @@ def retarget(nodes, derived: dict, g, recs: dict, jobs: dict, frame=(), verdicts
       best candidate's rejected landing, from that candidate's takeoff, in that rank's kit, every pass (``more``);
     - c (and its refinement, d): each probe-needed derived edge of ``verdicts`` (``verdict.zone_edges``') unfound at
       its kit whose aim's pass-1 landing or first touch-down came within ``gate_m`` of its to-zone's floor (the
-      records', so choosing costs no run): its aims and its refinement (twinned to that aim), every pass."""
+      records', so choosing costs no run): its aims (with bends where the straight track is blocked) and its
+      refinement (twinned to that aim), every pass."""
     from azurkit.tools.randomizer.planner.proofs import zoning
     zoned, out, seen = zoning(derived)[:12], [], set()
 
