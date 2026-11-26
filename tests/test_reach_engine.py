@@ -2426,6 +2426,23 @@ def test_the_router_routes_a_witness_touching_a_mover_and_flags_one_passing_near
     assert M.route([(x, 10.0, 1.0) for x in (1.0, 2.0, 3.0)]) == {"rigs": [], "gates": [], "near": []}
 
 
+def test_a_body_stopped_against_a_movers_wall_or_underside_is_routed_to_it():
+    """AZ-854 (the reach audit's D5): the game stops a body at its radius from a wall (0.5 m) or an underside (1 m
+    under it), where the body's own sweep meets the face only by float rounding: each tick's body, swept again grown
+    by ``PROBE_M`` across and up, routes a body run up to a rig's wall (at x 10) and one jumped up under a gate's
+    underside (a deck at z 5) to them; one stopped 0.1 m farther off touches neither."""
+    from devkit.reach.native import backend as KB
+    wall = [((10, -2, 0), (10, 2, 0), (10, 2, 3)), ((10, -2, 0), (10, 2, 3), (10, -2, 3))]
+    M = KB.Movers(np.concatenate([np.array(wall, float), _quads((18, -2, 22, 2, 5.0))]), [1, 1, 2, 2],
+                  {1: "rig", 2: "gate"})
+    ticks = [0.25 * k for k in range(7)]                       # 1.5 m in 0.25 m ticks, then at rest
+    assert M.route([(8.0 + d, 0.0, 1.5) for d in ticks] + [(9.5, 0.0, 1.5)]) == {"rigs": [1], "gates": [], "near": []}
+    assert M.route([(20.0, 0.0, 2.5 + d) for d in ticks] + [(20.0, 0.0, 4.0)]) == {"rigs": [], "gates": [2],
+                                                                                  "near": []}
+    assert M.route([(7.9 + d, 0.0, 1.5) for d in ticks] + [(9.4, 0.0, 1.5)]) == {"rigs": [], "gates": [], "near": [1]}
+    assert M.route([(20.0, 0.0, 2.4 + d) for d in ticks] + [(20.0, 0.0, 3.9)]) == {"rigs": [], "gates": [], "near": []}
+
+
 def test_a_reach_model_pickled_here_loads_and_one_naming_a_modkit_module_or_any_other_global_is_refused():
     """Step 4.13f: the L3 store's reach models (``x7/reach``) are this checkout's pickles (Modkit's went, D1172):
     ``models.load`` takes the modules they name and the standard library's and numpy's few globals they hold, and

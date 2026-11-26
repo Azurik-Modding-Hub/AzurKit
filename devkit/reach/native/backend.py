@@ -189,14 +189,15 @@ def census(level: str, snap: dict, sim_of) -> tuple[dict, str]:
 
 NEAR_M = 2.0               # [proposal, PLAN-v2 §1.5b] a pass this near an unrecorded mover's load pose: near_parked_rig
 PROBE_M = 0.05             # each tick's body also swept this far up and down through where it is: a face it rests on
-                           # (the kernel's sweep meets only faces it moves into)
+                           # (the kernel's sweep meets only faces it moves into); and grown by it across and up: a
+                           # wall or underside the game stopped it at its radius from (AZ-854)
 
 
 class Movers:
     """The owners the derive or the census calls moved or toggled (``geometry.Level``: a rig, a toggled solid, or a
     platform the census finds the game's world doesn't hold at the snapshot), their load-pose triangles both ways
-    round as two kernel worlds: the body's (0.5 / 1.0 m) and one grown by :data:`NEAR_M`.  :meth:`route` names the
-    ones a witness's body path touches and passes near.  No mover's pose over time is recorded yet (R2.19h1's
+    round as three kernel worlds: the body's (0.5 / 1.0 m), one grown by :data:`PROBE_M` and one by :data:`NEAR_M`.
+    :meth:`route` names the ones a witness's body path touches and passes near.  No mover's pose over time is recorded yet (R2.19h1's
     recorder): contact at the load pose routes a link (a known flaw, D610, bounded by D847's parking)."""
 
     def __init__(self, P, owner, kind) -> None:
@@ -207,6 +208,7 @@ class Movers:
         both = np.concatenate([P, P[:, ::-1]]) if len(P) else np.zeros((0, 3, 3))
         words = np.full(len(both), 0x8050, np.int32)
         self.body = N.World(both, words) if len(both) else None
+        self.probe = N.World(both, words, (N.RH + PROBE_M) / (N.RV + PROBE_M)) if len(both) else None
         self.grown = N.World(both, words, (N.RH + NEAR_M) / (N.RV + NEAR_M)) if len(both) else None
 
     @classmethod
@@ -224,14 +226,17 @@ class Movers:
     def route(self, path) -> dict:
         """The movers the body swept along ``path`` (body centres a tick apart) touches, by kind (``rigs``: a rig
         or a platform the snapshot doesn't hold, the link routed to R2.19h1 or parked; ``gates``: a toggled solid,
-        the link owing its open condition), and the rigs it passes within :data:`NEAR_M` of untouched (``near``);
+        the link owing its open condition; a tick's body also counts grown by :data:`PROBE_M`, since the game stops
+        it at its radius from a wall or underside, where its own sweep meets the face only by float rounding,
+        AZ-854), and the rigs it passes within :data:`NEAR_M` of untouched (``near``);
         owner ids, empty lists when none."""
         out = {"rigs": set(), "gates": set(), "near": set()}
         if self.body is None or not path:
             return {k: [] for k in out}
         for a, b in zip(path, list(path[1:]) + [path[-1]]):
             down = ((b[0], b[1], b[2] + PROBE_M), (b[0], b[1], b[2] - PROBE_M))   # a body at rest on a deck
-            for c in (self.body.sweep(a, b), self.body.sweep(*down)):
+            for c in (self.body.sweep(a, b), self.body.sweep(*down),
+                      self.probe.sweep(a, b, N.RH + PROBE_M, N.RV + PROBE_M)):
                 if c is not None:
                     oi = int(self.owner[c.tri])
                     out["rigs" if self.kind[oi] == "rig" else "gates"].add(oi)
