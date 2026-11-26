@@ -84,92 +84,92 @@ _profile, tracker_states, shows_gems = record_goldens.profile, record_goldens.tr
 OPTIONS80 = {"strict": (0, "safe"), "default": (0, "standard"), "max": (4, "frame_perfect"), "ceiling2": (2, "standard")}
 PLANS80 = {
     "strict": (
-        "0 329ecaca3e86 56b8f90d6db0",
-        "1 42f64b314152 284357947518",
-        "0 7180891bd7da a29820fbdf14",
-        "1 1e0b3427c5f5 87e972b414f5",
-        "1 67f3d3958552 b66c769ec7c9",
-        "0 e0bfc568a1ae e6a10b9fb2b5",
-        "1 d9db4051bad5 7cc549652434",
-        "0 148961baad6a cf07e65527fb",
-        "0 6a295c6396b0 34a141289098",
-        "0 f88761c309d2 9dceedd7e1b0",
-        "1 17d94dd6f03e de0746453885",
-        "0 18297ff7d13c 059407f99787",
-        "0 c4325ba4c5d5 1fdca6341b64",
-        "0 2492075fefb1 40c7ba590220",
-        "0 77028a62f9d3 189a6ba2bd03",
-        "0 5c239627cb14 95947e082cd2",
-        "0 1fe8f2520d69 588d47e8c703",
-        "2 4736ffbf9349 b1ecc168be36",
-        "0 2cfb19022260 d1a696e23b83",
-        "1 2937bec750a9 a82b93c335e9",
+        "0 9bb9945ad7f8 c7ac6a85eefb",
+        "0 846f6b19511d 374b19216892",
+        "1 a29614334e1e 846bba822775",
+        "1 e4bcbd7ef2b1 a4d27bf402bb",
+        "0 07c109b455e9 6e0534e0b585",
+        "0 544f13e65089 b51107fd9fa5",
+        "1 4c39ae84d9c9 1502b492123c",
+        "2 1266ed38d378 eb80ff0ab62b",
+        "0 22ea5f1829aa 2772a05ddf20",
+        "0 1f6e5d7021f4 98d646d04b30",
+        "1 b2aac6be3334 866cc58be11d",
+        "0 08c749641012 b85088080843",
+        "1 71376624063a 9f71637397b0",
+        "0 b4f06d4a0df3 6dd3cb8dfcfc",
+        "0 a4b472900f1f 0197dafae577",
+        "0 e6c48063d336 f20b87f9626f",
+        "0 18341d5c2d51 3d2f1ac15bb3",
+        "0 350f0d0a49b0 22fd425125fb",
+        "1 f68fdde1f404 e16cce62496d",
+        "0 db749301fa67 e4d98c1a30b5",
     ),
     "default": (
-        "0 ea41d8df6d67 45f92dc9acdb",
-        "0 aa53a70eff1b 4b45b2b18acc",
-        "1 df0581cea90a bb71abb95649",
-        "1 930f7a2d59d0 2f1d73e97253",
-        "1 c399c28257bf b0f3f09d6bc7",
-        "0 83d3a5516a51 3983122f8cb8",
-        "0 39ab8c765d04 ad97ab301f25",
-        "0 ea3fdcc11b2c 9bec35782029",
-        "0 be05ee602619 f34c679fe95b",
-        "0 47e404a7adbb 3cedb92e1a22",
-        "0 5b84b0b6b3af b1f5ac1106dc",
-        "0 8dd9990a0262 54482baeb1f7",
-        "0 f50c622ce41a eadb47f3062b",
-        "0 f58a86869e7a 33658fc44ffa",
-        "0 71e7a3eedc3c 69cb48cee128",
-        "1 9945748459c1 e63e3c938d40",
-        "0 19aaab9966e2 fcebb65dccb8",
-        "0 f1488d060230 577376eb5e8b",
-        "1 6f2c12611755 8cab8a82160c",
-        "0 89a6480485e3 965d9dce1425",
+        "0 de3a68171e98 956d52a450ba",
+        "1 5dfd87063432 360aecb6f01a",
+        "0 f8456d175de6 75a1c00f13f2",
+        "0 7eb1477b0cbf 0b43787af86c",
+        "1 0dd7b4cf084c dcc7ba51b2d5",
+        "1 c879a0be1802 dcdbf7d0416a",
+        "0 4a0de76dfe4f 6d7a1a6ff127",
+        "0 2eb06f9f3dc9 0e87560aa919",
+        "0 0487f019c763 464fe01faac7",
+        "0 be851c815dc1 17ef0e10a9cf",
+        "0 795689a5f576 50024b91fb04",
+        "1 f9a25d08fc0b 0a8182c62765",
+        "0 3d8bf135d245 27b84988bbd4",
+        "0 37c8e27029d0 12e5187bde78",
+        "0 1698a4b84e93 90186906ae9a",
+        "1 73dfd84d6fa1 de483e070bb1",
+        "1 f6d6730c1ecd c05ee9a80099",
+        "1 a715196a6d2f 5cffd6570bbf",
+        "0 87dc88915592 5f0b829a638b",
+        "0 7798189d35a7 0d6f60add24e",
     ),
     "max": (
-        "0 8b1366d9ee3f 4ad4ba11115f",
-        "0 33e1c79d103a ebf3d99c54de",
-        "0 fd53f193a51c e78614e773ff",
-        "0 c2717335d41d 061be9299a60",
-        "0 3109934038fb e321f0e8718f",
-        "0 440f4b6646d0 dc3365f09c61",
-        "0 e0913b752b78 3440d55ff005",
-        "0 215449d6cd9e 13d42a8af91f",
-        "0 a2d7bf760c61 9a13a4db1992",
-        "0 1e2b75c1e7ff 4ed887f9d71c",
-        "0 23a6c946d04f 72ec87f24d83",
-        "1 403adfcea844 48cf254201ce",
-        "0 72bdafb66ae5 69f9eb85ad72",
-        "0 a931897bb961 7e86214fba90",
-        "0 afccf3279721 b2454910544c",
-        "0 befeab2b9301 47a9f5432915",
-        "0 2babeb6f84d7 1b16081c3510",
-        "0 239a99a30d89 697aed884195",
-        "0 5afa8b34298e 74ec2bb6234c",
-        "0 4ec9acb0bf28 c14a14a56e06",
+        "0 4ff0f11d54d5 7595814e6a88",
+        "0 3c72cf92e2f1 2278fe343071",
+        "0 7997109f4bf1 9ff04dad9611",
+        "0 b937bf846856 a354c6b633d2",
+        "1 7670e3e9046d 157b24c45d5d",
+        "0 0c340614b0bb a6e89af2eab6",
+        "0 4c47d67dbf9b 6fa8de7f7203",
+        "0 16c25e2237b6 362a4539771d",
+        "0 1801e470ab83 2cb6ccd636e0",
+        "0 d05efbb63aec f2af7ca6c9a8",
+        "0 a7ba88568867 a77c69c90616",
+        "0 6a8e2e8ee3f7 394ccc47a2ef",
+        "0 a6e8dc5bac5b 8f11499f33d0",
+        "0 97ca85a36e0b 636ad4117d31",
+        "0 26eeb04bf9c1 660a5e07c636",
+        "0 7e817a30c000 3e09ae61aacf",
+        "0 a46562151140 bcf9c19e7832",
+        "0 a90d6982c871 ebf7b53c22cd",
+        "0 7de9bdf44207 3001a3128aec",
+        "0 dc1804c791ac 72b7d123fa6c",
     ),
     "ceiling2": (
-        "0 2de91e522823 163467646dc6",
-        "0 2298cb7a480a 19efa3094c1f",
-        "0 b61e7ee525b2 b5687f8ce8e7",
-        "0 d35d07810ad1 e30b3720398a",
-        "0 fe18105cb669 2d0fee4f2364",
-        "0 9c0c281ec0b4 83f240e18d31",
-        "0 a52a7c5f5cae c37d299ea325",
-        "0 bf155384a5a1 04015e096268",
-        "0 1229cdd4dd8f 6c3aa0ec7f23",
-        "0 01db9aeb6d87 d6e32939b80f",
-        "0 e4f53ceade3f fe19523da9db",
-        "0 44d0ad3852fa 02a4cbec0df0",
-        "0 8c90c73c9492 dcafa4bb94a9",
-        "0 0d9998be3380 06d6f99b060d",
-        "0 42fe7036a97b 17255b6042ed",
-        "0 61926eb93dfe 8c0539fbe1f6",
-        "0 38ecf2543787 5f9247051a84",
-        "0 edf454c107b2 b33ce16ef3cb",
-        "0 9e207265d974 5b415ce2d4de",
-        "0 bdc762689e11 73d6722e00a9",
+        "0 ce00e54d36a5 59778f60f09d",
+        "0 b25c7d22ef9b 991e886da237",
+        "0 b52e2d47caf9 ad676f80351c",
+        "0 939755dcc9d3 366b7bd9b8af",
+        "0 c52d28d05944 61c2a723380d",
+        "0 a2c9bd25c933 1fd8c80e828a",
+        "0 5ee02ce3695f 595fbc10a42f",
+        "0 ce1f2c956333 1d808ee76706",
+        "0 84ef4338b2dc c1873c2c4fbc",
+        "0 dacf569678c7 4014abadc2fe",
+        "0 a726d1ce7ecc 94501d530c93",
+        "0 9f1d3a78e3c9 3a15dbc712e4",
+        "0 0f7d7797acf8 6db542d0dc92",
+        "0 3b74ede24ef6 deda2267de29",
+        "0 17b4868485f2 2398246b153f",
+        "0 67e5b6338b24 eadba530c686",
+        "0 b4f5c5081eec 0dd33c6ba7f4",
+        "0 e4359c51886c 18a651803010",
+        "0 e5f37a7044b3 733f22e4b836",
+        "0 fd557f0047d8 627f1771e7cb",
     ),
 }
 _PLANS80 = """
@@ -191,10 +191,10 @@ for seed in range(1, 21):
 # are WARPLESS_FILL's: a change that moves them bumps SEED_DIFFICULTY_FILL and sets WARPLESS_FILL to it, never a
 # re-pin alone.
 LEVELED = {
-    "Easy": ("1 9e13c510c568 13 11 0", "1 32e3cb8f18e7 12 11 0", "2 457bcd21525c 12 11 0", "0 295e38372f7f 11 12 0"),
-    "Normal": ("0 ef3cd32577c1 15 16 1", "0 8a127a341bd9 17 12 0", "0 4a4654c998f8 14 13 0", "0 0a761368c8ef 18 15 4"),
-    "Hard": ("0 14cc892a950f 19 19 1", "0 b0132b3dbb8f 23 17 2", "0 9434dd2bbbd8 17 17 1", "0 b6d868d64336 17 16 1"),
-    "Expert": ("6 7c937709c6a1 19 20 4", "5 3de596999d73 21 18 3", "6 7ba462fedc48 21 19 3", "1 ef164b6cd297 19 19 4"),
+    "Easy": ("1 3269de3fa76c 12 8 0", "0 2fd57c7be552 12 8 0", "0 08f2964e493a 12 8 0", "0 8f5ee54c89b8 12 8 0"),
+    "Normal": ("0 a9ebb7dbb656 15 15 0", "0 dad5d3e68a67 15 13 0", "0 248e15a0d4c7 18 13 2", "0 b6f9f5d14582 16 12 0"),
+    "Hard": ("0 e4d0dafc1bbb 19 17 2", "0 0001c8e16d3d 18 16 3", "0 2c9be1107b1e 18 17 2", "0 73947fbe04f5 18 17 2"),
+    "Expert": ("6 cbeec03845ec 21 20 3", "7 c34e407e63ad 20 20 3", "0 bab0f3b56db6 18 20 2", "2 90962c57ab2d 18 21 3"),
 }
 LEVELED_TABLE = {"format": "azurik-rando-settings/2", "skip_ceiling": 3, "movement_tier": "hard", "dark_fire": 1,
                  "exclude_categories": [], "skip_override": {}}
@@ -283,11 +283,12 @@ def test_easy_with_the_elemental_powers_kept_plans_from_its_lean_no_deeper_than_
 def test_easy_keeps_normals_own_plan_only_where_it_scores_below_each_of_easys_so_no_easy_plan_scores_above_normals(
         monkeypatch):
     """D1160: Easy's candidates end with Normal's own plan for the seed and settings (``fill._Run.normal_plan``), kept
-    only where it scores below every one of Easy's, a tie keeping Easy's: at Standard and Safe movement with no skips,
-    seeds "7" and "72", where Normal's draw scored below each of Easy's 3, Easy's plan is Normal's; at seeds "0" and
-    "1" it is the one Easy's own 3 give, below Normal's. Every plan passes the verify."""
+    only where it scores below every one of Easy's, a tie keeping Easy's: at Safe movement with no skips, seed "29",
+    where Normal's draw scored below each of Easy's 3, Easy's plan is Normal's; at seeds "0" (Standard) and "1" (Safe)
+    it is the one Easy's own 3 give, below Normal's (since Step 4.79d no Standard seed of "0".."599" has Normal's
+    below each of Easy's). Every plan passes the verify."""
     logic = kept_logic()
-    for tier, seeds in (("standard", {"7": True, "0": False}), ("safe", {"72": True, "1": False})):
+    for tier, seeds in (("standard", {"0": False}), ("safe", {"29": True, "1": False})):
         easy, normal = (Settings(0, tier, {}, seed_difficulty=level) for level in (1, 0))
         judge = difficulty.Judge(logic, easy, fill.key_spots(logic, easy), difficulty.detours(logic, easy))
         for seed, taken in seeds.items():
@@ -340,13 +341,13 @@ def test_with_the_save_warp_counted_a_spot_beside_a_save_platform_is_no_detour()
 
 
 def test_with_the_elemental_powers_kept_each_level_plans_a_seed_whose_attempts_of_today_all_meet_the_trap_gate():
-    """D1160: with the elemental powers kept at Hard movement and skips, each of seed "52"'s 20 attempts of today (and
-    seed "2"'s with the upgrades kept too) opens a realm before the kept power that gets the player back out, with no
+    """D1160: with the elemental powers kept at Hard movement and skips, each of seed "16"'s 20 attempts of today (and
+    seed "20"'s with the upgrades kept too) opens a realm before the kept power that gets the player back out, with no
     key item after the new trick-free traps to swap, so Normal found no plan (D35). Its 20 more attempts let the trap
     gate's repair move the realm's opener past the kept power, as each level's attempts do, so each level plans both
     seeds, Normal from an attempt past today's, and every plan passes the verify."""
     logic = kept_logic()
-    for kept, seed in ((frozenset({"powers"}), "52"), (frozenset({"powers", "upgrades"}), "2")):
+    for kept, seed in ((frozenset({"powers"}), "16"), (frozenset({"powers", "upgrades"}), "20")):
         for level in range(4):
             st = Settings(3, "hard", {}, kept, seed_difficulty=level)
             made = fill._fill(logic, seed, st)
@@ -1039,17 +1040,17 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
     assert sdk.randomizer_settings({"share": view["share"]})["settings"] == given
     assert sdk.randomizer_settings({"share": _share(JUMP)})["note"].startswith(
         "the share string was made with the movement sliders player_physics jump_speed_scale 1.3")
-    starved = options["defaults"] | {"exclude_categories": ["obsidians"]}   # 32 of the 40 proven spots are theirs
+    starved = options["defaults"] | {"exclude_categories": ["obsidians"]}   # 37 of the 45 proven spots are theirs
     view = sdk.randomizer_settings({"settings": starved})
     assert (view["preflight"], view["preflight_tick"]) == (
         "keeping obsidians vanilla leaves 8 spots for the 27 disc fragments and elemental powers, which go only on "
-        "spots whose way there and back is proven; of the 40 such spots, 32 hold obsidians. Tick Obsidians, or "
+        "spots whose way there and back is proven; of the 45 such spots, 37 hold obsidians. Tick Obsidians, or "
         "untick Disc fragments and Elemental powers too", "Tick Obsidians")
     with pytest.raises(ValueError, match=f"^no plan: {re.escape(view['preflight'])}$"):
         sdk.plan({"seed": "2", "settings": starved})
     both = options["defaults"] | {"exclude_categories": ["fragments", "obsidians"]}   # its tick names the one enough
     assert sdk.randomizer_settings({"settings": both})["preflight"].endswith(
-        "32 hold obsidians and 5 hold disc fragments. Tick Obsidians, or untick Elemental powers too")
+        "37 hold obsidians and 5 hold disc fragments. Tick Obsidians, or untick Elemental powers too")
     other = options["defaults"] | {"exclude_categories": ["fragments", "powers", "obsidians"]}   # nothing to place
     assert sdk.randomizer_settings({"settings": other})["preflight"] is None and sdk.plan({"seed": "2", "settings": other})
     flagged = sdk.randomizer_settings({"settings": options["defaults"], "obsidian_cost": 20,
@@ -1377,7 +1378,7 @@ def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_f
     a conflict naming the later layer. An image that doesn't
     hold the plan (the vanilla one) fails the read-back, by location
     (D35)."""
-    prepared = generator.prepare({"seed": "2", "obsidian_cost": 20.0}, {})
+    prepared = generator.prepare({"seed": "10", "obsidian_cost": 20.0}, {})
     with iso.Reader(usa_iso) as r:
         base = {file: r.read(file) for file in generator.files(prepared)}
     planned = generator.plan_layer(prepared, base)
@@ -1401,7 +1402,7 @@ def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_f
     cell = {"op": "set", "file": generator.CONFIG, "table": "critters_engine", "entity": species,
             "prop": "collisionRadius", "value": 0.3}
     own = {**cell, "entity": next(iter(writer.OWN_ROW.values()))}
-    _, report = sdk.image({"iso": str(usa_iso), "randomizer": {"seed": "2", "obsidian_cost": 20.0},
+    _, report = sdk.image({"iso": str(usa_iso), "randomizer": {"seed": "10", "obsidian_cost": 20.0},
                            "xbr": [op, cell, own]})
     plan = report["randomizer"]
     assert plan["logic_verified"] is False and plan["why_not"][0] == layer.obsidian_reason(20.0)
@@ -1495,8 +1496,8 @@ def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it
     (:data:`CONTAINED`), when the image holds it once, is written the
     vanilla item's collision there, and its touch in the built config.xbr
     lies inside that item's; one it holds more than once keeps its own,
-    inside its kind's hold (:data:`HELD`). Seed 110585 under the owner's
-    share puts frag_air_3 in w2's IceBlock_01 and seed 2 a fragment in
+    inside its kind's hold (:data:`HELD`). Seed 451767 under the owner's
+    share puts frag_air_3 in w2's IceBlock_01 and seed 4 a fragment in
     IceBlock_02: every contained spot of both holds so, frag_air_3 with
     the obsidian's collision."""
     from azurkit.core.xbr import Document
@@ -1550,11 +1551,11 @@ def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it
         placement = dict(slots.vanilla) | ({vanilla_spot[item]: slots.vanilla[loc]} if item in vanilla_spot else {})
         placement[loc] = item
         assert holds(built(placement), placement, loc), (loc, item)
-    for recipe in ({"seed": "110585", "share": "AZR-AAIA"}, {"seed": "2"}):
+    for recipe in ({"seed": "451767", "share": "AZR-AAIA"}, {"seed": "4"}):
         placement = sdk.plan(recipe)["placement"]
         engine = built(placement)
         assert [loc for loc in sorted(enclosed) if not holds(engine, placement, loc)] == [], recipe
-        if recipe["seed"] == "110585":
+        if recipe["seed"] == "451767":
             cr, scale, aspect, _ = generator._cells(engine, "frag_air_3")
             obsidian = generator._cells(vanilla, "obsidian")
             assert (placement["w2/g0/r1359"], cr * scale, aspect) == pytest.approx(
@@ -1902,8 +1903,8 @@ def test_the_trackers_verdicts_are_their_goldens_at_each_state_and_a_click_marks
     assert {s["item"] for s in plain["spots"].values()} == {None}
     assert plain["head"] == {"seed": "2", "share": doc["share"], "sha256": doc["sha256"], "skips": [], "text": (
         f"Seed 2 · {doc['share']} · skips None, movement standard · 0 skips on"), "difficulty": {   # Normal's line too
-        "level": "Normal", "steps": 19, "off": 17, "points": 0,
-        "text": "Normal: 19 key-item steps, 17 off the path, no trick needed"}}
+        "level": "Normal", "steps": 22, "off": 11, "points": 0,
+        "text": "Normal: 22 key-item steps, 11 off the path, no trick needed"}}
     near = sorted(loc for loc, s in plain["spots"].items() if s["state"] == "near")[0]
     marked = sdk.tracker({"plan": doc, "toggle": near})
     assert (marked["marks"], marked["spots"][near]["state"], marked["spots"][near]["item"]) == (

@@ -115,8 +115,8 @@ def test_check_counts_the_shipped_database_as_at_modkits_freeze_and_names_each_e
         [], ["a1", "a3", "a5", "a6", "airship", "d1", "d2", "e2", "e5", "e6", "e7", "f1", "f2", "f3", "f4", "f6",
              "life", "town", "w1", "w2", "w3", "w4"], ["training_room"])
     assert (s["todo_fields_total"], s["pool_locations_without_a_node_total"], s["undecoded_gates_open"]) == (0, 0, 0)
-    assert s["locations_proven"] == {"data": 51, "l3": 11, "route": 2, "xemu": 2}
-    assert s["nongem_proven_by_realm"] == {"air": 2, "earth": 10, "fire": 15, "life_death": 0, "town_water": 23}
+    assert s["locations_proven"] == {"data": 56, "l3": 11, "route": 2, "xemu": 2}
+    assert s["nongem_proven_by_realm"] == {"air": 2, "earth": 10, "fire": 15, "life_death": 0, "town_water": 28}
     assert s["proofs"] == {"records": 21, "by_kind": {"edge": 5, "location": 11, "skip": 5}} \
         and s["edges_by_confidence"]["probed"] == 20
     assert (s["route"]["status"], len(s["route"]["open"])) == ("draft", 0)
@@ -206,13 +206,13 @@ def test_impact_ranking_orders_spots_by_fill_gain_and_edges_by_what_their_remova
 
 
 def test_impact_plans_a_seed_only_the_fills_repair_past_a_kept_way_out_plans():
-    """With the elemental powers kept at Hard movement and skips, seed "52"'s 20 attempts of today all meet the trap
+    """With the elemental powers kept at Hard movement and skips, seed "16"'s 20 attempts of today all meet the trap
     gate, so Normal plans it only from an attempt whose repair may go past a kept way out (D1160). Impact's fill makes
     the fill's own attempts, so it plans the seed at that attempt too, where it counted it failing after 20."""
     logic, st = kept_logic(), Settings(3, "hard", {}, frozenset({"powers"}))
-    made = fill(logic, "52", st)
+    made = fill(logic, "16", st)
     assert made.attempt >= 20
-    assert impact.Ctx(logic.db, st).fill("52") == (made.attempt, [])
+    assert impact.Ctx(logic.db, st).fill("16") == (made.attempt, [])
 
 
 def test_the_bench_and_the_soak_make_only_databases_and_settings_the_planner_accepts(tmp_path):
