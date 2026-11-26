@@ -89,20 +89,19 @@ const lastLine = (error) => String(error?.message ?? error).trim().split("\n").a
 // Where a call failed (Step 4.4ci44), as its message's last line and " · " parts: the engine's call (its request's
 // type), the innermost FRAMES of Python's stack and, where the engine's WebAssembly itself failed (a trap, Pyodide's
 // fatal error), the wasm functions it was in by index (none in WebKit, whose engine keeps no JS stack: WEBKIT). A
-// Python exception's traceback is in its message; a trap's stack
-// is only in Pyodide's dump of it (dump_traceback, written to the engine's stdout), so the engine's first SAID lines
-// out of a call are kept (said), from the dump's header on once it comes: the dump is its header, then the innermost
-// frame first, and at numpy's import it ran 72 lines, so a call's last 40 lost its header and innermost frames and
-// named importlib's frames from mid-stack as the innermost. A trap leaves that engine for good: every later call and
-// mount says that first failure (dead, which Pyodide's on_fatal sets wherever it traps: numpy's load too), never
-// Pyodide's "already fatally failed" (a failed prime's, a kept dress's or the rest's is not posted, and numpy's load
-// swallows its own), and each failure it posts says so (trapped), so the pool replaces the worker at once and sends the
-// page's job to the next once (workers.mjs's restart(), D1126). A page of CI's WebKit said only "access to a null
-// reference (evaluating '__pyproxy_apply(t,e,n,o,s)')": JavaScriptCore's name for a fault of wasm code at an address
-// below the lowest one a process may map (its fault handler's, meant for Wasm GC's struct and array reads), inside the
-// C call of a Python function the worker called (pyproxy.c's), so a trap, not a destroyed PyProxy (Pyodide refuses a
-// call of one in JS, before any wasm runs); and, bare, from a call no mount held (a build's unmount said "already
-// fatally failed").
+// Python exception's traceback is in its message; a trap's stack is only in Pyodide's dump of it (dump_traceback,
+// written to the engine's stdout), so the engine's first SAID lines out of a call are kept (said), from the dump's
+// header on once it comes: the dump is its header, then the innermost frame first, and at numpy's import it ran 72
+// lines, so a call's last 40 lost its header and innermost frames and named importlib's frames from mid-stack as the
+// innermost. A trap leaves that engine for good: every later call and mount says that first failure (dead, which
+// Pyodide's on_fatal sets wherever it traps: numpy's load too), never Pyodide's "already fatally failed" (a failed
+// prime's, a kept dress's or the rest's is not posted, and numpy's load swallows its own), and each failure it posts
+// says so (trapped), so the pool replaces the worker at once and sends the page's job to the next once (workers.mjs's
+// restart(), D1126). A page of CI's WebKit said only "access to a null reference (evaluating
+// '__pyproxy_apply(t,e,n,o,s)')": JavaScriptCore's name for a fault of wasm code at an address below the lowest one a
+// process may map (its fault handler's, meant for Wasm GC's struct and array reads), inside the C call of a Python
+// function the worker called (pyproxy.c's), so a trap, not a destroyed PyProxy (Pyodide refuses a call of one in JS,
+// before any wasm runs); and, bare, from a call no mount held (a build's unmount said "already fatally failed").
 const SAID = 40, FRAMES = 4, said = [];
 let dead = null, calling = null;   // the trap that ended this worker's engine, located; the call it was in
 const told = (line) => {
