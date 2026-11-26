@@ -1327,6 +1327,47 @@ def test_a_confirm_that_holds_in_another_zone_is_credited_to_that_pair():
     assert g.counts["zone witnesses a confirm held in another zone than its candidate's"] == 1
 
 
+def test_a_plan_whose_witness_stays_early_costs_no_other_plans_third_zone_credit():
+    """AZ-849 (Step 4.79h; 4.79g's review): AZ-840's credit came only from the confirms a hold read before its rank's
+    stayer, so where a graph of more plans held a new plan's witness that stays ahead of an escalation's kernel
+    candidate, the hold never read that candidate's confirm and the third zone pair's rank its confirm gave the
+    smaller graph went (e7.Z106>Z181@0 so).  Each plan now walks its own kernel candidates of a rank until one's
+    confirm stays, so every confirm a graph of fewer plans read is read (asked by the hold, not read from what a cache
+    holds) and its credit kept; a plan's walk keeps nothing in the rank.  Of equal witnesses the first found goes first
+    in the cap's spill too (the 4.79h review): one kept in pushed order turned a plan's tied kernel candidates round in
+    the graph of more plans, so its walk stopped at the one that stays before the other's confirm."""
+    run = {"run": {"settled": [12, 0, 0]}}
+    conf = {"k1": [45, 0, 0], "k2": [27, 0, 0], "kx": [45, 0, 0], "ky": [29, 0, 0]}   # FastL3 holds k1, kx in Z2
+    lands = conf | {"sa": [5, 0, 0], "sb": [6, 0, 0]}                                 # ... sa and sb leave for Z0
+
+    def held(outs):
+        g = graph.Graph(_Lots(), {f"j{k}": {"key": f"j{k}", "takeoff_feet": [1, 0, 0], "from": "Z0"}
+                                  for k in range(len(outs))},
+                        [{"key": f"j{k}", "id": i, "starts": run, "outcomes": [o]} for k, (i, o, _) in enumerate(outs)],
+                        {f"j{k}": [p] for k, (_, _, p) in enumerate(outs)})
+        asked = []                                  # an empty answer cache: only what the hold asks is replayed
+
+        def answer(w):
+            s = w["string_sha12"]
+            if s not in asked:
+                return None
+            land = lands.get(s, [26, 0, 0])
+            got = {"land": land, "state": 0, "same": True}
+            return got | {"outcome": _out(f"{s}'", 41, land)} if s in conf else got
+        while want := g.hold(answer):
+            asked += [w["string_sha12"] for w in want]
+        return {p: [w["string_sha12"] for w in g.witnesses(p)] for p in sorted(g.zones)}, asked
+    small = [("ea1", _out("k1", 40, [25, 0, 0], by="kernel"), "e10")]     # an escalation's: tried after every other
+    assert held(small)[0] == {("Z0", "Z2"): ["k1'"]}
+    kept, asked = held(small + [("gd1", _out("s1", 30, [26, 0, 0]), "dp"),
+                                ("gd2", _out("k2", 50, [27, 0, 0], by="kernel"), "dp")])
+    assert kept == {("Z0", "Z1"): ["s1"], ("Z0", "Z2"): ["k1'"]} and {"k1", "k2"} <= set(asked)
+    tied = [("a1", _out("sa", 10, [26, 0, 0]), "p"), ("a2", _out("sb", 20, [27, 0, 0]), "p"),
+            ("a3", _out("kx", 30, [28, 0, 0], by="kernel"), "p"), ("a4", _out("ky", 30, [29, 0, 0], by="kernel"), "p")]
+    assert held(tied)[0] == {("Z0", "Z1"): ["ky'"], ("Z0", "Z2"): ["kx'"]}     # ky past the cap: the spill's
+    assert held(tied + [("a5", _out("sn", 5, [30, 0, 0]), "q")])[0] == {("Z0", "Z1"): ["sn"], ("Z0", "Z2"): ["kx'"]}
+
+
 def test_under_rigs_a_confirm_that_holds_in_another_zone_is_routed_before_it_is_credited(tmp_path, monkeypatch):
     """The 4.79a review (AZ-840 under ``--rigs``): ``reach_engine``'s hold asks ``rigs.Router.decide`` whether an
     answer stays where it holds, no longer only in its kernel candidate's to-zone, which had passed a confirm holding

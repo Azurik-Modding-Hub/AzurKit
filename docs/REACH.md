@@ -583,8 +583,16 @@ Step 4.79g what a share's cap of 3 pushes out is the rank's spill, which the hol
 where it leaves, each cached answer read once: a second plan of one stage (4.76c's
 deep census, a retarget plan beside 4.76b's) shares its share, and its quicker re-aims that left had pushed out
 witnesses that stay, nine zone pair ranks on e7, f2 and w1 (AZ-848); the hold of a graph built from more records now
-keeps every zone pair rank the smaller graph's kept from that pair's own candidates (a third zone's credit, AZ-840,
-rests on which confirms a hold reads). The
+keeps every zone pair rank the smaller graph's kept from that pair's own candidates. Since Step 4.79h each plan
+also walks its own kernel candidates of a rank, in the hold's order, until one's FastL3 confirm stays, for what a
+confirm gives besides its stay (touches, MAY, node edge and a third zone's credit, AZ-840 below): the credit had come
+only from the confirms read before the rank's stayer, so a graph of more plans whose new witness stayed ahead of an
+escalation's candidate lost the rank that candidate's confirm credited (e7.Z106>Z181@0, AZ-849). A kernel candidate
+the hold reaches has none of its own plan's ahead of it staying, so its plan's walk reads it in any graph of more
+plans: a graph's witnesses and credits are its plans' own, never what the answer cache holds, and a graph of more
+plans keeps each credit a smaller one's gave, where it lists the smaller one's plans first and in order and each
+plan's witnesses of a rank fill one share (of equal witnesses the first found goes first, in the cap's tries and
+its spill alike; reading every kernel candidate's confirm would keep them too, at e7's 430,783 more replays). The
 reach audit's graph-side guards (Step 4.79a) fixed four of its flaws: a walk-off that flapped (as L3 ran it, or as
 FastL3's confirm of a kernel candidate did) flew on the snapshot's flap latch (+0x164, which R6 doesn't write, so a
 flap could lift on the last jump's peak where a seed's lifts nothing) and now takes no zone slot, node edge or touch,

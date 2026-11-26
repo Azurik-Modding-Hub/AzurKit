@@ -151,12 +151,14 @@ def _plan(level: str, plan: str, snap: dict, backend: str = "l3") -> dict:
     return doc
 
 
-def _plans(level: str, plans, snap: dict, backend: str = "l3") -> list[dict]:
-    """The jobs of every plan in ``plans`` (:func:`_plan`), each key once."""
+def _plans(level: str, plans, snap: dict, backend: str = "l3", of: dict | None = None) -> list[dict]:
+    """The jobs of every plan in ``plans`` (:func:`_plan`), each key once; ``of`` takes each key's plans, each once."""
     out = {}
     for name in plans:
         for j in _plan(level, name, snap, backend)["jobs"]:
             out.setdefault(j["key"], j)
+            if of is not None and name not in (got := of.setdefault(j["key"], [])):   # a plan may repeat a key
+                got.append(name)
     return list(out.values())
 
 
@@ -528,13 +530,13 @@ def _hold_audit(snap: dict, base: Path, items, workers: int | None, kernel: dict
 
 
 def _graph(a, nodes: Nodes | None = None, keep=None):
-    """The plans' graph, every zone witness held (:func:`_hold`); with ``keep``, of each record as ``keep`` gives
-    it (``aim.unscheduled``: the refinement's)."""
-    snap, base = _snap(a.snapshot, a.store), cache.folder(a.level)
-    jobs = _plans(a.level, a.plan, snap, getattr(a, "backend", "l3"))
+    """The plans' graph, every zone witness held (:func:`_hold`; each plan walking its own kernel candidates too,
+    AZ-849); with ``keep``, of each record as ``keep`` gives it (``aim.unscheduled``: the refinement's)."""
+    snap, base, of = _snap(a.snapshot, a.store), cache.folder(a.level), {}
+    jobs = _plans(a.level, a.plan, snap, getattr(a, "backend", "l3"), of)
     recs = [(keep or (lambda r: r))(r) for j in jobs if (r := cache.get(base, j["key"])) is not None]
     nodes = _nodes(a.level) if nodes is None else nodes
-    g = Graph(nodes, {j["key"]: j for j in jobs}, recs)
+    g = Graph(nodes, {j["key"]: j for j in jobs}, recs, of)
     doc = _plan(a.level, a.plan[0], snap, getattr(a, "backend", "l3"))
     _hold(g, recs, snap, base, getattr(a, "workers", None), getattr(a, "l3", "fast"),
           _kernel(a.level, snap, jobs, base / f"targets-{doc['touch']}.json"),

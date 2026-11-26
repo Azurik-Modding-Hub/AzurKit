@@ -28,13 +28,24 @@ one, by the same order (escalations still last), so it is replayed only where no
 4.79g: a second plan of one stage, 4.76c's deep census beside 4.76b's retarget, shares its share, and its quicker
 re-aims that left pushed out witnesses that stay; e7, f2 and w1 lost nine zone pair ranks so).  So the hold of a
 graph built from more records keeps every zone pair rank the smaller graph's hold kept from that pair's own
-candidates (a third zone's credit, AZ-840 below, rests on which confirms a hold reads).  A first
+candidates.  The confirms a hold reads (the credit of a third zone, AZ-840 below, and a confirm's touches, MAY and
+node edge) are made monotone in plans too (AZ-849, Step 4.79h): with the graph's plans given (``plans``: each job
+key's), each plan also walks its own kernel candidates of a rank, in the hold's order, until one's confirm stays, so
+every confirm the hold of a graph of fewer plans read is read in a graph of more plans (any kernel candidate that
+hold reached had none of its own plan's ahead of it stay), however early a new plan's witness stays, where the graph
+of more plans lists the fewer's plans first and in order (its records then keep their found order and twin skips)
+and each plan's witnesses of a rank fill one share: of equals the first found goes first, in the cap's tries and its
+spill alike (a spill that kept what the cap pushed out in pushed order turned a plan's ties round).  e7's deep census
+held a witness ahead of an escalation's candidate whose confirm credited Z106>Z181@0, and the rank went.  A graph's
+witnesses and credits are its plans' own, never what the answer cache holds.  Every kernel candidate's confirm would
+do too, at e7's dp's 430,783 more replays.  A first
 touch-down on a third node the body then left is a MAY candidate; the volumes and pickups its body centre touched are
 edges to them (``vol:<id>``, ``pick:<location>``).  A kernel outcome (``by`` "kernel": Step R2.19d's launch backend,
 ``reach_native.backend``) is a zone witness candidate only: it gives no node edge, MAY candidate or touch itself, and
 a zone witness only once its hold (FastL3's confirm) stays, the witness then taking the confirm's re-derived fields
-(D845: every counted link has a witness in the game's own code); each confirm the hold runs, staying or not, gives the
-touches, MAY candidate and node edge of FastL3's run of the string, as an L3 outcome does (Step R2.19k).  An edge
+(D845: every counted link has a witness in the game's own code); each confirm the hold runs, staying or not, a
+plan's own walk's too (AZ-849), gives the touches, MAY candidate and node edge of FastL3's run of the string, as an
+L3 outcome does (Step R2.19k).  An edge
 onto or off a node of the snapshot's frozen world (``Nodes.frozen``: a rig deck at its rest pose, a toggled solid as
 loaded) is flagged, as is one that ends swimming (``swim``).  A walk-off that flapped (AZ-838), as L3 ran it or as
 FastL3's confirm of a kernel candidate did, gives no zone slot, node edge or touch, only (an L3 run's) a MAY
@@ -58,6 +69,7 @@ but for the outcomes it reads.
 from __future__ import annotations
 
 import collections
+import itertools
 
 from devkit.reach.engine.macros import min_rank
 
@@ -93,17 +105,20 @@ class Graph:
     """The edges a set of job records gives over ``nodes`` (:class:`~.nodes.Nodes`): ``edges[(a, b)][rank]`` the
     best witness of each rank, ``zones[(za, zb)][rank]`` the same between the logic's zones, ``cands`` its
     :data:`TRIES` best a rank, ``spill`` what that cap pushed out (AZ-848), ``stayed`` its best whose record holds
-    its stay, ``touch`` the volume and pickup
+    its stay, ``plans`` each job key's plans (AZ-849, None for none: no plan walks its own), ``touch`` the volume and
+    pickup
     edges, ``may`` the first-contact candidates, ``counts`` what was dropped and why, ``aimed`` the derived edges an
     aim launched at and ``tried`` those an aim was run for (its aim point and to-zone), and :meth:`fault` an aimed
     edge's floor fault."""
 
-    def __init__(self, nodes, jobs: dict[str, dict], records) -> None:
+    def __init__(self, nodes, jobs: dict[str, dict], records, plans: dict[str, list] | None = None) -> None:
         self.nodes = nodes
+        self.plans = plans                    # each job key's plans (AZ-849: the hold's plans' own walks), or None
         self.edges: dict[tuple, dict[int, dict]] = collections.defaultdict(dict)
         self.zones: dict[tuple, dict[int, dict]] = collections.defaultdict(dict)
         self.cands: dict[tuple, dict[int, list]] = collections.defaultdict(dict)
         self.spill: dict[tuple, dict[int, list]] = collections.defaultdict(dict)   # the cap's (AZ-848), best first
+        self._found: dict[int, int] = {}      # each try's found index (AZ-849: of equals, the first found first)
         self.stayed: dict[tuple, dict[int, dict]] = collections.defaultdict(dict)
         self.touch: dict[tuple, int] = {}
         self.may: dict[tuple, int] = {}
@@ -205,13 +220,14 @@ class Graph:
         if any(x["string_sha12"] == w["string_sha12"] for x in got):   # the same string holds as its twin does
             self.counts["zone witnesses repeating a kept try's string, taking no try"] += 1
         else:
+            self._found[id(w)] = len(self._found)  # kept, in got or the spill, for the graph's life: ids don't recur
             got.append(w)
             got.sort(key=_order)                   # stable: of equals, the first found stays first
             kind = [i for i, x in enumerate(got) if _kind(x["id"]) == _kind(w["id"])]
             if len(kind) > TRIES:                  # the worst of w's own kind goes: a retarget's, a pair's, the rest's
                 spill = self.spill[(za, zb)].setdefault(r, [])     # ... to the rank's spill (AZ-848)
                 spill.append(got.pop(kind[-1]))
-                spill.sort(key=_order)
+                spill.sort(key=lambda x: (_order(x), self._found[id(x)]))   # of equals the first found, as in got
         self.zones[(za, zb)][r] = got[0]
         if "hold" in o and _better(w, self.stayed[(za, zb)].get(r)):
             self.stayed[(za, zb)][r] = w
@@ -244,15 +260,17 @@ class Graph:
         :attr:`cands` whose answer (``answer(w)``: ``hold.replay``'s, None while not replayed) :func:`hold.stays`
         in the pair's to-zone, else its :attr:`stayed` one, else the best of its :attr:`spill` (AZ-848), an
         escalation's tried last (a kernel candidate's answer is FastL3's confirm: the witness kept takes its
-        re-derived fields, :func:`confirmed`); a rank none of them stays for goes, and a pair with no rank left.  Each
-        confirm it read then adds its touches, MAY candidate and node edge (the module docstring), and a confirm whose
-        body holds in a third zone fills that pair's rank where no witness is kept (AZ-840); one whose walk-off
-        flapped stays nowhere and gives only its MAY (AZ-838).  While a candidate ahead of any that stays has no
-        answer, nothing changes and those candidates are returned: replay them, then call again; one of a spill goes
-        with as many unanswered ones after it as the spill's answered ahead of it, so a long spill that leaves takes
-        a few calls, not one a candidate (AZ-848)."""
+        re-derived fields, :func:`confirmed`); a rank none of them stays for goes, and a pair with no rank left.  With
+        :attr:`plans`, each plan's own walk of a rank's kernel candidates (:meth:`_walks`) reads their confirms too,
+        keeping nothing in the rank (AZ-849); each confirm read then adds its touches, MAY candidate and node edge
+        (the module docstring), and a confirm whose body holds in a third zone fills that pair's rank where no witness
+        is kept (AZ-840); one whose walk-off flapped stays nowhere and gives only its MAY (AZ-838).  While a candidate
+        ahead of any that stays (the hold's or a plan's walk's) has no answer, nothing changes and those candidates
+        are returned: replay them, then call again; one of a spill, or of a plan's walk, goes with as many unanswered
+        ones after it as that walk answered ahead of it, so a long walk that leaves takes a few calls, not one a
+        candidate (AZ-848)."""
         from devkit.reach.engine.hold import SWIMMING, stays
-        want, keep, confirms, spilled, asked = [], {}, [], 0, 0
+        want, keep, confirms, spilled, asked, walks = [], {}, [], 0, 0, collections.Counter()
         for (za, zb), ranks in self.cands.items():
             for r, ws in ranks.items():
                 held = self.stayed.get((za, zb), {}).get(r)
@@ -260,6 +278,7 @@ class Graph:
                 spill = [x for x in self.spill.get((za, zb), {}).get(r, ()) if x is not held]   # AZ-848: the cap's
                 ids = {id(x) for x in spill}
                 order = sorted(tries + spill, key=lambda x: _kind(x["id"]) == ESCALATE)   # g3's last: the docstring
+                stop, more = len(order), []
                 for i, w in enumerate(order):
                     if (got := answer(w)) is None:
                         want.append(w)
@@ -268,6 +287,7 @@ class Graph:
                             more = [x for x in [x for x in order[i + 1:] if id(x) in ids][:n] if answer(x) is None]
                             want += more
                             asked += 1 + len(more)
+                        stop = i
                         break
                     if got.get("outcome") is not None:     # a confirm (an aim's hit's: its edges are in)
                         confirms.append((w, got, za, zb))
@@ -276,10 +296,17 @@ class Graph:
                     if stays(got, zb, self.nodes.zone_at):
                         keep[(za, zb), r] = confirmed(w, got)
                         spilled += any(x is w for x in spill)
+                        stop = i
                         break
+                if self.plans is not None:         # AZ-849: each plan's own walk of its kernel candidates
+                    walks += self._walks(order, {id(x) for x in order[:stop + 1] + more}, answer, want, confirms,
+                                         za, zb)
         if want:
             self.counts["spilled candidates the hold asked to replay"] += asked   # every call's, so the spill's cost
+            self.counts["kernel candidates the plans' own walks asked to confirm"] += walks["asked"]   # ... too
             return want
+        if self.plans is not None:
+            self.counts["FastL3 confirms only the plans' own walks read"] = walks["read"]
         other: dict[tuple, dict] = {}
         latched = 0
         for w, got, za, zb in confirms:      # FastL3's run of the string: its touches, MAY and node edge count
@@ -318,6 +345,39 @@ class Graph:
                 n += 1
         self.counts["zone witnesses a confirm held in another zone than its candidate's"] = n
         return []
+
+    def _walks(self, order: list, done: set, answer, want: list, confirms: list, za, zb) -> collections.Counter:
+        """A zone pair rank's plans' own walks (AZ-849, the module docstring): each plan's kernel candidates of the
+        rank, in the hold's order, until one's confirm stays in ``zb``, each confirm read that the hold's own walk
+        (``done``: what it read or asked) didn't going into ``confirms``; where one has no answer, it goes into
+        ``want`` with as many unanswered ones after it as that walk answered ahead of it (AZ-848's batches), and the
+        walk waits.  What they asked and read."""
+        from devkit.reach.engine.hold import stays
+        out, walks = collections.Counter(), {}
+        for w in order:
+            if w["by"] in ("kernel", "confirmed"):     # a kernel candidate (one the hold kept is confirmed in place)
+                for p in self.plans.get(w["job"], ()):
+                    walks.setdefault(p, []).append(w)
+        for ws in walks.values():
+            for i, w in enumerate(ws):
+                if (got := answer(w)) is None:
+                    if id(w) not in done:              # asked already by the hold's walk or another plan's
+                        ask = [w] + list(itertools.islice((x for x in ws[i + 1:]
+                                                           if id(x) not in done and answer(x) is None), i))
+                        want += ask
+                        done.update(id(x) for x in ask)
+                        out["asked"] += len(ask)
+                    break
+                if id(w) not in done:
+                    done.add(id(w))
+                    if got.get("outcome") is not None:
+                        confirms.append((w, got, za, zb))
+                        out["read"] += 1
+                if got.get("outcome") is not None and _latched(w, got["outcome"]):
+                    continue
+                if stays(got, zb, self.nodes.zone_at):
+                    break
+        return out
 
     def fault(self, edge: str) -> str | None:
         """Derived edge ``edge``'s (``from>to:kind:confidence``) floor fault (AZ-723), None if none or no aim was run
