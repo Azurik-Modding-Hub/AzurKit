@@ -372,7 +372,9 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
   SaveGame #2, R7 to the level's arrival (the engine's snapshots'), kit 0,
   popups seen, the player ticks run to the snapshot's event clock, a
   checkpoint and its `control_state_sha12`. `--start recipe` (v1's
-  proposal) takes one L3 snapshot there and runs the record's own setup in
+  proposal) takes one L3 snapshot there, where and when the engine's own
+  were taken (the scene entry on the snapshot's event clock, 0 ticks past;
+  any other is refused), and runs the record's own setup in
   L3 (its wait, R6, the 20-tick settle, R2, the cast; the record's start
   camera on every tick no pad sets), then the string and 60 idle ticks,
   and xemu replays all of it tick for tick; `--start placed` is R2.16e's

@@ -2263,11 +2263,13 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
         def restore(self, name):
             self.body = [0.0, -3.0, 1.0]
 
-        def snapshot(self, label, store):
+        def snapshot(self, label, store, scene=False):   # it runs one more player tick to its entry
+            self.t += 1 / 30
             p = Path(store) / f"{label}.l3snap"
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(b"")
-            self.metas[p] = {"label": label, "pos": list(self.body), "state": 0, "hp": 100, "clock": self.t}
+            self.metas[p] = {"label": label, "pos": list(self.body), "state": 0, "hp": 100, "clock": self.t,
+                             "at": "scene" if scene else "update"}
             return p
 
         def replay(self, pads, rows, meta):
@@ -2355,3 +2357,56 @@ def test_a_witness_check_passes_only_a_start_that_stands_a_body_alive_in_its_to_
     assert (got["truth"]["joined"], got["truth"]["agree"]) == (3, 2)
     assert [(m["start"], m["ref"], m["verdict"], m["kept"]) for m in got["truth"]["moved"]] == [
         ("recipe", "r/start@m", "START", ["PASS"])]
+
+
+def test_the_recipe_starts_arrival_snapshot_is_the_scene_entry_on_the_engine_snapshots_clock(tmp_path):
+    """Step 4.78e (4.78b's S1): the engine's start snapshots are scene-entry snapshots on their event clock, each
+    taken from before the player tick that reads it.  A player tick reads the next update's clock (the game moves
+    the entity's +0x18 in its update before the state machine) and a snapshot runs one more player tick to its
+    entry, so the recipe's arrival stops one tick short and takes a scene snapshot, 0 ticks past the engine's (4.78b's
+    stopped on the clock and took an update-entry one 1 tick past, so S1 could not compare them); an arrival snapshot
+    anywhere else is refused by name.  The placed start's arrival stays on the clock and takes none."""
+    from types import SimpleNamespace
+
+    from devkit.reach import witness_check as wc
+
+    class Game:   # the game's clock order: each player tick reads the next update's clock
+        def __init__(self, first=9.9):
+            self.first, self.rows, self.metas = first, [], {}
+
+        def boot(self):
+            self.t = self.first
+            return {"s": 1.0}
+
+        def clock(self):
+            self.t += 1 / 30
+            return self.t
+
+        def snapshot(self, label, store, scene=False):
+            self.t += 1 / 30
+            p = Path(store) / f"{label}.l3snap"
+            self.metas[p] = {"clock": self.t, "at": "scene" if scene else "update"}
+            return p
+
+        def result(self, row):
+            self.rows.append(row)
+
+        xbe, ids, hop = (lambda self: b""), (lambda self: {}), (lambda self, level: {"ok": True, "s": 1.0})
+        kit, ram_sha12 = (lambda self, levels: {}), (lambda self: "c" * 12)
+        quiet = checkpoint = note = lambda self, *a: None
+
+    src = SimpleNamespace(engine_meta=lambda snap: {"clock": 10.0}, sim=lambda sn, xbe: None)
+
+    def arrive(start, game):
+        src.snapshot = lambda path: SimpleNamespace(meta=game.metas[path])
+        wc.Check(game, src, ev=tmp_path, name="t", folder=tmp_path / "t", start=start).arrive("t", {})
+        return game.rows[-1]
+
+    row = arrive("recipe", game := Game())
+    assert (row["snapshot_ticks_past"], row.get("snapshot_at"), row["clock"]["ticks_past"]) == (0.0, "scene", -1.0)
+    assert [m["at"] for m in game.metas.values()] == ["scene"]
+    row = arrive("placed", game := Game())
+    assert (row["snapshot_ticks_past"], row["clock"]["ticks_past"], game.metas) == (None, 0.0, {})
+    with pytest.raises(SystemExit, match="1.0 ticks past the engine snapshot's clock"):
+        arrive("recipe", Game(first=10.0 - 1 / 30))   # its first tick already reads the engine's clock
+

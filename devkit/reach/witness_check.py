@@ -16,7 +16,10 @@ every popup seen, the player ticks run to the engine snapshot's event clock, an 
 ``control_state_sha12``.  Per row, from that checkpoint (the check, v1):
 
 - **the start:** ``--start recipe`` (v1's proposal) takes one L3 snapshot a level at the arrival (into the L3
-  store's ``witness-check/<NAME>/``, never ``reach-live``) and runs the witness record's own setup in L3 from it (its
+  store's ``witness-check/<NAME>/``, never ``reach-live``), where and when the engine's own were taken: at the scene
+  entry whose event clock is the engine snapshot's (0 ticks past; Step 4.78e: a player tick reads the clock of the
+  next update and a snapshot runs one more player tick, so the run to it stops one tick short; any other arrival
+  snapshot is refused), and runs the witness record's own setup in L3 from it (its
   idle wait, R6 onto the start's feet at its yaw in its cell, the 20-tick settle, R2's kit, with air the cast), then
   the string and :data:`HOLD` idle ticks, every tick whose pad holds no camera carrying the record's start camera
   (``runner.find_start``'s ``cam``); xemu replays that whole run tick for tick with L3's writes and camera.
@@ -94,6 +97,7 @@ HIT = 0x102               # entity+0x94: the hit handler's state (13 ticks, the 
 PHASES = (0, 15, 30)      # idle ticks before the R6 a try waits: the first, then one more each after a WORLD miss
 SAVE_TAG, SAVE = "vanilla-ig-new", 2   # the D98 drive's new-game character, as the engine's snapshots were taken
 PRESSES = 20              # A presses on the way to the snapshot's clock (a dialog) before the arrival fails
+TICK = 1 / 30             # a player tick on the event clock (vanilla's 30 a second)
 FOLDER = "witness-check"  # the L3 store's folder of a run's arrival snapshots (<FOLDER>/<NAME>/)
 PRIVATE = frozenset({"pos", "feet", "land", "settled", "first", "took", "cam", "segments", "obs", "writes",
                      "centre", "quat"})   # keys that hold a position, a camera or a string: never in a public row
@@ -484,8 +488,8 @@ class Game:
     def ram_sha12(self) -> str:
         return self.s.sb.ram_sha256()[:12]
 
-    def snapshot(self, label: str, store: Path) -> Path:
-        return Path(self.s.sb.snapshot(label, store=store)["path"])
+    def snapshot(self, label: str, store: Path, scene: bool = False) -> Path:
+        return Path(self.s.sb.snapshot(label, store=store, scene=scene)["path"])
 
     def replay(self, pads, rows, meta) -> tuple[list, dict]:
         from devkit.reach import l3_certify
@@ -641,7 +645,12 @@ class Check:
         kit = g.kit({})
         g.quiet()
         want, waited, presses = self.src.engine_meta(snap)["clock"], 0, 0
-        while (clock := g.clock()) is None or clock < want - 1e-6:
+        # The engine's snapshots are scene-entry snapshots on their clock, each taken (``Sandbox.snapshot(scene=
+        # True)``) from before the player tick that reads it: the game advances the entity's event clock (+0x18)
+        # in its update before the state machine, so a player tick reads the next update's clock, and a snapshot
+        # runs one more player tick before its entry.  The recipe's arrival stops one tick short and takes one so.
+        stop = want - (TICK if self.start == "recipe" else 0.0)
+        while (clock := g.clock()) is None or clock < stop - 1e-6:
             if clock is None:
                 presses += 1
                 if presses > PRESSES:
@@ -652,11 +661,15 @@ class Check:
         g.quiet()
         arr: dict = {}
         if self.start == "recipe":
-            path = g.snapshot(self._label(level, "arrive"), self.folder)
+            path = g.snapshot(self._label(level, "arrive"), self.folder, scene=True)
             self.snaps.append(path)
             sn = self.src.snapshot(path)
-            arr |= {"meta": sn.meta, "sim": self.src.sim(sn, self.xbe),
-                    "snapshot_ticks_past": round((sn.meta["clock"] - want) * 30, 2)}
+            past = round((sn.meta["clock"] - want) / TICK, 2)
+            if past or sn.meta.get("at") != "scene":
+                raise SystemExit(f"{level}: the arrival snapshot is at the {sn.meta.get('at')} entry {past} ticks past "
+                                 "the engine snapshot's clock, not at the scene entry on it")
+            arr |= {"meta": sn.meta, "sim": self.src.sim(sn, self.xbe), "snapshot_ticks_past": past,
+                    "snapshot_at": sn.meta["at"]}
         g.checkpoint(f"arrive-{level}")
         arr["ctrl"] = g.ram_sha12()
         self.arrived[level] = arr
@@ -665,7 +678,8 @@ class Check:
                          "kit_read_back": kit, "clock": {"want": round(want, 4), "got": round(clock, 4),
                                                          "ticks_past": round((clock - want) * 30, 2),
                                                          "ticks_run": waited, "a_presses": presses},
-                         "snapshot_ticks_past": arr.get("snapshot_ticks_past"), "control_state_sha12": arr["ctrl"],
+                         "snapshot_ticks_past": arr.get("snapshot_ticks_past"), "snapshot_at": arr.get("snapshot_at"),
+                         "control_state_sha12": arr["ctrl"],
                          "s": round(time.monotonic() - t0, 1)}))
 
     def row(self, level: str, doc: dict, r: dict, zone_at) -> None:
