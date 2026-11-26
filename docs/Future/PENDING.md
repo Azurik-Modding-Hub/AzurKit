@@ -363,10 +363,12 @@ owner played, D1334).
       credit, not monotone in records (it rested on which confirms a hold
       reads: AZ-849, fixed by 4.79h, each plan walking its own kernel
       candidates of a rank until one's confirm stays). 4.79h's e7 re-read
-      stopped at its CPU line: those walks' one-time replays on e7's dp
-      passed 29,021 (every kernel candidate's confirm would be 430,783),
-      cached; the e7 bar and f2's and w1's credits are owed (4.79f's A side
-      pays the replays first). The census's probe-needed yield, its 10 m graph
+      (both sides on its code): 0 zone ranks lost (Z106>Z181@0 back),
+      third-zone credits 23 to 61 on the 10 m graph and 22 to 66 on the
+      deep one, the kernel-confirmed witnesses unchanged; the walks' one-time
+      replays about 38,800 on e7, cached after. f2's and w1's credits are
+      owed (4.79f's A side pays their replays first). The census's
+      probe-needed yield, its 10 m graph
       to the deep census: e7 972 to 1,104, f2 1,994 to 2,225, w1 2,330 to
       2,565. A level's first graph after it replays each rank's whole spill
       once where none stays (f2 43,436 replays, 1.1 CPU-h), cached after.
