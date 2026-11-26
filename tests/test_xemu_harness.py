@@ -607,6 +607,34 @@ def test_a_clip_folder_named_relative_is_kept_resolved_so_the_owners_list_links_
                                                                                        / "t-a.mp4").resolve())
 
 
+@pytest.mark.xemu
+def test_a_clips_picture_is_refused_by_name_where_the_display_query_gives_no_picture_stale_to_date_it_by(tmp_path):
+    """Step 4.78g (4.78c's review, 3): before v0.16.1 the display query gives no ``picture-stale``, and ``flip-loads``
+    under ``loads`` misses a checkpoint restore (fresh for 1-6 vblanks while the picture is the loaded frame), so each
+    clip try's first pictures, from its restore, could be the old frame taken as fresh: a clip's picture refuses such
+    a reply by name and takes no screendump; with ``picture-stale`` it skips a stale frame and takes a fresh one."""
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from devkit.xemu import clip, oracle   # macOS's own calls: imported here, as the harness
+
+    sent = []
+
+    def box(reply):   # a halted offscreen sandbox whose display query answers ``reply``
+        def qmp(cmd, **a):
+            sent.append(cmd)
+            if cmd == "screendump":
+                Path(a["filename"]).write_bytes(b"")
+            return {"return": reply if cmd == oracle.DISPLAY_QUERY else {}}
+        return SimpleNamespace(st={"headless": "1", "display_query": True}, w=str(tmp_path), qmp=qmp)
+    with pytest.raises(SystemExit, match=f"{oracle.DISPLAY_QUERY} gives no picture-stale"):
+        clip.picture(box({"loads": 2, "flip-loads": 2}), tmp_path / "a.png")
+    assert sent == [oracle.DISPLAY_QUERY]
+    assert clip.picture(box({"picture-stale": True, "loads": 2, "flip-loads": 2}), tmp_path / "b.png") is None
+    assert clip.picture(box({"picture-stale": False}), tmp_path / "c.png") == tmp_path / "c.png"
+    assert sent.count("screendump") == 1
+
+
 @pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
                                      pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
                                                   id="europe")])

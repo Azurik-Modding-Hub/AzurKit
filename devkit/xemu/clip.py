@@ -33,23 +33,24 @@ def need(tool: str) -> str:
     return path
 
 
-def stale(d: dict) -> bool:
-    """Whether the picture on screen predates the last load or restore, by ``query-xemu-display``'s reply ``d``:
-    ``picture-stale`` (v0.16.1), else ``flip-loads`` under ``loads`` (no flip since)."""
-    return bool(d["picture-stale"]) if "picture-stale" in d else d.get("flip-loads", -1) < d.get("loads", 0)
-
-
 def picture(sb, dest: Path) -> Path | None:
     """The halted guest's frame on screen as a PNG at ``dest`` (mode 0600), or None while it predates the last load
-    or checkpoint restore: never an advance to freshen it.  Refused (SystemExit) on the null renderer, ``null_ram``
-    and a build that can't date a picture (no ``query-xemu-display``, v0.15 on)."""
+    or checkpoint restore (``query-xemu-display``'s ``picture-stale``): never an advance to freshen it.  Refused
+    (SystemExit) on the null renderer, ``null_ram`` and a build that can't date a picture: no ``query-xemu-display``
+    (v0.15 on), or a reply without ``picture-stale`` (v0.16.1 on; before it ``flip-loads`` under ``loads`` missed a
+    checkpoint restore, fresh for 1-6 vblanks while the picture was the loaded frame, and each clip try starts at
+    one)."""
     st = sb.st
     if st.get("headless") == "null" or st.get("null_ram"):
         raise SystemExit("clip: the null renderer draws nothing and null_ram draws only by running the guest: a clip "
                          "runs offscreen (headless '1', deterministic)")
     if not st.get("display_query"):
         raise SystemExit(f"clip: this xemu can't date a picture (no {DISPLAY_QUERY}: v0.15 on)")
-    if stale(sb.qmp(DISPLAY_QUERY).get("return", {})):
+    d = sb.qmp(DISPLAY_QUERY).get("return", {})
+    if "picture-stale" not in d:
+        raise SystemExit(f"clip: this xemu's {DISPLAY_QUERY} gives no picture-stale (v0.16.1 on): without it a "
+                         "picture just after a checkpoint restore can't be dated")
+    if d["picture-stale"]:
         return None
     tmp = Path(sb.w) / f"clip.{os.getpid()}.png"   # xemu writes in W
     r = sb.qmp("screendump", filename=str(tmp), format="png")

@@ -431,10 +431,11 @@ zones. It ports R2.16e's sitting scripts onto `devkit.reach.engine`,
   (`--runs`, its evidence folder; `--refs`, a ref or 5 or more hex digits
   of its sha256; `--rows`, its rows files; `--start`, the start whose
   final checks it reads, `recipe` by default: a ref checked under both
-  has one each) again in one offscreen
-  deterministic sitting (no window), from a fresh arrival at its phase,
-  a picture a tick once the guest has flipped since the restore (never an
-  advance), made an MP4 in `--out` (private, mode 700, kept resolved so
+  has one each) again in one offscreen deterministic sitting (no
+  window), from a fresh arrival at its phase, a picture a tick once the
+  guest has flipped since the restore (never an advance; an xemu whose
+  display query gives no `picture-stale`, before v0.16.1, is refused by
+  name), made an MP4 in `--out` (private, mode 700, kept resolved so
   `list` links it from any folder) by ffmpeg
   (`devkit.xemu.clip`). A try whose per-tick rows (each tick's body
   centre, state and HP: the check row's `xemu_rows_sha12`, kept since
