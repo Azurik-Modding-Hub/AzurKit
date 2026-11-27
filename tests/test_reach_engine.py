@@ -464,9 +464,9 @@ def test_a_witness_is_an_edge_proof_record_whose_replay_is_owed(two_platforms):
 
 
 def _lift_router():
-    """A ``rigs.Router`` over a lift (1) moving 0.1 m a row from x = 30, a gate (2) parked for an undecoded trigger
-    and a door (3) parked with a read one; a kept frozen answer and its ``decide`` for a witness flying y -5..5 at
-    ``x``, ``z``."""
+    """A ``rigs.Router`` over a lift (1) moving 0.1 m a row from x = 30, a gate (2) parked for an undecoded trigger,
+    a door (3) parked with a read one and a ship (4) parked on its load pose (Step 4.83c); a kept frozen answer and
+    its ``decide`` for a witness flying y -5..5 at ``x``, ``z``."""
     from types import SimpleNamespace
 
     from devkit.reach.engine import rigs
@@ -476,7 +476,8 @@ def _lift_router():
     rows[:, 3, 0] = 30 - 0.1 * np.arange(400)
     verdicts = {1: {"name": "lift", "start": "load", "how": "cycles"},
                 2: {"name": "gate", "start": "undecoded", "how": "parked"},
-                3: {"name": "door", "start": "wired", "how": "parked"}}
+                3: {"name": "door", "start": "wired", "how": "parked"},
+                4: {"name": "ship", "start": "wired", "how": "parked", "load_posed": ["global:EarthRealm_fixed"]}}
     r = rigs.Router(lv, verdicts, {"poses": {1: rows.reshape(400, 16)}})
     got = {"land": [20.0, 5.0, 0.0], "state": 0, "settled": True, "same": True, "outcome": {"hp0": 200}}
 
@@ -490,8 +491,9 @@ def _lift_router():
 def test_the_router_trips_only_a_kept_witness_a_moving_rig_crosses_takes_out_undecoded_rigs_and_owes_the_wait(
         two_platforms):
     """Step R2.19h1's router (``rigs.Router``) on a witness's frozen hold answer: one the hold dropped stays as it is
-    (no trip rescues it); one touching a rig parked for an undecoded trigger is out (not the same, its confirm's
-    outcome gone, the rig named), one touching a read-trigger parked rig keeps its answer and names it; a lift moving
+    (no trip rescues it); one touching a rig parked for an undecoded trigger, or on its load pose (Step 4.83c: w1's
+    airship, its pose the globals' at load), is out (not the same, its confirm's outcome gone, the rig named), one
+    touching a read-trigger parked rig keeps its answer and names it; a lift moving
     0.1 m a row from x = 30 owes a trip to a witness it touches at its load pose and to one whose swept path its posed
     box crosses within the witness's window (the path swept first), never to one under which it passes 50 m lower or
     which it reaches only after a short window; and a trip that held after a 15-tick idle makes the witness's proof
@@ -502,6 +504,8 @@ def test_the_router_trips_only_a_kept_witness_a_moving_rig_crosses_takes_out_und
     how, out = decide([2])
     assert how == "out" and not out["same"] and "outcome" not in out and out["parked"] == ["gate"]
     assert decide([3], x=5.0) == ("as", got | {"parked": ["door"]})
+    how, out = decide([4], x=5.0)
+    assert how == "out" and not out["same"] and out["parked"] == ["ship"]
     assert decide([1], x=5.0) == ("trip", ([1], [])) and decide(swept=False) == ("sweep", None)
     assert decide() == ("trip", ([1], [])) and decide(z=-50.0) == ("as", got)
     assert decide(x=5.0) == ("as", got) and decide(x=5.0, ticks=200) == ("trip", ([1], []))
@@ -1735,8 +1739,9 @@ def test_a_rigs_start_is_read_from_its_wiring_and_poked_at_its_own_pad(usa_iso):
     touched, poked at Top1's touch (the R2.17 platforms prototype's L3 toggle dropped both); its Chain_Bob decks
     move from load; e7's mine elevator ramp, whose switch toggles while locked through an xor the wiring can't read,
     starts at its GoTriggerField's touch (``rig_triggers.py witness`` moved it in L3: the player spawns standing in
-    it, so the pad must change); d1's elevator, whose goal the elevator's own height feeds back into, is parked by
-    name."""
+    it, so the pad must change); d1's elevator, whose goal the elevator's own height feeds back into, starts at its
+    pads, its three buttons and its arrivals (17 terms; Step 4.83c: the loop is settled at load, so it can't start
+    itself), a button first."""
     def starts(level, *names):
         lv, T = _triggers(usa_iso, level)
         g = lv.graphs[0]
@@ -1754,7 +1759,205 @@ def test_a_rigs_start_is_read_from_its_wiring_and_poked_at_its_own_pad(usa_iso):
         "Chain_Bob:Chain_bobShape": ("load", None, None)}
     assert starts("e7", "rampShape")["rampShape"][1:] == ([["touch:GoTriggerFieldShape"]],
                                                          [("touch", "GoTriggerFieldShape", "condition")])
-    assert starts("d1", "ElevatorShape")["ElevatorShape"][0] == "undecoded"
+    kind, terms, pokes = starts("d1", "ElevatorShape")["ElevatorShape"]
+    assert (kind, len(terms), pokes) == ("wired", 17, [("actionButton", "SwitchShape", "condition")])
+
+
+class _Rigs:
+    """A synthetic level graph for :class:`triggers.Triggers` and its wiring (``nodes.Graph``'s shape): typed records
+    with stored attributes, links (a step curve's keys, or none), parents, a combiner's (n, fn) or a transform's
+    bind word at record +0x18/+0x1C and a latch's global; record 0 the mover, record 1 its deck (the rig)."""
+
+    def __init__(self):
+        from azurkit.tools.randomizer.art import nodes
+        table = nodes.node_types()["types"]
+        self.schema, self.Link = object.__new__(nodes.Schema), nodes.Link
+        self.schema.types = {}
+        for name, t in table.items():
+            chain, d = [], name
+            while d is not None:
+                chain, d = chain + [d], table[d]["parent"]
+            self.schema.types[name] = nodes.TypeInfo(name, list(t["attrs"]), chain[::-1])
+        self.types, self.names, self.vals, self.out, self.par, self.head, self.glob = [], [], [], [], {}, {}, {}
+        self._incoming = None
+        self.add("transform", "mover")
+        self.add("platform", "deck", parent=0)
+
+    def add(self, t, name, parent=None, head=(0, 0), glob=None, **vals) -> int:
+        r = len(self.types)
+        self.types.append(t)
+        self.names.append(name)
+        self.vals.append(vals)
+        self.out.append([])
+        self.par[r], self.head[r], self.glob[0x40 * (r + 1)] = parent, head, glob
+        return r
+
+    def link(self, src, sp, dst, dp, curve=None):
+        at = self.schema.types[self.types[src]].attrs.index(sp), self.schema.types[self.types[dst]].attrs.index(dp)
+        self.out[src].append((self.Link(src, at[0], dst, at[1], 1.0, 1, 1.0), curve))
+
+    def level(self, src, sp, plug):
+        """The level, its source ``src.sp`` linked to the mover's ``plug``: its bytes laid out (records, then each
+        record's link table, then the curves)."""
+        import struct
+        from azurkit.tools.randomizer.draft.geometry import CAT_RIG
+        self.link(src, sp, 0, plug)
+        n = len(self.types)
+        self.recs = [0x40 * (r + 1) for r in range(n)]
+        b = bytearray(0x40 * (n + 1))
+        for r, h in self.head.items():
+            struct.pack_into("<II", b, self.recs[r] + 0x18, *h)
+        self.tables = {}
+        for r in range(n):
+            self.tables[r], b = len(b), b + bytes(24 * len(self.out[r]))
+        for r in range(n):
+            for k, (_, cv) in enumerate(self.out[r]):
+                f = self.tables[r] + 24 * k + 4
+                if cv is None:
+                    struct.pack_into("<I", b, f, 1)
+                else:
+                    struct.pack_into("<i", b, f, len(b) - f)
+                    b += struct.pack("<IIi", 0, len(cv), 4) + b"".join(struct.pack("<4f", *key) for key in cv)
+        self.s = bytes(b)
+        return SimpleNamespace(name="t", graphs=[self], owners=[
+            {"oi": 0, "kind": "platform", "cat": CAT_RIG, "moved": True, "approx": False, "G": 0, "R": 1,
+             "name": "deck"}])
+
+    def links(self, i):
+        return [lk for lk, _ in self.out[i]]
+
+    def list_at(self, i, lo):
+        return self.tables[i], len(self.out[i])
+
+    def attrs(self, i):
+        return tuple(float(self.vals[i].get(a, 0.0)) for a in self.schema.types[self.types[i]].attrs)
+
+    def incoming(self):
+        if self._incoming is None:
+            self._incoming = collections.defaultdict(list)
+            for i in range(len(self.types)):
+                for k, lk in enumerate(self.links(i)):
+                    self._incoming[lk.dst].append((lk, k))
+        return self._incoming
+
+    def plug_name(self, i, plug):
+        return self.schema.attr(self.types[i], plug)
+
+    def pstr(self, ro, lo):
+        return self.glob.get(ro)
+
+    def ancestors(self, i):
+        out, p = [], self.par.get(i)
+        while p is not None:
+            out, p = out + [p], self.par.get(p)
+        return out
+
+
+def _rig_groups():
+    """Step 4.83c's eight decoded groups (the reach area's rig decodes and their checks), each as a synthetic rig:
+    its builder (the mover's source and plug) and the start it reads, atoms by record name."""
+    inf = float("inf")
+
+    def airship(g):           # w1: an and of two global latches lifts the docked ship (0x6A2E0, 0x69DFD)
+        e = g.add("latch", "EarthFixed", glob="EarthRealm_fixed")
+        w = g.add("latch", "WaterFixed", glob="WaterRealm_fixed")
+        c = g.add("combiner", "Summon", head=(2, 7))         # and
+        g.link(e, "output", c, "inputs[0]")
+        g.link(w, "output", c, "inputs[1]")
+        return c, "output", "translateZ"
+
+    def thrusters(g, bind=0):  # a5: a sum of locators no link sets (a level graph's tick runs links only)
+        loc = g.add("transform", "locator", head=(0, bind))
+        c = g.add("combiner", "plus", head=(1, 1))           # sum
+        g.link(loc, "rotateX", c, "inputs[0]")
+        return c, "output", "rotateY"
+
+    def elevator(g):          # d1: the call logic its own height feeds back into, settled at load
+        p, c = g.add("platform", "CallField"), g.add("combiner", "CallFloor", head=(2, 6))   # first non-zero
+        d = g.add("damper", "Elevator_damper", enable=1.0)
+        g.link(p, "touch", c, "inputs[0]")
+        g.link(0, "translateZ", c, "inputs[1]")
+        g.link(c, "output", d, "goal")
+        return d, "output", "translateZ"
+
+    def tube(g):              # w3, f3: a bend rig from a root no link sets
+        root, mid = g.add("transform", "Water_Tube_Start"), g.add("transform", "Water_Tube_Mid")
+        g.link(root, "rotateX", mid, "rotateX")
+        return mid, "rotateX", "rotateX"
+
+    def valves(g):            # a3: the flue puzzle whose solved state switches its own pads off
+        p, a = g.add("platform", "AirSwitch"), g.add("combiner", "and", head=(2, 7))       # and
+        n = g.add("combiner", "deactivate", head=(1, 12), output=1.0)                         # nand
+        f, v = g.add("switch", "Flue_toggle", lock=1.0), g.add("switch", "Valve_toggle")
+        g.link(p, "actionButton", a, "inputs[0]")
+        g.link(n, "output", a, "inputs[1]")
+        g.link(a, "output", f, "toggle")
+        g.link(f, "goal", n, "inputs[0]")
+        g.link(f, "goal", v, "turnOn")
+        return v, "output", "rotateY"
+
+    def handle(g):            # d1: Floor_handle, no link into it
+        return g.add("transform", "Floor_handle", rotateY=0.5), "rotateY", "rotateY"
+
+    def mirrors(g):           # e6: a locked switch's goal, its turnOn an xor of its pad (0x6A0F0 stores goal, 0x6A1F7)
+        p, x = g.add("platform", "MirrorPad"), g.add("combiner", "xor", head=(2, 8))     # xor
+        dis, s = g.add("switch", "DissableToggle"), g.add("switch", "Mirror_Toggle", lock=1.0)
+        t = g.add("timer", "Mirror_Joystck_Timer", stopTime=4.0, rate=1.0)
+        g.link(p, "touch", x, "inputs[0]")
+        g.link(dis, "output", x, "inputs[1]")
+        g.link(x, "output", s, "turnOn")
+        g.link(s, "goal", t, "enable")
+        return t, "currentTime", "translateY"
+
+    def statue(g):            # w1: the periscope's stick turns its heading through a window sampled off it
+        p = g.add("platform", "pCubeShape7")
+        per = g.add("timer", "PeriscopeTimer", stopTime=4.0, enable=1.0, repeat=1.0)
+        cam, rot = g.add("transform", "Camera"), g.add("switch", "StatueRotToggle", turnOff=1.0)
+        exp = g.add("switch", "ExplodeToggle", turnOff=1.0)
+        c, tog = g.add("combiner", "StatueCombiner", head=(2, 7)), g.add("switch", "StatueToggle", lock=1.0)   # and
+        t = g.add("timer", "StatueTimer", stopTime=5.0, rate=1.0)
+        g.link(p, "joystickX", per, "rate")
+        g.link(per, "currentTime", cam, "rotateZ")
+        g.link(cam, "rotateZ", rot, "turnOn", curve=[(0.0, 0.0, 0.0, inf), (3.0, 1.0, 0.0, inf),
+                                                     (3.5, 0.0, 0.0, inf), (4.0, 0.0, 0.0, inf)])
+        g.link(p, "joystickOn", exp, "turnOn")
+        g.link(rot, "output", c, "inputs[0]")
+        g.link(exp, "output", c, "inputs[1]")
+        g.link(c, "output", tog, "turnOn")
+        g.link(tog, "goal", t, "enable")
+        return t, "currentTime", "rotateX"
+
+    return [(airship, ("wired", [["global:EarthRealm_fixed", "global:WaterRealm_fixed"]])),
+            (thrusters, ("never", [])), (elevator, ("wired", [["touch:CallField"]])), (tube, ("never", [])),
+            (valves, ("wired", [["action:AirSwitch"]])), (handle, ("never", [])),
+            (mirrors, ("wired", [["touch:MirrorPad"]])), (statue, ("wired", [["joystick:pCubeShape7"]]))]
+
+
+@pytest.mark.parametrize("build,want", _rig_groups(), ids=[b.__name__ for b, _ in _rig_groups()])
+def test_each_decoded_rig_group_is_routed_by_its_trigger_rule(build, want):
+    """Step 4.83c: the reach area's eight rig decodes (264 rigs the census parked as undecoded, on 8 levels), each
+    as a synthetic rig read by its rule: w1's airship, an and of two global latches, starts on both globals and is
+    load-posed (its pose the load's for the visit); the airship thrusters' sum of locators and the water tubes' and
+    d1's Floor_handle's channels, which no link sets and no bind name binds (a level graph's tick runs links only;
+    0x68DE0 from 0x62C40 writes only an effect graph's bound markers), never move, a bound one stays undecoded; d1's
+    elevator, whose call logic its own height feeds back, is settled at load, so its loop can't start itself and it
+    starts at its pad; a3's valves, behind a puzzle that switches its own pads off, start at a pad through the and
+    and the locked toggle; e6's mirrors start when the goal of their switch does, its xor's pad; w1's torpedo tower
+    starts at the periscope's stick (its axes move under joystickOn), whose window the wiring reads off a single
+    sample of the heading, through the and and the toggle's goal."""
+    from azurkit.tools.randomizer.draft.wiring import Wiring
+    g = _Rigs()
+    lv = g.level(*build(g))
+    T = triggers.Triggers(lv, Wiring(lv, {}, {}))
+    st = T.rig(0)
+    name = lambda x: x if x.startswith("global:") else f"{x.split(':')[0]}:{g.names[int(x.split(':')[2])]}"  # noqa: E731
+    assert (st.kind, sorted(sorted(name(x) for x in t) for t in st.on)) == want and not st.leaves
+    if build.__name__ == "airship":
+        assert T.load_posed(0) == ["global:EarthRealm_fixed", "global:WaterRealm_fixed"]
+    if build.__name__ == "thrusters":
+        g = _Rigs()
+        lv = g.level(*build(g, bind=1))
+        assert triggers.Triggers(lv, Wiring(lv, {}, {})).rig(0).leaves == {"transform.rotateX (engine-set)"}
 
 
 def test_an_exported_rig_is_the_owner_its_movers_name_not_the_first_of_its_name(usa_iso):

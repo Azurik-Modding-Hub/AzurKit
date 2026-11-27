@@ -15,9 +15,10 @@ up to :data:`POKE_TICKS` or :data:`REST` still ticks.  Cached per snapshot, code
 **Deciding a deck** (:func:`decide`, D847): ``cycles``, ``path`` (it moves from load), ``static`` (never moves: the
 frozen world is the game's), ``toggled`` (a term of its start moved it: the link carries that term; a mover's own
 input only, the start's whole condition) are decided; ``parked``, by name with its reason, is every other: an
-undecoded start (``Start.leaves``), a read start no poke moved, no collision object.  A parked rig makes no rig link,
-and a witness touching one parked for an undecoded trigger is out of logic (D847, :class:`Router`) until a rigs-only
-re-run decodes it.
+undecoded start (``Start.leaves``), a load-posed one (``Triggers.load_posed``: its pose a global's at load), a read
+start no poke moved, no collision object.  A parked rig makes no rig link, and a witness touching one parked for an
+undecoded trigger or a load pose is out of logic (D847, :class:`Router`) until a rigs-only re-run decodes it (a
+load-posed one: until a replay holds in its every pose).
 
 **Hops and links** (:func:`search`, the order of work, never a witness): on the native kernel with every decided
 moving deck posed at the clock (``reach_native.World.movers``), from each zone's :data:`TAKEOFFS_N` takeoffs nearest
@@ -287,6 +288,8 @@ def decide(lv, T, rec: dict, toggles: dict) -> dict:
             d |= {"how": "parked", "why": "trigger undecoded: " + ", ".join(sorted(st.leaves))}
         elif st.kind in ("load", "never"):
             d["how"] = "static"
+        elif posed := T.load_posed(oi):
+            d |= {"how": "parked", "why": "load pose: " + " & ".join(posed), "load_posed": posed}
         elif oi not in toggles:
             d |= {"how": "parked", "why": "trigger read, not poked (not a deck of a hop)"}
         elif not toggles[oi]["witnessed"]:
@@ -900,9 +903,9 @@ class Router:
         from load is routed as a rig, AZ-842; its string's ``ticks``; ``stays``: that answer kept the body in its
         to-zone; ``boxes``: its swept path, :func:`path_boxes`, None while not swept; ``points``: :meth:`near`'s):
 
-        - ``("out", answer)``: its path touches a rig parked for an undecoded trigger (D847: out of logic), kept
-          or not: not the same, so the pair takes its next candidate, and its confirm's touches, MAY and node edge
-          go too;
+        - ``("out", answer)``: its path touches a rig parked for an undecoded trigger or a load pose (D847: out of
+          logic), kept or not: not the same, so the pair takes its next candidate, and its confirm's touches, MAY
+          and node edge go too;
         - ``("as", got)``: the frozen answer stands as it is; it failed (no trip rescues a witness its frozen hold
           or kernel confirm dropped: a trip only restricts, D845), or no moving rig meets it; a parked rig its
           path touches named in ``parked`` (PLAN-v2 §1.5d);
@@ -914,7 +917,7 @@ class Router:
         touched = [oi for oi in (*r.get("rigs", ()), *r.get("gates", ())) if oi in self.verdicts]
         parked = [oi for oi in touched if self.verdicts[oi]["how"] == "parked"]
         names = sorted({self.verdicts[oi]["name"] for oi in parked})
-        if any(self.verdicts[oi]["start"] == "undecoded" for oi in parked):
+        if any(self.verdicts[oi]["start"] == "undecoded" or self.verdicts[oi].get("load_posed") for oi in parked):
             return "out", {k: v for k, v in got.items() if k != "outcome"} | {"same": False, "parked": names}
         if not stays:
             return "as", got

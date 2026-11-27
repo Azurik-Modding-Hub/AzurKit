@@ -679,3 +679,20 @@ record's does, since its route is traced through the kernel's movers); no job or
 `--rigs` a witness on a moving toggled solid still counts at its load pose (the known flaw above: rigs stand still
 at the snapshot's pose).
 
+**The rig decodes (Step 4.83c).** The census parked 264 rigs on 8 levels as undecoded; the triggers' rules now read
+all of them (`rig-triggers census`: undecoded 264 to 0; wired 1,246 to 1,469, never 200 to 298, the 57 partial
+starts whole). An unlinked transform channel holds its stored value (a level graph's tick runs only its links; the
+fx bind writes only an effect graph's bound markers), so the airship thrusters (a5, a3, airship), w3's and f3's
+water tubes and d1's 36 Floor_handle floor pieces never move. A switch's goal starts with its output, so e6's 24
+mirror rigs start at their own pad's touch. A combiner the wiring can't read moves over its inputs (an and once each
+input 0 at load has moved), and a cycle settled at load can't start itself (its closing edge reads never, a plug
+read round it at its stored value), so d1's elevator starts at its three buttons, 11 call pads and 3 arrivals and
+a3's six valves at their flues' AirSwitch pads. A platform's stick axes move under its `joystickOn`, and a wiring
+read that samples an analog value (a linked transform channel) falls back to the motion under it, so w1's torpedo
+tower starts at the periscope's stick (and a5's, a6's and w2's joystick rigs, read never before, at theirs). w1's
+docked airship (115 rigs), e2's 16 conveyor rigs and town's 15 start on a `global:` atom: **load-posed**, parked,
+and a witness touching one leaves the logic as an undecoded one did (its pose is the load's for the visit: w1's
+ship stands under the map until both realms are fixed). Not read: a witness that crosses a load-posed rig's other
+pose (the summoned ship), nor what e6's mirrors and a3's valves do once moved (one-way, saved): a witness touching
+them keeps its frozen answer and names the rig, the standing rule for a read rig no poke moves.
+
