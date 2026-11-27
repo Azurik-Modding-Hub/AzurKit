@@ -545,16 +545,16 @@ def _graph(a, nodes: Nodes | None = None, keep=None):
     nodes = _nodes(a.level) if nodes is None else nodes
     g = Graph(nodes, {j["key"]: j for j in jobs}, recs, of)
     doc = _plan(a.level, a.plan[0], snap, getattr(a, "backend", "l3"))
+    from azurkit.tools.randomizer.planner.proofs import zoning
+    from devkit.rando.draft.author import read_derived
     world = None
     if getattr(a, "world", False):             # the world hold (Step 4.77e, ``engine.world``)
-        from azurkit.tools.randomizer.planner.proofs import zoning
-        from devkit.rando.draft.author import read_derived
         from devkit.reach.engine import world as W
         world = (a.level, nodes, W.pairs(a.world_pairs) if getattr(a, "world_pairs", None) else None,
                  zoning(read_derived(a.level)))
     _hold(g, recs, snap, base, getattr(a, "workers", None), getattr(a, "l3", "fast"),
           _kernel(a.level, snap, jobs, base / f"targets-{doc['touch']}.json"),
-          (a.level, nodes) if getattr(a, "rigs", False) else None, world)
+          (a.level, nodes, zoning(read_derived(a.level))) if getattr(a, "rigs", False) else None, world)
     return snap, base, {j["key"]: j for j in jobs}, recs, nodes, g
 
 
@@ -562,15 +562,16 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
           kernel: dict | None = None, rigs: tuple | None = None, world: tuple | None = None) -> None:
     """The hold (``reach_engine.hold``): replay each zone witness ``Graph.hold`` asks for that the cache doesn't
     answer yet, a few per task on a pool (opened only when one is; ``kernel``: the kernel route's, whose replay of a
-    kernel candidate is FastL3's confirm), until each rank's best that stays is known.  With ``rigs`` (the level
-    and its nodes: ``--rigs``, Step R2.19h1), each witness answered goes through ``rigs.Router.decide``, judged
+    kernel candidate is FastL3's confirm), until each rank's best that stays is known.  With ``rigs`` (the level,
+    its nodes and zoning: ``--rigs``, Step R2.19h1), each witness answered goes through ``rigs.Router.decide``, judged
     to stay where its answer holds (not only its candidate's to-zone: a confirm holding in a third zone is credited
-    there, AZ-840, so it is routed before that, Step 4.79a's review): one
-    touching a rig parked for an undecoded trigger is out of logic, kept or not (D847); of those its frozen hold
-    kept, one touching another parked rig names it (a trip's witness too), one a moving rig in the level's rig
-    recording touches at its load pose or crosses on its swept path (``rigs.sweep_task``, cached apart) stays only
-    where its whole-step trip does (``rigs.replay_trip``, cached apart).  An answer with no route (only the kernel
-    route traces one: an L3 plan's, a backstop's aim hit) is swept first and decided on the sweep's (AZ-843).
+    there, AZ-840, so it is routed before that, Step 4.79a's review): one touching a rig parked for an undecoded
+    trigger or a load pose is out of logic, kept or not (D847); of those its frozen hold kept, one touching another
+    parked rig names it (a trip's witness too), one a moving rig in the level's rig recording touches at its load
+    pose or crosses on its swept path (``rigs.sweep_task``, cached apart) stays only where its whole-step trip holds
+    by the world hold's zone rule where its answer holds (``rigs.replay_trip``, cached apart; Step 4.83c).  An
+    answer with no route (only the kernel route traces one: an L3 plan's, a backstop's aim hit) is swept first and
+    decided on the sweep's (AZ-843).
     With ``world`` (the level, its nodes, the zone pairs ``--world-pairs`` lists or None for every pair, and the
     zoning: ``--world``, Step 4.77e), each answer that stays where it holds and that the router sent to no trip of
     its own, of a listed pair (its start's zone to that one), counts only where its whole-step replay holds
@@ -651,9 +652,11 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
             return None
         if how != "trip":
             return x
-        t = cache.get(base / "trip", R.trip_hold_key(hk, rec12))
+        st = rec["starts"][o["start"]]              # judged as the world hold judges: in zc, from its start's zone
+        frm = None if "settled" not in st else zone_at(st["settled"], False, False)
+        t = cache.get(base / "trip", R.trip_hold_key(hk, rec12, zc, frm, rigs[2]))
         if t is None:
-            trips.add((*wk, tuple(got["land"])))
+            trips.add((*wk, zc, frm))
             return None
         got = R.Router.tripped(got, t, x[1])
         owed[wk] = got["same"]
@@ -664,7 +667,7 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
     try:
         while want := g.hold(answer):
             pool = pool or _pool(snap, workers, mode, kernel=kernel)
-            apart = {(j, k) for j, k, _ in trips} | sweeps | {(j, k) for j, k, *_ in worlds}
+            apart = {(j, k) for j, k, *_ in trips} | sweeps | {(j, k) for j, k, *_ in worlds}
             items = sorted({(w["job"], w["outcome"]) for w in want} - apart)
             replayed += items
             for t in pool.completed(hold.task, [(items[k:k + 8], str(base)) for k in range(0, len(items), 8)]):
@@ -680,7 +683,7 @@ def _hold(g: Graph, recs, snap: dict, base: Path, workers: int | None, mode: str
                 sweeps.clear()
             if trips:
                 tl = sorted(trips)
-                for t in pool.completed(R.trip_hold_task, [(tl[k:k + 4], str(base), rec12)
+                for t in pool.completed(R.trip_hold_task, [(tl[k:k + 4], str(base), rec12, rigs[0], rigs[2])
                                                            for k in range(0, len(tl), 4)]):
                     ticks += t
                 counts["routed witnesses tripped in whole steps"] += len(tl)

@@ -543,7 +543,8 @@ def test_a_trip_owing_witness_names_the_parked_rigs_it_touches_and_a_dropped_one
 def test_a_routed_witness_trip_runs_each_wait_on_a_scene_l3_that_never_ran(two_platforms):
     """Step R2.19h1's measure: a reset doesn't undo all of a long whole-step run (a toggled deck's poke stopped moving
     it after the recording on the same L3), so the router's whole-step trip (``rigs.replay_trip``) runs each try of
-    its phase loop on a new L3 from ``make()``: one try where the witness lands as it did, all 8 where it can't."""
+    its phase loop on a new L3 from ``make()``: one try where the witness holds in its to-zone, all 8 where it
+    can't."""
     from devkit.reach.engine import rigs
 
     class New(_Sim):
@@ -555,10 +556,55 @@ def test_a_routed_witness_trip_runs_each_wait_on_a_scene_l3_that_never_ran(two_p
     def make():
         made.append(New([A, B, C]))
         return made[-1]
-    for land, tries in ((o["land"], 1), ([99.0, 99.0, 99.0], rigs.PHASES)):
+    for to, tries in ((_zone(o["land"]), 1), ("t.Z009", rigs.PHASES)):
         made.clear()
-        got = rigs.replay_trip(make, rec["starts"][o["start"]], rec["heading"], dict(o, land=land))
+        got = rigs.replay_trip(make, rec["starts"][o["start"]], rec["heading"], o, to, None, _zone)
         assert (got["tries"], len(made), got["same"]) == (tries, tries, tries == 1)
+
+
+def test_a_rig_trip_holds_where_its_replay_settles_in_the_to_zone_past_half_a_metre_from_its_landing(two_platforms):
+    """Step 4.84a: the game passed 24 rig rows whose whole-step trips the router refused, each ending 0.59-17.5 m
+    from its frozen landing, in the to-zone and settled (a moving rig carries the body to another landing there);
+    the trip held only within 0.5 m of the landing.  It now judges by the world hold's zone rule (its start
+    standing in its from-zone, alive, in the to-zone at the string's end and settled there), the landing it reaches
+    its own."""
+    from devkit.reach.engine import rigs
+
+    class Whole(_Sim):
+        def step(self, pad=l3.Pad(), writes=(), **_):
+            return super().step(pad, writes)
+    rec, o = next((r, o) for r in two_platforms[2] for o in r["outcomes"] if o["end"] == "settled")
+    st, moved = rec["starts"][o["start"]], dict(o, land=[o["land"][0] - 2.0, *o["land"][1:]])
+    got = rigs.replay_trip(lambda: Whole([A, B, C]), st, rec["heading"], moved, _zone(o["land"]),
+                           _zone(st["feet"]), _zone)
+    assert (got["same"], got["settled"], got["wait"], got["tries"]) == (True, True, 0, 1)
+    assert math.dist(got["land"], moved["land"]) > 0.5 and _zone(got["land"]) == _zone(o["land"])
+
+
+def test_a_rig_trip_whose_tries_stop_with_the_body_alive_is_refused_not_kept(two_platforms):
+    """Step 4.84a's skeptic: the world hold keeps a witness's frozen answer where its first try stops with the body
+    alive and no level exit (an L3 fault, no player update), so it never refuses one for a whole-step defect; the
+    rig trip judges by the same zone rule but refuses such a try, as it did (a5's ea1577 and t2249h1, which the
+    game failed, stop so at every wait)."""
+    from devkit.reach.engine import rigs, world
+
+    class Stop(_Sim):
+        r6 = None
+
+        def teleport(self, feet, yaw, *, cell=None):
+            self.r6 = self._s["k"] + 1
+            return super().teleport(feet, yaw, cell=cell)
+
+        def step(self, pad=l3.Pad(), writes=(), **_):
+            row = super().step(pad, writes)
+            if self.r6 is not None and row.k == self.r6 + 2:
+                raise l3.L3Error("a stand-in stop", "no player update")
+            return row
+    rec, o = next((r, o) for r in two_platforms[2] for o in r["outcomes"] if o["end"] == "settled")
+    st, to = rec["starts"][o["start"]], _zone(o["land"])
+    got = rigs.replay_trip(lambda: Stop([A, B, C]), st, rec["heading"], o, to, None, _zone)
+    assert (got["same"], got["tries"], {t["stop"] for t in got["trace"]}) == (False, rigs.PHASES, {"popup"})
+    assert world.replay(lambda: Stop([A, B, C]), st, rec["heading"], o, to, None, _zone)["held"] is None
 
 
 def test_a_world_held_witness_counts_only_where_its_whole_step_replay_holds_owes_its_wait_and_the_pair_falls_back(
@@ -731,7 +777,7 @@ def test_a_routeless_hold_answer_touching_an_undecoded_parked_rig_goes_out_of_lo
             self.out = answer({"job": rec["key"], "outcome": k})
             return [] if self.out is not None else [{"job": rec["key"], "outcome": k}]
     g = Held()
-    RE._hold(g, [rec], {"meta_sha12": "a" * 12}, tmp_path, None, "base", None, ("t", nodes))
+    RE._hold(g, [rec], {"meta_sha12": "a" * 12}, tmp_path, None, "base", None, ("t", nodes, "z" * 12))
     assert g.out["same"] is False and g.out["parked"] == ["gate"] and "outcome" not in g.out
     assert g.counts["routed witnesses swept"] == 1
     assert g.counts["routed witnesses out of logic: a rig parked for an undecoded trigger"] == 1
@@ -767,7 +813,7 @@ def test_the_rig_routers_code_keys_are_computed_once_a_process_and_are_the_uncac
         f.cache_clear()
     for _ in range(3):
         assert {f: f() for f in keys} == keys
-        assert rigs.sweep_key("h" * 12) and rigs.trip_hold_key("h" * 12, "r" * 12)
+        assert rigs.sweep_key("h" * 12) and rigs.trip_hold_key("h" * 12, "r" * 12, "t.Z001", None, "z" * 12)
     assert len(hashed) == len(keys)
 
 
@@ -1683,10 +1729,11 @@ def test_under_rigs_a_confirm_that_holds_in_another_zone_is_routed_before_it_is_
         got = {"land": land, "state": 0, "settled": True, "same": True, "route": {"rigs": [7], "gates": []},
                "outcome": _out(f"k{2 * k + 3}'", 41, land)}
         cache.put(tmp_path / "hold", hold.key_of(recs[k], 0), got)
-        cache.put(tmp_path / "trip", rigs.trip_hold_key(hold.key_of(recs[k], 0), "r" * 12),
+        cache.put(tmp_path / "trip", rigs.trip_hold_key(hold.key_of(recs[k], 0), "r" * 12, f"Z{4 + 2 * k}", None,
+                                                       "z" * 12),
                   {"land": land, "state": 0, "settled": True, "same": same, "wait": 15})
     g = _one_each(outs)
-    RE._hold(g, recs, {}, tmp_path, 1, "fast", None, ("t", g.nodes))
+    RE._hold(g, recs, {}, tmp_path, 1, "fast", None, ("t", g.nodes, "z" * 12))
     assert ("Z0", "Z4") not in g.zones
     w = g.best(("Z0", "Z6"), zones=True)
     assert (w["string_sha12"], w["by"], w.get("wait")) == ("k5'", "confirmed", 15)

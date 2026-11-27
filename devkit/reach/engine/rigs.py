@@ -44,8 +44,10 @@ kernel confirm dropped), one touching another parked rig keeps its witness and n
 §1.5d, a trip's witness too); one a rig moving within its window touches at its load pose, or crosses on its swept
 path (:func:`sweep_task`: its path's boxes against the rig's posed box each row of the window, swept only where it
 passes within :data:`NEAR_XY` of where the rig goes), is replayed in whole steps from the snapshot, idle first for
-each :data:`EVERY` th tick up to :data:`PHASES` tries (the phase loop): it counts only where one stays, and its
-witness then owes that idle wait before its R6 (``wait``); one no moving rig meets keeps its frozen-world witness.
+each :data:`EVERY` th tick up to :data:`PHASES` tries (the phase loop): it counts only where one holds by the world
+hold's zone rule (its start standing, alive, settled in the zone its answer holds in; a stop refuses: Step
+4.83c), and its witness then owes that idle wait before its R6 (``wait``); one no moving rig meets keeps its
+frozen-world witness.
 
 Positions, poses and strings stay in memory and the private cache; outputs hold names, counts, ticks and sha12s.
 """
@@ -86,7 +88,6 @@ BEST = 2             # [proposal] the board hits a hop keeps for the ride (disti
 TRIPS = 3            # [proposal] a link's kernel candidates tried in whole steps, best first, until one holds
 PHASES = 8           # [proposal] the router's phase loop: a routed witness tried after this many waits at most
 OFF_TICKS = 30       # [proposal] a ride ends once the body has been off the deck this many ticks
-END_M = 0.5          # [backend's] a whole-step replay this near its witness's landing is the same launch
 NEAR_XY = 6.0        # [proposal] a witness's points this near (across) where a moving rig goes: its path is swept
 SWEEP_TICKS = 10     # [proposal] a swept path's ticks a box
 EVERYWHERE = [[-1e9] * 3 + [1e9] * 3]   # a sweep that faulted: its path may be anywhere (every moving rig near it)
@@ -130,8 +131,9 @@ def code12() -> str:
 @functools.cache
 def trip_code12() -> str:
     """The router's trips' code (their answers' cache key, beside the recording's sha12); once a process."""
+    from devkit.reach.engine import world
     return _code12(replay_trip, Clock, _place, _steps, fresh, trip_hold_task, trip, _stood,
-                   (EVERY, PHASES, END_M, CAP_US, runner.START_XY, runner.START_Z))
+                   (EVERY, PHASES, CAP_US, runner.START_XY, runner.START_Z, world.code12()))
 
 
 # -- the recorder ---------------------------------------------------------------------------------------------------
@@ -1011,39 +1013,46 @@ def sweep_task(w, items: list, base: str, level: str, absent=()) -> int:
     return ticks
 
 
-def replay_trip(make, st: dict, heading: float, o: dict, waits=PHASES) -> dict:
+def replay_trip(make, st: dict, heading: float, o: dict, to: str, frm: str | None, zone_at, waits=PHASES) -> dict:
     """Witness ``o`` of start ``st`` replayed in FastL3 whole steps from the snapshot, each try on a new scene FastL3
-    (``make()``: :func:`fresh`), idle first 0, :data:`EVERY`, 2 :data:`EVERY` ... ticks (``waits`` tries): the
-    first try that ends within :data:`END_M` of its landing, settled, then ``hold.HOLD`` ticks on;
-    ``hold.replay``'s answer (``land``, ``state``, ``settled``, ``same``) with ``wait`` the idle ticks before it
-    and ``tries``."""
-    from devkit.reach.engine import hold
-    pads = l3.pads(o["segments"])
-    got, ticks, steps = None, 0, 0
+    (``make()``: :func:`fresh`), idle first 0, :data:`EVERY`, 2 :data:`EVERY` ... ticks (``waits`` tries), each
+    judged by the world hold's zone rule (``world._try``: its start stands in ``frm``, alive throughout, in zone
+    ``to`` at the string's end and settled there ``hold.HOLD`` ticks on, no level exit), not by its landing: a moving
+    rig carries the body to another landing in the same zone (Step 4.84a: the game passed 24 rig rows whose whole
+    steps ended 0.59-17.5 m from the frozen landing, in the to-zone).  The first try that holds is the answer
+    (``same``, its ``wait`` owed before the R6, and its end's ``land``, ``state``, ``settled``); a try that stops,
+    the body alive and no exit (an L3 fault, no player update), is refused like any other, never the frozen answer
+    (a5's ea1577 and t2249h1, which the game failed, stop so at every wait); a step stopped for time (the host's
+    load) is tried once more on a new simulator, then raised as ``worker.StepTimeout``.  ``tries``, each try's
+    verdict (``trace``) and the whole steps."""
+    from devkit.reach.engine import world, worker
+    pads, trace, steps, got = l3.pads(o["segments"]), [], 0, None
     for k in range(waits):
-        clock = Clock(make())
-        sim = clock.sim
-        try:
-            clock.at(k * EVERY)
-            _place(sim, st["feet"], st.get("yaw", heading), st["cell"])
-            ticks += runner.SETTLE_START + len(runner.set_kit(sim, o["kit"]))
-            row = None
-            for p in pads:
-                row, ticks = sim.step(p, timeout_us=CAP_US), ticks + 1
-            same = row is not None and math.dist(runner._feet(row), o["land"]) <= END_M
-            for _ in range(hold.HOLD):
-                row, ticks = sim.step(Pad(), timeout_us=CAP_US), ticks + 1
-        except L3Error as e:
-            got = {"fault": str(getattr(e, "site", "other")), "ticks": ticks, "wait": k * EVERY, "tries": k + 1}
-            continue
-        finally:
-            steps += clock.steps
-        got = {"land": list(runner._feet(row)), "state": row.state, "settled": settled(row), "same": same,
-               "ticks": ticks, "wait": k * EVERY, "tries": k + 1}
-        if same and settled(row):
+        for again in (False, True):
+            sim, rows = make(), []
+            step = sim.step
+
+            def kept(*a, step=step, rows=rows, **kw):
+                r = step(*a, **kw)
+                rows.append(r)
+                return r
+            sim.step = kept
+            t = world._try(sim, st, heading, o, pads, k * EVERY, to, frm, zone_at)
+            sim.step = step
+            steps += t["steps"]
+            if not t.get("site", "").startswith(worker.TIME_SITES):
+                break
+            if again:
+                raise worker.StepTimeout(f"a whole step stopped for time twice ({t['site']}): the host's load")
+        trace.append({x: t.get(x) for x in ("wait", "held", "cause", "stop", "site")})
+        if t["held"]:
+            got = {"land": list(runner._feet(rows[-1])), "state": rows[-1].state, "settled": True, "same": True,
+                   "wait": t["wait"]}
             break
-    got["steps"] = steps + ticks
-    return got
+    if got is None:
+        got = {"same": False, "settled": False, "wait": trace[-1]["wait"],
+               "cause": trace[0]["cause"] or trace[0]["stop"]}
+    return got | {"tries": len(trace), "trace": trace, "steps": steps}
 
 
 def _seed(*parts) -> int:
@@ -1206,22 +1215,24 @@ def trip_task(w, level: str, rec_path: str, reach: str, absent, oi: int, items: 
     return out
 
 
-def trip_hold_key(hold_key: str, rec12: str) -> str:
-    """A router trip's cache key: its witness's hold key, the recording's sha12 and this code."""
-    doc = {"hold": hold_key, "rec": rec12, "code": trip_code12()}
+def trip_hold_key(hold_key: str, rec12: str, to: str, frm: str | None, zoning: str) -> str:
+    """A router trip's cache key: its witness's hold key, the recording's sha12, the zones it is judged in (``to``,
+    and ``frm`` its start's), the zoning they are named under and this code."""
+    doc = {"hold": hold_key, "rec": rec12, "to": to, "from": frm, "zoning": zoning, "code": trip_code12()}
     return hashlib.sha256(json.dumps(doc, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def trip_hold_task(w, items: list, base: str, rec12: str) -> int:
-    """A pool task: :func:`replay_trip` each (job key, outcome, its hold answer's landing) of ``items`` in whole
-    steps, each answer cached under :func:`trip_hold_key`; their whole steps."""
-    from devkit.reach.engine import hold
+def trip_hold_task(w, items: list, base: str, rec12: str, level: str, zoning: str) -> int:
+    """A pool task: :func:`replay_trip` each (job key, outcome, to-zone, from-zone) of ``items`` in whole steps in
+    ``level``'s zones (``world._zone_at``), each answer cached under :func:`trip_hold_key`; their whole steps."""
+    from devkit.reach.engine import hold, world
     b, rec, steps = Path(base), None, 0
     (b / "trip").mkdir(mode=0o700, exist_ok=True)
-    for job, k, land in items:
+    zone_at = world._zone_at(level)
+    for job, k, to, frm in items:
         rec = rec if rec is not None and rec["key"] == job else cache.get(b, job)
-        o = dict(rec["outcomes"][k], land=land)
-        got = replay_trip(lambda: fresh(w), rec["starts"][o["start"]], rec["heading"], o)
-        cache.put(b / "trip", trip_hold_key(hold.key_of(rec, k), rec12), got)
+        o = rec["outcomes"][k]
+        got = replay_trip(lambda: fresh(w), rec["starts"][o["start"]], rec["heading"], o, to, frm, zone_at)
+        cache.put(b / "trip", trip_hold_key(hold.key_of(rec, k), rec12, to, frm, zoning), got)
         steps += got["steps"]
     return steps

@@ -694,5 +694,11 @@ docked airship (115 rigs), e2's 16 conveyor rigs and town's 15 start on a `globa
 and a witness touching one leaves the logic as an undecoded one did (its pose is the load's for the visit: w1's
 ship stands under the map until both realms are fixed). Not read: a witness that crosses a load-posed rig's other
 pose (the summoned ship), nor what e6's mirrors and a3's valves do once moved (one-way, saved): a witness touching
-them keeps its frozen answer and names the rig, the standing rule for a read rig no poke moves.
+them keeps its frozen answer and names the rig, the standing rule for a read rig no poke moves. The router's rig
+trip (AZ-859) judges a witness's whole-step replay by the world hold's zone rule (its start standing in its
+from-zone, alive, in the zone its answer holds in at the string's end and settled there 60 ticks on), not within
+0.5 m of its frozen landing: a moving rig carries the body to another landing in the same zone, and Step 4.84a's
+sitting passed 24 rig rows whose trips the landing rule refused (0.59-17.5 m off); its first holding wait is the
+wait the witness owes. Unlike the world hold, a try that stops with the body alive (an L3 fault, no player update)
+is refused, never the frozen answer. Its answers are keyed by the zones they are judged in and the zoning.
 
