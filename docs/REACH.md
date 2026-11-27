@@ -23,9 +23,11 @@ model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.
 `src/azurkit/tools/randomizer/data/`, so no seed changes.
 
 - **Nodes** are the game's own walkable regions (`floors.walk_game`: a face over nz 0.7071, wider than the
-  logic's 0.8), other landable floors (slides, steep and slippery faces), the swim water and the trigger, push,
-  damage and pickup volumes a body centre passes; a node's key is the hash of its cells, so it survives a
-  re-derive that keeps them.
+  logic's 0.8), the slippery slope patches the derive makes nodes of (AZ-374, Step 4.83b: a body on a patch's face
+  is on its node, a slide jump's takeoff or a touch-down there), other landable floors (slides, steep and slippery
+  faces), the swim water and the trigger, push, damage and pickup volumes a body centre passes; a node's key is the
+  hash of its cells, so it survives a re-derive that keeps them. A zone that is only a patch has the truth frame's
+  landing points on its face and no takeoff point (no body rests on a slope).
 - **Launches (R0):** a takeoff every 2 m of each region's boundary (4 m2 or more) at its outward normal and 40
   degrees either side; from each, a run walk-off, a run jump and a stand jump with no element levels, and with the
   air shield (air 3) the walk-off with 1, 2 or 5 flaps and both jumps with 0, 1, 2 or 5, each flap at the last
@@ -44,7 +46,16 @@ model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.
   and flaps only while it would still land short; run jumps pressed at the takeoff, and once 0.45 m short) and as
   R0 flew it (the stick held at the target), since each finds edges the other misses. A run or roll jump presses
   when its run-up along the heading is done, and one whose body leaves the floor first is no launch of its own
-  (the walk-off's).
+  (the walk-off's). Where no start stands, an aim takes one where the body rests on near-flat ice (AZ-723 A, Step
+  4.83b: the game puts a body on any slippery face in the slope state, so no start there is ever standing); the
+  fan's starts are as they were.
+- **The slide launch (AZ-374 W, Step 4.83b):** `slidejump` (`devkit/reach/engine/slide.py`, keyed by its own file,
+  `cache.SLIDE_FILES`, so an edit to it re-runs only its jobs) runs from the floor above a slope patch down the
+  slope and presses Y only once the body slides (state 3 or 4) at the takeoff column, then flies as the aim's
+  control does. `sample --targeted` aims one at each derived flight off a patch (probe class `slope`) from the
+  model's witness ends, its leads by the takeoff's nz. Its hit counts from the floor's zone above (no body rests on
+  a slope), so the graph files it there, not at the patch's own zone; a flight onto a patch (C) has no aim yet (its
+  body slides off: a touch-down the hit rule doesn't read). With no patches (a derive before AZ-374) it plans none.
 - **The refinement (Step R2.16b):** `sample --refine` takes the derived jump and flap edges a run left MAY,
   unattempted or (Step R2.16c) found only above their kit and aims every R0 launch at each, plus the roll jump (BLACK at the takeoff, a second roll chained
   by BLACK held on the first's ticks 14-18, Y held from the last roll's tick 16 into its end: the end-tick jump,
