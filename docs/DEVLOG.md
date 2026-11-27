@@ -10,6 +10,45 @@ Each change's entry is its own file in `devlog/`, never a line here:
 `devlog/<section>/<step>-<slug>.md`, its section `added`, `changed`, `removed` or `fixed`, its name in lower-case
 letters, digits, dots and hyphens, the file one Markdown bullet. A release joins them into a section below.
 
+## [1.5.1 (November 27, 2026)]
+
+### Added
+- **The reach engine's slope and ice companions to the derive batch** (Step 4.83b): a derived slope patch is a node
+  of its own (AZ-374 N) and a zone that is only one has its truth points; a slide jump launch, keyed by its own
+  file, aims at each flight off a patch from the floor above it (AZ-374 W); an aim takes a start at rest on
+  near-flat ice (AZ-723 A). The core, aim, zone and kernel keys move.
+
+### Changed
+- **The reach engine's aims go round a solid** (Step 4.79f, D1341): a probe-needed jump or flap edge whose
+  pass-1 aim landed but whose straight track meets a solid flies a bent pass after its other six (takeoffs moved
+  across the track, headings turned at a point beside the solid, where the track clears), and a refinement twinned
+  to its aim skips the fourth pass only where its own starts stood in the twin's cells; the aim key moves.
+- **The reach engine's rig decodes** (Step 4.83c, AZ-858; only the rig keys move): the 264 rigs the trigger census
+  parked as undecoded on 8 levels are read (an unlinked transform channel holds its stored value, a switch's goal
+  starts with its output, a combiner the wiring can't read moves over its inputs, a cycle settled at load can't
+  start itself, a platform's stick moves under its joystick and a sampled analog read falls back to its motion),
+  and a rig whose start rests on a global's latch is load-posed: a witness touching it leaves the logic.
+- **Easy, Hard and Expert seeds are made at Seed difficulty's fill 4** (Step 4.83j, D1355): the container rule (an item held more than once kept out of an ice block or other container whose hold its touch exceeds) moves level > 0 placements with and without the save warp (of the levels test's warpless Hard/Hard plans, Easy 4 of 4 and Hard 1 of 4), so `SEED_DIFFICULTY_FILL` and `WARPLESS_FILL` both go to 4 (`settings.seed_difficulty_fill`) and 1.5.0's Easy, Hard and Expert links (fill 2 without the warp, fill 3 with it) are refused by name, as fills 2 and 3 were before them; Normal's plans and links move only with the database, as every Normal seed's do.
+  Tests: `test_seed_difficulty_rides_strings_and_files_and_v1_levels_load_at_the_nearest` (1.5.0's links and plans refused), `test_seed_difficulty_levels_lean_chains_off_path_and_tricks_in_order` (`LEVELED` re-pinned at fill 4).
+- Booblord's shipped Check parts and plan answers are recorded again under the new `parts.VERSION` (Step 4.86c): the fill fix rebuilt the compiled kernels' libraries, which are part of what a dress runs, so `shipped.json`'s keys move and her content entry goes to version 14 with the files that moved. Nothing a player sees changes. Version 14 needs AzurKit 1.5.1: an older app keeps version 13, whose parts match it.
+
+### Fixed
+- The reach engine's `witness --rigs` no longer runs bound to its main thread: the rig router's code keys (`rigs.code12`, `trip_code12`, `sweep_code12`), which hash code only, are each computed once a process, where every routed answer's sweep and trip key had re-parsed their functions' sources (0.0299 and 0.0125 CPU-s a call by 4.78d's sitting; on a5, 0.0164 to 0.0043 main-thread CPU-s a routed answer); every recording, sweep and trip key stays byte for byte, so a run resumes from the cache (Step 4.79i).
+  Test: `test_the_rig_routers_code_keys_are_computed_once_a_process_and_are_the_uncached_keys`.
+- **The reach engine's re-key batch** (Step 4.83a; every core, aim, kernel and hold key moves, so its caches are
+  made again): a FastL3 confirm with a Y press after its own first landing is no longer the same launch (AZ-852,
+  replacing AZ-839's interim guard) and a confirm is filed under its own rank, where the witness check still finds
+  its candidate's flags (AZ-853); the mover router routes a body stopped against a mover's wall or underside
+  (AZ-854); the pad and camera code is in the L3 core and a hold key names its outcome's string (AZ-855); L3's
+  contiguous memory comes from the RAM window's free pages, so a whole step's textures no longer land on the kernel
+  image (AZ-850); a reach model is keyed by its builder's code too (AZ-857); and a refinement whose aim twin stood
+  nowhere flies its fourth pass (AZ-851).
+- **The reach engine's rig trip judges by zone** (Step 4.83c, AZ-859): a witness a moving rig meets counts where
+  its whole-step replay settles in its to-zone (the world hold's rule, a stopped try refused), not only within half
+  a metre of its frozen landing, which refused 24 rig rows the game passed; only the rig trip key moves.
+- An obsidian is no longer placed in an ice block it could be taken through: the fill keeps an item the image holds more than once (whose own touch the writer keeps) out of a spot a container encloses whose vanilla item's touch and containers' holds don't hold that touch in; `items.toml` carries each item's touch from config.xbr, and the fill's version is `azurik-rando-fill/5`. w2's IceBlock_02 with an obsidian (R 1.45 m, Z 1.9 m, over its 1.8 m hold) was the only such pair; seeds move (AZ-834's class, PENDING 9.56, Step 4.83j).
+  Test: `test_the_fill_keeps_an_item_held_more_than_once_out_of_a_container_whose_hold_its_touch_exceeds`.
+
 ## [1.5.0 (November 26, 2026)]
 
 ### Added
