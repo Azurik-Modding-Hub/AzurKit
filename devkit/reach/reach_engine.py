@@ -107,7 +107,7 @@ import time
 import tomllib
 from pathlib import Path
 
-from devkit.reach.engine import aim, cache, hold, runner, verdict  # noqa: E402
+from devkit.reach.engine import aim, cache, hold, runner, slide, verdict  # noqa: E402
 from devkit.reach.engine.graph import Graph, _latched  # noqa: E402
 from devkit.reach.engine.nodes import Nodes  # noqa: E402
 from devkit.sim import l3  # noqa: E402
@@ -238,7 +238,8 @@ def sample(a) -> dict:
     elif not a.no_fan:
         jobs += runner.fan_jobs(nodes, nodes.takeoffs(a.spacing, a.min_area, set(a.region) if a.region else None))
     if a.targeted and not a.refine and not a.retarget:
-        aims = aim.aim_jobs(nodes, read_derived(a.level))
+        derived = read_derived(a.level)
+        aims = aim.aim_jobs(nodes, derived) + slide.slide_jobs(nodes, derived)   # the slide jumps: none before AZ-374
         jobs += [j for j in aims if not a.region or j["region"] in a.region]
     jobs = jobs[:a.limit] if a.limit else jobs
     touch = nodes.targets()
@@ -251,7 +252,8 @@ def sample(a) -> dict:
                                                  **({"pairs": pairs} if pairs else {}),
                                                  **({"escalate": esc} if esc else {})}, zipped=True)
     return {"level": a.level, "plan": a.plan[0], "jobs": len(jobs), "fan": sum(j["id"][0] in "ts" for j in jobs),
-            "aims": sum(j["id"][0] in "ar" for j in jobs), "launches": sum(len(j["macros"]) for j in jobs),
+            "aims": sum(j["id"][0] in "ar" for j in jobs), "slides": sum(j["id"][0] == "l" for j in jobs),
+            "launches": sum(len(j["macros"]) for j in jobs),
             "regions": len({j["region"] for j in jobs}), "walk_regions": nodes.walk.nreg,
             **({"pairs": {k: v for k, v in pairs.items() if k != "rest"}} if pairs else {}),
             **({"escalate": {k: v for k, v in esc.items() if k != "waiting"}} if esc else {})}

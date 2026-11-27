@@ -349,6 +349,78 @@ def test_an_edit_to_the_slide_launch_moves_only_slide_job_keys(tmp_path):
     assert cache.job_key(jobs["fan"], "0" * 12) != cache.job_key(jobs["fan"] | {"macros": [slide]}, "0" * 12)
 
 
+class _Slope(_Sim):
+    """The stand-in on a floor whose part y < 8 is a slippery slope: a body on the ground there reads the slope state
+    (3), its run and jump as on any floor (the jump fires off a slope as off a floor, AZ-374)."""
+
+    def step(self, pad=l3.Pad(), writes=()):
+        r = super().step(pad, writes)
+        return r._replace(state=3, obs=r.obs._replace(state=3)) if r.state == 0 and r.pos[1] < 8 else r
+
+
+def test_a_slide_jump_presses_y_only_once_the_body_slides():
+    """AZ-374 W (4.83b, ``slide.py``): a slide jump runs from the floor above a slope down the heading and presses Y
+    only once the body slides (the slope state) with its feet at the takeoff column (``back`` less its ``lead`` along
+    the heading), past R0's 40-tick run cap, under R0's controller or an aim's; then it flies and lands as any jump.  A
+    body that never slides presses nothing: off the floor's end before its press it is ``walked off``."""
+    from devkit.reach.engine import macros, slide
+    floors, down = [(0, 0, 4, 14, 0.0), (0, -8, 4, -3, -2.0)], math.pi
+    m = macros.Macro("slidejump", "k0", 0, 0.0, 0.0)
+    start, back = (2.0, 13.5, 0.0), 9.5                         # the takeoff column at y 4, on the slope
+    for ctl in (None, functools.partial(aim.Aim, home=None)):
+        for sim in (_Slope(floors), _Sim(floors)):
+            runner.place(sim, start, down, 0)
+            go = macros.launch(sim, m, down, down, start, back, target=(2.0, -5.0, -2.0), ctl=ctl)
+            ys = [i for i, p in enumerate(go.pads) if "y" in p.buttons]
+            if type(sim) is _Sim:                  # no slope: no press, off the floor's end
+                assert go.end == "walked off" and ys == []
+                continue
+            k = ys[0]
+            assert k > macros.RUN_CAP and go.rows[k - 1].state == 3 and go.rows[k - 2].pos[1] > 4.0 >= go.rows[k - 1].pos[1]
+            assert go.end == "settled" and go.rows[-1].pos[2] == pytest.approx(-1.0) and go.first > k
+    assert issubclass(macros.controller("slidejump", aim.Aim), (slide.Slide, aim.Aim))
+
+
+def test_a_slide_jump_aims_at_a_flight_off_a_patch_from_the_floor_above_by_its_witness_ends():
+    """AZ-374 B's aims (4.83b, ``slide.slide_jobs``): a derived flight off a slope patch (probe class ``slope``, from
+    a patch's zone) gets a slide jump from the floor above its takeoff column (up the fall line), along the slope at
+    its landing sample moved onto its floor, ``from`` that floor's zone (no body rests on a slope), ``stop`` its
+    to-zone, its leads from the certificate's ``takeoff_nz``; a model derived before the patches gets none.  The reader
+    takes the derived file D1 writes (``tests/data/derived-v9-airship.json.gz``, DERIVE_VERSION 9's airship): its 8
+    flights off its one patch, each the derive's own "a jump off a slippery slope"."""
+    from devkit.reach.engine import macros, slide
+    r = _ramp()
+    S, w = r.slopes, r.W["logic"]
+    low = int(r.zone_of[:w.nreg].argmax())
+    k = int(np.argmin(np.hypot(*(np.array(r.lv.cxy(S.sc)) - np.array([[2.0], [4.0]])))))
+    j = int(np.argmin(np.hypot(w.x - 2.0, w.y + 2.0) + 10.0 * (w.reg != low)))
+    cert = SimpleNamespace(rank=0, flaps=None, run=False, walk_off=False, takeoff_nz=0.9)   # physics.Certificate's
+    r.E = {"logic": {(S.pbase, low): [{"kind": "jump", "conf": "probe-needed", "slope": True, "ranks": [0, 0, 0, 0],
+                                       "certs": [cert] * 4, "gap": 6.0, "dh": -4.0, "w_slope": ("off", k, j)}]}}
+    derived = {"zones": [{"id": f"t.Z{z:03d}"} for z in range(3)],
+               "regions": [{"id": "t.S000", "slope": True, "zone": "t.Z002"}],
+               "edges": [{"from": "t.Z002", "to": "t.Z001", "kind": "jump", "confidence": "probe-needed",
+                          "probe": "slope", "requires": "true", "cert": {"rank": 0, "takeoff_nz": 0.9}},
+                         {"from": "t.Z000", "to": "t.Z002", "kind": "jump", "confidence": "probe-needed",
+                          "probe": "slope", "requires": "true"}]}
+    nodes = Nodes(r)
+    (job,) = slide.slide_jobs(nodes, derived)
+    assert (job["id"], job["from"], job["stop"]["to"], job["slope"], job["edge"]) == (
+        "l0", "t.Z000", "t.Z001", "t.Z002", "t.Z002>t.Z001:jump:probe-needed")
+    assert nodes.node_at(job["takeoff_feet"], 3) == nodes.keys["slope"][0] and abs(job["takeoff_feet"][1] - 4.0) <= 0.25
+    assert all(s[1] > 12.0 and s[2] == pytest.approx(4.0) for s in job["starts"]["run"])
+    assert job["starts"]["run"][0][1] > job["starts"]["run"][-1][1] and abs(math.remainder(job["heading"] - math.pi, 2 * math.pi)) < 1e-9
+    assert job["target"][1] < 0.0 and job["target"][2] == pytest.approx(0.0)
+    ms = [macros.Macro(*m) for m in job["macros"]]
+    assert {m.kind for m in ms} == {"slidejump"} and sorted({m.lead for m in ms}) == [0.0, macros.JUMP_LEAD, 1.41]
+    assert slide.slide_jobs(Nodes(_ramp(patches=False)), derived) == []
+    d1 = json.loads(gzip.decompress((Path(__file__).parent / "data" / "derived-v9-airship.json.gz").read_bytes()))
+    offs = slide.offs(d1)
+    assert len(offs) == 8 == sum(e.get("why", "").startswith("a jump off a slippery slope") for e in d1["edges"])
+    assert all(0.6 < e["cert"]["takeoff_nz"] < 1.0 and e["kind"] in ("jump", "flap") for _, e in offs)
+    assert {e["from"] for _, e in offs} <= {x["zone"] for x in d1["regions"] if x.get("slope")}
+
+
 def test_a_job_key_moves_with_the_l3_core_and_the_start_and_outcomes_remap_without_a_run(two_platforms, tmp_path):
     """An outcome is cached by the L3 core, the snapshot, the plan's targets and the start, never the derive: an
     edit to a core file moves the core's sha and every key (the jobs run again), as new targets do, and an edit to
