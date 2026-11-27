@@ -148,21 +148,31 @@ def _bin_border(p: dict) -> dict:
 
 def _points(nodes) -> tuple[dict, dict]:
     """(takeoff side, landing side): the logic walk's border samples, binned, and on the landing side the swim
-    water's surface too (each water column's top, binned, its zone's border only); each with x, y, z, its zone and
-    ``idx`` (the logic sample, or the logic walk's sample count + the water node)."""
+    water's surface too (each water column's top, binned, its zone's border only) and the slope patches' faces
+    (AZ-374: each patch column's face, binned, its zone's border only; a zone that is only a patch has no walk
+    sample, and no takeoff point either: no body stands on a slope, its takeoffs are the slide launch's from the
+    floor above it, ``slide.py``); each with x, y, z, its zone and ``idx`` (the logic sample, or the logic walk's
+    sample count + the water column, or that + the water's column count + the slope column)."""
     lw, zo = nodes.logic, np.asarray(nodes.R.zone_of)
     j = np.nonzero(lw.border & (lw.reg_soft >= 0))[0]
     floor = _binned({"x": lw.x[j].astype(np.float64), "y": lw.y[j].astype(np.float64),
                      "z": lw.z[j].astype(np.float64), "zone": zo[lw.reg_soft[j]].astype(np.int64), "idx": j})
-    wg = nodes.wg
-    if not len(getattr(wg, "col", ())):
-        return floor, floor
-    n = np.nonzero(wg.lab >= 0)[0]
-    cx, cy = nodes.lv.cxy(wg.col[n])
-    water = _bin_border(_binned({"x": np.asarray(cx, np.float64), "y": np.asarray(cy, np.float64),
-                                 "z": wg.hi[n].astype(np.float64), "zone": zo[lw.nreg + wg.lab[n]].astype(np.int64),
-                                 "idx": len(lw.col) + n}))
-    return floor, {k: np.concatenate([floor[k], water[k]]) for k in floor}
+    wg, land = nodes.wg, [floor]
+    nw = len(getattr(wg, "col", ()))
+    if nw:
+        n = np.nonzero(wg.lab >= 0)[0]
+        cx, cy = nodes.lv.cxy(wg.col[n])
+        land.append(_bin_border(_binned({"x": np.asarray(cx, np.float64), "y": np.asarray(cy, np.float64),
+                                         "z": wg.hi[n].astype(np.float64),
+                                         "zone": zo[lw.nreg + wg.lab[n]].astype(np.int64), "idx": len(lw.col) + n})))
+    if (S := getattr(nodes, "slopes", None)) is not None:
+        k = np.nonzero(S.patch >= 0)[0]
+        cx, cy = nodes.lv.cxy(S.sc[k])
+        land.append(_bin_border(_binned({"x": np.asarray(cx, np.float64), "y": np.asarray(cy, np.float64),
+                                         "z": S.sz[k].astype(np.float64),
+                                         "zone": zo[S.pbase + S.patch[k]].astype(np.int64),
+                                         "idx": len(lw.col) + nw + k})))
+    return floor, (floor if len(land) == 1 else {k: np.concatenate([p[k] for p in land]) for k in floor})
 
 
 def _pairs(src: dict, dst: dict, tables: dict) -> dict[str, dict[tuple, float]]:

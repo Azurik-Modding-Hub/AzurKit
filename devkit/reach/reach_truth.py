@@ -170,7 +170,8 @@ class Sampler(C.Aims):
         self.small_fan = R0 + tuple(m for m in aim.refine("runjump", "air3", 5) if m.kind == "rolljump")
 
     def zmin(self, z: str) -> float:
-        """Zone ``z``'s lowest logic-walk sample or swim water surface (its floor's least height)."""
+        """Zone ``z``'s lowest logic-walk sample, swim water surface or slope patch face (its floor's least height;
+        AZ-374: a zone that is only a slope patch has no walk sample)."""
         if not hasattr(self, "_zmin"):
             lw, zo, wg = self.nodes.logic, np.asarray(self.nodes.R.zone_of), self.nodes.wg
             j = np.nonzero(lw.reg_soft >= 0)[0]
@@ -179,6 +180,10 @@ class Sampler(C.Aims):
                 m = np.nonzero(wg.lab >= 0)[0]
                 zone = np.concatenate([zone, zo[lw.nreg + wg.lab[m]].astype(np.int64)])
                 h = np.concatenate([h, wg.hi[m].astype(np.float64)])
+            if (S := getattr(self.nodes, "slopes", None)) is not None:
+                k = np.nonzero(S.patch >= 0)[0]
+                zone = np.concatenate([zone, zo[S.pbase + S.patch[k]].astype(np.int64)])
+                h = np.concatenate([h, S.sz[k].astype(np.float64)])
             self._zmin = np.full(int(zone.max()) + 1, np.inf)
             np.minimum.at(self._zmin, zone, h)
         return float(self._zmin[int(z.rsplit(".Z", 1)[1])])

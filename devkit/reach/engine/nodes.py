@@ -3,9 +3,11 @@
 Nodes: the game's walkable regions (``floors.walk_game``: a non-slippery face over nz 0.7071, a slippery one at
 ``SLIP_FLAT_NZ``, the s6 step-up, rig decks at rest pose: the walk the game does, wider than the logic's nz 0.8),
 the R_phys profile's regions for any other landable floor (slides, steep and slippery faces, toggled solids), the
-swim regions, and the volumes a body centre touches (the trigger, push and damage meshes, :class:`faces.Volumes`;
-a pickup's point within :data:`PICK_M`).  A node's key is ``<level>/<profile>/<sha12>``, the sha256 of its sorted
-cells (column and height to a quarter metre): it stays the same across derive versions that keep those cells.
+swim regions, the slippery slope patches the derive makes nodes of (AZ-374: ``moves.Slopes.patches``, a body on one
+the patch's node, profile ``slope``, before R_phys's floor under it), and the volumes a body centre touches (the
+trigger, push and damage meshes, :class:`faces.Volumes`; a pickup's point within :data:`PICK_M`).  A node's key is
+``<level>/<profile>/<sha12>``, the sha256 of its sorted cells (column and height to a quarter metre): it stays the
+same across derive versions that keep those cells.
 
 Takeoffs: the boundary samples (the walk's ``border``: fewer than 8 linked neighbours) of every walkable region of
 at least ``min_area``, one per ``spacing`` square of each region (the sample nearest its bin's mean), with the
@@ -138,6 +140,10 @@ class Nodes:
         wg = self.wg
         self.keys["water"] = (_region_keys(self.level, "water", wg.col, wg.lo, wg.lab, wg.n)
                               if len(getattr(wg, "col", ())) else [])
+        S = getattr(reach, "slopes", None)    # AZ-374's slope patches (a model derived before them has none)
+        self.slopes = S if getattr(S, "npatch", 0) else None
+        self.keys["slope"] = (_region_keys(self.level, "slope", S.sc, S.sz, S.patch, S.npatch)
+                              if self.slopes is not None else [])
         cat = np.array([o["cat"] for o in self.lv.owners], dtype=np.int64)
         self.frozen: dict[str, str] = {}      # node key -> why its floor is the snapshot's frozen world
         for prof, walk in (("walk_game", w), ("phys", p)):
@@ -150,18 +156,31 @@ class Nodes:
     # -- where a body is --
     def node_at(self, feet, state: int) -> str | None:
         """The node a body's feet are on (state ``state``, entity+0x94): the walkable region (``Router.locate``,
-        1.0 m under to 0.5 m over the feet), else the water holding it (first for a swimmer), else R_phys's floor
-        region; None in the air or on no floor."""
+        1.0 m under to 0.5 m over the feet), else the water holding it (first for a swimmer), else the slope patch
+        whose face is under them (:meth:`patch_at`: a slide jump's takeoff, a flight's touch-down on a slope), else
+        R_phys's floor region; None in the air or on no floor."""
         ns = len(self.walk.col)
         v = self.locate(feet, state == SWIMMING, self.walk, False)
         if 0 <= v < ns and self.walk.reg_soft[v] >= 0:
             return self.keys["walk_game"][int(self.walk.reg_soft[v])]
         if v >= ns and self.wg.lab[v - ns] >= 0 and self.keys["water"]:
             return self.keys["water"][int(self.wg.lab[v - ns])]
+        if (k := self.patch_at(feet)) is not None:
+            return self.keys["slope"][k]
         q = self.locate(feet, False, self.phys, False)
         if 0 <= q < len(self.phys.col) and self.phys.reg_soft[q] >= 0:
             return self.keys["phys"][int(self.phys.reg_soft[q])]
         return None
+
+    def patch_at(self, feet) -> int | None:
+        """The slope patch (its index from 0, the derive's ``Slopes.patch``; node ``pbase`` + it) whose face lies
+        under a body's feet, 1.0 m under to 0.5 m over them as :meth:`node_at`'s floors (``Slopes.under``: the feet's
+        column, else the nearest of its 8 neighbours); None for none, or a model with no patches."""
+        S = self.slopes
+        if S is None:
+            return None
+        k = S.under(feet, 1.0, 0.5)
+        return int(S.patch[k]) if k >= 0 and S.patch[k] >= 0 else None
 
     def zone_gap(self, feet, swim: bool = False) -> float | None:
         """How far (m, across) the logic's floor sample that names a body's zone (``Router.zone_at``) lies from its

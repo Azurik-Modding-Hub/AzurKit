@@ -225,6 +225,47 @@ def test_two_platforms_join_across_the_gap_only_with_a_flap(two_platforms):
         nodes.R.zone_of = had
 
 
+def _ramp(patches: bool = True) -> Reach:
+    """A floor 4 m up (y 12-16) and one at 0 (y -4-0) joined by a 12 m ramp of ice (0x8051, nz 0.95) falling to -y,
+    no logic floor (AZ-359), as a reach model (no flights); with ``patches`` the ramp one slope patch the low floor
+    drains, in the fields AZ-374's derive writes (``moves.Slopes.patches``: ``patch``, ``npatch``, ``pbase``, ``nz``,
+    ``ptop``, ``pdrain``, ``parea``; the patch node after the water's), and the zones top 0, low 1, patch 2."""
+    r = Reach(_level(_quad(0, 12, 4, 16, 4.0) + _quad(0, -4, 4, 0, 0.0),
+                     chunks=[(0x8051, _quad(0, 0, 4, 12, 0.0, z1=4.0))]), flights=False)
+    if patches:
+        S, w = r.slopes, r.W["logic"]
+        top, low = int(w.reg[np.argmax(w.z)]), int(w.reg[np.argmin(w.z)])
+        S.patch, S.npatch, S.pbase = np.zeros(len(S.sc), dtype=np.int64), 1, w.nreg + r.wg.n
+        S.nz = np.full(len(S.sc), 12 / math.hypot(12, 4))
+        S.ptop, S.pdrain, S.parea = [int(np.argmax(S.sz))], [(low, 0.0, 24, 4.0)], np.array([len(S.sc) * 0.25])
+        S.fy = np.full(len(S.sc), -1.0)
+        S.fx = np.zeros(len(S.sc))
+        r.zone_of = np.zeros(w.nreg + r.wg.n + 1, dtype=np.int64)
+        r.zone_of[low], r.zone_of[S.pbase] = 1, 2
+    return r
+
+
+def test_a_slope_patch_is_a_node_a_body_takes_off_from_and_lands_on_and_a_zone_of_one_has_its_points():
+    """AZ-374 (4.83b): a slippery slope patch the derive makes a node of (``moves.Slopes.patches``) is the node of a
+    body whose feet are on its face (a slide jump's takeoff, a flight's touch-down there), keyed by its cells, the
+    floors above and below it their regions still; on a model derived before the patches the same feet are R_phys's
+    as before.  A zone that is only a patch (no walk sample) has the frame's landing points on its face and its
+    floor's least height in the truth set's samples, and no takeoff point (no body stands on a slope)."""
+    from devkit.reach import reach_truth
+    nodes, old = Nodes(_ramp()), Nodes(_ramp(patches=False))
+    on, top, low = (2.0, 6.0, 2.0), (2.0, 14.0, 4.0), (2.0, -2.0, 0.0)
+    assert nodes.patch_at(on) == 0 and nodes.node_at(on, 3).startswith("t/slope/") and old.patch_at(on) is None
+    assert old.node_at(on, 3).startswith("t/phys/") and nodes.keys["slope"] == [nodes.node_at((2.0, 9.0, 3.0), 4)]
+    assert [nodes.node_at(p, 0) for p in (top, low)] == [old.node_at(p, 0) for p in (top, low)]
+    assert all(n.startswith("t/walk_game/") for n in (nodes.node_at(top, 0), nodes.node_at(low, 0)))
+    off, land = candidates._points(nodes)
+    assert 2 in set(land["zone"].tolist()) and 2 not in set(off["zone"].tolist())
+    patch = land["idx"][land["zone"] == 2]
+    assert len(patch) and (patch >= len(nodes.logic.col)).all()
+    smp = SimpleNamespace(nodes=nodes)
+    assert 0.0 <= reach_truth.Sampler.zmin(smp, "t.Z002") < 1.0 and reach_truth.Sampler.zmin(smp, "t.Z000") == 4.0
+
+
 def test_a_code_key_ignores_comments_docstrings_and_layout_but_not_a_minus_minus_or_a_string_slash_slash(
         tmp_path, monkeypatch):
     """Step R2.19f+'s SF0 (``cache.code_bytes``, under core_sha12, kernel_sha12 and l3_impl): a C file is hashed as
