@@ -541,7 +541,7 @@ def run_macros(sim, rec: dict, ms, heading: float, takeoff, starts: dict, cells,
 # The Python sources ``controllers.c`` copies (or that the record it gives leans on) and the sha256[:12] of each when
 # they last matched it (:func:`stale`; ``reach_engine.fast``'s rule): edit controllers.c beside one, then pin its new
 # hash.  Their named constants aren't copied: :func:`_consts` passes them in.
-SHADOWS = {"macros.launches": "532616e695d1", "macros._Run": "0c03454d6eb9", "macros.flap_due": "b8f9d092a822",
+SHADOWS = {"macros.launches": "15003f83af6d", "macros._Run": "0c03454d6eb9", "macros.flap_due": "b8f9d092a822",
            "macros._roll_buttons": "5abd85de7fce", "macros.settled": "cb9b714ff149", "aim.Aim": "b44bb58d40d0",
            "aim.Sched": "3e601468d0b4", "aim._steer": "7ebbc7919311", "aim.landing": "545420eb2158",
            "physics.Physics.x_after": "a3f0acb37a15", "inputs.wrap": "becf340ea616",

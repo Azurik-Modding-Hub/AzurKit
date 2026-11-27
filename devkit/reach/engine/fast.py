@@ -74,7 +74,7 @@ STATS = {"resumed": 0, "reused": 0, "touch_saves": 0, "held_from_end": 0, "held_
 # ``runner.set_kit``'s tick count; :func:`outcome` ``runner.outcome``'s touches, :func:`touched` ``Touch.at``,
 # ``Volumes.holding``'s box and ``faces._spans``; :func:`find_start` and :func:`stands` copy theirs and lean on
 # ``runner.place`` (from the snapshot: an answer is the placement's alone).
-SHADOWS = {"macros.launches": "532616e695d1", "macros._Run": "0c03454d6eb9", "aim.Aim": "b44bb58d40d0",
+SHADOWS = {"macros.launches": "15003f83af6d", "macros._Run": "0c03454d6eb9", "aim.Aim": "b44bb58d40d0",
            "aim.Sched": "3e601468d0b4", "aim.run_job": "8987a1c6b73f", "runner.run_macros": "2574e42b6605",
            "runner.set_kit": "5bef6ef8ca06", "hold.replay": "f17f2f1b17cf", "runner.outcome": "5236470f4546",
            "runner.Touch": "788833513dd4", "faces.Volumes.holding": "30a1a144cfd0",
@@ -113,7 +113,7 @@ def launches(sim, ms, heading, cam, start, back, *, target=None, ctl=None, state
     record = aimed and _SECOND[0] and "home" in kw and kw["home"] is None and state is not None
     resume = aimed and kw.get("home") is not None and state is not None
     keys = [_key(state, m, heading, cam, start, back, target, ctl) for m in ms]
-    runs = [(ctl or _Run)(m, heading, cam, start, back, target) for m in ms]
+    runs = [macros.controller(m.kind, ctl or _Run)(m, heading, cam, start, back, target) for m in ms]
     ends, taints = ["ticks"] * len(ms), [frozenset()] * len(ms)
     out: list = [None] * len(ms)
     fresh, todo = [], []

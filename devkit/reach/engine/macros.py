@@ -30,7 +30,10 @@ has been airborne :data:`AIR_CAP` ticks (or at rest in the air :data:`STUCK`), t
 the step raises (a fault, a level exit).
 
 An aim (the targeted pass, :mod:`.aim`) is any of them toward a target, its own controller steering the stick
-(:meth:`_Run.steer`, which R0's holds along the heading until the body is back on something).
+(:meth:`_Run.steer`, which R0's holds along the heading until the body is back on something).  A launch family that
+lives in a file of its own (:data:`FAMILIES`: AZ-374's ``slidejump``, :mod:`.slide`) runs under the controller that
+file makes of R0's or the aim's (:func:`controller`), keyed by that file apart from this one (``cache.SLIDE_FILES``),
+so an edit to it re-runs only the jobs that fly it.
 
 The R0 set (:data:`R0`): ``k0`` (no element levels: rank 0) walkoff, runjump and standjump; ``air3`` (air level 3,
 the shield cast by LT+Y: Flaps 5) walkoff with 1, 2 or 5 flaps and runjump and standjump with 0, 1, 2 or 5.
@@ -42,6 +45,7 @@ saved state with the pads and rows it would have alone.  Pure but for the simula
 
 from __future__ import annotations
 
+import importlib
 import math
 from typing import NamedTuple
 
@@ -75,6 +79,7 @@ ROLL_Y = 16                          # [proposal] Y held from this tick of the l
 KITS = {"k0": {}, "air3": {"air": 3}}   # the two kit branches: rank 0 and the air shield (cast by input)
 FLAP_MARGIN = 0.3                    # [proposal] a flap keeps this far inside the law's bounds (l3_goal's)
 Y, BLACK, CAST = frozenset({"y"}), frozenset({"black"}), frozenset({"lt", "y"})
+FAMILIES = {"slidejump": "devkit.reach.engine.slide"}   # a launch kind whose controller lives in a file of its own
 
 
 class Macro(NamedTuple):
@@ -272,6 +277,13 @@ def _stepped(sim, pad: Pad):
         return f"fault:{getattr(exc, 'site', 'other')}"
 
 
+def controller(kind: str, make):
+    """What runs a launch of ``kind``: ``make`` (:class:`_Run`, or an aim's controller) for this file's kinds, and
+    for a kind of :data:`FAMILIES` its file's ``controller(make)`` (the one hook: the family's code is that file's)."""
+    mod = FAMILIES.get(kind)
+    return make if mod is None else importlib.import_module(mod).controller(make)
+
+
 def launch(sim, m: Macro, heading: float, cam: float, start: tuple, back: float, *, target=None,
            ctl=None) -> Launch:
     """Run macro ``m`` from the simulator's state now (feet ``start``, ``back`` m behind the takeoff, camera yaw
@@ -291,7 +303,8 @@ def launches(sim, ms, heading: float, cam: float, start: tuple, back: float, *, 
     stepped once: they run together while their next pads agree, and those whose pad parts from the first's go on
     from that tick's saved state (``sim.save``, ``sim.reset``) after it ends, so macros that differ only in their
     flaps share their run-up, their jump and every flap up to the fewest's.  Their :class:`Launch` es, in order."""
-    runs, ends = [(ctl or _Run)(m, heading, cam, start, back, target) for m in ms], ["ticks"] * len(ms)
+    runs = [controller(m.kind, ctl or _Run)(m, heading, cam, start, back, target) for m in ms]
+    ends = ["ticks"] * len(ms)
     taints = [frozenset()] * len(ms)
     todo = [(None, list(range(len(ms))), None)]      # (the state to go back to, the runs together, their next pad)
     while todo:

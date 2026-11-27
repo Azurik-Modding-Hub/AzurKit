@@ -7,8 +7,8 @@ and halt VAs and the ports (AZ-855), the observation reader, the witness
 format (``l3_search``'s segments and ``CAST_WAIT``), the flap law's constants (the randomizer's ``physics.py``), the
 launch controllers and this engine's runner, and Unicorn's version; for an aimed job (one with a ``target``) the
 targeted pass's code too (:data:`AIM_FILES`, Step R2.16d: so an aim-only change re-runs no fan job, 89 % of w1's
-ticks); not L3's ``engine_sha12``, which hashes the randomizer's data too, ``devkit/sim/l3.py``'s ENGINE_FILES), the
-snapshot's metadata hash, the launch set's version
+ticks), for a job with a slide launch the slide's (:data:`SLIDE_FILES`, Step 4.83b); not L3's ``engine_sha12``,
+which hashes the randomizer's data too, ``devkit/sim/l3.py``'s ENGINE_FILES), the snapshot's metadata hash, the launch set's version
 (``reach_engine.R0``), the volumes and pickups the plan judges touches against (its targets file's sha12) and the
 job itself (its start feet, heading, cells and macros).  The derived data is no part of it: a derive change keeps
 every outcome and re-maps it to nodes and zones (each outcome keeps where it settled, privately), and only an L3
@@ -38,6 +38,8 @@ AIM_FILES = ("devkit/reach/engine/aim.py", "devkit/reach/engine/hold.py")   # th
                                                                              # aimed job's core only
 ZONE_FILES = ("devkit/rando/draft/route.py", "devkit/reach/engine/nodes.py")   # the code that names a zone
                                                                                 # (``nodes.Zones``)
+SLIDE_FILES = ("devkit/reach/engine/slide.py",)   # the slide launch (``macros.FAMILIES``, AZ-374): the core of a job
+                                                  # that flies it only, so an edit to it re-runs only those
 
 
 def folder(level: str, root: str | Path | None = None) -> Path:
@@ -150,16 +152,25 @@ def core(files=CORE_FILES) -> str:
     return core_sha12(files=files)
 
 
+def key_files(job: dict) -> tuple[str, ...]:
+    """The code a job's core hashes (:func:`job_key`): :data:`CORE_FILES`, an aimed job's (one with a ``target``)
+    :data:`AIM_FILES` too, and one with a launch of a family in a file of its own (``macros.FAMILIES``: the slide
+    launch) :data:`SLIDE_FILES` too."""
+    from devkit.reach.engine.macros import FAMILIES
+    files = CORE_FILES + (AIM_FILES if job.get("target") is not None else ())
+    return files + (SLIDE_FILES if any(m[0] in FAMILIES for m in job.get("macros", ())) else ())
+
+
 def job_key(job: dict, meta_sha12: str, core12: str | None = None, touch: str | None = None,
             zones12: str | None = None) -> str:
-    """A job's key: sha256[:12] of the core (``core12``, by default :data:`CORE_FILES`' sha12, an aimed job's with
-    :data:`AIM_FILES`), the snapshot's metadata hash, the launch set's version, the plan's targets (``touch``, their
+    """A job's key: sha256[:12] of the core (``core12``, by default the sha12 of its :func:`key_files`), the
+    snapshot's metadata hash, the launch set's version, the plan's targets (``touch``, their
     file's sha12) and the job's start (feet lists, heading, cells, macros, an aim's target, its cells, stop,
     certificate and edge: its confidence decides ``aim.MORE``'s passes, its flap schedule, a refinement's twin's
     answers, whether it asks for every pass, ``more``, and its bent pass's takeoffs, ``bends``), and for a job that
     stops (``aim.hit``) the code that names its zones (``zones12``, by default :data:`ZONE_FILES`' sha12); its ``id``
     and bookkeeping fields aren't part."""
-    core12 = core12 or core(CORE_FILES + AIM_FILES if job.get("target") is not None else CORE_FILES)
+    core12 = core12 or core(key_files(job))
     doc = {"core": core12, "meta": meta_sha12, "r0": reach_engine.R0, "touch": touch,
            **{k: job[k] for k in ("takeoff_feet", "starts", "heading", "cells", "macros", "target", "aim", "stop",
                                   "target_cells", "cert", "edge", "env", "twin", "more", "bends") if k in job}}

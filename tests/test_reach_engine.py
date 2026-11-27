@@ -320,6 +320,35 @@ def test_an_edit_to_the_pad_and_camera_code_moves_every_job_and_hold_key(tmp_pat
     assert hold.key_of(rec, 0) == hold.key("j", 0, "a" * 12) != hold.key("j", 0, "b" * 12)
 
 
+def test_an_edit_to_the_slide_launch_moves_only_slide_job_keys(tmp_path):
+    """AZ-374 W (4.83b): the slide launch lives in a file of its own (``macros.FAMILIES``; its one hook
+    ``macros.controller``), keyed by ``cache.SLIDE_FILES`` beside the core: an edit to it moves the key of every job
+    that flies a slide jump (an aim's, or among a fan's launches) and no other job's, an edit to the core every key;
+    a kind of no family runs under the controller it is given (R0's, an aim's), so no other launch changes."""
+    from devkit.reach.engine import macros
+    root, here = tmp_path / "checkout", Path(cache.__file__).resolve().parents[3]
+    for rel in {*cache.CORE_FILES, *cache.AIM_FILES, *cache.SLIDE_FILES}:
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(here / rel, root / rel)
+    run, slide = list(macros.Macro("runjump", "k0")), list(macros.Macro("slidejump", "air3", 2))
+    jobs = {"fan": {"macros": [run]}, "aim": {"macros": [run], "target": [0.0, 0.0, 0.0]},
+            "slide aim": {"macros": [slide, run], "target": [0.0, 0.0, 0.0]}, "slide fan": {"macros": [run, slide]}}
+
+    def keys() -> dict:
+        return {n: cache.core_sha12(root, cache.key_files(j)) for n, j in jobs.items()}
+    before = keys()
+    for rel, moved in (("devkit/reach/engine/slide.py", {"slide aim", "slide fan"}),
+                       ("devkit/reach/engine/macros.py", set(jobs))):
+        p = root / rel
+        p.write_text(p.read_text(encoding="utf-8") + "\nX = 1\n", encoding="utf-8")
+        after = keys()
+        assert {n for n in jobs if after[n] != before[n]} == moved, rel
+        before = after
+    assert all(macros.controller(k, c) is c for k in ("walkoff", "runjump", "standjump", "rolljump")
+               for c in (macros._Run, aim.Aim))
+    assert cache.job_key(jobs["fan"], "0" * 12) != cache.job_key(jobs["fan"] | {"macros": [slide]}, "0" * 12)
+
+
 def test_a_job_key_moves_with_the_l3_core_and_the_start_and_outcomes_remap_without_a_run(two_platforms, tmp_path):
     """An outcome is cached by the L3 core, the snapshot, the plan's targets and the start, never the derive: an
     edit to a core file moves the core's sha and every key (the jobs run again), as new targets do, and an edit to
