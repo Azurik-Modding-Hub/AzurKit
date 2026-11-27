@@ -735,10 +735,11 @@ are the Characters section's.
     Easy, 2 Hard or 3 Expert, each offered at any settings. A settings file
     and the tab's table name it (`"Easy"`, `"Hard"`, `"Expert"`) only above
     Normal, and the plan's `settings` then also holds `seed_difficulty_fill`
-    (`settings.seed_difficulty_fill`: `SEED_DIFFICULTY_FILL`, 3, with the
-    save warp counted, else `WARPLESS_FILL`, 2, as fill 3 moved only the
-    warp's seeds), as does the level byte of share versions 4, 5 and 6
-    (`fill << 3 | level`), and the settings digest the fill's streams read;
+    (`settings.seed_difficulty_fill`: `SEED_DIFFICULTY_FILL`, 4, with the
+    save warp counted, else `WARPLESS_FILL`, 4 too: fill 3 moved only the
+    warp's seeds, fill 4's container rule both), as does the level byte of
+    share versions 4, 5 and 6 (`fill << 3 | level`), and the settings
+    digest the fill's streams read;
     another fill is refused by name, except
     v1.0.0's (fill 1, a file's or plan's integer: 2 Standard, 3 Hard, 4
     Frame-perfect), which loads at the nearest level now

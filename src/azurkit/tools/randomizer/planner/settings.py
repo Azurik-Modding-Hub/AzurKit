@@ -67,11 +67,12 @@ NAMES = {"fragments": "disc fragments", "powers": "elemental powers", "gems": "g
 UPGRADES = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # "upgrades"; the other power_* "powers"
 SEED_DIFFICULTIES = (0, 1, 2, 3)   # Normal (today's seeds), Easy, Hard, Expert (D1157)
 SEED_DIFFICULTY_NAMES = ("Normal", "Easy", "Hard", "Expert")   # a level's name, as a file and the tab hold it
-SEED_DIFFICULTY_FILL = 3           # level > 0's algorithm: bumped when the same inputs give such a seed another placement
-WARPLESS_FILL = 2                  # fill 3 moved only seeds with the save warp counted (its detours, 4.64d), so
-#                                    one without it keeps fill 2 (seed_difficulty_fill): its plans and links as they were.
-#                                    Nothing ties the two: a bump that also moves a seed without the warp sets this to
-#                                    the bumped SEED_DIFFICULTY_FILL too, else its old links open and place it anew
+SEED_DIFFICULTY_FILL = 4           # level > 0's algorithm: bumped when the same inputs give such a seed another placement
+WARPLESS_FILL = 4                  # a seed without the save warp counted (seed_difficulty_fill): fill 4, 4.83j's
+#                                    container rule, moved seeds with and without the warp, so both are 4 (fill 3 had
+#                                    moved only the warp's, its detours, 4.64d, and this kept fill 2). Nothing ties the
+#                                    two: a bump that also moves a seed without the warp sets this to the bumped
+#                                    SEED_DIFFICULTY_FILL too, else its old links open and place it anew
 OLDER_LEVELS = {2: 2, 3: 3, 4: 3}  # v1.0.0's levels (fill 1: Standard, Hard, Frame-perfect) -> the nearest level now
 RATING_NAMES = ("None", "Safe", "Standard", "Hard", "Frame-perfect")   # a rating's name, 0 none
 RETIRED_KEYS = ("name", "default", "knobs", "tricks")             # the presets' keys (D113, D144)
@@ -105,8 +106,8 @@ SHARE_SLIDERS = (
 
 def seed_difficulty_fill(save_warp: bool) -> int:
     """The fill a seed above Normal is made at, as its settings digest, plan file and share string name it:
-    :data:`SEED_DIFFICULTY_FILL` with the save-point warp counted, else :data:`WARPLESS_FILL` (whose placements
-    fill 3 left as they were, so a link or plan made at fill 2 without the warp still opens)."""
+    :data:`SEED_DIFFICULTY_FILL` with the save-point warp counted, else :data:`WARPLESS_FILL` (kept by a bump that
+    leaves those placements as they were, so their links and plans still open; fill 4 moved both)."""
     return SEED_DIFFICULTY_FILL if save_warp else WARPLESS_FILL
 
 

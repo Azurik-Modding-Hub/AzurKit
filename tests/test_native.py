@@ -254,7 +254,7 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
              (Settings(3, "hard", {}, seed_difficulty=1), [("2", 0), ("3", 1), ("3", 11)]),
              (Settings(2, "standard", {}, seed_difficulty=2), [("4", 0), ("5", 2)]),
              (Settings(3, "hard", {}, frozenset({"fragments"}), seed_difficulty=3), [("31", 12), ("31", 4)]),
-             (Settings(3, "hard", {}, frozenset({"powers"}), seed_difficulty=1), [("30", 0)]),
+             (Settings(3, "hard", {}, frozenset({"powers"}), seed_difficulty=1), [("0", 0)]),
              (Settings(3, "hard", {}, frozenset({"powers"})), [("52", 20)]),
              (Settings(4, "frame_perfect", {}, seed_difficulty=2), [("15", 3), ("15", 0)])]
     for st, seeds in cases:
