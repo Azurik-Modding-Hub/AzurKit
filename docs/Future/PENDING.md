@@ -29,8 +29,12 @@ landed, 1.3.1 was out, and 1.4.0 was cut in the same lane (2.9). Step
 4.81a brought it up to date at the wrap-up of the 2026-11-23/24 research
 session (D1304, D1307-D1334), against `main` aeb97a72: 4.75a-f, 4.76d,
 4.77a, 4.78a, 4.79a-c and 4.80a had landed, and rounds 1 and 2 of the
-research were part run (group 6's arc, 6.9-6.14). The next session starts
-at group 6's arc.
+research were part run (group 6's arc, 6.9-6.14). Step 4.86a brought it up
+to date at the wrap-up of the 2026-11-25/27 research session (D1335-D1357),
+against `main` 1b75e22d: round 2 had landed and gone out as 1.5.0 (2.10),
+round 3's engine half (4.83a-c) and 4.83j's fill fix had landed, 1.5.1 was
+cut in the same lane (2.11), and round 3 and the simulator area's round 2
+were part run (6.15). The next session starts at 6.15.
 
 ## 1. The Variants editor's first Check (D1181, D1192)
 
@@ -140,8 +144,9 @@ polish, after the next session's research (group 6, D1304).
 1. ~~1.0.2~~: out on 2026-11-09 (tag `v1.0.2`, 15c16383).
 2. ~~The content push~~: the hub's `main` is booblord v13 (db880f7, which
    needs 1.4.0) since 1.4.0's publish (2.9), after v12 (baef191) from
-   1.3.1's and v11 (a3bf5e7) from 1.2.0's (D1266); CI's `CONTENT_COMMIT`
-   pins v13 (cffa6e4).
+   1.3.1's and v11 (a3bf5e7) from 1.2.0's (D1266). CI's `CONTENT_COMMIT`
+   pins v14 since 4.86c (its Check parts re-recorded for 1.5.1, 2.11); the
+   hub's `main` moves to v14's needs commit at 1.5.1's publish.
 3. ~~1.1~~: out on 2026-11-13 (tag `v1.1.0`, d226ddad), with 4.38a and
    4.38b.
 4. ~~1.0.3~~: out on 2026-11-11 (tag `v1.0.3`, 7a4bab60), with 4.37r and
@@ -173,15 +178,21 @@ polish, after the next session's research (group 6, D1304).
    D1301-D1306) and 4.73a's test guard (8.18). Content `main` moved to
    db880f7 (v13, needing 1.4.0) at its publish, so the apps up to 1.3.1
    keep v12.
-10. **1.5.0** (D1310, D1324, D1329): round 2's release (6.11). It ships once
-    6.7's door and d1's floor-10 fix (9.55) are checked in xemu (4.79e)
-    and its CI is green, its notes saying seeds changed (AZ-373 went to
-    round 3: 6.11's 4.79d row); the
-    witness gate's switch-on goes in round 3's release (6.12). Contents:
-    `main` since 1.4.0 (4.75a-f, 4.76d, 4.77a, 4.78a, 4.79a-c, 4.80a) and
-    4.79d's logic (6.7, d1's floor 10 and B's holds from 4.79e's
-    refusals, 6.11). The version commit follows 4.79d's landing, and the
-    orchestrator tags it once `main`'s CI is green.
+10. ~~1.5.0~~: out on 2026-11-26 (tag `v1.5.0`, f91ecd75; published
+    20:22Z), round 2's logic checked in xemu (4.79d: seeds change; toD1's
+    door from the sewer, d1's floor 10 asks the death keylock, the refused
+    moves out), without AZ-373 (D1346), with 4.82b's Shape drag fix.
+11. **1.5.1** (D1356): 4.83j's fill fix (9.56: an item held more than once
+    stays out of a container whose hold its touch exceeds; level > 0 seeds
+    at fill 4, D1355, so 1.5.0's Easy, Hard and Expert links are refused by
+    name) with round 3's engine half (4.83a-c) and 4.86c's parts re-record
+    (its native libraries moved `parts.VERSION`, 10.18: content v14, which
+    needs 1.5.1). Cut by Step 4.86a; the orchestrator tags it once `main`'s
+    CI is green, and moves the content hub's `main` to v14's needs commit
+    at its publish.
+12. **1.5.2** (D1356): round 3's derive batch (`DERIVE_VERSION` 9), the
+    four-level witness gate and round 3's sitting (6.12, 6.15), its notes
+    saying seeds changed.
 
 ## 3. Stack 3 and 4.31's outcome
 
@@ -439,8 +450,8 @@ first lane that re-records the art. Beside it: D1075's read at its start
       (lane 3's A/B doubling as it), every plan sampled anew on the rebuilt
       models, none copied from an older cache (4.76b's root cause), then
       the witness files and the batch's restack (D1326);
-    - the rig decodes' rules (9.54), before any all-level run with
-      `--rigs`;
+    - ~~the rig decodes' rules (9.54)~~: 4.83c (AZ-858), with the rig
+      trip judged by the world hold's zone rule (AZ-859);
     - then the all-level run (D1309), once, on the final zones (D1326), in
       4.76a's order after a 2-level pilot, the gate on each censused
       level, one restack and one 1.5.x release a round;
@@ -498,23 +509,69 @@ first lane that re-records the art. Beside it: D1075's read at its start
       bits lead) and a5 9.49 % (167 of 1,760; Big_Float_Fan1 leads), over
       the 1 % line, so the area's round 2 builds a second-state replay (a
       later save's arrival a level, with 6.14's round 2).
-    - **4.77d** (whole steps against the game on the control rows, after
-      4.78b), **4.77e** (the world hold, `--world`, only if 4.77d says
-      build) and **4.77f** (every find class, after 4.78d): open. One reach
-      bench at a time, with rounds 2's and 3's.
+    - ~~4.77d, 4.77e, 4.77f~~: done. Whole steps agree with the game on
+      320 of 322 control rows (4.77d) and 1,547 of 1,555 class rows
+      (4.77f); the world hold, `--world`, landed (4.77e). Round 2 of the
+      area: 6.15.
 14. **The xemu check automation** (4.78a-d; check v1: one deterministic try
     from the witness's recipe, its start within 0.75 m, alive in the
     to-zone and held 60 ticks):
     - ~~4.78a, `devkit reach witness-check`~~: landed (5863fccc,
       22bf8aff).
-    - **4.78b** (the check's rates on the 323 rows whose truth is known;
-      it freezes the control set), **4.78c** (a clip a link, D1312) and
-      **4.78d** (the xemu rate of each find class on the benched levels,
-      after 4.76c; a class under 85 % ships no PASS alone): open, one
-      sitting of the area at a time. The check replays a witness at its own
+    - ~~4.78b, 4.78c, 4.78d~~: done. The control set is frozen (4.78b),
+      a link's clip landed (4.78c), and the class rates read 1,492 of
+      1,555 PASS (4.78d; the recipe start, D1352); its round 2 (4.84a-d)
+      and check v2: 6.15. The check replays a witness at its own
       kit, snapshot, clock and rig phase, so a PASS says nothing of the
       audit's false-link classes 1-5 (group 7): their engine-side fixes
       come first.
+
+15. **Round 3 and the simulator area's round 2, at the 11-27 wrap-up**
+    (D1335-D1357; each step's design, reports and kept numbers are in the
+    private evidence folder):
+    - ~~4.83a, 4.83c, 4.83b, 4.83j~~: landed. The re-key batch (AZ-850 to
+      855 and 857; AZ-856 was taken in error and names nothing), the rig
+      decodes and the trip's zone rule (AZ-858, 859), the slope patch
+      nodes, the slide launch and ice starts, and 9.56's fill rule.
+    - **4.83d, the derive batch** (`DERIVE_VERSION` 9, for 1.5.2): D0
+      dropped AZ-373 (its cut holds the one move past a gate the game goes
+      round by easy moves; vanilla lost); D1's eight members are on
+      `p2/4.83d-derive-batch`, reviewed. D2 stopped at the vanilla bar (758
+      of 1,418 locations): AZ-374's `slope` class widens a barrier's far
+      side in the cut (e5's AcidBlock_02, f1), and f3 loses two kit-0
+      edges, one proven in xemu. A hunt and D2's re-run carry on from their
+      notes; then the 22 reach models (after 4.85b's core key) and the
+      review.
+    - **4.83e**: phase A is done (99.501 % of sampled jobs equal, just over
+      its bar; 99.485 % counting shared records once; each of the 31
+      differences named). Phase B after D2, 4.85b and 4.85c, its `--world`
+      stage held to a 12 CPU-h stop until 4.85c's counter is read.
+    - **4.83f-i and 4.84c**: as 6.12 and the round's design.
+    - **A load-posed rig's pose box** (4.83c's review): a witness that
+      crosses the summoned airship's other pose stays in logic; give such a
+      rig a pose-1 box and take out the witnesses whose path meets it,
+      before 4.83h.
+    - **The simulator area's round 2** (4.85a-g): 4.85a (the arrival
+      pinned after the hop, check v2) is built, sat and checked: the pinned
+      arrival explains every e7 miss whole steps didn't predict (no 4.85e);
+      it lands next. 4.85b (L3's early pad; its item 1 refuted, so
+      `unmapped@0xdf6ae` stays a named stop; two test nits: the FastL3
+      variant under `FASTL3_STEP=c`, and the early pad checked before the
+      latch write) and 4.85c (the world hold's rules, with 4.83c's
+      count of outs by cause) go before 4.83e's phase B. Then 4.85d
+      (presses by guest ticks, every level's arrival twice), 4.85f and
+      4.85g.
+    - **The xemu area's round 2** (4.84a-d): done. The rig rows (4.84a:
+      the trip's `END_M` was wrong, fixed by 4.83c), the misses read and
+      sat (4.84b: WORLD:hit's bar not met on either reading at the old
+      arrival, sweep e7 still review first; 4.85a re-sat e7 since), and
+      every level's arrival identity (4.84d; re-takes of e5, f3 and w2
+      held).
+    - **4.86b** (D1357): the reach and L3 pools wait between tasks while a
+      gate runs (a pause file the orchestrator's loop sets), never mid-step.
+    - Loose ends: a pool builds a level's reach model once a worker (two
+      2 GB builds raced): build it in the parent first; 4.84d's e5 re-take
+      reproduces at 27 pages (4.85d reads it again).
 
 ## 7. The open issues from Modkit's ledger
 
@@ -1269,7 +1326,8 @@ memory peaks stay strict. The gate writes both kinds of row to
     the capped profile with D1017's 9 s and 6 GiB), and its perf passed
     with one debt row (8.38). fullsuite still takes `--all` only on main's
     clean whole run.
-18. **`parts.VERSION` digests `core/facts.*.json` whole**
+18. **`parts.VERSION` digests `core/facts.*.json` and `core/_native/*` whole**
+    (4.83j's fill kernel moved it again: 4.86c, content v14)
     (`parts.SOURCES`), so any pack's new facts site or function forces
     booblord's content re-record: 4.71e's death realm sites and
     `ai_think_base` re-keyed all 105 rows and took her to v13 (2.9), though
