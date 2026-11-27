@@ -99,7 +99,8 @@ class Macro(NamedTuple):
     @property
     def name(self) -> str:
         extra = f"-c{round(math.degrees(self.curve)):+d}" if self.curve else ""
-        extra += f"-l{self.lead:g}" if self.lead != JUMP_LEAD and self.kind in ("runjump", "rolljump") else ""
+        led = self.lead != JUMP_LEAD and self.kind in ("runjump", "rolljump", "slidejump")
+        extra += f"-l{self.lead:g}" if led else ""
         extra += f"-r{self.rolls}" if self.kind == "rolljump" else ""
         extra += "-recast" if self.recast else ""
         extra += "-hold" if self.hold else ""

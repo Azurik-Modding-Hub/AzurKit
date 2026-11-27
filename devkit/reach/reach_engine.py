@@ -432,7 +432,7 @@ def run(a) -> dict:
 
 
 STAGES = {"a": "aims", "t": "fan", "r": "refine", "s": "smallfan", "g": "retarget",
-          "p": "pairs", "e": "escalate"}   # a job id's first letter: its stage
+          "p": "pairs", "e": "escalate", "l": "slides"}   # a job id's first letter: its stage
 
 
 def _tally(flags: dict, drift: dict, s: dict) -> None:

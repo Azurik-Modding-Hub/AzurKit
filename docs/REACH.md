@@ -47,8 +47,9 @@ model of it: `devkit/reach/engine/` and [`reach-engine`](../devkit/reach/README.
   R0 flew it (the stick held at the target), since each finds edges the other misses. A run or roll jump presses
   when its run-up along the heading is done, and one whose body leaves the floor first is no launch of its own
   (the walk-off's). Where no start stands, an aim takes one where the body rests on near-flat ice (AZ-723 A, Step
-  4.83b: the game puts a body on any slippery face in the slope state, so no start there is ever standing); the
-  fan's starts are as they were.
+  4.83b: the game puts a body on any slippery face in the slope state, so no start there is ever standing), and on
+  the kernel route FastL3's check of a start (a confirm's, `backend.stood`) and of the kernel's other starts takes
+  one by the same rule; the fan's starts are as they were.
 - **The slide launch (AZ-374 W, Step 4.83b):** `slidejump` (`devkit/reach/engine/slide.py`, keyed by its own file,
   `cache.SLIDE_FILES`, so an edit to it re-runs only its jobs) runs from the floor above a slope patch down the
   slope and presses Y only once the body slides (state 3 or 4) at the takeoff column, then flies as the aim's

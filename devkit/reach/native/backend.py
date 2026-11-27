@@ -67,7 +67,7 @@ from devkit.reach.engine import cache, hold, runner, worker
 from devkit.reach.engine.macros import AIRBORNE, DEAD, KITS, SWIMMING, launches, min_rank
 from devkit.sim import l3
 from devkit.sim.l3 import L3Error, Pad, Row
-from devkit.sim.obs import Obs, settled
+from devkit.sim.obs import SLIDE, Obs, settled
 
 FLAG = "fault:kernel"      # a launch end the kernel flagged (``macros._stepped``'s fault end, :class:`Flagged`'s site)
 END_M = 0.5                # [proposal, R2.17's] a kernel landing this near L3's is the same find
@@ -423,9 +423,11 @@ def _why(code: int) -> str:
 
 
 def stood(row, feet) -> bool:
-    """Whether a placement onto ``feet`` whose settle ended at ``row`` stands there (``runner.find_start``'s rule)."""
+    """Whether a placement onto ``feet`` whose settle ended at ``row`` stands there (``runner.find_start``'s rule),
+    or rests there on near-flat ice in the slope state (``aim.on_ice``'s, AZ-723 A: an aim's ice start)."""
     g = runner._feet(row)
-    return (row.state == 0 and math.hypot(g[0] - feet[0], g[1] - feet[1]) <= runner.START_XY
+    return ((row.state == 0 or row.state == SLIDE and settled(row))
+            and math.hypot(g[0] - feet[0], g[1] - feet[1]) <= runner.START_XY
             and abs(g[2] - feet[2]) <= runner.START_Z)
 
 
@@ -787,10 +789,11 @@ def floor(sim, p, zone: str, heading: float, cells, zone_at) -> dict:
 
 def other_starts(sim, takeoff, heading: float, target, zone: str, cells, zone_at) -> tuple[list, int]:
     """``aim.other_starts`` on the kernel route (:func:`install`): the kernel's takeoffs where FastL3 too stands a
-    body (standing, in ``zone``) on one of them, else FastL3's own (so a count of 0 is L3's)."""
+    body (standing, or at rest on near-flat ice as ``aim.other_starts`` takes one, in ``zone``) on one of them, else
+    FastL3's own (so a count of 0 is L3's)."""
     picks, n = _others(sim, takeoff, heading, target, zone, cells, zone_at)
     if not isinstance(sim, KernelSim) or any(
-            _l3_stands(sim, q, heading, cells, lambda g: g[1] == 0 and zone_at(g[0], False, False) == zone)
+            _l3_stands(sim, q, heading, cells, lambda g: g[1] in (0, SLIDE) and zone_at(g[0], False, False) == zone)
             for q in picks):
         return picks, n
     return _others(sim.l3, takeoff, heading, target, zone, cells, zone_at)

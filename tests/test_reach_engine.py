@@ -413,6 +413,7 @@ def test_a_slide_jump_aims_at_a_flight_off_a_patch_from_the_floor_above_by_its_w
     assert job["target"][1] < 0.0 and job["target"][2] == pytest.approx(0.0)
     ms = [macros.Macro(*m) for m in job["macros"]]
     assert {m.kind for m in ms} == {"slidejump"} and sorted({m.lead for m in ms}) == [0.0, macros.JUMP_LEAD, 1.41]
+    assert len({m.name for m in ms}) == len(ms)          # each lead named apart in a witness (the review's nit)
     assert slide.slide_jobs(Nodes(_ramp(patches=False)), derived) == []
     d1 = json.loads(gzip.decompress((Path(__file__).parent / "data" / "derived-v9-airship.json.gz").read_bytes()))
     offs = slide.offs(d1)
@@ -1222,11 +1223,9 @@ class _OnIce(_Sim):
         return r
 
 
-def test_an_aim_takes_a_start_at_rest_on_ice():
-    """AZ-723 A (4.83b): the game's classifier puts a body on any slippery face in the slope state (0x85B0B), so on
-    near-flat ice no start ever stands (``runner.find_start``: state 0, the fan's, untouched); an aim takes one where
-    the body rests there (``obs.settled``), marked ``ice``, and flies its launches from it (here its hit, held), its
-    fifth pass's other starts too; a start on plain floor is as it was, and one still sliding on ice is none."""
+def _ice() -> tuple:
+    """The ice tests' world: :class:`_OnIce`'s ice at x < 6.5 (zone t.S) and a floor 3 m down past it (t.N), with
+    the floors, the heading east, an aimed run jump across and the zones."""
     from devkit.reach.engine import macros
     floors, east = [(0, 0, 6, 4, 0.0), (8, 0, 11, 4, -3.0)], -math.pi / 2
     run = macros.Macro("runjump", "k0", 0, 0.0, 0.0)
@@ -1237,6 +1236,15 @@ def test_an_aim_takes_a_start_at_rest_on_ice():
 
     def zone(feet, swim=False, fallback=True):
         return "t.N" if feet[0] >= 7 else "t.S"
+    return floors, east, job, zone
+
+
+def test_an_aim_takes_a_start_at_rest_on_ice():
+    """AZ-723 A (4.83b): the game's classifier puts a body on any slippery face in the slope state (0x85B0B), so on
+    near-flat ice no start ever stands (``runner.find_start``: state 0, the fan's, untouched); an aim takes one where
+    the body rests there (``obs.settled``), marked ``ice``, and flies its launches from it (here its hit, held), its
+    fifth pass's other starts too; a start on plain floor is as it was, and one still sliding on ice is none."""
+    floors, east, job, zone = _ice()
     sliding = _OnIce(floors)
     sliding.drift = 0.3
     ice, plain, slid = (runner.run_job(s, job, here=0, zone_at=zone) for s in (_OnIce(floors), _Sim(floors), sliding))
@@ -1248,6 +1256,31 @@ def test_an_aim_takes_a_start_at_rest_on_ice():
     picks, n = aim.other_starts(_OnIce(floors), job["takeoff_feet"], east, job["target"], "t.S", [0], zone)
     assert picks and n > 0 and aim.other_starts(sliding, job["takeoff_feet"], east, job["target"], "t.S", [0],
                                                 zone) == ([], 0)
+
+
+def test_the_kernel_route_takes_a_start_at_rest_on_ice_as_an_aim_does(monkeypatch):
+    """4.83b's review: on the kernel route FastL3 checks the start of each kernel launch it confirms (and of each
+    kernel plan it takes over, ``KernelSim.on_l3``) by ``backend.stood``, and the kernel's other starts, by the
+    aim's own rule (AZ-723 A): a start at rest on near-flat ice stands, so a hit from an aim's ice start confirms
+    rather than faulting ``start``, and the kernel's ice takeoffs are kept; a body still sliding there stands none."""
+    from devkit.reach.native import backend as KB
+    floors, east, job, zone = _ice()
+    rec = runner.run_job(_OnIce(floors), job, here=0, zone_at=zone)
+    st, o = rec["starts"]["run"], rec["outcomes"][-1]
+    got = KB.confirm(_OnIce(floors), st, east, dict(o, by="kernel"), held=False)
+    assert st["ice"] and "fault" not in got and aim.hit(got["outcome"], st, job, zone)
+    sliding = _OnIce(floors)
+    sliding.drift = 0.3
+    assert not KB.stood(runner.place(sliding, st["feet"], east, 0), st["feet"])
+
+    class _Kernel(KB.KernelSim):    # the kernel's takeoffs (one, where the aim's ice start rests), FastL3 its l3
+        def __init__(self, l3sim):
+            self.l3 = l3sim
+    on = tuple(st["settled"])
+    monkeypatch.setattr(KB, "_others", lambda sim, *a: ([on], 1) if isinstance(sim, _Kernel) else ([], 0))
+    args = (job["takeoff_feet"], east, job["target"], "t.S", [0], zone)
+    assert KB.other_starts(_Kernel(_OnIce(floors)), *args) == ([on], 1)
+    assert KB.other_starts(_Kernel(sliding), *args) == ([], 0)
 
 
 def test_a_probe_needed_aim_runs_every_pass_when_its_job_asks_for_more():
