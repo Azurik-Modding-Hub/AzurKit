@@ -1210,6 +1210,46 @@ def test_an_aims_last_pass_flies_its_certificates_flaps_on_the_envelope_schedule
     assert [len(env.schedule(r, 0.0)) for r in (2, 3)] == [env.kit(r, None).flaps for r in (2, 3)]
 
 
+class _OnIce(_Sim):
+    """The stand-in whose floor at x < 6.5 is near-flat ice: a body on the ground there reads the slope state (3), at
+    rest when still (``obs.settled``'s AZ-737 rule), with ``drift`` sliding on at that speed (never at rest)."""
+    drift = 0.0
+
+    def step(self, pad=l3.Pad(), writes=()):
+        r = super().step(pad, writes)
+        if r.state == 0 and r.pos[0] < 6.5:
+            return r._replace(state=3, obs=r.obs._replace(state=3, vel=(r.obs.vel[0] + self.drift, *r.obs.vel[1:])))
+        return r
+
+
+def test_an_aim_takes_a_start_at_rest_on_ice():
+    """AZ-723 A (4.83b): the game's classifier puts a body on any slippery face in the slope state (0x85B0B), so on
+    near-flat ice no start ever stands (``runner.find_start``: state 0, the fan's, untouched); an aim takes one where
+    the body rests there (``obs.settled``), marked ``ice``, and flies its launches from it (here its hit, held), its
+    fifth pass's other starts too; a start on plain floor is as it was, and one still sliding on ice is none."""
+    from devkit.reach.engine import macros
+    floors, east = [(0, 0, 6, 4, 0.0), (8, 0, 11, 4, -3.0)], -math.pi / 2
+    run = macros.Macro("runjump", "k0", 0, 0.0, 0.0)
+    job = {"key": "k", "id": "a0", "heading": east, "takeoff_feet": [5.0, 2.0, 0.0], "cells": [0],
+           "starts": {"run": [[4.0, 2.0, 0.0]], "stand": [[4.7, 2.0, 0.0]]}, "target": [9.5, 2.0, -3.0],
+           "aim": [9.5, 2.0, -3.0], "from": "t.S", "edge": "t.S>t.N:jump:modelled", "cert": ["runjump", "k0", 0],
+           "stop": {"air": 0, "to": "t.N", "zoning": "z"}, "macros": [list(run), list(macros.Macro("standjump", "k0"))]}
+
+    def zone(feet, swim=False, fallback=True):
+        return "t.N" if feet[0] >= 7 else "t.S"
+    sliding = _OnIce(floors)
+    sliding.drift = 0.3
+    ice, plain, slid = (runner.run_job(s, job, here=0, zone_at=zone) for s in (_OnIce(floors), _Sim(floors), sliding))
+    st = ice["starts"]["run"]
+    assert st["ice"] and st["cell"] == 0 and st["tries"] > 1 and "hold" in ice["outcomes"][-1]
+    assert ice["outcomes"][-1]["end"] == "settled" and aim.hit(ice["outcomes"][-1], st, job, zone)
+    assert "ice" not in plain["starts"]["run"] and plain["starts"]["run"]["tries"] == 1 and plain["outcomes"]
+    assert "cell" not in slid["starts"]["run"] and slid["outcomes"] == []
+    picks, n = aim.other_starts(_OnIce(floors), job["takeoff_feet"], east, job["target"], "t.S", [0], zone)
+    assert picks and n > 0 and aim.other_starts(sliding, job["takeoff_feet"], east, job["target"], "t.S", [0],
+                                                zone) == ([], 0)
+
+
 def test_a_probe_needed_aim_runs_every_pass_when_its_job_asks_for_more():
     """Step R2.19f+'s g1: an aimed job at a probe-needed edge runs pass 1 only, and with ``more``
     (``aim.retarget``'s) passes 2-6 as a modelled edge's does, pass 6 on its ``env``; ``more`` is part of its key."""

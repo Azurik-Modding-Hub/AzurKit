@@ -62,9 +62,11 @@ from azurkit.tools.randomizer.draft.geometry import CELL
 from devkit.rando.physics import AC_AIR, AC_PLAIN, Physics, envelope
 from devkit.reach.engine import hold
 from devkit.reach.engine.macros import JUMP_LEAD, R0, SWIMMING, Y, Macro, _feet, _flaps, _Run, min_rank, settled
-from devkit.reach.engine.runner import START_XY, START_Z, _job, fan_jobs, find_start, here_cell, place, run_macros
+from devkit.reach.engine.runner import (START_XY, START_Z, _cam, _job, fan_jobs, find_start, here_cell, place,
+                                        place_sha12, run_macros)
 from devkit.sim.inputs import heading_to, wrap
 from devkit.sim.l3 import L3Error
+from devkit.sim.obs import SLIDE
 
 FLAPS_OF_RANK = {1: 1, 2: 2, 3: 5}   # an aim's flaps at its certificate's air rank (the shield's Flaps)
 RING = tuple((0.25 * i, 0.25 * j) for i, j in ((1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1)))
@@ -260,14 +262,37 @@ def hit(o: dict, start: dict, job: dict, zone_at) -> bool:
 
 def ringed(sim, feet_list, heading: float, cells, home: str | None = None, zone_at=None) -> dict:
     """``runner.find_start`` of ``feet_list``, then with ``home`` (a from-zone) and ``zone_at`` the first of the
-    :data:`RING` around ``feet_list``'s first x ``cells`` that stands in ``home`` (``ring`` set)."""
+    :data:`RING` around ``feet_list``'s first x ``cells`` that stands in ``home`` (``ring`` set); then, where none
+    stood, the first of those where a body rests on near-flat ice (:func:`on_ice`, ``ice`` set: AZ-723 A)."""
     st = find_start(sim, feet_list, heading, cells)
-    if "cell" in st or home is None or zone_at is None or not feet_list:
+    if "cell" in st or not feet_list:
         return st
-    x, y, z = feet_list[0]
-    st = find_start(sim, [(x + a, y + b, z) for a, b in RING], heading, cells,
-                    lambda g: zone_at(g, False, False) == home, st["tries"])
-    return st | ({"ring": True} if "cell" in st else {})
+    ring, ok = [], None
+    if home is not None and zone_at is not None:
+        x, y, z = feet_list[0]
+        ring, ok = [(x + a, y + b, z) for a, b in RING], (lambda g: zone_at(g, False, False) == home)
+        st = find_start(sim, ring, heading, cells, ok, st["tries"])
+        if "cell" in st:
+            return st | {"ring": True}
+    return on_ice(sim, list(feet_list) + ring, heading, cells, ok, st)
+
+
+def on_ice(sim, feet_list, heading: float, cells, ok, st: dict) -> dict:
+    """AZ-723 A: the first of ``feet_list`` x ``cells`` where a placed body rests on near-flat ice (:func:`stands`:
+    settled within ``runner.START_XY`` and ``START_Z``, in the slope state: the game's classifier puts a body on any
+    slippery face there, 0x85B0B, so ``runner.find_start`` never stands one on ice), and with ``ok`` where that takes
+    its settled feet: ``find_start``'s answer for it, placed again (the simulator stands there), ``ice`` set, its tries
+    counted on from ``st``'s; else ``st`` (none of these placements shows in the record)."""
+    tries = st["tries"]
+    for f in feet_list:
+        for c in cells:
+            tries += 1
+            if (g := stands(sim, f, heading, [c])) is None or g[1] != SLIDE or (ok is not None and not ok(g[0])):
+                continue
+            r = place(sim, f, heading, c)
+            return {"feet": list(f), "cell": int(c), "settled": list(_feet(r)), "tries": tries, "hp": r.hp,
+                    "cam": _cam(r), "place_sha12": place_sha12(f, heading, c), "ice": True}
+    return st
 
 
 def stands(sim, p, heading: float, cells) -> tuple | None:
@@ -418,14 +443,15 @@ def more(job: dict) -> bool:
 
 
 def other_starts(sim, takeoff, heading: float, target, zone: str, cells, zone_at) -> tuple[list, int]:
-    """Up to :data:`STARTS_N` takeoffs where L3 stands a body (state 0) in ``zone`` within :data:`SCAN_M` of
-    ``takeoff`` (the :data:`SCAN_STEP` grid, nearest first, the first :data:`STARTS_SCAN` that stand): the one
+    """Up to :data:`STARTS_N` takeoffs where L3 stands a body (state 0, or at rest on near-flat ice: AZ-723 A) in
+    ``zone`` within :data:`SCAN_M` of ``takeoff`` (the :data:`SCAN_STEP` grid, nearest first, the first
+    :data:`STARTS_SCAN` that stand): the one
     nearest ``target``, the one farthest on along ``heading`` and the middle one by distance to ``target``, each
     :data:`STARTS_APART` from the others (their settled feet); and how many stood."""
     found = []
     for o in _SCAN:
         g = stands(sim, (takeoff[0] + o[0], takeoff[1] + o[1], takeoff[2]), heading, cells)
-        if g is not None and g[1] == 0 and zone_at(g[0], False, False) == zone:
+        if g is not None and g[1] in (0, SLIDE) and zone_at(g[0], False, False) == zone:
             found.append(tuple(g[0]))
             if len(found) >= STARTS_SCAN:
                 break
